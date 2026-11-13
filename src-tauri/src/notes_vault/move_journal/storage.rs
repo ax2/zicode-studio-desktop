@@ -6,7 +6,7 @@ use std::path::Component;
 
 const FILE_LIMIT: usize = 16 * 1024 * 1024;
 
-pub(super) struct Storage(Dir);
+pub(in crate::notes_vault) struct Storage(Dir);
 
 impl Storage {
     pub fn open(root: &Path) -> Result<Self, NotesError> {
@@ -98,13 +98,18 @@ impl Storage {
     }
 
     pub fn rename(&self, from: &Path, to: &Path) -> Result<(), NotesError> {
+        self.rename_with_io_error(from, to)
+            .map_err(|_| recovery_error())
+    }
+
+    pub fn rename_with_io_error(&self, from: &Path, to: &Path) -> Result<(), NotesError> {
         if !self.exists(from)? || self.exists(to)? {
             return Err(recovery_error());
         }
         self.mkdir(to.parent().ok_or_else(recovery_error)?)?;
         self.0
             .rename(from, &self.0, to)
-            .map_err(|_| recovery_error())
+            .map_err(|error| NotesError::new("storage_unavailable", format!("Cannot rename Notes data: {error}")))
     }
 
     pub fn hash(&self, path: &Path) -> Result<Option<String>, NotesError> {

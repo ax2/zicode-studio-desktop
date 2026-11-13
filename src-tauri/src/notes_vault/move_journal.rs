@@ -1,7 +1,7 @@
 //! Durable, workspace-locked transaction for one note and its attachments.
 //! Pending transactions roll back; committed transactions only discard backups.
 //! The journal stores identities and hashes, never arbitrary destination paths.
-mod storage;
+pub(super) mod storage;
 #[cfg(test)]
 mod tests;
 use super::*;

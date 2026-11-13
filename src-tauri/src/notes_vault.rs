@@ -3,6 +3,7 @@ mod body_whitespace_tests;
 #[cfg(test)]
 mod move_tests;
 mod move_journal;
+mod notebook_trash_transaction;
 mod move_update;
 mod import_content;
 mod import_references;
@@ -377,6 +378,7 @@ impl NotesVault {
         move_journal::recover(&vault_dir)?;
         import_transaction::recover(&vault_dir)?;
         sync::recover(&vault_dir)?;
+        notebook_trash_transaction::recover(&vault_dir)?;
         self.migrate_legacy(&workspace_id)?;
         Ok(NotesVault {
             root: self.root.clone(),
@@ -750,43 +752,7 @@ impl NotesVault {
                 }
             }
         }
-        let deleted_root = self.deleted_vaults_dir();
-        fs::create_dir_all(&deleted_root).map_err(|_| {
-            NotesError::new("storage_unavailable", "Cannot prepare the Notes trash")
-        })?;
-        for id in &to_delete {
-            let source = self.vault_root(id)?;
-            if !source.exists() {
-                continue;
-            }
-            let target = deleted_root.join(id);
-            if target.exists() {
-                return Err(NotesError::new(
-                    "storage_unavailable",
-                    format!("Notebook {id} is already in the trash"),
-                ));
-            }
-            // Move every active note into the notebook's own `.trash` first
-            // so the existing restore/purge pipeline stays uniform for
-            // deleted notebooks.
-            let notes = self.scan_notebook_notes(id)?;
-            if !notes.is_empty() {
-                let trash_dir = source.join(".trash");
-                fs::create_dir_all(&trash_dir).map_err(|_| {
-                    NotesError::new("storage_unavailable", "Cannot prepare the Notes trash")
-                })?;
-                for note in &notes {
-                    let note_path = self.note_path(id, &note.id)?;
-                    let trash_path = trash_dir.join(format!("{}.md", note.id));
-                    trash_metadata::move_to_trash(&note_path, &trash_path)?;
-                    self.append_change("deleted", note, None)?;
-                }
-            }
-            fs::rename(&source, &target).map_err(|_| {
-                NotesError::new("storage_unavailable", "Cannot move the notebook to trash")
-            })?;
-        }
-        Ok(())
+        notebook_trash_transaction::apply(self, &to_delete)
     }
 
     pub fn create_note(
