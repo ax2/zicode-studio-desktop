@@ -1,6 +1,6 @@
 # ZiDevTools 全目录修订逐项接入缺口（2026-10-18）
 
-来源：Studio 冻结的 [devtools-catalog-2026-10-18-7d0c6461b1a64c19](../../tests/fixtures/devtools-catalog-2026-10-18-7d0c6461b1a64c19/package-map.json)，包外收据已逐文件、目录索引和语义核验。修订 SHA-256：`7d0c6461b1a64c19fa12e7938de92d3bc6f14a9f6f7a14c2b62e3bc4d82488f8`。本页由 `scripts/render-devtools-catalog-gaps.mjs` 从冻结字节生成；修改原因应先取得提供方新修订，不能编辑冻结夹具。
+来源：Studio 冻结的 [devtools-catalog-2026-10-18-7d0c6461b1a64c19](https://github.com/ax2/zicode-studio-desktop/blob/bb008576956d1ce38c01cc37f517fac6d250c301/tests/fixtures/devtools-catalog-2026-10-18-7d0c6461b1a64c19/package-map.json)，包外收据已逐文件、目录索引和语义核验。修订 SHA-256：`7d0c6461b1a64c19fa12e7938de92d3bc6f14a9f6f7a14c2b62e3bc4d82488f8`。本页由 `scripts/render-devtools-catalog-gaps.mjs` 从冻结字节生成；修改原因应先取得提供方新修订，不能编辑冻结夹具。
 
 范围：154 个源工具；六个无签名候选包有具体操作映射的源工具 31 个；其余 123 个在这六包中无操作映射。提供方另将 `spring-actuator` 标为 candidate，但本修订没有它的包操作映射。候选映射、Host 子能力或历史 Windows 样例均不等于完整工具验收；完整接受仍 0/154。
 
