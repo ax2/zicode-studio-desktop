@@ -307,7 +307,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     attachmentBusy: false,
     editorLocked: false,
     ...createEditorNavigation({ get, set, gateway, guard, notify, localize: localizeNotesHostError }),
-    ...createEditorMutations({ get, set, gateway, guard, capture: operationScope.capture, notify, confirmDelete, localize: localizeNotesHostError }),
+    ...createEditorMutations({ get, set, gateway, guard, capture: operationScope.capture, notify, confirmDelete, moveShortcuts: shortcuts.moved, localize: localizeNotesHostError }),
     transferBusy: false,
     summaryModel: null,
     getSceneId: sceneId,

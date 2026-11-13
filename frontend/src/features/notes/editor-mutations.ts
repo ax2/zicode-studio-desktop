@@ -12,6 +12,7 @@ export function createEditorMutations({
   capture,
   notify,
   confirmDelete,
+  moveShortcuts,
   localize,
 }: {
   get(): NotesState;
@@ -21,6 +22,7 @@ export function createEditorMutations({
   capture(): NotesOperationScope;
   notify(message: string): void;
   confirmDelete(message: string): boolean | Promise<boolean>;
+  moveShortcuts(scope: NotesOperationScope, note: NoteSummary, target: string): Promise<void>;
   localize(error: unknown): Error;
 }) {
   const key = (note: NoteSummary) => `${note.notebookId}/${note.id}`;
@@ -49,6 +51,7 @@ export function createEditorMutations({
             });
           else await gateway.delete(ticket.sceneId, ticket.workspaceId, note);
           succeeded.add(key(note));
+          if (target) await moveShortcuts(ticket, note, target);
         } catch (error) {
           firstError ??= localize(error);
         }

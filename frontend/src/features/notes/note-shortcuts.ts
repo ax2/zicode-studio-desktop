@@ -166,20 +166,23 @@ export function createNoteShortcuts({
     pending.delete(key);
     return saved;
   }
-  function change(action: ShortcutChange) {
-    const scope = owner;
-    if (!scope.isCurrent() || !scope.workspaceId) return Promise.resolve();
-    const revision = ++mutation;
+  function change(action: ShortcutChange, scope = owner, permitInactive = false) {
+    if ((!scope.isCurrent() && !permitInactive) || !scope.workspaceId) return Promise.resolve();
+    const active = scope.isCurrent();
+    const revision = active ? ++mutation : mutation;
     const key = scopeKey(scope);
     const actions = pending.get(key) ?? [];
     actions.push(action);
     pending.set(key, actions);
-    record = applyShortcutChange(record, action);
-    publish();
-    void resolve();
+    if (active) {
+      record = applyShortcutChange(record, action);
+      publish();
+      void resolve();
+    }
     queue = queue.then(async () => {
       try {
         const saved = await persist(key);
+        if (saved && !pending.has(key)) cache.set(key, saved);
         if (!scope.isCurrent() || revision !== mutation) return;
         const latest = saved ?? (await repository.read(key));
         if (!scope.isCurrent() || revision !== mutation) return;
@@ -274,6 +277,10 @@ export function createNoteShortcuts({
   };
   return {
     actions,
+    moved(scope: NotesOperationScope, note: NoteReference, targetNotebookId: string) {
+      // A successful Host mutation still belongs to its original workspace after navigation.
+      return change({ kind: "move", note, targetNotebookId }, scope, true);
+    },
     remember(note: NoteReference) {
       void change({ kind: "recent", note: { id: note.id, notebookId: note.notebookId } });
     },
