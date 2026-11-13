@@ -1,0 +1,29 @@
+name: 需求与改进
+description: 提出功能、体验改进或规划调整
+title: "[需求] "
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 使用场景与目标
+      description: 希望解决什么问题？
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 期望功能与范围
+      description: 写明核心流程、优先级建议和不需要的内容。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收条件
+      description: 从用户角度说明怎样算可用。
+  - type: input
+    id: release
+    attributes:
+      label: 版本建议
+      description: 最终版本范围以Milestone为准，也可留空待排期。
