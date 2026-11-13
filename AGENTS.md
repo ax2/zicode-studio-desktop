@@ -347,3 +347,7 @@ Run required ignored real-runtime acceptance tests separately and retain their
 failures even when the ordinary full suite passes.
 
 Vitest tests live in `public/` as `*.test.js` files (jsdom environment). The full `bun run test` also runs `scripts/check-tauri-permissions.js` to validate Tauri capability permissions.
+
+## GitHub Project execution policy (user instruction, 2026-11-13)
+
+Before each work turn, task switch, commit or release, run `bun scripts/project-status.mjs` and read the selected Issue's latest body, comments, dependencies and Milestone. During continuous work, refresh every 30 minutes without creating scheduled tasks. [Project #4](https://github.com/users/ax2/projects/4) is authoritative for current priorities and release scope; user edits override old local plans. Never automatically restore removed items or overwrite user priority/date/version changes. See [execution rules](docs/agents/project-management.md). Only mark work complete after scope-matched evidence; if current project state is unavailable, do not begin new work or publish.
