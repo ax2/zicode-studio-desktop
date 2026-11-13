@@ -1,4 +1,5 @@
 import { PageHeaderActions } from "../../shared/PageHeaderActions";
+import { isTreeItemVisible } from "./tree-navigation";
 import { CaptureForm } from "./CaptureForm";
 import { NoteManageButton } from "./NoteManageButton";
 import { NoteDraftRecovery } from "./NoteDraftRecovery";
@@ -95,18 +96,6 @@ function useIsNarrowViewport() {
     return () => query.removeEventListener("change", onChange);
   }, []);
   return isNarrow;
-}
-
-function isTreeItemVisible(item: HTMLElement): boolean {
-  if (item.classList.contains("notes-notebook-summary")) {
-    const ownBranch = item.closest(".notes-notebook-branch");
-    const ancestorBranch = ownBranch?.parentElement?.closest(
-      "details.notes-notebook-branch",
-    );
-    return !(ancestorBranch instanceof HTMLDetailsElement) || ancestorBranch.open;
-  }
-  const branch = item.closest("details.notes-notebook-branch");
-  return !(branch instanceof HTMLDetailsElement) || branch.open;
 }
 
 export function NotesNav({ store }: { store: NotesStore }) {
