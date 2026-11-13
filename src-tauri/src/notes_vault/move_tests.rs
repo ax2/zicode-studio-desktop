@@ -1,11 +1,11 @@
 use super::*;
 
-struct Fixture {
-    root: PathBuf,
-    vault: NotesVault,
+pub(super) struct Fixture {
+    pub(super) root: PathBuf,
+    pub(super) vault: NotesVault,
 }
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
@@ -20,13 +20,13 @@ impl Fixture {
             .unwrap();
         Self { root, vault }
     }
-    fn books(&self) -> (NotebookDescriptor, NotebookDescriptor) {
+    pub(super) fn books(&self) -> (NotebookDescriptor, NotebookDescriptor) {
         (
             self.vault.create_notebook("Source", None, None).unwrap(),
             self.vault.create_notebook("Target", None, None).unwrap(),
         )
     }
-    fn seeded(&self, book: &str) -> (NoteDocument, Vec<(String, Vec<u8>)>) {
+    pub(super) fn seeded(&self, book: &str) -> (NoteDocument, Vec<(String, Vec<u8>)>) {
         let note = self
             .vault
             .create_note(

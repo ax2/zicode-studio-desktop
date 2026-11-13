@@ -1,11 +1,10 @@
-//! Roll back ordinary move failures, including metadata and change-log writes.
-//! Source attachments remain available until every file update has succeeded.
+//! Prepare the exact file changes for a recoverable cross-notebook move.
 use super::*;
 
-struct Change {
-    path: PathBuf,
-    before: Option<Vec<u8>>,
-    after: Option<Vec<u8>>,
+pub(super) struct Change {
+    pub(super) path: PathBuf,
+    pub(super) before: Option<Vec<u8>>,
+    pub(super) after: Option<Vec<u8>>,
 }
 
 fn unavailable(message: &str) -> NotesError {
@@ -29,33 +28,6 @@ impl Change {
             path,
             after,
         })
-    }
-
-    fn replace(
-        &self,
-        expected: &Option<Vec<u8>>,
-        desired: &Option<Vec<u8>>,
-    ) -> Result<(), NotesError> {
-        if read(&self.path)? != *expected {
-            return Err(NotesError::new(
-                "version_conflict",
-                "Saved data changed during the note move",
-            ));
-        }
-        match desired {
-            Some(bytes) => atomic_write(&self.path, bytes),
-            None => fs::remove_file(&self.path)
-                .map_err(|_| unavailable("Cannot remove the note from its source")),
-        }
-    }
-
-    fn rollback(&self) -> Result<(), NotesError> {
-        // Unapplied writes, or writes already reverted, need no filesystem mutation.
-        if read(&self.path)? == self.before {
-            return Ok(());
-        }
-        // Preserve edits outside this move instead of blindly replacing them.
-        self.replace(&self.after, &self.before)
     }
 }
 
@@ -128,6 +100,7 @@ pub(super) fn commit(
         Some(guard) => guard.clone(),
         None => import_transaction::lock_storage(&vault.vaults_dir())?,
     };
+    move_journal::recover(&vault.vaults_dir())?;
     note.summary.version = version_for(&bytes);
     let source = Change::capture(vault.note_path(source_book, &note.summary.id)?, None)?;
     if source
@@ -159,28 +132,12 @@ pub(super) fn commit(
         metadata(vault, source_book, &note.summary.updated_at)?,
         change_log(vault, &note)?,
     ];
-    let attachments = move_attachments::MoveAttachments::prepare(
+    move_journal::apply(
         vault,
         source_book,
         &note.summary.notebook_id,
         &note.summary.id,
+        &changes,
     )?;
-    if let Err(error) = changes
-        .iter()
-        .try_for_each(|change| change.replace(&change.before, &change.after))
-    {
-        if changes.iter().rev().try_for_each(Change::rollback).is_err() {
-            if let Some(stage) = attachments {
-                stage.retain();
-            }
-            return Err(unavailable(
-                "Cannot finish rolling back the note move; existing data was retained",
-            ));
-        }
-        return Err(error);
-    }
-    if let Some(stage) = attachments {
-        stage.commit();
-    }
     Ok(note)
 }

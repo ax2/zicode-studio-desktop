@@ -2,7 +2,7 @@
 mod body_whitespace_tests;
 #[cfg(test)]
 mod move_tests;
-mod move_attachments;
+mod move_journal;
 mod move_update;
 mod import_content;
 mod import_references;
@@ -374,6 +374,7 @@ impl NotesVault {
         fs::create_dir_all(&vault_dir)
             .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
         let storage_guard = import_transaction::lock_storage(&vault_dir)?;
+        move_journal::recover(&vault_dir)?;
         import_transaction::recover(&vault_dir)?;
         sync::recover(&vault_dir)?;
         self.migrate_legacy(&workspace_id)?;
