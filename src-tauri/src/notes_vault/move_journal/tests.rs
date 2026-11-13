@@ -304,7 +304,7 @@ fn terminating_owned_process_preserves_data_before_and_after_commit() {
         .unwrap();
         f.vault.storage_guard = None;
         let log = fs::File::create(f.root.join("child.log")).unwrap();
-        let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+        let mut command = crate::process_command::new_command(std::env::current_exe().unwrap());
         command
             .args([
                 "--exact",
@@ -314,11 +314,6 @@ fn terminating_owned_process_preserves_data_before_and_after_commit() {
             .env("ZICODE_MOVE_TEST_CHILD", &f.root)
             .stdout(log.try_clone().unwrap())
             .stderr(log);
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            command.creation_flags(0x0800_0000);
-        }
         let mut child = command.spawn().unwrap();
         let start = Instant::now();
         while !f.root.join("child-ready").exists() {
