@@ -34,6 +34,7 @@ mod inspect_pi_tests;
 #[cfg(test)]
 mod text_pi_tests;
 mod lifecycle;
+mod lifecycle_service;
 mod manual_tool_calls;
 mod manual_tool_catalog;
 mod model_tools_http;
@@ -619,6 +620,10 @@ impl HostServer {
                 )
                 .layer(DefaultBodyLimit::max(MAX_HTTP_BODY_BYTES))
                 .with_state(state.clone());
+            let connection_lifecycle = state.lifecycle.clone();
+            let worker_app = ServiceBuilder::new()
+                .map_response(move |service| connection_lifecycle.service(service))
+                .service(worker_app.into_make_service());
             let (shutdown_tx, shutdown_rx) = oneshot::channel();
             let shutdown_lifecycle = state.lifecycle.clone();
             state.lifecycle.spawn(async move {
@@ -1055,7 +1060,10 @@ impl HostServer {
         {
             let handle = axum_server::Handle::new();
             let server_handle = handle.clone();
-            let lan_app = app.clone();
+            let connection_lifecycle = state.lifecycle.clone();
+            let lan_app = ServiceBuilder::new()
+                .map_response(move |service| connection_lifecycle.service(service))
+                .service(app.clone().into_make_service_with_connect_info::<SocketAddr>());
             let tls_config = prepared.tls_config.clone();
             let public_listener = prepared.public_listener;
             let enrollment_listener =
@@ -1065,6 +1073,10 @@ impl HostServer {
                 prepared.ca_certificate_pem.clone(),
                 prepared.ca_fingerprint.clone(),
             );
+            let connection_lifecycle = state.lifecycle.clone();
+            let enrollment_app = ServiceBuilder::new()
+                .map_response(move |service| connection_lifecycle.service(service))
+                .service(enrollment_app.into_make_service());
             let (enrollment_tx, enrollment_rx) = oneshot::channel();
             let enrollment_lifecycle = state.lifecycle.clone();
             state.lifecycle.spawn(async move {
@@ -1087,7 +1099,7 @@ impl HostServer {
                 };
                 if let Err(error) = server
                     .handle(server_handle)
-                    .serve(lan_app.into_make_service_with_connect_info::<SocketAddr>())
+                    .serve(lan_app)
                     .await
                 {
                     log::error!("[picot-host] secure mobile server stopped unexpectedly: {error}");
@@ -1098,6 +1110,10 @@ impl HostServer {
                     let handle = axum_server::Handle::new();
                     let server_handle = handle.clone();
                     let public_tls_config = prepared.tls_config.clone();
+                    let connection_lifecycle = state.lifecycle.clone();
+                    let public_app = ServiceBuilder::new()
+                        .map_response(move |service| connection_lifecycle.service(service))
+                        .service(public_app.into_make_service_with_connect_info::<SocketAddr>());
                     state.lifecycle.spawn(async move {
                         let server = match axum_server::from_tcp_rustls(listener, public_tls_config)
                         {
@@ -1111,7 +1127,7 @@ impl HostServer {
                         };
                         if let Err(error) = server
                             .handle(server_handle)
-                            .serve(public_app.into_make_service_with_connect_info::<SocketAddr>())
+                            .serve(public_app)
                             .await
                         {
                             log::error!(
@@ -1127,12 +1143,16 @@ impl HostServer {
         } else {
             (None, None, None)
         };
+        let connection_lifecycle = state.lifecycle.clone();
+        let app = ServiceBuilder::new()
+            .map_response(move |service| connection_lifecycle.service(service))
+            .service(app.into_make_service_with_connect_info::<SocketAddr>());
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let shutdown_lifecycle = state.lifecycle.clone();
         state.lifecycle.spawn(async move {
             if let Err(error) = axum::serve(
                 listener,
-                app.into_make_service_with_connect_info::<SocketAddr>(),
+                app,
             )
             .with_graceful_shutdown(async move {
                 tokio::select! { _ = shutdown_rx => {}, _ = shutdown_lifecycle.cancelled() => {} }
