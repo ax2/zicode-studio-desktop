@@ -1,6 +1,12 @@
 //! Keep failed offline restores out of the normal Host/Pi startup path.
 use tauri::{AppHandle, Manager};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use tauri_plugin_dialog::{
+    DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult,
+};
+
+const KEEP_REQUEST: &str = "保留请求 / Keep request";
+const CANCEL_RESTORE: &str = "撤销恢复 / Cancel restore";
+const DISMISS: &str = "关闭 / Close";
 
 #[derive(Clone)]
 struct PendingCancellation {
@@ -50,15 +56,16 @@ pub(crate) fn offer_cancellation(app: &AppHandle) {
         ))
         .title("备份恢复未完成 / Restore incomplete")
         .kind(MessageDialogKind::Warning)
-        .buttons(MessageDialogButtons::OkCancelCustom(
-            "撤销恢复 / Cancel restore".into(),
-            "保留请求 / Keep request".into(),
+        .buttons(MessageDialogButtons::YesNoCancelCustom(
+            KEEP_REQUEST.into(),
+            CANCEL_RESTORE.into(),
+            DISMISS.into(),
         ));
     if let Some(window) = app.get_webview_window("bootstrap") {
         dialog = dialog.parent(&window);
     }
-    dialog.show(move |confirmed| {
-        if !confirmed {
+    dialog.show_with_result(move |result| {
+        if !explicit_cancellation(result) {
             return;
         }
         tauri::async_runtime::spawn(async move {
@@ -91,4 +98,34 @@ async fn cancel(pending: &PendingCancellation) -> Result<(), String> {
     // exact request, including commit state, after the user has responded.
     let _maintenance = crate::automation_worker::stop_for_restore().await?;
     crate::backup_store::cancel_startup_restore(&pending.request_id, &pending.workspaces)
+}
+
+// Tauri maps window-close to the custom Cancel label on every desktop platform.
+// Keep that label separate from the No-position destructive action.
+// The first/default button keeps the queued request, so Enter is non-destructive.
+fn explicit_cancellation(result: MessageDialogResult) -> bool {
+    matches!(result, MessageDialogResult::Custom(label) if label == CANCEL_RESTORE)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_the_explicit_restore_cancellation_button_authorizes_changes() {
+        for result in [
+            MessageDialogResult::Cancel,
+            MessageDialogResult::Ok,
+            MessageDialogResult::Yes,
+            MessageDialogResult::No,
+            MessageDialogResult::Custom(KEEP_REQUEST.into()),
+            MessageDialogResult::Custom(DISMISS.into()),
+            MessageDialogResult::Custom("unknown".into()),
+        ] {
+            assert!(!explicit_cancellation(result));
+        }
+        assert!(explicit_cancellation(MessageDialogResult::Custom(
+            CANCEL_RESTORE.into()
+        )));
+    }
 }
