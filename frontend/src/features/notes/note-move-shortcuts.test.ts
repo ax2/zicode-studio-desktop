@@ -41,7 +41,7 @@ async function fixture() {
   const gateway = {
     list: async () => ({ snapshot: { notebooks: ["a", "b", "c"].map(id => ({ id, title: id })), notes: structuredClone(notes), tags: [] } }),
     get: async (_scene: string, _workspace: string, book: string, id: string) => {
-      const note = notes.find(n => n.id === id && n.notebookId === book);
+      const note = notes.find(n => n.id === id && (n.notebookId === book || n.previousNotebookIds?.includes(book)));
       if (!note) throw new Error("missing note");
       return { note: structuredClone(note) };
     },
@@ -101,4 +101,50 @@ it("keeps the relocation queued when shortcut storage fails and persists it on r
   f.failStorage(false); await f.store.getState().refreshShortcuts();
   expect(f.records.get(scope("move-alpha"))?.pinned).toEqual([moved, copy]);
   expect(f.store.getState().shortcutsStorageError).toBeNull();
+});
+
+
+it("recovers old pinned and recent locations only from Host-confirmed move provenance", async () => {
+  const f = await fixture();
+  // Host move finished before the UI could persist shortcuts (e.g. process exit).
+  f.notes[0].notebookId = "b";
+  f.notes[0].previousNotebookIds = ["a"];
+  await f.store.getState().refreshShortcuts();
+  expect(f.records.get(scope("move-alpha"))).toEqual({ version: 1, recent: [moved, copy], pinned: [moved, copy] });
+  expect(f.store.getState().pinnedNotes.map(note => ({ id: note.id, notebookId: note.notebookId }))).toEqual([moved, copy]);
+  expect(f.store.getState().shortcutsError).toBeNull();
+});
+
+it("retains unavailable historical references when matching IDs have no movement history", async () => {
+  const f = await fixture();
+  f.notes[0].notebookId = "b";
+  await f.store.getState().refreshShortcuts();
+  expect(f.records.get(scope("move-alpha"))?.pinned).toEqual([original, copy]);
+  expect(f.store.getState().shortcutsError).toBeTruthy();
+  expect(f.store.getState().pinnedNotes.map(note => note.notebookId)).toEqual(["c"]);
+});
+
+it("retries failed persistence of Host-resolved historical shortcuts", async () => {
+  const f = await fixture();
+  f.notes[0].notebookId = "b";
+  f.notes[0].previousNotebookIds = ["a"];
+  f.failStorage(true);
+  await f.store.getState().refreshShortcuts();
+  expect(f.store.getState().shortcutsStorageError).toBeTruthy();
+  expect(f.records.get(scope("move-alpha"))?.pinned).toEqual([original, copy]);
+  f.failStorage(false);
+  await f.store.getState().refreshShortcuts();
+  expect(f.records.get(scope("move-alpha"))?.pinned).toEqual([moved, copy]);
+});
+
+
+it("collapses multiple historical shortcuts to one current entry in the same refresh", async () => {
+  const f = await fixture();
+  f.notes.splice(1, 1);
+  f.notes[0].notebookId = "b";
+  f.notes[0].previousNotebookIds = ["a", "c"];
+  await f.store.getState().refreshShortcuts();
+  expect(f.records.get(scope("move-alpha"))?.pinned).toEqual([moved]);
+  expect(f.store.getState().pinnedNotes.map(note => note.notebookId)).toEqual(["b"]);
+  expect(f.store.getState().recentNotes.map(note => note.notebookId)).toEqual(["b"]);
 });

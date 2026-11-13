@@ -8,6 +8,9 @@ mod import_references;
 mod import_transaction;
 mod knowledge;
 mod references;
+mod relocation;
+#[cfg(test)]
+mod relocation_tests;
 #[cfg(windows)]
 mod chapter_page;
 mod trash_guard;
@@ -101,6 +104,8 @@ pub struct NoteDocument {
     #[serde(flatten)]
     pub summary: NoteSummary,
     pub content: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub previous_notebook_ids: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -817,6 +822,7 @@ impl NotesVault {
         let document = NoteDocument {
             summary,
             content: normalize_newlines(content),
+            previous_notebook_ids: Vec::new(),
         };
         let written = self.write_note(&document, None)?;
         self.touch_notebook(&notebook_id)?;
@@ -856,6 +862,7 @@ impl NotesVault {
             ));
         }
         let document = NoteDocument {
+            previous_notebook_ids: existing.previous_notebook_ids,
             summary: NoteSummary {
                 id: note_id,
                 notebook_id: notebook_id.clone(),
@@ -907,6 +914,9 @@ impl NotesVault {
         }
         self.read_notebook(&target_notebook_id)?;
         let mut moved = existing;
+        if !moved.previous_notebook_ids.contains(&notebook_id) {
+            moved.previous_notebook_ids.push(notebook_id.clone());
+        }
         moved.summary.notebook_id = target_notebook_id.clone();
         moved.summary.updated_at = now_iso();
         moved.summary.version = String::new();
@@ -2060,6 +2070,11 @@ fn serialize_note(document: &NoteDocument) -> Result<Vec<u8>, NotesError> {
         serde_json::to_string(&document.summary.tags)
             .map_err(|_| NotesError::new("serialization_failed", "Cannot encode note tags"))?,
     ));
+    let previous = relocation::previous_notebooks(document.previous_notebook_ids.clone())?;
+    if !previous.is_empty() {
+        output.push_str(&format!("previousNotebookIds: {}\n",
+            serde_json::to_string(&previous).map_err(|_| NotesError::new("serialization_failed", "Cannot encode note move history"))?));
+    }
     if let Some(icon) = &document.summary.icon {
         output.push_str(&format!("icon: {}\n", yaml_string(icon)));
     }
@@ -2164,6 +2179,7 @@ fn read_note_file(path: &Path, notebook_id: &str) -> Result<NoteDocument, NotesE
             version: version_for(&bytes),
         },
         content: content.to_string(),
+        previous_notebook_ids: relocation::read_history(frontmatter)?,
     })
 }
 

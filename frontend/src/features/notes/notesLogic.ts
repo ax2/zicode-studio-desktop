@@ -29,6 +29,7 @@ export interface NoteSummary {
 
 export interface Note extends NoteSummary {
   content: string;
+  previousNotebookIds?: string[];
   tags: string[];
   createdAt?: string;
 }

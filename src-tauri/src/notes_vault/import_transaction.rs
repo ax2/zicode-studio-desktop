@@ -322,21 +322,11 @@ impl NotesVault {
                 }
             }
         }
-        let known_references = exports
-            .iter()
-            .flat_map(|export| {
-                export
-                    .notes
-                    .iter()
-                    .chain(export.trashed_notes.iter().map(|trash| &trash.note))
-                    .map(|note| {
-                        (
-                            export.notebook.id.to_ascii_lowercase(),
-                            note.summary.id.to_ascii_lowercase(),
-                        )
-                    })
-            })
-            .collect::<BTreeSet<_>>();
+        let known_references = super::relocation::reference_targets(
+            exports.iter().flat_map(|export| export.notes.iter()
+                .chain(export.trashed_notes.iter().map(|trash| &trash.note))
+                .map(move |note| (export.notebook.id.as_str(), note))), true,
+        )?;
         let imports = root.join(IMPORTS);
         fs::create_dir_all(&imports).map_err(|_| recovery_error())?;
         regular_directory(&imports)?;

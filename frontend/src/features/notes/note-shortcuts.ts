@@ -99,6 +99,7 @@ export function createNoteShortcuts({
     });
     const found = new Map<string, NoteSummary>();
     let failed = false;
+    const relocations: ShortcutChange[] = [];
     if (!force) {
       for (const note of get().snapshot.notes) found.set(referenceKey(note), note);
       const note = get().selectedNote;
@@ -126,13 +127,16 @@ export function createNoteShortcuts({
         if (
           result.status !== "fulfilled" ||
           result.value.note.id !== reference.id ||
-          result.value.note.notebookId !== reference.notebookId
+          (result.value.note.notebookId !== reference.notebookId &&
+            !result.value.note.previousNotebookIds?.includes(reference.notebookId))
         ) {
           failed = true;
           continue;
         }
         const note = result.value.note;
-        found.set(referenceKey(note), {
+        if (note.notebookId !== reference.notebookId)
+          relocations.push({ kind: "move", note: reference, targetNotebookId: note.notebookId });
+        found.set(referenceKey(reference), {
           id: note.id,
           notebookId: note.notebookId,
           title: note.title,
@@ -143,10 +147,13 @@ export function createNoteShortcuts({
       }
     }
     if (!current()) return;
+    await Promise.all(relocations.map(action => change(action, scope, false, false)));
+    if (!current()) return;
     const summaries = (refs: NoteReference[]) =>
-      refs
+      [...new Map(refs
         .map((note) => found.get(referenceKey(note)))
-        .filter((note): note is NoteSummary => Boolean(note));
+        .filter((note): note is NoteSummary => Boolean(note))
+        .map(note => [referenceKey(note), note])).values()];
     set({
       recentNotes: summaries(snapshot.recent),
       pinnedNotes: summaries(snapshot.pinned),
@@ -166,7 +173,7 @@ export function createNoteShortcuts({
     pending.delete(key);
     return saved;
   }
-  function change(action: ShortcutChange, scope = owner, permitInactive = false) {
+  function change(action: ShortcutChange, scope = owner, permitInactive = false, refresh = true) {
     if ((!scope.isCurrent() && !permitInactive) || !scope.workspaceId) return Promise.resolve();
     const active = scope.isCurrent();
     const revision = active ? ++mutation : mutation;
@@ -177,7 +184,7 @@ export function createNoteShortcuts({
     if (active) {
       record = applyShortcutChange(record, action);
       publish();
-      void resolve();
+      if (refresh) void resolve();
     }
     queue = queue.then(async () => {
       try {
@@ -189,7 +196,7 @@ export function createNoteShortcuts({
         record = latest;
         publish();
         set({ shortcutsStorageError: null });
-        void resolve();
+        if (refresh) void resolve();
       } catch {
         if (scope.isCurrent())
           set({

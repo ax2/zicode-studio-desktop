@@ -122,6 +122,7 @@ impl NotesVault {
                         version: String::new(),
                     },
                     content: normalize_newlines(&document.content),
+                    previous_notebook_ids: Vec::new(),
                 };
                 self.write_note(&imported, None)?;
             }
@@ -144,6 +145,7 @@ impl NotesVault {
                         version: String::new(),
                     },
                     content: normalize_newlines(&trashed.note.content),
+                    previous_notebook_ids: Vec::new(),
                 };
                 let bytes = serialize_note(&imported)?;
                 let path = trash_dir.join(format!("{}.md", imported.summary.id));

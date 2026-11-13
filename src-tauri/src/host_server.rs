@@ -2741,7 +2741,7 @@ async fn get_note(
     let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
     let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
     let note = scoped
-        .get_note(&query.notebook_id, &query.note_id)
+        .resolve_note(&query.notebook_id, &query.note_id)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "note": note })))
 }
