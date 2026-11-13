@@ -64,11 +64,11 @@
 <body>
   <main class="card">
     <h1 id="startup-title">ZiCode Studio Desktop could not start</h1>
-    <p id="startup-body-1">The embedded <code>pi</code> runtime that ships with ZiCode Studio Desktop failed to launch.</p>
-    <p id="startup-body-2">This usually means the installation is incomplete or corrupted. Reinstalling ZiCode Studio Desktop normally fixes it. Click <b id="retry-label">Retry startup</b> after reinstalling or rebooting.</p>
+    <p id="startup-body-1">Studio could not finish opening its services or local data.</p>
+    <p id="startup-body-2">Review the error below and resolve the reported problem. Keep your existing data directory. To try again, fully quit Studio from its tray menu and reopen it.</p>
     <div id="startup-error" class="error"></div>
     <div class="actions">
-      <button id="retry-btn" type="button" data-retry>Retry startup</button>
+      <button id="retry-btn" type="button" data-retry>How to restart</button>
     </div>
     <div id="hint" class="hint"></div>
   </main>
@@ -83,9 +83,9 @@
     if (zh) {
       const texts = {
         title: "ZiCode Studio Desktop 无法启动",
-        body1: "随 ZiCode Studio Desktop 内置的 pi 运行时启动失败。",
-        body2: "这通常意味着安装不完整或已损坏。重新安装 ZiCode Studio Desktop 一般可以修复；重新安装或重启后，点击“重试启动”。",
-        retry: "重试启动",
+        body1: "Studio 未能完成服务或本地资料的初始化。",
+        body2: "请根据下方错误处理问题，并保留现有资料目录。再次尝试前，请从托盘菜单完全退出 Studio，然后重新打开。",
+        retry: "如何重新启动",
       };
       document.title = texts.title;
       document.getElementById("startup-title").textContent = texts.title;
@@ -105,7 +105,9 @@
 
     retryBtn.addEventListener('click', async () => {
       retryBtn.disabled = true;
-      hint.textContent = 'Restart ZiCode Studio Desktop to retry startup.';
+      hint.textContent = zh
+        ? '请从 Studio 托盘菜单选择退出，然后重新打开程序。'
+        : 'Choose Quit Studio from the tray menu, then reopen the app.';
     });
   </script>
 </body>

@@ -23,6 +23,7 @@ mod automation_login_start;
 mod automation_persistence;
 mod automation_worker;
 mod backup_store;
+mod restore_startup;
 mod blog_deploy;
 mod clipboard_inbox;
 mod credential_broker;
@@ -1036,16 +1037,24 @@ fn delete_workspace_backup(workspace_id: String, backup_id: String) -> Result<()
     crate::backup_store::delete_workspace_backup(&workspace_id, &backup_id)
 }
 
-/// Replace the workspace's app data from a snapshot; the current state is
-/// snapshotted first.
+/// Queue a confirmed restore for the next startup, before workspace writers open.
 #[tauri::command]
 fn restore_workspace_backup(
     app: AppHandle,
     workspace_id: String,
     backup_id: String,
-) -> Result<crate::backup_store::RestoreReport, String> {
-    let workspace_root = resolve_workspace_root(&app, &workspace_id)?;
-    crate::backup_store::restore_workspace_backup(&workspace_id, &workspace_root, &backup_id)
+) -> Result<crate::backup_store::RestoreRequest, String> {
+    resolve_workspace_root(&app, &workspace_id)?;
+    crate::backup_store::enqueue_workspace_restore(&workspace_id, &backup_id)
+}
+
+#[tauri::command]
+fn workspace_restore_outcome(
+    app: AppHandle,
+    workspace_id: String,
+) -> Result<Option<crate::backup_store::RestoreOutcome>, String> {
+    resolve_workspace_root(&app, &workspace_id)?;
+    crate::backup_store::workspace_restore_outcome(&workspace_id)
 }
 
 /// Switch the focused ZiCode Studio Desktop window to `projectPath` and resume the given saved
@@ -1867,6 +1876,11 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         // switcher always offers it as the default workspace.
         metadata.workspace_id_for_path(&default_cwd)?;
     }
+    let restore_workspaces = metadata
+        .lock()
+        .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?
+        .list_workspaces()?;
+    restore_startup::apply(app.handle(), &restore_workspaces)?;
     // Include every registered workspace's `.zicode/sessions` when resuming
     // the most recently used session (legacy app-data roots still apply).
     let initial_app = browser::startup::initial_app()?;
@@ -2136,6 +2150,7 @@ fn main() {
             list_workspace_backups,
             delete_workspace_backup,
             restore_workspace_backup,
+            workspace_restore_outcome,
             ensure_agent_inbox_session,
             list_scene_profiles,
             save_scene_profile,
@@ -2219,6 +2234,7 @@ fn main() {
                         .kind(MessageDialogKind::Error)
                         .show(|_| {});
                 }
+                restore_startup::offer_cancellation(app.handle());
             } else if !desktop_profile::is_isolated() {
                 let login_app = app.handle().clone();
                 tauri::async_runtime::spawn_blocking(move || {

@@ -7,6 +7,9 @@
 //! automatically on startup (at most once per day per workspace); retention
 //! keeps the newest backups per workspace.
 
+mod restore_request;
+mod restore_transaction;
+pub(crate) use restore_request::{RestoreOutcome, RestoreRequest};
 
 #[cfg(test)]
 mod test_support;
@@ -101,16 +104,28 @@ pub struct RestoreReport {
     pub size_bytes: u64,
 }
 
-struct RestoreSwap<'a> {
-    app: &'a str,
-    had_previous: bool,
-    installed: bool,
-}
-
 /// System-level backups live under `~/.zicode/backups`, separate from any
 /// workspace so they survive workspace data loss.
 pub fn backups_root() -> Result<PathBuf, String> {
     Ok(crate::app_paths::system_root()?.join("backups"))
+}
+
+fn lock_system_restore(root: &Path) -> Result<fs::File, String> {
+    // A freshly prepared profile may not have a system directory yet.
+    // Create only that child so a missing profile root still fails.
+    match fs::create_dir(root) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(error) => {
+            return Err(format!(
+                "Cannot initialize workspace restore directory: {error}"
+            ));
+        }
+    }
+    if !is_plain_directory(root) {
+        return Err("Workspace restore directory is not a regular directory".into());
+    }
+    restore_transaction::lock(root)
 }
 
 fn validate_workspace_id(workspace_id: &str) -> Result<(), String> {
@@ -298,25 +313,6 @@ fn checksum_apps(root: &Path, apps: &[String]) -> Result<String, String> {
     Ok(format!("{:x}", hash.finalize()))
 }
 
-fn rollback_restore(
-    data_root: &Path,
-    staging: &Path,
-    swaps: &[RestoreSwap<'_>],
-) -> Result<(), String> {
-    for swap in swaps.iter().rev() {
-        let target = data_root.join(swap.app);
-        if swap.installed {
-            fs::rename(&target, staging.join("next").join(swap.app))
-                .map_err(|error| format!("Cannot move restored {} aside: {error}", swap.app))?;
-        }
-        if swap.had_previous {
-            fs::rename(staging.join("previous").join(swap.app), &target)
-                .map_err(|error| format!("Cannot reinstate previous {}: {error}", swap.app))?;
-        }
-    }
-    Ok(())
-}
-
 fn atomic_json_write(path: &Path, value: &WorkspaceBackup) -> Result<(), String> {
     let bytes = serde_json::to_vec_pretty(value)
         .map_err(|error| format!("Cannot serialize backup metadata: {error}"))?;
@@ -333,6 +329,7 @@ fn atomic_json_write(path: &Path, value: &WorkspaceBackup) -> Result<(), String>
 }
 
 fn prune_old_backups(workspace_id: &str, protected_ids: &[&str]) -> Result<(), String> {
+    let queued = restore_request::read(&crate::app_paths::system_root()?)?;
     let directory = workspace_backups_dir(workspace_id)?;
     if !directory.is_dir() {
         return Ok(());
@@ -350,7 +347,11 @@ fn prune_old_backups(workspace_id: &str, protected_ids: &[&str]) -> Result<(), S
         if remove == 0 {
             break;
         }
-        if protected_ids.contains(&backup.id.as_str()) {
+        if protected_ids.contains(&backup.id.as_str())
+            || queued.as_ref().is_some_and(|request| {
+                request.workspace_id == workspace_id && request.backup_id == backup.id
+            })
+        {
             continue;
         }
         if fs::remove_dir_all(directory.join(&backup.id)).is_ok() {
@@ -366,6 +367,7 @@ pub fn create_workspace_backup(
     workspace_id: &str,
     workspace_root: &Path,
 ) -> Result<WorkspaceBackup, String> {
+    let _lock = lock_system_restore(&crate::app_paths::system_root()?)?;
     create_workspace_backup_inner(workspace_id, workspace_root, true, None)?
         .ok_or_else(|| "Manual backup was unexpectedly skipped".to_string())
 }
@@ -377,7 +379,8 @@ fn create_workspace_backup_inner(
     skip_if_identical_to: Option<&WorkspaceBackup>,
 ) -> Result<Option<WorkspaceBackup>, String> {
     validate_workspace_id(workspace_id)?;
-    let data_root = crate::app_paths::workspace_app_dir(workspace_root, &crate::app_paths::system_root()?);
+    let data_root =
+        crate::app_paths::workspace_app_dir(workspace_root, &crate::app_paths::system_root()?);
     if !is_plain_directory(&data_root) {
         return Err(format!(
             "Workspace data directory does not exist: {}",
@@ -530,6 +533,13 @@ pub fn list_workspace_backups(workspace_id: &str) -> Result<Vec<WorkspaceBackup>
 pub fn delete_workspace_backup(workspace_id: &str, backup_id: &str) -> Result<(), String> {
     validate_workspace_id(workspace_id)?;
     validate_backup_id(backup_id)?;
+    let system_root = crate::app_paths::system_root()?;
+    let _request_lock = lock_system_restore(&system_root)?;
+    if restore_request::read(&system_root)?.is_some_and(|request| {
+        request.workspace_id == workspace_id && request.backup_id == backup_id
+    }) {
+        return Err("Cannot delete the backup queued for restore".into());
+    }
     let directory = workspace_backups_dir(workspace_id)?.join(backup_id);
     if !is_plain_directory(&directory) {
         return Err("Backup does not exist".to_string());
@@ -537,12 +547,210 @@ pub fn delete_workspace_backup(workspace_id: &str, backup_id: &str) -> Result<()
     fs::remove_dir_all(&directory).map_err(|error| format!("Cannot delete backup: {error}"))
 }
 
+/// Reconcile an interrupted swap before the desktop opens workspace stores.
+pub(crate) fn enqueue_workspace_restore(
+    workspace_id: &str,
+    backup_id: &str,
+) -> Result<RestoreRequest, String> {
+    validate_backup_id(backup_id)?;
+    let root = crate::app_paths::system_root()?;
+    let _lock = lock_system_restore(&root)?;
+    if !list_workspace_backups(workspace_id)?
+        .iter()
+        .any(|backup| backup.id == backup_id && has_restorable_metadata(backup))
+    {
+        return Err("Backup does not exist or is damaged".into());
+    }
+    restore_request::enqueue(&root, workspace_id, backup_id)
+}
+
+pub(crate) fn workspace_restore_outcome(
+    workspace_id: &str,
+) -> Result<Option<RestoreOutcome>, String> {
+    Ok(restore_request::outcome(&crate::app_paths::system_root()?)?
+        .filter(|outcome| outcome.workspace_id == workspace_id))
+}
+
+fn restore_roots(system_root: &Path, workspaces: &[(String, String)]) -> Vec<PathBuf> {
+    let mut candidates = vec![system_root.join(".zicode")];
+    candidates.extend(
+        workspaces
+            .iter()
+            .map(|(_, path)| Path::new(path).join(".zicode")),
+    );
+    candidates
+}
+
+pub(crate) fn startup_restore_needed(workspaces: &[(String, String)]) -> Result<bool, String> {
+    let system_root = crate::app_paths::system_root()?;
+    if restore_request::read(&system_root)?.is_some() {
+        return Ok(true);
+    }
+    for root in restore_roots(&system_root, workspaces) {
+        if is_plain_directory(&root) && restore_transaction::needs_recovery(&root)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn reconcile_restore_roots(
+    system_root: &Path,
+    workspaces: &[(String, String)],
+    request_id: Option<&str>,
+) -> Result<(), String> {
+    let mut roots = std::collections::HashSet::new();
+    for root in restore_roots(system_root, workspaces) {
+        if is_plain_directory(&root)
+            && restore_transaction::needs_recovery(&root)?
+            && roots.insert(root.canonicalize().map_err(|error| error.to_string())?)
+        {
+            let _lock = restore_transaction::lock(&root)?;
+            restore_transaction::recover_preserving(&root, request_id)?;
+        }
+    }
+    Ok(())
+}
+
+/// Run before opening any workspace stores, with the Worker maintenance lease held.
+pub(crate) fn apply_startup_restore(workspaces: &[(String, String)]) -> Result<(), String> {
+    let system_root = crate::app_paths::system_root()?;
+    let _request_lock = lock_system_restore(&system_root)?;
+    let request = restore_request::read(&system_root)?;
+    reconcile_restore_roots(
+        &system_root,
+        workspaces,
+        request.as_ref().map(|request| request.request_id.as_str()),
+    )?;
+    let Some(request) = request else {
+        return Ok(());
+    };
+    let workspace = workspaces
+        .iter()
+        .find(|(id, _)| id == &request.workspace_id)
+        .ok_or("Queued restore workspace is no longer registered")?;
+    let workspace_root = Path::new(&workspace.1);
+    let root = crate::app_paths::workspace_app_dir(workspace_root, &system_root);
+    let committed = restore_transaction::committed(&root, &request.request_id);
+    let report = if is_plain_directory(&committed) {
+        let bytes = fs::read(committed.join("result.json")).map_err(|error| error.to_string())?;
+        let report: RestoreReport =
+            serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+        if report.backup_id != request.backup_id {
+            return Err("Committed restore result does not match the queued backup".into());
+        }
+        report
+    } else {
+        restore_workspace_backup_inner(
+            &request.workspace_id,
+            workspace_root,
+            &request.backup_id,
+            Some(&request.request_id),
+        )?
+    };
+    restore_request::complete(&system_root, request, report)?;
+    if let Err(error) = fs::remove_dir_all(&committed) {
+        log::warn!(
+            "Cannot remove completed workspace restore {}: {error}",
+            committed.display()
+        );
+    }
+    Ok(())
+}
+
+/// With the Worker maintenance lease held, return a request ID that can be
+/// offered for cancellation. A failed reconciliation is never cancellable.
+pub(crate) fn cancellable_startup_restore(
+    workspaces: &[(String, String)],
+) -> Result<Option<String>, String> {
+    let system = crate::app_paths::system_root()?;
+    let _lock = lock_system_restore(&system)?;
+    Ok(cancellable_request(&system, workspaces, None)?.map(|request| request.request_id))
+}
+
+/// Recheck the exact request under both locks after the user confirms.
+pub(crate) fn cancel_startup_restore(
+    expected: &str,
+    workspaces: &[(String, String)],
+) -> Result<(), String> {
+    let system = crate::app_paths::system_root()?;
+    let _lock = lock_system_restore(&system)?;
+    let request = cancellable_request(&system, workspaces, Some(expected))?
+        .ok_or("Workspace restore is no longer pending or cannot be safely cancelled")?;
+    restore_request::cancel(&system, &request)
+}
+
+fn cancellable_request(
+    system: &Path,
+    workspaces: &[(String, String)],
+    expected: Option<&str>,
+) -> Result<Option<RestoreRequest>, String> {
+    let Some(request) = restore_request::read(system)? else {
+        return Ok(None);
+    };
+    if expected.is_some_and(|id| id != request.request_id) {
+        return Ok(None);
+    }
+    let Some((_, path)) = workspaces
+        .iter()
+        .find(|(id, _)| id == &request.workspace_id)
+    else {
+        return Ok(None);
+    };
+    let target = crate::app_paths::workspace_app_dir(Path::new(path), system);
+    if restore_request::outcome(system)?
+        .is_some_and(|outcome| outcome.request_id == request.request_id)
+    {
+        return Ok(None);
+    }
+    let mut target_exists = false;
+    for root in restore_roots(system, workspaces) {
+        match fs::symlink_metadata(&root) {
+            Ok(metadata) if is_plain_directory_metadata(&metadata) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Ok(_) => {
+                return Err(format!(
+                    "Invalid workspace restore root: {}",
+                    root.display()
+                ))
+            }
+            Err(error) => {
+                return Err(format!(
+                    "Cannot inspect workspace restore root {}: {error}",
+                    root.display()
+                ))
+            }
+        }
+        target_exists |= root == target;
+        match fs::symlink_metadata(restore_transaction::committed(&root, &request.request_id)) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Ok(_) => return Ok(None),
+            Err(error) => return Err(format!("Cannot verify workspace restore commit: {error}")),
+        }
+    }
+    if !target_exists {
+        return Ok(None);
+    }
+    reconcile_restore_roots(system, workspaces, Some(&request.request_id))?;
+    Ok(Some(request))
+}
+
 /// Replace the workspace's app data with a snapshot's contents. The current
 /// state is snapshotted first so the operation is reversible.
-pub fn restore_workspace_backup(
+#[cfg(test)]
+fn restore_workspace_backup(
     workspace_id: &str,
     workspace_root: &Path,
     backup_id: &str,
+) -> Result<RestoreReport, String> {
+    restore_workspace_backup_inner(workspace_id, workspace_root, backup_id, None)
+}
+
+fn restore_workspace_backup_inner(
+    workspace_id: &str,
+    workspace_root: &Path,
+    backup_id: &str,
+    request_id: Option<&str>,
 ) -> Result<RestoreReport, String> {
     validate_workspace_id(workspace_id)?;
     validate_backup_id(backup_id)?;
@@ -599,14 +807,20 @@ pub fn restore_workspace_backup(
     {
         return Err("Backup app directories do not match metadata".to_string());
     }
-    let data_root = crate::app_paths::workspace_app_dir(workspace_root, &crate::app_paths::system_root()?);
+    let data_root =
+        crate::app_paths::workspace_app_dir(workspace_root, &crate::app_paths::system_root()?);
     if !is_plain_directory(&data_root) {
         return Err(format!(
             "Workspace data directory does not exist: {}",
             data_root.display()
         ));
     }
-    let staging = data_root.join(format!(".restore-{}", uuid::Uuid::new_v4().simple()));
+    let _lock = restore_transaction::lock(&data_root)?;
+    restore_transaction::recover_preserving(&data_root, request_id)?;
+    let transaction_id = request_id
+        .map(str::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().simple().to_string());
+    let staging = restore_transaction::preparing(&data_root, &transaction_id);
     fs::create_dir(&staging)
         .map_err(|error| format!("Cannot prepare workspace restore: {error}"))?;
     let staged: Result<u64, String> = (|| {
@@ -635,7 +849,8 @@ pub fn restore_workspace_backup(
     }
     // Keep the selected snapshot until restoration completes. A rollback
     // snapshot at the retention limit must not prune the selected source.
-    let pre_restore = match create_workspace_backup_inner(workspace_id, workspace_root, false, None) {
+    let pre_restore = match create_workspace_backup_inner(workspace_id, workspace_root, false, None)
+    {
         Ok(Some(backup)) => backup,
         Ok(None) => {
             let _ = fs::remove_dir_all(&staging);
@@ -646,76 +861,50 @@ pub fn restore_workspace_backup(
             return Err(error);
         }
     };
-    if let Err(error) = fs::create_dir(staging.join("previous")) {
-        let _ = fs::remove_dir_all(&staging);
-        return Err(format!("Cannot prepare previous workspace data: {error}"));
-    }
-    let mut apps = Vec::new();
-    let mut swaps = Vec::new();
-    let mut swap_error = None;
-    for app in restorable {
-        let target = data_root.join(app);
-        let had_previous = match fs::symlink_metadata(&target) {
-            Ok(metadata) if is_plain_directory_metadata(&metadata) => true,
-            Ok(_) => {
-                swap_error = Some(format!(
-                    "Cannot replace unsupported entry: {}",
-                    target.display()
-                ));
-                break;
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
-            Err(error) => {
-                swap_error = Some(format!("Cannot inspect {}: {error}", target.display()));
-                break;
-            }
-        };
-        if had_previous {
-            if let Err(error) = fs::rename(&target, staging.join("previous").join(app)) {
-                swap_error = Some(format!("Cannot replace {}: {error}", target.display()));
-                break;
-            }
-        }
-        swaps.push(RestoreSwap {
-            app,
-            had_previous,
-            installed: false,
-        });
-        if let Err(error) = fs::rename(staging.join("next").join(app), &target) {
-            swap_error = Some(format!("Cannot replace {}: {error}", target.display()));
-            break;
-        }
-        if let Some(last) = swaps.last_mut() {
-            last.installed = true;
-        }
-        apps.push(app.to_string());
-    }
-    if let Some(error) = swap_error {
-        match rollback_restore(&data_root, &staging, &swaps) {
-            Ok(()) => {
-                let _ = fs::remove_dir_all(&staging);
-                return Err(format!("Restore rolled back after failure: {error}"));
-            }
-            Err(rollback_error) => {
-                return Err(format!(
-                    "Rollback incomplete after restore failure: {rollback_error}; previous data remains in {}",
-                    staging.display()
-                ));
-            }
-        }
-    }
-    if let Err(error) = fs::remove_dir_all(&staging) {
-        log::warn!("Cannot remove completed workspace restore staging: {error}");
-    }
-    if let Err(error) = prune_old_backups(workspace_id, &[backup_id, &pre_restore.id]) {
-        log::warn!("Cannot prune workspace backups after restore: {error}");
-    }
-    Ok(RestoreReport {
+    let pending = restore_transaction::publish(&data_root, &staging, &transaction_id, &restorable)
+        .inspect_err(|_| {
+            let _ = fs::remove_dir_all(&staging);
+        })?;
+    let report = RestoreReport {
         backup_id: backup_id.to_string(),
         pre_restore_backup_id: pre_restore.id,
-        apps,
+        apps: restorable.into_iter().map(str::to_owned).collect(),
         size_bytes,
-    })
+    };
+    let result = (|| {
+        if request_id.is_some() {
+            let bytes = serde_json::to_vec(&report).map_err(|error| error.to_string())?;
+            use std::io::Write;
+            let mut file =
+                fs::File::create(pending.join("result.json")).map_err(|error| error.to_string())?;
+            file.write_all(&bytes)
+                .and_then(|()| file.sync_all())
+                .map_err(|error| error.to_string())?;
+        }
+        restore_transaction::install(&data_root, &pending)?;
+        if request_id.is_some() {
+            restore_transaction::commit(&data_root, &pending, &transaction_id)?;
+        } else {
+            restore_transaction::finish(&data_root, &pending, &transaction_id)?;
+        }
+        Ok::<(), String>(())
+    })();
+    if let Err(error) = result {
+        match restore_transaction::recover_preserving(&data_root, request_id) {
+            Ok(()) => return Err(format!("Restore rolled back after failure: {error}")),
+            Err(rollback_error) => {
+                return Err(format!(
+                    "Rollback incomplete after restore failure: {error}; {rollback_error}; previous data remains in {}",
+                    pending.display()
+                ));
+            }
+        }
+    }
+    if let Err(error) = prune_old_backups(workspace_id, &[backup_id, &report.pre_restore_backup_id])
+    {
+        log::warn!("Cannot prune workspace backups after restore: {error}");
+    }
+    Ok(report)
 }
 
 /// Create a backup on startup when the workspace has none, or its newest
@@ -725,6 +914,7 @@ pub fn backup_if_due(
     workspace_root: &Path,
     now_secs: u64,
 ) -> Result<Option<WorkspaceBackup>, String> {
+    let _lock = lock_system_restore(&crate::app_paths::system_root()?)?;
     let latest = list_workspace_backups(workspace_id)?
         .into_iter()
         .find(has_restorable_metadata);
@@ -809,6 +999,118 @@ mod tests {
     }
 
     #[test]
+    fn queued_restore_recovers_a_committed_result_without_reapplying() {
+        if !super::test_support::isolated() {
+            return;
+        }
+        let system = crate::app_paths::system_root().unwrap();
+        let workspace = system.join("queued-workspace");
+        let data = workspace.join(".zicode");
+        let note = data.join("notes/probe.txt");
+        fs::create_dir_all(note.parent().unwrap()).unwrap();
+        fs::write(&note, "snapshot").unwrap();
+        let workspace_id = "queued-workspace";
+        let backup = create_workspace_backup(workspace_id, &workspace).unwrap();
+        fs::write(&note, "current").unwrap();
+        let request = enqueue_workspace_restore(workspace_id, &backup.id).unwrap();
+        assert!(delete_workspace_backup(workspace_id, &backup.id).is_err());
+        assert_eq!(fs::read_to_string(&note).unwrap(), "current");
+        let registered = [(
+            workspace_id.to_owned(),
+            workspace.to_string_lossy().into_owned(),
+        )];
+        assert!(startup_restore_needed(&registered).unwrap());
+        restore_workspace_backup_inner(
+            workspace_id,
+            &workspace,
+            &backup.id,
+            Some(&request.request_id),
+        )
+        .unwrap();
+        assert_eq!(fs::read_to_string(&note).unwrap(), "snapshot");
+        assert_eq!(cancellable_startup_restore(&registered).unwrap(), None);
+        assert!(cancel_startup_restore(&request.request_id, &registered).is_err());
+        let backups_after_commit = list_workspace_backups(workspace_id).unwrap().len();
+        apply_startup_restore(&registered).unwrap();
+        assert_eq!(
+            list_workspace_backups(workspace_id).unwrap().len(),
+            backups_after_commit
+        );
+        assert_eq!(
+            workspace_restore_outcome(workspace_id)
+                .unwrap()
+                .unwrap()
+                .request_id,
+            request.request_id
+        );
+        assert!(!startup_restore_needed(&registered).unwrap());
+    }
+
+    #[test]
+    fn missing_snapshot_can_be_cancelled_without_changing_workspace_bytes() {
+        if !super::test_support::isolated() {
+            return;
+        }
+        let system = crate::app_paths::system_root().unwrap();
+        let workspace = system.join("cancel-workspace");
+        let note = workspace.join(".zicode/notes/probe.txt");
+        fs::create_dir_all(note.parent().unwrap()).unwrap();
+        fs::write(&note, "snapshot").unwrap();
+        let workspace_id = "cancel-workspace";
+        let backup = create_workspace_backup(workspace_id, &workspace).unwrap();
+        fs::write(&note, "current").unwrap();
+        let request = enqueue_workspace_restore(workspace_id, &backup.id).unwrap();
+        let source = workspace_backups_dir(workspace_id)
+            .unwrap()
+            .join(&backup.id);
+        let displaced = source.with_extension("displaced");
+        fs::rename(&source, &displaced).unwrap();
+        let registered = [(
+            workspace_id.to_owned(),
+            workspace.to_string_lossy().into_owned(),
+        )];
+        assert!(apply_startup_restore(&registered).is_err());
+        let legacy = system.join("legacy-workspace");
+        fs::create_dir(&legacy).unwrap();
+        let malformed_root = legacy.join(".zicode");
+        fs::write(&malformed_root, "preserve this entry").unwrap();
+        let mut with_legacy = registered.to_vec();
+        with_legacy.push(("legacy".to_owned(), legacy.to_string_lossy().into_owned()));
+        assert!(cancellable_startup_restore(&with_legacy)
+            .unwrap_err()
+            .contains("Invalid workspace restore root"));
+        assert!(cancel_startup_restore(&request.request_id, &with_legacy).is_err());
+        assert_eq!(
+            restore_request::read(&system).unwrap().unwrap().request_id,
+            request.request_id
+        );
+        assert_eq!(fs::read_to_string(&note).unwrap(), "current");
+        assert_eq!(
+            fs::read_to_string(&malformed_root).unwrap(),
+            "preserve this entry"
+        );
+        fs::rename(&malformed_root, legacy.join("displaced")).unwrap();
+        assert_eq!(
+            cancellable_startup_restore(&with_legacy)
+                .unwrap()
+                .as_deref(),
+            Some(request.request_id.as_str())
+        );
+        assert!(cancel_startup_restore("changed", &registered).is_err());
+        assert!(startup_restore_needed(&registered).unwrap());
+        cancel_startup_restore(&request.request_id, &registered).unwrap();
+        assert!(!startup_restore_needed(&registered).unwrap());
+        assert_eq!(fs::read_to_string(&note).unwrap(), "current");
+        assert!(displaced.is_dir());
+        assert!(system
+            .join(format!(
+                "workspace-restore-cancelled-{}.json",
+                request.request_id
+            ))
+            .is_file());
+    }
+
+    #[test]
     fn startup_backup_respects_the_daily_interval() {
         if !super::test_support::isolated() {
             return;
@@ -833,8 +1135,17 @@ mod tests {
         let due = backup_if_due(&workspace_id, &workspace, now + 86_400 + 60).unwrap();
         assert!(due.is_none());
         assert_eq!(list_workspace_backups(&workspace_id).unwrap().len(), 1);
-        assert_eq!(fs::read_dir(backups_root().unwrap().join(&workspace_id)).unwrap().count(), 1);
-        fs::write(workspace.join(".zicode").join("notes").join("a.md"), "changed").unwrap();
+        assert_eq!(
+            fs::read_dir(backups_root().unwrap().join(&workspace_id))
+                .unwrap()
+                .count(),
+            1
+        );
+        fs::write(
+            workspace.join(".zicode").join("notes").join("a.md"),
+            "changed",
+        )
+        .unwrap();
         let changed = backup_if_due(&workspace_id, &workspace, now + 86_400 + 61).unwrap();
         assert!(changed.is_some());
         assert_eq!(list_workspace_backups(&workspace_id).unwrap().len(), 2);

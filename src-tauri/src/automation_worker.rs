@@ -15,6 +15,8 @@ mod control;
 mod launcher;
 mod logging;
 mod resume;
+#[cfg(test)]
+mod maintenance_tests;
 
 pub struct UpdateLease {
     _lock: control::UpdateLock,
@@ -72,6 +74,16 @@ pub fn resume_after_update(public_dir: &Path) -> Result<bool, String> {
 
 /// Reserve the installed executable for an update across desktop processes.
 pub async fn stop_for_update() -> Result<UpdateLease, String> {
+    stop_for_maintenance(true).await
+}
+
+/// Drain existing writers and exclude new workers while startup restores data.
+/// Restoring data does not authorize restarting background automation.
+pub async fn stop_for_restore() -> Result<UpdateLease, String> {
+    stop_for_maintenance(false).await
+}
+
+async fn stop_for_maintenance(resume_after_update: bool) -> Result<UpdateLease, String> {
     use std::time::{Duration, Instant};
 
     let deadline = Instant::now() + Duration::from_secs(20);
@@ -84,7 +96,7 @@ pub async fn stop_for_update() -> Result<UpdateLease, String> {
         if let Some(lease) = control::try_acquire_update_lock()? {
             let locked_status = control::status()?;
             if locked_status == "stopped" {
-                if was_running {
+                if was_running && resume_after_update {
                     resume::mark()?;
                 }
                 return Ok(UpdateLease {
@@ -120,6 +132,9 @@ pub fn run(arguments: &[OsString]) -> Result<(), String> {
     if let Err(error) = fix_path_env::fix() {
         log::warn!("[automation-worker] could not refresh login PATH: {error}");
     }
+    // WorkerInstance holds the shared maintenance lock before opening metadata
+    // and until after Host drain and Pi shutdown. The launcher has its own
+    // overlapping shared lock, so no writer can slip into an exclusive restore.
     let worker = control::WorkerInstance::acquire()?;
     let static_dir = parse_public_dir(arguments)?;
     PiLaunchResolver::new(static_dir.clone()).ensure_bundled_runtime()?;

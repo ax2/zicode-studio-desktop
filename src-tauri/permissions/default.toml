@@ -171,8 +171,13 @@ commands.allow = ["delete_workspace_backup"]
 
 [[permission]]
 identifier = "allow-restore-workspace-backup"
-description = "Allow restoring workspace app data from a snapshot (current state is snapshotted first)."
+description = "Allow queuing a confirmed workspace snapshot restore for the next startup."
 commands.allow = ["restore_workspace_backup"]
+
+[[permission]]
+identifier = "allow-workspace-restore-outcome"
+description = "Allow reading the registered workspace's last restore result."
+commands.allow = ["workspace_restore_outcome"]
 
 [[permission]]
 identifier = "allow-list-automation-workspaces"
@@ -340,6 +345,7 @@ permissions = [
   "allow-list-workspace-backups",
   "allow-delete-workspace-backup",
   "allow-restore-workspace-backup",
+  "allow-workspace-restore-outcome",
 ]
 
 [[permission]]

@@ -10,6 +10,16 @@ const LOCK_FILE: &str = "automation-worker.lock";
 const STOP_FILE: &str = "automation-worker.stop";
 const UPDATE_LOCK_FILE: &str = "automation-update.lock";
 
+// Windows LockFileEx reports ERROR_LOCK_VIOLATION, which does not always
+// map to ErrorKind::WouldBlock. Match fs2's platform contention code as well.
+fn lock_contended(error: &std::io::Error) -> bool {
+    error.kind() == ErrorKind::WouldBlock
+        || error
+            .raw_os_error()
+            .zip(fs2::lock_contended_error().raw_os_error())
+            .is_some_and(|(actual, expected)| actual == expected)
+}
+
 pub(super) struct UpdateLock {
     _file: File,
 }
@@ -18,9 +28,7 @@ pub(super) fn acquire_launch_lock() -> Result<UpdateLock, String> {
     let lock = open_update_lock()?;
     match FileExt::try_lock_shared(&lock) {
         Ok(()) => Ok(UpdateLock { _file: lock }),
-        Err(error) if error.kind() == ErrorKind::WouldBlock => {
-            Err("App update is in progress".into())
-        }
+        Err(error) if lock_contended(&error) => Err("App update is in progress".into()),
         Err(_) => Err("Cannot acquire automation update lock".into()),
     }
 }
@@ -29,7 +37,7 @@ pub(super) fn try_acquire_update_lock() -> Result<Option<UpdateLock>, String> {
     let lock = open_update_lock()?;
     match FileExt::try_lock_exclusive(&lock) {
         Ok(()) => Ok(Some(UpdateLock { _file: lock })),
-        Err(error) if error.kind() == ErrorKind::WouldBlock => Ok(None),
+        Err(error) if lock_contended(&error) => Ok(None),
         Err(_) => Err("Cannot acquire automation update lock".into()),
     }
 }
@@ -59,7 +67,7 @@ impl WorkerInstance {
         let update_lock = open_update_lock()?;
         match FileExt::try_lock_shared(&update_lock) {
             Ok(()) => {}
-            Err(error) if error.kind() == ErrorKind::WouldBlock => {
+            Err(error) if lock_contended(&error) => {
                 return Err("App update is in progress".into());
             }
             Err(_) => return Err("Cannot acquire automation update lock".into()),
@@ -77,7 +85,7 @@ impl WorkerInstance {
             .map_err(|_| "Cannot open automation worker lock")?;
         match lock.try_lock_exclusive() {
             Ok(()) => {}
-            Err(error) if error.kind() == ErrorKind::WouldBlock => {
+            Err(error) if lock_contended(&error) => {
                 return Err("Automation worker is already running".into());
             }
             Err(_) => return Err("Cannot acquire automation worker lock".into()),
@@ -126,7 +134,7 @@ pub(super) fn request_stop() -> Result<(), String> {
         .map_err(|_| "Automation worker is not running")?;
     match lock.try_lock_exclusive() {
         Ok(()) => return Err("Automation worker is not running".into()),
-        Err(error) if error.kind() == ErrorKind::WouldBlock => {}
+        Err(error) if lock_contended(&error) => {}
         Err(_) => return Err("Cannot inspect automation worker lock".into()),
     }
     let stop_path = root.join(STOP_FILE);
@@ -161,7 +169,7 @@ pub(super) fn status() -> Result<&'static str, String> {
     };
     match lock.try_lock_exclusive() {
         Ok(()) => Ok("stopped"),
-        Err(error) if error.kind() == ErrorKind::WouldBlock => {
+        Err(error) if lock_contended(&error) => {
             let stop_path = root.join(STOP_FILE);
             ensure_regular_or_missing(&stop_path)?;
             if stop_path.exists() {
