@@ -676,8 +676,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     footer.append(status, fullscreen.exit, bookmarkButton, read, downloads, options);
     viewport = document.createElement("div"); viewport.className = "browser-viewport";
     nav.append(footer);
-    root.append(strip, nav, find.element, viewport);
-    startupState = createBrowserStartup({ root, controls: [strip, nav], viewport, retry: () => { initPromise = restore(); } });
+    const filePickerSpace = makeButton(t("Use fullscreen to choose files"), () => fullscreen.toggle());
+    filePickerSpace.classList.add("browser-file-picker-space");
+    root.append(strip, nav, find.element, filePickerSpace, viewport);
+    startupState = createBrowserStartup({ root, controls: [strip, nav, filePickerSpace], viewport, retry: () => { initPromise = restore(); } });
     new ResizeObserver(() => void run(syncSurface)).observe(viewport);
     document.addEventListener("visibilitychange", () => void run(syncSurface));
     new MutationObserver(() => void run(syncSurface)).observe(document.body, { attributes: true, subtree: true, attributeFilter: ["class", "hidden", "open", "inert", "aria-modal", "style"] });

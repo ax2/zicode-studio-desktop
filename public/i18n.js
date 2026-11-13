@@ -643,6 +643,7 @@ const zhCN = {
   "Enter a web address": "输入网页地址",
   Go: "前往",
   Workspace: "工作台",
+  "Use fullscreen to choose files": "全屏后选择文件",
   "Enter fullscreen": "进入全屏",
   "Exit fullscreen": "退出全屏",
   "Could not read fullscreen state.": "无法读取全屏状态。",

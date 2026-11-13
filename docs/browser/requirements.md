@@ -117,3 +117,8 @@ The previously retained note-move regression is corrected in the release branch:
 ## Live download updates beyond the first history page — 2026-11-12
 
 [Windows terminal-event acceptance](../iterations/2026-11-12-browser-download-live-updates.md) verifies that an older active row still updates after it becomes terminal outside the latest 100 history records. Real Host cancellation and row removal passed at 1,000 and 422 CSS px. Original download history, tabs, notes, bookmarks and unsent page input matched after fixture cleanup; all 189 browser tests passed. This reuses existing native events and the existing Windows executable.
+
+
+## Native Windows file picker — 2026-11-13
+
+[Native upload acceptance](../iterations/2026-11-13-browser-native-upload.md) covers empty/retained cancellation, exact selected bytes, explicit local HTTPS upload and retained form/document at requested 422/360/1000 CSS px. 422 works directly; 360 uses the visible fullscreen entry and restores size. A two-pixel browser inset also preserves native bounds at 175% DPI. This is a development fix for #7, not an installed release or complete website/upload compatibility. Historical pending notes above remain evidence of earlier stages.

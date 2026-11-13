@@ -5,6 +5,12 @@
 @import url("./browser-note-clip.css");
 @import url("./browser-history.css");
 @import url("./browser-bookmarks.css");
+/* Keep the native page wide enough for WebView2 file selection (400 × 300 minimum). */
+body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-inline: var(--space-0-5); padding-bottom: var(--space-0-5); }
+.browser-file-picker-space { display: none; }
+@container (max-width: 400px) {
+  .browser-file-picker-space { display: inline-flex; align-self: flex-start; margin-inline: var(--space-1); }
+}
 .studio-browser { container-type: inline-size; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; height: 100%; gap: var(--space-1); }
 .browser-tab-strip, .browser-navigation, .browser-footer { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1); min-width: 0; }
 .browser-footer .ui-select { width: auto; max-width: calc(var(--space-12) * 3); }
