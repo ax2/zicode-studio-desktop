@@ -14554,7 +14554,8 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
 /* --- inlined: native/notifications/notification-center.css --- */
 .native-notification-stack {
   position: fixed;
-  top: var(--space-4);
+  /* Keep the shared header controls usable while a notification is visible. */
+  top: calc(var(--control-height-lg) + var(--space-2));
   right: var(--space-4);
   z-index: 2000;
   display: flex;
@@ -19328,7 +19329,7 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   }
 
   .native-notification-stack {
-    top: max(var(--space-2), env(safe-area-inset-top, 0px));
+    top: max(calc(var(--control-height-lg) + var(--space-2)), env(safe-area-inset-top, 0px));
     right: max(var(--space-2), env(safe-area-inset-right, 0px));
     left: max(var(--space-2), env(safe-area-inset-left, 0px));
     width: auto;

@@ -609,7 +609,7 @@
   }
 
   .native-notification-stack {
-    top: max(var(--space-2), env(safe-area-inset-top, 0px));
+    top: max(calc(var(--control-height-lg) + var(--space-2)), env(safe-area-inset-top, 0px));
     right: max(var(--space-2), env(safe-area-inset-right, 0px));
     left: max(var(--space-2), env(safe-area-inset-left, 0px));
     width: auto;
