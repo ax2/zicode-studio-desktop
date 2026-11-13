@@ -10,20 +10,16 @@ pub(crate) struct Interpreter {
 }
 
 fn executable_file(path: &Path) -> bool {
-    if !path.is_file() {
-        return false;
-    }
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        if !path
-            .metadata()
-            .is_ok_and(|meta| meta.permissions().mode() & 0o111 != 0)
-        {
-            return false;
-        }
+        path.metadata()
+            .is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
     }
-    true
+    #[cfg(not(unix))]
+    {
+        path.is_file()
+    }
 }
 
 impl Interpreter {

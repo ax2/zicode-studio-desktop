@@ -420,19 +420,16 @@ fn command_on_path(name: &str) -> bool {
             };
             suffixes.iter().any(|suffix| {
                 let candidate = directory.join(format!("{name}{suffix}"));
-                if !candidate.is_file() {
-                    return false;
-                }
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
-                    candidate
-                        .metadata()
-                        .is_ok_and(|metadata| metadata.permissions().mode() & 0o111 != 0)
+                    candidate.metadata().is_ok_and(|metadata| {
+                        metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
+                    })
                 }
                 #[cfg(windows)]
                 {
-                    true
+                    candidate.is_file()
                 }
             })
         })
