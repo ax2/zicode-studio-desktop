@@ -440,6 +440,10 @@ async fn workspace_close_waits_for_staged_export_and_blocks_later_writes() {
     .await;
     let rejected: Value = after_close.json().await.unwrap();
     assert_eq!(rejected["error"]["code"], "runtime_stopped");
+    let state = Arc::downgrade(&host.state);
+    drop(client);
     host.stop_and_wait().await.unwrap();
-    fs::remove_dir_all(root).unwrap();
+    // A cleanup retry must not conceal a Host that still owns its databases.
+    assert!(state.upgrade().is_none(), "Host state still owned after shutdown barrier");
+    super::cleanup::remove_owned(&root, 100).await.unwrap();
 }

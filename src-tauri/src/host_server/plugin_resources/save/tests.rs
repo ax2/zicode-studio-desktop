@@ -1,5 +1,6 @@
 use super::*;
 use std::fs;
+mod cleanup;
 pub(in crate::host_server::plugin_resources) mod http;
 pub(in crate::host_server::plugin_resources) mod publication;
 struct Fixture {
