@@ -3,6 +3,7 @@ mod body_whitespace_tests;
 #[cfg(test)]
 mod move_tests;
 mod move_attachments;
+mod move_update;
 mod import_content;
 mod import_references;
 mod import_transaction;
@@ -927,26 +928,8 @@ impl NotesVault {
                 "A note with this ID already exists in the target notebook",
             ));
         }
-        let attachments = move_attachments::MoveAttachments::prepare(self, &notebook_id, &target_notebook_id, &note_id)?;
         let bytes = serialize_note(&moved)?;
-        atomic_write(&target_path, &bytes)?;
-        let source_path = self.note_path(&notebook_id, &note_id)?;
-        if fs::remove_file(&source_path).is_err() {
-            // Only this operation created the destination. If rollback fails,
-            // retain its attachments too so neither copy has broken references.
-            if fs::remove_file(&target_path).is_err() {
-                if let Some(stage) = attachments { stage.retain(); }
-                return Err(NotesError::new("storage_unavailable", "The note exists in both notebooks; its attachments were retained"));
-            }
-            return Err(NotesError::new("storage_unavailable", "Cannot remove the note from its source"));
-        }
-        if let Some(stage) = attachments { stage.commit(); }
-        let mut written = moved;
-        written.summary.version = version_for(&bytes);
-        self.touch_notebook(&target_notebook_id)?;
-        self.touch_notebook(&notebook_id)?;
-        self.append_change("moved", &written.summary, Some(&written.summary.version))?;
-        Ok(written)
+        move_update::commit(self, &notebook_id, moved, bytes, expected_version)
     }
 
     pub fn delete_note(
@@ -2459,12 +2442,14 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), NotesError> {
     let suffix = Uuid::new_v4().simple().to_string();
     let temporary = parent.join(format!(".write-{suffix}.tmp"));
     let backup = parent.join(format!(".write-{suffix}.bak"));
-    fs::write(&temporary, bytes)
-        .map_err(|_| NotesError::new("storage_unavailable", "Cannot write Notes data"))?;
+    if fs::write(&temporary, bytes).is_err() {
+        let _ = fs::remove_file(&temporary);
+        return Err(NotesError::new("storage_unavailable", "Cannot write Notes data"));
+    }
     let had_previous = path.is_file();
-    if had_previous {
-        fs::rename(path, &backup)
-            .map_err(|_| NotesError::new("storage_unavailable", "Cannot prepare Notes update"))?;
+    if had_previous && fs::rename(path, &backup).is_err() {
+        let _ = fs::remove_file(&temporary);
+        return Err(NotesError::new("storage_unavailable", "Cannot prepare Notes update"));
     }
     if let Err(error) = fs::rename(&temporary, path) {
         if had_previous {

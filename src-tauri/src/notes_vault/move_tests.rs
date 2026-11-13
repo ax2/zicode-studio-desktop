@@ -18,10 +18,7 @@ impl Fixture {
             .unwrap()
             .scoped(&workspace)
             .unwrap();
-        Self {
-            root,
-            vault,
-        }
+        Self { root, vault }
     }
     fn books(&self) -> (NotebookDescriptor, NotebookDescriptor) {
         (
@@ -216,4 +213,132 @@ fn stale_note_version_never_moves_text_or_attachments() {
             bytes
         );
     }
+}
+
+#[cfg(windows)]
+fn late_failure_preserves_all_saved_data(locked_part: usize) {
+    use std::os::windows::fs::OpenOptionsExt;
+    let f = Fixture::new();
+    let (source, target) = f.books();
+    let (note, files) = f.seeded(&source.id);
+    let source_path = f.vault.note_path(&source.id, &note.summary.id).unwrap();
+    let target_path = f.vault.note_path(&target.id, &note.summary.id).unwrap();
+    let metadata_paths = [
+        f.vault
+            .vault_root(&target.id)
+            .unwrap()
+            .join(".zicode/vault.json"),
+        f.vault
+            .vault_root(&source.id)
+            .unwrap()
+            .join(".zicode/vault.json"),
+    ];
+    // Ensure both metadata writes actually change bytes even in a subsecond test.
+    for path in &metadata_paths {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        value["updatedAt"] = serde_json::json!("2001-01-01T00:00:00Z");
+        fs::write(path, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+    }
+    let paths = [
+        metadata_paths[0].clone(),
+        metadata_paths[1].clone(),
+        f.vault.change_log_path(),
+    ];
+    let before: Vec<Vec<u8>> = paths.iter().map(|path| fs::read(path).unwrap()).collect();
+    let note_before = fs::read(&source_path).unwrap();
+    // Read sharing lets preparation succeed; Windows denies replacement/deletion.
+    let held = OpenOptions::new()
+        .read(true)
+        .share_mode(1)
+        .open(&paths[locked_part])
+        .unwrap();
+    let error = f
+        .vault
+        .move_note(
+            &source.id,
+            &note.summary.id,
+            &target.id,
+            &note.summary.version,
+        )
+        .unwrap_err();
+    assert_eq!(error.code, "storage_unavailable");
+    assert_eq!(fs::read(&source_path).unwrap(), note_before);
+    assert!(!target_path.exists());
+    for (path, original) in paths.iter().zip(&before) {
+        assert_eq!(&fs::read(path).unwrap(), original);
+    }
+    assert_eq!(
+        f.vault
+            .get_note(&source.id, &note.summary.id)
+            .unwrap()
+            .summary
+            .version,
+        note.summary.version
+    );
+    for (id, bytes) in &files {
+        assert_eq!(
+            &f.vault
+                .read_attachment(&source.id, &note.summary.id, id)
+                .unwrap()
+                .0,
+            bytes
+        );
+    }
+    assert!(!f
+        .vault
+        .vault_root(&target.id)
+        .unwrap()
+        .join("public/attachments")
+        .join(&note.summary.id)
+        .exists());
+    for path in &paths {
+        assert!(!fs::read_dir(path.parent().unwrap()).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".write-")
+        }));
+    }
+    drop(held);
+    // A failed move leaves the original optimistic version usable for a retry.
+    let moved = f
+        .vault
+        .move_note(
+            &source.id,
+            &note.summary.id,
+            &target.id,
+            &note.summary.version,
+        )
+        .unwrap();
+    assert_eq!(moved.content, note.content);
+    assert_eq!(moved.previous_notebook_ids, vec![source.id]);
+    for (id, bytes) in files {
+        assert_eq!(
+            f.vault
+                .read_attachment(&target.id, &note.summary.id, &id)
+                .unwrap()
+                .0,
+            bytes
+        );
+    }
+}
+
+#[cfg(windows)]
+#[test]
+fn target_metadata_failure_restores_note_and_original_attachments() {
+    late_failure_preserves_all_saved_data(0);
+}
+
+#[cfg(windows)]
+#[test]
+fn source_metadata_failure_rolls_back_changed_target_metadata_too() {
+    late_failure_preserves_all_saved_data(1);
+}
+
+#[cfg(windows)]
+#[test]
+fn change_log_failure_rolls_back_both_notebooks_without_a_phantom_move() {
+    late_failure_preserves_all_saved_data(2);
 }
