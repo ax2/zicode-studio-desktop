@@ -46,7 +46,7 @@ it("stages a browser selection after activation and records only the app identit
   const { activate, handle, stageSelection, recordRecent } = fixture();
   await handle.open("Selected browser text", { historyMode: "push" });
   expect(activate).toHaveBeenCalledExactlyOnceWith("com.zicode.translate", { historyMode: "push" });
-  expect(stageSelection).toHaveBeenCalledExactlyOnceWith("Selected browser text");
+  expect(stageSelection).toHaveBeenCalledExactlyOnceWith("Selected browser text", undefined);
   expect(recordRecent).toHaveBeenCalledExactlyOnceWith(owner, recent);
 });
 

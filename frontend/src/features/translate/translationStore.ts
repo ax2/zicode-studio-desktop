@@ -82,7 +82,9 @@ export type ClipboardTranslationDraft = {
   result: TranslationResult | null;
 };
 
-type IncomingText = { text: string; scope: TranslationScope } & (
+export type BrowserSelectionSource = { url: string; title: string; capturedAt: string; documentRevision: string };
+
+type IncomingText = { text: string; scope: TranslationScope; provenance?: BrowserSelectionSource } & (
   { source: "webpage" | "clipboard" } | { source: "floating"; draft: ClipboardTranslationDraft }
 );
 
@@ -97,7 +99,8 @@ export interface TranslationState {
   getSceneId(): string;
   getScope(): TranslationScope;
   pendingIncomingText: IncomingText | null;
-  stageBrowserSelection(value: string): void;
+  stageBrowserSelection(value: string, provenance?: BrowserSelectionSource): void;
+  browserSource: BrowserSelectionSource | null;
   stageClipboardTranslation(draft: ClipboardTranslationDraft): void;
   importClipboard(): Promise<void>;
   acceptIncomingText(): void;
@@ -139,13 +142,14 @@ export function createTranslationStore(options: TranslationOptions) {
   function applyIncoming(incoming: IncomingText) {
     if (incoming.source !== "floating") {
       store.getState().setText(incoming.text);
+      store.setState({ browserSource: incoming.source === "webpage" ? incoming.provenance ?? null : null });
       return;
     }
     const { text, targetLang, result, sourceLang: source } = incoming.draft;
     const sourceLang = source ?? "";
     inputRevision += 1;
     completedInput = result ? { scope: incoming.scope, text, sourceLang, targetLang } : null;
-    store.setState({ text, sourceLang, targetLang, result, editedText: result?.translated ?? "", error: "", cancelled: false });
+    store.setState({ text, sourceLang, targetLang, result, browserSource: null, editedText: result?.translated ?? "", error: "", cancelled: false });
   }
 
   function stageIncomingText(incoming: IncomingText) {
@@ -155,7 +159,7 @@ export function createTranslationStore(options: TranslationOptions) {
       store.setState({ pendingIncomingText: null });
       return;
     }
-    store.setState({ pendingIncomingText: incoming.source === "floating" || incoming.text !== current.text ? incoming : null });
+    store.setState({ pendingIncomingText: incoming.source === "floating" || incoming.source === "webpage" || incoming.text !== current.text ? incoming : null });
   }
 
   const store = create<TranslationState>()((set, get) => ({
@@ -169,10 +173,11 @@ export function createTranslationStore(options: TranslationOptions) {
     getSceneId: () => getTarget().sceneId,
     getScope: getTarget,
     pendingIncomingText: null,
-    stageBrowserSelection(text) {
+    browserSource: null,
+    stageBrowserSelection(text, provenance) {
       if (!text.trim()) return;
       incomingRevision += 1;
-      stageIncomingText({ text, source: "webpage", scope: { ...getTarget() } });
+      stageIncomingText({ text, source: "webpage", provenance, scope: { ...getTarget() } });
     },
     stageClipboardTranslation(draft) {
       if (!draft.text.trim()) return;
@@ -228,7 +233,7 @@ export function createTranslationStore(options: TranslationOptions) {
       if (value === get().text) return;
       inputRevision += 1;
       completedInput = null;
-      set({ text: value, error: "", cancelled: false, result: null, editedText: "" });
+      set({ text: value, browserSource: null, error: "", cancelled: false, result: null, editedText: "" });
     },
 
     setSourceLang(value) {
@@ -258,6 +263,7 @@ export function createTranslationStore(options: TranslationOptions) {
         // Without one, keep the source text so swapping languages never
         // clears what the user typed.
         text: currentResult ? editedText : text,
+        browserSource: null,
         result: null,
         editedText: "",
         error: "",
@@ -351,7 +357,7 @@ export function createTranslationStore(options: TranslationOptions) {
       inputRevision += 1;
       incomingRevision += 1;
       completedInput = null;
-      set({ text: "", pendingIncomingText: null, result: null, editedText: "", error: "", cancelled: false });
+      set({ text: "", pendingIncomingText: null, browserSource: null, result: null, editedText: "", error: "", cancelled: false });
     },
   }));
   return store;

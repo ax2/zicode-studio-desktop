@@ -25,7 +25,7 @@ export function setupTranslationShortcuts({
       // Navigation has already succeeded. History storage is best effort.
     }
   };
-  const open = async (text, options, loadDraft) => {
+  const open = async (text, options, loadDraft, provenance) => {
     if (disposed) return;
     updateScope();
     const scope = lastScope;
@@ -38,7 +38,7 @@ export function setupTranslationShortcuts({
       updateScope();
       if (disposed || scopeRevision !== revision || getActivePluginId() !== translationId) return;
       if (draft) stageHandoff?.(draft);
-    } else if (text) stageSelection?.(text);
+    } else if (text) stageSelection?.(text, provenance);
     focusInput();
     void remember(scope);
   };

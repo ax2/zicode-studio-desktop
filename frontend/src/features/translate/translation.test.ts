@@ -131,6 +131,26 @@ describe("translation store", () => {
     expect(gateway.translate).not.toHaveBeenCalled();
   });
 
+  it("preserves reviewed browser provenance and clears it when source text changes", async () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    const source = { title: "A", url: "https://example.invalid/a", capturedAt: "2026-11-16T10:00:00Z", documentRevision: "doc-1" };
+    store.getState().stageBrowserSelection("Original text", source);
+    expect(store.getState().browserSource).toEqual(source);
+    const next = { ...source, url: "https://example.invalid/b", documentRevision: "doc-2" };
+    store.getState().stageBrowserSelection("Original text", next);
+    expect(store.getState().browserSource).toEqual(source);
+    expect(store.getState().pendingIncomingText?.provenance).toEqual(next);
+    store.getState().acceptIncomingText();
+    expect(store.getState().browserSource).toEqual(next);
+    await store.getState().run();
+    expect(gateway.translate).toHaveBeenCalledWith(expect.anything(),
+      expect.not.objectContaining({ provenance: expect.anything() }), expect.any(AbortSignal));
+    expect(store.getState().browserSource).toEqual(next);
+    store.getState().setText("Edited text");
+    expect(store.getState().browserSource).toBeNull();
+  });
+
   it("does not translate empty text", async () => {
     const gateway = stubGateway();
     const { store } = createStore(gateway);

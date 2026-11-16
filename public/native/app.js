@@ -1232,7 +1232,7 @@ async function openBrowserDraftConversation({ target: source, isCurrent }) {
 const browserApp = setupBrowserApp({
   notify: notifications.notify, getTarget: () => target, onPrepareDraft: projectChatDraftHandoff,
   canOpenDraftConversation: canOpenBrowserDraftConversation, openDraftConversation: openBrowserDraftConversation,
-  onTranslateSelection: text => translationNavigation.open(text, { historyMode: "push" }),
+  onTranslateSelection: (text, provenance) => translationNavigation.open(text, { historyMode: "push" }, undefined, provenance),
 });
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
@@ -1306,7 +1306,7 @@ setupSystemInformationShortcut({ listen: globalThis.__TAURI__?.event?.listen, op
 const translationNavigation = setupTranslationShortcuts({
   activate: (id, options) => pluginShell.activate(id, options),
   getActivePluginId: () => pluginShell.getActivePluginId(), getTarget: () => target,
-  stageSelection: text => translationApp.stageBrowserSelection(text),
+  stageSelection: (text, provenance) => translationApp.stageBrowserSelection(text, provenance),
   takeHandoff: clipboardTranslation ? () => clipboardTranslation({ kind: "takeHandoff" }) : undefined,
   stageHandoff: draft => translationApp.stageClipboardTranslation(draft),
   listenHandoff: clipboardTranslation ? (event, callback) =>

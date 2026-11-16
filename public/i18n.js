@@ -811,6 +811,7 @@ const zhCN = {
   "Select text on the webpage first.": "请先在网页中选中文字。",
   "Select up to 8,192 characters to translate.": "请选择不超过 8,192 个字符的文字进行翻译。",
   "Selected webpage text": "网页选中文字",
+  "Webpage source": "网页来源",
   "Use selected text": "使用选中文字",
   "Page images and details": "图片和页面信息",
   "Page images": "网页图片清单",

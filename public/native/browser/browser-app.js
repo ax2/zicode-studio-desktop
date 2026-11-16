@@ -784,19 +784,20 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function translatePageSelection(source, openEmpty = false) {
     if (!onTranslateSelection || blocked() || active !== source) return;
     const tab = selected(), url = tab?.url;
-    let text = "";
+    let text = "", provenance;
     if (tab && nativeTabs.has(source) && /^https?:/.test(url)) {
       const version = pageVersions.get(source);
       await syncSurface();
-      const { page } = await invoke("browser_read_selection", { tab: source, expectedUrl: url });
+      const { page, documentRevision, capturedAt } = await invoke("browser_read_selection", { tab: source, expectedUrl: url });
       if (blocked() || active !== source || selected()?.url !== url || pageVersions.get(source) !== version) {
         throw new Error(t("Page changed. Read it again."));
       }
       if (page.truncated) throw new Error(t("Select up to 8,192 characters to translate."));
       text = page.text;
+      if (text) provenance = { url, title: tab.title || url, capturedAt, documentRevision };
     }
     if (!text && !openEmpty) throw new Error(t("Select text on the webpage first."));
-    await onTranslateSelection(text);
+    await onTranslateSelection(text, provenance);
   }
   async function openReader() {
     const tab = selected();

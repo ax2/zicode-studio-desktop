@@ -9,6 +9,7 @@ import { DesktopClipboardTranslation, type ClipboardTranslationInvoke } from "./
 import { TARGET_LANGUAGES } from "./translationLogic";
 import {
   createTranslationStore,
+  type BrowserSelectionSource,
   type ClipboardTranslationDraft,
   type TranslationOptions,
   type TranslationStore,
@@ -22,7 +23,7 @@ export type TranslationAppApi = {
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   focusInput(): void;
-  stageBrowserSelection(text: string): void;
+  stageBrowserSelection(text: string, provenance?: BrowserSelectionSource): void;
   stageClipboardTranslation(draft: ClipboardTranslationDraft): void;
   refresh(): Promise<void>;
 };
@@ -38,6 +39,7 @@ export function TranslationMain({ store, clipboardTranslation }: {
   const modelSelection = store((state) => state.modelSelection);
   const text = store((state) => state.text);
   const sourceLang = store((state) => state.sourceLang);
+  const browserSource = store((state) => state.browserSource);
   const targetLang = store((state) => state.targetLang);
   const result = store((state) => state.result);
   const editedText = store((state) => state.editedText);
@@ -78,6 +80,7 @@ export function TranslationMain({ store, clipboardTranslation }: {
       {incoming && (
         <section className="ui-card translate-incoming" aria-label={incomingLabel}>
           <textarea className="ui-textarea" readOnly rows={3} value={incoming.text} aria-label={incomingLabel} />
+          {incoming.provenance && <p>{incoming.provenance.title} · {incoming.provenance.url} · {incoming.provenance.capturedAt} · {incoming.provenance.documentRevision}</p>}
           <div className="ui-toolbar">
             <button type="button" className="ui-button ui-button--secondary" disabled={busy} onClick={() => store.getState().acceptIncomingText()}>
               {incoming.source === "floating" ? t("Use clipboard translation") :
@@ -107,6 +110,7 @@ export function TranslationMain({ store, clipboardTranslation }: {
             }
           }}
         />
+        {browserSource && <p>{t("Webpage source")} · {browserSource.title} · {browserSource.url} · {browserSource.capturedAt} · {browserSource.documentRevision}</p>}
         <div className="translate-controls">
           <button
             type="button"
@@ -265,7 +269,7 @@ export function createTranslationApp(options: TranslationOptions): TranslationAp
       return commandId === "translate.open";
     },
     executeCommand() {},
-    stageBrowserSelection(text) { store.getState().stageBrowserSelection(text); },
+    stageBrowserSelection(text, provenance) { store.getState().stageBrowserSelection(text, provenance); },
     stageClipboardTranslation(draft) { store.getState().stageClipboardTranslation(draft); },
     focusInput() { requestAnimationFrame(() => contentContainer?.querySelector<HTMLTextAreaElement>(".translate-textarea")?.focus()); },
     refresh() {
