@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { getByRole, waitFor } from "@testing-library/dom";
-import { t } from "../../i18n.js";
+import { getLocale, setLocale, t } from "../../i18n.js";
 import { setupBrowserApp } from "./browser-app.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
 import { browserDraftPrompt } from "./browser-chat-draft.js";
@@ -23,10 +23,12 @@ function openDock(prepare) {
 }
 
 let app;
+const originalLocale = getLocale();
 afterEach(async () => {
   await app?.canDeactivate();
   app = undefined;
   document.body.replaceChildren();
+  setLocale(originalLocale);
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -75,6 +77,7 @@ it("uses a separate explicit summary action and keeps page data in the source bl
 });
 
 it("resizes the live surface around the open assistant and rejects the captured source after navigation", async () => {
+  setLocale("zh-CN");
   const host = document.createElement("main");
   document.body.append(host);
   vi.stubGlobal("ResizeObserver", class { observe() {} });
@@ -113,6 +116,11 @@ it("resizes the live surface around the open assistant and rejects the captured 
   const panel = getByRole(host, "complementary", { name: t("Browser assistant") });
   const question = getByRole(panel, "textbox", { name: t("Question about this page") });
   question.value = "What changed?";
+  setLocale("en");
+  expect(getByRole(host, "complementary", { name: "Browser assistant" })).toBe(panel);
+  expect(getByRole(panel, "textbox", { name: "Question about this page" })).toBe(question);
+  expect(getByRole(panel, "button", { name: "Prepare summary draft" })).toBeTruthy();
+  expect(question.value).toBe("What changed?");
   publish({ kind: "navigationStarted", tab: capture.tab });
   getByRole(panel, "button", { name: t("Prepare chat draft") }).click();
   await waitFor(() => expect(getByRole(panel, "alert").textContent).toBe(t("Page or conversation changed. Read the page again.")));

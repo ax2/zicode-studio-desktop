@@ -662,6 +662,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       pin: { state: pinState, toggle: () => act(togglePin) } });
     read = makeButton("", readPage); read.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost browser-read";
     read.title = t("Read page"); read.setAttribute("aria-label", read.title);
+    read.setAttribute("data-i18n-title", "Read page");
+    read.setAttribute("data-i18n-aria-label", "Read page");
     read.setAttribute("aria-controls", "browser-page-assistant");
     read.setAttribute("aria-expanded", "false");
     read.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h7l2 2h7v16h-7l-2-2H4zM13 5v16M7 7h3M7 11h3M16 9h1M16 13h1"/></svg>';
@@ -682,6 +684,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     assistant.id = "browser-page-assistant";
     assistant.hidden = true;
     assistant.setAttribute("aria-label", t("Browser assistant"));
+    assistant.setAttribute("data-i18n-aria-label", "Browser assistant");
     pageArea.append(viewport, assistant);
     nav.append(footer);
     const filePickerSpace = makeButton(t("Use fullscreen to choose files"), () => fullscreen.toggle());

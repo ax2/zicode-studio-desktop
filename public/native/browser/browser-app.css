@@ -41,7 +41,12 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-capture-panel:has(> .browser-compare:not([hidden])) .browser-capture-prepare { display: none; }
 @container (max-width: 800px) {
   .browser-page-area { flex-direction: column; }
-  .browser-assistant { flex-basis: min(44%, 18rem); margin-inline-start: 0; margin-block-start: var(--space-1); }
+  .browser-assistant {
+    /* Leave the native file chooser enough height whenever the window allows it. */
+    flex-basis: min(44%, 18rem, max(calc(var(--space-12) * 2), calc(100% - 300px - var(--space-1))));
+    margin-inline-start: 0;
+    margin-block-start: var(--space-1);
+  }
 }
 .browser-footer > [role="status"] { flex: 1; min-width: 0; max-inline-size: calc(var(--space-12) * 4); overflow-wrap: anywhere; font-size: var(--font-size-sm); }
 

@@ -3,6 +3,11 @@ import { createBrowserCaptureMedia } from "./browser-capture-media.js";
 import { createBrowserNoteClip } from "./browser-note-clip.js";
 import { t } from "../../i18n.js";
 
+function setLabel(element, key) {
+  element.dataset.i18nText = key;
+  element.textContent = t(key);
+}
+
 export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWriter, comparison, opensChat = false, dock) {
   let busy = false;
   const dialog = document.createElement(dock ? "section" : "dialog");
@@ -18,11 +23,20 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     if (restoreFocus) dock.trigger.focus({ preventScroll: true });
     onClose();
   };
-  const title = document.createElement("h2"); title.textContent = capture.page.title || t("Page content");
+  const title = document.createElement("h2");
+  if (capture.page.title) {
+    title.setAttribute("translate", "no");
+    title.textContent = capture.page.title;
+  } else setLabel(title, "Page content");
   const source = document.createElement("p"); source.textContent = capture.page.url;
-  const time = document.createElement("p"); time.textContent = `${t("Captured at")}: ${capture.capturedAt}`;
+  source.setAttribute("translate", "no");
+  const time = document.createElement("p");
+  const timeLabel = document.createElement("span");
+  setLabel(timeLabel, "Captured at");
+  time.append(timeLabel, ` · ${capture.capturedAt}`);
   const text = document.createElement("textarea"); text.className = "ui-textarea browser-capture-text"; text.readOnly = true;
   text.setAttribute("aria-label", t("Page content"));
+  text.setAttribute("data-i18n-aria-label", "Page content");
   text.value = `${capture.page.selection ? `${t("Selected text")}\n${capture.page.selection}\n\n` : ""}${capture.page.text}`;
   const includeLinks = document.createElement("input"); includeLinks.type = "checkbox";
   const includeTables = document.createElement("input"); includeTables.type = "checkbox";
@@ -86,8 +100,10 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
       tables.append(limit);
     }
   }
-  const note = document.createElement("p"); note.textContent = capture.page.truncated ? t("Page content was shortened") : t("Content read locally. Nothing has been sent to AI.");
-  const close = document.createElement("button"); close.type = "button"; close.className = "ui-button ui-button--primary"; close.textContent = t("Close");
+  const note = document.createElement("p");
+  setLabel(note, capture.page.truncated ? "Page content was shortened" : "Content read locally. Nothing has been sent to AI.");
+  const close = document.createElement("button"); close.type = "button"; close.className = "ui-button ui-button--primary";
+  setLabel(close, "Close");
   close.addEventListener("click", () => { if (!busy) dismiss(true); });
   dialog.addEventListener("cancel", event => { if (busy) event.preventDefault(); });
   dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
@@ -102,11 +118,16 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (dock && prepareDraft) {
     questionLabel = document.createElement("label"); questionLabel.className = "browser-capture-question";
     question = document.createElement("textarea"); question.className = "ui-textarea"; question.rows = 2; question.maxLength = 5000;
-    questionLabel.append(t("Question about this page"), question);
+    const label = document.createElement("span");
+    setLabel(label, "Question about this page");
+    questionLabel.append(label, question);
   }
   if (prepareDraft) {
     const prepare = document.createElement("button"); prepare.type = "button"; prepare.className = "ui-button ui-button--secondary browser-capture-prepare";
-    prepare.textContent = t(opensChat ? "Open Chat and prepare draft" : "Prepare chat draft"); prepare.title = t("Adds this snapshot to the current conversation. Nothing is sent until you press Send.");
+    setLabel(prepare, opensChat ? "Open Chat and prepare draft" : "Prepare chat draft");
+    const help = "Adds this snapshot to the current conversation. Nothing is sent until you press Send.";
+    prepare.title = t(help);
+    prepare.setAttribute("data-i18n-title", help);
     const stageDraft = async intent => {
       if (busy || !isOpen()) return;
       setBusy(true); error.textContent = "";
@@ -120,8 +141,9 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
       const summarize = document.createElement("button");
       summarize.type = "button";
       summarize.className = "ui-button ui-button--secondary browser-capture-prepare";
-      summarize.textContent = t("Prepare summary draft");
+      setLabel(summarize, "Prepare summary draft");
       summarize.title = prepare.title;
+      summarize.setAttribute("data-i18n-title", help);
       summarize.addEventListener("click", () => void stageDraft({ summarize: true }));
       actions.append(summarize);
     }
