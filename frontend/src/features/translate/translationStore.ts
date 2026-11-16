@@ -19,7 +19,7 @@ export interface TranslateInput {
 
 export interface TranslationGateway {
   listModels?(scope: TranslationScope): Promise<ModelToolChoice[]>;
-  translate(scope: TranslationScope, input: TranslateInput): Promise<TranslationResult>;
+  translate(scope: TranslationScope, input: TranslateInput, signal?: AbortSignal): Promise<TranslationResult>;
 }
 
 export class TranslationHttpGateway implements TranslationGateway {
@@ -47,15 +47,19 @@ export class TranslationHttpGateway implements TranslationGateway {
     return (await response.json()).models;
   }
 
-  async translate(scope: TranslationScope, input: TranslateInput): Promise<TranslationResult> {
+  async translate(scope: TranslationScope, input: TranslateInput, signal?: AbortSignal): Promise<TranslationResult> {
     const response = await this.#fetch(
       new URL("/v2/translate", this.#location.origin).toString(),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...scope, ...input }),
+        signal,
       },
-    );
+    ).catch((error) => {
+      if (signal?.aborted) throw error;
+      throw new Error("model gateway is unreachable");
+    });
     if (!response.ok) {
       let detail = "";
       try {
@@ -87,11 +91,13 @@ export interface TranslationState {
   editedText: string;
   busy: boolean;
   error: string;
+  cancelled: boolean;
   setText(value: string): void;
   setSourceLang(value: string): void;
   setTargetLang(value: string): void;
   swap(): void;
   run(): Promise<void>;
+  cancel(): void;
   copyResult(): Promise<void>;
   setEditedText(value: string): void;
   download(): void;
@@ -107,6 +113,7 @@ export interface TranslationOptions {
 export function createTranslationStore(options: TranslationOptions) {
   const { gateway = new TranslationHttpGateway(), getTarget, notify } = options;
   let inputRevision = 0;
+  let activeRequest: AbortController | null = null;
   let completedInput: { scope: TranslationScope; text: string; sourceLang: string; targetLang: string } | null = null;
   return create<TranslationState>()((set, get) => ({
     modelSelection: null,
@@ -114,7 +121,7 @@ export function createTranslationStore(options: TranslationOptions) {
       const previous = get().modelSelection;
       if (previous?.sceneId === value?.sceneId && previous?.provider === value?.provider && previous?.model === value?.model) return;
       inputRevision += 1;
-      set({ modelSelection: value ? { ...value } : null, error: "" });
+      set({ modelSelection: value ? { ...value } : null, error: "", cancelled: false });
     },
     getSceneId: () => getTarget().sceneId,
     getScope: getTarget,
@@ -144,24 +151,25 @@ export function createTranslationStore(options: TranslationOptions) {
     editedText: "",
     busy: false,
     error: "",
+    cancelled: false,
 
     setText(value) {
       if (value === get().text) return;
       inputRevision += 1;
       completedInput = null;
-      set({ text: value, error: "", result: null, editedText: "" });
+      set({ text: value, error: "", cancelled: false, result: null, editedText: "" });
     },
 
     setSourceLang(value) {
       if (value === get().sourceLang) return;
       inputRevision += 1;
-      set({ sourceLang: value, error: "" });
+      set({ sourceLang: value, error: "", cancelled: false });
     },
 
     setTargetLang(value) {
       if (value === get().targetLang) return;
       inputRevision += 1;
-      set({ targetLang: value, error: "" });
+      set({ targetLang: value, error: "", cancelled: false });
     },
 
     swap() {
@@ -182,6 +190,7 @@ export function createTranslationStore(options: TranslationOptions) {
         result: null,
         editedText: "",
         error: "",
+        cancelled: false,
       });
     },
 
@@ -191,8 +200,12 @@ export function createTranslationStore(options: TranslationOptions) {
       const scope = { ...getTarget() };
       const revision = inputRevision;
       const selection = get().modelSelection;
-      if (!selection || selection.sceneId !== scope.sceneId) { set({ error: t("Choose a configured model") }); return; }
+      if (!selection || selection.sceneId !== scope.sceneId) { set({ error: t("Choose a configured model"), cancelled: false }); return; }
+      const request = new AbortController();
+      activeRequest = request;
       const acceptCompletion = () => {
+        if (activeRequest !== request) return false;
+        activeRequest = null;
         const current = getTarget();
         if (current.sceneId !== scope.sceneId || current.workspaceId !== scope.workspaceId) {
           set({ busy: false });
@@ -204,14 +217,14 @@ export function createTranslationStore(options: TranslationOptions) {
         }
         return true;
       };
-      set({ busy: true, error: "", result: null, editedText: "" });
+      set({ busy: true, error: "", cancelled: false, result: null, editedText: "" });
       try {
         const result = await gateway.translate(scope, {
           provider: selection.provider, model: selection.model,
           text,
           targetLang,
           ...(sourceLang ? { sourceLang } : {}),
-        });
+        }, request.signal);
         if (!acceptCompletion()) return;
         completedInput = { scope, text, sourceLang, targetLang };
         set({ result, editedText: result.translated, busy: false });
@@ -219,6 +232,14 @@ export function createTranslationStore(options: TranslationOptions) {
       } catch (error) {
         if (acceptCompletion()) set({ busy: false, error: friendlyPluginError(error) });
       }
+    },
+
+    cancel() {
+      const request = activeRequest;
+      if (!request) return;
+      activeRequest = null;
+      request.abort();
+      set({ busy: false, error: "", cancelled: true });
     },
 
     async copyResult() {
@@ -258,7 +279,7 @@ export function createTranslationStore(options: TranslationOptions) {
     clear() {
       inputRevision += 1;
       completedInput = null;
-      set({ text: "", result: null, editedText: "", error: "" });
+      set({ text: "", result: null, editedText: "", error: "", cancelled: false });
     },
   }));
 }

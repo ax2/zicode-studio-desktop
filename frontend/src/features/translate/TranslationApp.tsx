@@ -37,6 +37,7 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
   const editedText = store((state) => state.editedText);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
+  const cancelled = store((state) => state.cancelled);
   const incoming = store((state) => {
     const pending = state.pendingBrowserSelection, scope = state.getScope();
     return pending?.scope.sceneId === scope.sceneId && pending.scope.workspaceId === scope.workspaceId ? pending.text : null;
@@ -90,7 +91,7 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
           rows={6}
           onChange={(event) => store.getState().setText(event.target.value)}
           onKeyDown={(event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+            if (!event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && (event.ctrlKey || event.metaKey) && event.key === "Enter") {
               event.preventDefault();
               if (!busy && text.trim()) void store.getState().run();
             }
@@ -141,8 +142,17 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
             aria-busy={busy}
             onClick={() => void store.getState().run()}
           >
-            {busy ? t("Translating…") : t("Translate")}
+            {busy ? t("Translating…") : cancelled || (error && !result) ? t("Try again") : t("Translate")}
           </button>
+          {busy && (
+            <button
+              type="button"
+              className="ui-button ui-button--secondary ui-button--sm"
+              onClick={() => store.getState().cancel()}
+            >
+              {t("Cancel")}
+            </button>
+          )}
           <button
             type="button"
             className="ui-button ui-button--ghost ui-button--sm"
@@ -157,6 +167,14 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
             {error}
           </p>
         ) : null}
+        {cancelled && (
+          <p role="status">
+            {t("Stopped waiting. The selected service may already have received the text.")}
+          </p>
+        )}
+        <p className="translate-result-meta">
+          {t("Long text: translate up to 50,000 characters at a time. Split longer text and submit each part separately.")}
+        </p>
       </section>
 
       <section className="ui-card translate-result">

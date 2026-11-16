@@ -36,6 +36,7 @@ describe("translation store", () => {
     expect(gateway.translate).toHaveBeenCalledWith(
       { sceneId: "programming", workspaceId: "ws-1" },
       { text: "Hello", targetLang: "Chinese", provider: "local", model: "example" },
+      expect.any(AbortSignal),
     );
     expect(store.getState().result?.translated).toBe("你好");
     expect(store.getState().editedText).toBe("你好");
