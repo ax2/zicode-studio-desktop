@@ -74,15 +74,27 @@ export class TranslationHttpGateway implements TranslationGateway {
   }
 }
 
+type IncomingText = {
+  source: "webpage" | "clipboard";
+  text: string;
+  scope: TranslationScope;
+};
+
+const sameScope = (a: TranslationScope, b: TranslationScope) =>
+  a.sceneId === b.sceneId && a.workspaceId === b.workspaceId;
+
+const maxTextCharacters = 50_000;
+
 export interface TranslationState {
   modelSelection: ModelToolSelection | null;
   setModelSelection(value: ModelToolSelection | null): void;
   getSceneId(): string;
   getScope(): TranslationScope;
-  pendingBrowserSelection: { text: string; scope: TranslationScope } | null;
+  pendingIncomingText: IncomingText | null;
   stageBrowserSelection(value: string): void;
-  acceptBrowserSelection(): void;
-  dismissBrowserSelection(): void;
+  importClipboard(): Promise<void>;
+  acceptIncomingText(): void;
+  dismissIncomingText(): void;
   loadModels(): Promise<ModelToolChoice[]>;
   text: string;
   sourceLang: string;
@@ -113,9 +125,16 @@ export interface TranslationOptions {
 export function createTranslationStore(options: TranslationOptions) {
   const { gateway = new TranslationHttpGateway(), getTarget, notify } = options;
   let inputRevision = 0;
+  let incomingRevision = 0;
   let activeRequest: AbortController | null = null;
   let completedInput: { scope: TranslationScope; text: string; sourceLang: string; targetLang: string } | null = null;
-  return create<TranslationState>()((set, get) => ({
+  function stageIncomingText(text: string, source: IncomingText["source"], scope: TranslationScope) {
+    const current = store.getState();
+    if (!current.text.trim() && !current.busy && !current.result) current.setText(text);
+    store.setState({ pendingIncomingText: text !== store.getState().text ? { text, source, scope } : null });
+  }
+
+  const store = create<TranslationState>()((set, get) => ({
     modelSelection: null,
     setModelSelection(value) {
       const previous = get().modelSelection;
@@ -125,24 +144,47 @@ export function createTranslationStore(options: TranslationOptions) {
     },
     getSceneId: () => getTarget().sceneId,
     getScope: getTarget,
-    pendingBrowserSelection: null,
-    stageBrowserSelection(value) {
-      if (!value.trim()) return;
-      const { text, busy } = get();
-      if (!text.trim() && !busy) get().setText(value);
-      const pending = value !== get().text ? { text: value, scope: { ...getTarget() } } : null;
-      set({ pendingBrowserSelection: pending });
+    pendingIncomingText: null,
+    stageBrowserSelection(text) {
+      if (!text.trim()) return;
+      incomingRevision += 1;
+      stageIncomingText(text, "webpage", { ...getTarget() });
     },
-    acceptBrowserSelection() {
-      const { pendingBrowserSelection: pending, busy } = get();
-      if (!pending || busy) return;
-      const scope = getTarget();
-      if (scope.sceneId === pending.scope.sceneId && scope.workspaceId === pending.scope.workspaceId) {
-        get().setText(pending.text);
+    async importClipboard() {
+      const scope = { ...getTarget() };
+      const revision = ++incomingRevision;
+      const isCurrent = () => incomingRevision === revision && sameScope(scope, getTarget());
+      let text: string;
+      try {
+        if (typeof navigator.clipboard?.readText !== "function") throw new Error("clipboard_unavailable");
+        text = await navigator.clipboard.readText();
+      } catch {
+        if (isCurrent()) set({ error: t("Could not read text from the clipboard") });
+        return;
       }
-      set({ pendingBrowserSelection: null });
+      if (!isCurrent()) return;
+      if (!text.trim()) {
+        set({ error: t("Clipboard contains no text") });
+        return;
+      }
+      if (text.length > maxTextCharacters * 2 ||
+          (text.length > maxTextCharacters && Array.from(text).length > maxTextCharacters)) {
+        set({ error: t("Clipboard text exceeds the 50,000-character translation limit") });
+        return;
+      }
+      set({ error: "" });
+      stageIncomingText(text, "clipboard", scope);
     },
-    dismissBrowserSelection() { set({ pendingBrowserSelection: null }); },
+    acceptIncomingText() {
+      const { pendingIncomingText: pending, busy } = get();
+      if (!pending || busy) return;
+      if (sameScope(pending.scope, getTarget())) get().setText(pending.text);
+      set({ pendingIncomingText: null });
+    },
+    dismissIncomingText() {
+      incomingRevision += 1;
+      set({ pendingIncomingText: null });
+    },
     loadModels: () => gateway.listModels?.(getTarget()) ?? Promise.resolve([]),
     text: "",
     sourceLang: "",
@@ -278,10 +320,12 @@ export function createTranslationStore(options: TranslationOptions) {
 
     clear() {
       inputRevision += 1;
+      incomingRevision += 1;
       completedInput = null;
-      set({ text: "", result: null, editedText: "", error: "", cancelled: false });
+      set({ text: "", pendingIncomingText: null, result: null, editedText: "", error: "", cancelled: false });
     },
   }));
+  return store;
 }
 
 export type TranslationStore = ReturnType<typeof createTranslationStore>;

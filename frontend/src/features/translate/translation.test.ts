@@ -50,14 +50,66 @@ describe("translation store", () => {
     expect(store.getState().text).toBe("first selection");
     store.getState().stageBrowserSelection("second selection");
     expect(store.getState().text).toBe("first selection");
-    expect(store.getState().pendingBrowserSelection?.text).toBe("second selection");
-    store.getState().dismissBrowserSelection();
+    expect(store.getState().pendingIncomingText?.text).toBe("second selection");
+    store.getState().dismissIncomingText();
     expect(store.getState().text).toBe("first selection");
     store.getState().stageBrowserSelection("third selection");
-    store.getState().acceptBrowserSelection();
+    store.getState().acceptIncomingText();
     expect(store.getState().text).toBe("third selection");
-    expect(store.getState().pendingBrowserSelection).toBeNull();
+    expect(store.getState().pendingIncomingText).toBeNull();
     expect(gateway.translate).not.toHaveBeenCalled();
+  });
+
+  it("reads the clipboard only on import and stages text over an existing draft", async () => {
+    const gateway = stubGateway();
+    const readText = vi.fn(async () => "Clipboard draft\n");
+    const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
+    try {
+      const { store } = createStore(gateway);
+      store.getState().setText("Existing draft");
+      expect(readText).not.toHaveBeenCalled();
+      await store.getState().importClipboard();
+      expect(readText).toHaveBeenCalledTimes(1);
+      expect(store.getState().text).toBe("Existing draft");
+      expect(store.getState().pendingIncomingText).toMatchObject({ source: "clipboard", text: "Clipboard draft\n" });
+      store.getState().acceptIncomingText();
+      expect(store.getState().text).toBe("Clipboard draft\n");
+      expect(gateway.translate).not.toHaveBeenCalled();
+    } finally {
+      if (original) Object.defineProperty(navigator, "clipboard", original);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
+  it("ignores old clipboard reads and rejects empty or oversized input without editing the draft", async () => {
+    const gateway = stubGateway();
+    let finish: (text: string) => void = () => {};
+    const readText = vi.fn()
+      .mockReturnValueOnce(new Promise<string>(resolve => { finish = resolve; }))
+      .mockResolvedValueOnce("newest text")
+      .mockResolvedValueOnce(" \n")
+      .mockResolvedValueOnce("x" + " ".repeat(50_000));
+    const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
+    try {
+      const { store } = createStore(gateway);
+      const first = store.getState().importClipboard();
+      await store.getState().importClipboard();
+      finish("older text");
+      await first;
+      expect(store.getState().text).toBe("newest text");
+      expect(store.getState().pendingIncomingText).toBeNull();
+      await store.getState().importClipboard();
+      expect(store.getState().error).toBe("Clipboard contains no text");
+      await store.getState().importClipboard();
+      expect(store.getState().error).toBe("Clipboard text exceeds the 50,000-character translation limit");
+      expect(store.getState().text).toBe("newest text");
+      expect(gateway.translate).not.toHaveBeenCalled();
+    } finally {
+      if (original) Object.defineProperty(navigator, "clipboard", original);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 
   it("does not translate empty text", async () => {

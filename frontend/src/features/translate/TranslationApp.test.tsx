@@ -37,6 +37,43 @@ describe("translate composer", () => {
     expect(container.textContent).toContain("开始翻译");
   });
 
+  it("imports clipboard text through the workbench and asks before replacing a draft", async () => {
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    const readText = vi.fn(async () => "Text from another application");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
+    const gateway = stubGateway();
+    const store = createTranslationStore({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    try {
+      const view = render(<TranslationMain store={store} />);
+      const draft = view.getByRole("textbox", { name: t("Source text") }) as HTMLTextAreaElement;
+      const click = (label: string) => fireEvent.click(view.getByRole("button", { name: t(label) }));
+      fireEvent.change(draft, { target: { value: "Keep this draft" } });
+      expect(readText).not.toHaveBeenCalled();
+
+      click("Import from clipboard");
+      const preview = await view.findByRole("textbox", { name: t("Clipboard text") }) as HTMLTextAreaElement;
+      expect(preview.value).toBe("Text from another application");
+      expect(draft.value).toBe("Keep this draft");
+      click("Keep current draft");
+      expect(view.queryByRole("textbox", { name: t("Clipboard text") })).toBeNull();
+      expect(draft.value).toBe("Keep this draft");
+
+      click("Import from clipboard");
+      await view.findByRole("textbox", { name: t("Clipboard text") });
+      click("Use clipboard text");
+      expect(draft.value).toBe("Text from another application");
+      expect(readText).toHaveBeenCalledTimes(2);
+      expect(gateway.translate).not.toHaveBeenCalled();
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
   it("runs translation with Ctrl+Enter", async () => {
     const gateway = stubGateway();
     const store = createTranslationStore({

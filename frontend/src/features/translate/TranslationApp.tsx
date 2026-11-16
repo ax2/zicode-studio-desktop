@@ -39,10 +39,11 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
   const error = store((state) => state.error);
   const cancelled = store((state) => state.cancelled);
   const incoming = store((state) => {
-    const pending = state.pendingBrowserSelection, scope = state.getScope();
-    return pending?.scope.sceneId === scope.sceneId && pending.scope.workspaceId === scope.workspaceId ? pending.text : null;
+    const pending = state.pendingIncomingText, scope = state.getScope();
+    return pending?.scope.sceneId === scope.sceneId && pending.scope.workspaceId === scope.workspaceId ? pending : null;
   });
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const incomingLabel = incoming?.source === "clipboard" ? t("Clipboard text") : t("Selected webpage text");
 
   return (
     <div className="translate-main">
@@ -68,13 +69,13 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
       />
 
       {incoming && (
-        <section className="ui-card translate-incoming" aria-label={t("Selected webpage text")}>
-          <textarea className="ui-textarea" readOnly rows={3} value={incoming} aria-label={t("Selected webpage text")} />
+        <section className="ui-card translate-incoming" aria-label={incomingLabel}>
+          <textarea className="ui-textarea" readOnly rows={3} value={incoming.text} aria-label={incomingLabel} />
           <div className="ui-toolbar">
-            <button type="button" className="ui-button ui-button--secondary" disabled={busy} onClick={() => store.getState().acceptBrowserSelection()}>
-              {t("Use selected text")}
+            <button type="button" className="ui-button ui-button--secondary" disabled={busy} onClick={() => store.getState().acceptIncomingText()}>
+              {incoming.source === "clipboard" ? t("Use clipboard text") : t("Use selected text")}
             </button>
-            <button type="button" className="ui-button ui-button--ghost" onClick={() => store.getState().dismissBrowserSelection()}>
+            <button type="button" className="ui-button ui-button--ghost" onClick={() => store.getState().dismissIncomingText()}>
               {t("Keep current draft")}
             </button>
           </div>
@@ -98,6 +99,13 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
           }}
         />
         <div className="translate-controls">
+          <button
+            type="button"
+            className="ui-button ui-button--ghost ui-button--sm"
+            onClick={() => void store.getState().importClipboard()}
+          >
+            {t("Import from clipboard")}
+          </button>
           <div className="settings-field">
             <span>{t("Source language")}</span>
             <Select
