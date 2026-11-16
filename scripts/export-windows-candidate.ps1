@@ -40,6 +40,20 @@ if ((Get-FileHash -LiteralPath $marker -Algorithm SHA256).Hash -ne (Get-FileHash
     throw 'Portable Git version marker differs from installer'
 }
 Copy-Item -LiteralPath $entries[0].FullName -Destination $candidate
+# upload-artifact otherwise omits this required dotfile. Permit only the
+# known package marker before allowing hidden files into the artifact.
+$hiddenEntries = @(Get-ChildItem -LiteralPath $candidate -Recurse -Force |
+    Where-Object { $_.Name.StartsWith('.') })
+if ($hiddenEntries.Count -ne 1 -or $hiddenEntries[0].PSIsContainer -or $hiddenEntries[0].FullName -cne $marker) {
+    throw 'Windows acceptance export must contain only portable-git/.version as a hidden path'
+}
+$gitLock = Get-Content -LiteralPath 'scripts/portable-git-version.json' -Raw | ConvertFrom-Json
+$expectedMarker = [ordered]@{ version = $gitLock.version; target = 'windows-x64'; sha256 = $gitLock.assets.'windows-x64'.sha256 } |
+    ConvertTo-Json -Compress
+if ((Get-Item -LiteralPath $marker).Length -gt 256 -or (Get-Content -LiteralPath $marker -Raw).Trim() -cne $expectedMarker) {
+    throw 'Exported Portable Git marker does not match the pinned package'
+}
+
 $inventory = @($files | Sort-Object FullName | ForEach-Object {
     @{ path = [IO.Path]::GetRelativePath($runtime, $_.FullName).Replace('\', '/');
        bytes = $_.Length; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
