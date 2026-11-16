@@ -353,6 +353,7 @@ jobs:
           path: ${{ runner.temp }}/studio-windows-candidate/
           retention-days: 14
           if-no-files-found: error
+          include-hidden-files: true
 
       - name: Upload updater artifacts when signing is enabled
         if: env.UPDATER_SIGNING_CONFIGURED == 'true'
