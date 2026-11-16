@@ -15,6 +15,8 @@ static PROFILE: OnceLock<Profile> = OnceLock::new();
 struct Profile {
     root: PathBuf,
     _lock: Option<File>,
+    system_credentials: bool,
+    explicit_isolation: bool,
 }
 
 pub fn root() -> Option<&'static Path> {
@@ -23,6 +25,20 @@ pub fn root() -> Option<&'static Path> {
 
 pub fn is_isolated() -> bool {
     root().is_some()
+}
+
+/// Only an explicitly opted-in persistent personal profile may use its vault.
+/// A command-line test profile always wins and never inherits this permission.
+pub fn system_credentials_enabled() -> bool {
+    PROFILE
+        .get()
+        .is_none_or(|profile| profile.system_credentials)
+}
+
+pub fn requires_explicit_argument() -> bool {
+    PROFILE
+        .get()
+        .is_some_and(|profile| profile.explicit_isolation)
 }
 
 pub fn owns_lock() -> bool {
@@ -75,12 +91,21 @@ pub fn configure_pi_child(command: &mut std::process::Command) {
 }
 
 pub fn initialize(arguments: impl IntoIterator<Item = OsString>) -> Result<(), String> {
-    let path = match parse(arguments)? {
-        Some(explicit) => Some(explicit),
-        None => persistent_profile::selected()?,
+    initialize_with_selection(arguments, persistent_profile::selected)
+}
+
+fn initialize_with_selection(
+    arguments: impl IntoIterator<Item = OsString>,
+    selected: impl FnOnce() -> Result<Option<(PathBuf, bool)>, String>,
+) -> Result<(), String> {
+    let selected = match parse(arguments)? {
+        Some(explicit) => Some((explicit, false, true)),
+        None => selected()?.map(|(path, credentials)| (path, credentials, false)),
     };
-    if let Some(path) = path {
-        let profile = prepare(&path)?;
+    if let Some((path, system_credentials, explicit_isolation)) = selected {
+        let mut profile = prepare(&path)?;
+        profile.system_credentials = system_credentials;
+        profile.explicit_isolation = explicit_isolation;
         PROFILE
             .set(profile)
             .map_err(|_| "Desktop profile already initialized")?;
@@ -181,7 +206,12 @@ fn prepare(path: &Path) -> Result<Profile, String> {
     // request can be handed to the lock holder. It may not set up a Host.
     let lock = lock.try_lock_exclusive().ok().map(|_| lock);
     let root = path.canonicalize().map_err(|error| error.to_string())?;
-    Ok(Profile { root, _lock: lock })
+    Ok(Profile {
+        root,
+        _lock: lock,
+        system_credentials: false,
+        explicit_isolation: true,
+    })
 }
 
 #[cfg(test)]
@@ -249,7 +279,13 @@ mod tests {
         }
         let temp = PathBuf::from(std::env::var_os("ZICODE_ISOLATED_PROFILE_TEST_ROOT").unwrap());
         let path = temp.join("owned-profile");
-        initialize(["--isolated-profile".into(), path.clone().into_os_string()]).unwrap();
+        initialize_with_selection(
+            ["--isolated-profile".into(), path.clone().into_os_string()],
+            || panic!("Explicit test profile must not read personal credential permissions"),
+        )
+        .unwrap();
+        assert!(!system_credentials_enabled());
+        assert!(requires_explicit_argument());
         let expected = path.canonicalize().unwrap();
         let executable = std::env::current_exe()
             .unwrap()
@@ -340,6 +376,53 @@ mod tests {
         assert!(args
             .windows(2)
             .any(|pair| pair == ["--extension", "explicit-bundled.mjs"]));
+    }
+
+    #[test]
+    fn personal_profile_enables_only_explicit_credentials_and_keeps_discovery_isolated() {
+        if std::env::var_os("ZICODE_PERSONAL_PROFILE_TEST_ROOT").is_none() {
+            let fixture = Fixture::new();
+            let output = crate::process_command::new_command(std::env::current_exe().unwrap())
+                .args(["--exact", "desktop_profile::tests::personal_profile_enables_only_explicit_credentials_and_keeps_discovery_isolated"])
+                .env("ZICODE_PERSONAL_PROFILE_TEST_ROOT", fixture.path())
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+            return;
+        }
+        let path = PathBuf::from(std::env::var_os("ZICODE_PERSONAL_PROFILE_TEST_ROOT").unwrap())
+            .join("personal");
+        initialize_with_selection([], || Ok(Some((path.clone(), true)))).unwrap();
+        assert!(system_credentials_enabled());
+        assert!(!requires_explicit_argument());
+        assert!(is_isolated());
+        assert!(!pi_discovery_flags().is_empty());
+        assert_eq!(root().unwrap(), path.canonicalize().unwrap());
+        let executable = std::env::current_exe()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(
+            crate::explorer_entry::forwarded_intent(&[executable.clone(), "--tools-only".into()])
+                .unwrap(),
+            Some(crate::explorer_launch_state::EntryIntent::Tools)
+        );
+        assert!(crate::explorer_entry::forwarded_intent(&[
+            executable,
+            "--isolated-profile".into(),
+            path.to_string_lossy().into_owned(),
+            "--tools-only".into()
+        ])
+        .is_err());
+        let mut command = crate::process_command::new_command("unused");
+        command.env("UNRELATED_SECRET_SENTINEL", "never-inherit");
+        configure_pi_child(&mut command);
+        assert!(!command
+            .get_envs()
+            .any(|(key, _)| key == "UNRELATED_SECRET_SENTINEL"));
     }
 
     #[test]

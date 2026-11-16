@@ -28,6 +28,9 @@ pub struct AssetSummary {
     #[cfg(windows)]
     #[serde(rename = "generatedFrom", skip_serializing_if = "Option::is_none")]
     pub(super) generated_from: Option<super::generation_outputs::Provenance>,
+    #[cfg(windows)]
+    #[serde(rename = "creationJobId", skip_serializing_if = "Option::is_none")]
+    pub(super) creation_job_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -77,6 +80,9 @@ pub fn has_managed_schema(db: &Connection) -> rusqlite::Result<bool> {
     }
     let reference = Connection::open_in_memory()?;
     reference.execute_batch(SCHEMA)?;
+    if super::creation_archive::schema_present(db)? {
+        reference.execute_batch(super::creation_archive::SCHEMA)?;
+    }
     let actual = entries(db)?;
     if actual == entries(&reference)? {
         return Ok(true);
@@ -166,6 +172,7 @@ pub fn listing(
     {
         super::reference_catalog::fill_page(db, &mut page)?;
         super::generation_outputs::fill_page(db, &mut page)?;
+        super::creation_archive::fill_page(db, &mut page)?;
     }
     Ok(page)
 }
@@ -183,6 +190,8 @@ pub(super) fn read_page(rows: &mut Rows<'_>) -> rusqlite::Result<Page> {
             archived_reference: false,
             #[cfg(windows)]
             generated_from: None,
+            #[cfg(windows)]
+            creation_job_id: None,
         });
     }
     let next = if assets.len() > PAGE_SIZE {

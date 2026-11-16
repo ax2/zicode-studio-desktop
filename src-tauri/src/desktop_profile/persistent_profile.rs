@@ -10,13 +10,20 @@ struct Selection {
     profile_root: PathBuf,
 }
 
-pub(super) fn selected() -> Result<Option<PathBuf>, String> {
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CredentialPermission {
+    schema_version: u32,
+    system_credentials: bool,
+}
+
+pub(super) fn selected() -> Result<Option<(PathBuf, bool)>, String> {
     let directory =
         dirs::data_local_dir().ok_or("Cannot resolve the profile selection directory")?;
     read(&directory.join("zicode/desktop-profile.json"))
 }
 
-fn read(file: &Path) -> Result<Option<PathBuf>, String> {
+fn read(file: &Path) -> Result<Option<(PathBuf, bool)>, String> {
     super::require_unlinked(file)?;
     let metadata = match fs::metadata(file) {
         Ok(metadata) => metadata,
@@ -44,7 +51,31 @@ fn read(file: &Path) -> Result<Option<PathBuf>, String> {
     if !root.is_dir() || !marker.is_file() {
         return Err(format!("Saved Studio data is unavailable at {}. Restore this directory before starting Studio; no empty replacement was created.", root.display()));
     }
-    Ok(Some(root))
+    let enabled = credential_permission(&root)?;
+    Ok(Some((root, enabled)))
+}
+
+// Keep the existing selection document readable by already installed versions.
+// Explicit test profiles never call this function, even for the same directory.
+fn credential_permission(root: &Path) -> Result<bool, String> {
+    let file = root.join("system/credentials/profile-permission.json");
+    super::require_unlinked(&file)?;
+    let metadata = match fs::metadata(&file) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(_) => return Err("Cannot read personal credential permission".into()),
+    };
+    if !metadata.is_file() || metadata.len() > 4096 {
+        return Err("Invalid personal credential permission".into());
+    }
+    let permission: CredentialPermission = serde_json::from_slice(
+        &fs::read(file).map_err(|_| "Cannot read personal credential permission")?,
+    )
+    .map_err(|_| "Invalid personal credential permission")?;
+    if permission.schema_version != 1 {
+        return Err("Unsupported personal credential permission version".into());
+    }
+    Ok(permission.system_credentials)
 }
 
 #[cfg(test)]
@@ -66,8 +97,16 @@ mod tests {
             serde_json::to_vec(&serde_json::json!({"schemaVersion":1,"profileRoot":root})).unwrap(),
         )
         .unwrap();
-        assert_eq!(read(&file).unwrap(), Some(root.clone()));
-        assert_eq!(read(&file).unwrap(), Some(root.clone()));
+        assert_eq!(read(&file).unwrap(), Some((root.clone(), false)));
+        assert_eq!(read(&file).unwrap(), Some((root.clone(), false)));
+        let permission = root.join("system/credentials/profile-permission.json");
+        fs::create_dir_all(permission.parent().unwrap()).unwrap();
+        fs::write(
+            &permission,
+            r#"{"schemaVersion":1,"systemCredentials":true}"#,
+        )
+        .unwrap();
+        assert_eq!(read(&file).unwrap(), Some((root.clone(), true)));
         let relocated = fixture.path().join("temporarily-unavailable");
         fs::rename(&root, &relocated).unwrap();
         assert!(read(&file).unwrap_err().contains("no empty replacement"));

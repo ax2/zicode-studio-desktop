@@ -23,6 +23,12 @@ mod backup_destination;
 mod backup_jobs;
 #[path = "catalog.rs"]
 mod catalog;
+#[path = "creation_types.rs"]
+#[allow(dead_code)]
+mod creation_types;
+#[path = "creation_archive.rs"]
+#[allow(dead_code)]
+mod creation_archive;
 #[path = "character_commands.rs"]
 mod character_commands;
 #[path = "characters.rs"]

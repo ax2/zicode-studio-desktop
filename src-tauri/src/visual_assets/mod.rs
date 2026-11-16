@@ -28,6 +28,20 @@ mod collections;
 #[cfg(windows)]
 mod comfyui;
 mod commands;
+#[cfg(windows)]
+mod creation_types;
+#[cfg(windows)]
+mod creation_errors;
+#[cfg(windows)]
+mod creation_http;
+#[cfg(windows)]
+mod creation_store;
+#[cfg(windows)]
+mod creation_archive;
+#[cfg(windows)]
+mod creation_commands;
+#[cfg(all(windows, test))]
+mod creation_tests;
 mod duplicates;
 #[cfg(windows)]
 mod generation_attempts;

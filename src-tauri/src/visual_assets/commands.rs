@@ -16,6 +16,14 @@ static PREVIEWS: LazyLock<Mutex<Previews>> = LazyLock::new(|| Mutex::new(Preview
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Request {
+    #[cfg(windows)]
+    Creation {
+        #[serde(rename = "libraryId")]
+        library_id: Option<String>,
+        #[serde(rename = "sceneId")]
+        scene_id: String,
+        action: super::creation_commands::Action,
+    },
     List {
         after: Option<i64>,
         query: Option<String>,
@@ -143,6 +151,10 @@ pub(crate) async fn visual_assets_control(
             let _ = intent;
             return Err("visual_assets_worker_platform_unavailable".into());
         }
+    }
+    #[cfg(windows)]
+    if let Request::Creation { library_id, scene_id, action } = request {
+        return super::creation_commands::handle(window, context, scene_id, library_id, action).await;
     }
     #[cfg(windows)]
     if let Request::Generation { library_id, action } = request {
@@ -346,7 +358,8 @@ pub(crate) async fn visual_assets_control(
             #[cfg(windows)]
             Request::Characters { .. }
             | Request::Generation { .. }
-            | Request::NovelDrafts { .. } => unreachable!(),
+            | Request::NovelDrafts { .. }
+            | Request::Creation { .. } => unreachable!(),
             Request::ImportBatch
             | Request::ImportReferences
             | Request::StartBackup { .. }

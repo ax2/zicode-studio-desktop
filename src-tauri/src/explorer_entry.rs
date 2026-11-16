@@ -99,6 +99,9 @@ pub fn forwarded_intent(args: &[String]) -> Result<Option<EntryIntent>, String> 
     let mut remaining = arguments.iter();
     while let Some(argument) = remaining.next() {
         if argument == "--isolated-profile" {
+            if !crate::desktop_profile::requires_explicit_argument() {
+                return Err("A test launch cannot attach to a personal Studio profile".into());
+            }
             if profile_seen {
                 return Err("Duplicate isolated profile in secondary launch".into());
             }
@@ -116,7 +119,7 @@ pub fn forwarded_intent(args: &[String]) -> Result<Option<EntryIntent>, String> 
             entry_args.push(argument.as_str());
         }
     }
-    if crate::desktop_profile::is_isolated() && !profile_seen {
+    if crate::desktop_profile::requires_explicit_argument() && !profile_seen {
         return Err("Secondary launch omitted its isolated profile".into());
     }
     match entry_args.as_slice() {

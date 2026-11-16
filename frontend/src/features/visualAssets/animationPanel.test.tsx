@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BackupPanel } from "./BackupPanel";
-import { type Invoke, VisualAssetsApp } from "./VisualAssetsApp";
+import { type Invoke, AssetLibrary as VisualAssetsApp } from "./AssetLibrary";
 
 vi.mock("../../shared/i18n", () => ({ t: (value: string) => value }));
 afterEach(cleanup);
