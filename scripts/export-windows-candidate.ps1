@@ -22,9 +22,9 @@ $files = @($entries[0])
 foreach ($folder in @('public', 'extensions', 'pi', 'portable-git', 'bun', 'webview2')) {
     $resource = Join-Path $runtime $folder
     if (-not (Test-Path $resource)) { throw "Missing runtime resource: $folder" }
-    $files += @(Get-ChildItem -LiteralPath $resource -File -Recurse)
+    $files += @(Get-ChildItem -LiteralPath $resource -File -Recurse -Force)
     if ($folder -in @('public', 'extensions')) {
-        Copy-Item -LiteralPath $resource -Destination (Join-Path $candidate $folder) -Recurse
+        Copy-Item -LiteralPath $resource -Destination (Join-Path $candidate $folder) -Recurse -Force
     }
 }
 # Portable Git configuration can differ between installations. Export it
@@ -32,8 +32,13 @@ foreach ($folder in @('public', 'extensions', 'pi', 'portable-git', 'bun', 'webv
 $gitSource = Join-Path $runtime 'portable-git'
 $gitCandidate = Join-Path $candidate 'portable-git'
 New-Item -ItemType Directory -Path $gitCandidate | Out-Null
-Copy-Item -LiteralPath (Join-Path $gitSource 'etc') -Destination (Join-Path $gitCandidate 'etc') -Recurse
-Get-ChildItem -LiteralPath $gitSource -File | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $gitCandidate }
+Copy-Item -LiteralPath (Join-Path $gitSource 'etc') -Destination (Join-Path $gitCandidate 'etc') -Recurse -Force
+Get-ChildItem -LiteralPath $gitSource -File -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $gitCandidate -Force }
+$marker = Join-Path $gitCandidate '.version'
+if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) { throw 'Portable Git version marker is missing from candidate' }
+if ((Get-FileHash -LiteralPath $marker -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath (Join-Path $gitSource '.version') -Algorithm SHA256).Hash) {
+    throw 'Portable Git version marker differs from installer'
+}
 Copy-Item -LiteralPath $entries[0].FullName -Destination $candidate
 $inventory = @($files | Sort-Object FullName | ForEach-Object {
     @{ path = [IO.Path]::GetRelativePath($runtime, $_.FullName).Replace('\', '/');
