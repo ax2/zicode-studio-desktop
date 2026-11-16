@@ -11,6 +11,7 @@ export { TranslationHttpGateway } from "./translationStore";
 export function setupTranslationApp(options: TranslationOptions) {
   return createTranslationApp({
     gateway: options.gateway ?? new TranslationHttpGateway(),
+    clipboardTranslation: options.clipboardTranslation,
     getTarget: options.getTarget,
     notify: options.notify,
   });

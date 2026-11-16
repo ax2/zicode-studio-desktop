@@ -5,9 +5,11 @@ import { t } from "../../shared/i18n";
 import { ModelToolPicker } from "../../shared/ModelToolPicker";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { Select } from "../../shared/Select";
+import { DesktopClipboardTranslation, type ClipboardTranslationInvoke } from "./DesktopClipboardTranslation";
 import { TARGET_LANGUAGES } from "./translationLogic";
 import {
   createTranslationStore,
+  type ClipboardTranslationDraft,
   type TranslationOptions,
   type TranslationStore,
 } from "./translationStore";
@@ -21,6 +23,7 @@ export type TranslationAppApi = {
   executeCommand(): void;
   focusInput(): void;
   stageBrowserSelection(text: string): void;
+  stageClipboardTranslation(draft: ClipboardTranslationDraft): void;
   refresh(): Promise<void>;
 };
 
@@ -28,7 +31,10 @@ function TranslationNav() {
   return <nav className="translate-nav" aria-label={t("Translate")} />;
 }
 
-export function TranslationMain({ store }: { store: TranslationStore }) {
+export function TranslationMain({ store, clipboardTranslation }: {
+  store: TranslationStore;
+  clipboardTranslation?: ClipboardTranslationInvoke;
+}) {
   const modelSelection = store((state) => state.modelSelection);
   const text = store((state) => state.text);
   const sourceLang = store((state) => state.sourceLang);
@@ -43,7 +49,8 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
     return pending?.scope.sceneId === scope.sceneId && pending.scope.workspaceId === scope.workspaceId ? pending : null;
   });
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const incomingLabel = incoming?.source === "clipboard" ? t("Clipboard text") : t("Selected webpage text");
+  const incomingLabel = incoming?.source === "floating" ? t("Clipboard translation") :
+    incoming?.source === "clipboard" ? t("Clipboard text") : t("Selected webpage text");
 
   return (
     <div className="translate-main">
@@ -73,7 +80,8 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
           <textarea className="ui-textarea" readOnly rows={3} value={incoming.text} aria-label={incomingLabel} />
           <div className="ui-toolbar">
             <button type="button" className="ui-button ui-button--secondary" disabled={busy} onClick={() => store.getState().acceptIncomingText()}>
-              {incoming.source === "clipboard" ? t("Use clipboard text") : t("Use selected text")}
+              {incoming.source === "floating" ? t("Use clipboard translation") :
+                incoming.source === "clipboard" ? t("Use clipboard text") : t("Use selected text")}
             </button>
             <button type="button" className="ui-button ui-button--ghost" onClick={() => store.getState().dismissIncomingText()}>
               {t("Keep current draft")}
@@ -83,6 +91,7 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
       )}
       <section className="ui-card translate-source">
         <ModelToolPicker sceneId={store.getState().getSceneId()} value={modelSelection} onChange={store.getState().setModelSelection} load={store.getState().loadModels} disabled={busy} />
+        {clipboardTranslation && <DesktopClipboardTranslation invoke={clipboardTranslation} selection={modelSelection} />}
         <textarea
           ref={inputRef}
           className="translate-textarea"
@@ -242,7 +251,7 @@ export function createTranslationApp(options: TranslationOptions): TranslationAp
     },
     renderContent(container) {
       contentContainer = container;
-      contentRoot = mountPluginSurface(container, <TranslationMain store={store} />, contentRoot);
+      contentRoot = mountPluginSurface(container, <TranslationMain store={store} clipboardTranslation={options.clipboardTranslation} />, contentRoot);
     },
     deactivate() {},
     destroy() {
@@ -257,6 +266,7 @@ export function createTranslationApp(options: TranslationOptions): TranslationAp
     },
     executeCommand() {},
     stageBrowserSelection(text) { store.getState().stageBrowserSelection(text); },
+    stageClipboardTranslation(draft) { store.getState().stageClipboardTranslation(draft); },
     focusInput() { requestAnimationFrame(() => contentContainer?.querySelector<HTMLTextAreaElement>(".translate-textarea")?.focus()); },
     refresh() {
       return Promise.resolve();

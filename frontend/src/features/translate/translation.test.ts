@@ -112,6 +112,25 @@ describe("translation store", () => {
     }
   });
 
+  it("transfers clipboard result and languages only after confirmation and without another translation", () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    store.getState().setText("Existing workbench draft");
+    store.getState().stageClipboardTranslation({
+      text: "Original", sourceLang: "English", targetLang: "Chinese",
+      result: { ...RESULT, sourceLang: "English", targetLang: "Chinese" },
+    });
+    expect(store.getState().text).toBe("Existing workbench draft");
+    expect(store.getState().result).toBeNull();
+    store.getState().acceptIncomingText();
+    expect(store.getState()).toMatchObject({
+      text: "Original", sourceLang: "English", targetLang: "Chinese", editedText: "你好",
+    });
+    store.getState().swap();
+    expect(store.getState().text).toBe("你好");
+    expect(gateway.translate).not.toHaveBeenCalled();
+  });
+
   it("does not translate empty text", async () => {
     const gateway = stubGateway();
     const { store } = createStore(gateway);

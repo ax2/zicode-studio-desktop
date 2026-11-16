@@ -3,9 +3,10 @@ const sameScope = (a, b) => a.sceneId === b.sceneId && a.workspaceId === b.works
 
 // Navigation only. Opening translation never reads the clipboard or calls a model.
 export function setupTranslationShortcuts({
-  activate, getActivePluginId, getTarget, focusInput, stageSelection, recordRecent, listen, onError = () => {},
+  activate, getActivePluginId, getTarget, focusInput, stageSelection, takeHandoff, stageHandoff, recordRecent, listen, listenHandoff, onError = () => {},
 }) {
-  let disposed = false, unlisten;
+  let disposed = false;
+  const unlisten = [];
   let scopeRevision = 0;
   const readScope = () => {
     const { sceneId, workspaceId } = getTarget();
@@ -24,7 +25,7 @@ export function setupTranslationShortcuts({
       // Navigation has already succeeded. History storage is best effort.
     }
   };
-  const open = async (text, options) => {
+  const open = async (text, options, loadDraft) => {
     if (disposed) return;
     updateScope();
     const scope = lastScope;
@@ -32,7 +33,12 @@ export function setupTranslationShortcuts({
     const activated = await activate(translationId, options);
     updateScope();
     if (disposed || activated === false || scopeRevision !== revision || getActivePluginId() !== translationId) return;
-    if (text) stageSelection?.(text);
+    if (loadDraft) {
+      const draft = await loadDraft();
+      updateScope();
+      if (disposed || scopeRevision !== revision || getActivePluginId() !== translationId) return;
+      if (draft) stageHandoff?.(draft);
+    } else if (text) stageSelection?.(text);
     focusInput();
     void remember(scope);
   };
@@ -47,7 +53,14 @@ export function setupTranslationShortcuts({
   document.addEventListener("keydown", keydown);
   window.addEventListener("zicode:open-translation", requested);
   window.addEventListener("zicode:tool-target-changed", updateScope);
-  if (listen) Promise.resolve(listen("studio-open-translation", requested)).then(stop => { if (disposed) stop(); else unlisten = stop; }).catch(onError);
+  const subscribe = (listener, event, callback) => {
+    if (listener) Promise.resolve(listener(event, callback))
+      .then(stop => { if (disposed) stop(); else unlisten.push(stop); }).catch(onError);
+  };
+  subscribe(listen, "studio-open-translation", requested);
+  if (takeHandoff) subscribe(listenHandoff, "studio-clipboard-translation-handoff", () => {
+    void open(null, { historyMode: "push" }, takeHandoff).catch(error => { if (!disposed) onError(error); });
+  });
   return {
     open,
     destroy() {
@@ -56,7 +69,7 @@ export function setupTranslationShortcuts({
       document.removeEventListener("keydown", keydown);
       window.removeEventListener("zicode:open-translation", requested);
       window.removeEventListener("zicode:tool-target-changed", updateScope);
-      unlisten?.();
+      for (const stop of unlisten) stop();
     },
   };
 }

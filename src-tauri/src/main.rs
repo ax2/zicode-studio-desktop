@@ -104,6 +104,8 @@ mod scene_profiles;
 mod settings_store;
 mod summary;
 mod translation;
+mod desktop_clipboard_translation;
+use desktop_clipboard_translation::clipboard_translation;
 mod turn_probe;
 mod web_extract;
 mod web_watch;
@@ -2106,6 +2108,7 @@ fn main() {
             open_desktop_tool_center,
             set_desktop_tray_locale,
             set_desktop_tool_shortcuts,
+            clipboard_translation,
             desktop_explorer_menu,
             select_project_resource_file,
             select_result_text_export,
@@ -2346,6 +2349,10 @@ fn main() {
                 tauri::WindowEvent::Focused(true) if label == "bootstrap" => {
                     desktop_tray::remember_focus(window.app_handle(), label);
                 }
+                #[cfg(windows)]
+                tauri::WindowEvent::Destroyed if label == desktop_clipboard_translation::POPUP_LABEL => {
+                    desktop_clipboard_translation::destroyed(window.app_handle());
+                }
                 tauri::WindowEvent::Destroyed if label == "bootstrap" => {
                     desktop_tray::forget_window(window.app_handle(), label);
                 }
@@ -2365,6 +2372,10 @@ fn main() {
             // Re-apply the remembered size once all windows are ready so
             // restore works deterministically on every launch.
             tauri::RunEvent::Ready => {
+                #[cfg(windows)]
+                if let Err(error) = desktop_clipboard_translation::install(app_handle) {
+                    log::warn!("[clipboard-translation] {error}");
+                }
                 if let Some(state) = load_window_state() {
                     for window in app_handle.webview_windows().values() {
                         if window.label().starts_with("native-workspace-") {
@@ -2374,6 +2385,8 @@ fn main() {
                 }
             }
             tauri::RunEvent::Exit => {
+                #[cfg(windows)]
+                desktop_clipboard_translation::shutdown(app_handle);
                 #[cfg(windows)]
                 browser::shutdown_downloads();
                 if let Err(error) = browser::history_worker::flush() { log::warn!("[browser-history] {error}"); }

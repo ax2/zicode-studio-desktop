@@ -28,6 +28,11 @@ pub struct ModelEndpoint {
 }
 
 impl ModelEndpoint {
+    pub(crate) fn is_loopback(&self) -> bool {
+        let host = self.url.host_str().unwrap_or_default().trim_matches(['[', ']']);
+        host.eq_ignore_ascii_case("localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
+    }
+
     /// Binds a reviewed request to its complete destination, including a path
     /// change on the same origin. No credential material participates.
     #[cfg(any(windows, test))]
@@ -190,16 +195,7 @@ pub async fn complete_limited_cancellable(
     let mut builder = reqwest::Client::builder()
         .timeout(timeout)
         .redirect(reqwest::redirect::Policy::none());
-    let host = endpoint
-        .url
-        .host_str()
-        .unwrap_or_default()
-        .trim_matches(['[', ']']);
-    if host.eq_ignore_ascii_case("localhost")
-        || host
-            .parse::<std::net::IpAddr>()
-            .is_ok_and(|ip| ip.is_loopback())
-    {
+    if endpoint.is_loopback() {
         builder = builder.no_proxy();
     }
     let client = builder.build().map_err(|_| "model_client_unavailable")?;
@@ -255,16 +251,7 @@ fn complete_inner(
     let mut builder = reqwest::blocking::Client::builder()
         .timeout(timeout)
         .redirect(reqwest::redirect::Policy::none());
-    let host = endpoint
-        .url
-        .host_str()
-        .unwrap_or_default()
-        .trim_matches(['[', ']']);
-    if host.eq_ignore_ascii_case("localhost")
-        || host
-            .parse::<std::net::IpAddr>()
-            .is_ok_and(|ip| ip.is_loopback())
-    {
+    if endpoint.is_loopback() {
         builder = builder.no_proxy();
     }
     let client = builder.build().map_err(|_| "model_client_unavailable")?;

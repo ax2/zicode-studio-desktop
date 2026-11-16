@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { friendlyPluginError } from "../../shared/hostErrors";
 import { t } from "../../shared/i18n";
 import type { ModelToolChoice, ModelToolSelection } from "../../shared/ModelToolPicker";
+import type { ClipboardTranslationInvoke } from "./DesktopClipboardTranslation";
 import type { TranslationResult } from "./translationLogic";
 
 export interface TranslationScope {
@@ -74,11 +75,16 @@ export class TranslationHttpGateway implements TranslationGateway {
   }
 }
 
-type IncomingText = {
-  source: "webpage" | "clipboard";
+export type ClipboardTranslationDraft = {
   text: string;
-  scope: TranslationScope;
+  sourceLang: string | null;
+  targetLang: string;
+  result: TranslationResult | null;
 };
+
+type IncomingText = { text: string; scope: TranslationScope } & (
+  { source: "webpage" | "clipboard" } | { source: "floating"; draft: ClipboardTranslationDraft }
+);
 
 const sameScope = (a: TranslationScope, b: TranslationScope) =>
   a.sceneId === b.sceneId && a.workspaceId === b.workspaceId;
@@ -92,6 +98,7 @@ export interface TranslationState {
   getScope(): TranslationScope;
   pendingIncomingText: IncomingText | null;
   stageBrowserSelection(value: string): void;
+  stageClipboardTranslation(draft: ClipboardTranslationDraft): void;
   importClipboard(): Promise<void>;
   acceptIncomingText(): void;
   dismissIncomingText(): void;
@@ -118,6 +125,7 @@ export interface TranslationState {
 
 export interface TranslationOptions {
   gateway?: TranslationGateway;
+  clipboardTranslation?: ClipboardTranslationInvoke;
   getTarget(): TranslationScope;
   notify(message: string): void;
 }
@@ -128,10 +136,26 @@ export function createTranslationStore(options: TranslationOptions) {
   let incomingRevision = 0;
   let activeRequest: AbortController | null = null;
   let completedInput: { scope: TranslationScope; text: string; sourceLang: string; targetLang: string } | null = null;
-  function stageIncomingText(text: string, source: IncomingText["source"], scope: TranslationScope) {
+  function applyIncoming(incoming: IncomingText) {
+    if (incoming.source !== "floating") {
+      store.getState().setText(incoming.text);
+      return;
+    }
+    const { text, targetLang, result, sourceLang: source } = incoming.draft;
+    const sourceLang = source ?? "";
+    inputRevision += 1;
+    completedInput = result ? { scope: incoming.scope, text, sourceLang, targetLang } : null;
+    store.setState({ text, sourceLang, targetLang, result, editedText: result?.translated ?? "", error: "", cancelled: false });
+  }
+
+  function stageIncomingText(incoming: IncomingText) {
     const current = store.getState();
-    if (!current.text.trim() && !current.busy && !current.result) current.setText(text);
-    store.setState({ pendingIncomingText: text !== store.getState().text ? { text, source, scope } : null });
+    if (!current.text.trim() && !current.busy && !current.result) {
+      applyIncoming(incoming);
+      store.setState({ pendingIncomingText: null });
+      return;
+    }
+    store.setState({ pendingIncomingText: incoming.source === "floating" || incoming.text !== current.text ? incoming : null });
   }
 
   const store = create<TranslationState>()((set, get) => ({
@@ -148,7 +172,12 @@ export function createTranslationStore(options: TranslationOptions) {
     stageBrowserSelection(text) {
       if (!text.trim()) return;
       incomingRevision += 1;
-      stageIncomingText(text, "webpage", { ...getTarget() });
+      stageIncomingText({ text, source: "webpage", scope: { ...getTarget() } });
+    },
+    stageClipboardTranslation(draft) {
+      if (!draft.text.trim()) return;
+      incomingRevision += 1;
+      stageIncomingText({ text: draft.text, source: "floating", scope: { ...getTarget() }, draft });
     },
     async importClipboard() {
       const scope = { ...getTarget() };
@@ -173,12 +202,12 @@ export function createTranslationStore(options: TranslationOptions) {
         return;
       }
       set({ error: "" });
-      stageIncomingText(text, "clipboard", scope);
+      stageIncomingText({ text, source: "clipboard", scope });
     },
     acceptIncomingText() {
       const { pendingIncomingText: pending, busy } = get();
       if (!pending || busy) return;
-      if (sameScope(pending.scope, getTarget())) get().setText(pending.text);
+      if (sameScope(pending.scope, getTarget())) applyIncoming(pending);
       set({ pendingIncomingText: null });
     },
     dismissIncomingText() {

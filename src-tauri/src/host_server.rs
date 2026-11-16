@@ -231,6 +231,18 @@ enum HostMode {
 }
 
 impl HostServer {
+    #[cfg(windows)]
+    pub(crate) fn clipboard_translation_model(
+        &self, scene: &str, provider: &str, model: &str,
+    ) -> Result<crate::model_tools::ModelEndpoint, String> {
+        ensure_translate_authorized(&self.state, scene).map_err(|(_, value)| {
+            value.get("error").and_then(|error| error.get("message")).and_then(Value::as_str)
+                .filter(|message| !message.is_empty())
+                .unwrap_or("Clipboard translation is unavailable").to_string()
+        })?;
+        crate::model_tools::resolve(&crate::app_paths::system_root()?, scene, Some(provider), Some(model))
+    }
+
     pub fn notes_vault(&self) -> Result<NotesVault, String> {
         self.state
             .notes

@@ -1153,7 +1153,11 @@ const habitsApp = setupHabitsApp({
   }),
   notify: notifications.notify,
 });
+const clipboardTranslation = globalThis.__TAURI__?.core?.invoke && navigator.platform.startsWith("Win")
+  ? request => globalThis.__TAURI__.core.invoke("clipboard_translation", { request })
+  : undefined;
 const translationApp = setupTranslationApp({
+  clipboardTranslation,
   getTarget: () => ({
     sceneId: target.sceneId,
     workspaceId: target.workspaceId,
@@ -1303,6 +1307,10 @@ const translationNavigation = setupTranslationShortcuts({
   activate: (id, options) => pluginShell.activate(id, options),
   getActivePluginId: () => pluginShell.getActivePluginId(), getTarget: () => target,
   stageSelection: text => translationApp.stageBrowserSelection(text),
+  takeHandoff: clipboardTranslation ? () => clipboardTranslation({ kind: "takeHandoff" }) : undefined,
+  stageHandoff: draft => translationApp.stageClipboardTranslation(draft),
+  listenHandoff: clipboardTranslation ? (event, callback) =>
+    globalThis.__TAURI__.window.getCurrentWindow().listen(event, callback) : undefined,
   recordRecent: (scope, mutation) => toolAccessStore?.mutate(scope, mutation),
   focusInput: () => translationApp.focusInput(), listen: globalThis.__TAURI__?.event?.listen,
   onError: showError,

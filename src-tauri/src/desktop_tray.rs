@@ -131,6 +131,13 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
     Ok(())
 }
 
+#[cfg(windows)]
+pub(crate) fn translation_locale(app: &AppHandle) -> String {
+    app.try_state::<DesktopTray>()
+        .and_then(|tray| tray.locale.lock().ok().map(|locale| locale.clone()))
+        .unwrap_or_else(|| "zh-CN".into())
+}
+
 pub fn available(app: &AppHandle) -> bool {
     app.try_state::<DesktopTray>().is_some()
 }

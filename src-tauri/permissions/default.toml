@@ -5,6 +5,11 @@
 # the [default] set, which the capability references.
 
 [[permission]]
+identifier = "allow-clipboard-translation"
+description = "Allow verified workspace and clipboard popup windows to configure, display, or transfer an explicitly triggered translation."
+commands.allow = ["clipboard_translation"]
+
+[[permission]]
 identifier = "allow-set-desktop-tool-shortcuts"
 description = "Allow a trusted workspace to project up to eight navigation-only tool shortcuts into the native tray."
 commands.allow = ["set_desktop_tool_shortcuts"]
@@ -281,6 +286,7 @@ permissions = [
   "allow-open-desktop-tool-center",
   "allow-set-desktop-tray-locale",
   "allow-set-desktop-tool-shortcuts",
+  "allow-clipboard-translation",
   "allow-get-project-resource-entry",
   "allow-get-project-resource-entries",
   "allow-get-project-directory-entry",
