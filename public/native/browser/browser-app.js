@@ -32,7 +32,7 @@ import { t } from "../../i18n.js";
 export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   listen = globalThis.__TAURI__?.event?.listen, nativeWindow = globalThis.__TAURI__?.window?.getCurrentWindow?.(), notify = () => {}, getTarget = () => null, onPrepareDraft, canOpenDraftConversation, openDraftConversation, onTranslateSelection } = {}) {
   let startupState, searchSettings, ordering, tabStripControls, tabMenu, tabSearch, pageControls, find, shortcuts, fullscreen;
-  let root, viewport, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
+  let root, viewport, assistant, read, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
   let initialized = false, initPromise, lastSurface = "", surfaceError = "", saveTail = Promise.resolve();
   let actionTail = Promise.resolve(), restoreError = "", statusMessage = "";
@@ -660,8 +660,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       screenshot: () => exportPage("saveScreenshot", "Screenshot saved to Downloads"),
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),
       pin: { state: pinState, toggle: () => act(togglePin) } });
-    const read = makeButton("", readPage); read.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost browser-read";
+    read = makeButton("", readPage); read.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost browser-read";
     read.title = t("Read page"); read.setAttribute("aria-label", read.title);
+    read.setAttribute("aria-controls", "browser-page-assistant");
+    read.setAttribute("aria-expanded", "false");
     read.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h7l2 2h7v16h-7l-2-2H4zM13 5v16M7 7h3M7 11h3M16 9h1M16 13h1"/></svg>';
     bookmarkButton = makeButton("", () => openBookmarks(true)); bookmarkButton.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost browser-bookmark-toggle";
     bookmarkButton.title = `${t("Bookmark this page")} (Ctrl+D)`;
@@ -675,10 +677,16 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     downloads.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>';
     footer.append(status, fullscreen.exit, bookmarkButton, read, downloads, options);
     viewport = document.createElement("div"); viewport.className = "browser-viewport";
+    const pageArea = document.createElement("div"); pageArea.className = "browser-page-area";
+    assistant = document.createElement("aside"); assistant.className = "browser-assistant ui-panel";
+    assistant.id = "browser-page-assistant";
+    assistant.hidden = true;
+    assistant.setAttribute("aria-label", t("Browser assistant"));
+    pageArea.append(viewport, assistant);
     nav.append(footer);
     const filePickerSpace = makeButton(t("Use fullscreen to choose files"), () => fullscreen.toggle());
     filePickerSpace.classList.add("browser-file-picker-space");
-    root.append(strip, nav, find.element, filePickerSpace, viewport);
+    root.append(strip, nav, find.element, filePickerSpace, pageArea);
     startupState = createBrowserStartup({ root, controls: [strip, nav, filePickerSpace], viewport, retry: () => { initPromise = restore(); } });
     new ResizeObserver(() => void run(syncSurface)).observe(viewport);
     document.addEventListener("visibilitychange", () => void run(syncSurface));
@@ -809,15 +817,27 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     }
   }
   async function readPage() {
-    const tab = selected(); if (!tab || !nativeTabs.has(tab.id)) return;
-    const capture = await invoke("browser_capture_page", { tab: tab.id, expectedUrl: tab.url });
-    if (active !== tab.id || selected()?.url !== capture.page.url) throw new Error(t("Page changed. Read it again."));
+    const tab = selected();
+    if (blocked() || assistant.querySelector('[aria-busy="true"]')) return;
+    if (!tab || !nativeTabs.has(tab.id) || !/^https?:/.test(tab.url) || navigationStates.has(tab.id)) {
+      throw new Error(t("Wait for the current page to finish loading"));
+    }
+    const url = tab.url, version = pageVersions.get(tab.id);
+    const sameDocument = () => active === tab.id && selected()?.url === url &&
+      !navigationStates.has(tab.id) && pageVersions.get(tab.id) === version;
+    const ensureOpenSource = () => {
+      if (blocked() || !sameDocument()) throw new Error(t("Page changed. Read it again."));
+    };
+    const capture = await invoke("browser_capture_page", { tab: tab.id, expectedUrl: url });
+    ensureOpenSource();
+    if (capture.page.url !== url) throw new Error(t("Page changed. Read it again."));
     const openConversation = getTarget()?.runtimeMode === "tools" && await canOpenDraftConversation?.()
       ? openDraftConversation : undefined;
-    if (active !== tab.id || selected()?.url !== capture.page.url) throw new Error(t("Page changed. Read it again."));
-    await hide(true);
-    const version = pageVersions.get(tab.id);
-    const isCurrent = () => active === tab.id && selected()?.url === capture.page.url && pageVersions.get(tab.id) === version;
+    ensureOpenSource();
+    if (assistant.querySelector('[aria-busy="true"]')) return;
+    let captureElement;
+    // A successful handoff can detach the Browser while Chat becomes active.
+    const isCurrent = () => sameDocument() && captureElement?.parentNode === assistant;
     const peers = tabs.filter(peer => peer.id !== tab.id && nativeTabs.has(peer.id) &&
       /^https?:/.test(peer.url) && !navigationStates.has(peer.id)).map(peer => ({
       tab: peer.id, url: peer.url, title: peer.title, version: pageVersions.get(peer.id),
@@ -844,13 +864,14 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         readSource: source => readSource(requestFor(source)),
       }),
     };
-    showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? attachments => prepareBrowserDraft({
+    captureElement = showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? attachments => prepareBrowserDraft({
       capture, isCurrent, getTarget, handoff: onPrepareDraft, attachments, openConversation,
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
     }) : undefined, isOpen => createBrowserNoteWriter({ capture, getTarget,
       isCurrent: () => isOpen() && isCurrent(), gateway: new NotesGateway(),
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
-    }), comparison, Boolean(openConversation));
+    }), comparison, Boolean(openConversation), { host: assistant, trigger: read });
+    await syncSurface();
   }
   async function navigate(submission, source) {
     if (active !== source || blocked()) return;

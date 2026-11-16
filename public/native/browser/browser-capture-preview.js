@@ -3,13 +3,24 @@ import { createBrowserCaptureMedia } from "./browser-capture-media.js";
 import { createBrowserNoteClip } from "./browser-note-clip.js";
 import { t } from "../../i18n.js";
 
-export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWriter, comparison, opensChat = false) {
+export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWriter, comparison, opensChat = false, dock) {
   let busy = false;
-  const dialog = document.createElement("dialog");
-  dialog.className = "browser-capture-dialog ui-panel";
-  dialog.setAttribute("aria-label", t("Page content"));
+  const dialog = document.createElement(dock ? "section" : "dialog");
+  dialog.className = dock ? "browser-capture-panel" : "browser-capture-dialog ui-panel";
+  if (!dock) dialog.setAttribute("aria-label", t("Page content"));
+  const isOpen = () => dialog.isConnected && (Boolean(dock) || dialog.open);
+  const dismiss = (restoreFocus = false) => {
+    if (!dock) { dialog.close(); return; }
+    if (dialog.parentNode !== dock.host) return;
+    dialog.remove();
+    dock.host.hidden = true;
+    dock.trigger.setAttribute("aria-expanded", "false");
+    if (restoreFocus) dock.trigger.focus({ preventScroll: true });
+    onClose();
+  };
   const title = document.createElement("h2"); title.textContent = capture.page.title || t("Page content");
   const source = document.createElement("p"); source.textContent = capture.page.url;
+  const time = document.createElement("p"); time.textContent = `${t("Captured at")}: ${capture.capturedAt}`;
   const text = document.createElement("textarea"); text.className = "ui-textarea browser-capture-text"; text.readOnly = true;
   text.setAttribute("aria-label", t("Page content"));
   text.value = `${capture.page.selection ? `${t("Selected text")}\n${capture.page.selection}\n\n` : ""}${capture.page.text}`;
@@ -77,25 +88,49 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   }
   const note = document.createElement("p"); note.textContent = capture.page.truncated ? t("Page content was shortened") : t("Content read locally. Nothing has been sent to AI.");
   const close = document.createElement("button"); close.type = "button"; close.className = "ui-button ui-button--primary"; close.textContent = t("Close");
-  close.addEventListener("click", () => { if (!busy) dialog.close(); });
+  close.addEventListener("click", () => { if (!busy) dismiss(true); });
   dialog.addEventListener("cancel", event => { if (busy) event.preventDefault(); });
   dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
+  if (dock) dialog.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || busy || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    dismiss(true);
+  });
   const actions = document.createElement("div"); actions.className = "ui-toolbar";
   const error = document.createElement("p"); error.setAttribute("role", "alert");
+  let questionLabel, question;
+  if (dock && prepareDraft) {
+    questionLabel = document.createElement("label"); questionLabel.className = "browser-capture-question";
+    question = document.createElement("textarea"); question.className = "ui-textarea"; question.rows = 2; question.maxLength = 5000;
+    questionLabel.append(t("Question about this page"), question);
+  }
   if (prepareDraft) {
     const prepare = document.createElement("button"); prepare.type = "button"; prepare.className = "ui-button ui-button--secondary browser-capture-prepare";
     prepare.textContent = t(opensChat ? "Open Chat and prepare draft" : "Prepare chat draft"); prepare.title = t("Adds this snapshot to the current conversation. Nothing is sent until you press Send.");
-    prepare.addEventListener("click", async () => {
+    const stageDraft = async intent => {
+      if (busy || !isOpen()) return;
       setBusy(true); error.textContent = "";
-      try { await prepareDraft(attachments()); dialog.close(); }
+      try { await prepareDraft({ ...attachments(), ...intent }); dismiss(); }
       catch (reason) { error.textContent = String(reason?.message ?? reason); }
       finally { setBusy(false); }
-    });
+    };
+    prepare.addEventListener("click", () => void stageDraft({ question: question?.value }));
     actions.append(prepare);
+    if (dock) {
+      const summarize = document.createElement("button");
+      summarize.type = "button";
+      summarize.className = "ui-button ui-button--secondary browser-capture-prepare";
+      summarize.textContent = t("Prepare summary draft");
+      summarize.title = prepare.title;
+      summarize.addEventListener("click", () => void stageDraft({ summarize: true }));
+      actions.append(summarize);
+    }
   }
   const pausedActions = [];
   const setBusy = value => {
     busy = value;
+    if (dock) dialog.setAttribute("aria-busy", String(value));
+    if (question) question.disabled = value;
     if (value) {
       for (const button of actions.querySelectorAll("button:not(:disabled)")) {
         button.disabled = true;
@@ -106,7 +141,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     }
   };
   const compare = comparison && createBrowserCompare({ ...comparison, capture, setBusy, opensChat,
-    isOpen: () => dialog.isConnected && dialog.open, onPrepared: () => dialog.close(),
+    isOpen, onPrepared: dismiss,
   });
   if (compare) actions.append(compare.button);
   let clip;
@@ -123,14 +158,25 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     clip.button.addEventListener("click", () => { compare.panel.hidden = true; });
   }
   actions.append(close);
-  dialog.append(title, source, text);
+  dialog.append(title, source);
+  if (dock) dialog.append(time);
+  dialog.append(text);
   if (links) dialog.append(links);
   if (tables) dialog.append(tables);
   if (media.element) dialog.append(media.element);
+  if (questionLabel) dialog.append(questionLabel);
   dialog.append(note, error, actions);
   if (clip) dialog.append(clip.panel);
   if (compare) dialog.append(compare.panel);
-  document.body.append(dialog); dialog.showModal();
-  close.focus({ preventScroll: true }); text.setSelectionRange(0, 0); text.scrollTop = 0;
+  if (dock) {
+    dock.host.replaceChildren(dialog);
+    dock.host.hidden = false;
+    dock.trigger.setAttribute("aria-expanded", "true");
+  } else {
+    document.body.append(dialog);
+    dialog.showModal();
+  }
+  (question ?? close).focus();
+  text.setSelectionRange(0, 0); text.scrollTop = 0;
   return dialog;
 }

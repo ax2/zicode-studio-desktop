@@ -433,7 +433,29 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-address { flex: 1; min-width: 0; }
 .browser-startup [hidden] { display: none; }
 .browser-startup { padding: var(--space-4); text-align: start; }
-.browser-viewport { flex: 1; min-height: 0; overflow: hidden; text-align: center; }
+.browser-page-area { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.browser-viewport { flex: 1; min-width: 0; min-height: 0; overflow: hidden; text-align: center; }
+.browser-assistant {
+  flex: 0 0 clamp(15rem, 36%, 25rem);
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-3);
+  margin-inline-start: var(--space-1);
+}
+.browser-assistant[hidden] { display: none; }
+.browser-assistant h2, .browser-assistant p { overflow-wrap: anywhere; }
+.browser-assistant .ui-toolbar { flex-wrap: wrap; }
+.browser-assistant textarea { inline-size: 100%; resize: vertical; }
+.browser-assistant .browser-capture-text { block-size: calc(var(--space-12) * 2); }
+.browser-assistant .browser-compare-preview textarea { block-size: calc(var(--space-12) * 2); }
+.browser-assistant .browser-capture-question { display: block; margin-block: var(--space-2); }
+.browser-capture-panel:has(> .browser-compare:not([hidden])) > :is(.browser-capture-question, .browser-capture-text, .browser-capture-links, .browser-capture-tables, .browser-capture-media),
+.browser-capture-panel:has(> .browser-compare:not([hidden])) .browser-capture-prepare { display: none; }
+@container (max-width: 800px) {
+  .browser-page-area { flex-direction: column; }
+  .browser-assistant { flex-basis: min(44%, 18rem); margin-inline-start: 0; margin-block-start: var(--space-1); }
+}
 .browser-footer > [role="status"] { flex: 1; min-width: 0; max-inline-size: calc(var(--space-12) * 4); overflow-wrap: anywhere; font-size: var(--font-size-sm); }
 
 @container (max-width: 600px) {
