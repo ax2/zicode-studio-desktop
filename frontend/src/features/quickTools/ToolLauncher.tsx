@@ -111,7 +111,13 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
   };
   const translate = () => { dismiss(); window.dispatchEvent(new Event("zicode:open-translation")); };
   const translation = () => <LaunchButton key={translatorId} title={t("Translate")} kind="translate" id={translatorId} onClick={translate} />;
-  const opensTranslation = !search || matchesSearchQuery(search, [t("Translate"), "translate translation text language", "文字 文本 翻译 语言", t("Text and language")]);
+  const translationKeywords = "translate translation text language";
+  const opensTranslation = !search || matchesSearchQuery(search, [
+    t("Translate"),
+    translationKeywords,
+    t(translationKeywords, "zh-CN"),
+    t("Text and language"),
+  ]);
   const recentIds = page?.recentIds ?? [];
   const apps = list !== "favorites" && !cursor.offset && !categoryId ? api.applications().filter((entry): entry is ApplicationEntry & { id: string; label: string } =>
     Boolean(!entry.disabled && entry.action && entry.id && entry.label && isWorkspaceEntryVisible(entry.id) && (entry.id !== translatorId || list === "recent") &&

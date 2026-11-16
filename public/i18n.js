@@ -3264,6 +3264,7 @@ const zhCN = {
   "Habit removed": "已删除习惯",
   Translate: "翻译",
   Translation: "翻译",
+  "translate translation text language": "文字 文本 翻译 语言",
   "Translate text between languages using the configured model.":
     "使用已配置的模型在不同语言之间翻译文本。",
   "Translate text between languages using the configured model. Copy the result or download it.":
@@ -5551,13 +5552,12 @@ export function getLocale() {
   return activeLocale;
 }
 
-export function t(source) {
+export function t(source, locale = readLocaleCookie()) {
   // Every React feature bundle embeds its own copy of this module, so the
   // module-level `activeLocale` would freeze each bundle to the locale that
   // existed when it loaded. Read the persisted locale on every call instead so
   // bundled copies follow the app's current language (including runtime
   // switches and tests that setLocale after the bundle loaded).
-  const locale = readLocaleCookie();
   return dictionaries[locale]?.[normalizeSource(source)] ?? source;
 }
 

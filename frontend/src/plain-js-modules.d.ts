@@ -1,7 +1,7 @@
 // Ambient declarations for plain JS modules shared through the import map.
 // The runtime resolves these bare specifiers to /i18n.js and /themes.js.
 declare module "i18n" {
-  export function t(source: string): string;
+  export function t(source: string, locale?: string): string;
   export function getLocale(): string;
   export function setLocale(locale: string): void;
   export function translateDocument(root?: Element): void;
