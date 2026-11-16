@@ -4,19 +4,28 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
+  trigger.setAttribute("data-i18n-title", "Browser options");
+  trigger.setAttribute("data-i18n-aria-label", "Browser options");
   trigger.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
   const panel = document.createElement("div"); panel.className = "browser-options-panel ui-panel";
   const select = document.createElement("button"); select.type = "button"; select.className = "ui-button ui-button--secondary"; select.textContent = t("Select all page text");
+  select.dataset.i18nText = "Select all page text";
   select.addEventListener("click", () => { menu.open = false; selectAll(); });
-  const label = document.createElement("label"); label.textContent = t("Start Studio in"); label.append(startup);
+  const label = document.createElement("label");
+  const labelText = document.createElement("span");
+  labelText.textContent = t("Start Studio in");
+  labelText.dataset.i18nText = "Start Studio in";
+  label.append(labelText, startup);
   const restore = document.createElement("button"); restore.type = "button"; restore.className = "ui-button ui-button--secondary browser-reopen";
   restore.textContent = t("Reopen closed tab"); restore.disabled = !canReopen();
+  restore.dataset.i18nText = "Reopen closed tab";
   restore.title = `${t("Restore the latest closed tab. The last 50 are kept after restart.")} (Ctrl+Shift+T)`; restore.setAttribute("aria-keyshortcuts", "Control+Shift+t");
   restore.addEventListener("click", () => { menu.open = false; reopen(); });
   menu.addEventListener("toggle", () => { restore.disabled = !canReopen(); });
   if (pageControls) { panel.append(pageControls.element); menu.addEventListener("toggle", () => { if (menu.open) void pageControls.refresh(); }); }
   if (find) {
     const search = document.createElement("button"); search.type = "button"; search.className = "ui-button ui-button--secondary browser-find-open"; search.textContent = t("Find in page"); search.setAttribute("aria-keyshortcuts", "Control+f");
+    search.dataset.i18nText = "Find in page";
     search.addEventListener("click", () => { menu.open = false; find(); }); panel.append(search);
   }
   if (fullscreen) { panel.append(fullscreen.element); menu.addEventListener("toggle", () => { if (menu.open) void fullscreen.refresh(); }); }
@@ -41,6 +50,7 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     button.type = "button";
     button.className = "ui-button ui-button--secondary";
     button.textContent = t(name);
+    button.dataset.i18nText = name;
     if (name === "Search tabs") {
       button.setAttribute("aria-keyshortcuts", "Control+Shift+a");
       button.title = `${t(name)} (Ctrl+Shift+A)`;
@@ -57,6 +67,7 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     button.type = "button";
     button.className = "ui-button ui-button--secondary";
     button.textContent = t(name);
+    button.dataset.i18nText = name;
     button.addEventListener("click", () => { menu.open = false; action(); });
     panel.append(button);
   }

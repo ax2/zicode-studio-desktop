@@ -1,7 +1,27 @@
-import { t } from "../../i18n.js";
+import { getLocale, setLocale, t } from "../../i18n.js";
 import { afterEach, expect, it, vi } from "vitest";
 import { createBrowserOptions } from "./browser-options.js";
 afterEach(() => document.body.replaceChildren());
+it("relabels the retained translation entry when Studio switches language", () => {
+  const locale = getLocale();
+  try {
+    setLocale("zh-CN");
+    const translate = vi.fn();
+    const menu = createBrowserOptions(document.createElement("select"), vi.fn(), {translateSelection: translate});
+    document.body.append(menu);
+    menu.open = true;
+    const button = [...menu.querySelectorAll("button")].find(node => node.textContent === t("Translate selected text"));
+    expect(button).toBeDefined();
+    setLocale("en");
+    expect(button.textContent).toBe("Translate selected text");
+    expect(menu.querySelector("summary").getAttribute("aria-label")).toBe("Browser options");
+    expect(translate).not.toHaveBeenCalled();
+    button.click();
+    expect(translate).toHaveBeenCalledOnce();
+  } finally {
+    setLocale(locale);
+  }
+});
 it("keeps selection explicit and closes options before requesting it", () => {
   const action = vi.fn(() => expect(menu.open).toBe(false));
   const startup = document.createElement("select");
