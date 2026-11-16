@@ -204,8 +204,8 @@ fn prepare(
             return Err(recovery_error());
         }
     }
-    for index in 0..COUNT {
-        journal.after[index] = store.hash(&stage.join("new").join(index.to_string()))?;
+    for (index, hash) in journal.after.iter_mut().enumerate() {
+        *hash = store.hash(&stage.join("new").join(index.to_string()))?;
     }
     let bytes = serde_json::to_vec(&journal).map_err(|_| recovery_error())?;
     store.write_new(&stage.join("manifest.json"), &bytes)?;
