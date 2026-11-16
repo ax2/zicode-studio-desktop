@@ -1228,13 +1228,7 @@ async function openBrowserDraftConversation({ target: source, isCurrent }) {
 const browserApp = setupBrowserApp({
   notify: notifications.notify, getTarget: () => target, onPrepareDraft: projectChatDraftHandoff,
   canOpenDraftConversation: canOpenBrowserDraftConversation, openDraftConversation: openBrowserDraftConversation,
-  onTranslateSelection: async text => {
-    const { sceneId, workspaceId } = target;
-    await pluginShell.activate("com.zicode.translate", { historyMode: "push" });
-    if (pluginShell.getActivePluginId() !== "com.zicode.translate" || target.sceneId !== sceneId || target.workspaceId !== workspaceId) return;
-    if (text) translationApp.stageBrowserSelection(text);
-    translationApp.focusInput();
-  },
+  onTranslateSelection: text => translationNavigation.open(text, { historyMode: "push" }),
 });
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
@@ -1305,14 +1299,17 @@ pluginShell = setupPluginShell({
   notify: notifications.notify,
 });
 setupSystemInformationShortcut({ listen: globalThis.__TAURI__?.event?.listen, openSettings: tab => settingsPanel.openSettings(tab), onError: showError });
-setupTranslationShortcuts({
-  activate: id => pluginShell.activate(id), getActivePluginId: () => pluginShell.getActivePluginId(),
+const translationNavigation = setupTranslationShortcuts({
+  activate: (id, options) => pluginShell.activate(id, options),
+  getActivePluginId: () => pluginShell.getActivePluginId(), getTarget: () => target,
+  stageSelection: text => translationApp.stageBrowserSelection(text),
+  recordRecent: (scope, mutation) => toolAccessStore?.mutate(scope, mutation),
   focusInput: () => translationApp.focusInput(), listen: globalThis.__TAURI__?.event?.listen,
   onError: showError,
 });
 const quickToolsAnchor = document.getElementById("quick-tools-anchor");
-if (quickToolsAnchor) mountQuickTools(quickToolsAnchor);
-setupQuickTools({
+const quickTools = setupQuickTools({
+  applications: pluginShell.getApplicationDirectory,
   api: pluginCapabilityGateway, accessStore: toolAccessStore, getTarget: () => target,
   openTool: (tool, revision, scope) => pluginShell.openManualTool(tool, revision, scope),
   manage: async () => {
@@ -1322,6 +1319,7 @@ setupQuickTools({
   invoke: globalThis.__TAURI__?.core?.invoke,
   onError: error => console.warn("[quick-tools]", error?.message ?? error),
 });
+if (quickToolsAnchor) mountQuickTools(quickToolsAnchor, quickTools.launcher);
 // The automation scheduler must run for the whole page lifetime, not only
 // while the Automation center is open, so scheduled workflows fire while the
 // user stays in Chat or another app.

@@ -573,20 +573,20 @@ export function setupPluginShell({
     }
   }
 
-  function renderMain(pluginId) {
+  function renderMain(pluginId, preserveState = false) {
     // App views may add their own classes to the shared main container
     // (e.g. finance adds `finance-plugin-main`); without a reset they leak
     // into every subsequent app and alter its layout.
     const wasHidden = pluginMain.classList.contains("plugin-surface-hidden");
     pluginMain.className = "plugin-main-view";
     pluginMain.classList.toggle("plugin-surface-hidden", wasHidden);
-    pluginMain.replaceChildren();
+    if (pluginId !== MANAGER_VIEW_ID || !preserveState) pluginMain.replaceChildren();
     if (pluginId === TOOL_CENTER_ID) {
       const target = getTarget();
       const directoryTarget = resourceViewTarget(target);
       const directoryRevision = catalogRevision;
       toolCenter.show(pluginMain, {
-        entries: applicationDirectory(registry.list(), pluginAvailableOnClient, t, activateFromNavigation),
+        entries: getApplicationDirectory(),
         onOpenViewOperation: openViewOperationFromDirectory,
         onOpenToolApplication: async (pluginId, capabilityId, version, entry) => {
           try {
@@ -660,6 +660,7 @@ export function setupPluginShell({
     if (pluginId === MANAGER_VIEW_ID) {
       renderPluginManagerView({
         container: pluginMain,
+        preserveState,
         registry,
         canManagePlugins,
         getTarget,
@@ -832,6 +833,10 @@ export function setupPluginShell({
     }
   }
 
+  function getApplicationDirectory() {
+    return applicationDirectory(registry.list(), pluginAvailableOnClient, t, activateFromNavigation);
+  }
+
   function getCommandPaletteEntries() {
     return pluginCommandEntries(registry.list(), {
       isAvailable: pluginAvailableOnClient,
@@ -870,7 +875,7 @@ export function setupPluginShell({
       return;
     }
     renderActivities();
-    if (activePluginId === MANAGER_VIEW_ID || activePluginId === TOOL_CENTER_ID) renderMain(activePluginId);
+    if (activePluginId === MANAGER_VIEW_ID || activePluginId === TOOL_CENTER_ID) renderMain(activePluginId, true);
     updateActivitySelection(activePluginId);
   });
   const handleLocaleChange = () => {
@@ -953,6 +958,7 @@ export function setupPluginShell({
       return true;
     },
     getCommandPaletteEntries,
+    getApplicationDirectory,
     getActivePluginId: () => activePluginId,
     registry,
     listCapabilities: () => {

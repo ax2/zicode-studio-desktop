@@ -9,6 +9,227 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  Low: "低",
+  Medium: "中",
+  High: "高",
+  "Transparent background": "透明背景",
+  "Opaque background": "不透明背景",
+  "Text to image": "文生图",
+  "Image to image": "图生图",
+  "Text to image and image to image": "文生图与图生图",
+  "Image generation options": "生图选项",
+  "Generation mode": "生成方式",
+  "Output image format": "输出图片格式",
+  "Image background": "图片背景",
+  "Image planning complexity": "图像构思复杂度",
+  "Output compression (0–100)": "输出压缩率（0–100）",
+  "Provider default": "供应商默认值",
+  "Unspecified parameters use the provider defaults.": "未指定的参数使用供应商默认值。",
+  "This model has no registered advanced parameters. Only your description and selected reference are sent.":
+    "尚未登记此模型的高级参数，仅发送描述和已选择的参考图。",
+  "Parameters follow your declared compatibility profile. Verify support with your provider.":
+    "参数依据你声明的兼容能力显示，请核对供应商是否支持。",
+  "Image API compatibility": "图像接口兼容能力",
+  "Use registered model capabilities": "使用已登记的模型能力",
+  "Basic Images API — provider defaults": "基础图像接口：使用供应商默认值",
+  "Declare GPT Image parameter support": "声明支持 GPT Image 参数",
+  "Declare GPT Image 2.6 parameter support": "声明支持 GPT Image 2.6 参数",
+  "Only declare a compatibility profile supported by your provider. This does not test model availability.":
+    "仅选择供应商明确支持的兼容能力，此选择不会验证模型是否可用。",
+  "The selected parameters are not supported by this model configuration. Review the image options.":
+    "当前模型配置不支持所选参数，请重新核对生图选项。",
+  "Describe an image, or choose a reference to edit. Review the model and parameters before generating.":
+    "描述要生成的图片，或选择参考图进行编辑。生成前请核对模型和参数。",
+  "Describe the image to create": "描述要生成的图片",
+  "Review image generation": "审核生图计划",
+  "Confirm image generation": "确认图片生成",
+  "No reference image will be uploaded.": "不会上传参考图。",
+  "One image. The request may take up to 180 seconds. Provider charges are not estimated.":
+    "生成一张图片，最长等待 180 秒。供应商费用暂无法预估。",
+  "Confirm and generate image": "确认并生成图片",
+  "Confirm upload and generate image": "确认上传并生成图片",
+  "Image generation task": "图片生成任务",
+  "Generating image…": "正在生成图片…",
+  "Generated image": "生成的图片",
+  "Generated image saved to the library.": "生成的图片已保存到图库。",
+  "Approve and save generated image": "批准并保存生成图片",
+  "Van Gogh": "梵高",
+  "Ink wash": "水墨画",
+  Watercolor: "水彩画",
+  "Custom style": "自定义风格",
+  "Style and preserved content": "风格与保留内容",
+  "Style preset": "风格预设",
+  "Changing the preset replaces the style description. Edit it before reviewing the plan.":
+    "切换预设会替换风格描述；可在审核计划前修改。",
+  "Style description": "风格描述",
+  "Style strength": "风格强度",
+  Subtle: "轻度",
+  Balanced: "均衡",
+  Bold: "强烈",
+  "Strength is expressed in the prompt, not a native model slider. Results vary by model; review preserved details before saving.":
+    "强度通过提示词表达，并非模型原生参数。效果因模型而异，保存前请检查需要保留的细节。",
+  "Content to preserve": "需要保留的内容",
+  "Choose a source image, edit the style and preserved content, then review before uploading.":
+    "选择原图，编辑风格与保留内容，审核后再确认上传。",
+  "Source image": "原图",
+  "Review style generation": "审核风格转换计划",
+  "Confirm style generation": "确认风格转换",
+  "Confirm upload and generate styled image": "确认上传并生成风格图片",
+  "Style generation task": "风格转换任务",
+  "Restyling image…": "正在转换图片风格…",
+  "Styled image saved to the library. Your original image is unchanged.":
+    "风格图片已保存到图库，原图保持不变。",
+  "Approve and save styled image": "审核通过并保存风格图片",
+  "Recent image tasks": "最近的图片任务",
+  "Load saved image tasks": "查看已保存的图片任务",
+  "No image tasks yet.": "还没有图片任务。",
+  "Load older image tasks": "加载更早的图片任务",
+  "Image generation source": "图片生成来源",
+  "Subtle: restrained brushwork and color changes; keep fine source details where possible.":
+    "轻度：克制地调整笔触与色彩，尽量保留原图细节。",
+  "Balanced: clearly visible style while keeping the subject and composition recognizable.":
+    "均衡：风格清晰可辨，同时保持主体与构图可识别。",
+  "Bold: strong brushwork, texture and color; fine details may be simplified.":
+    "强烈：突出笔触、纹理与色彩，细小细节可能被简化。",
+  "Keep the subject's identity, number of subjects, pose, spatial relationships and composition. Preserve meaningful objects and readable text where possible.":
+    "保留主体身份、数量、姿势、空间关系和构图，尽量保留有意义的物体与可读文字。",
+  "Expressive post-impressionist painting: swirling, directional impasto brushstrokes, vivid cobalt blues and warm yellow accents, visible layered paint texture. Keep the original subject and composition recognizable.":
+    "富有表现力的后印象派绘画：旋转且有方向感的厚涂笔触，鲜明的钴蓝与暖黄色点缀，可见层叠的颜料纹理。保持原图主体与构图可识别。",
+  "Chinese ink wash painting: expressive black ink strokes, diluted gray washes, soft ink bleeding on absorbent rice paper, generous unpainted space and restrained color. Keep the original subject and composition recognizable.":
+    "中国水墨画：富有表现力的墨色笔触、浓淡灰墨渲染，墨色在宣纸上柔和晕开，充分留白并克制用色。保持原图主体与构图可识别。",
+  "Transparent watercolor painting: luminous layered washes, soft wet-on-wet edges, gentle pigment granulation and visible paper texture. Keep the original subject and composition recognizable.":
+    "透明水彩画：明亮的层叠渲染、湿画法形成的柔和边缘、自然的颜料颗粒与可见纸张纹理。保持原图主体与构图可识别。",
+  Automatic: "自动",
+  "Preview unavailable": "预览不可用",
+  "Source images": "来源图片",
+  "Outfit generation source": "换装生成来源",
+  "Read saved image source": "查看已保存的图片来源",
+  "Could not read the saved image source. Retry after the library is available.":
+    "未能读取已保存的图片来源，请在图库可用后重试。",
+  "Elapsed seconds": "耗时（秒）",
+  "Provider usage details": "供应商用量明细",
+  "Reported usage only. Missing values are not zero; this is not a bill.":
+    "仅展示供应商返回的用量。缺失数值不代表零，此记录不是账单。",
+  "Input tokens": "输入 Token",
+  "Text input tokens": "文本输入 Token",
+  "Image input tokens": "图片输入 Token",
+  "Output tokens": "输出 Token",
+  "Text output tokens": "文本输出 Token",
+  "Image output tokens": "图片输出 Token",
+  "Provider cost is unknown. Check your provider's usage records.":
+    "供应商费用未知，请查看供应商的用量记录。",
+  "Choose a person and describe the outfit. Review the model and images before uploading.":
+    "选择人物图片并描述新服装，上传前核对模型和图片。",
+  "Reload image settings": "重新加载图像设置",
+  "Person image": "人物原图",
+  "Clothing reference (optional)": "服装参考图（可选）",
+  "Describe the new outfit": "描述新服装",
+  "The model is asked to preserve identity, pose and background. Review the result for unwanted changes.":
+    "提示词会要求保留人物特征、姿势和背景，请检查生成结果是否出现意外变化。",
+  "Review outfit generation": "审核换装生成计划",
+  "Confirm outfit generation": "确认换装生成",
+  "Images to upload": "即将上传的图片",
+  "Image size": "图片尺寸",
+  "Image quality": "图片质量",
+  "One PNG image. The request may take up to 180 seconds. Provider charges are not estimated.":
+    "生成一张 PNG 图片，最长等待 180 秒。供应商费用暂无法预估。",
+  "Full image prompt": "完整图像提示词",
+  "Confirm upload and generate outfit": "确认上传并生成换装图片",
+  "Save your model settings before reviewing a generation plan.":
+    "请先保存修改后的模型设置，再审核生成计划。",
+  "Image model settings": "图像模型设置",
+  "Use an OpenAI Images-compatible endpoint. Availability depends on the provider and model.":
+    "使用兼容 OpenAI Images 的接口，实际可用能力取决于供应商和模型。",
+  "Image API base URL": "图像接口基础地址",
+  "Image model ID": "图像模型名称",
+  "Endpoint requires an API key": "接口需要 API 密钥",
+  "API key (stored on this computer)": "API 密钥（保存在本机）",
+  "A key is configured for this endpoint.": "已为此接口配置密钥。",
+  "A different endpoint needs its own API key.": "更换接口后需单独配置对应密钥。",
+  "Save image model settings": "保存图像模型设置",
+  "Image model settings saved.": "图像模型设置已保存。",
+  "Choosing a new image stores a local copy. Nothing is uploaded yet.":
+    "选择新图片会在本地保存副本，此步骤不会上传图片。",
+  "Choose new image": "选择新图片",
+  "Choose from library": "从图库选择",
+  "Remove clothing reference": "移除服装参考图",
+  "Selected image": "已选图片",
+  "Could not select this image. Retry the selection.": "未能选择这张图片，请重试。",
+  "Outfit generation task": "换装生成任务",
+  "Request ID": "请求编号",
+  "Refresh generation status": "刷新生成状态",
+  "No saved image task was found. Check settings and review a new plan.":
+    "未找到已保存的图像任务，请检查设置后重新审核计划。",
+  "Generating outfit…": "正在生成换装图片…",
+  "The generation outcome is unknown. It will not be sent again automatically.":
+    "生成结果未知，不会自动重复发送请求。",
+  "The provider rejected this request. Check your model settings before reviewing another plan.":
+    "供应商拒绝了此次请求，请检查模型设置后重新审核计划。",
+  "The image service has no available quota. This request was rejected and will not retry automatically. After restoring your quota, review and submit a new plan.":
+    "图像服务额度不足，此请求已被拒绝，不会自动重试。额度恢复后，请重新审核并提交新计划。",
+  "The image service is temporarily rate limited. No automatic retry will occur. Wait before reviewing a new plan.":
+    "图像服务暂时限流，不会自动重试。请稍后重新审核新计划。",
+  "The image service rejected authentication or access. Check the API key and model permissions.":
+    "图像服务拒绝了身份验证或访问，请检查 API 密钥和模型使用权限。",
+  "Cancel generation wait": "取消等待生成",
+  "Cancelling the wait does not prove the provider stopped or avoided charges.":
+    "取消等待并不代表供应商已停止执行或不会计费。",
+  "Original person": "人物原图",
+  "Generated outfit": "换装结果",
+  "Outfit result saved to the library. Your original image is unchanged.":
+    "换装结果已保存到图库，原图保持不变。",
+  "Approve and save outfit result": "审核通过并保存换装结果",
+  "Recent outfit tasks": "最近的换装任务",
+  "Load saved outfit tasks": "查看已保存的换装任务",
+  "No outfit tasks yet.": "暂无换装任务。",
+  "Load older outfit tasks": "加载更早的换装任务",
+  "Configure an API key for this image endpoint before generating.":
+    "生成前请为此图像接口配置 API 密钥。",
+  "The image or model settings changed. Review a new plan.":
+    "图片或模型设置已变化，请重新审核计划。",
+  "Choose a locally stored image or add a copy of the reference image.":
+    "请选择图库中已保存原件的图片，或添加参考图片的副本。",
+  "Another image task is using this library. Refresh its status before trying again.":
+    "另一个图像任务正在使用此图库，请刷新任务状态后重试。",
+  "The image action could not be completed. Check the saved task before generating again.":
+    "未能完成图像操作，再次生成前请检查已保存任务。",
+  "This plan already has an unknown result. Open saved tasks to check it before making a new request.":
+    "该计划已有结果未知的请求。发起新请求前，请先查看已保存任务。",
+  "Visual creation studio": "视觉创作中心",
+  "Visual creation navigation": "视觉创作导航",
+  "Creation home": "创作首页",
+  "Materials and library": "素材与图库",
+  "What would you like to create?": "这次想创作什么？",
+  "Start with a creative task. Choose or add materials when you need them.":
+    "从创作任务开始，需要时再选择或添加素材。",
+  "Open workflow": "进入工作区",
+  "Character outfit change": "人物换装",
+  "Keep the person, create a new outfit.": "保留人物特征，探索新的服装造型。",
+  "Person image, clothing reference or description": "人物原图、服装参考图或服装描述",
+  "Reviewed outfit image": "经审核的换装图片",
+  "Image style transfer": "图像风格转换",
+  "Explore Van Gogh, ink wash and your own visual style.": "尝试梵高、水墨画或自定义视觉风格。",
+  "Source image and style preset": "原图与风格预设",
+  "Restyled image": "风格转换后的图片",
+  "Generate images": "文生图与图生图",
+  "Create from text or develop an existing image.": "用文字生成图片，或在原图基础上继续创作。",
+  "Prompt and optional reference images": "提示词与可选参考图片",
+  "Generated images": "生成的图片",
+  "Game asset creation": "游戏资产生成",
+  "Create characters, props, scenes and game icons.": "创作角色、道具、场景与游戏图标。",
+  "Asset brief, references and engine requirements": "资产需求、参考图与引擎要求",
+  "Reviewed game assets and exports": "经审核的游戏资产与导出文件",
+  "Animations and stickers": "动图与表情包",
+  "Turn images and frames into animated expressions.": "将图片与序列帧制作成生动的表情。",
+  "Images, frames, captions and timing": "图片、序列帧、文字与播放时序",
+  "Animations and sticker packs": "动图与表情包文件",
+  "Materials needed": "所需素材",
+  "Expected result": "预期产物",
+  "Manage supporting materials": "管理所需素材",
+  "Outfit generation is being connected to configurable image models. It is not ready to generate yet.":
+    "人物换装正在接入可配置的图像模型，当前尚不能生成。",
+  "This workflow is planned after outfit generation. It is not ready to generate yet.":
+    "此流程将在人物换装之后按顺序开发，当前尚不能生成。",
   "Loading visual assets…": "正在加载视觉资产…",
   "Could not load visual assets.": "无法加载视觉资产。",
   "Visual assets": "视觉资产",
@@ -106,11 +327,14 @@ const zhCN = {
   "Watching this notebook": "正在监听此笔记本",
   "Chapter watching paused": "章节监听已暂停",
   "Resume chapter watching after restarting Studio": "Studio 重启后可恢复章节监听",
-  "Chapter watching stopped. Check Notes access and the source files before resuming.": "章节监听已停止。请检查笔记权限和源文件后恢复。",
+  "Chapter watching stopped. Check Notes access and the source files before resuming.":
+    "章节监听已停止。请检查笔记权限和源文件后恢复。",
   "Could not read chapter watching status.": "无法读取章节监听状态。",
   "Pause another chapter watch before starting this one.": "请先暂停其他章节监听，再启动此任务。",
-  "Could not update chapter watching. Check Notes access and retry.": "无法更新章节监听，请检查笔记权限后重试。",
-  "Studio checks this notebook in batches even when this view is closed. Closing the workspace window pauses checking; saved progress can be resumed after restart. No model calls or character changes are made.": "Studio 会分批检查此笔记本，关闭此视图后仍会继续。关闭工作区窗口会暂停检查，重启后可恢复保存的进度。不会调用模型或修改角色版本。",
+  "Could not update chapter watching. Check Notes access and retry.":
+    "无法更新章节监听，请检查笔记权限后重试。",
+  "Studio checks this notebook in batches even when this view is closed. Closing the workspace window pauses checking; saved progress can be resumed after restart. No model calls or character changes are made.":
+    "Studio 会分批检查此笔记本，关闭此视图后仍会继续。关闭工作区窗口会暂停检查，重启后可恢复保存的进度。不会调用模型或修改角色版本。",
   "Pause chapter watching": "暂停章节监听",
   "Resume chapter watching": "恢复章节监听",
   "Start chapter watching": "开始章节监听",
@@ -118,7 +342,8 @@ const zhCN = {
   "Chapters awaiting a draft": "待起草章节",
   "Last complete notebook check": "上次整本检查",
   "Show watched chapters": "查看监听发现的章节",
-  "These are saved check results. Opening a chapter verifies its revision again.": "此处显示已保存的检查结果。打开章节时会再次核对修订。",
+  "These are saved check results. Opening a chapter verifies its revision again.":
+    "此处显示已保存的检查结果。打开章节时会再次核对修订。",
   "Prepare draft from watched chapter": "从监听章节准备草案",
   "More watched chapters": "更多监听章节",
   "No draft for this chapter and facet": "此章节尚无该类角色草案",
@@ -130,8 +355,10 @@ const zhCN = {
     "按所选角色设定类别对照此笔记本与已保存草案。新草案仍需人工批准。",
   "No matching chapters on this page.": "本页没有符合条件的章节。",
   "Continue checking chapters": "继续检查后续章节",
-  "Reached the end of this notebook. Refresh to check subsequent changes.": "已检查到笔记本末尾。后续有改动时请重新检查。",
-  "Close this chapter editor and discard any unsaved draft?": "关闭此章节编辑区并放弃尚未保存的草案？",
+  "Reached the end of this notebook. Refresh to check subsequent changes.":
+    "已检查到笔记本末尾。后续有改动时请重新检查。",
+  "Close this chapter editor and discard any unsaved draft?":
+    "关闭此章节编辑区并放弃尚未保存的草案？",
   "Could not check chapter revisions.": "无法检查章节修订。",
   "Review needed": "需要复核",
   "The cited chapter is unavailable.": "引用的章节当前不可用。",
@@ -3044,6 +3271,8 @@ const zhCN = {
   "Target language": "目标语言",
   "Auto-detect": "自动检测",
   "Translating…": "翻译中…",
+  "Stopped waiting. The selected service may already have received the text.": "已停止等待。所选服务可能已收到原文。",
+  "Long text: translate up to 50,000 characters at a time. Split longer text and submit each part separately.": "每次最多翻译 50,000 字符。更长的文本请分段提交。",
   "Swap languages": "交换语言",
   "Translation complete": "翻译完成",
   "Enter text to translate.": "输入要翻译的文本。",

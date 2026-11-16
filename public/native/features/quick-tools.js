@@ -1,9 +1,10 @@
 import { loadQuickToolFavorites } from "./quick-tool-favorites.js";
+import { createToolLauncher, launcherInvalidations } from "./tool-launcher.js";
 
 // Projection of Host-owned favorites. Opening never executes a tool or reads a file.
-export function setupQuickTools({ api, accessStore, getTarget, openTool, manage, invoke, onError = () => {} }) {
+export function setupQuickTools({ api, accessStore, getTarget, openTool, manage, invoke, applications = () => [], onError = () => {} }) {
   let snapshot = { items: [], error: false, loading: true };
-  let tools = [], sequence = 0, opening = 0, disposed = false;
+  let tools = [], sequence = 0, opening = 0, generation = 0, disposed = false;
   let nativeRevision = 0, nativeWrites = Promise.resolve();
   const scope = () => { const target = getTarget(); return { sceneId: target.sceneId, workspaceId: target.workspaceId }; };
   const key = owner => JSON.stringify(owner);
@@ -59,17 +60,18 @@ export function setupQuickTools({ api, accessStore, getTarget, openTool, manage,
   }
   const openManaged = () => { Promise.resolve().then(() => !disposed && manage()).catch(error => { if (!disposed) onError(error); }); };
   const refreshRequested = event => {
-    if (event.type === "zicode:tool-access-changed") opening++;
+    if (launcherInvalidations.includes(event.type)) { generation++; opening++; }
     void refresh();
   };
-  const events = ["zicode:tool-access-changed", "zicode:tool-target-changed", "zicode:locale-changed", "zicode:quick-tools-retry"];
+  const events = [...launcherInvalidations, "zicode:locale-changed", "zicode:quick-tools-retry"];
+  const launcher = createToolLauncher({ api, accessStore, applications, scope, current, openTool, generation: () => generation });
   for (const name of events) window.addEventListener(name, refreshRequested);
   window.addEventListener("focus", refreshRequested);
   window.addEventListener("zicode:quick-tools-request", publish);
   window.addEventListener("zicode:open-quick-tool", open);
   window.addEventListener("zicode:manage-quick-tools", openManaged);
   void refresh();
-  return { refresh, destroy() {
+  return { refresh, launcher, destroy() {
     disposed = true; sequence++; opening++; nativeRevision++;
     for (const name of events) window.removeEventListener(name, refreshRequested);
     window.removeEventListener("focus", refreshRequested);

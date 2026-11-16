@@ -239,12 +239,12 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     let separator = PredefinedMenuItem::separator(app)?;
     let exit = MenuItem::with_id(app, "studio.exit", "退出 ZiCode Studio", true, None::<&str>)?;
     let menu = if crate::workspace_mode::single_default() {
-        Menu::with_items(app, &[&system_information, &translation, &tools, &favorite_tools, &recent_tools, &show, &hide, &separator, &exit])?
+        Menu::with_items(app, &[&translation, &system_information, &tools, &favorite_tools, &recent_tools, &show, &hide, &separator, &exit])?
     } else { Menu::with_items(
         app,
         &[
-            &system_information,
             &translation,
+            &system_information,
             &project_tools,
             &tools,
             &favorite_tools,

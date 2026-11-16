@@ -50,3 +50,13 @@ it("closes after selecting a shortcut or management without changing inline Home
   view.rerender(<QuickToolLinks />);
   expect(view.container.querySelector("details")).toBeNull();
 });
+
+it("keeps one default translation entry when the same application is also saved as a favorite", async () => {
+  const view = render(<QuickToolLinks />);
+  await act(async () => window.dispatchEvent(new CustomEvent("zicode:quick-tools-changed", {
+    detail: { items: [{ id: "com.zicode.translate:open", title: "Translate" }, { id: "one", title: "One" }] },
+  })));
+  expect(view.container.querySelectorAll("[data-quick-translation]")).toHaveLength(1);
+  expect(view.container.querySelector('[data-quick-tool-id="com.zicode.translate:open"]')).toBeNull();
+  expect(view.container.querySelector('[data-quick-tool-id="one"]')?.textContent).toBe("One");
+});

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 
-export function useQuickToolMenu(compact: boolean) {
+export function useQuickToolMenu(compact: boolean, launcher = false) {
   const ref = useRef<HTMLDetailsElement>(null);
   const dismiss = useCallback((restoreFocus = true) => {
     const menu = ref.current;
@@ -22,7 +22,16 @@ export function useQuickToolMenu(compact: boolean) {
       if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
       const summary = menu.querySelector("summary");
       if (!menu.open && event.target !== summary) return;
-      const buttons = [...menu.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
+      const input = event.target instanceof HTMLInputElement;
+      if (launcher && input && (event.key === "Home" || event.key === "End")) return;
+      const selector = launcher ? "[data-tool-launcher-open]" : "button:not(:disabled)";
+      const buttons = [...menu.querySelectorAll<HTMLButtonElement>(selector)];
+      if (launcher && !menu.open) {
+        event.preventDefault();
+        menu.open = true;
+        return;
+      }
+      if (launcher && !input && event.target !== summary && !buttons.includes(event.target as HTMLButtonElement)) return;
       if (!buttons.length) return;
       event.preventDefault();
       menu.open = true;
@@ -49,6 +58,6 @@ export function useQuickToolMenu(compact: boolean) {
       window.removeEventListener("zicode:tool-target-changed", targetChanged);
       window.removeEventListener("blur", blur);
     };
-  }, [compact, dismiss]);
+  }, [compact, dismiss, launcher]);
   return { ref, dismiss };
 }
