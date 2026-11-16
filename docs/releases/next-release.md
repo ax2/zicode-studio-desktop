@@ -1,5 +1,9 @@
 # 下一版本发布要求
 
+## 当前候选 v0.6.3
+
+仅构建 Windows 草稿，按 [#66](https://github.com/ax2/zicode-studio-desktop/issues/66) 验证安装器进程保护、核心功能和资料保留。详细候选范围见 [v0.6.3 发布说明](v0.6.3.md)。以下为历史记录。
+
 ## 当前候选 v0.6.2
 
 仅构建 Windows 草稿，按 [#63](https://github.com/ax2/zicode-studio-desktop/issues/63) 验证安装、核心功能和资料保留。未完成事项按 Project 最新状态跟踪；详细候选范围见 [v0.6.2 发布说明](v0.6.2.md)。以下为历史记录。
