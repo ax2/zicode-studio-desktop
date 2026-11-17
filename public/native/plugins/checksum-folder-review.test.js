@@ -1,3 +1,4 @@
+import { createHash, webcrypto } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../i18n.js";
 import { createChecksumFolderReview, validateChecksumFolder } from "./checksum-folder-review.js";
@@ -7,7 +8,7 @@ const profile = "resource.local-directory.checksum.preview1";
 const pluginId = "com.zicode.devtools.checksum-manifest", capabilityId = "devtools.checksum-manifest.review";
 let controller;
 
-function setup(report) {
+function setup(report, configure = () => {}) {
   setLocale("en");
   const container = document.body;
   const manifest = report.map(({ name, expected }) => `${expected}  ${name}`).join("\r\n");
@@ -33,6 +34,7 @@ function setup(report) {
       return { result: { contractVersion: "1.0.0-rc.1", ok: true, data: { text: JSON.stringify({ schemaVersion: 1, entries }) } } };
     }),
   };
+  configure(gateway);
   controller = createChecksumFolderReview({ container, gateway,
     getTarget: () => ({ workspaceId: "w", instanceId: "runtime", sessionId: "session", sceneId: "programming" }),
     isCurrent: () => true, isBlocked: () => false, onBusy: vi.fn(),
@@ -46,6 +48,7 @@ function setup(report) {
 afterEach(() => {
   controller?.destroy();
   controller = null;
+  vi.unstubAllGlobals();
   document.body.replaceChildren();
   setLocale("zh-CN");
 });
@@ -95,4 +98,60 @@ it("rejects a changed filename or a verdict inconsistent with the Host digest", 
   ]) {
     expect(() => validateChecksumFolder({ schemaVersion: 1, profile, entries: [row] }, manifest)).toThrow();
   }
+});
+
+function generation(form) {
+  const generator = "devtools.checksum-manifest.generate";
+  const sourcePlugin = "com.zicode.devtools.files";
+  const sourceCapability = "devtools.files.hash";
+  const generationProfile = "resource.local-directory.checksum.generate.preview1";
+  const names = Array.from({ length: 64 }, (_, index) => `文件-${String(index).padStart(2, "0")}.txt`);
+  const files = names.slice().reverse().map(name => ({ name, sha256: sha }));
+  const text = names.map(name => `${sha}  ${name}\n`).join("");
+  const app = setup([], gateway => {
+    gateway.checksumFolders.prepareFiles = vi.fn(async (_workspace, owner) => ({
+      schemaVersion: 1, profile: generationProfile, grantId, owner, files: files.map(file => file.name), read: false, confirmed: false,
+    }));
+    gateway.checksumFolders.commit.mockResolvedValue({ schemaVersion: 1, profile: generationProfile, files: form(files) });
+    gateway.searchTools.mockResolvedValue({ revision: other, items: [{ pluginId, capabilityId: generator, enabled: true, runtime: "wasi", version: "0.2.0" }] });
+    gateway.loadTool.mockImplementation(async (_scene, selected) => selected.pluginId === sourcePlugin
+      ? { pluginId: sourcePlugin, capability: { id: sourceCapability }, revision: other, enabled: true,
+          permissions: [{ name: "resource.read", granted: true }] }
+      : { pluginId, capability: { id: generator }, revision: other, version: "0.2.0", enabled: true });
+    gateway.invoke.mockResolvedValue({
+      result: { contractVersion: "1.0.0-rc.1", ok: true, data: { text } },
+      resultRef: { schemaVersion: 1, resultId: grantId, mimeType: "text/plain", byteLength: new TextEncoder().encode(text).length,
+        contentVersion: createHash("sha256").update(text).digest("hex"), packageVersion: "0.2.0" },
+    });
+    gateway.textExports = { choose: vi.fn(async () => null), commit: vi.fn(), cancel: vi.fn() };
+  });
+  return { ...app, text, files };
+}
+
+it("confirms 64 files, captures a generated manifest and waits for separate save selection", async () => {
+  vi.stubGlobal("crypto", webcrypto);
+  const { gateway, button, text, files } = generation(value => value);
+  button("Choose files to generate SHA256SUMS").click();
+  await vi.waitFor(() => expect(button("Confirm and generate SHA256SUMS").hidden).toBe(false));
+  expect(document.querySelectorAll("li")).toHaveLength(64);
+  expect(gateway.checksumFolders.commit).not.toHaveBeenCalled();
+  expect(gateway.invoke).not.toHaveBeenCalled();
+  button("Confirm and generate SHA256SUMS").click();
+  await vi.waitFor(() => expect(document.querySelector("textarea").value).toBe(text));
+  expect(gateway.invoke.mock.calls[0][4]).toEqual({ files });
+  expect(gateway.invoke.mock.calls[0][5].captureResult).toBe(true);
+  expect(gateway.textExports.choose).not.toHaveBeenCalled();
+  button("Save generated manifest as…").click();
+  await vi.waitFor(() => expect(gateway.textExports.choose).toHaveBeenCalledOnce());
+  expect(gateway.textExports.commit).not.toHaveBeenCalled();
+});
+
+it("rejects a substituted filename before invoking the manifest plugin", async () => {
+  const { gateway, button } = generation(files => [{ ...files[0], name: "wrong.txt" }, ...files.slice(1)]);
+  button("Choose files to generate SHA256SUMS").click();
+  await vi.waitFor(() => expect(button("Confirm and generate SHA256SUMS").hidden).toBe(false));
+  button("Confirm and generate SHA256SUMS").click();
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Manifest generation failed"));
+  expect(gateway.invoke).not.toHaveBeenCalled();
+  expect(gateway.textExports.choose).not.toHaveBeenCalled();
 });

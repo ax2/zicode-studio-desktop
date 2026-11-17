@@ -1,9 +1,12 @@
 import { t } from "../../i18n.js";
 import { checksumReviewManifestWire, checksumReviewResult } from "./checksum-review-result.js";
+import { createFileDigestManifestGenerate } from "./file-digest-manifest-generate.js";
 import { createManifestFileInput } from "./manifest-file-input.js";
 import { invokeViewCapability } from "./plugin-view-capability-call.js";
 
 const profile = "resource.local-directory.checksum.preview1";
+const generateProfile = "resource.local-directory.checksum.generate.preview1";
+const filesOwner = { pluginId: "com.zicode.devtools.files", capabilityId: "devtools.files.hash" };
 const pluginId = "com.zicode.devtools.checksum-manifest";
 const capabilityId = "devtools.checksum-manifest.review";
 const verdict = {
@@ -29,6 +32,21 @@ export function validateChecksumFolder(result, manifest) {
   });
 }
 
+function selectionNames(value) {
+  return Array.isArray(value) && value.length > 0 && value.length <= 64 &&
+    value.every(name => typeof name === "string" && name.length > 0 && name.length <= 255 && !/[\\/]/u.test(name)) &&
+    new Set(value.map(name => name.toLowerCase())).size === value.length;
+}
+
+function digestSelection(result, names) {
+  const files = result?.files;
+  if (result?.schemaVersion !== 1 || result.profile !== generateProfile || !Array.isArray(files) ||
+      files.length !== names.length || !files.every((file, index) => file?.name === names[index] && /^[0-9a-f]{64}$/u.test(file.sha256))) {
+    throw new Error("invalid_checksum_selection");
+  }
+  return files.map(({ name, sha256 }) => ({ name, sha256 }));
+}
+
 function element(tag, className) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -43,99 +61,149 @@ export function createChecksumFolderReview({ container, gateway, getTarget, isCu
   const title = element("summary"), fileSlot = element("div"), input = element("textarea", "ui-textarea");
   const bar = element("div", "ui-toolbar file-digest-manifest-actions");
   const choose = element("button", "ui-button ui-button--secondary");
+  const chooseFiles = element("button", "ui-button ui-button--secondary");
   const verify = element("button", "ui-button ui-button--secondary");
   const cancel = element("button", "ui-button ui-button--secondary");
   const status = element("p"), summary = element("bdi"), list = element("ul");
   status.setAttribute("role", "status"); summary.setAttribute("translate", "no");
   input.rows = 4; input.maxLength = 32768; input.setAttribute("translate", "no");
-  bar.append(choose, verify, cancel);
+  bar.append(choose, chooseFiles, verify, cancel);
   root.append(title, fileSlot, input, bar, summary, status, list);
   container.append(root);
 
-  let active = true, pending = null, revision = 0, imported = false, statusKey = "", rows = [];
+  let active = true, pending = null, revision = 0, imported = false, generating = false, statusKey = "", rows = [];
   const file = createManifestFileInput({ container: fileSlot, isCurrent: () => active && isCurrent(),
     getRevision: () => revision, onContent: text => { input.value = text; edited(); },
-    onBusy: busy => { imported = busy; if (active) { onBusy(Boolean(pending) || imported); refresh(); } },
+    onBusy: busy => { imported = busy; if (active) { reportBusy(); refresh(); } },
   });
   const current = job => active && isCurrent() && pending === job && !job.cancelled;
+  function reportBusy() { onBusy(Boolean(pending) || imported || generating); }
+  const generator = createFileDigestManifestGenerate({
+    container: root, gateway, getTarget, isCurrent: () => active && isCurrent(),
+    isBlocked: () => pending !== null || imported || isBlocked(),
+    onBusy: busy => {
+      if (generating === busy) return;
+      generating = busy;
+      if (active) { reportBusy(); refresh(); }
+    },
+    onManifest: text => { input.value = text; revision++; refresh(); },
+    verifySources: async valid => {
+      const sceneId = getTarget()?.sceneId ?? "programming";
+      if (!valid()) throw new Error("file_report_unavailable");
+      const page = await gateway.searchTools(sceneId, { pluginId: filesOwner.pluginId });
+      const source = await gateway.loadTool(sceneId, { ...filesOwner, revision: page.revision });
+      if (!valid() || !source.enabled || source.pluginId !== filesOwner.pluginId ||
+          source.capability?.id !== filesOwner.capabilityId || source.revision !== page.revision ||
+          !source.permissions?.some(permission => permission.name === "resource.read" && permission.granted === true)) {
+        throw new Error("file_report_unavailable");
+      }
+    },
+  });
 
   function refresh() {
-    const blocked = pending !== null || isBlocked();
+    const blocked = pending !== null || generating || isBlocked();
     choose.disabled = blocked || imported || !input.value.trim();
+    chooseFiles.hidden = typeof api.prepareFiles !== "function";
+    chooseFiles.disabled = blocked || imported;
     input.disabled = blocked || imported;
     verify.hidden = pending?.phase !== "confirm";
     cancel.hidden = !pending;
     cancel.disabled = pending?.cancelled === true;
     file.setDisabled(blocked);
+    generator.refresh();
   }
 
   function render() {
-    title.textContent = t("Verify SHA256SUMS against a folder");
+    title.textContent = t("SHA256SUMS files and folders");
     input.setAttribute("aria-label", t("SHA256SUMS manifest text"));
     choose.textContent = t("Choose folder to verify");
-    verify.textContent = t("Confirm and verify folder");
+    chooseFiles.textContent = t("Choose files to generate SHA256SUMS");
+    verify.textContent = pending?.mode === "generate" ? t("Confirm and generate SHA256SUMS") : t("Confirm and verify folder");
     cancel.textContent = t("Cancel");
     status.textContent = statusKey ? t(statusKey) : "";
-    summary.textContent = pending?.phase === "confirm" ? pending.displayName : "";
-    list.replaceChildren(...rows.map(row => {
+    summary.textContent = pending?.phase === "confirm" ? pending.displayName ?? "" : "";
+    const selected = pending?.files?.map(name => ({ name })) ?? rows;
+    list.replaceChildren(...selected.map(row => {
       const item = element("li"), name = element("bdi");
       name.textContent = row.name;
       name.setAttribute("translate", "no");
-      item.append(name, ` · ${t(verdict[row.status])}`);
+      item.append(name);
+      if (row.status) item.append(` · ${t(verdict[row.status])}`);
       return item;
     }));
     refresh();
   }
 
-  function update() { onBusy(Boolean(pending) || imported); render(); }
-  function edited() { revision++; statusKey = ""; rows = []; render(); }
+  function update() { reportBusy(); render(); }
+  function edited() { revision++; statusKey = ""; rows = []; generator.clear(); render(); }
   const cancelGrant = async (job, grantId = job.grantId) => {
     if (grantId) await api.cancel(job.target.workspaceId, job.owner, grantId).catch(() => {});
   };
 
   input.addEventListener("input", edited);
-  choose.onclick = async () => {
-    if (!active || !isCurrent() || pending || imported || isBlocked()) return;
+  async function select(mode) {
+    if (!active || !isCurrent() || pending || imported || generating || isBlocked()) return;
     const manifest = input.value, target = getTarget();
-    if (!manifest.trim() || new TextEncoder().encode(manifest).length > 32768) {
+    if (mode === "review" && (!manifest.trim() || new TextEncoder().encode(manifest).length > 32768)) {
       statusKey = "Manifest must be nonempty UTF-8 text up to 32 KiB."; render(); return;
     }
-    const owner = { runtimeId: target.instanceId, sessionId: target.sessionId, pluginId: "com.zicode.devtools.files", capabilityId: "devtools.files.hash" };
-    const job = { owner, manifest, target, phase: "choose" };
+    const owner = { runtimeId: target.instanceId, sessionId: target.sessionId, ...filesOwner };
+    const job = { owner, manifest, target, mode, phase: "choose" };
+    generator.clear();
     pending = job;
     rows = [];
     statusKey = "";
     update();
     try {
-      const preview = await api.prepare(target.workspaceId, owner, manifest);
+      const preview = mode === "generate"
+        ? await api.prepareFiles(target.workspaceId, owner)
+        : await api.prepare(target.workspaceId, owner, manifest);
       if (preview === null) return;
       const grantId = /^[0-9a-f-]{36}$/u.test(preview?.grantId ?? "") ? preview.grantId : null;
-      if (!current(job) || !grantId || preview.profile !== profile || preview.schemaVersion !== 1 ||
-          typeof preview.displayName !== "string" || /[\\/]/u.test(preview.displayName) ||
-          preview.confirmed !== false || preview.entryNamesRead !== false ||
-          Object.keys(owner).some(key => preview.owner?.[key] !== owner[key])) {
+      const validPreview = mode === "generate"
+        ? preview?.profile === generateProfile && preview.read === false && selectionNames(preview.files)
+        : preview?.profile === profile && preview.entryNamesRead === false &&
+          typeof preview.displayName === "string" && !/[\\/]/u.test(preview.displayName);
+      if (!current(job) || !grantId || !validPreview || preview.schemaVersion !== 1 ||
+          preview.confirmed !== false || Object.keys(owner).some(key => preview.owner?.[key] !== owner[key])) {
         await cancelGrant(job, grantId);
         if (current(job)) throw new Error("invalid_checksum_folder");
         return;
       }
-      Object.assign(job, { grantId, phase: "confirm", displayName: preview.displayName });
-      statusKey = "Confirm reading the listed files from the selected folder.";
+      Object.assign(job, { grantId, phase: "confirm", displayName: preview.displayName,
+        files: mode === "generate" ? preview.files.slice() : null });
+      statusKey = mode === "generate"
+        ? "Confirm reading the selected files to generate the manifest."
+        : "Confirm reading the listed files from the selected folder.";
     } catch {
-      if (current(job)) statusKey = "Could not prepare folder verification. Check the manifest and folder access.";
+      if (current(job)) statusKey = mode === "generate"
+        ? "Could not prepare manifest generation. Choose up to 64 files from one folder."
+        : "Could not prepare folder verification. Check the manifest and folder access.";
     } finally {
       if (pending === job) { if (job.phase !== "confirm") pending = null; update(); }
     }
-  };
+  }
+  choose.onclick = () => select("review");
+  chooseFiles.onclick = () => select("generate");
 
   verify.onclick = async () => {
     const job = pending;
     if (!job || !current(job) || job.phase !== "confirm") return;
     job.phase = "verify";
-    statusKey = "Verifying files in the selected folder…";
+    statusKey = job.mode === "generate" ? "Reading the selected files…" : "Verifying files in the selected folder…";
     render();
     try {
       const result = await api.commit(job.target.workspaceId, job.owner, job.grantId);
       if (!current(job)) return;
+      if (job.mode === "generate") {
+        const files = digestSelection(result, job.files);
+        pending = null;
+        statusKey = "";
+        update();
+        generator.show(files);
+        await generator.generate();
+        return;
+      }
       const report = validateChecksumFolder(result, job.manifest);
       const sceneId = job.target.sceneId ?? "programming";
       const page = await gateway.searchTools(sceneId, { pluginId });
@@ -158,7 +226,9 @@ export function createChecksumFolderReview({ container, gateway, getTarget, isCu
       rows = report;
       statusKey = "Manifest review completed. Original files were not changed.";
     } catch {
-      if (current(job)) statusKey = "Manifest review failed. Check the manifest, file access and checksum plugin.";
+      if (current(job)) statusKey = job.mode === "generate"
+        ? "Manifest generation failed. Check file access and the checksum plugin."
+        : "Manifest review failed. Check the manifest, file access and checksum plugin.";
     } finally {
       if (pending === job) { pending = null; update(); }
     }
@@ -187,6 +257,7 @@ export function createChecksumFolderReview({ container, gateway, getTarget, isCu
     active = false;
     if (pending) abort(pending);
     file.destroy();
+    generator.destroy();
     window.removeEventListener("zicode:locale-changed", render);
     root.remove();
   } };

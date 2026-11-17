@@ -9,7 +9,20 @@ use std::io::{self, Read};
 
 pub(super) const PROFILE: &str = "resource.local-directory.checksum.preview1";
 const MAX_MANIFEST_BYTES: usize = 32 * 1024;
-const MAX_FILES: usize = 64;
+
+pub(super) const GENERATE_PROFILE: &str = "resource.local-directory.checksum.generate.preview1";
+pub(super) const MAX_FILES: usize = 64;
+
+pub(super) fn safe_name(name: &str) -> bool {
+    !(name.is_empty()
+        || matches!(name, "." | "..")
+        || name.ends_with(['.', ' '])
+        || name.encode_utf16().count() > 255
+        || crate::portable_path::reserved_windows_device_name(name)
+        || name.chars().any(|ch| {
+            ch.is_control() || matches!(ch, '/' | '\\' | ':' | '<' | '>' | '"' | '|' | '?' | '*')
+        }))
+}
 
 pub(super) struct Entry {
     name: String,
@@ -27,15 +40,7 @@ pub(super) fn parse(manifest: &str) -> Result<Vec<Entry>, ApiError> {
         let (digest, name) = line.split_once("  ").ok_or_else(invalid)?;
         if digest.len() != 64
             || !digest.bytes().all(|byte| byte.is_ascii_hexdigit())
-            || name.is_empty()
-            || matches!(name, "." | "..")
-            || name.ends_with(['.', ' '])
-            || name.encode_utf16().count() > 255
-            || crate::portable_path::reserved_windows_device_name(name)
-            || name.chars().any(|ch| {
-                ch.is_control()
-                    || matches!(ch, '/' | '\\' | ':' | '<' | '>' | '"' | '|' | '?' | '*')
-            })
+            || !safe_name(name)
             || !names.insert(name.to_lowercase())
             || entries.len() == MAX_FILES
         {
@@ -100,6 +105,7 @@ fn digest_file(
     name: &str,
     control: &Control,
     buffer: &mut [u8],
+    selected: Option<&(String, u64)>,
 ) -> Result<Option<String>, ApiError> {
     let Ok(mut file) = open_regular(directory, name) else {
         return Ok(None);
@@ -107,6 +113,10 @@ fn digest_file(
     let Ok((before, length)) = local_file::files::regular_file_identity(&file) else {
         return Ok(None);
     };
+    let expected = (before, length);
+    if selected.is_some_and(|stamp| *stamp != expected) {
+        return Ok(None);
+    }
     let mut sha = Sha256::new();
     let mut bytes = 0;
     loop {
@@ -127,7 +137,6 @@ fn digest_file(
     let reopened = open_regular(directory, name)
         .ok()
         .and_then(|file| local_file::files::regular_file_identity(&file).ok());
-    let expected = (before, length);
     if bytes != length || after.as_ref() != Some(&expected) || reopened.as_ref() != Some(&expected)
     {
         return Ok(None);
@@ -149,7 +158,7 @@ pub(super) fn verify<'a>(
         let (actual, status) = match directory.symlink_metadata(&entry.name) {
             Err(error) if error.kind() == io::ErrorKind::NotFound => (None, Status::Missing),
             Ok(meta) if regular_metadata(&meta) => {
-                let actual = digest_file(directory, &entry.name, control, &mut buffer)?;
+                let actual = digest_file(directory, &entry.name, control, &mut buffer, None)?;
                 let status = match actual.as_deref() {
                     Some(digest) if digest == entry.expected => Status::Match,
                     Some(_) => Status::Mismatch,
@@ -168,6 +177,77 @@ pub(super) fn verify<'a>(
     }
     control.check()?;
     Ok(rows)
+}
+
+pub(super) struct SelectedFile {
+    name: String,
+    identity: (String, u64),
+}
+
+#[derive(serde::Serialize)]
+pub(super) struct FileDigest<'a> {
+    name: &'a str,
+    sha256: String,
+}
+
+pub(super) fn freeze_selection(
+    directory: &Dir,
+    names: &[String],
+) -> Result<Vec<SelectedFile>, ApiError> {
+    let mut unique = HashSet::new();
+    if names.is_empty()
+        || names.len() > MAX_FILES
+        || names
+            .iter()
+            .any(|name| !safe_name(name) || !unique.insert(name.to_lowercase()))
+        || names.iter().map(|name| name.len() + 67).sum::<usize>() > MAX_MANIFEST_BYTES
+    {
+        return Err(rejected("resource_checksum_manifest_invalid"));
+    }
+    let mut selected = Vec::with_capacity(names.len());
+    for name in names {
+        let unavailable = || rejected("resource_checksum_source_unavailable");
+        if !directory
+            .symlink_metadata(name)
+            .is_ok_and(|meta| regular_metadata(&meta))
+        {
+            return Err(unavailable());
+        }
+        let handle = open_regular(directory, name).map_err(|_| unavailable())?;
+        let identity = local_file::files::regular_file_identity(&handle)?;
+        selected.push(SelectedFile {
+            name: name.clone(),
+            identity,
+        });
+    }
+    Ok(selected)
+}
+
+pub(super) fn generate<'a>(
+    directory: &Dir,
+    files: &'a [SelectedFile],
+    control: &Control,
+    check_authority: &impl Fn() -> Result<(), ApiError>,
+) -> Result<Vec<FileDigest<'a>>, ApiError> {
+    let mut hashes = Vec::with_capacity(files.len());
+    let mut buffer = vec![0; 64 * 1024];
+    for file in files {
+        check_authority()?;
+        let sha256 = digest_file(
+            directory,
+            &file.name,
+            control,
+            &mut buffer,
+            Some(&file.identity),
+        )?
+        .ok_or_else(|| rejected("resource_checksum_source_changed"))?;
+        hashes.push(FileDigest {
+            name: &file.name,
+            sha256,
+        });
+    }
+    control.check()?;
+    Ok(hashes)
 }
 
 #[cfg(test)]

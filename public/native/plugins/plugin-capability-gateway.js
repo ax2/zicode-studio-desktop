@@ -51,6 +51,7 @@ export class PluginCapabilityGateway {
     } : null;
     this.checksumFolders = typeof nativeInvoke === "function" ? {
       prepare: (workspaceId, owner, manifest) => nativeInvoke("select_checksum_folder", { workspaceId, owner, manifest }),
+      prepareFiles: (workspaceId, owner) => nativeInvoke("select_checksum_files", { workspaceId, owner }),
       commit: (workspaceId, owner, grantId) => nativeInvoke("commit_checksum_folder", { workspaceId, owner, grantId, confirmed: true }),
       cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_checksum_folder", { workspaceId, owner, grantId }),
     } : null;

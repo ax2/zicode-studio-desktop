@@ -6,10 +6,18 @@ use tauri_plugin_dialog::DialogExt;
 #[tauri::command]
 pub(crate) async fn select_result_text_export(app: AppHandle, window: WebviewWindow, workspace_id: String, source: Value) -> Result<Option<Value>, String> {
     let original = context(&window,&workspace_id)?;
-    app.state::<HostServer>().result_text_export_metadata(&original,source.clone())?;
+    let metadata = app.state::<HostServer>().result_text_export_metadata(&original, source.clone())?;
+    let name = metadata["suggestedFileName"].as_str().ok_or("result_export_unavailable")?.to_owned();
+    let extension = metadata["extension"].as_str().map(str::to_owned);
     let initial = app.state::<HostServer>().project_resource_root(&workspace_id)?;
-    let picked = tauri::async_runtime::spawn_blocking(move || app.dialog().file().set_directory(initial)
-        .set_file_name("result.txt").add_filter("Text", &["txt"]).blocking_save_file()).await.map_err(|_| "result_export_picker_unavailable")?;
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        let picker = app.dialog().file().set_directory(initial).set_file_name(name);
+        let picker = match extension {
+            Some(extension) => picker.add_filter("Text", &[&extension]),
+            None => picker,
+        };
+        picker.blocking_save_file()
+    }).await.map_err(|_| "result_export_picker_unavailable")?;
     if context(&window,&workspace_id)? != original { return Err("result_export_window_changed".into()); }
     picked.map(|file| window.state::<HostServer>().prepare_result_text_export(original,source,
         file.into_path().map_err(|_| "result_export_path_invalid")?)).transpose()

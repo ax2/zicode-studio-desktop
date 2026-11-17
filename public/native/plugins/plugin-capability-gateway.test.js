@@ -488,10 +488,12 @@ it("uses the native folder picker and sends only the returned one-use grant on c
   const owner = { runtimeId: "runtime", sessionId: "session", pluginId: "files", capabilityId: "hash" };
   const manifest = "a".repeat(64) + "  文件.txt";
   await gateway.checksumFolders.prepare("workspace", owner, manifest);
+  await gateway.checksumFolders.prepareFiles("workspace", owner);
   await gateway.checksumFolders.commit("workspace", owner, "grant");
   await gateway.checksumFolders.cancel("workspace", owner, "grant");
   expect(nativeInvoke.mock.calls).toEqual([
     ["select_checksum_folder", { workspaceId: "workspace", owner, manifest }],
+    ["select_checksum_files", { workspaceId: "workspace", owner }],
     ["commit_checksum_folder", { workspaceId: "workspace", owner, grantId: "grant", confirmed: true }],
     ["cancel_checksum_folder", { workspaceId: "workspace", owner, grantId: "grant" }],
   ]);

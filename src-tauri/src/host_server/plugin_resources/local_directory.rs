@@ -35,6 +35,7 @@ pub(in crate::host_server) struct DirectoryGrantRequest {
 enum Purpose {
     Metadata,
     Checksum(Vec<checksum::Entry>),
+    GenerateChecksum(Vec<checksum::SelectedFile>),
 }
 
 struct Grant {
@@ -223,7 +224,7 @@ impl Drop for Lease {
 fn authorize(
     state: &HostState,
     owner: &Owner,
-    purpose: &Purpose,
+    checksum: bool,
     context: Option<&Context>,
 ) -> Result<(PathBuf, String, String), ApiError> {
     let (root, proof) = local_file::scope(state, owner)?;
@@ -250,15 +251,15 @@ fn authorize(
         .execution_plugin(&scene, &owner.plugin_id)
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| rejected("resource_plugin_unavailable"))?;
-    let permission = match purpose {
-        Purpose::Metadata => "resource.directory.read",
-        Purpose::Checksum(_)
-            if owner.plugin_id == "com.zicode.devtools.files"
-                && owner.capability_id == "devtools.files.hash" =>
+    let permission = if checksum {
+        if owner.plugin_id != "com.zicode.devtools.files"
+            || owner.capability_id != crate::plugin_resource_execution::file_digest::CAPABILITY
         {
-            "resource.read"
+            return Err(rejected("resource_directory_profile_unsupported"));
         }
-        Purpose::Checksum(_) => return Err(rejected("resource_directory_profile_unsupported")),
+        "resource.read"
+    } else {
+        "resource.directory.read"
     };
     if !plugin
         .manifest
@@ -494,10 +495,11 @@ fn issue_grant(
     selection: Selection,
 ) -> Result<String, ApiError> {
     let context = selection.context();
-    let expected = authorize(state, &owner, &purpose, context)?;
+    let checksum = !matches!(purpose, Purpose::Metadata);
+    let expected = authorize(state, &owner, checksum, context)?;
     let directory = selection.open(&expected.0)?;
     let directory_stamp = stamp(&directory)?;
-    if authorize(state, &owner, &purpose, context)? != expected {
+    if authorize(state, &owner, checksum, context)? != expected {
         return Err(rejected("resource_authorization_changed"));
     }
     let (root, proof, registry_revision) = expected;
@@ -557,7 +559,7 @@ async fn commit_grant(
         );
         let check_authority = || {
             control.check()?;
-            if authorize(&state, &request.owner, &grant.purpose, context.as_ref())? != expected {
+            if authorize(&state, &request.owner, !matches!(grant.purpose, Purpose::Metadata), context.as_ref())? != expected {
                 return Err(rejected("resource_authorization_changed"));
             }
             Ok(())
@@ -578,11 +580,21 @@ async fn commit_grant(
                 result["entryCount"] = json!(count);
                 Ok(result)
             }
-            Purpose::Checksum(entries) => {
+            purpose => {
                 if stamp(&directory)? != grant.stamp {
                     return Err(rejected("resource_directory_changed"));
                 }
-                let rows = checksum::verify(&directory, entries, &control, &check_authority)?;
+                let result = match purpose {
+                    Purpose::Checksum(entries) => {
+                        let rows = checksum::verify(&directory, entries, &control, &check_authority)?;
+                        json!({"schemaVersion":1,"profile":checksum::PROFILE,"entries":rows})
+                    }
+                    Purpose::GenerateChecksum(selected) => {
+                        let files = checksum::generate(&directory, selected, &control, &check_authority)?;
+                        json!({"schemaVersion":1,"profile":checksum::GENERATE_PROFILE,"files":files})
+                    }
+                    Purpose::Metadata => unreachable!("metadata already handled"),
+                };
                 let current_directory = grant.selection.open(&grant.root)?;
                 if stamp(&current_directory)? != grant.stamp {
                     return Err(rejected("resource_directory_changed"));
@@ -595,7 +607,7 @@ async fn commit_grant(
                     .map_err(|_| rejected("resource_store_unavailable"))?;
                 control.check()?;
                 control.published();
-                Ok(json!({"schemaVersion":1,"profile":checksum::PROFILE,"entries":rows}))
+                Ok(result)
             }
         }
     })

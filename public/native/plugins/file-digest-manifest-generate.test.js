@@ -31,3 +31,19 @@ it("unknown execution remains locked and offers existing recovery rather than a 
   const f = fixture(); f.gateway.invoke.mockRejectedValueOnce(Object.assign(Error("timeout"), { code: "plugin_capability_timeout" })); f.button.click();
   await vi.waitFor(() => expect(document.body.textContent).toContain("Tool result is unknown")); expect(f.button.disabled).toBe(true); expect(f.onManifest).not.toHaveBeenCalled();
 });
+
+it("cancels a pending Worker and discards its late manifest", async () => {
+  const f = fixture();
+  const reply = f.gateway.invoke.getMockImplementation();
+  let release;
+  f.gateway.invoke.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+  f.button.click();
+  await vi.waitFor(() => expect(f.gateway.invoke).toHaveBeenCalledOnce());
+  [...document.querySelectorAll("button")].find(button => button.textContent === "Cancel generation").click();
+  expect(f.gateway.cancelCall).toHaveBeenCalledOnce();
+  release(await reply());
+  await vi.waitFor(() => expect(f.onBusy).toHaveBeenLastCalledWith(false));
+  expect(f.onManifest).not.toHaveBeenCalled();
+  expect(f.save.disabled).toBe(true);
+  expect(document.body.textContent).toContain("Manifest generation cancelled.");
+});

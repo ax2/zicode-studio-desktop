@@ -44,8 +44,21 @@ fn record(state: &HostState, source: &Source) -> Result<store::Record, ApiError>
 fn text(error: ApiError) -> String { error.1.0["error"]["code"].as_str().unwrap_or("result_export_unavailable").into() }
 impl HostServer {
     pub(crate) fn result_text_export_metadata(&self, context: &Context, value: Value) -> Result<Value, String> {
-        (|| { let source = source(context,value)?; let record = record(&self.state,&source)?;
-            Ok(json!({"mimeType":"text/plain","extension":"txt","byteLength":record.text.len(),"contentVersion":sha256_hex(record.text.as_bytes())})) })().map_err(text)
+        (|| {
+            let source = source(context, value)?;
+            let record = record(&self.state, &source)?;
+            let (name, extension) = if source.scope.plugin_id == "com.zicode.devtools.checksum-manifest"
+                && source.scope.capability_id == "devtools.checksum-manifest.generate"
+            {
+                ("SHA256SUMS", None)
+            } else {
+                ("result.txt", Some("txt"))
+            };
+            Ok(json!({
+                "mimeType":"text/plain","suggestedFileName":name,"extension":extension,
+                "byteLength":record.text.len(),"contentVersion":sha256_hex(record.text.as_bytes())
+            }))
+        })().map_err(text)
     }
     pub(crate) fn prepare_result_text_export(&self, context: Context, value: Value, path: PathBuf) -> Result<Value, String> {
         (|| { let source = source(&context,value)?; let record = record(&self.state,&source)?; let destination = Destination::prepare(path)?;

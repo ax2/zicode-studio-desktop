@@ -275,6 +275,11 @@ description = "Select a local checksum folder and prepare a window-bound read gr
 commands.allow = ["select_checksum_folder"]
 
 [[permission]]
+identifier = "allow-select-checksum-files"
+description = "Select one to 64 files from a local folder and prepare a window-bound checksum read grant."
+commands.allow = ["select_checksum_files"]
+
+[[permission]]
 identifier = "allow-commit-checksum-folder"
 description = "Confirm and consume a local checksum folder read grant."
 commands.allow = ["commit_checksum_folder"]
@@ -309,6 +314,7 @@ permissions = [
   "allow-select-project-resource-file",
   "allow-select-project-resource-directory",
   "allow-select-checksum-folder",
+  "allow-select-checksum-files",
   "allow-commit-checksum-folder",
   "allow-cancel-checksum-folder",
   "allow-desktop-explorer-menu",

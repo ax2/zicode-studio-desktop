@@ -6,22 +6,32 @@ import { createTextResultExport } from "./text-result-export.js";
 const PLUGIN = "com.zicode.devtools.checksum-manifest", CAPABILITY = "devtools.checksum-manifest.generate";
 export function createFileDigestManifestGenerate({ container, gateway, getTarget, isCurrent, verifySources, onManifest, onBusy, isBlocked }) {
   const root = document.createElement("section"), panel = document.createElement("section"), hint = document.createElement("p"), generate = document.createElement("button"), save = document.createElement("button"), status = document.createElement("p"), controls = document.createElement("div");
-  generate.type = save.type = "button"; generate.className = save.className = "ui-button ui-button--secondary";
-  controls.className = "ui-toolbar file-digest-manifest-actions"; controls.append(generate, save);
+  const stop = document.createElement("button");
+  generate.type = save.type = stop.type = "button";
+  generate.className = save.className = stop.className = "ui-button ui-button--secondary";
+  stop.hidden = true;
+  controls.className = "ui-toolbar file-digest-manifest-actions"; controls.append(generate, save, stop);
   status.setAttribute("role", "status"); panel.append(hint, controls, status); root.append(panel); container.append(root); panel.hidden = true;
   let active = true, files = null, revision = 0, pending = false, choosing = false, request = null, generated = null, statusKey = "";
   const current = token => active && isCurrent() && token === revision && files !== null;
-  const sync = () => { const busy = pending || choosing || recovery.locked(CAPABILITY); generate.disabled = busy || isBlocked() || !files; save.disabled = busy || isBlocked() || !generated || !gateway.textExports; onBusy(busy); };
+  const sync = () => {
+    const busy = pending || choosing || recovery.locked(CAPABILITY);
+    generate.disabled = busy || isBlocked() || !files;
+    save.disabled = busy || isBlocked() || !generated || !gateway.textExports;
+    stop.hidden = !pending;
+    stop.disabled = request?.cancelled === true;
+    onBusy(busy);
+  };
   const listeners = new Set([sync]), recovery = createViewCallRecovery({ container: root, gateway, isCurrent: () => active && isCurrent(), listeners });
   const exporter = gateway.textExports ? createTextResultExport({ api: { ...gateway.textExports,
     commit: async (...args) => { const token = revision; await verifySources(() => current(token)); if (!current(token)) throw new Error("file_report_unavailable"); return gateway.textExports.commit(...args); },
   }, getTarget, isCurrent: () => active && isCurrent() && files !== null }) : null;
   function render() {
     hint.textContent = t("Generate shares the displayed names and SHA-256 values with the checksum plugin. Saving needs a separate destination and confirmation.");
-    generate.textContent = t("Generate SHA256SUMS"); save.textContent = t("Save generated manifest as…"); status.textContent = statusKey ? t(statusKey) : "";
+    generate.textContent = t("Generate SHA256SUMS"); save.textContent = t("Save generated manifest as…"); stop.textContent = t("Cancel generation"); status.textContent = statusKey ? t(statusKey) : "";
   }
   window.addEventListener("zicode:locale-changed", render); render();
-  generate.onclick = async () => {
+  async function generateManifest() {
     if (generate.disabled || !active || !isCurrent()) return;
     const token = ++revision, selected = files, target = getTarget(), state = { cancelled: false }, valid = () => current(token) && selected === files;
     exporter?.clear(); generated = null; pending = true; request = state; statusKey = "Generating manifest…"; render(); sync();
@@ -37,7 +47,27 @@ export function createFileDigestManifestGenerate({ container, gateway, getTarget
       const result = await checksumGeneratedResult(response, selected, tool.version); if (!valid()) return;
       generated = { ...result, scope }; onManifest(result.text); statusKey = "Manifest generated. Choose a destination to save a new copy.";
     } catch { if (valid()) statusKey = "Manifest generation failed. Check file access and the checksum plugin."; }
-    finally { pending = false; if (request === state) request = null; if (active) { render(); sync(); } }
+    finally {
+      pending = false;
+      if (request === state) request = null;
+      if (active) {
+        if (state.cancelled && statusKey === "Cancelling…") {
+          statusKey = recovery.locked(CAPABILITY) ? "" : "Manifest generation cancelled.";
+        }
+        render();
+        sync();
+      }
+    }
+  }
+  generate.onclick = generateManifest;
+  stop.onclick = () => {
+    if (!pending || !request || request.cancelled) return;
+    revision++;
+    request.cancelled = true;
+    void request.cancel?.();
+    statusKey = "Cancelling…";
+    render();
+    sync();
   };
   save.onclick = async () => {
     if (save.disabled || !generated || !exporter) return;
@@ -48,6 +78,7 @@ export function createFileDigestManifestGenerate({ container, gateway, getTarget
   };
   return {
     refresh: sync,
+    generate: generateManifest,
     show(value) { revision++; files = value; generated = null; exporter?.clear(); panel.hidden = !value; statusKey = ""; render(); sync(); },
     clear() { revision++; files = null; generated = null; exporter?.clear(); panel.hidden = true; void request?.cancel?.(); statusKey = ""; render(); sync(); },
     destroy() { active = false; revision++; void request?.cancel?.(); exporter?.destroy(); recovery.destroy(); listeners.delete(sync); window.removeEventListener("zicode:locale-changed", render); onBusy(false); root.remove(); },

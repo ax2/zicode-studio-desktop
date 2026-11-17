@@ -190,6 +190,146 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
         .lock()
         .unwrap()
         .manual_revision("programming");
+    let generated_dir = root.join("generate-selection");
+    fs::create_dir_all(&generated_dir).unwrap();
+    let generated_dir = generated_dir.canonicalize().unwrap();
+    let paths = (0..64)
+        .map(|index| {
+            let path = generated_dir.join(format!("文件-{index:02}.txt"));
+            if index == 0 {
+                fs::write(&path, vec![b'A'; 131_073]).unwrap();
+            } else {
+                fs::write(&path, b"abc").unwrap();
+            }
+            path
+        })
+        .collect::<Vec<_>>();
+    let prepare_files =
+        |selected| host.prepare_native_checksum_files(context.clone(), owner.clone(), selected);
+    let mixed = vec![paths[0].clone(), folder.join("entry-0.txt")];
+    assert_eq!(
+        prepare_files(mixed).await.unwrap_err(),
+        "resource_checksum_selection_invalid"
+    );
+    assert_eq!(
+        prepare_files(vec![paths[0].clone(), paths[0].clone()])
+            .await
+            .unwrap_err(),
+        "resource_checksum_manifest_invalid"
+    );
+    let mut too_many = paths.clone();
+    too_many.push(generated_dir.join("65.txt"));
+    assert_eq!(
+        prepare_files(too_many).await.unwrap_err(),
+        "resource_checksum_selection_invalid"
+    );
+    let generation = prepare_files(paths.clone()).await.unwrap();
+    let generation_id = generation["grantId"].as_str().unwrap();
+    assert_eq!(generation["read"], false);
+    assert_eq!(generation["files"].as_array().unwrap().len(), 64);
+    assert!(!generation.to_string().contains("generate-selection"));
+    assert_eq!(
+        commit(generation_id, false).await.unwrap_err(),
+        "resource_confirmation_required"
+    );
+    fs::write(&paths[0], b"changed before confirmation").unwrap();
+    assert_eq!(
+        commit(generation_id, true).await.unwrap_err(),
+        "resource_checksum_source_changed"
+    );
+    fs::write(&paths[0], vec![b'A'; 131_073]).unwrap();
+    const LARGE: &str = "027834c3408428d92caa105b4da46b5da61005c84c4e49528a396b6afb363503";
+    let generation = prepare_files(paths.into_iter().rev().collect())
+        .await
+        .unwrap();
+    let result = commit(generation["grantId"].as_str().unwrap(), true)
+        .await
+        .unwrap();
+    assert_eq!(result["profile"], checksum::GENERATE_PROFILE);
+    let generation_files = result["files"].as_array().unwrap();
+    assert_eq!(generation_files.len(), 64);
+    for (index, file) in generation_files.iter().rev().enumerate() {
+        assert_eq!(
+            file,
+            &json!({
+                "name":format!("文件-{index:02}.txt"),
+                "sha256":if index == 0 { LARGE } else { ABC }
+            })
+        );
+    }
+    let scope = json!({"sceneId":"programming","workspaceId":target.workspace_id,
+        "pluginId":MANIFEST,"capabilityId":"devtools.checksum-manifest.generate"});
+    let mut request = scope.clone();
+    request["catalogRevision"] = json!(revision);
+    request["captureResult"] = json!(true);
+    request["input"] = json!({"files":generation_files});
+    let ticket: Value = post("/v2/plugin-capabilities/prepare-call", request.clone())
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(ticket["callId"].is_string(), "{ticket}");
+    request["callId"] = ticket["callId"].clone();
+    let generated: Value = post("/v2/plugin-capabilities/invoke", request)
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(generated["result"]["ok"], true, "{generated}");
+    let expected = (0..64)
+        .map(|index| {
+            let hash = if index == 0 { LARGE } else { ABC };
+            format!("{hash}  文件-{index:02}.txt\n")
+        })
+        .collect::<String>();
+    assert_eq!(generated["result"]["data"]["text"], expected);
+    assert_eq!(generated["resultRef"]["byteLength"], expected.len());
+    let source = json!({"scope":scope,"resultId":generated["resultRef"]["resultId"]});
+    let metadata = host
+        .result_text_export_metadata(&context, source.clone())
+        .unwrap();
+    assert_eq!(metadata["suggestedFileName"], "SHA256SUMS");
+    assert!(metadata["extension"].is_null());
+    let destination = generated_dir.join("SHA256SUMS");
+    let cancelled = host
+        .prepare_result_text_export(context.clone(), source.clone(), destination.clone())
+        .unwrap();
+    host.cancel_result_text_export(
+        context.clone(),
+        source.clone(),
+        cancelled["grantId"].as_str().unwrap().to_owned(),
+    )
+    .unwrap();
+    assert!(!destination.exists());
+    let prepared = host
+        .prepare_result_text_export(context.clone(), source.clone(), destination.clone())
+        .unwrap();
+    let export_id = prepared["grantId"].as_str().unwrap().to_owned();
+    assert_eq!(
+        host.commit_result_text_export(context.clone(), source.clone(), export_id.clone(), false)
+            .unwrap_err(),
+        "result_confirmation_required"
+    );
+    assert!(!destination.exists());
+    assert_eq!(
+        host.commit_result_text_export(context.clone(), source.clone(), export_id.clone(), true)
+            .unwrap()["saved"],
+        true
+    );
+    assert_eq!(
+        host.verify_result_text_export(context.clone(), source.clone(), export_id)
+            .unwrap()["status"],
+        "verified"
+    );
+    assert_eq!(fs::read(&destination).unwrap(), expected.as_bytes());
+    assert_eq!(
+        host.prepare_result_text_export(context.clone(), source, destination)
+            .unwrap_err(),
+        "resource_export_conflict"
+    );
+
     for batch in rows.chunks(16) {
         let text = batch
             .iter()

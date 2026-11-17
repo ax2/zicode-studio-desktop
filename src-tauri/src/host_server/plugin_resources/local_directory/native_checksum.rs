@@ -1,5 +1,6 @@
 //! Window-bound directory grants for the trusted native folder picker.
 use super::*;
+use std::ffi::OsStr;
 use std::path::Component;
 
 pub(super) struct SelectedDirectory {
@@ -96,6 +97,53 @@ impl HostServer {
                 "schemaVersion":1,"profile":checksum::PROFILE,"grantId":grant_id,
                 "owner":owner,"displayName":display_name,"entryNamesRead":false,
                 "confirmed":false,"expiresInSeconds":120,
+            }))
+        })
+        .await
+        .map(|Json(result)| result)
+        .map_err(error_code)
+    }
+
+    pub(crate) async fn prepare_native_checksum_files(
+        &self,
+        context: Context,
+        owner_value: Value,
+        paths: Vec<PathBuf>,
+    ) -> Result<Value, String> {
+        let owner = owner(owner_value)?;
+        let state = self.state.clone();
+        blocking(state.clone(), move || {
+            if paths.is_empty() || paths.len() > checksum::MAX_FILES {
+                return Err(rejected("resource_checksum_selection_invalid"));
+            }
+            let path = paths[0].parent().ok_or_else(invalid_path)?.to_owned();
+            let names = paths
+                .iter()
+                .map(|file| {
+                    if file.parent() != Some(path.as_path()) {
+                        return Err(rejected("resource_checksum_selection_invalid"));
+                    }
+                    file.file_name()
+                        .and_then(OsStr::to_str)
+                        .map(str::to_owned)
+                        .ok_or_else(invalid_path)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let expected = authorize(&state, &owner, true, Some(&context))?;
+            let directory = open_picked_directory(&path)?;
+            let files = checksum::freeze_selection(&directory, &names)?;
+            if authorize(&state, &owner, true, Some(&context))? != expected {
+                return Err(rejected("resource_authorization_changed"));
+            }
+            let grant_id = issue_grant(
+                &state,
+                owner.clone(),
+                Purpose::GenerateChecksum(files),
+                Selection::Picked(SelectedDirectory { context, path }),
+            )?;
+            Ok(json!({
+                "schemaVersion":1,"profile":checksum::GENERATE_PROFILE,"grantId":grant_id,
+                "owner":owner,"files":names,"read":false,"confirmed":false,"expiresInSeconds":120,
             }))
         })
         .await
