@@ -7,6 +7,9 @@ use std::path::Path;
 #[cfg(test)]
 #[path = "plugin_worker_diagnostics_tests.rs"]
 mod diagnostics_tests;
+#[cfg(test)]
+#[path = "plugin_worker_encoding_tests.rs"]
+mod encoding_tests;
 #[path = "plugin_worker_stack.rs"]
 mod execution_stack;
 #[path = "plugin_worker_failures.rs"]
@@ -237,8 +240,9 @@ fn execute_wasi_bundle(
     let metadata_profile = request.execution_profile.as_deref() == Some(resource_output::Profile::METADATA_EXECUTION);
     let markdown_profile = crate::plugin_resource_execution::markdown::selected(request.execution_profile.as_deref());
     let digest_profile = crate::plugin_resource_execution::file_digest::selected(request.execution_profile.as_deref());
+    let encoding_profile = crate::plugin_resource_execution::encoding::selected(request.execution_profile.as_deref());
     let output_profile = if metadata_profile { resource_output::Profile::ImageMetadata2 } else { resource_output::Profile::Draft1 };
-    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile {
+    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !encoding_profile {
         return Err("Unsupported resource execution profile".into());
     }
     if image_resize_profile && (!resource_mode || !binary) {
@@ -257,6 +261,13 @@ fn execute_wasi_bundle(
         return Err(
             "Regex replacement execution profile requires resource input and output".into(),
         );
+    }
+    if encoding_profile {
+        if !resource_mode || !binary {
+            return Err("Encoding inspection requires a resource snapshot".into());
+        }
+        crate::plugin_resource_execution::encoding::validate_input(&request.plugin_id, request.capability_id.as_deref(),
+            &resources.iter().map(|resource| resource.bytes.len()).collect::<Vec<_>>())?;
     }
     let mut envelope = serde_json::json!({
         "pluginId": request.plugin_id,
@@ -345,6 +356,8 @@ fn execute_wasi_bundle(
                 crate::plugin_resource_execution::markdown::MEMORY_MIB
             } else if image_resize_profile {
                 crate::plugin_resource_execution::IMAGE_RESIZE_MEMORY_MIB
+            } else if encoding_profile {
+                crate::plugin_resource_execution::encoding::MEMORY_MIB
             } else if resource_mode {
                 256
             } else {
@@ -377,6 +390,8 @@ fn execute_wasi_bundle(
             crate::plugin_resource_regex::FUEL
         } else if digest_profile {
             crate::plugin_resource_execution::file_digest::FUEL
+        } else if encoding_profile {
+            crate::plugin_resource_execution::encoding::FUEL
         } else {
             10_000_000
         })

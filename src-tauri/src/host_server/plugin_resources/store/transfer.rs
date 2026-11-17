@@ -52,7 +52,7 @@ impl Store {
         source_proof: &str,
         target: Owner,
         target_proof: String,
-        original_file: bool,
+        original_file_limit: Option<usize>,
     ) -> Result<Value, ApiError> {
         self.check(source, source_proof)?;
         if target.runtime_id != source.owner.runtime_id
@@ -68,8 +68,8 @@ impl Store {
         let record = &self.records[&source.resource_id];
         let original = if record.is_file_reference() {
             return Err(rejected("resource_file_reference_requires_run"));
-        } else if original_file {
-            Some(file_reference::checked_source(record.original.as_ref(), record.expected, &source.owner, &target)?)
+        } else if let Some(limit) = original_file_limit {
+            Some(file_reference::checked_source(record.original.as_ref(), record.expected, &source.owner, &target, limit)?)
         } else {
             None
         };

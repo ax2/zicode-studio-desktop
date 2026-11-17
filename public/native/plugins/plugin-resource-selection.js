@@ -12,6 +12,7 @@ export function createPluginResourceSelection({
   isCurrent,
   onResource,
   catalogRevision,
+  maxBytes = 32 * 1024 * 1024,
 }) {
   const panel = document.createElement("section");
   panel.className = "plugin-resource-selection";
@@ -20,6 +21,8 @@ export function createPluginResourceSelection({
   let active = true;
   let uploading = false;
   let selected = null;
+  const allowedSize = file => Number.isSafeInteger(file?.size) && file.size >= 0 && file.size <= maxBytes;
+  const limitText = () => t("Choose a file up to {limit} MiB and a receiving tool.").replace("{limit}", String(maxBytes / (1024 * 1024)));
   let granted = null;
   let projectGrant = null;
   let entryPath = null;
@@ -90,7 +93,7 @@ export function createPluginResourceSelection({
         if (!valid()) { void gateway.projectFiles.cancel(preview.owner, preview.grantId).catch(() => {}); return; }
         projectGrant = preview;
         selected = { name: preview.relativePath, size: preview.byteLength, projectPreview: preview };
-        status.textContent = t("Selected: {name} · {bytes} bytes · plugin {plugin}")
+        status.textContent = !allowedSize(selected) ? limitText() : t("Selected: {name} · {bytes} bytes · plugin {plugin}")
           .replace("{name}", selected.name).replace("{bytes}", selected.size).replace("{plugin}", `${plugin.name} ${plugin.version}`);
       } catch {
         if (valid()) status.textContent = t("Could not select this file. Choose a Studio file again.");
@@ -100,7 +103,7 @@ export function createPluginResourceSelection({
           panel.removeAttribute("aria-busy");
           input.disabled = capability.disabled = projectChoice.disabled = false;
           saved?.setDisabled(false);
-          confirm.disabled = !selected || !capability.value;
+          confirm.disabled = !allowedSize(selected) || !capability.value;
         }
       }
     });
@@ -117,8 +120,8 @@ export function createPluginResourceSelection({
       fileStatus.clear();
       cancelProjectGrant();
       revision++; release(); selected = file; input.value = "";
-      confirm.disabled = !file || !capability.value;
-      status.textContent = file ? t("Selected: {name} · {bytes} bytes · plugin {plugin}")
+      confirm.disabled = !allowedSize(file) || !capability.value;
+      status.textContent = file && !allowedSize(file) ? limitText() : file ? t("Selected: {name} · {bytes} bytes · plugin {plugin}")
         .replace("{name}", file.name).replace("{bytes}", file.size).replace("{plugin}", `${plugin.name} ${plugin.version}`) : "";
     },
   });
@@ -156,7 +159,7 @@ export function createPluginResourceSelection({
     saved?.clear();
     release();
     selected = input.files?.[0] ?? null;
-    const allowed = selected && selected.size <= 32 * 1024 * 1024 && capability.value;
+    const allowed = allowedSize(selected) && capability.value;
     confirm.disabled = !allowed;
     status.textContent = !selected
       ? ""
@@ -165,7 +168,7 @@ export function createPluginResourceSelection({
             .replace("{name}", selected.name)
             .replace("{bytes}", selected.size)
             .replace("{plugin}", `${plugin.name} ${plugin.version}`)
-        : t("Choose a file up to 32 MiB and a receiving tool.");
+        : limitText();
   });
   capability.addEventListener("change", () => {
     fileStatus.clear();
@@ -174,7 +177,7 @@ export function createPluginResourceSelection({
     revision += 1;
     release();
     confirm.disabled =
-      uploading || !selected || selected.size > 32 * 1024 * 1024 || !capability.value;
+      uploading || !allowedSize(selected) || !capability.value;
   });
   cancel.addEventListener("click", () => {
     const preview = projectGrant;

@@ -4,10 +4,17 @@ use crate::plugin_worker::resource_input::Resource;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub(super) const MAX_BYTES: usize = 128 * 1024;
+use crate::plugin_resource_execution::encoding;
+
+pub(super) const MAX_BYTES: usize = encoding::MAX_BYTES;
 const SENDER: &str = "com.zicode.devtools.files";
-const RECEIVER: &str = "com.zicode.devtools.encoding";
-const INSPECT: &str = "devtools.encoding.inspect";
+pub(super) fn target_max_bytes(profile: Option<&str>) -> usize {
+    if encoding::selected(profile) {
+        encoding::MAX_BYTES
+    } else {
+        encoding::LEGACY_MAX_BYTES
+    }
+}
 
 pub(super) fn is_source(owner: &Owner) -> bool {
     owner.plugin_id == SENDER
@@ -15,7 +22,7 @@ pub(super) fn is_source(owner: &Owner) -> bool {
 }
 
 fn is_target(owner: &Owner) -> bool {
-    owner.plugin_id == RECEIVER && owner.capability_id == INSPECT
+    owner.plugin_id == encoding::PLUGIN && owner.capability_id == encoding::CAPABILITY
 }
 
 pub(super) fn transfer_profile(original_file: bool) -> &'static str {
@@ -137,11 +144,12 @@ pub(super) fn checked_source(
     length: usize,
     source: &Owner,
     target: &Owner,
+    limit: usize,
 ) -> Result<Arc<OriginalFile>, ApiError> {
     if !is_source(source) || !is_target(target) {
         return Err(rejected("resource_transfer_scope_invalid"));
     }
-    if length > MAX_BYTES {
+    if length > limit {
         return Err(rejected("resource_input_too_large"));
     }
     match original {

@@ -1,6 +1,9 @@
 //! The original-file transfer checks the current Windows file before sharing and upon execution.
 use super::*;
 
+#[path = "encoding_full_http.rs"]
+mod encoding_full_http;
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires frozen Files and Encoding candidates and the production Worker"]
 async fn original_file_handoff_rechecks_identity_and_runs_encoding_only_on_request() {
@@ -204,6 +207,17 @@ async fn original_file_handoff_rechecks_identity_and_runs_encoding_only_on_reque
         &target.workspace_id,
     )
     .await;
+    if std::env::var_os("ZICODE_TEST_ENCODING_FULL_INSPECT").is_some() {
+        encoding_full_http::verify(
+            &host,
+            &client,
+            &sender,
+            &receiver,
+            &root,
+            &target.workspace_id,
+        )
+        .await;
+    }
     host.stop_and_wait().await.unwrap();
 }
 

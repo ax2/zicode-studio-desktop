@@ -41,7 +41,7 @@ fn fixture() -> (Store, Access, Owner) {
 }
 fn grant(store: &mut Store, source: &Access, target: &Owner) -> String {
     store
-        .prepare_transfer(source, "source", target.clone(), "target".into(), false)
+        .prepare_transfer(source, "source", target.clone(), "target".into(), None)
         .unwrap()["grantId"]
         .as_str()
         .unwrap()
@@ -165,14 +165,14 @@ fn scope_grants_and_publication_remain_bounded() {
         },
     ] {
         assert!(store
-            .prepare_transfer(&source, "source", invalid, "target".into(), false)
+            .prepare_transfer(&source, "source", invalid, "target".into(), None)
             .is_err());
     }
     for _ in 0..MAX_GRANTS {
         grant(&mut store, &source, &target);
     }
     assert!(store
-        .prepare_transfer(&source, "source", target.clone(), "target".into(), false)
+        .prepare_transfer(&source, "source", target.clone(), "target".into(), None)
         .is_err());
     let id = store.transfers.keys().next().unwrap().clone();
     for _ in 1..MAX_RECORDS {

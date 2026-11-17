@@ -1,5 +1,6 @@
 const uuid = value => typeof value === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
 const version = value => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+const MAX_ORIGINAL_BYTES = 8 * 1024 * 1024;
 const safeName = value => typeof value === "string" && value.length > 0 && value.length <= 255 &&
   !/[\\/:\p{Cc}\u202a-\u202e\u2066-\u2069]/u.test(value);
 
@@ -50,14 +51,14 @@ export async function confirmProjectResource({ api, preview, gateway, isCurrent 
     if (!access || !isCurrent() || result.confirmed !== true || result.byteLength !== preview.byteLength
       || result.profile !== "resource.local-file.draft1" || result.access?.resourceId !== access.resourceId
       || result.access?.contentVersion !== access.contentVersion
-      || (preview.native && result.originalFile?.name !== preview.name && preview.byteLength <= 128 * 1024)
+      || (preview.native && result.originalFile && result.originalFile.name !== preview.name)
       || Object.keys(preview.owner).some(key => result.access?.owner?.[key] !== preview.owner[key])) {
       throw new Error("project_file_snapshot_invalid");
     }
     const reference = { capabilityId: preview.owner.capabilityId, resourceId: access.resourceId, contentVersion: access.contentVersion };
     const name = result.originalFile?.name;
     const originalFile = safeName(name) &&
-      result.originalFile.byteLength === preview.byteLength && preview.byteLength <= 128 * 1024
+      result.originalFile.byteLength === preview.byteLength && preview.byteLength <= MAX_ORIGINAL_BYTES
       ? { ...reference, originalFile: true, fileName: name, mimeType: "application/octet-stream", byteLength: preview.byteLength } : null;
     delivered = true;
     return { access, reference, ...(originalFile ? { originalFile } : {}) };

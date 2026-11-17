@@ -130,6 +130,24 @@ describe("directory-owned resource execution", () => {
     expect(document.querySelector(".image-metadata-result").hidden).toBe(true);
     expect(document.querySelector("pre.tool-result").textContent).toBe("");
   });
+  it("offers the full encoding check only up to eight MiB before any file bytes are read", async () => {
+    const f = fixture({}, 1, false, { pluginId: "com.zicode.devtools.encoding", capabilityId: "devtools.encoding.inspect",
+      executionProfile: "resource.wasi.encoding-inspect.v1" });
+    const arrayBuffer = vi.fn(async () => new ArrayBuffer(0));
+    const input = document.querySelector('input[type="file"]');
+    const select = size => {
+      Object.defineProperty(input, "files", { configurable: true, value: [{ name: "fixture.txt", size, type: "text/plain", arrayBuffer }] });
+      input.dispatchEvent(new Event("change"));
+    };
+    select(8 * 1024 * 1024 + 1);
+    expect(f.button("Confirm file sharing").disabled).toBe(true);
+    expect(document.body.textContent).toContain("Choose a file up to 8 MiB");
+    select(8 * 1024 * 1024);
+    expect(f.button("Confirm file sharing").disabled).toBe(false);
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(f.gateway.prepareResource).not.toHaveBeenCalled();
+  });
+
   it("shows declared input MIME types and explains a mismatched file without losing recovery", async () => {
     const f = fixture({}, 1, false, { resourceInputMimeTypes: ["text/plain"] });
     expect(document.body.textContent).toContain("Accepted file types: text/plain");

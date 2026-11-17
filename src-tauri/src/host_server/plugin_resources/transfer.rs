@@ -103,7 +103,8 @@ pub(super) fn target_identity(
     Ok((
         proof,
         json!({"pluginId":target.plugin_id,"capabilityId":target.capability_id,
-        "pluginName":plugin.manifest.display_name.unwrap_or(plugin.manifest.name),"pluginVersion":plugin.manifest.version,"toolTitle":capability.title}),
+        "pluginName":plugin.manifest.display_name.unwrap_or(plugin.manifest.name),"pluginVersion":plugin.manifest.version,"toolTitle":capability.title,
+        "executionProfile":capability.execution_profile}),
     ))
 }
 
@@ -130,7 +131,8 @@ pub(in crate::host_server) async fn prepare(
             .plugin_resources
             .lock()
             .map_err(|_| rejected("resource_store_unavailable"))?
-            .prepare_transfer(&request.source, &source_proof, request.target, target_proof, request.original_file)?;
+            .prepare_transfer(&request.source, &source_proof, request.target, target_proof,
+                request.original_file.then(|| file_reference::target_max_bytes(presentation["executionProfile"].as_str())))?;
         result["target"] = presentation;
         Ok(result)
     })

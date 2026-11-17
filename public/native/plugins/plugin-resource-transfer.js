@@ -201,6 +201,11 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
           (detail.resourceInputProfile === HOST_TEXT_INPUT_PROFILE && tool.runtime === "builtin" &&
             tool.pluginId === HOST_TEXT_RECEIVER.pluginId && tool.capabilityId === HOST_TEXT_RECEIVER.capabilityId);
         if (!validProfile) throw new Error();
+        if (originalFile && resource.byteLength > 128 * 1024 && detail.capability.executionProfile !== "resource.wasi.encoding-inspect.v1") {
+          resetChosen();
+          status.textContent = t("This encoding checker supports files up to 128 KiB.");
+          return;
+        }
         chosenProfile = detail.resourceInputProfile;
         details.append(node("h3", `${tool.title} · ${tool.version}`));
         const inputs = node("div"); details.append(inputs);

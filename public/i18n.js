@@ -1659,7 +1659,8 @@ const zhCN = {
     "未能确认资源已释放，资源将自动过期。",
   "Selected: {name} · {bytes} bytes · plugin {plugin}":
     "已选择：{name} · {bytes} 字节 · 插件 {plugin}",
-  "Choose a file up to 32 MiB and a receiving tool.": "请选择不超过 32 MiB 的文件和接收工具。",
+  "Choose a file up to {limit} MiB and a receiving tool.": "请选择不超过 {limit} MiB 的文件和接收工具。",
+  "This encoding checker supports files up to 128 KiB.": "此版本的编码检查支持最多 128 KiB 的文件。",
   "File sharing canceled.": "已取消提供文件。",
   "File preparation status": "文件准备状态",
   "Check file preparation status": "核对文件准备状态",
