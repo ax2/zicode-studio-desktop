@@ -84,20 +84,20 @@ it("requires inline citations for source facts and joint conclusions in both loc
     const [english, , , englishCue] = browserComparisonPrompt([]).split("\n\n");
     expect(english).toContain("Start every bullet in both sections with its exact supporting source numbers");
     expect(english).toContain("A shared conclusion starts with all supporting source numbers");
-    expect(englishCue).toContain("including every Summary bullet");
-    expect(englishCue).toContain("start with all sources compared");
-    expect(englishCue).toContain("Do not call a reported fact missing");
-    expect(englishCue).toContain("such as exact test dates or methods");
-    expect(englishCue).toContain("Cite the sources checked at the beginning of that same bullet");
+    expect(englishCue).toContain("State each conclusion only once and keep its supporting citations inline");
+    expect(englishCue).toContain("Begin each Summary bullet with all the relevant source numbers");
+    expect(englishCue).toContain("Keep the gap bullet about what is missing");
+    expect(englishCue).toContain("Name missing details, such as test dates or methods, only if absent");
+    expect(englishCue).toContain("- [1][2] The sources do not specify");
 
     setLocale("zh-CN");
     const [chinese, , , chineseCue] = browserComparisonPrompt([]).split("\n\n");
     expect(chinese).toContain("两部分的每条开头都标注");
     expect(chinese).toContain("共同结论以所有支持它的来源编号开头");
-    expect(chineseCue).toContain("总结的每条也一样");
-    expect(chineseCue).toContain("标注所有参与比较的来源");
-    expect(chineseCue).toContain("确切的测试日期或方法");
-    expect(chineseCue).toContain("在同一条开头先标注检查过的来源编号");
+    expect(chineseCue).toContain("每项结论只写一次，合并相似判断时保留就地引用");
+    expect(chineseCue).toContain("每条总结开头标注所有相关来源编号");
+    expect(chineseCue).toContain("证据缺口一条只写缺少的信息");
+    expect(chineseCue).toContain("测试日期或方法等细节确实缺失时才列出");
   } finally {
     setLocale(locale);
   }
