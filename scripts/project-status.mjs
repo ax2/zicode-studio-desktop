@@ -67,19 +67,23 @@ const versionMilestone = /^v\d+\.\d+\.\d+(?:-[\w.-]+)?$/;
 const issuesWithoutVersionMilestone = repositoryIssues
   .filter(issue => !versionMilestone.test(issue.milestone?.title ?? ""))
   .map(issue => ({ ...issueSummary(issue), milestone: issue.milestone?.title ?? null }));
-const releaseMilestonesWithoutView = repositoryMilestones
+const missingVersionViews = repositoryMilestones
   .filter(m => versionMilestone.test(m.title))
   .filter(m => !project.views.some(view =>
     [m.title, `${m.title} 版本计划`].includes(view.name) &&
-    [`milestone:${m.title}`, `milestone:"${m.title}"`].includes(view.filter)))
-  .map(({ title, html_url }) => ({ title, url: html_url }));
+    [`milestone:${m.title}`, `milestone:"${m.title}"`].includes(view.filter)));
+const milestoneSummary = ({ title, html_url }) => ({ title, url: html_url });
+const releaseMilestonesWithoutView = missingVersionViews.map(milestoneSummary);
+const activeReleaseMilestonesWithoutView = missingVersionViews
+  .filter(m => m.open_issues > 0)
+  .map(milestoneSummary);
 const known = new Set(items.map(i => i.url));
 const untracked = repositoryIssues
   .filter(issue => issue.state === "open" && !known.has(issue.html_url))
   .map(issueSummary);
-console.log(JSON.stringify({ checkedAt: new Date().toISOString(), ...project, items, milestones, untracked, issuesWithoutMilestone, issuesWithoutVersionMilestone, releaseMilestonesWithoutView,
+console.log(JSON.stringify({ checkedAt: new Date().toISOString(), ...project, items, milestones, untracked, issuesWithoutMilestone, issuesWithoutVersionMilestone, releaseMilestonesWithoutView, activeReleaseMilestonesWithoutView,
   instruction: "Read selected issue body, all comments and dependencies before work. Untracked items are for review only; do not automatically re-add removed work." }, null, 2));
 
-if (process.argv.includes("--check-milestones") && (issuesWithoutVersionMilestone.length || releaseMilestonesWithoutView.length)) {
+if (process.argv.includes("--check-milestones") && (issuesWithoutVersionMilestone.length || activeReleaseMilestonesWithoutView.length)) {
   process.exitCode = 1;
 }
