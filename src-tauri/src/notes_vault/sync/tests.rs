@@ -82,5 +82,6 @@ mod domain;
 mod guards;
 mod recovery;
 mod transport;
+mod transfer;
 
 mod hardening;

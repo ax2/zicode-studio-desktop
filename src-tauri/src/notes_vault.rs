@@ -19,6 +19,7 @@ mod trash_guard;
 mod trash_metadata;
 #[cfg_attr(not(test), allow(dead_code))] // Awaiting sync settings and credentials integration.
 mod sync;
+pub(crate) use sync::{BaselineUpdate, Transfer};
 
 use base64::Engine;
 use chrono::{SecondsFormat, Utc};

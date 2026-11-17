@@ -1,15 +1,16 @@
-//! Encrypted WebDAV protocol. Not exposed to the app until the vault journal
-//! and profile-scoped credentials are integrated; no startup network activity.
+//! Encrypted WebDAV transport and saved-vault transfer. Calling the transfer
+//! requires an explicit destination and key; no startup network activity.
 mod crypto;
 mod merge;
 mod model;
-mod repository;
+pub(crate) mod repository;
 mod resolution;
 #[cfg(test)]
 pub(crate) mod tests;
 mod webdav;
 
 pub use crypto::SyncKey;
+pub(crate) use crypto::{digest, valid_digest};
 pub use model::{Conflict, Manifest, Snapshot, SyncError, SyncOutcome};
 #[cfg(test)]
 pub use repository::SyncRepository;

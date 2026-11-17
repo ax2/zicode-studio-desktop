@@ -9,7 +9,7 @@ use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
 };
-use tokio::task::JoinHandle;
+use tokio::{sync::Notify, task::JoinHandle};
 
 pub(crate) const VAULT: &str = "6901fd89-5c4c-48ca-a215-d8482ced95e1";
 
@@ -26,6 +26,7 @@ struct ServerState {
     status: Option<u16>,
     redirect: Option<String>,
     read_gate: Option<Arc<tokio::sync::Barrier>>,
+    held_read: Option<(Arc<Notify>, Arc<Notify>)>,
 }
 
 pub(crate) struct Server {
@@ -61,7 +62,43 @@ impl Server {
         )
         .await
     }
-    fn index(&self) -> Option<Vec<u8>> {
+    pub(crate) fn configured(&self, key: SyncKey) -> Result<SyncRepository, SyncError> {
+        SyncRepository::configured(
+            &self.url,
+            "fixture-user".into(),
+            "fixture-password".into(),
+            VAULT,
+            key,
+        )
+    }
+    pub(crate) fn fail_index(&self, enabled: bool) {
+        self.state.lock().unwrap().fail_index = enabled;
+    }
+    pub(crate) fn object_put_paths(&self) -> Vec<String> {
+        self.state
+            .lock()
+            .unwrap()
+            .requests
+            .iter()
+            .filter(|(method, path)| method == "PUT" && path.contains("/objects/"))
+            .map(|(_, path)| path.clone())
+            .collect()
+    }
+    pub(crate) fn request_count(&self) -> usize {
+        self.state.lock().unwrap().requests.len()
+    }
+    pub(crate) fn set_status(&self, status: Option<u16>) {
+        self.state.lock().unwrap().status = status;
+    }
+    pub(crate) fn hold_index_read(&self, observed: Arc<Notify>) {
+        self.state.lock().unwrap().held_read = Some((observed, Arc::new(Notify::new())));
+    }
+    pub(crate) fn release_index_read(&self) {
+        if let Some((_, release)) = self.state.lock().unwrap().held_read.take() {
+            release.notify_one();
+        }
+    }
+    pub(crate) fn index(&self) -> Option<Vec<u8>> {
         self.state.lock().unwrap().files.get(&index_path()).cloned()
     }
     fn writes(&self) -> usize {
@@ -101,6 +138,16 @@ async fn handle(
         .await
         .unwrap_or_default()
         .to_vec();
+    let held = {
+        let state = state.lock().unwrap();
+        (parts.method == "GET" && parts.uri.path().ends_with("index.zns"))
+            .then(|| state.held_read.clone())
+            .flatten()
+    };
+    if let Some((observed, release)) = held {
+        observed.notify_one();
+        release.notified().await;
+    }
     let gated = {
         let mut state = state.lock().unwrap();
         if parts.method == "GET" && parts.uri.path().ends_with("index.zns") {

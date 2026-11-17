@@ -128,9 +128,76 @@ impl Storage {
             .map_err(|_| recovery_error())
     }
 
+    pub(super) fn replace_bounded_file(
+        &self,
+        from: &Path,
+        to: &Path,
+        limit: usize,
+    ) -> Result<(), NotesError> {
+        if !self.exists(from)? {
+            return Err(recovery_error());
+        }
+        for path in [from, to] {
+            if self.exists(path)? {
+                let metadata = self
+                    .dir
+                    .symlink_metadata(path)
+                    .map_err(|_| recovery_error())?;
+                if !metadata.is_file() || metadata.len() > limit as u64 {
+                    return Err(recovery_error());
+                }
+            }
+        }
+        self.dir
+            .rename(from, &self.dir, to)
+            .map_err(|_| recovery_error())
+    }
+
     pub fn remove_file(&self, path: &Path) -> Result<(), NotesError> {
         self.read(path, crate::notes_sync::MAX_OBJECT_BYTES)?;
         self.dir.remove_file(path).map_err(|_| recovery_error())
+    }
+
+    pub(super) fn remove_bounded_file(&self, path: &Path, limit: usize) -> Result<(), NotesError> {
+        if !self.exists(path)? {
+            return Err(invalid());
+        }
+        let metadata = self.dir.symlink_metadata(path).map_err(|_| invalid())?;
+        if !metadata.is_file() || metadata.len() > limit as u64 {
+            return Err(invalid());
+        }
+        self.dir.remove_file(path).map_err(|_| recovery_error())
+    }
+
+    pub(super) fn open_sync_lease(
+        &self,
+        path: &Path,
+    ) -> Result<fs::File, crate::notes_sync::SyncError> {
+        use crate::notes_sync::SyncError;
+        use fs2::FileExt;
+
+        self.exists(path).map_err(|_| SyncError::LocalStorage)?;
+        let mut options = CapOptions::new();
+        options.read(true).write(true).create(true);
+        let file = self
+            .dir
+            .open_with(path, &options)
+            .map_err(|_| SyncError::LocalStorage)?
+            .into_std();
+        if !file
+            .metadata()
+            .map_err(|_| SyncError::LocalStorage)?
+            .is_file()
+        {
+            return Err(SyncError::LocalStorage);
+        }
+        match FileExt::try_lock_exclusive(&file) {
+            Ok(()) => Ok(file),
+            Err(error) if error.raw_os_error() == fs2::lock_contended_error().raw_os_error() => {
+                Err(SyncError::Busy)
+            }
+            Err(_) => Err(SyncError::LocalStorage),
+        }
     }
 
     pub fn tree_hash(&self, path: &Path) -> Result<String, NotesError> {

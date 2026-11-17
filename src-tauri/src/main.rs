@@ -60,7 +60,7 @@ mod image_tools;
 mod metadata_store;
 mod model_tools;
 mod native_pi_manager;
-#[cfg_attr(not(test), allow(dead_code))] // Not wired until Notes sync journal and credentials are ready.
+#[cfg_attr(not(test), allow(dead_code))] // Settings do not yet configure or start the Notes sync service.
 mod notes_sync;
 mod notes_vault;
 mod ocr;

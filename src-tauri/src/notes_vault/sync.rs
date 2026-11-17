@@ -6,6 +6,9 @@ mod storage;
 #[cfg(test)]
 mod tests;
 mod transaction;
+mod transfer;
+
+pub(crate) use transfer::{BaselineUpdate, Transfer};
 
 use super::*;
 use crate::notes_sync::Snapshot as RecordMap;

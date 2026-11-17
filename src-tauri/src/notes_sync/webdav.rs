@@ -5,6 +5,7 @@ use zeroize::Zeroizing;
 
 pub(super) struct WebDav {
     client: Client,
+    parent: Url,
     root: Url,
     username: Zeroizing<String>,
     password: Zeroizing<String>,
@@ -16,7 +17,7 @@ pub(super) struct Resource {
 }
 
 impl WebDav {
-    pub async fn connect(
+    pub fn new(
         endpoint: &str,
         username: String,
         password: String,
@@ -49,20 +50,31 @@ impl WebDav {
             builder = builder.no_proxy();
         }
         let client = builder.build().map_err(|_| SyncError::Network)?;
-        let mut dav = Self {
+        let parent = root
+            .join("zicode-notes/")
+            .map_err(|_| SyncError::InvalidConfig)?;
+        let root = parent
+            .join(&format!("{vault_id}/"))
+            .map_err(|_| SyncError::InvalidConfig)?;
+        Ok(Self {
             client,
+            parent,
             root,
             username: Zeroizing::new(username),
             password: Zeroizing::new(password),
-        };
-        dav.mkdir("zicode-notes/").await?;
-        dav.root = dav.url("zicode-notes/")?;
-        dav.mkdir(&format!("{vault_id}/")).await?;
-        dav.root = dav.url(&format!("{vault_id}/"))?;
-        dav.mkdir("objects/").await?;
+        })
+    }
+
+    pub fn scope(&self) -> String {
+        super::digest(self.root.as_str().as_bytes())
+    }
+
+    pub async fn initialize(&self) -> Result<(), SyncError> {
+        self.mkdir(self.parent.clone()).await?;
+        self.mkdir(self.root.clone()).await?;
+        self.mkdir(self.url("objects/")?).await?;
         // Test conditional semantics on an owned disposable resource before any index write.
-        dav.probe().await?;
-        Ok(dav)
+        self.probe().await
     }
 
     fn url(&self, path: &str) -> Result<Url, SyncError> {
@@ -85,12 +97,14 @@ impl WebDav {
             .basic_auth(self.username.as_str(), Some(self.password.as_str())))
     }
 
-    async fn mkdir(&self, path: &str) -> Result<(), SyncError> {
+    async fn mkdir(&self, url: Url) -> Result<(), SyncError> {
         let response = self
+            .client
             .request(
                 Method::from_bytes(b"MKCOL").map_err(|_| SyncError::InvalidData)?,
-                path,
-            )?
+                url,
+            )
+            .basic_auth(self.username.as_str(), Some(self.password.as_str()))
             .send()
             .await
             .map_err(|_| SyncError::Network)?;

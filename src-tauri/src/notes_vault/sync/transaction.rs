@@ -1,4 +1,4 @@
-use super::*;
+use super::{transfer::BaselineReceipt, *};
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -17,8 +17,11 @@ struct Journal {
     version: u32,
     transaction: String,
     plans: Vec<Plan>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    baseline: Option<BaselineReceipt>,
 }
 
+#[derive(Default)]
 pub(super) struct Run {
     #[cfg(test)]
     pub(super) fail_at: Option<usize>,
@@ -45,21 +48,33 @@ impl NotesVault {
         expected_revision: &str,
         desired: &RecordMap,
     ) -> Result<SyncCapture, NotesError> {
-        self.apply_sync_inner(
-            expected_revision,
-            desired,
-            Run {
-                #[cfg(test)]
-                fail_at: None,
-                step: 0,
-            },
-        )
+        self.apply_inner(expected_revision, desired, None, Run::default())
     }
 
+    pub(crate) fn apply_sync_baseline(
+        &self,
+        expected_revision: &str,
+        desired: &RecordMap,
+        baseline: &BaselineUpdate,
+    ) -> Result<SyncCapture, NotesError> {
+        self.apply_inner(expected_revision, desired, Some(baseline), Run::default())
+    }
+
+    #[cfg(test)]
     pub(super) fn apply_sync_inner(
         &self,
         expected_revision: &str,
         desired: &RecordMap,
+        run: Run,
+    ) -> Result<SyncCapture, NotesError> {
+        self.apply_inner(expected_revision, desired, None, run)
+    }
+
+    pub(super) fn apply_inner(
+        &self,
+        expected_revision: &str,
+        desired: &RecordMap,
+        baseline: Option<&BaselineUpdate>,
         mut run: Run,
     ) -> Result<SyncCapture, NotesError> {
         let current = self.capture_sync()?;
@@ -67,6 +82,9 @@ impl NotesVault {
             return Err(NotesError::new("sync_local_changed", "Saved Notes changed during synchronization. Read the latest local version before applying."));
         }
         if current.records == *desired {
+            if let Some(baseline) = baseline {
+                baseline.settle_unchanged(&Storage::open(&self.vaults_dir())?)?;
+            }
             return Ok(current);
         }
         let store = Storage::open(&self.vaults_dir())?;
@@ -75,7 +93,7 @@ impl NotesVault {
         let stage = Path::new(JOURNALS).join(&transaction);
         store.write_new(&stage.join("owner"), transaction.as_bytes())?;
         let prepared = prepare(&store, &stage, &transaction, desired, &current.records);
-        let journal = match prepared {
+        let mut journal = match prepared {
             Ok(journal) => journal,
             Err(error) => {
                 recover(&store)?;
@@ -88,6 +106,9 @@ impl NotesVault {
                 "sync_local_changed",
                 "Saved Notes changed while synchronization was being prepared",
             ));
+        }
+        if let Some(update) = baseline {
+            journal.baseline = Some(update.stage(&store, &stage.join("baseline.zns"))?);
         }
         let manifest = encode(&journal)?;
         if manifest.len() > crate::notes_sync::MAX_OBJECT_BYTES {
@@ -192,6 +213,7 @@ fn prepare(
         version: 1,
         transaction: transaction.to_string(),
         plans,
+        baseline: None,
     })
 }
 
@@ -374,6 +396,9 @@ fn finish(store: &Storage, stage: &Path, journal: &Journal) -> Result<(), NotesE
     let work = stage.join("work");
     if store.exists(&work)? && !store.list(&work)?.is_empty() {
         return Err(recovery_error());
+    }
+    if let Some(baseline) = &journal.baseline {
+        baseline.promote(store, &stage.join("baseline.zns"))?;
     }
     retire(store, stage, &journal.transaction)
 }
