@@ -85,6 +85,7 @@ impl Pending {
                     uploaded: length,
                     confirmed: true,
                     expires: Instant::now() + Duration::from_secs(900),
+                    original: None,
                     parents: sources
                         .iter()
                         .map(|s| Ancestor {
@@ -145,6 +146,7 @@ impl Pending {
             mime:"application/json".into(), expected:length, version,
             chunks:vec![bytes.into()], uploaded:length, confirmed:true,
             expires:Instant::now()+Duration::from_secs(900),
+            original: None,
             parents:self.sources.iter().map(|s|Ancestor{access:s.clone(),proof:self.proof.clone()}).collect(),
         }));
         self.total = self.total.checked_add(length).ok_or_else(|| rejected("resource_budget_exceeded"))?;

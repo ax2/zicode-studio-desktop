@@ -10,6 +10,7 @@ pub(super) struct Grant {
     target_proof: String,
     expires: Instant,
     result: Option<Access>,
+    original: Option<Arc<file_reference::OriginalFile>>,
 }
 
 impl Store {
@@ -51,6 +52,7 @@ impl Store {
         source_proof: &str,
         target: Owner,
         target_proof: String,
+        original_file: bool,
     ) -> Result<Value, ApiError> {
         self.check(source, source_proof)?;
         if target.runtime_id != source.owner.runtime_id
@@ -64,11 +66,22 @@ impl Store {
             return Err(rejected("resource_transfer_busy"));
         }
         let record = &self.records[&source.resource_id];
+        let original = if record.is_file_reference() {
+            return Err(rejected("resource_file_reference_requires_run"));
+        } else if original_file {
+            Some(file_reference::checked_source(record.original.as_ref(), record.expected, &source.owner, &target)?)
+        } else {
+            None
+        };
         let id = uuid::Uuid::new_v4().to_string();
-        let result = json!({"schemaVersion":1,"profile":"resource.transfer.draft1","grantId":id,"expiresInSeconds":60,
+        let mut result = json!({"schemaVersion":1,"profile":file_reference::transfer_profile(original.is_some()),"grantId":id,"expiresInSeconds":60,
             "source":{"pluginId":source.owner.plugin_id,"capabilityId":source.owner.capability_id,"resourceId":source.resource_id,"contentVersion":source.content_version},
             "target":{"pluginId":target.plugin_id,"capabilityId":target.capability_id},
-            "mimeType":record.mime,"byteLength":record.expected,"requiresConfirmation":true,"saved":false});
+            "mimeType":file_reference::transfer_mime(original.is_some(), &record.mime),"byteLength":record.expected,"requiresConfirmation":true,"saved":false});
+        if let Some(file) = &original {
+            result["fileName"] = json!(file.name());
+            result["contentRead"] = json!(false);
+        }
         self.transfers.insert(
             id,
             Grant {
@@ -78,6 +91,7 @@ impl Store {
                 target_proof,
                 expires: Instant::now() + TTL,
                 result: None,
+                original,
             },
         );
         Ok(result)
@@ -87,7 +101,7 @@ impl Store {
         &mut self,
         source: &Access,
         id: &str,
-    ) -> Result<(Owner, String), ApiError> {
+    ) -> Result<file_reference::TransferTarget, ApiError> {
         self.transfers.retain(|_, g| g.expires > Instant::now());
         let grant = self
             .transfers
@@ -102,9 +116,11 @@ impl Store {
             .records
             .get(&source.resource_id)
             .filter(|record| record.confirmed && record.version == source.content_version)
-            .map(|record| record.mime.clone())
+            .map(|record| file_reference::transfer_mime(grant.original.is_some(), &record.mime).to_owned())
             .ok_or_else(|| rejected("resource_unavailable"))?;
-        Ok((grant.target.clone(), mime))
+        Ok(file_reference::TransferTarget {
+            owner: grant.target.clone(), mime, original: grant.original.clone(),
+        })
     }
 
     pub(in crate::host_server::plugin_resources) fn commit_transfer(
@@ -114,12 +130,13 @@ impl Store {
         source_proof: &str,
         target_proof: &str,
     ) -> Result<Value, ApiError> {
-        let (target, _) = self.transfer_target(source, id)?;
+        let target = self.transfer_target(source, id)?.owner;
         self.check(source, source_proof)?;
         let grant = &self.transfers[id];
         if grant.source_proof != source_proof || grant.target_proof != target_proof {
             return Err(rejected("resource_authorization_changed"));
         }
+        let original = grant.original.clone();
         let (access, replayed) = if let Some(existing) = &grant.result {
             let access = existing.clone();
             self.check(&access, target_proof)?;
@@ -143,10 +160,11 @@ impl Store {
                 output_profile: record.output_profile,
                 owner: access.owner.clone(),
                 proof: target_proof.into(),
-                mime: record.mime.clone(),
+                mime: file_reference::transfer_mime(original.is_some(), &record.mime).into(),
                 expected: record.expected,
                 version: record.version.clone(),
-                chunks: record.chunks.clone(),
+                chunks: if original.is_some() { Vec::new() } else { record.chunks.clone() },
+                original: original.clone().map(file_reference::FileBinding::AwaitingRead),
                 uploaded: record.uploaded,
                 confirmed: true,
                 expires: record
@@ -161,10 +179,12 @@ impl Store {
             self.transfers.get_mut(id).unwrap().result = Some(access.clone());
             (access, false)
         };
-        Ok(
-            json!({"schemaVersion":1,"profile":"resource.transfer.draft1","status":"committed","replayed":replayed,
-            "reference":{"capabilityId":access.owner.capability_id,"resourceId":access.resource_id,"contentVersion":access.content_version},"saved":false}),
-        )
+        let mut result = json!({"schemaVersion":1,"profile":file_reference::transfer_profile(original.is_some()),"status":"committed","replayed":replayed,
+            "reference":{"capabilityId":access.owner.capability_id,"resourceId":access.resource_id,"contentVersion":access.content_version},"saved":false});
+        if original.is_some() {
+            result["contentRead"] = json!(false);
+        }
+        Ok(result)
     }
 }
 

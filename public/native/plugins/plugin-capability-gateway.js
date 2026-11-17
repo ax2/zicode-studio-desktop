@@ -264,9 +264,9 @@ export class PluginCapabilityGateway {
     });
   }
 
-  prepareResourceTransfer(source, target) {
+  prepareResourceTransfer(source, target, originalFile = false) {
     return this.#request(this.#url("/v2/plugin-resources/prepare-transfer"), {
-      method: "POST", body: JSON.stringify({ schemaVersion: 1, source, target }),
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, source, target, ...(originalFile ? { originalFile: true } : {}) }),
     });
   }
 

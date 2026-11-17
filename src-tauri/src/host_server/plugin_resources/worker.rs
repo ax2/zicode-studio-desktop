@@ -471,16 +471,9 @@ fn execute(
     for access in request.accesses() {
         authority::check_ancestors(state, access, &proof)?;
     }
-    let resources = {
-        let mut store = state
-            .plugin_resources
-            .lock()
-            .map_err(|_| rejected("resource_store_unavailable"))?;
-        request
-            .accesses()
-            .map(|access| store.snapshot(access, &proof))
-            .collect::<Result<Vec<_>, _>>()?
-    };
+    let resources = request.accesses()
+        .map(|access| file_reference::snapshot_for_worker(state, access, &proof, cancelled))
+        .collect::<Result<Vec<_>, _>>()?;
     if output_contract
         .resource_input_mime_types
         .as_ref()

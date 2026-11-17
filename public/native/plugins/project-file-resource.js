@@ -33,8 +33,13 @@ export async function confirmProjectResource({ api, preview, gateway, isCurrent 
       || Object.keys(preview.owner).some(key => result.access?.owner?.[key] !== preview.owner[key])) {
       throw new Error("project_file_snapshot_invalid");
     }
+    const reference = { capabilityId: preview.owner.capabilityId, resourceId: access.resourceId, contentVersion: access.contentVersion };
+    const name = result.originalFile?.name;
+    const originalFile = typeof name === "string" && name.length > 0 && name.length <= 255 && !/[\\/:\p{Cc}\u202a-\u202e\u2066-\u2069]/u.test(name) &&
+      result.originalFile.byteLength === preview.byteLength && preview.byteLength <= 128 * 1024
+      ? { ...reference, originalFile: true, fileName: name, mimeType: "application/octet-stream", byteLength: preview.byteLength } : null;
     delivered = true;
-    return { access, reference: { capabilityId: preview.owner.capabilityId, resourceId: access.resourceId, contentVersion: access.contentVersion } };
+    return { access, reference, ...(originalFile ? { originalFile } : {}) };
   } finally {
     if (access && !delivered) await gateway.revokeResource(access).catch(() => {});
   }

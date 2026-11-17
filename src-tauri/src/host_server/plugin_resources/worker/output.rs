@@ -115,6 +115,9 @@ pub(super) fn register(
         return Err(rejected("worker_cancelled"));
     }
     let (resources, report_resource) = store.publish_outputs_with_report(pending, cancelled)?;
+    if file_digest {
+        store.mark_original_files_verified(request.accesses());
+    }
     Ok(Execution {
         profile: profiles.output,
         result: bundle.result,

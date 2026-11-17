@@ -9,7 +9,7 @@ const validEntryName = value => typeof value === "string" && value.length > 0 &&
 
 // Only capabilities declaring resourceInputMax use this trusted-parent control.
 export function createMultiResourceSelection({ container, plugin, target, gateway, isCurrent,
-  onResource, catalogRevision, maxResources, minResources = 1, resourceLabels = [] }) {
+  onResource, catalogRevision, maxResources, minResources = 1, resourceLabels = [], allowOriginalFile = false }) {
   const panel = document.createElement("section");
   panel.className = "plugin-resource-selection";
   panel.setAttribute("aria-label", t("Studio resource selection"));
@@ -50,7 +50,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   container.prepend(panel);
 
   let active = true, revision = 0, entryRequest = 0, entryPaths = [], uploading = false;
-  let selected = [], granted = [], projectPreviews = [];
+  let selected = [], granted = [], originalFiles = [], projectPreviews = [];
   const allowedSelection = () => selected.length >= minResources && selected.length <= maxResources &&
     selected.every(file => Number.isSafeInteger(file.size) && file.size >= 0 && file.size <= MAX_BYTES) &&
     Number.isSafeInteger(selected.reduce((sum, file) => sum + file.size, 0)) &&
@@ -69,6 +69,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
       status.textContent = t("Input order changed. Confirm sharing again before running the tool.");
     } });
   function release() {
+    originalFiles = [];
     if (!granted.length) return;
     const old = granted;
     granted = [];
@@ -98,11 +99,14 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
     opened.hidden = true;
     void gateway.projectFiles.entries(target.workspaceId).then(paths => {
       if (!active || !isCurrent() || request !== entryRequest) return;
-      entryPaths = Array.isArray(paths) && paths.length >= Math.max(2, minResources) && paths.length <= maxResources &&
+      const minOpenedEntries = allowOriginalFile ? minResources : Math.max(2, minResources);
+      entryPaths = Array.isArray(paths) && paths.length >= minOpenedEntries && paths.length <= maxResources &&
         paths.every(validEntryName) &&
         new Set(paths).size === paths.length ? paths : [];
       opened.hidden = entryPaths.length === 0;
-      opened.textContent = t("Use opened selection ({count} files)").replace("{count}", String(entryPaths.length));
+      opened.textContent = entryPaths.length === 1
+        ? t("Use opened file: {name}").replace("{name}", entryPaths[0])
+        : t("Use opened selection ({count} files)").replace("{count}", String(entryPaths.length));
     }).catch(() => { if (active && request === entryRequest) { entryPaths = []; opened.hidden = true; } });
   }
   if (opened) {
@@ -189,6 +193,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
         resourceId: item.reference.resourceId, contentVersion: item.reference.contentVersion,
       })) } : {}) });
       granted = published.map(item => item.access);
+      originalFiles = published.map(item => item.originalFile ?? null);
       handedOff = true;
       status.textContent = t("Confirmed files shared. You can revoke them with Cancel.");
     } catch {
@@ -223,7 +228,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   return { getDisplayNames() {
     return active && granted.length === selected.length && granted.length > 0
       ? selected.map(file => typeof file.name === "string" ? file.name : "") : [];
-  }, destroy() { active = false; entryRequest++; reset();
+  }, getOriginalFiles() { return [...originalFiles]; }, destroy() { active = false; entryRequest++; reset();
     window.removeEventListener("zicode:locale-changed", handleLocaleChange);
     if (opened) window.removeEventListener("zicode:entry-changed", handleEntryChanged);
     panel.remove(); } };

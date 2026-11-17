@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 #[cfg(test)]
 mod cancellation_http;
 pub(super) mod files;
-mod reading;
+pub(super) mod reading;
 pub(in crate::host_server) mod status;
 #[cfg(test)]
 mod tests;
@@ -251,7 +251,12 @@ pub(in crate::host_server) async fn commit(
         // revoke a resource by grant ID; the explicit resource revoke API owns that.
         control.check()?;
         let mime = mime_for_local_file(&grant.relative, &bytes);
-        let result = store.import_file(request.owner, grant.proof, bytes, mime);
+        let file_reference = file_reference::is_source(&request.owner)
+            .then(|| file_reference::OriginalFile::new(grant.root, grant.relative, grant.stamp));
+        let mut result = store.import_file(request.owner, grant.proof, bytes, mime);
+        if let (Ok(value), Some(original)) = (&mut result, file_reference) {
+            store.attach_original_file(value, original);
+        }
         if result.is_ok() {
             control.published();
         }

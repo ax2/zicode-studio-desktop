@@ -7,6 +7,8 @@ pub(in crate::host_server) struct PrepareTransfer {
     schema_version: u32,
     source: Access,
     target: Owner,
+    #[serde(default)]
+    original_file: bool,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -123,12 +125,12 @@ pub(in crate::host_server) async fn prepare(
             .map_err(|_| rejected("resource_store_unavailable"))?
             .resource_mime_type(&request.source, &source_proof)?;
         let (target_proof, presentation) =
-            target_identity(&state, &request.target, Some(&mime_type))?;
+            target_identity(&state, &request.target, Some(file_reference::transfer_mime(request.original_file, &mime_type)))?;
         let mut result = state
             .plugin_resources
             .lock()
             .map_err(|_| rejected("resource_store_unavailable"))?
-            .prepare_transfer(&request.source, &source_proof, request.target, target_proof)?;
+            .prepare_transfer(&request.source, &source_proof, request.target, target_proof, request.original_file)?;
         result["target"] = presentation;
         Ok(result)
     })
@@ -153,12 +155,12 @@ pub(in crate::host_server) async fn commit(
     }
     blocking(state.clone(), move || {
         let source_proof = authority::identity_access(&state, &request.source, None, None)?;
-        let (target, mime_type) = state
-            .plugin_resources
-            .lock()
-            .map_err(|_| rejected("resource_store_unavailable"))?
+        let target = state.plugin_resources.lock().map_err(|_| rejected("resource_store_unavailable"))?
             .transfer_target(&request.source, &request.grant_id)?;
-        let (target_proof, _) = target_identity(&state, &target, Some(&mime_type))?;
+        let (target_proof, _) = target_identity(&state, &target.owner, Some(&target.mime))?;
+        if let Some(file) = target.original {
+            file.verify(&state, &request.source.owner, &source_proof)?;
+        }
         state
             .plugin_resources
             .lock()

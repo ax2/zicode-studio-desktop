@@ -11,17 +11,18 @@ const safeName = value => typeof value === "string"
   }).slice(0, 255).join("") : "";
 
 // Host validation binds the row order, lengths and SHA-256 to the shared snapshots.
-export function createFileDigestResult({ raw, executionProfile, capabilityId, onNoteReport }) {
+export function createFileDigestResult({ raw, executionProfile, capabilityId, onNoteReport, onSendOriginal }) {
   if (executionProfile !== PROFILE || capabilityId !== CAPABILITY) return null;
   const panel = document.createElement("section"), heading = document.createElement("h3"), rows = document.createElement("div");
   const details = document.createElement("details"), summary = document.createElement("summary"), comparison = document.createElement("p");
   const note = document.createElement("button"), noteStatus = document.createElement("p");
+  const transferSlot = document.createElement("div");
   note.type = "button"; note.className = "ui-button ui-button--secondary"; note.hidden = true;
   noteStatus.setAttribute("role", "status");
   panel.className = "file-digest-result"; panel.hidden = true;
   const originalHidden = raw.hidden;
-  raw.before(panel); details.append(summary, raw); panel.append(heading, comparison, rows, note, noteStatus, details); raw.hidden = false;
-  let active = true, current = null, names = [], currentInput = {}, comparisonValue = null, generation = 0;
+  raw.before(panel); details.append(summary, raw); panel.append(heading, comparison, rows, transferSlot, note, noteStatus, details); raw.hidden = false;
+  let active = true, current = null, names = [], originals = [], currentInput = {}, comparisonValue = null, generation = 0;
   note.addEventListener("click", async () => {
     if (!active || !current || note.disabled || !onNoteReport) return;
     const captured = generation, value = current, selectedNames = [...names];
@@ -54,19 +55,31 @@ export function createFileDigestResult({ raw, executionProfile, capabilityId, on
         const item = document.createElement("div"), label = document.createElement("dt"), digest = document.createElement("dd");
         label.textContent = name; digest.textContent = value; digest.setAttribute("translate", "no"); item.append(label, digest); list.append(item);
       }
-      section.append(title, status, list); rows.append(section);
+      section.append(title, status, list);
+      const original = originals[row.index];
+      if (original?.byteLength === row.bytes && typeof onSendOriginal === "function") {
+        const send = document.createElement("button"), captured = generation;
+        send.type = "button"; send.className = "ui-button ui-button--secondary";
+        send.textContent = t("Send original file");
+        send.addEventListener("click", () => {
+          if (active && generation === captured) onSendOriginal(original, transferSlot);
+        });
+        section.append(send);
+      }
+      rows.append(section);
     }
   }
   window.addEventListener("zicode:locale-changed", render);
   return {
-    show(value, displayNames = [], input = {}) { generation++; note.disabled = false; noteStatus.textContent = ""; current = valid(value) ? value : null;
+    show(value, displayNames = [], input = {}, originalFiles = []) { generation++; note.disabled = false; noteStatus.textContent = ""; current = valid(value) ? value : null;
       currentInput = { expected: input?.expected ?? "" }; comparisonValue = null;
       try { if (current) comparisonValue = fileDigestComparison(currentInput, current.files); } catch { current = null; }
       note.hidden = !current || typeof onNoteReport !== "function";
+      originals = current && originalFiles.length === current.files.length ? originalFiles : [];
       names = current && Array.isArray(displayNames) && displayNames.length === current.files.length ? displayNames.map(safeName) : [];
       panel.hidden = false; raw.hidden = false; details.open = !current;
       if (current) render(); else { heading.textContent = t("File digest results"); summary.textContent = t("View original report"); comparison.textContent = ""; rows.replaceChildren(); } },
-    clear() { generation++; note.disabled = false; note.hidden = true; noteStatus.textContent = ""; current = null; names = []; currentInput = {}; comparisonValue = null; comparison.textContent = ""; panel.hidden = true; raw.hidden = false; rows.replaceChildren(); },
+    clear() { generation++; note.disabled = false; note.hidden = true; noteStatus.textContent = ""; current = null; names = []; originals = []; currentInput = {}; comparisonValue = null; comparison.textContent = ""; panel.hidden = true; raw.hidden = false; rows.replaceChildren(); },
     destroy() { if (!active) return; active = false; window.removeEventListener("zicode:locale-changed", render); raw.hidden = originalHidden; panel.before(raw); panel.remove(); },
   };
 }

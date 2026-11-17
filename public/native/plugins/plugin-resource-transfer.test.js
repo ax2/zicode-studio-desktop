@@ -76,6 +76,39 @@ describe("trusted resource transfer", () => {
     f.controller.destroy();
   });
 
+  it("shares an original file by reference and executes only on the explicit run action", async () => {
+    const f = fixture();
+    const original = { ...resource, originalFile: true, fileName: "样本.txt", mimeType: "application/octet-stream" };
+    const encoding = { ...tool, pluginId: "com.zicode.devtools.encoding", capabilityId: "devtools.encoding.inspect", title: "Encoding check",
+      resourceInputMimeTypes: [original.mimeType] };
+    const other = { ...encoding, capabilityId: "devtools.encoding.to_utf8", title: "Convert encoding" };
+    f.gateway.searchTools.mockResolvedValue({ schemaVersion: 1, revision: hash, items: [encoding, other], offset: 0, nextOffset: null });
+    f.gateway.loadTool.mockResolvedValue({ schemaVersion: 1, ...encoding, revision: hash, resourceInputProfile: "resource.wasi.input.draft2",
+      capability: { id: encoding.capabilityId, resourceInputMimeTypes: encoding.resourceInputMimeTypes, inputSchema: {} },
+      permissions: [{ name: "resource.read", granted: true }] });
+    const profile = "resource.transfer.original-file.draft1";
+    f.gateway.prepareResourceTransfer.mockResolvedValue({ schemaVersion: 1, profile, grantId: id, saved: false, contentRead: false, requiresConfirmation: true,
+      expiresInSeconds: 60, source: { pluginId: owner.pluginId, capabilityId: owner.capabilityId, resourceId: id, contentVersion: hash },
+      target: { pluginId: encoding.pluginId, capabilityId: encoding.capabilityId, pluginName: "Encoding", pluginVersion: encoding.version, toolTitle: encoding.title },
+      mimeType: original.mimeType, byteLength: original.byteLength, fileName: original.fileName });
+    f.gateway.commitResourceTransfer.mockResolvedValue({ schemaVersion: 1, profile, status: "committed", saved: false, contentRead: false,
+      replayed: false, reference: { capabilityId: encoding.capabilityId, resourceId: id, contentVersion: hash } });
+    f.gateway.invokeResource.mockResolvedValue({ schemaVersion: 1, operationId: id, source: { pluginId: encoding.pluginId,
+      capabilityId: encoding.capabilityId, packageVersion: encoding.version, profile: "resource.wasi.input.draft2", contentVersion: hash }, result: { ok: true } });
+    f.controller.open(original, owner, f.container);
+    await flush();
+    expect(f.container.textContent).not.toContain(other.title);
+    await f.click("Encoding check · Tools · 0.1.0");
+    await f.click("Review sharing");
+    expect(f.container.textContent).toContain("样本.txt · 5 bytes");
+    expect(f.gateway.prepareResourceTransfer).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ capabilityId: encoding.capabilityId }), true);
+    await f.click("Confirm sharing");
+    expect(f.gateway.invokeResourceCall).not.toHaveBeenCalled();
+    await f.click("Run receiving tool");
+    expect(f.gateway.invokeResourceCall).toHaveBeenCalledOnce();
+    f.controller.destroy();
+  });
+
   it("discovers and runs the fixed built-in Host image receiver with its versioned profile", async () => {
     const f = fixture(); await flush();
     const receiver = { ...tool, pluginId: "com.zicode.resource-inspector", capabilityId: "image.inspect", runtime: "builtin", title: "Inspect image resource", resourceInputMimeTypes: ["image/png", "image/jpeg", "image/webp"] };

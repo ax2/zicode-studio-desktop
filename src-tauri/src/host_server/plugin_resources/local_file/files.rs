@@ -25,7 +25,7 @@ pub(in crate::host_server::plugin_resources) fn components(
 }
 
 #[cfg(unix)]
-pub(super) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
+pub(in crate::host_server::plugin_resources) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
     use std::os::fd::{AsRawFd, FromRawFd};
     use std::os::unix::fs::OpenOptionsExt;
     let parts = components(relative)?;
@@ -57,7 +57,7 @@ pub(super) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
 }
 
 #[cfg(windows)]
-pub(super) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
+pub(in crate::host_server::plugin_resources) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
     use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Storage::FileSystem::*;
@@ -107,7 +107,7 @@ pub(super) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
     Ok(file)
 }
 
-pub(super) fn stamp(file: &File) -> Result<(String, usize), ApiError> {
+pub(in crate::host_server::plugin_resources) fn stamp(file: &File) -> Result<(String, usize), ApiError> {
     let (identity, length) = regular_file_identity(file)?;
     if length > MAX_BYTES as u64 {
         return Err(rejected("resource_budget_exceeded"));
@@ -172,7 +172,7 @@ pub(super) fn snapshot(root: &Path, relative: &str, expected: &str) -> Result<Ve
     )
 }
 
-pub(super) fn snapshot_controlled(
+pub(in crate::host_server::plugin_resources) fn snapshot_controlled(
     root: &Path,
     relative: &str,
     expected: &str,

@@ -1,5 +1,6 @@
 //! Candidate resource input grants. No filesystem access or WASI callback.
 mod authority;
+mod file_reference;
 pub(super) mod export;
 pub(super) mod export_files;
 pub(super) mod library;
@@ -338,7 +339,7 @@ pub(super) async fn read_view(
 ) -> Result<Json<Value>, ApiError> {
     desktop(&state, &headers)?;
     validate(&request.access)?;
-    if request.length == 0 || request.length > 32 * 1024 {
+    if request.length > 32 * 1024 || (request.length == 0 && request.offset != 0) {
         return Err(rejected("resource_chunk_too_large"));
     }
     blocking(state.clone(), move || {
@@ -347,6 +348,14 @@ pub(super) async fn read_view(
             .plugin_resources
             .lock()
             .map_err(|_| rejected("resource_store_unavailable"))?;
+        if request.length == 0 {
+            // Trusted desktop views can check a deferred file reference without reading bytes.
+            if store.file_reference_to_read(&request.access, &proof)?.is_none() {
+                return Err(rejected("resource_chunk_too_large"));
+            }
+            return Ok(json!({"schemaVersion":1,"resourceId":request.access.resource_id,
+                "contentVersion":request.access.content_version,"contentRead":false}));
+        }
         store.read(&request.access, &proof, request.offset, request.length)
     })
     .await

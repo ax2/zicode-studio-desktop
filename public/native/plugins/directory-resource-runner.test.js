@@ -78,6 +78,40 @@ describe("directory-owned resource execution", () => {
     expect(f.button("Send to tool")).toBeUndefined();
   });
 
+  it("opens the same relay for an original file from a successful native selection", async () => {
+    const resourceOwner = { runtimeId: "runtime", sessionId: "session", pluginId: "com.zicode.devtools.files", capabilityId: "devtools.files.hash" };
+    const projectFiles = { entries: vi.fn(async () => ["样本.txt"]), prepare: vi.fn(async () => ({
+      profile: "resource.local-file.draft1", grantId: id, relativePath: "样本.txt", byteLength: 3,
+      owner: resourceOwner, contentRead: false, confirmed: false,
+    })), commit: vi.fn(async () => ({ profile: "resource.local-file.draft1", confirmed: true, byteLength: 3,
+      resourceId: id, contentVersion: "a".repeat(64), access: { owner: resourceOwner, resourceId: id, contentVersion: "a".repeat(64) },
+      originalFile: { name: "样本.txt", byteLength: 3 },
+    })), cancel: vi.fn(async () => {}) };
+    const searchTools = vi.fn(async () => ({ schemaVersion: 1, revision: "a".repeat(64), offset: 0, nextOffset: null, items: [] }));
+    const f = fixture({ projectFiles, prepareResourceTransfer: vi.fn(), searchTools }, 4, false,
+      { pluginId: resourceOwner.pluginId, capabilityId: resourceOwner.capabilityId, executionProfile: "resource.wasi.file-digest.v1" });
+    f.gateway.invokeResource.mockImplementation(async (owner, request) => ({ schemaVersion: 1, operationId: id,
+      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" },
+      result: { ok: true, schemaVersion: 2, material: "file-integrity-report-list", files: [
+        { index: 0, bytes: 3, sha256: "a".repeat(64), sha512: "b".repeat(128), matches: null }] } }));
+    await vi.waitFor(() => expect(f.button("Use opened file: 样本.txt")).toBeTruthy());
+    f.button("Use opened file: 样本.txt").click();
+    await vi.waitFor(() => expect(f.button("Confirm file sharing").disabled).toBe(false));
+    f.button("Confirm file sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    expect(f.button("Send original file")).toBeUndefined();
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(f.button("Send original file")).toBeTruthy());
+    f.button("Send original file").click();
+    await vi.waitFor(() => expect(searchTools).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      resourceMimeType: "application/octet-stream", pluginId: "com.zicode.devtools.encoding",
+    }), expect.anything()));
+    f.button("Close transfer").click();
+    expect(f.button("Send original file")).toBeTruthy();
+    expect(f.gateway.prepareResourceTransfer).not.toHaveBeenCalled();
+    expect(f.gateway.invokeResourceCall).toHaveBeenCalledOnce();
+  });
+
   it("renders the negotiated metadata report and clears it when sharing is cancelled", async () => {
     const f = fixture({}, 1, false, { pluginId: "com.zicode.devtools.image.metadata", capabilityId: "devtools.image.metadata.inspect", executionProfile: "resource.wasi.image.metadata.v1" });
     f.gateway.invokeResource.mockImplementation(async (owner, request) => ({ schemaVersion: 1, operationId: id,

@@ -1701,6 +1701,10 @@ const zhCN = {
   "Could not prepare save. Review the current workspace and try again.":
     "无法准备保存。请检查当前工作区后重试。",
   "Send to tool": "发送到工具",
+  "Send original file": "发送原文件",
+  "Confirm the file reference. Its contents are read only when you run the receiving tool.": "确认共享文件引用。接收工具只会在你主动运行时读取内容。",
+  "File reference shared. Run the receiving tool to read it.": "已共享文件引用。运行接收工具后才会读取。",
+  "The original file moved or changed. Share it again before retrying.": "原文件已移动或已更改，请重新共享后再试。",
   "Transferred result": "发送处理结果",
   "Studio · Receiver result": "Studio · 接收工具处理结果",
   "Studio · Save tool result": "Studio · 保存工具结果",

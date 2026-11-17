@@ -3,14 +3,14 @@ use super::*;
 use std::io::Read;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
-pub(super) struct Control {
+pub(in crate::host_server::plugin_resources) struct Control {
     cancelled: AtomicBool,
     deadline: Instant,
     outcome: AtomicU8,
 }
 
 impl Control {
-    pub(super) fn new(expires: Instant) -> Self {
+    pub(in crate::host_server::plugin_resources) fn new(expires: Instant) -> Self {
         Self {
             cancelled: AtomicBool::new(false),
             deadline: expires.min(Instant::now() + Duration::from_secs(30)),

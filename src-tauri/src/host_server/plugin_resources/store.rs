@@ -5,6 +5,8 @@ const MAX_TOTAL_RESERVED: usize = 256 * 1024 * 1024;
 const MAX_RECORDS: usize = 32;
 const MAX_CHUNKS: usize = MAX_RESOURCE.div_ceil(MAX_CHUNK);
 
+mod file_reference_store;
+
 struct Record {
     output_profile: crate::plugin_worker::resource_output::Profile,
     owner: Owner,
@@ -17,6 +19,7 @@ struct Record {
     confirmed: bool,
     expires: Instant,
     parents: Vec<Ancestor>,
+    original: Option<file_reference::FileBinding>,
 }
 
 #[derive(Clone)]
@@ -190,6 +193,7 @@ impl Store {
                 confirmed: false,
                 expires: Instant::now() + Duration::from_secs(120),
                 parents: Vec::new(),
+                original: None,
             },
         );
         Ok(
@@ -274,6 +278,9 @@ impl Store {
         if !r.confirmed {
             return Err(rejected("resource_confirmation_required"));
         }
+        if r.is_file_reference() {
+            return Err(rejected("resource_file_reference_requires_run"));
+        }
         if offset > r.expected || length == 0 || length > MAX_CHUNK {
             return Err(rejected("resource_range_invalid"));
         }
@@ -320,17 +327,15 @@ impl Store {
         if !r.confirmed {
             return Err(rejected("resource_confirmation_required"));
         }
+        if r.is_file_reference() {
+            return Err(rejected("resource_file_reference_requires_run"));
+        }
         let mut bytes = Vec::with_capacity(r.expected);
         for chunk in &r.chunks {
             bytes.extend_from_slice(chunk);
         }
         Ok(crate::plugin_worker::resource_input::Resource {
-            descriptor: crate::plugin_worker::resource_input::Descriptor {
-                resource_id: access.resource_id.clone(),
-                content_version: r.version.clone(),
-                mime_type: r.mime.clone(),
-                byte_length: r.expected,
-            },
+            descriptor: r.descriptor(access),
             bytes,
         })
     }

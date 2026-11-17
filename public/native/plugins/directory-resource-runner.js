@@ -60,6 +60,12 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     onSaveReport: typeof gateway.prepareResourceSave === "function" ? (resource, owner, container) => save?.open(resource, owner, container) : undefined }) ??
     createMarkdownResultDetails({ raw: result, executionProfile: detail.capability.executionProfile }) ??
     createFileDigestResult({ raw: result, executionProfile: detail.capability.executionProfile, capabilityId: tool.capabilityId,
+      onSendOriginal: (resource, slot) => {
+        const sources = reference ? [reference, ...(reference.additionalResources ?? [])] : [];
+        if (valid() && sources.some(source => source.resourceId === resource.resourceId && source.contentVersion === resource.contentVersion)) transfer?.open(resource, {
+          runtimeId: target.instanceId, sessionId: target.sessionId, pluginId: tool.pluginId, capabilityId: tool.capabilityId,
+        }, slot);
+      },
       onNoteReport: typeof receiveNoteDraft === "function" ? async (value, names, input, current) => {
         const source = reference;
         const isCurrent = () => valid() && current() && source !== null && reference === source;
@@ -132,7 +138,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     ? createMultiResourceSelection : createPluginResourceSelection;
   const plugin = { id: tool.pluginId, name: tool.applicationName, version: tool.version, capabilities: [{ id: tool.capabilityId, title: tool.title }] };
   const selectionOptions = { container: selectionContainer, plugin, target, gateway, catalogRevision: detail.revision, maxResources,
-    markdownDraftMode,
+    markdownDraftMode, allowOriginalFile: fileDigest,
     readInput: (resource, offset, length, current) => read({ capabilityId: tool.capabilityId }, resource, offset, length, current),
     minResources: detail.capability.resourceInputMin ?? 1, resourceLabels: detail.capability.resourceInputLabels ?? [],
     isCurrent: () => valid() && !running,
@@ -203,7 +209,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       if (!valid() || reference !== access) return;
       const text = response.result?.data?.text ?? response.result?.text;
       result.textContent = typeof text === "string" ? text : JSON.stringify(response.result, null, 2);
-      metadataResult?.show(response.result, displayNames, input);
+      metadataResult?.show(response.result, displayNames, input, transfer ? selection.getOriginalFiles?.() : undefined);
       manifestReview?.show(response.result, displayNames);
       status.textContent = t(response.result?.ok === false
         ? "Tool reported an error. Inputs are kept and no result was saved."

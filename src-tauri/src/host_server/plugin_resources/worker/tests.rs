@@ -7,6 +7,7 @@ mod file_report_http;
 mod host_text_http;
 mod image_metadata_http;
 mod lifecycle_http;
+mod original_file_http;
 mod markdown_http;
 mod output_admission_http;
 mod output_http;
