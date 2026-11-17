@@ -1,5 +1,6 @@
 //! Candidate resource input grants. No filesystem access or WASI callback.
 mod authority;
+mod file_digest_report;
 mod file_reference;
 pub(super) mod export;
 pub(super) mod export_files;
@@ -39,6 +40,8 @@ pub(super) struct Prepare {
     content_version: String,
     #[serde(default)]
     catalog_revision: Option<String>,
+    #[serde(default)]
+    file_name: Option<String>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]

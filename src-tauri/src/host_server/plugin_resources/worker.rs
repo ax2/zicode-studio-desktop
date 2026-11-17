@@ -647,6 +647,8 @@ fn execute(
                 extended_output_types,
                 image_resize: image_resize_profile,
                 source_bytes: &resources.iter().map(|resource| resource.bytes.as_slice()).collect::<Vec<_>>(),
+                package_version: package_version.as_deref().unwrap_or_default(),
+                module: &module,
             },
         );
     }

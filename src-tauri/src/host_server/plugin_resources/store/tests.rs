@@ -12,6 +12,7 @@ fn prepared(store: &mut Store, data: &[u8]) -> Access {
         .prepare(
             Prepare {
                 catalog_revision: None,
+                file_name: None,
                 schema_version: 1,
                 owner: owner.clone(),
                 mime_type: "application/octet-stream".into(),
@@ -113,6 +114,7 @@ fn reserved_budget_counts_unuploaded_bytes_and_record_limit() {
     for _ in 0..4 {
         let mut req = Prepare {
             catalog_revision: None,
+            file_name: None,
             schema_version: 1,
             owner: Owner {
                 runtime_id: "r".into(),
@@ -127,6 +129,7 @@ fn reserved_budget_counts_unuploaded_bytes_and_record_limit() {
         store.prepare(req, "proof".into()).unwrap();
         req = Prepare {
             catalog_revision: None,
+            file_name: None,
             schema_version: 1,
             owner: Owner {
                 runtime_id: "r".into(),
@@ -144,6 +147,7 @@ fn reserved_budget_counts_unuploaded_bytes_and_record_limit() {
         .prepare(
             Prepare {
                 catalog_revision: None,
+                file_name: None,
                 schema_version: 1,
                 owner: Owner {
                     runtime_id: "r".into(),

@@ -6,6 +6,8 @@ pub(super) struct Profiles<'a> {
     pub(super) extended_output_types: bool,
     pub(super) image_resize: bool,
     pub(super) source_bytes: &'a [&'a [u8]],
+    pub(super) package_version: &'a str,
+    pub(super) module: &'a [u8],
 }
 
 pub(super) fn selection(runtime: &Value) -> Result<bool, ApiError> {
@@ -89,9 +91,9 @@ pub(super) fn register(
     };
     if crate::plugin_resource_execution::metadata::selected(capability.execution_profile.as_deref()) {
         pending.attach_metadata_report(&bundle.result["report"])?;
-    } else if file_digest {
-        pending.attach_file_digest_report(&bundle.result)?;
     }
+    let file_report_provenance = (file_digest && file_reference::is_source(&request.access.owner))
+        .then(|| file_digest_report::provenance(&request.access.owner, profiles.package_version, profiles.module));
     #[cfg(test)]
     {
         let observer = state
@@ -117,6 +119,16 @@ pub(super) fn register(
         .map_err(|_| rejected("resource_store_unavailable"))?;
     if cancelled.load(Ordering::Acquire) {
         return Err(rejected("worker_cancelled"));
+    }
+    if file_digest {
+        let material = if let Some(provenance) = file_report_provenance {
+            let names = store.file_digest_names(request.accesses(), proof)?;
+            let expected = request.input.get("expected").and_then(Value::as_str).unwrap_or("");
+            file_digest_report::material(&bundle.result, expected, &names, provenance, profiles.package_version)?
+        } else {
+            bundle.result.clone()
+        };
+        pending.attach_file_digest_report(&material)?;
     }
     let (resources, report_resource) = store.publish_outputs_with_report(pending, cancelled)?;
     if file_digest {

@@ -1,5 +1,19 @@
 import { fileDigestComparison } from "./file-digest-comparison.js";
 import { jsonReportMarkdown } from "./json-report-markdown.js";
+import { loadResourcePreview } from "./plugin-resource-preview-load.js";
+
+// Notes receives the same version-checked JSON bytes used by preview, save and relay.
+export async function loadFileDigestReportNoteMaterial({ resource, owner, read, isCurrent }) {
+  if (owner?.capabilityId !== "devtools.files.hash" || resource?.origin !== "host-report" || resource.saved !== false ||
+      resource.mimeType !== "application/json" || !Number.isSafeInteger(resource.byteLength) ||
+      resource.byteLength < 1 || resource.byteLength > 8192 || !isCurrent()) throw new Error("file_report_unavailable");
+  const result = await loadResourcePreview({ resource, read: (offset, length) => read(owner, resource, offset, length, isCurrent), isCurrent });
+  if (result.kind !== "text" || !isCurrent()) throw new Error("file_report_unavailable");
+  const report = JSON.parse(result.text);
+  if (report?.ok !== true || report.schemaVersion !== 2 || report.material !== "file-integrity-report-list") throw new Error("file_report_unavailable");
+  if (!report.generatedBy) return null; // Older Hosts still support the local Notes draft fallback.
+  return { title: "File digest report", content: jsonReportMarkdown(result.text) };
+}
 
 // Build a bounded, inert report from validated digest fields only. File names
 // have already been reduced to safe display names by the trusted parent.

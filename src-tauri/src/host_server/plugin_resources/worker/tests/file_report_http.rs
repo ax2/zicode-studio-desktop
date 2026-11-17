@@ -12,6 +12,10 @@ async fn file_digest_report_handoff_requires_confirmation_and_all_original_grant
         .join(format!("file-report-http-{}", uuid::Uuid::new_v4()));
     let public = root.join("public");
     std::fs::create_dir_all(&public).unwrap();
+    let workspace = root.join("workspace");
+    let report_dir = workspace.join("hidden-parent");
+    std::fs::create_dir_all(&report_dir).unwrap();
+    std::fs::write(report_dir.join("报告来源.txt"), b"modified").unwrap();
     std::fs::write(
         root.join("owner.json"),
         br#"{"purpose":"File digest report transfer integration test"}"#,
@@ -35,6 +39,12 @@ async fn file_digest_report_handoff_requires_confirmation_and_all_original_grant
         "file-report-runtime",
     );
     host.start_tool_session(target.clone()).unwrap();
+    host.state
+        .data
+        .workspace_roots()
+        .write()
+        .unwrap()
+        .insert(target.workspace_id.clone(), workspace);
     const FILES: &str = "com.zicode.devtools.files";
     {
         let mut registry = host.state.plugins.lock().unwrap();
@@ -53,10 +63,47 @@ async fn file_digest_report_handoff_requires_confirmation_and_all_original_grant
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
     let sender = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,"pluginId":FILES,"capabilityId":"devtools.files.hash"});
     let receiver = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,"pluginId":"com.zicode.text-inspector","capabilityId":"text.inspect"});
-    let first = output_http::material(&host, &client, &sender, b"abc").await;
-    let second = output_http::material(&host, &client, &sender, b"modified").await;
+    let first = output_http::material_with_name(
+        &host,
+        &client,
+        &sender,
+        "application/octet-stream",
+        b"abc",
+        Some("样本.txt"),
+    )
+    .await;
+    let injected = output_http::material_with_name(
+        &host,
+        &client,
+        &sender,
+        "application/octet-stream",
+        b"bad-name",
+        Some("C:/must-not-appear/file.txt"),
+    )
+    .await;
     let post = |route, request| output_http::post(&host, &client, route, request);
-    let request = json!({"schemaVersion":1,"access":first,"additionalAccesses":[second],"input":{
+    let preview = post(
+        "prepare-local-file",
+        json!({"schemaVersion":1,"owner":sender,"relativePath":"hidden-parent/报告来源.txt"}),
+    )
+    .await
+    .error_for_status()
+    .unwrap()
+    .json::<Value>()
+    .await
+    .unwrap();
+    let second = post(
+        "commit-local-file",
+        json!({"schemaVersion":1,"owner":sender,"grantId":preview["grantId"],"confirmed":true}),
+    )
+    .await
+    .error_for_status()
+    .unwrap()
+    .json::<Value>()
+    .await
+    .unwrap()["access"]
+        .clone();
+    let request = json!({"schemaVersion":1,"access":first,"additionalAccesses":[second,injected],"input":{
         "expected":"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     }});
     let response = post("prepare-call", request.clone()).await;
@@ -65,7 +112,7 @@ async fn file_digest_report_handoff_requires_confirmation_and_all_original_grant
     assert_eq!(status, StatusCode::OK, "{ticket}");
     let response = post(
         "invoke-call",
-        json!({"access":first,"additionalAccesses":[second],"callId":ticket["callId"],
+        json!({"access":first,"additionalAccesses":[second,injected],"callId":ticket["callId"],
             "hostInstanceId":ticket["hostInstanceId"],"input":request["input"]}),
     )
     .await;
@@ -141,7 +188,44 @@ async fn file_digest_report_handoff_requires_confirmation_and_all_original_grant
     let report_text = received["result"]["text"].as_str().unwrap();
     assert_eq!(sha256_hex(report_text.as_bytes()), report["contentVersion"]);
     let material: Value = serde_json::from_str(report_text).unwrap();
-    assert_eq!(material, operation["result"]);
+    assert_eq!(material["schemaVersion"], 2);
+    assert_eq!(material["material"], "file-integrity-report-list");
+    assert_eq!(material["packageVersion"], "0.1.0");
+    assert_eq!(material["generatedBy"]["toolId"], "files");
+    assert_eq!(material["generatedBy"]["toolVersion"], "1.2.0");
+    let environment = &material["generatedBy"]["runtimeFingerprint"];
+    assert_eq!(environment["appVersion"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(environment["os"], std::env::consts::OS);
+    assert_eq!(environment["architecture"], std::env::consts::ARCH);
+    assert_eq!(environment.as_object().unwrap().len(), 6);
+    let fingerprint = format!(
+        "ZiDevTools runtime environment v1\0{}\0{}\0{}\0{}",
+        environment["appVersion"].as_str().unwrap(),
+        environment["os"].as_str().unwrap(),
+        environment["architecture"].as_str().unwrap(),
+        environment["buildProfile"].as_str().unwrap(),
+    );
+    assert_eq!(environment["sha256"], sha256_hex(fingerprint.as_bytes()));
+    assert_eq!(material["comparison"]["algorithm"], "SHA-256");
+    assert_eq!(
+        material["comparison"]["expected"],
+        request["input"]["expected"]
+    );
+    assert_eq!(material["files"][0]["name"], "样本.txt");
+    assert_eq!(material["files"][1]["name"], "报告来源.txt");
+    assert!(material["files"][2]["name"].is_null());
+    assert!(!report_text.contains("hidden-parent") && !report_text.contains("must-not-appear"));
+    assert!(operation["result"].get("generatedBy").is_none());
+    for (reported, original) in material["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(operation["result"]["files"].as_array().unwrap())
+    {
+        for key in ["index", "bytes", "sha256", "sha512", "matches"] {
+            assert_eq!(reported[key], original[key]);
+        }
+    }
     assert_eq!(
         post("revoke", second.clone()).await.status(),
         StatusCode::OK

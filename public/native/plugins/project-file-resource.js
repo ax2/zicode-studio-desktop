@@ -1,7 +1,7 @@
 const uuid = value => typeof value === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
 const version = value => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 const MAX_ORIGINAL_BYTES = 8 * 1024 * 1024;
-const safeName = value => typeof value === "string" && value.length > 0 && value.length <= 255 &&
+export const isResourceFileName = value => typeof value === "string" && value.length > 0 && value.length <= 255 &&
   !/[\\/:\p{Cc}\u202a-\u202e\u2066-\u2069]/u.test(value);
 
 export async function prepareNativeDigestSelection({ api, owner, isCurrent, minResources, maxResources }) {
@@ -12,7 +12,7 @@ export async function prepareNativeDigestSelection({ api, owner, isCurrent, minR
       result.contentRead !== false || result.confirmed !== false || !Number.isInteger(result.expiresInSeconds) ||
       result.expiresInSeconds < 1 || result.expiresInSeconds > 120 || Object.keys(owner).some(key => result.owner?.[key] !== owner[key]) ||
       files.length < minResources || files.length > maxResources ||
-      files.some(file => !uuid(file?.grantId) || !safeName(file.name) || !Number.isSafeInteger(file.byteLength) || file.byteLength < 0) ||
+      files.some(file => !uuid(file?.grantId) || !isResourceFileName(file.name) || !Number.isSafeInteger(file.byteLength) || file.byteLength < 0) ||
       new Set(files.map(file => file.grantId)).size !== files.length ||
       files.reduce((sum, file) => sum + file.byteLength, 0) > 32 * 1024 * 1024) {
     for (const file of files.slice(0, maxResources)) if (uuid(file?.grantId)) void api.cancel(owner, file.grantId).catch(() => {});
@@ -57,7 +57,7 @@ export async function confirmProjectResource({ api, preview, gateway, isCurrent 
     }
     const reference = { capabilityId: preview.owner.capabilityId, resourceId: access.resourceId, contentVersion: access.contentVersion };
     const name = result.originalFile?.name;
-    const originalFile = safeName(name) &&
+    const originalFile = isResourceFileName(name) &&
       result.originalFile.byteLength === preview.byteLength && preview.byteLength <= MAX_ORIGINAL_BYTES
       ? { ...reference, originalFile: true, fileName: name, mimeType: "application/octet-stream", byteLength: preview.byteLength } : null;
     delivered = true;

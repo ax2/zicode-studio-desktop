@@ -22,7 +22,7 @@ export function createFileDigestResult({ raw, executionProfile, capabilityId, on
   panel.className = "file-digest-result"; panel.hidden = true;
   const originalHidden = raw.hidden;
   raw.before(panel); details.append(summary, raw); panel.append(heading, comparison, rows, transferSlot, note, noteStatus, details); raw.hidden = false;
-  let active = true, current = null, names = [], originals = [], currentInput = {}, comparisonValue = null, generation = 0;
+  let active = true, current = null, names = [], originals = [], currentInput = {}, comparisonValue = null, publishedReport = null, generation = 0;
   note.addEventListener("click", async () => {
     if (!active || !current || note.disabled || !onNoteReport) return;
     const captured = generation, value = current, selectedNames = [...names];
@@ -30,7 +30,7 @@ export function createFileDigestResult({ raw, executionProfile, capabilityId, on
     note.disabled = true; noteStatus.textContent = t("Preparing note draft…");
     let completed = false;
     try {
-      await onNoteReport(value, selectedNames, currentInput, isCurrent);
+      await onNoteReport(value, selectedNames, currentInput, isCurrent, publishedReport);
       if (isCurrent()) { completed = true; noteStatus.textContent = t("Report draft is in Notes recovery. Save it as a new note when ready."); }
     } catch {
       if (isCurrent()) noteStatus.textContent = t("Could not create the note draft. Check file access and try again.");
@@ -71,6 +71,7 @@ export function createFileDigestResult({ raw, executionProfile, capabilityId, on
   }
   window.addEventListener("zicode:locale-changed", render);
   return {
+    setReportResource(resource, owner) { publishedReport = resource && owner ? { resource, owner } : null; },
     show(value, displayNames = [], input = {}, originalFiles = []) { generation++; note.disabled = false; noteStatus.textContent = ""; current = valid(value) ? value : null;
       currentInput = { expected: input?.expected ?? "" }; comparisonValue = null;
       try { if (current) comparisonValue = fileDigestComparison(currentInput, current.files); } catch { current = null; }
@@ -79,7 +80,7 @@ export function createFileDigestResult({ raw, executionProfile, capabilityId, on
       names = current && Array.isArray(displayNames) && displayNames.length === current.files.length ? displayNames.map(safeName) : [];
       panel.hidden = false; raw.hidden = false; details.open = !current;
       if (current) render(); else { heading.textContent = t("File digest results"); summary.textContent = t("View original report"); comparison.textContent = ""; rows.replaceChildren(); } },
-    clear() { generation++; note.disabled = false; note.hidden = true; noteStatus.textContent = ""; current = null; names = []; originals = []; currentInput = {}; comparisonValue = null; comparison.textContent = ""; panel.hidden = true; raw.hidden = false; rows.replaceChildren(); },
+    clear() { generation++; note.disabled = false; note.hidden = true; noteStatus.textContent = ""; current = null; names = []; originals = []; currentInput = {}; comparisonValue = null; publishedReport = null; comparison.textContent = ""; panel.hidden = true; raw.hidden = false; rows.replaceChildren(); },
     destroy() { if (!active) return; active = false; window.removeEventListener("zicode:locale-changed", render); raw.hidden = originalHidden; panel.before(raw); panel.remove(); },
   };
 }

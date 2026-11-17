@@ -25,7 +25,7 @@ fn host_metadata_report_never_blocks_existing_image_output_when_draft_pool_is_fu
     let mut store = Store::default(); let source = source(&mut store);
     for _ in 0..4 {
         store.prepare(Prepare { schema_version:1, owner:source.owner.clone(), mime_type:"text/plain".into(),
-            byte_length:32*1024*1024, content_version:sha256_hex(b"unused"), catalog_revision:None }, "proof".into()).unwrap();
+            byte_length:32*1024*1024, content_version:sha256_hex(b"unused"), catalog_revision:None, file_name: None }, "proof".into()).unwrap();
     }
     let mut pending=Pending::prepare_with_profile(std::slice::from_ref(&source),"proof",vec![Blob{mime_type:"image/png".into(),bytes:vec![1]}],Profile::ImageMetadata2).unwrap();
     pending.attach_metadata_report(&json!({"schemaVersion":2})).unwrap();
@@ -41,9 +41,9 @@ fn metadata_reservations_do_not_enlarge_legacy_budget_or_block_its_separate_rese
     // Budget arithmetic fixture only; it does not claim these bytes are a decoded image.
     store.records.get_mut(id).unwrap().expected=128*1024*1024;
     for _ in 0..4 {
-        assert!(store.prepare(Prepare{schema_version:1,owner:source.owner.clone(),mime_type:"image/png".into(),byte_length:32*1024*1024,content_version:source.content_version.clone(),catalog_revision:None},"proof".into()).is_ok());
+        assert!(store.prepare(Prepare{schema_version:1,owner:source.owner.clone(),mime_type:"image/png".into(),byte_length:32*1024*1024,content_version:source.content_version.clone(),catalog_revision:None,file_name:None},"proof".into()).is_ok());
     }
-    assert!(store.prepare(Prepare{schema_version:1,owner:source.owner.clone(),mime_type:"image/png".into(),byte_length:1,content_version:source.content_version.clone(),catalog_revision:None},"proof".into()).is_err());
+    assert!(store.prepare(Prepare{schema_version:1,owner:source.owner.clone(),mime_type:"image/png".into(),byte_length:1,content_version:source.content_version.clone(),catalog_revision:None,file_name:None},"proof".into()).is_err());
     store.revoke(&source).unwrap();assert_eq!(store.records.len(),4);
 }
 
@@ -73,6 +73,7 @@ fn source(store: &mut Store) -> Access {
         .prepare(
             Prepare {
                 catalog_revision: None,
+                file_name: None,
                 schema_version: 1,
                 owner: owner.clone(),
                 mime_type: "text/plain".into(),

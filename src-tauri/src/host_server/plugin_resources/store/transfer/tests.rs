@@ -13,6 +13,7 @@ fn fixture() -> (Store, Access, Owner) {
         .prepare(
             Prepare {
                 catalog_revision: None,
+                file_name: None,
                 schema_version: 1,
                 owner: owner.clone(),
                 mime_type: "text/plain".into(),
@@ -180,6 +181,7 @@ fn scope_grants_and_publication_remain_bounded() {
             .prepare(
                 Prepare {
                     catalog_revision: None,
+                    file_name: None,
                     schema_version: 1,
                     owner: target.clone(),
                     mime_type: "text/plain".into(),
@@ -211,6 +213,7 @@ fn byte_quota_is_checked_at_confirmation_and_failure_does_not_consume_grant() {
             .prepare(
                 Prepare {
                     catalog_revision: None,
+                    file_name: None,
                     schema_version: 1,
                     owner: target.clone(),
                     mime_type: "application/octet-stream".into(),

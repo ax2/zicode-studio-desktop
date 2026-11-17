@@ -15,7 +15,7 @@ import { loadImageReportNoteMaterial } from "./image-report-note-material.js";
 import { createFileDigestManifestReview } from "./file-digest-manifest-review.js";
 import { createChecksumFolderReview } from "./checksum-folder-review.js";
 import { createFileDigestResult } from "./file-digest-result.js";
-import { createFileDigestNoteMaterial } from "./file-digest-note-material.js";
+import { createFileDigestNoteMaterial, loadFileDigestReportNoteMaterial } from "./file-digest-note-material.js";
 
 const hostResourceReceivers = new Map([
   ["com.zicode.resource-inspector/image.inspect", "resource.host.image-input.v1"],
@@ -66,7 +66,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
           runtimeId: target.instanceId, sessionId: target.sessionId, pluginId: tool.pluginId, capabilityId: tool.capabilityId,
         }, slot);
       },
-      onNoteReport: typeof receiveNoteDraft === "function" ? async (value, names, input, current) => {
+      onNoteReport: typeof receiveNoteDraft === "function" ? async (value, names, input, current, publishedReport) => {
         const source = reference;
         const isCurrent = () => valid() && current() && source !== null && reference === source;
         const verify = async () => {
@@ -75,9 +75,13 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
             await read({ capabilityId: tool.capabilityId }, resource, 0, 1, isCurrent);
           if (!isCurrent()) throw new Error("file_report_unavailable");
         };
-        const material = createFileDigestNoteMaterial(value, names, input);
-        await verify();
-        await receiveNoteDraft({ ...material, title: t(material.title) }, isCurrent, verify);
+        const published = publishedReport ? await loadFileDigestReportNoteMaterial({ ...publishedReport, read, isCurrent }) : null;
+        const material = published ?? createFileDigestNoteMaterial(value, names, input);
+        const verifyMaterial = published ? async () => {
+          await read(publishedReport.owner, publishedReport.resource, 0, 1, isCurrent);
+        } : verify;
+        await verifyMaterial();
+        await receiveNoteDraft({ ...material, title: t(material.title) }, isCurrent, verifyMaterial);
       } : undefined });
   const instance = { plugin: { id: tool.pluginId }, resourceTarget: original, resourceInputProfile: detail.resourceInputProfile,
     resourceLabel: `${tool.applicationName} · ${tool.title}`, resourceExecutionProfile: detail.capability.executionProfile };

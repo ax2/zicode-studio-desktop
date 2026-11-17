@@ -20,6 +20,7 @@ struct Record {
     expires: Instant,
     parents: Vec<Ancestor>,
     original: Option<file_reference::FileBinding>,
+    digest_name: Option<String>,
 }
 
 #[derive(Clone)]
@@ -101,6 +102,7 @@ impl Store {
                 byte_length: bytes.len(),
                 content_version: version.clone(),
                 catalog_revision: None,
+                file_name: None,
             },
             proof.clone(),
         )?;
@@ -178,6 +180,11 @@ impl Store {
         {
             return Err(rejected("resource_budget_exceeded"));
         }
+        let digest_name = if file_reference::is_source(&request.owner) {
+            request.file_name.as_deref().and_then(file_digest_report::safe_file_name).map(str::to_owned)
+        } else {
+            None
+        };
         let id = uuid::Uuid::new_v4().to_string();
         self.records.insert(
             id.clone(),
@@ -194,6 +201,7 @@ impl Store {
                 expires: Instant::now() + Duration::from_secs(120),
                 parents: Vec::new(),
                 original: None,
+                digest_name,
             },
         );
         Ok(

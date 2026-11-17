@@ -1,4 +1,5 @@
 import { outputExtension } from "./plugin-output-formats.js";
+import { isResourceFileName } from "./project-file-resource.js";
 
 const MAX_BYTES = 32 * 1024 * 1024;
 const CHUNK_BYTES = 65536;
@@ -35,6 +36,7 @@ export async function uploadConfirmedResource({
     if (file.expectedContentVersion !== undefined && file.expectedContentVersion !== contentVersion)
       throw new Error("saved_output_changed");
     const mimeType = outputExtension(file.type) ? file.type : "application/octet-stream";
+    const digestFile = owner.pluginId === "com.zicode.devtools.files" && owner.capabilityId === "devtools.files.hash";
     const prepared = await gateway.prepareResource({
       schemaVersion: 1,
       owner,
@@ -42,6 +44,7 @@ export async function uploadConfirmedResource({
       byteLength: bytes.length,
       contentVersion,
       ...(catalogRevision ? { catalogRevision } : {}),
+      ...(digestFile && isResourceFileName(file.name) ? { fileName: file.name } : {}),
     });
     if (
       typeof prepared?.resourceId !== "string" ||

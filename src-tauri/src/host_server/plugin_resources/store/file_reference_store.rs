@@ -30,6 +30,7 @@ impl Store {
             return;
         };
         let name = file.display_name();
+        record.digest_name = file_digest_report::safe_file_name(&name).map(str::to_owned);
         if !name.is_empty() && record.expected <= file_reference::MAX_BYTES {
             result["originalFile"] = json!({"name":name,"byteLength":record.expected});
             record.original = Some(FileBinding::Source {
@@ -37,6 +38,19 @@ impl Store {
                 verified: false,
             });
         }
+    }
+
+    pub(in crate::host_server::plugin_resources) fn file_digest_names<'a>(
+        &mut self,
+        accesses: impl Iterator<Item = &'a Access>,
+        proof: &str,
+    ) -> Result<Vec<Option<String>>, ApiError> {
+        accesses
+            .map(|access| {
+                self.record(access, proof)
+                    .map(|record| record.digest_name.clone())
+            })
+            .collect()
     }
 
     pub(in crate::host_server::plugin_resources) fn mark_original_files_verified<'a>(

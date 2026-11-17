@@ -1,4 +1,4 @@
-import { webcrypto } from "node:crypto";
+import { createHash, webcrypto } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../i18n.js";
 import { createDirectoryResourceRunner } from "./directory-resource-runner.js";
@@ -76,6 +76,37 @@ describe("directory-owned resource execution", () => {
     f.button("Cancel file sharing").click();
     expect(document.querySelector(".plugin-resource-transfer")).toBeNull();
     expect(f.button("Send to tool")).toBeUndefined();
+  });
+
+  it("uses the byte-verified report with provenance when creating a Notes draft", async () => {
+    const received = vi.fn(async (_material, current, verify) => { expect(current()).toBe(true); await verify(); });
+    const f = fixture({}, 1, false, { pluginId: "com.zicode.devtools.files", capabilityId: "devtools.files.hash",
+      executionProfile: "resource.wasi.file-digest.v1" }, received);
+    const reportId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const digest = { ok: true, schemaVersion: 2, material: "file-integrity-report-list", files: [
+      { index: 0, bytes: 3, sha256: "a".repeat(64), sha512: "b".repeat(128), matches: null }] };
+    const published = { ...digest, files: [{ ...digest.files[0], name: "来源.txt" }], packageVersion: "0.1.0",
+      generatedBy: { toolId: "files", toolVersion: "1.2.0", runtimeFingerprint: { appVersion: "0.6.3" } } };
+    const bytes = Buffer.from(JSON.stringify(published, null, 2)), version = createHash("sha256").update(bytes).digest("hex");
+    f.gateway.readResource.mockImplementation(async (owner, request) => {
+      expect(owner.capabilityId).toBe("devtools.files.hash");
+      expect(request.resourceId).toBe(reportId);
+      const chunk = bytes.subarray(request.offset, request.offset + request.length);
+      return { schemaVersion: 1, ...request, byteLength: chunk.length, eof: request.offset + chunk.length === bytes.length,
+        dataBase64: chunk.toString("base64") };
+    });
+    f.gateway.invokeResource.mockImplementation(async (owner, request) => ({ schemaVersion: 1, operationId: id,
+      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" },
+      outputProfile: "resource.wasi.output.draft1", resources: [], result: digest,
+      reportResource: { index: 0, resourceId: reportId, contentVersion: version, profile: "resource.host.file-digest-report.draft1",
+        mimeType: "application/json", byteLength: bytes.length, expiresInSeconds: 900, origin: "host-report", saved: false,
+        derivedFrom: { resourceId: request.resourceId, contentVersion: request.contentVersion } } }));
+    await f.share(); f.button("Execute tool").click(); await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    expect(f.gateway.prepareResource).toHaveBeenCalledWith(expect.objectContaining({ fileName: "input.txt" }));
+    f.button("Create note draft").click();
+    await vi.waitFor(() => expect(received).toHaveBeenCalledOnce());
+    expect(received.mock.calls[0][0].content).toContain(bytes.toString("utf8"));
+    expect(f.gateway.readResource).toHaveBeenCalledTimes(3);
   });
 
   it("opens the same relay for an original file from a successful native selection", async () => {
