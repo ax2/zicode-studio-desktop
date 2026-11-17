@@ -27,7 +27,7 @@ impl Store {
                 > MAX_RESERVED.saturating_sub(
                     self.records
                         .values()
-                        .filter(|r| r.output_profile == Profile::Draft1)
+                        .filter(|r| r.output_profile.uses_shared_store_budget())
                         .map(|r| r.expected)
                         .sum(),
                 )

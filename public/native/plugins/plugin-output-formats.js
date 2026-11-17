@@ -1,4 +1,4 @@
-// Guest output types plus the Host-only JSON report; unknown types gain no extension.
+// Recognized Host resource types; unknown types gain no extension.
 export const OUTPUT_EXTENSIONS = Object.freeze({
   "application/json": "json",
   "application/octet-stream": "bin",

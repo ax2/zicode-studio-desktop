@@ -442,7 +442,14 @@ impl PluginRegistry {
                     .find(|c| c["id"].as_str() == Some(&request.capability_id))
             })
             .ok_or("tool_unavailable")?;
-        let capability = crate::plugin_resource_regex::manual_capability(capability);
+        let mut capability = crate::plugin_resource_regex::manual_capability(capability);
+        use crate::plugin_resource_execution::json_compare;
+        if capability["executionProfile"] == json_compare::PROFILE
+            && json_compare::input_count(&request.plugin_id, Some(&request.capability_id)) == Some(2)
+        {
+            capability["resourceInputMin"] = json!(2);
+            capability["resourceInputLabels"] = json!(["Left JSON file", "Right JSON file"]);
+        }
         let permissions: Vec<_> = plugin.manifest.permissions.required.iter()
             .chain(plugin.manifest.permissions.optional.iter()).map(|permission| {
                 let granted = self.state.scenes.get(&request.scene_id)

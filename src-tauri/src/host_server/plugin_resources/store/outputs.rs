@@ -121,7 +121,7 @@ impl Pending {
         self.attach_host_report(report, "resource.host.file-digest-report.draft1", 8 * 1024)
     }
 
-    // Only Host-validated results can become JSON resources. Guest output types remain unchanged.
+    // Supplemental Host reports are separate from the primary capability output.
     fn attach_host_report(
         &mut self, report: &Value, report_profile: &str, max_bytes: usize,
     ) -> Result<(), ApiError> {
@@ -177,7 +177,7 @@ impl Store {
         }
         // A supplemental report must never make a previously valid call
         // fail solely because the legacy pool or the last resource slot is full.
-        let draft_used: usize = self.records.values().filter(|record|record.output_profile==Profile::Draft1).map(|record|record.expected).sum();
+        let draft_used: usize = self.records.values().filter(|record|record.output_profile.uses_shared_store_budget()).map(|record|record.expected).sum();
         let total_used: usize = self.records.values().map(|record|record.expected).sum();
         if pending.host_report.is_some() && (self.records.len() + pending.records.len() > MAX_RECORDS
             || pending.total > MAX_TOTAL_RESERVED.saturating_sub(total_used)
@@ -190,8 +190,8 @@ impl Store {
         if self.records.len() + pending.records.len() > MAX_RECORDS
             || pending.total
                 > MAX_TOTAL_RESERVED.saturating_sub(self.records.values().map(|r| r.expected).sum())
-            || (pending.profile==Profile::Draft1 && pending.total > MAX_RESERVED.saturating_sub(self.records.values().filter(|record|record.output_profile==Profile::Draft1).map(|record|record.expected).sum()))
-            || (pending.profile!=Profile::Draft1 && pending.host_report_bytes > MAX_RESERVED.saturating_sub(self.records.values().filter(|record|record.output_profile==Profile::Draft1).map(|record|record.expected).sum()))
+            || (pending.profile.uses_shared_store_budget() && pending.total > MAX_RESERVED.saturating_sub(self.records.values().filter(|record|record.output_profile.uses_shared_store_budget()).map(|record|record.expected).sum()))
+            || (!pending.profile.uses_shared_store_budget() && pending.host_report_bytes > MAX_RESERVED.saturating_sub(self.records.values().filter(|record|record.output_profile.uses_shared_store_budget()).map(|record|record.expected).sum()))
         {
             return Err(rejected("resource_budget_exceeded"));
         }

@@ -280,8 +280,13 @@ fn execute_wasi_bundle_with_reads(
     let markdown_profile = crate::plugin_resource_execution::markdown::selected(request.execution_profile.as_deref());
     let digest_profile = crate::plugin_resource_execution::file_digest::selected(request.execution_profile.as_deref());
     let encoding_profile = crate::plugin_resource_execution::encoding::operation(request.execution_profile.as_deref());
-    let output_profile = if metadata_profile { resource_output::Profile::ImageMetadata2 } else { resource_output::Profile::Draft1 };
-    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !digest_stream && encoding_profile.is_none() {
+    use crate::plugin_resource_execution::json_compare;
+    let json_compare_profile = request.execution_profile.as_deref() == Some(json_compare::PROFILE);
+    let output_profile = resource_output::Profile::negotiate(
+        binary.then_some(if metadata_profile { resource_output::Profile::METADATA_NAME } else { resource_output::PROFILE }),
+        request.execution_profile.as_deref(),
+    )?.unwrap_or(resource_output::Profile::Draft1);
+    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !digest_stream && !json_compare_profile && encoding_profile.is_none() {
         return Err("Unsupported resource execution profile".into());
     }
     if image_resize_profile && (!resource_mode || !binary) {
@@ -307,6 +312,20 @@ fn execute_wasi_bundle_with_reads(
         }
         encoding.validate_input(&request.plugin_id, request.capability_id.as_deref(),
             &descriptors.iter().map(|(_, length)| *length).collect::<Vec<_>>())?;
+    }
+    if json_compare_profile {
+        let count = json_compare::input_count(&request.plugin_id, request.capability_id.as_deref());
+        if !binary || module_snapshot.is_none() || request.command_id.is_some() || count != Some(descriptors.len()) {
+            return Err("JSON comparison requires the matching capability and resource count".into());
+        }
+        for (descriptor, length) in &descriptors {
+            if *length > json_compare::MAX_FILE {
+                return Err("resource_input_too_large".into());
+            }
+            if !json_compare::accepts_mime(&descriptor.mime_type) {
+                return Err("resource_input_invalid".into());
+            }
+        }
     }
     let mut envelope = serde_json::json!({
         "pluginId": request.plugin_id,
@@ -341,7 +360,7 @@ fn execute_wasi_bundle_with_reads(
     let mut config = Config::new();
     // These command workers are freshly compiled per invocation. Prefer cold
     // startup over optimizing a short bounded operation; isolation/fuel remain.
-    config.cranelift_opt_level(optimization);
+    config.cranelift_opt_level(if json_compare_profile { wasmtime::OptLevel::Speed } else { optimization });
     config.consume_fuel(true);
     config.max_wasm_stack(2 * 1024 * 1024);
     let engine =
@@ -377,7 +396,7 @@ fn execute_wasi_bundle_with_reads(
         resource_reads::link(&mut linker, |state| &mut state.reads)?;
     }
     if binary && !digest_stream {
-        if metadata_profile {
+        if metadata_profile || json_compare_profile {
             resource_writes::link_with_profile(&mut linker, |state| &mut state.writes, output_profile)?;
         } else {
             resource_writes::link(&mut linker, |state| &mut state.writes)?;
@@ -399,7 +418,7 @@ fn execute_wasi_bundle_with_reads(
                 crate::plugin_resource_execution::IMAGE_RESIZE_MEMORY_MIB
             } else if encoding_profile.is_some() {
                 crate::plugin_resource_execution::encoding::MEMORY_MIB
-            } else if digest_stream {
+            } else if digest_stream || json_compare_profile {
                 64
             } else if resource_mode {
                 256
@@ -409,7 +428,7 @@ fn execute_wasi_bundle_with_reads(
                 * 1024,
         )
         .instances(1)
-        .memories(if image_resize_profile || metadata_profile || markdown_profile { 1 } else { 2 })
+        .memories(if image_resize_profile || metadata_profile || markdown_profile || json_compare_profile { 1 } else { 2 })
         .tables(4)
         .build();
     let mut store = Store::new(
@@ -435,6 +454,8 @@ fn execute_wasi_bundle_with_reads(
             crate::plugin_resource_regex::FUEL
         } else if digest_profile {
             crate::plugin_resource_execution::file_digest::FUEL
+        } else if json_compare_profile {
+            json_compare::FUEL
         } else if let Some(encoding) = encoding_profile {
             encoding.fuel()
         } else {

@@ -7,6 +7,8 @@ pub(crate) mod markdown;
 pub(crate) mod file_digest;
 #[path = "plugin_resource_encoding.rs"]
 pub(crate) mod encoding;
+#[path = "plugin_resource_json_compare.rs"]
+pub(crate) mod json_compare;
 pub(crate) const IMAGE_RESIZE_PROFILE: &str = "resource.wasi.image.resize.v1";
 pub(crate) const IMAGE_RESIZE_PROFILE_VERSION: &str = "1.0.0-preview.1";
 pub(crate) const IMAGE_RESIZE_MEMORY_MIB: usize = 256;

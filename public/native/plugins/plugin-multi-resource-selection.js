@@ -10,19 +10,22 @@ const validEntryName = value => typeof value === "string" && value.length > 0 &&
 
 // Only capabilities declaring resourceInputMax use this trusted-parent control.
 export function createMultiResourceSelection({ container, plugin, target, gateway, isCurrent,
-  onResource, catalogRevision, maxResources, minResources = 1, resourceLabels = [], allowOriginalFile = false, nativeStream = null }) {
+  onResource, catalogRevision, maxResources, minResources = 1, resourceLabels = [], maxBytes = MAX_BYTES, allowOriginalFile = false, nativeStream = null }) {
   const panel = document.createElement("section");
   panel.className = "plugin-resource-selection";
   panel.setAttribute("aria-label", t("Studio resource selection"));
   const title = document.createElement("strong");
   title.textContent = t("Share files with this tool");
   const description = document.createElement("p");
+  const sizeLimitMessage = () => t("Each file must be at most {limit} MiB.")
+    .replace("{limit}", String(maxBytes / (1024 * 1024)));
   const describe = () => {
     description.textContent = nativeStream
       ? t("Choose up to 64 local files. Confirm sharing, then run to read them.")
       : minResources === maxResources
       ? t("Choose exactly {count} files in the required order, then confirm. Nothing runs until you execute the tool.").replace("{count}", String(maxResources))
       : t("Choose up to {count} files, then confirm. The total must be at most 32 MiB. Nothing runs until you execute the tool.").replace("{count}", String(maxResources));
+    if (!nativeStream && maxBytes < MAX_BYTES) description.textContent += ` ${sizeLimitMessage()}`;
   };
   describe();
   const native = gateway.digestFiles;
@@ -64,8 +67,10 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
 
   let active = true, revision = 0, entryRequest = 0, entryPaths = [], uploading = false;
   let selected = [], granted = [], originalFiles = [], projectPreviews = [], stagedStream = null, streamShared = false;
+  const fileSizesAllowed = () => selected.every(file =>
+    Number.isSafeInteger(file.size) && file.size >= 0 && file.size <= maxBytes);
   const allowedSelection = () => stagedStream !== null || selected.length >= minResources && selected.length <= maxResources &&
-    selected.every(file => Number.isSafeInteger(file.size) && file.size >= 0 && file.size <= MAX_BYTES) &&
+    fileSizesAllowed() &&
     Number.isSafeInteger(selected.reduce((sum, file) => sum + file.size, 0)) &&
     selected.reduce((sum, file) => sum + file.size, 0) <= MAX_BYTES;
   const owner = { runtimeId: target.instanceId, sessionId: target.sessionId,
@@ -188,8 +193,8 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
           size: preview.byteLength, projectPreview: preview }));
         renderFiles();
         confirm.disabled = !allowedSelection();
-        status.textContent = t("Selected {count} files. Confirm sharing before running the tool.")
-          .replace("{count}", String(selected.length));
+        status.textContent = !fileSizesAllowed() ? sizeLimitMessage() :
+          t("Selected {count} files. Confirm sharing before running the tool.").replace("{count}", String(selected.length));
       } catch {
         if (valid(token)) {
           reset();
@@ -213,7 +218,8 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
     status.textContent = allowed ? t("Selected {count} files. Confirm sharing before running the tool.")
       .replace("{count}", String(selected.length)) : selected.length
         ? (selected.length < minResources ? t("Choose at least {count} files before confirming.").replace("{count}", String(minResources))
-          : t("Choose at most {count} files totaling up to 32 MiB.").replace("{count}", String(maxResources))) : "";
+          : maxBytes < MAX_BYTES && !fileSizesAllowed() ? sizeLimitMessage()
+            : t("Choose at most {count} files totaling up to 32 MiB.").replace("{count}", String(maxResources))) : "";
   });
   cancel.addEventListener("click", () => {
     reset();

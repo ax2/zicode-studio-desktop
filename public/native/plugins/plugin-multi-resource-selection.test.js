@@ -5,7 +5,7 @@ import { createMultiResourceSelection } from "./plugin-multi-resource-selection.
 
 const file = (name, text) => ({ name, size: text.length, type: "text/plain",
   arrayBuffer: vi.fn(async () => new TextEncoder().encode(text).buffer) });
-function setup({ projectFiles, digestFiles, minResources = 1, maxResources = 4, resourceLabels = [] } = {}) {
+function setup({ projectFiles, digestFiles, minResources = 1, maxResources = 4, resourceLabels = [], maxBytes } = {}) {
   setLocale("en"); vi.stubGlobal("crypto", webcrypto);
   document.body.innerHTML = "<main></main>";
   const first = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -20,7 +20,7 @@ function setup({ projectFiles, digestFiles, minResources = 1, maxResources = 4, 
   const controller = createMultiResourceSelection({ container: document.querySelector("main"),
     plugin: { id: "provider", capabilities: [{ id: "archive.create" }] },
     target: { instanceId: "r", sessionId: "s", workspaceId: "workspace" }, gateway, catalogRevision: "a".repeat(64),
-    isCurrent: () => true, onResource, maxResources, minResources, resourceLabels, allowOriginalFile: Boolean(digestFiles) });
+    isCurrent: () => true, onResource, maxResources, minResources, resourceLabels, maxBytes, allowOriginalFile: Boolean(digestFiles) });
   const input = document.querySelector('input[type="file"]');
   const button = label => [...document.querySelectorAll("button")].find(item => item.textContent === label);
   const choose = files => { Object.defineProperty(input, "files", { configurable: true, value: files }); input.dispatchEvent(new Event("change")); };
@@ -94,6 +94,30 @@ it("reordering cannot enable an oversize selection", () => {
   document.querySelector('[aria-label="Move input down"]').click();
   expect(view.button("Confirm file sharing").disabled).toBe(true);
   expect(view.gateway.prepareResource).not.toHaveBeenCalled();
+  view.controller.destroy();
+});
+
+it("checks the scoped per-file limit and shares ordered browser JSON selections as raw snapshots", async () => {
+  const limit = 1024 * 1024;
+  const view = setup({ minResources: 2, maxResources: 2, maxBytes: limit,
+    resourceLabels: ["Left JSON file", "Right JSON file"] });
+  const left = { ...file("left.json", "[]"), type: "application/json" };
+  const right = { ...file("right.json", "{}"), type: "application/json" };
+  view.choose([left, { ...right, size: limit + 1 }]);
+  expect(view.button("Confirm file sharing").disabled).toBe(true);
+  expect(document.body.textContent).toContain("Each file must be at most 1 MiB.");
+  expect(right.arrayBuffer).not.toHaveBeenCalled();
+  view.choose([left, right]);
+  expect([...document.querySelectorAll("li")].map(item => item.textContent)).toEqual([
+    expect.stringContaining("Left JSON file: left.json"), expect.stringContaining("Right JSON file: right.json"),
+  ]);
+  expect(view.gateway.prepareResource).not.toHaveBeenCalled();
+  view.button("Confirm file sharing").click();
+  await vi.waitFor(() => expect(view.onResource).toHaveBeenCalledOnce());
+  expect(view.gateway.prepareResource.mock.calls.map(([request]) => request.mimeType)).toEqual([
+    "application/octet-stream", "application/octet-stream",
+  ]);
+  expect(view.gateway.appendResource.mock.calls.map(call => atob(call[2]))).toEqual(["[]", "{}"]);
   view.controller.destroy();
 });
 

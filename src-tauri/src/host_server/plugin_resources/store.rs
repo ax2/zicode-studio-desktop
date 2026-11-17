@@ -181,7 +181,7 @@ impl Store {
         }
         if request.byte_length > MAX_RESOURCE
             || self.records.len() >= MAX_RECORDS
-            || request.byte_length > MAX_RESERVED.saturating_sub(self.records.values().filter(|r|r.output_profile==crate::plugin_worker::resource_output::Profile::Draft1).map(|r|r.expected).sum::<usize>())
+            || request.byte_length > MAX_RESERVED.saturating_sub(self.records.values().filter(|r|r.output_profile.uses_shared_store_budget()).map(|r|r.expected).sum::<usize>())
             || request.byte_length > MAX_TOTAL_RESERVED.saturating_sub(self.records.values().map(|r|r.expected).sum::<usize>())
         {
             return Err(rejected("resource_budget_exceeded"));

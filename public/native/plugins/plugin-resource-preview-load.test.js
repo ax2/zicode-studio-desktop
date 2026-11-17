@@ -37,6 +37,20 @@ describe("bounded parent preview reads", () => {
     await expect(loadResourcePreview({ ...c, executionProfile: "resource.wasi.regex.replace.v1" })).rejects.toThrow();
     expect(c.read).not.toHaveBeenCalled();
   });
+  it("reads and hashes up to 8 MiB of JSON only for the exact JSON file profile", async () => {
+    const maxBytes = 8 * 1024 * 1024;
+    const text = `["${"x".repeat(maxBytes - 4)}"]`;
+    const c = await fixture(new TextEncoder().encode(text), "application/json");
+    const executionProfile = "resource.wasi.json-file-compare.v1";
+    const result = await loadResourcePreview({ ...c, executionProfile });
+    expect(result.text).toBe(text);
+    expect(c.read).toHaveBeenCalledTimes(256);
+    c.read.mockClear();
+    await expect(loadResourcePreview(c)).rejects.toThrow();
+    c.resource.byteLength++;
+    await expect(loadResourcePreview({ ...c, executionProfile })).rejects.toThrow();
+    expect(c.read).not.toHaveBeenCalled();
+  }, 15000);
   it("verifies full digest and decodes plain UTF-8 without rendering HTML", async () => {
     const c = await fixture();
     expect(await loadResourcePreview(c)).toEqual({ kind: "text", text: "<script>local text</script>" });

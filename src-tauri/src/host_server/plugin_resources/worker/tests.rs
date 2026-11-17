@@ -6,6 +6,7 @@ mod cross_plugin_http;
 mod file_report_http;
 mod host_text_http;
 mod image_metadata_http;
+mod json_file_http;
 mod lifecycle_http;
 mod original_file_http;
 mod markdown_http;

@@ -85,6 +85,11 @@ pub(super) fn register(
         return Err(rejected("result_too_large"));
     }
     validate_result(capability, &bundle.result)?;
+    if profiles.output == crate::plugin_worker::resource_output::Profile::JsonCompare1 {
+        crate::plugin_resource_execution::json_compare::validate_output(
+            &bundle, profiles.source_bytes, &request.access.owner.capability_id,
+        ).map_err(rejected)?;
+    }
     if let Some(encoding) = encoding {
         let [bytes] = profiles.source_bytes else { return Err(rejected("invalid_output")) };
         encoding.validate_output(&bundle, bytes.len(), &request.input).map_err(rejected)?;

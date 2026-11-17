@@ -414,15 +414,19 @@ fn execute(
         let markdown_profile = crate::plugin_resource_execution::markdown::selected(capability.execution_profile.as_deref());
         let digest_profile = crate::plugin_resource_execution::file_digest::selected(capability.execution_profile.as_deref());
         let encoding_profile = crate::plugin_resource_execution::encoding::operation(capability.execution_profile.as_deref());
-        if capability.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && encoding_profile.is_none()
+        let json_compare_profile = capability.execution_profile.as_deref() == Some(crate::plugin_resource_execution::json_compare::PROFILE);
+        if capability.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !json_compare_profile && encoding_profile.is_none()
         {
             return Err(rejected("resource_execution_profile_unsupported"));
         }
         if request.additional_accesses.len() + 1 > capability.resource_input_max.unwrap_or(1) {
             return Err(rejected("resource_profile_unsupported"));
         }
-        // Both negotiated heavy profiles share the same global memory reservation pool.
-        let profile_lease = if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || encoding_profile.is_some() {
+        if json_compare_profile && crate::plugin_resource_execution::json_compare::input_count(&owner.plugin_id, Some(&owner.capability_id)) != Some(request.accesses().count()) {
+            return Err(rejected("resource_profile_unsupported"));
+        }
+        // Negotiated heavy profiles share the same global memory reservation pool.
+        let profile_lease = if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
             let call_lease = state
                 .plugin_resource_workers
                 .image_profile_slots
@@ -496,6 +500,10 @@ fn execute(
     let markdown_profile = crate::plugin_resource_execution::markdown::selected(output_contract.execution_profile.as_deref());
     let digest_profile = crate::plugin_resource_execution::file_digest::selected(output_contract.execution_profile.as_deref());
     let encoding_profile = crate::plugin_resource_execution::encoding::operation(output_contract.execution_profile.as_deref());
+    let json_compare_profile = output_contract.execution_profile.as_deref() == Some(crate::plugin_resource_execution::json_compare::PROFILE);
+    if json_compare_profile && resources.iter().any(|resource| resource.bytes.len() > crate::plugin_resource_execution::json_compare::MAX_FILE) {
+        return Err(rejected("resource_input_too_large"));
+    }
     if let Some(encoding) = encoding_profile {
         encoding.validate_input(&owner.plugin_id, Some(&owner.capability_id),
             &resources.iter().map(|resource| resource.bytes.len()).collect::<Vec<_>>()).map_err(rejected)?;
@@ -539,7 +547,7 @@ fn execute(
         "sceneId":scene,"input":request.input
     });
     let metadata_profile=crate::plugin_resource_execution::metadata::selected(output_contract.execution_profile.as_deref());
-    if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || encoding_profile.is_some() {
+    if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
         worker_request["executionProfile"] = json!(output_contract.execution_profile);
     }
     if binary {
@@ -604,6 +612,8 @@ fn execute(
                     crate::plugin_resource_regex::TIMEOUT_SECS
                 } else if digest_profile {
                     crate::plugin_resource_execution::file_digest::TIMEOUT_SECS
+                } else if json_compare_profile {
+                    crate::plugin_resource_execution::json_compare::TIMEOUT_SECS
                 } else if encoding_profile.is_some() {
                     crate::plugin_resource_execution::encoding::TIMEOUT_SECS
                 } else {

@@ -173,9 +173,12 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     (detail.capability.executionProfile === "resource.wasi.encoding-utf8.v1" && tool.capabilityId === "devtools.encoding.to_utf8") ||
     (detail.capability.executionProfile === "resource.wasi.encoding-convert.v1" && tool.capabilityId === "devtools.encoding.convert")
   );
+  const jsonFileCompare = tool.pluginId === "com.zicode.devtools.compare-json-file" &&
+    detail.capability.executionProfile === "resource.wasi.json-file-compare.v1";
   const selectionOptions = { container: selectionContainer, plugin, target, gateway, catalogRevision: detail.revision, maxResources,
     markdownDraftMode, allowOriginalFile: fileDigest, nativeStream,
     ...(fullFileEncoding ? { maxBytes: 8 * 1024 * 1024 } : {}),
+    ...(jsonFileCompare ? { maxBytes: 1024 * 1024 } : {}),
     readInput: (resource, offset, length, current) => read({ capabilityId: tool.capabilityId }, resource, offset, length, current),
     minResources: detail.capability.resourceInputMin ?? 1, resourceLabels: detail.capability.resourceInputLabels ?? [],
     isCurrent: () => valid() && !running,

@@ -1,6 +1,8 @@
 //! Fixed output types shared by the Worker, Host resource store and saved files.
 //! Append only: WASI guests select these MIME types by numeric index.
 
+pub(crate) const JSON: &str = "application/json";
+
 pub(crate) const ENCODED_TEXT: &str = "application/x-zicode-encoded-text";
 
 pub(crate) const MIMES: &[&str] = &[
@@ -32,6 +34,7 @@ pub(crate) const MIMES: &[&str] = &[
     "text/html",
     "application/x-zicode-sqlite",
     ENCODED_TEXT,
+    JSON,
 ];
 
 // The first five MIME indices predate manifest negotiation. New types require
@@ -42,9 +45,7 @@ pub(crate) fn requires_profile(mime: &str) -> bool {
 
 pub(crate) fn extension(mime: &str) -> Option<&'static str> {
     match mime {
-        // Host-generated structured reports only. This is intentionally not in
-        // MIMES, so it does not add a new guest ABI index or permission.
-        "application/json" => Some("json"),
+        JSON => Some("json"),
         "application/octet-stream" => Some("bin"),
         "image/png" => Some("png"),
         "image/jpeg" => Some("jpg"),
@@ -78,7 +79,7 @@ pub(crate) fn extension(mime: &str) -> Option<&'static str> {
 }
 
 pub(crate) fn known_extension(value: &str) -> bool {
-    value == "json" || MIMES.iter().any(|mime| extension(mime) == Some(value))
+    MIMES.iter().any(|mime| extension(mime) == Some(value))
 }
 
 #[cfg(test)]
@@ -97,7 +98,8 @@ mod tests {
             ]
         );
         assert_eq!(MIMES[27], ENCODED_TEXT);
-        assert_eq!(MIMES.len(), 28);
+        assert_eq!(MIMES[28], JSON);
+        assert_eq!(MIMES.len(), 29);
         let mut suffixes = std::collections::HashSet::new();
         for mime in MIMES {
             let suffix = extension(mime).unwrap();
