@@ -159,6 +159,14 @@ fn seed_decoded_result(f: &Fixture, bytes: &[u8]) {
 }
 
 fn server(status: u16, body: String) -> (String, thread::JoinHandle<Vec<u8>>) {
+    server_with_progress(status, body, None)
+}
+
+fn server_with_progress(
+    status: u16,
+    body: String,
+    mut progress: Option<std::sync::mpsc::Sender<()>>,
+) -> (String, thread::JoinHandle<Vec<u8>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     listener.set_nonblocking(true).unwrap();
@@ -174,6 +182,7 @@ fn server(status: u16, body: String) -> (String, thread::JoinHandle<Vec<u8>>) {
                 Err(error) => panic!("{error}"),
             }
         };
+        stream.set_nonblocking(false).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
             .unwrap();
@@ -195,12 +204,43 @@ fn server(status: u16, body: String) -> (String, thread::JoinHandle<Vec<u8>>) {
                 if received.len() >= end + 4 + length {
                     break;
                 }
+                if let Some(progress) = progress.take() {
+                    progress.send(()).unwrap();
+                }
             }
         }
         write!(stream, "HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
         received
     });
     (format!("http://{address}/v1"), worker)
+}
+
+#[test]
+fn fixture_server_waits_for_a_delayed_request_body() {
+    let (send, receive) = std::sync::mpsc::channel();
+    let (base, worker) = server_with_progress(200, "ok".into(), Some(send));
+    let address = base
+        .strip_prefix("http://")
+        .unwrap()
+        .strip_suffix("/v1")
+        .unwrap();
+    let mut client = std::net::TcpStream::connect(address).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    client
+        .write_all(
+            b"POST /v1/images/generations HTTP/1.1\r\nHost: localhost\r\nContent-Length: 4\r\n\r\n",
+        )
+        .unwrap();
+    receive.recv_timeout(Duration::from_secs(5)).unwrap();
+    thread::sleep(Duration::from_millis(100));
+    client.write_all(b"test").unwrap();
+    let mut response = String::new();
+    client.read_to_string(&mut response).unwrap();
+    assert!(response.starts_with("HTTP/1.1 200 "));
+    let request = worker.join().unwrap();
+    assert!(request.ends_with(b"\r\n\r\ntest"));
 }
 
 #[tokio::test]
