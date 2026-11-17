@@ -1,6 +1,9 @@
 //! Exercises the provider's frozen file digest module and the built-in receiving tool.
 use super::*;
 
+#[path = "file_digest_limits_http.rs"]
+mod file_digest_limits_http;
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires a receipt-verified Files candidate and retained production Worker"]
 async fn file_digest_report_handoff_requires_confirmation_and_all_original_grants() {
@@ -237,5 +240,8 @@ async fn file_digest_report_handoff_requires_confirmation_and_all_original_grant
             .status(),
         StatusCode::OK
     );
+    if std::env::var_os("ZICODE_TEST_FILE_DIGEST_LIMITS").is_some() {
+        file_digest_limits_http::verify(&host, &client, &sender, &root, &target.workspace_id).await;
+    }
     host.stop_and_wait().await.unwrap();
 }
