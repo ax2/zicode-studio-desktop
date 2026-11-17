@@ -5,6 +5,7 @@ use sha2::{Digest, Sha512};
 
 pub(crate) const PROFILE: &str = "resource.wasi.file-digest.v1";
 pub(crate) const VERSION: &str = "1.0.0-preview.1";
+pub(crate) const PLUGIN: &str = "com.zicode.devtools.files";
 pub(crate) const CAPABILITY: &str = "devtools.files.hash";
 pub(crate) const MAX_BYTES: usize = 32 * 1024 * 1024;
 pub(crate) const MAX_FILES: usize = 4;

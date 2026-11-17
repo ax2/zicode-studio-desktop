@@ -2,7 +2,7 @@ use boa_engine::{Context, Source};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::path::Path;
 #[cfg(test)]
 #[path = "plugin_worker_diagnostics_tests.rs"]
@@ -10,6 +10,8 @@ mod diagnostics_tests;
 #[cfg(test)]
 #[path = "plugin_worker_encoding_tests.rs"]
 mod encoding_tests;
+#[path = "plugin_worker_digest_stream.rs"]
+mod digest_stream;
 #[path = "plugin_worker_stack.rs"]
 mod execution_stack;
 #[path = "plugin_worker_failures.rs"]
@@ -57,30 +59,7 @@ struct WorkerResponse {
 }
 
 pub fn run_stdio() -> i32 {
-    let response = resource_input::read(io::stdin().lock()).and_then(|input| {
-        let output = input.request.get("resourceOutputProfile");
-        if output.is_some_and(|value| !value.is_string()) { return Err("Unsupported resource output profile".into()); }
-        let profile = resource_output::Profile::negotiate(output.and_then(Value::as_str), input.request.get("executionProfile").and_then(Value::as_str))?;
-        let binary = profile.is_some();
-        if binary && (input.resources.is_empty() || input.module.is_none()) {
-            return Err("Resource output requires bounded input and module snapshots".into());
-        }
-        let request = serde_json::from_value::<WorkerRequest>(input.request)
-            .map_err(|_| "Invalid Worker request".to_string())?;
-        if input.resources.is_empty() {
-            execute(request).map(resource_output::Bundle::json)
-        } else {
-            execution_stack::execute(move || {
-                execute_wasi_bundle(
-                    &request,
-                    wasmtime::OptLevel::None,
-                    input.resources,
-                    input.module,
-                    binary,
-                )
-            })
-        }
-    });
+    let response = read_stdio(io::stdin());
     let output = match response {
         Ok(bundle) if bundle.binary => {
             return match resource_output::write(io::stdout().lock(), &bundle) {
@@ -104,6 +83,50 @@ pub fn run_stdio() -> i32 {
         Ok(()) => 1,
         Err(_) => 2,
     }
+}
+
+fn read_stdio(mut reader: impl Read + Send + 'static) -> Result<resource_output::Bundle, String> {
+    let mut magic = Vec::with_capacity(digest_stream::MAGIC.len());
+    reader.by_ref()
+        .take(digest_stream::MAGIC.len() as u64)
+        .read_to_end(&mut magic)
+        .map_err(|_| "Cannot read Worker request".to_owned())?;
+    if magic == digest_stream::MAGIC {
+        let (request, module, stream) = digest_stream::read(reader)?;
+        return execution_stack::execute(move || {
+            execute_wasi_bundle_with_reads(
+                &request,
+                wasmtime::OptLevel::Speed,
+                resource_reads::Reads::stream(stream),
+                Some(module),
+                true,
+            )
+        });
+    }
+    resource_input::read(io::Cursor::new(magic).chain(reader)).and_then(|input| {
+        let output = input.request.get("resourceOutputProfile");
+        if output.is_some_and(|value| !value.is_string()) { return Err("Unsupported resource output profile".into()); }
+        let profile = resource_output::Profile::negotiate(output.and_then(Value::as_str), input.request.get("executionProfile").and_then(Value::as_str))?;
+        let binary = profile.is_some();
+        if binary && (input.resources.is_empty() || input.module.is_none()) {
+            return Err("Resource output requires bounded input and module snapshots".into());
+        }
+        let request = serde_json::from_value::<WorkerRequest>(input.request)
+            .map_err(|_| "Invalid Worker request".to_string())?;
+        if input.resources.is_empty() {
+            execute(request).map(resource_output::Bundle::json)
+        } else {
+            execution_stack::execute(move || {
+                execute_wasi_bundle(
+                    &request,
+                    wasmtime::OptLevel::None,
+                    input.resources,
+                    input.module,
+                    binary,
+                )
+            })
+        }
+    })
 }
 
 fn execute(request: WorkerRequest) -> Result<Value, String> {
@@ -210,6 +233,16 @@ fn execute_wasi_bundle(
     module_snapshot: Option<Vec<u8>>,
     binary: bool,
 ) -> Result<resource_output::Bundle, String> {
+    execute_wasi_bundle_with_reads(request, optimization, resource_reads::Reads::new(resources), module_snapshot, binary)
+}
+
+fn execute_wasi_bundle_with_reads(
+    request: &WorkerRequest,
+    optimization: wasmtime::OptLevel,
+    reads: resource_reads::Reads,
+    module_snapshot: Option<Vec<u8>>,
+    binary: bool,
+) -> Result<resource_output::Bundle, String> {
     use wasmtime::{Config, Engine, Linker, Module, Store, StoreLimits, StoreLimitsBuilder};
     #[cfg(test)]
     let started = std::time::Instant::now();
@@ -231,7 +264,13 @@ fn execute_wasi_bundle(
             return Err("WASI module must be no larger than 2 MiB".into());
         }
     }
-    let resource_mode = !resources.is_empty();
+    let descriptors = reads.descriptors();
+    let resource_mode = !descriptors.is_empty();
+    let stream_fuel = reads.stream_fuel();
+    let digest_stream = request.execution_profile.as_deref() == Some(digest_stream::EXECUTION_PROFILE);
+    if digest_stream != stream_fuel.is_some() || digest_stream && (!binary || module_snapshot.is_none()) {
+        return Err("File digest stream requires the dedicated Worker frame".into());
+    }
     let image_resize_profile = crate::plugin_resource_execution::is_image_resize_profile(
         request.execution_profile.as_deref(),
     );
@@ -242,7 +281,7 @@ fn execute_wasi_bundle(
     let digest_profile = crate::plugin_resource_execution::file_digest::selected(request.execution_profile.as_deref());
     let encoding_profile = crate::plugin_resource_execution::encoding::operation(request.execution_profile.as_deref());
     let output_profile = if metadata_profile { resource_output::Profile::ImageMetadata2 } else { resource_output::Profile::Draft1 };
-    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && encoding_profile.is_none() {
+    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !digest_stream && encoding_profile.is_none() {
         return Err("Unsupported resource execution profile".into());
     }
     if image_resize_profile && (!resource_mode || !binary) {
@@ -267,7 +306,7 @@ fn execute_wasi_bundle(
             return Err("Encoding requires a resource snapshot".into());
         }
         encoding.validate_input(&request.plugin_id, request.capability_id.as_deref(),
-            &resources.iter().map(|resource| resource.bytes.len()).collect::<Vec<_>>())?;
+            &descriptors.iter().map(|(_, length)| *length).collect::<Vec<_>>())?;
     }
     let mut envelope = serde_json::json!({
         "pluginId": request.plugin_id,
@@ -281,15 +320,17 @@ fn execute_wasi_bundle(
             envelope["resourceOutputProfile"] = Value::String(output_profile.name().into());
         }
         envelope["resourceInputProfile"] = Value::String(
-            if module_snapshot.is_some() {
+            if digest_stream {
+                digest_stream::INPUT_PROFILE
+            } else if module_snapshot.is_some() {
                 "resource.wasi.input.draft2"
             } else {
                 "resource.wasi.input.draft1"
             }
             .into(),
         );
-        envelope["resources"] = serde_json::json!(resources.iter().enumerate().map(|(index, r)| {
-            serde_json::json!({"index":index,"resourceId":r.descriptor.resource_id,"contentVersion":r.descriptor.content_version,"mimeType":r.descriptor.mime_type,"byteLength":r.bytes.len()})
+        envelope["resources"] = serde_json::json!(descriptors.iter().enumerate().map(|(index, (r, length))| {
+            serde_json::json!({"index":index,"resourceId":r.resource_id,"contentVersion":r.content_version,"mimeType":r.mime_type,"byteLength":length})
         }).collect::<Vec<_>>());
     }
     let input = serde_json::to_vec(&envelope)
@@ -335,7 +376,7 @@ fn execute_wasi_bundle(
     if resource_mode {
         resource_reads::link(&mut linker, |state| &mut state.reads)?;
     }
-    if binary {
+    if binary && !digest_stream {
         if metadata_profile {
             resource_writes::link_with_profile(&mut linker, |state| &mut state.writes, output_profile)?;
         } else {
@@ -358,6 +399,8 @@ fn execute_wasi_bundle(
                 crate::plugin_resource_execution::IMAGE_RESIZE_MEMORY_MIB
             } else if encoding_profile.is_some() {
                 crate::plugin_resource_execution::encoding::MEMORY_MIB
+            } else if digest_stream {
+                64
             } else if resource_mode {
                 256
             } else {
@@ -374,13 +417,15 @@ fn execute_wasi_bundle(
         WasiState {
             context: wasi,
             limits,
-            reads: resource_reads::Reads::new(resources),
+            reads,
             writes: resource_writes::Writes::for_profile(output_profile),
         },
     );
     store.limiter(|state| &mut state.limits);
     store
-        .set_fuel(if metadata_profile {
+        .set_fuel(if let Some(fuel) = stream_fuel {
+            fuel
+        } else if metadata_profile {
             crate::plugin_resource_execution::metadata::FUEL
         } else if markdown_profile {
             crate::plugin_resource_execution::markdown::FUEL
@@ -440,7 +485,12 @@ fn execute_wasi_bundle(
     );
     let result = serde_json::from_slice(&bytes)
         .map_err(|_| "WASI module stdout must be one JSON value".to_string())?;
-    let resources = store.into_data().writes.finish()?;
+    let mut state = store.into_data();
+    state.reads.finish()?;
+    let resources = state.writes.finish()?;
+    if digest_stream && !resources.is_empty() {
+        return Err("File digest stream cannot publish output bytes".into());
+    }
     Ok(resource_output::Bundle {
         profile: output_profile,
         binary,
