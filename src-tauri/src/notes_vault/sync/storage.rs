@@ -1,10 +1,26 @@
 use super::*;
+use cap_fs_ext::MetadataExt;
 use cap_std::{
     ambient_authority,
     fs::{Dir, OpenOptions as CapOptions},
 };
 use std::io::{Read, Write};
 use std::path::Component;
+
+#[derive(PartialEq, Eq)]
+pub(super) struct Identity {
+    device: u64,
+    file: u64,
+}
+
+impl From<cap_std::fs::Metadata> for Identity {
+    fn from(metadata: cap_std::fs::Metadata) -> Self {
+        Self {
+            device: metadata.dev(),
+            file: metadata.ino(),
+        }
+    }
+}
 
 pub(super) struct Storage {
     pub root: PathBuf,
@@ -169,10 +185,25 @@ impl Storage {
         self.dir.remove_file(path).map_err(|_| recovery_error())
     }
 
+    pub(super) fn directory_identity(&self) -> Result<Identity, NotesError> {
+        self.dir
+            .dir_metadata()
+            .map(Identity::from)
+            .map_err(|_| invalid())
+    }
+
+    pub(super) fn sync_lease_identity(&self, path: &Path) -> Result<Option<Identity>, NotesError> {
+        if !self.exists(path)? {
+            return Ok(None);
+        }
+        let file = self.dir.open(path).map_err(|_| invalid())?;
+        regular_file_identity(&file).map(Some)
+    }
+
     pub(super) fn open_sync_lease(
         &self,
         path: &Path,
-    ) -> Result<fs::File, crate::notes_sync::SyncError> {
+    ) -> Result<(fs::File, Identity), crate::notes_sync::SyncError> {
         use crate::notes_sync::SyncError;
         use fs2::FileExt;
 
@@ -182,17 +213,11 @@ impl Storage {
         let file = self
             .dir
             .open_with(path, &options)
-            .map_err(|_| SyncError::LocalStorage)?
-            .into_std();
-        if !file
-            .metadata()
-            .map_err(|_| SyncError::LocalStorage)?
-            .is_file()
-        {
-            return Err(SyncError::LocalStorage);
-        }
+            .map_err(|_| SyncError::LocalStorage)?;
+        let identity = regular_file_identity(&file).map_err(|_| SyncError::LocalStorage)?;
+        let file = file.into_std();
         match FileExt::try_lock_exclusive(&file) {
-            Ok(()) => Ok(file),
+            Ok(()) => Ok((file, identity)),
             Err(error) if error.raw_os_error() == fs2::lock_contended_error().raw_os_error() => {
                 Err(SyncError::Busy)
             }
@@ -256,4 +281,12 @@ impl Storage {
         self.tree_hash(path)?;
         self.dir.remove_dir_all(path).map_err(|_| recovery_error())
     }
+}
+
+fn regular_file_identity(file: &cap_std::fs::File) -> Result<Identity, NotesError> {
+    let metadata = file.metadata().map_err(|_| invalid())?;
+    if !metadata.is_file() {
+        return Err(invalid());
+    }
+    Ok(Identity::from(metadata))
 }

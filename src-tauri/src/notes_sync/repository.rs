@@ -67,19 +67,24 @@ impl SyncRepository {
     }
 
     /// Synchronize the saved projection of an explicitly selected workspace.
-    /// Store encrypted upload objects before the first PUT; apply only after
-    /// transport completes and the captured local revision still matches.
+    /// Use a workspace lock only for capture and apply. The independent
+    /// transfer lease is the only lock held while waiting on WebDAV.
     pub(crate) async fn synchronize_saved(
         &self,
-        vault: &NotesVault,
+        storage: &NotesVault,
+        workspace_id: &str,
         cancel: &CancellationToken,
     ) -> Result<SyncOutcome, SyncError> {
         if cancel.is_cancelled() {
             return Err(SyncError::Cancelled);
         }
-        let transfer = vault.lock_sync_transfer(&self.dav.scope())?;
-        transfer.check_backoff()?;
-        let local = vault.capture_sync().map_err(|_| SyncError::LocalStorage)?;
+        let (transfer, local) = {
+            let vault = storage.scope_for_sync(workspace_id)?;
+            let transfer = vault.lock_sync_transfer(&self.dav.scope())?;
+            transfer.check_backoff()?;
+            let local = vault.capture_sync().map_err(|_| SyncError::LocalStorage)?;
+            (transfer, local)
+        };
         let base = self.load_baseline(&transfer)?;
         transfer.retain_saved(&local.records)?;
         let run = async {
@@ -104,6 +109,8 @@ impl SyncRepository {
             other => other?,
         };
         if let SyncOutcome::Synced { manifest, snapshot } = &outcome {
+            let vault = storage.scope_for_sync(workspace_id)?;
+            transfer.check_vault(&vault)?;
             let applied = if *manifest == base {
                 vault.apply_sync(&local.revision, snapshot)
             } else {

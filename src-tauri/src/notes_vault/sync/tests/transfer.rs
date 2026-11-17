@@ -1,7 +1,26 @@
 use super::*;
-use crate::notes_sync::{tests::Server, SyncError, SyncKey, SyncOutcome};
+use crate::notes_sync::{tests::Server, SyncError, SyncKey, SyncOutcome, SyncRepository};
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
+
+fn release_edit_lock(fixture: &mut Fixture) -> NotesVault {
+    let storage = NotesVault::new(fixture.root.join("plugins")).unwrap();
+    fixture.vault.storage_guard = None;
+    storage
+}
+
+async fn sync_fixture(
+    repository: &SyncRepository,
+    fixture: &mut Fixture,
+    cancel: &CancellationToken,
+) -> Result<SyncOutcome, SyncError> {
+    let storage = release_edit_lock(fixture);
+    let result = repository
+        .synchronize_saved(&storage, &fixture.workspace_id, cancel)
+        .await;
+    fixture.restart();
+    result
+}
 
 fn scope_dir(vault: &NotesVault) -> PathBuf {
     let transfers = vault.vaults_dir().join(".sync-transfers");
@@ -50,10 +69,7 @@ async fn durable_saved_upload_recovers_lost_index_write_without_resending_object
 
     server.fail_index(true);
     assert_eq!(
-        initial
-            .synchronize_saved(&author.vault, &cancel)
-            .await
-            .err(),
+        sync_fixture(&initial, &mut author, &cancel).await.err(),
         Some(SyncError::Http(500))
     );
     let uploads = server.object_put_paths();
@@ -75,10 +91,7 @@ async fn durable_saved_upload_recovers_lost_index_write_without_resending_object
     let next = server
         .configured(SyncKey::from_recovery(&recovery).unwrap())
         .unwrap();
-    let outcome = next
-        .synchronize_saved(&author.vault, &cancel)
-        .await
-        .unwrap();
+    let outcome = sync_fixture(&next, &mut author, &cancel).await.unwrap();
     let SyncOutcome::Synced { snapshot, .. } = outcome else {
         panic!("expected recovered sync")
     };
@@ -88,13 +101,11 @@ async fn durable_saved_upload_recovers_lost_index_write_without_resending_object
     assert!(!interrupted.exists());
     assert_eq!(fs::read(&local_only).unwrap(), b"draft must stay here");
 
-    let reader = Fixture::new();
+    let mut reader = Fixture::new();
     let read = server
         .configured(SyncKey::from_recovery(&recovery).unwrap())
         .unwrap();
-    read.synchronize_saved(&reader.vault, &cancel)
-        .await
-        .unwrap();
+    sync_fixture(&read, &mut reader, &cancel).await.unwrap();
     let copied = reader.vault.get_note(&book.id, &note.summary.id).unwrap();
     assert_eq!(copied.content, note.content);
     assert_eq!(copied.summary.version, note.summary.version);
@@ -122,7 +133,7 @@ async fn persisted_retry_deadline_checks_before_any_webdav_request_and_survives_
     local.note(&local.book().id);
     server.set_status(Some(429));
     assert_eq!(
-        first.synchronize_saved(&local.vault, &cancel).await.err(),
+        sync_fixture(&first, &mut local, &cancel).await.err(),
         Some(SyncError::RateLimited {
             retry_after_seconds: 123
         })
@@ -136,7 +147,7 @@ async fn persisted_retry_deadline_checks_before_any_webdav_request_and_survives_
     let next = server
         .configured(SyncKey::from_recovery(&recovery).unwrap())
         .unwrap();
-    let error = next.synchronize_saved(&local.vault, &cancel).await.err();
+    let error = sync_fixture(&next, &mut local, &cancel).await.err();
     assert!(matches!(
         error,
         Some(SyncError::RateLimited {
@@ -146,7 +157,7 @@ async fn persisted_retry_deadline_checks_before_any_webdav_request_and_survives_
     assert_eq!(server.request_count(), before);
     let path = scope_dir(&local.vault).join("retry-at");
     fs::write(&path, 0_u64.to_le_bytes()).unwrap();
-    next.synchronize_saved(&local.vault, &cancel).await.unwrap();
+    sync_fixture(&next, &mut local, &cancel).await.unwrap();
     assert!(server.request_count() > before);
     assert!(!path.exists());
 }
@@ -161,22 +172,26 @@ async fn separate_attempt_cannot_access_busy_queue_and_cancelled_read_never_publ
         .unwrap();
     let cancel = CancellationToken::new();
     let other_cancel = CancellationToken::new();
-    let local = Fixture::new();
+    let mut local = Fixture::new();
     local.note(&local.book().id);
+    let storage = release_edit_lock(&mut local);
     let signal = Arc::new(tokio::sync::Notify::new());
     server.hold_index_read(signal.clone());
     let (first, ()) = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        tokio::join!(repository.synchronize_saved(&local.vault, &cancel), async {
-            signal.notified().await;
-            assert_eq!(
-                competing
-                    .synchronize_saved(&local.vault, &other_cancel)
-                    .await
-                    .err(),
-                Some(SyncError::Busy)
-            );
-            cancel.cancel();
-        })
+        tokio::join!(
+            repository.synchronize_saved(&storage, &local.workspace_id, &cancel),
+            async {
+                signal.notified().await;
+                assert_eq!(
+                    competing
+                        .synchronize_saved(&storage, &local.workspace_id, &other_cancel)
+                        .await
+                        .err(),
+                    Some(SyncError::Busy)
+                );
+                cancel.cancel();
+            }
+        )
     })
     .await
     .unwrap();
@@ -185,44 +200,67 @@ async fn separate_attempt_cannot_access_busy_queue_and_cancelled_read_never_publ
     assert!(server.index().is_none());
     server.release_index_read();
     competing
-        .synchronize_saved(&local.vault, &other_cancel)
+        .synchronize_saved(&storage, &local.workspace_id, &other_cancel)
         .await
         .unwrap();
     assert!(server.index().is_some());
+    local.restart();
+    assert_eq!(
+        competing
+            .synchronize_saved(&local.vault, &local.workspace_id, &other_cancel)
+            .await
+            .err(),
+        Some(SyncError::LocalStorage),
+        "a second caller must pass the unscoped Notes root"
+    );
 }
 
 #[tokio::test]
-async fn a_new_local_edit_after_capture_is_never_overwritten_by_the_transfer() {
+async fn slow_webdav_allows_an_independent_editor_to_save_and_rejects_stale_apply() {
     let server = Server::start().await;
     let (key, _) = SyncKey::generate();
     let repository = server.connect(key).await.unwrap();
     let cancel = CancellationToken::new();
-    let local = Fixture::new();
+    let mut local = Fixture::new();
     let book = local.book();
     let note = local.note(&book.id);
+    let storage = release_edit_lock(&mut local);
     let signal = Arc::new(tokio::sync::Notify::new());
     server.hold_index_read(signal.clone());
     let (first, ()) = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        tokio::join!(repository.synchronize_saved(&local.vault, &cancel), async {
-            signal.notified().await;
-            local
-                .vault
-                .save_note(
-                    &book.id,
-                    &note.summary.id,
-                    "并发更新",
-                    "New local content",
-                    vec![],
-                    None,
-                    &note.summary.version,
-                )
-                .unwrap();
-            server.release_index_read();
-        })
+        tokio::join!(
+            repository.synchronize_saved(&storage, &local.workspace_id, &cancel),
+            async {
+                signal.notified().await;
+                // Open a different scoped handle through the same lock path used by
+                // ordinary Notes operations. The server is still waiting here.
+                let editor = storage
+                    .scoped(&local.workspace_id)
+                    .expect("Notes editing lock is available");
+                let saved = editor
+                    .save_note(
+                        &book.id,
+                        &note.summary.id,
+                        "并发更新",
+                        "New local content",
+                        vec![],
+                        None,
+                        &note.summary.version,
+                    )
+                    .unwrap();
+                assert_eq!(saved.content, "New local content");
+                drop(editor);
+                assert!(server.index().is_none());
+                server.release_index_read();
+            }
+        )
     })
     .await
     .unwrap();
     assert_eq!(first.err(), Some(SyncError::LocalChanged));
+    assert!(server.index().is_some());
+    local.restart();
+    assert!(!scope_dir(&local.vault).join("baseline.zns").exists());
     assert_eq!(
         local
             .vault
@@ -231,8 +269,7 @@ async fn a_new_local_edit_after_capture_is_never_overwritten_by_the_transfer() {
             .content,
         "New local content"
     );
-    let again = repository
-        .synchronize_saved(&local.vault, &cancel)
+    let again = sync_fixture(&repository, &mut local, &cancel)
         .await
         .unwrap();
     assert!(matches!(again, SyncOutcome::Conflicts(_)));
@@ -251,21 +288,17 @@ async fn saved_vaults_resume_the_encrypted_baseline_and_merge_independent_edits(
     let server = Server::start().await;
     let (key, recovery) = SyncKey::generate();
     let first = server.configured(key).unwrap();
-    let local = Fixture::new();
+    let mut local = Fixture::new();
     let book = local.book();
     let first_note = local.note(&book.id);
     let second_note = local.note(&book.id);
     let cancel = CancellationToken::new();
-    first
-        .synchronize_saved(&local.vault, &cancel)
-        .await
-        .unwrap();
+    sync_fixture(&first, &mut local, &cancel).await.unwrap();
     let mut remote_copy = Fixture::new();
     let remote = server
         .configured(SyncKey::from_recovery(&recovery).unwrap())
         .unwrap();
-    remote
-        .synchronize_saved(&remote_copy.vault, &cancel)
+    sync_fixture(&remote, &mut remote_copy, &cancel)
         .await
         .unwrap();
     let baseline = scope_dir(&remote_copy.vault).join("baseline.zns");
@@ -287,10 +320,7 @@ async fn saved_vaults_resume_the_encrypted_baseline_and_merge_independent_edits(
             &first_note.summary.version,
         )
         .unwrap();
-    first
-        .synchronize_saved(&local.vault, &cancel)
-        .await
-        .unwrap();
+    sync_fixture(&first, &mut local, &cancel).await.unwrap();
     remote_copy
         .vault
         .save_note(
@@ -307,20 +337,16 @@ async fn saved_vaults_resume_the_encrypted_baseline_and_merge_independent_edits(
         .configured(SyncKey::from_recovery(&recovery).unwrap())
         .unwrap();
     assert!(matches!(
-        reopened
-            .synchronize_saved(&remote_copy.vault, &cancel)
+        sync_fixture(&reopened, &mut remote_copy, &cancel)
             .await
             .unwrap(),
         SyncOutcome::Synced { .. },
     ));
-    let read = |id: &str| remote_copy.vault.get_note(&book.id, id).unwrap().content;
-    assert_eq!(read(&first_note.summary.id), "Local content");
-    assert_eq!(read(&second_note.summary.id), "Other content");
+    let read = |fixture: &Fixture, id: &str| fixture.vault.get_note(&book.id, id).unwrap().content;
+    assert_eq!(read(&remote_copy, &first_note.summary.id), "Local content");
+    assert_eq!(read(&remote_copy, &second_note.summary.id), "Other content");
     assert_ne!(fs::read(&baseline).unwrap(), before);
-    first
-        .synchronize_saved(&local.vault, &cancel)
-        .await
-        .unwrap();
+    sync_fixture(&first, &mut local, &cancel).await.unwrap();
     assert_eq!(
         local.vault.capture_sync().unwrap().records,
         remote_copy.vault.capture_sync().unwrap().records
@@ -329,14 +355,13 @@ async fn saved_vaults_resume_the_encrypted_baseline_and_merge_independent_edits(
     fs::write(&baseline, &before[..25]).unwrap();
     let requests = server.request_count();
     assert_eq!(
-        reopened
-            .synchronize_saved(&remote_copy.vault, &cancel)
+        sync_fixture(&reopened, &mut remote_copy, &cancel)
             .await
             .err(),
         Some(SyncError::Decryption)
     );
     assert_eq!(server.request_count(), requests);
-    assert_eq!(read(&second_note.summary.id), "Other content");
+    assert_eq!(read(&remote_copy, &second_note.summary.id), "Other content");
 }
 
 #[test]

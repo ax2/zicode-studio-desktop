@@ -1,6 +1,6 @@
 //! Workspace-local staging for encrypted objects. The lease covers a single
 //! explicit synchronization attempt and never starts background work.
-use super::{recovery_error, NotesError, Storage};
+use super::{recovery_error, storage::Identity, NotesError, Storage};
 use crate::notes_sync::{
     digest, valid_digest, Snapshot, SyncError, MAX_INDEX_BYTES, MAX_OBJECT_BYTES,
 };
@@ -15,15 +15,29 @@ use std::{
 const CIPHERTEXT_LIMIT: usize = MAX_OBJECT_BYTES + 44;
 const BASELINE_LIMIT: usize = MAX_INDEX_BYTES + 44;
 const BASELINE_FILE: &str = "baseline.zns";
+const TRANSFER_LEASE: &str = "transfer.lock";
 
 pub(crate) struct Transfer {
     store: Storage,
     root: PathBuf,
     scope: String,
     _lease: File,
+    lease_identity: Identity,
 }
 
 impl super::NotesVault {
+    pub(crate) fn scope_for_sync(&self, workspace_id: &str) -> Result<Self, SyncError> {
+        // Taking an unscoped storage handle prevents a caller-held edit lock
+        // from surviving the network phase outside this operation's control.
+        if self.storage_guard.is_some() || self.workspace_id.is_some() {
+            return Err(SyncError::LocalStorage);
+        }
+        self.scoped(workspace_id).map_err(|error| match error.code {
+            "notes_storage_busy" => SyncError::Busy,
+            _ => SyncError::LocalStorage,
+        })
+    }
+
     pub(crate) fn lock_sync_transfer(&self, scope: &str) -> Result<Transfer, SyncError> {
         if self.storage_guard.is_none() || self.workspace_id.is_none() || !valid_digest(scope) {
             return Err(SyncError::LocalStorage);
@@ -37,16 +51,36 @@ impl Transfer {
         let store = Storage::open(vault).map_err(storage_error)?;
         let root = Path::new(".sync-transfers").join(scope);
         store.mkdir(&root).map_err(storage_error)?;
-        let lease = store.open_sync_lease(&root.join("transfer.lock"))?;
+        let (lease, lease_identity) = store.open_sync_lease(&root.join(TRANSFER_LEASE))?;
         let transfer = Self {
             store,
             root,
             scope: scope.to_owned(),
             _lease: lease,
+            lease_identity,
         };
         // An interrupted temporary write was never visible as an object or deadline.
         transfer.remove_if_present(&transfer.root.join("pending"), CIPHERTEXT_LIMIT)?;
         Ok(transfer)
+    }
+
+    pub(crate) fn check_vault(&self, vault: &super::NotesVault) -> Result<(), SyncError> {
+        let path = vault.vaults_dir();
+        if vault.storage_guard.is_none() || path != self.store.root {
+            return Err(SyncError::LocalChanged);
+        }
+        let current = Storage::open(&path).map_err(storage_error)?;
+        if current.directory_identity().map_err(storage_error)?
+            != self.store.directory_identity().map_err(storage_error)?
+            || current
+                .sync_lease_identity(&self.root.join(TRANSFER_LEASE))
+                .map_err(storage_error)?
+                .as_ref()
+                != Some(&self.lease_identity)
+        {
+            return Err(SyncError::LocalChanged);
+        }
+        Ok(())
     }
 
     pub(crate) fn scope(&self) -> &str {
