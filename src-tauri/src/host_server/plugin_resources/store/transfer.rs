@@ -79,7 +79,7 @@ impl Store {
             "target":{"pluginId":target.plugin_id,"capabilityId":target.capability_id},
             "mimeType":file_reference::transfer_mime(original.is_some(), &record.mime),"byteLength":record.expected,"requiresConfirmation":true,"saved":false});
         if let Some(file) = &original {
-            result["fileName"] = json!(file.name());
+            result["fileName"] = json!(file.display_name());
             result["contentRead"] = json!(false);
         }
         self.transfers.insert(

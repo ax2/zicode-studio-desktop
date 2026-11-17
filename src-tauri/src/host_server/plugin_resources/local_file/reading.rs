@@ -53,6 +53,7 @@ impl Control {
 pub(super) struct Active {
     pub(super) owner: Owner,
     pub(super) control: Arc<Control>,
+    pub(super) context: Option<export::Context>,
 }
 
 /// The actual blocking worker owns cleanup even if its HTTP waiter disappears.

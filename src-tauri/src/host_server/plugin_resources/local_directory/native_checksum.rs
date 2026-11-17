@@ -57,6 +57,14 @@ pub(super) fn open_picked_directory(path: &Path) -> Result<Dir, ApiError> {
     Ok(directory)
 }
 
+pub(in crate::host_server::plugin_resources) fn open_picked_file(parent: &Path, name: &str) -> Result<std::fs::File, ApiError> {
+    if local_file::files::components(name)?.len() != 1 {
+        return Err(rejected("resource_file_path_invalid"));
+    }
+    checksum::open_regular(&open_picked_directory(parent)?, name)
+        .map_err(|_| rejected("resource_file_unavailable"))
+}
+
 fn owner(value: Value) -> Result<Owner, String> {
     serde_json::from_value(value).map_err(|_| "resource_scope_invalid".to_owned())
 }

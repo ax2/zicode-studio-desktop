@@ -1,7 +1,7 @@
 import { t } from "../../i18n.js";
 import { renderResourceFileList } from "./plugin-resource-file-list.js";
 import { uploadConfirmedResource } from "./plugin-resource-upload.js";
-import { confirmProjectResource, prepareProjectResource } from "./project-file-resource.js";
+import { confirmProjectResource, prepareNativeDigestSelection, prepareProjectResource } from "./project-file-resource.js";
 
 const MAX_BYTES = 32 * 1024 * 1024;
 const validEntryName = value => typeof value === "string" && value.length > 0 && !/[\\/:]/u.test(value) &&
@@ -22,9 +22,19 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
       : t("Choose up to {count} files, then confirm. The total must be at most 32 MiB. Nothing runs until you execute the tool.").replace("{count}", String(maxResources));
   };
   describe();
+  const native = gateway.digestFiles;
+  const nativeApi = allowOriginalFile && ["choose", "commit", "cancel"].every(key => typeof native?.[key] === "function") ? {
+    choose: owner => native.choose(target.workspaceId, owner),
+    commit: (owner, id) => native.commit(target.workspaceId, owner, id),
+    cancel: (owner, id) => native.cancel(target.workspaceId, owner, id),
+  } : null;
+  const browse = nativeApi ? document.createElement("button") : null;
+  if (browse) { browse.type = "button"; browse.className = "ui-button ui-button--secondary"; browse.textContent = t("Browse local files"); }
+  const apiFor = preview => preview.native ? nativeApi : gateway.projectFiles;
   const input = document.createElement("input");
   input.type = "file";
   input.multiple = true;
+  input.hidden = Boolean(browse);
   input.className = "ui-input";
   input.setAttribute("aria-label", t("Choose files for the plugin"));
   const opened = typeof gateway.projectFiles?.entries === "function" ? document.createElement("button") : null;
@@ -46,7 +56,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   cancel.textContent = t("Cancel file sharing");
   const status = document.createElement("p");
   status.setAttribute("role", "status");
-  panel.append(title, description, ...(opened ? [opened] : []), input, list, confirm, cancel, status);
+  panel.append(title, description, ...(opened ? [opened] : []), ...(browse ? [browse] : []), input, list, confirm, cancel, status);
   container.prepend(panel);
 
   let active = true, revision = 0, entryRequest = 0, entryPaths = [], uploading = false;
@@ -81,7 +91,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   function cancelProjectPreviews() {
     const old = projectPreviews;
     projectPreviews = [];
-    for (const preview of old) void gateway.projectFiles.cancel(preview.owner, preview.grantId).catch(() => {});
+    for (const preview of old) void apiFor(preview).cancel(preview.owner, preview.grantId).catch(() => {});
   }
   function reset({ clearInput = true } = {}) {
     revision++;
@@ -109,6 +119,34 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
         : t("Use opened selection ({count} files)").replace("{count}", String(entryPaths.length));
     }).catch(() => { if (active && request === entryRequest) { entryPaths = []; opened.hidden = true; } });
   }
+  browse?.addEventListener("click", async () => {
+    if (uploading || !active || !isCurrent()) return;
+    const token = revision;
+    uploading = true; browse.disabled = confirm.disabled = true;
+    if (opened) opened.disabled = true;
+    panel.setAttribute("aria-busy", "true");
+    try {
+      const previews = await prepareNativeDigestSelection({ api: nativeApi, owner, isCurrent: () => valid(token), minResources, maxResources });
+      if (!previews) return;
+      if (!valid(token)) {
+        for (const preview of previews) void nativeApi.cancel(owner, preview.grantId).catch(() => {});
+        return;
+      }
+      reset(); projectPreviews = previews;
+      selected = previews.map(preview => ({ name: preview.name, size: preview.byteLength, projectPreview: preview }));
+      status.textContent = t("Selected {count} files. Confirm sharing before running the tool.").replace("{count}", String(selected.length));
+    } catch {
+      if (valid(token)) status.textContent = t("Could not prepare local files. Choose up to four files totaling 32 MiB.");
+    } finally {
+      uploading = false;
+      if (active && isCurrent()) {
+        panel.removeAttribute("aria-busy"); browse.disabled = false;
+        if (opened) opened.disabled = false;
+        confirm.disabled = !allowedSelection() || granted.length > 0;
+        renderFiles();
+      }
+    }
+  });
   if (opened) {
     refreshOpenedSelection();
     window.addEventListener("zicode:entry-changed", handleEntryChanged);
@@ -162,7 +200,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   cancel.addEventListener("click", () => {
     reset();
     status.textContent = uploading ? t("File sharing canceled. Waiting for preparation to finish.") : t("File sharing canceled.");
-    input.focus();
+    (browse ?? input).focus();
   });
   confirm.addEventListener("click", async () => {
     if (confirm.disabled || uploading || !active || !isCurrent() || !selected.length) return;
@@ -179,7 +217,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
         status.textContent = t("Sharing file {current} of {total}…")
           .replace("{current}", String(index + 1)).replace("{total}", String(files.length));
         const result = file.projectPreview
-          ? await confirmProjectResource({ api: gateway.projectFiles, preview: file.projectPreview,
+          ? await confirmProjectResource({ api: apiFor(file.projectPreview), preview: file.projectPreview,
             gateway, isCurrent: () => valid(token) })
           : await uploadConfirmedResource({ file, owner, gateway, catalogRevision,
             isCurrent: () => valid(token) });
@@ -221,6 +259,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   function handleLocaleChange() {
     describe(); renderFiles();
     title.textContent = t("Share files with this tool");
+    if (browse) browse.textContent = t("Browse local files");
     confirm.textContent = t("Confirm file sharing");
     cancel.textContent = t("Cancel file sharing");
   }

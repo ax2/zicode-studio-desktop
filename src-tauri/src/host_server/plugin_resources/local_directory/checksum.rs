@@ -74,7 +74,7 @@ pub(super) struct Row<'a> {
     status: Status,
 }
 
-fn open_regular(directory: &Dir, name: &str) -> io::Result<File> {
+pub(super) fn open_regular(directory: &Dir, name: &str) -> io::Result<File> {
     let mut options = OpenOptions::new();
     options.read(true).follow(FollowSymlinks::No);
     #[cfg(windows)]

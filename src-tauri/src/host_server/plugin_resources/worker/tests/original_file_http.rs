@@ -12,6 +12,8 @@ async fn original_file_handoff_rechecks_identity_and_runs_encoding_only_on_reque
     let workspace = root.join("workspace");
     std::fs::create_dir_all(&public).unwrap();
     std::fs::create_dir_all(workspace.join("检测样本")).unwrap();
+    std::fs::create_dir(root.join("outside-first")).unwrap();
+    std::fs::create_dir(root.join("outside-second")).unwrap();
     std::fs::write(
         root.join("owner.json"),
         br#"{"purpose":"Original file handoff acceptance"}"#,
@@ -193,6 +195,15 @@ async fn original_file_handoff_rechecks_identity_and_runs_encoding_only_on_reque
         StatusCode::OK
     );
     assert_ne!(status_probe(0).await.status(), StatusCode::OK);
+    external_selection(
+        &host,
+        &client,
+        &sender,
+        &receiver,
+        &root,
+        &target.workspace_id,
+    )
+    .await;
     host.stop_and_wait().await.unwrap();
 }
 
@@ -233,12 +244,21 @@ async fn invoke(
     client: &reqwest::Client,
     access: &Value,
 ) -> (StatusCode, Value) {
+    invoke_inputs(host, client, access, &[]).await
+}
+
+async fn invoke_inputs(
+    host: &HostServer,
+    client: &reqwest::Client,
+    access: &Value,
+    additional: &[Value],
+) -> (StatusCode, Value) {
     let (status, ticket) = response(
         output_http::post(
             host,
             client,
             "prepare-call",
-            json!({"schemaVersion":1,"access":access,"input":{}}),
+            json!({"schemaVersion":1,"access":access,"additionalAccesses":additional,"input":{}}),
         )
         .await,
     )
@@ -246,5 +266,190 @@ async fn invoke(
     if status != StatusCode::OK {
         return (status, ticket);
     }
-    response(output_http::post(host, client, "invoke-call", json!({"access":access,"callId":ticket["callId"],"hostInstanceId":ticket["hostInstanceId"],"input":{}})).await).await
+    response(output_http::post(host, client, "invoke-call", json!({"access":access,"additionalAccesses":additional,"callId":ticket["callId"],"hostInstanceId":ticket["hostInstanceId"],"input":{}})).await).await
+}
+
+async fn external_selection(
+    host: &HostServer,
+    client: &reqwest::Client,
+    sender: &Value,
+    receiver: &Value,
+    root: &std::path::Path,
+    workspace: &str,
+) {
+    let first_directory = root.join("outside-first").canonicalize().unwrap();
+    let second_directory = root.join("outside-second").canonicalize().unwrap();
+    let first = first_directory.join("外部.txt");
+    let second = second_directory.join("empty.txt");
+    let outside_contents = "\u{feff}工作空间之外".as_bytes();
+    std::fs::write(&first, outside_contents).unwrap();
+    std::fs::write(&second, []).unwrap();
+    let context = export::Context {
+        window: "native-workspace-a".into(),
+        workspace: workspace.into(),
+        route: "/workspace".into(),
+    };
+    let wrong_window = export::Context {
+        window: "native-workspace-b".into(),
+        ..context.clone()
+    };
+    let wrong_route = export::Context {
+        route: "/other".into(),
+        ..context.clone()
+    };
+    let wrong_workspace = export::Context {
+        workspace: "different".into(),
+        ..context.clone()
+    };
+    let prepare = |context, paths| host.prepare_native_digest_files(context, sender.clone(), paths);
+    assert_eq!(
+        prepare(wrong_workspace, vec![first.clone()])
+            .await
+            .unwrap_err(),
+        "resource_authorization_changed"
+    );
+    assert_eq!(
+        prepare(context.clone(), vec![first.clone(); 2])
+            .await
+            .unwrap_err(),
+        "resource_file_selection_invalid"
+    );
+    assert_eq!(
+        prepare(context.clone(), vec![first.clone(); 5])
+            .await
+            .unwrap_err(),
+        "resource_file_selection_invalid"
+    );
+    let large = |directory: &std::path::Path| {
+        let path = directory.join("large.bin");
+        std::fs::File::create(&path)
+            .unwrap()
+            .set_len(17 * 1024 * 1024)
+            .unwrap();
+        path
+    };
+    assert_eq!(
+        prepare(
+            context.clone(),
+            vec![large(&first_directory), large(&second_directory)]
+        )
+        .await
+        .unwrap_err(),
+        "resource_input_too_large"
+    );
+    let result = prepare(context.clone(), vec![first.clone(), second.clone()])
+        .await
+        .unwrap();
+    assert_eq!(
+        result["profile"],
+        "resource.local-file.native-selection.draft1"
+    );
+    assert_eq!(result["contentRead"], false);
+    assert_eq!(result["files"][0]["name"], "外部.txt");
+    assert_eq!(result["files"][0]["byteLength"], outside_contents.len());
+    assert_eq!(result["files"][1]["name"], "empty.txt");
+    assert_eq!(result["files"][1]["byteLength"], 0);
+    assert!(!result.to_string().contains("outside-"));
+    let grant = |index: usize| {
+        result["files"][index]["grantId"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let commit = |context, index, confirmed| {
+        host.commit_native_digest_file(context, sender.clone(), grant(index), confirmed)
+    };
+    assert_eq!(
+        commit(context.clone(), 0, false).await.unwrap_err(),
+        "resource_confirmation_required"
+    );
+    assert_eq!(
+        commit(wrong_window.clone(), 0, true).await.unwrap_err(),
+        "resource_file_grant_unavailable"
+    );
+    assert_eq!(
+        host.cancel_native_digest_file(&wrong_route, sender.clone(), grant(0))
+            .unwrap_err(),
+        "resource_file_grant_unavailable"
+    );
+    for route in [
+        "commit-local-file",
+        "cancel-local-file",
+        "status-local-file",
+    ] {
+        let (status, denied) = response(
+            output_http::post(
+                host,
+                client,
+                route,
+                json!({"schemaVersion":1,"owner":sender,"grantId":grant(0),"confirmed":true}),
+            )
+            .await,
+        )
+        .await;
+        assert_ne!(status, StatusCode::OK);
+        assert_eq!(denied["error"]["code"], "resource_file_grant_unavailable");
+    }
+    let a = commit(context.clone(), 0, true).await.unwrap();
+    assert_eq!(a["originalFile"]["name"], "外部.txt");
+    assert!(!a.to_string().contains("outside-first"));
+    assert_eq!(
+        commit(context.clone(), 0, true).await.unwrap_err(),
+        "resource_file_grant_unavailable"
+    );
+    let b = commit(context.clone(), 1, true).await.unwrap();
+    let (status, hashes) = invoke_inputs(host, client, &a["access"], &[b["access"].clone()]).await;
+    assert_eq!(status, StatusCode::OK, "{hashes}");
+    assert_eq!(
+        hashes["result"]["files"][0]["sha256"],
+        sha256_hex(outside_contents)
+    );
+    assert_eq!(hashes["result"]["files"][1]["sha256"], sha256_hex(b""));
+    let prompt = response(
+        output_http::post(
+            host,
+            client,
+            "prepare-transfer",
+            json!({
+                "schemaVersion":1,"source":a["access"],"target":receiver,"originalFile":true,
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(prompt.0, StatusCode::OK, "{}", prompt.1);
+    let receipt = response(output_http::post(host, client, "commit-transfer", json!({
+        "schemaVersion":1,"source":a["access"],"grantId":prompt.1["grantId"],"confirmed":true,
+    })).await).await;
+    assert_eq!(receipt.0, StatusCode::OK, "{}", receipt.1);
+    assert_eq!(receipt.1["contentRead"], false);
+    let access = json!({"schemaVersion":1,"owner":receiver,"resourceId":receipt.1["reference"]["resourceId"],"contentVersion":receipt.1["reference"]["contentVersion"]});
+    let (status, inspected) = invoke(host, client, &access).await;
+    assert_eq!(status, StatusCode::OK, "{inspected}");
+    assert_eq!(inspected["result"]["ok"], true);
+    assert_eq!(std::fs::read(&first).unwrap(), outside_contents);
+    let next = prepare(context.clone(), vec![first.clone(), second.clone()])
+        .await
+        .unwrap();
+    let cancel = next["files"][0]["grantId"].as_str().unwrap().to_owned();
+    let changed = next["files"][1]["grantId"].as_str().unwrap().to_owned();
+    assert_eq!(
+        host.cancel_native_digest_file(&context, sender.clone(), cancel.clone())
+            .unwrap()["contentRead"],
+        false
+    );
+    assert_eq!(
+        host.commit_native_digest_file(context.clone(), sender.clone(), cancel, true)
+            .await
+            .unwrap_err(),
+        "resource_file_grant_unavailable"
+    );
+    std::fs::rename(&second, second.with_extension("original")).unwrap();
+    std::fs::write(&second, []).unwrap();
+    assert_eq!(
+        host.commit_native_digest_file(context, sender.clone(), changed, true)
+            .await
+            .unwrap_err(),
+        "resource_file_changed"
+    );
 }

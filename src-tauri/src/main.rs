@@ -133,8 +133,8 @@ mod project_file_picker;
 mod resource_export_picker;
 mod result_text_export_picker;
 use checksum_folder_picker::{
-    cancel_checksum_folder, checksum_folder_progress, commit_checksum_folder, select_checksum_files,
-    select_checksum_folder,
+    cancel_checksum_folder, cancel_digest_file, checksum_folder_progress, commit_checksum_folder,
+    commit_digest_file, select_checksum_files, select_checksum_folder, select_digest_files,
 };
 use result_text_export_picker::{select_result_text_export, commit_result_text_export, cancel_result_text_export, verify_result_text_export};
 use resource_export_picker::{select_resource_export, commit_resource_export, cancel_resource_export, verify_resource_export};
@@ -2127,6 +2127,9 @@ fn main() {
             select_project_resource_directory,
             select_checksum_folder,
             select_checksum_files,
+            select_digest_files,
+            commit_digest_file,
+            cancel_digest_file,
             commit_checksum_folder,
             checksum_folder_progress,
             cancel_checksum_folder,

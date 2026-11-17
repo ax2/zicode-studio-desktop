@@ -179,7 +179,11 @@ pub(in crate::host_server::plugin_resources) fn snapshot_controlled(
     control: &reading::Control,
 ) -> Result<Vec<u8>, ApiError> {
     control.check()?;
-    let mut file = open(root, relative)?;
+    snapshot_opened(open(root, relative)?, expected, control)
+}
+
+pub(in crate::host_server::plugin_resources) fn snapshot_opened(mut file: File, expected: &str, control: &reading::Control) -> Result<Vec<u8>, ApiError> {
+    control.check()?;
     let (before, length) = stamp(&file)?;
     if before != expected {
         return Err(rejected("resource_file_changed"));

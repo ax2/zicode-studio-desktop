@@ -71,6 +71,24 @@ pub(crate) async fn select_checksum_files(
     let initial = app
         .state::<HostServer>()
         .project_resource_root(&workspace_id)?;
+    let selected = pick_local_files(app, initial).await?;
+    if context(&window, &workspace_id)? != original {
+        return Err("resource_directory_window_changed".into());
+    }
+    let Some(selected) = selected else {
+        return Ok(None);
+    };
+    let host = window.state::<HostServer>();
+    let preview = host
+        .prepare_native_checksum_files(original.clone(), owner.clone(), selected)
+        .await?;
+    accept_preview(&window, &workspace_id, original, owner, preview)
+}
+
+async fn pick_local_files(
+    app: AppHandle,
+    initial: std::path::PathBuf,
+) -> Result<Option<Vec<std::path::PathBuf>>, String> {
     let selected = tauri::async_runtime::spawn_blocking(move || {
         app.dialog()
             .file()
@@ -79,24 +97,84 @@ pub(crate) async fn select_checksum_files(
     })
     .await
     .map_err(|_| "resource_directory_picker_unavailable")?;
-    if context(&window, &workspace_id)? != original {
+    selected
+        .map(|files| {
+            files
+                .into_iter()
+                .map(|file| {
+                    file.into_path()
+                        .map_err(|_| "resource_directory_path_invalid".to_owned())
+                })
+                .collect()
+        })
+        .transpose()
+}
+
+#[tauri::command]
+pub(crate) async fn select_digest_files(
+    app: AppHandle,
+    window: WebviewWindow,
+    workspace_id: String,
+    owner: Value,
+) -> Result<Option<Value>, String> {
+    let original = context(&window, &workspace_id)?;
+    let initial = app
+        .state::<HostServer>()
+        .project_resource_root(&workspace_id)?;
+    let selected = pick_local_files(app, initial).await?;
+    if context(&window, &workspace_id).ok().as_ref() != Some(&original) {
         return Err("resource_directory_window_changed".into());
     }
     let Some(selected) = selected else {
         return Ok(None);
     };
-    let selected = selected
-        .into_iter()
-        .map(|file| {
-            file.into_path()
-                .map_err(|_| "resource_directory_path_invalid")
-        })
-        .collect::<Result<Vec<_>, _>>()?;
     let host = window.state::<HostServer>();
     let preview = host
-        .prepare_native_checksum_files(original.clone(), owner.clone(), selected)
+        .prepare_native_digest_files(original.clone(), owner.clone(), selected)
         .await?;
-    accept_preview(&window, &workspace_id, original, owner, preview)
+    if context(&window, &workspace_id).ok().as_ref() != Some(&original) {
+        if let Some(files) = preview["files"].as_array() {
+            for id in files.iter().filter_map(|file| file["grantId"].as_str()) {
+                let _ = host.cancel_native_digest_file(&original, owner.clone(), id.to_owned());
+            }
+        }
+        return Err("resource_directory_window_changed".into());
+    }
+    Ok(Some(preview))
+}
+
+#[tauri::command]
+pub(crate) async fn commit_digest_file(
+    window: WebviewWindow,
+    workspace_id: String,
+    owner: Value,
+    grant_id: String,
+    confirmed: bool,
+) -> Result<Value, String> {
+    let original = context(&window, &workspace_id)?;
+    let host = window.state::<HostServer>();
+    let result = host
+        .commit_native_digest_file(original.clone(), owner, grant_id, confirmed)
+        .await?;
+    if context(&window, &workspace_id).ok().as_ref() != Some(&original) {
+        host.discard_native_digest_snapshot(&result);
+        return Err("resource_directory_window_changed".into());
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+pub(crate) fn cancel_digest_file(
+    window: WebviewWindow,
+    workspace_id: String,
+    owner: Value,
+    grant_id: String,
+) -> Result<Value, String> {
+    window.state::<HostServer>().cancel_native_digest_file(
+        &context(&window, &workspace_id)?,
+        owner,
+        grant_id,
+    )
 }
 
 #[tauri::command]

@@ -29,7 +29,7 @@ impl Store {
         let Some(record) = self.records.get_mut(id) else {
             return;
         };
-        let name = file.name();
+        let name = file.display_name();
         if !name.is_empty() && record.expected <= file_reference::MAX_BYTES {
             result["originalFile"] = json!({"name":name,"byteLength":record.expected});
             record.original = Some(FileBinding::Source {

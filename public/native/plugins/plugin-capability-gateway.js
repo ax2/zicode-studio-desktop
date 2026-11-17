@@ -56,6 +56,11 @@ export class PluginCapabilityGateway {
       progress: (workspaceId, owner, grantId) => nativeInvoke("checksum_folder_progress", { workspaceId, owner, grantId }),
       cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_checksum_folder", { workspaceId, owner, grantId }),
     } : null;
+    this.digestFiles = typeof nativeInvoke === "function" ? {
+      choose: (workspaceId, owner) => nativeInvoke("select_digest_files", { workspaceId, owner }),
+      commit: (workspaceId, owner, grantId) => nativeInvoke("commit_digest_file", { workspaceId, owner, grantId, confirmed: true }),
+      cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_digest_file", { workspaceId, owner, grantId }),
+    } : null;
     this.savedOutputs = createSavedOutputGateway({ fetchImpl, location, timeoutMs });
     this.resourceCalls = createResourceCallJournal();
     this.projectFiles = typeof pickProjectFile === "function" ? {

@@ -44,6 +44,7 @@ pub(super) struct OriginalFile {
     root: PathBuf,
     relative: String,
     stamp: String,
+    picked_directory: Option<PathBuf>,
 }
 
 pub(super) enum FileBinding {
@@ -55,19 +56,26 @@ pub(super) enum FileBinding {
 }
 
 impl OriginalFile {
-    pub(super) fn new(root: PathBuf, relative: String, stamp: String) -> Self {
+    pub(super) fn new(
+        root: PathBuf,
+        relative: String,
+        stamp: String,
+        picked_directory: Option<PathBuf>,
+    ) -> Self {
         Self {
             root,
             relative,
             stamp,
+            picked_directory,
         }
     }
 
-    pub(super) fn name(&self) -> String {
-        self.relative
-            .rsplit('/')
-            .next()
-            .unwrap_or_default()
+    pub(super) fn name(&self) -> &str {
+        self.relative.rsplit('/').next().unwrap_or_default()
+    }
+
+    pub(super) fn display_name(&self) -> String {
+        self.name()
             .chars()
             .filter(|ch| {
                 !ch.is_control() && !matches!(ch, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
@@ -83,6 +91,35 @@ impl OriginalFile {
         Ok(())
     }
 
+    fn open(&self) -> Result<std::fs::File, ApiError> {
+        match &self.picked_directory {
+            Some(directory) => local_directory::open_picked_file(directory, &self.relative),
+            None => local_file::files::open(&self.root, &self.relative),
+        }
+    }
+
+    pub(super) fn read(&self, control: &local_file::reading::Control) -> Result<Vec<u8>, ApiError> {
+        if self.picked_directory.is_none() {
+            return local_file::files::snapshot_controlled(
+                &self.root,
+                &self.relative,
+                &self.stamp,
+                control,
+            );
+        }
+        let bytes = local_file::files::snapshot_opened(self.open()?, &self.stamp, control)?;
+        // Ensure the file at the selected path still names the same object after the read.
+        self.verify_file()?;
+        Ok(bytes)
+    }
+
+    fn verify_file(&self) -> Result<(), ApiError> {
+        if local_file::files::stamp(&self.open()?)?.0 != self.stamp {
+            return Err(rejected("resource_file_changed"));
+        }
+        Ok(())
+    }
+
     pub(super) fn verify(
         &self,
         state: &HostState,
@@ -90,10 +127,7 @@ impl OriginalFile {
         proof: &str,
     ) -> Result<(), ApiError> {
         self.verify_scope(state, owner, proof)?;
-        let file = local_file::files::open(&self.root, &self.relative)?;
-        if local_file::files::stamp(&file)?.0 != self.stamp {
-            return Err(rejected("resource_file_changed"));
-        }
+        self.verify_file()?;
         self.verify_scope(state, owner, proof)
     }
 }
@@ -114,7 +148,7 @@ pub(super) fn checked_source(
         Some(FileBinding::Source {
             file,
             verified: true,
-        }) if !file.name().is_empty() => Ok(file.clone()),
+        }) => Ok(file.clone()),
         _ => Err(rejected("resource_file_reference_unavailable")),
     }
 }
@@ -146,8 +180,7 @@ pub(super) fn snapshot_for_worker(
     }
     file.verify_scope(state, &access.owner, proof)?;
     let control = local_file::reading::Control::new(Instant::now() + Duration::from_secs(30));
-    let bytes =
-        local_file::files::snapshot_controlled(&file.root, &file.relative, &file.stamp, &control)?;
+    let bytes = file.read(&control)?;
     if cancelled.load(Ordering::Acquire) {
         return Err(rejected("worker_cancelled"));
     }

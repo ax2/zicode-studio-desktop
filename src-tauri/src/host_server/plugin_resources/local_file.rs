@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 #[cfg(test)]
 mod cancellation_http;
 pub(super) mod files;
+mod native;
 pub(super) mod reading;
 pub(in crate::host_server) mod status;
 #[cfg(test)]
@@ -64,6 +65,7 @@ struct Grant {
     relative: String,
     stamp: String,
     expires: Instant,
+    picked: Option<native::PickedFile>,
 }
 #[derive(Default)]
 pub(super) struct Grants(
@@ -86,32 +88,41 @@ impl Grants {
         self.0.retain(|_, g| g.expires > Instant::now());
     }
     fn insert(&mut self, grant: Grant) -> Result<String, ApiError> {
+        Ok(self.insert_batch(vec![grant])?.pop().expect("one grant"))
+    }
+
+    fn insert_batch(&mut self, grants: Vec<Grant>) -> Result<Vec<String>, ApiError> {
+        let Some(first) = grants.first() else {
+            return Ok(Vec::new());
+        };
         self.prune();
-        if self.0.len() + self.1.len() >= 32
+        if self.0.len() + self.1.len() + grants.len() > 32
             || self
                 .0
                 .values()
-                .filter(|g| g.owner.runtime_id == grant.owner.runtime_id)
+                .filter(|g| g.owner.runtime_id == first.owner.runtime_id)
                 .count()
                 + self
                     .1
                     .values()
-                    .filter(|g| g.owner.runtime_id == grant.owner.runtime_id)
+                    .filter(|g| g.owner.runtime_id == first.owner.runtime_id)
                     .count()
-                >= 8
+                + grants.len() > 8
         {
             return Err(rejected("resource_file_grant_budget_exceeded"));
         }
-        let id = uuid::Uuid::new_v4().to_string();
-        self.0.insert(id.clone(), grant);
-        Ok(id)
+        Ok(grants.into_iter().map(|grant| {
+            let id = uuid::Uuid::new_v4().to_string();
+            self.0.insert(id.clone(), grant);
+            id
+        }).collect())
     }
-    fn take(&mut self, request: &FileGrant) -> Result<Grant, ApiError> {
+    fn take(&mut self, request: &FileGrant, context: Option<&export::Context>) -> Result<Grant, ApiError> {
         self.prune();
         if !self
             .0
             .get(&request.grant_id)
-            .is_some_and(|g| g.owner == request.owner)
+            .is_some_and(|g| g.owner == request.owner && g.picked.as_ref().map(|file| &file.context) == context)
         {
             return Err(rejected("resource_file_grant_unavailable"));
         }
@@ -120,22 +131,23 @@ impl Grants {
             .ok_or_else(|| rejected("resource_file_grant_unavailable"))
     }
 
-    fn begin(&mut self, request: &FileGrant) -> Result<(Grant, Arc<reading::Control>), ApiError> {
-        let grant = self.take(request)?;
+    fn begin(&mut self, request: &FileGrant, context: Option<&export::Context>) -> Result<(Grant, Arc<reading::Control>), ApiError> {
+        let grant = self.take(request, context)?;
         let control = Arc::new(reading::Control::new(grant.expires));
         self.1.insert(
             request.grant_id.clone(),
             reading::Active {
                 owner: request.owner.clone(),
                 control: control.clone(),
+                context: context.cloned(),
             },
         );
         Ok((grant, control))
     }
 
-    fn cancel(&mut self, request: &FileGrant) -> Result<Value, ApiError> {
+    fn cancel(&mut self, request: &FileGrant, context: Option<&export::Context>) -> Result<Value, ApiError> {
         if let Some(active) = self.1.get(&request.grant_id) {
-            if active.owner != request.owner {
+            if active.owner != request.owner || active.context.as_ref() != context {
                 return Err(rejected("resource_file_grant_unavailable"));
             }
             active.control.cancel();
@@ -144,13 +156,10 @@ impl Grants {
                 "executionFinished":false,"contentRead":null}),
             );
         }
-        let grant = self.take(request)?;
-        self.2.record(
-            request.grant_id.clone(),
-            grant.owner,
-            "cancelled",
-            Some(false),
-        );
+        let grant = self.take(request, context)?;
+        if context.is_none() {
+            self.2.record(request.grant_id.clone(), grant.owner, "cancelled", Some(false));
+        }
         Ok(
             json!({"schemaVersion":1,"cancelled":true,"cancellationRequested":true,
             "executionFinished":true,"contentRead":false}),
@@ -159,6 +168,10 @@ impl Grants {
 }
 
 pub(super) fn scope(state: &HostState, owner: &Owner) -> Result<(PathBuf, String), ApiError> {
+    scope_in_workspace(state, owner, None)
+}
+
+fn scope_in_workspace(state: &HostState, owner: &Owner, workspace: Option<&str>) -> Result<(PathBuf, String), ApiError> {
     // Reuse current package/module, permission, runtime/session and Broker generation binding.
     let (proof, _) = transfer::target_identity(state, owner, None)?;
     let target = state
@@ -171,6 +184,9 @@ pub(super) fn scope(state: &HostState, owner: &Owner) -> Result<(PathBuf, String
         })
         .ok_or_else(|| rejected("runtime_stopped"))?
         .target;
+    if workspace.is_some_and(|workspace| workspace != target.workspace_id) {
+        return Err(rejected("resource_authorization_changed"));
+    }
     let root = state
         .data
         .workspace_roots()
@@ -205,7 +221,7 @@ pub(in crate::host_server) async fn prepare(
         let (stamp, length) = files::stamp(&file)?;
         drop(file); // No content read and no file handle retained while awaiting consent.
         if scope(&state, &request.owner)? != (root.clone(), proof.clone()) { return Err(rejected("resource_authorization_changed")); }
-        let grant = Grant { owner: request.owner.clone(), proof, root, relative: request.relative_path.clone(), stamp, expires: Instant::now() + TTL };
+        let grant = Grant { owner: request.owner.clone(), proof, root, relative: request.relative_path.clone(), stamp, expires: Instant::now() + TTL, picked: None };
         let id = state.plugin_resources.lock().map_err(|_| rejected("resource_store_unavailable"))?.file_imports.insert(grant)?;
         Ok(json!({"schemaVersion":1,"profile":"resource.local-file.draft1","grantId":id,"owner":request.owner,
             "relativePath":request.relative_path,"byteLength":length,"expiresInSeconds":120,"contentRead":false,"confirmed":false}))
@@ -219,6 +235,10 @@ pub(in crate::host_server) async fn commit(
 ) -> Result<Json<Value>, ApiError> {
     desktop(&state, &headers)?;
     schema(request.schema_version)?;
+    commit_grant(state, request, None).await
+}
+
+async fn commit_grant(state: Arc<HostState>, request: FileGrant, context: Option<export::Context>) -> Result<Json<Value>, ApiError> {
     if !request.confirmed {
         return Err(rejected("resource_confirmation_required"));
     }
@@ -229,20 +249,24 @@ pub(in crate::host_server) async fn commit(
             .lock()
             .map_err(|_| rejected("resource_store_unavailable"))?
             .file_imports
-            .begin(&request)?;
+            .begin(&request, context.as_ref())?;
         let _lease = reading::Lease {
             state: state.clone(),
             id: request.grant_id.clone(),
         };
         let expected = (grant.root.clone(), grant.proof.clone());
-        if scope(&state, &request.owner)? != expected {
-            return Err(rejected("resource_authorization_changed"));
-        }
-        let bytes =
-            files::snapshot_controlled(&grant.root, &grant.relative, &grant.stamp, &control)?;
-        if scope(&state, &request.owner)? != expected {
-            return Err(rejected("resource_authorization_changed"));
-        }
+        let workspace = context.as_ref().map(|context| context.workspace.as_str());
+        let check_scope = || {
+            if scope_in_workspace(&state, &request.owner, workspace)? != expected {
+                return Err(rejected("resource_authorization_changed"));
+            }
+            Ok(())
+        };
+        check_scope()?;
+        let original = file_reference::OriginalFile::new(grant.root, grant.relative, grant.stamp,
+            grant.picked.map(|file| file.directory));
+        let bytes = original.read(&control)?;
+        check_scope()?;
         let mut store = state
             .plugin_resources
             .lock()
@@ -250,9 +274,8 @@ pub(in crate::host_server) async fn commit(
         // Serialize publication with cancellation. A request after publication cannot
         // revoke a resource by grant ID; the explicit resource revoke API owns that.
         control.check()?;
-        let mime = mime_for_local_file(&grant.relative, &bytes);
-        let file_reference = file_reference::is_source(&request.owner)
-            .then(|| file_reference::OriginalFile::new(grant.root, grant.relative, grant.stamp));
+        let mime = mime_for_local_file(original.name(), &bytes);
+        let file_reference = file_reference::is_source(&request.owner).then_some(original);
         let mut result = store.import_file(request.owner, grant.proof, bytes, mime);
         if let (Ok(value), Some(original)) = (&mut result, file_reference) {
             store.attach_original_file(value, original);
@@ -279,6 +302,6 @@ pub(in crate::host_server) async fn cancel(
         .lock()
         .map_err(|_| rejected("resource_store_unavailable"))?
         .file_imports
-        .cancel(&request)?;
+        .cancel(&request, None)?;
     Ok(Json(result))
 }

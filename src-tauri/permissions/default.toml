@@ -275,6 +275,21 @@ description = "Select a local checksum folder and prepare a window-bound read gr
 commands.allow = ["select_checksum_folder"]
 
 [[permission]]
+identifier = "allow-select-digest-files"
+description = "Select one to four files for a digest through the native dialog"
+commands.allow = ["select_digest_files"]
+
+[[permission]]
+identifier = "allow-commit-digest-file"
+description = "Confirm a digest file selected through the native dialog"
+commands.allow = ["commit_digest_file"]
+
+[[permission]]
+identifier = "allow-cancel-digest-file"
+description = "Cancel a digest file selected through the native dialog"
+commands.allow = ["cancel_digest_file"]
+
+[[permission]]
 identifier = "allow-select-checksum-files"
 description = "Select one to 64 files from a local folder and prepare a window-bound checksum read grant."
 commands.allow = ["select_checksum_files"]
@@ -320,6 +335,9 @@ permissions = [
   "allow-select-project-resource-directory",
   "allow-select-checksum-folder",
   "allow-select-checksum-files",
+  "allow-select-digest-files",
+  "allow-commit-digest-file",
+  "allow-cancel-digest-file",
   "allow-commit-checksum-folder",
   "allow-checksum-folder-progress",
   "allow-cancel-checksum-folder",

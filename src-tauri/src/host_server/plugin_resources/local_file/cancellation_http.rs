@@ -35,7 +35,7 @@ pub(super) async fn verify(host: &HostServer, client: &reqwest::Client, prepare:
         .lock()
         .unwrap()
         .file_imports
-        .begin(&request)
+        .begin(&request, None)
         .unwrap();
     let lease = reading::Lease {
         state: host.state.clone(),

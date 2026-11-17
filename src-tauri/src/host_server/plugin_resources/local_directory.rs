@@ -3,6 +3,7 @@
 mod checksum;
 mod checksum_progress;
 mod native_checksum;
+pub(super) use native_checksum::open_picked_file;
 
 use super::{export::Context, *};
 use cap_fs_ext::DirExt;

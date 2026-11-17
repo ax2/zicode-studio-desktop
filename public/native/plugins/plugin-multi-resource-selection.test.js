@@ -5,7 +5,7 @@ import { createMultiResourceSelection } from "./plugin-multi-resource-selection.
 
 const file = (name, text) => ({ name, size: text.length, type: "text/plain",
   arrayBuffer: vi.fn(async () => new TextEncoder().encode(text).buffer) });
-function setup({ projectFiles, minResources = 1, maxResources = 4, resourceLabels = [] } = {}) {
+function setup({ projectFiles, digestFiles, minResources = 1, maxResources = 4, resourceLabels = [] } = {}) {
   setLocale("en"); vi.stubGlobal("crypto", webcrypto);
   document.body.innerHTML = "<main></main>";
   const first = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -15,18 +15,51 @@ function setup({ projectFiles, minResources = 1, maxResources = 4, resourceLabel
     const id = [first, second][issued++]; lengths.set(id, request.byteLength); return { resourceId: id };
   }), appendResource: vi.fn(async (_access, offset, base64) => ({ uploadedBytes: offset + atob(base64).length })),
   commitResource: vi.fn(async access => ({ ...access, confirmed: true, byteLength: lengths.get(access.resourceId) })),
-  revokeResource: vi.fn(async () => ({})), ...(projectFiles ? { projectFiles } : {}) };
+  revokeResource: vi.fn(async () => ({})), digestFiles, ...(projectFiles ? { projectFiles } : {}) };
   const onResource = vi.fn();
   const controller = createMultiResourceSelection({ container: document.querySelector("main"),
     plugin: { id: "provider", capabilities: [{ id: "archive.create" }] },
-    target: { instanceId: "r", sessionId: "s" }, gateway, catalogRevision: "a".repeat(64),
-    isCurrent: () => true, onResource, maxResources, minResources, resourceLabels });
+    target: { instanceId: "r", sessionId: "s", workspaceId: "workspace" }, gateway, catalogRevision: "a".repeat(64),
+    isCurrent: () => true, onResource, maxResources, minResources, resourceLabels, allowOriginalFile: Boolean(digestFiles) });
   const input = document.querySelector('input[type="file"]');
   const button = label => [...document.querySelectorAll("button")].find(item => item.textContent === label);
   const choose = files => { Object.defineProperty(input, "files", { configurable: true, value: files }); input.dispatchEvent(new Event("change")); };
   return { controller, gateway, onResource, input, button, choose };
 }
 afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
+
+it("uses one native selection, confirms the two files in order and preserves them if the picker is cancelled", async () => {
+  const owner = { runtimeId: "r", sessionId: "s", pluginId: "provider", capabilityId: "archive.create" };
+  const one = { grantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "外部.txt", byteLength: 3 };
+  const two = { grantId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", name: "other.txt", byteLength: 1 };
+  const digestFiles = { choose: vi.fn(async () => ({ schemaVersion: 1, profile: "resource.local-file.native-selection.draft1",
+    owner, contentRead: false, confirmed: false, expiresInSeconds: 120, files: [one, two] })),
+    cancel: vi.fn(async () => {}), commit: vi.fn(async (_workspace, _owner, id) => {
+      const file = id === one.grantId ? one : two;
+      const access = { owner, resourceId: id, contentVersion: "c".repeat(64) };
+      return { profile: "resource.local-file.draft1", confirmed: true, byteLength: file.byteLength,
+        originalFile: { name: file.name, byteLength: file.byteLength }, access, ...access };
+    }) };
+  const view = setup({ digestFiles });
+  expect(view.input.hidden).toBe(true);
+  view.button("Browse local files").click();
+  await vi.waitFor(() => expect(view.button("Confirm file sharing").disabled).toBe(false));
+  expect(document.querySelector("li").textContent).toContain(one.name);
+  expect(digestFiles.commit).not.toHaveBeenCalled();
+  expect(view.onResource).not.toHaveBeenCalled();
+  view.button("Confirm file sharing").click();
+  await vi.waitFor(() => expect(view.onResource).toHaveBeenCalledOnce());
+  expect(digestFiles.commit.mock.calls.map(call => call[2])).toEqual([one.grantId, two.grantId]);
+  expect(view.controller.getOriginalFiles().map(file => file.fileName)).toEqual([one.name, two.name]);
+  digestFiles.choose.mockResolvedValue(null);
+  view.button("Browse local files").click();
+  await vi.waitFor(() => expect(view.button("Browse local files").disabled).toBe(false));
+  expect(view.gateway.revokeResource).not.toHaveBeenCalled();
+  expect(view.controller.getOriginalFiles()).toHaveLength(2);
+  view.button("Cancel file sharing").click();
+  expect(view.gateway.revokeResource).toHaveBeenCalledTimes(2);
+  view.controller.destroy();
+});
 
 it("requires the declared minimum before sharing and shows ordered input roles", async () => {
   const view = setup({ minResources: 2, maxResources: 2, resourceLabels: ["Input text", "Replacement template"] });
