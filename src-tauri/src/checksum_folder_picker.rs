@@ -119,6 +119,18 @@ pub(crate) async fn commit_checksum_folder(
 }
 
 #[tauri::command]
+pub(crate) fn checksum_folder_progress(
+    window: WebviewWindow,
+    workspace_id: String,
+    owner: Value,
+    grant_id: String,
+) -> Result<Value, String> {
+    window
+        .state::<HostServer>()
+        .native_checksum_folder_progress(&context(&window, &workspace_id)?, owner, &grant_id)
+}
+
+#[tauri::command]
 pub(crate) fn cancel_checksum_folder(
     window: WebviewWindow,
     workspace_id: String,

@@ -1,6 +1,7 @@
 //! Explicit, one-use, read-only directory metadata snapshots for a trusted desktop UI.
 //! No absolute path or directory handle reaches a plugin Worker.
 mod checksum;
+mod checksum_progress;
 mod native_checksum;
 
 use super::{export::Context, *};
@@ -74,6 +75,7 @@ struct Control {
     cancelled: AtomicBool,
     outcome: AtomicU8,
     deadline: Instant,
+    progress: Option<Mutex<checksum_progress::Counts>>,
 }
 
 impl Control {
@@ -82,6 +84,7 @@ impl Control {
             cancelled: AtomicBool::new(false),
             outcome: AtomicU8::new(0),
             deadline: expires.min(Instant::now() + Duration::from_secs(30)),
+            progress: None,
         }
     }
     fn check(&self) -> Result<(), ApiError> {
@@ -176,7 +179,9 @@ impl Grants {
         context: Option<&Context>,
     ) -> Result<(Grant, Arc<Control>), ApiError> {
         let grant = self.take(request, context)?;
-        let control = Arc::new(Control::new(grant.expires));
+        let control = Arc::new(
+            Control::new(grant.expires).with_checksum_total(grant.purpose.checksum_total()),
+        );
         self.active.insert(
             request.grant_id.clone(),
             Active {

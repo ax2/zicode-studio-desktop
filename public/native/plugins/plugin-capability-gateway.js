@@ -53,6 +53,7 @@ export class PluginCapabilityGateway {
       prepare: (workspaceId, owner, manifest) => nativeInvoke("select_checksum_folder", { workspaceId, owner, manifest }),
       prepareFiles: (workspaceId, owner) => nativeInvoke("select_checksum_files", { workspaceId, owner }),
       commit: (workspaceId, owner, grantId) => nativeInvoke("commit_checksum_folder", { workspaceId, owner, grantId, confirmed: true }),
+      progress: (workspaceId, owner, grantId) => nativeInvoke("checksum_folder_progress", { workspaceId, owner, grantId }),
       cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_checksum_folder", { workspaceId, owner, grantId }),
     } : null;
     this.savedOutputs = createSavedOutputGateway({ fetchImpl, location, timeoutMs });

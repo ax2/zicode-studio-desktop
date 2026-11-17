@@ -155,3 +155,31 @@ it("rejects a substituted filename before invoking the manifest plugin", async (
   expect(gateway.invoke).not.toHaveBeenCalled();
   expect(gateway.textExports.choose).not.toHaveBeenCalled();
 });
+
+it("shows Host-backed file and byte progress only during a confirmed read", async () => {
+  const report = [
+    { name: "a.txt", expected: sha, actual: sha, status: "match" },
+    { name: "b.txt", expected: sha, actual: sha, status: "match" },
+  ];
+  let resolveCommit;
+  const { gateway, button } = setup(report, value => {
+    value.checksumFolders.commit.mockImplementation(() => new Promise(resolve => { resolveCommit = resolve; }));
+    value.checksumFolders.progress = vi.fn(async () => ({
+      schemaVersion: 1, profile: "resource.local-directory.checksum-progress.preview1",
+      grantId, filesTotal: 2, filesCompleted: 1, fileBytesRead: 4, fileSize: 8,
+    }));
+  });
+  button("Choose folder to verify").click();
+  await vi.waitFor(() => expect(button("Confirm and verify folder").hidden).toBe(false));
+  expect(gateway.checksumFolders.progress).not.toHaveBeenCalled();
+  button("Confirm and verify folder").click();
+  await vi.waitFor(() => expect(document.querySelector("progress").value).toBe(1.5));
+  expect(document.body.textContent).toContain("1 of 2 files processed");
+  button("Cancel").click();
+  expect(document.querySelector("progress").closest("[hidden]")).not.toBeNull();
+  const reads = gateway.checksumFolders.progress.mock.calls.length;
+  resolveCommit({ schemaVersion: 1, profile, entries: report });
+  await vi.waitFor(() => expect(button("Choose folder to verify").disabled).toBe(false));
+  expect(gateway.checksumFolders.progress).toHaveBeenCalledTimes(reads);
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});

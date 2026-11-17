@@ -930,6 +930,8 @@ const zhCN = {
   "Confirm reading the selected files to generate the manifest.": "请确认读取选定的文件并生成清单。",
   "Could not prepare manifest generation. Choose up to 64 files from one folder.": "无法准备生成清单，请选择同一文件夹内最多 64 个文件。",
   "Reading the selected files…": "正在读取选定的文件…",
+  "Checksum file reading progress": "校验文件读取进度",
+  "{completed} of {total} files processed": "已处理 {completed}/{total} 个文件",
   "Cancel generation": "取消生成",
   "Manifest generation cancelled.": "已取消生成清单。",
   "Choose folder to verify": "选择要校验的文件夹",

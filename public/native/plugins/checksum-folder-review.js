@@ -1,6 +1,7 @@
 import { t } from "../../i18n.js";
 import { checksumReviewManifestWire, checksumReviewResult } from "./checksum-review-result.js";
 import { createFileDigestManifestGenerate } from "./file-digest-manifest-generate.js";
+import { createChecksumReadProgress } from "./checksum-read-progress.js";
 import { createManifestFileInput } from "./manifest-file-input.js";
 import { invokeViewCapability } from "./plugin-view-capability-call.js";
 
@@ -68,7 +69,9 @@ export function createChecksumFolderReview({ container, gateway, getTarget, isCu
   status.setAttribute("role", "status"); summary.setAttribute("translate", "no");
   input.rows = 4; input.maxLength = 32768; input.setAttribute("translate", "no");
   bar.append(choose, chooseFiles, verify, cancel);
-  root.append(title, fileSlot, input, bar, summary, status, list);
+  root.append(title, fileSlot, input, bar, summary, status);
+  const progress = createChecksumReadProgress(root);
+  root.append(list);
   container.append(root);
 
   let active = true, pending = null, revision = 0, imported = false, generating = false, statusKey = "", rows = [];
@@ -193,7 +196,7 @@ export function createChecksumFolderReview({ container, gateway, getTarget, isCu
     statusKey = job.mode === "generate" ? "Reading the selected files…" : "Verifying files in the selected folder…";
     render();
     try {
-      const result = await api.commit(job.target.workspaceId, job.owner, job.grantId);
+      const result = await readFiles(job);
       if (!current(job)) return;
       if (job.mode === "generate") {
         const files = digestSelection(result, job.files);
@@ -234,8 +237,22 @@ export function createChecksumFolderReview({ container, gateway, getTarget, isCu
     }
   };
 
+  async function readFiles(job) {
+    const { owner, grantId, target: { workspaceId } } = job;
+    const total = job.files?.length ?? checksumReviewManifestWire(job.manifest).split("\n").length;
+    const stop = typeof api.progress === "function"
+      ? progress.start(() => api.progress(workspaceId, owner, grantId), grantId, total, () => current(job))
+      : null;
+    try {
+      return await api.commit(workspaceId, owner, grantId);
+    } finally {
+      stop?.();
+    }
+  }
+
   function abort(job) {
     job.cancelled = true;
+    progress.stop();
     void cancelGrant(job);
     if (job.worker) {
       job.worker.cancelled = true;

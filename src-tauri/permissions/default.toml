@@ -285,6 +285,11 @@ description = "Confirm and consume a local checksum folder read grant."
 commands.allow = ["commit_checksum_folder"]
 
 [[permission]]
+identifier = "allow-checksum-folder-progress"
+description = "Read the current counters of a window-bound local checksum folder grant."
+commands.allow = ["checksum_folder_progress"]
+
+[[permission]]
 identifier = "allow-cancel-checksum-folder"
 description = "Cancel a window-bound local checksum folder read grant."
 commands.allow = ["cancel_checksum_folder"]
@@ -316,6 +321,7 @@ permissions = [
   "allow-select-checksum-folder",
   "allow-select-checksum-files",
   "allow-commit-checksum-folder",
+  "allow-checksum-folder-progress",
   "allow-cancel-checksum-folder",
   "allow-desktop-explorer-menu",
   "allow-list-automation-workspaces",

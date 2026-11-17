@@ -117,6 +117,7 @@ fn digest_file(
     if selected.is_some_and(|stamp| *stamp != expected) {
         return Ok(None);
     }
+    control.start_file(length);
     let mut sha = Sha256::new();
     let mut bytes = 0;
     loop {
@@ -132,6 +133,7 @@ fn digest_file(
             return Ok(None);
         }
         sha.update(&buffer[..count]);
+        control.read_bytes(bytes);
     }
     let after = local_file::files::regular_file_identity(&file).ok();
     let reopened = open_regular(directory, name)
@@ -168,6 +170,7 @@ pub(super) fn verify<'a>(
             }
             _ => (None, Status::ReadError),
         };
+        control.finish_file();
         rows.push(Row {
             name: &entry.name,
             expected: &entry.expected,
@@ -241,6 +244,7 @@ pub(super) fn generate<'a>(
             Some(&file.identity),
         )?
         .ok_or_else(|| rejected("resource_checksum_source_changed"))?;
+        control.finish_file();
         hashes.push(FileDigest {
             name: &file.name,
             sha256,
@@ -294,8 +298,31 @@ mod tests {
         let manifest = format!("{ABC}  文件.txt\r\n{ABC}  different.txt\n{ABC}  missing.txt\n{ABC}  directory.txt\n{digest}  large.bin");
         let entries = parse(&manifest).unwrap();
         let directory = Dir::open_ambient_dir(&root.0, cap_std::ambient_authority()).unwrap();
-        let control = Control::new(Instant::now() + Duration::from_secs(15));
-        let rows = verify(&directory, &entries, &control, &|| Ok(())).unwrap();
+        let control = Control::new(Instant::now() + Duration::from_secs(15))
+            .with_checksum_total(Some(entries.len()));
+        let observed = std::cell::RefCell::new(Vec::new());
+        let rows = verify(&directory, &entries, &control, &|| {
+            observed.borrow_mut().push(
+                control.checksum_report("grant").unwrap()["filesCompleted"]
+                    .as_u64()
+                    .unwrap(),
+            );
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(observed.into_inner(), vec![0, 1, 2, 3, 4]);
+        let last = control.checksum_report("grant").unwrap();
+        assert_eq!(last["filesCompleted"], 5);
+        assert_eq!(last["fileSize"], serde_json::Value::Null);
+        let file_progress =
+            Control::new(Instant::now() + Duration::from_secs(15)).with_checksum_total(Some(1));
+        let mut buffer = vec![0; 64 * 1024];
+        let seen = digest_file(&directory, "large.bin", &file_progress, &mut buffer, None).unwrap();
+        assert_eq!(seen.as_deref(), Some(digest.as_str()));
+        let snapshot = file_progress.checksum_report("grant").unwrap();
+        assert_eq!(snapshot["fileBytesRead"], 180_000);
+        assert_eq!(snapshot["fileSize"], 180_000);
+        assert_eq!(snapshot["filesCompleted"], 0);
         assert_eq!(rows[0].actual.as_deref(), Some(ABC));
         assert!(matches!(rows[0].status, Status::Match));
         assert!(matches!(rows[1].status, Status::Mismatch));
@@ -303,6 +330,7 @@ mod tests {
         assert!(matches!(rows[3].status, Status::ReadError) && rows[3].actual.is_none());
         assert_eq!(rows[4].actual.as_deref(), Some(digest.as_str()));
         assert!(control.cancel());
+        assert!(control.checksum_report("grant").is_none());
         assert!(verify(&directory, &entries, &control, &|| Ok(())).is_err());
     }
 }

@@ -170,6 +170,22 @@ impl HostServer {
             .map_err(error_code)
     }
 
+    pub(crate) fn native_checksum_folder_progress(
+        &self,
+        context: &Context,
+        owner_value: Value,
+        grant_id: &str,
+    ) -> Result<Value, String> {
+        let owner = owner(owner_value)?;
+        self.state
+            .plugin_resources
+            .lock()
+            .map_err(|_| "resource_store_unavailable")?
+            .directory_imports
+            .checksum_progress(&owner, context, grant_id)
+            .map_err(error_code)
+    }
+
     pub(crate) fn cancel_native_checksum_folder(
         &self,
         context: &Context,

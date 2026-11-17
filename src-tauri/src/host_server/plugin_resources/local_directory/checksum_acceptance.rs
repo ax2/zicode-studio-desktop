@@ -142,6 +142,17 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
     assert!(preview.get("entries").is_none() && preview.get("relativePath").is_none());
     assert!(!preview.to_string().contains("task-scratch"));
     let grant_id = preview["grantId"].as_str().unwrap();
+    let counters = host
+        .native_checksum_folder_progress(&context, owner.clone(), grant_id)
+        .unwrap();
+    assert_eq!(counters["filesTotal"], 64);
+    assert_eq!(counters["filesCompleted"], 0);
+    assert_eq!(counters["fileSize"], Value::Null);
+    assert_eq!(
+        host.native_checksum_folder_progress(&foreign_route, owner.clone(), grant_id)
+            .unwrap_err(),
+        "resource_directory_grant_unavailable"
+    );
     assert_eq!(
         commit(grant_id, false).await.unwrap_err(),
         "resource_confirmation_required"
@@ -169,6 +180,11 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
         "resource_directory_grant_unavailable"
     );
     let report = commit(grant_id, true).await.unwrap();
+    assert_eq!(
+        host.native_checksum_folder_progress(&context, owner.clone(), grant_id)
+            .unwrap_err(),
+        "resource_directory_grant_unavailable"
+    );
     assert_eq!(report["profile"], checksum::PROFILE, "{report}");
     let rows = report["entries"].as_array().unwrap();
     assert_eq!(rows.len(), 64);
