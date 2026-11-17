@@ -46,6 +46,13 @@ impl Container {
         .map_err(|e| e.to_string())?;
         Ok(Self(hwnd))
     }
+    pub fn hide_callback(&self) -> impl Fn() + use<> {
+        let hwnd = self.0;
+        // The callback is used only before the view lifetime has been retired.
+        move || {
+            let _ = unsafe { ShowWindow(hwnd, SW_HIDE) };
+        }
+    }
     fn bounds(&self, bounds: Bounds) -> Result<(), String> {
         bounds.rect()?;
         let scale = unsafe { GetDpiForWindow(self.0) } as f64 / 96.0;

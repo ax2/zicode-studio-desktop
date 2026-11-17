@@ -40,9 +40,9 @@ export function createBrowserFind({ control, getTab, available, restoreFocus = a
     const id = tab, version = epoch;
     void enqueue(async () => { if (!valid(id, version)) return; try { await control({ kind: "findStep", tab: id, backward }); const result = await control({ kind: "findStatus", tab: id }); if (valid(id, version)) paint(result); } catch (error) { failure(error, id, version); } });
   }
-  async function close() {
+  async function close({ stopNative = true } = {}) {
     const id = tab; tab = null; epoch++; clearTimeout(timer); timer = null; clearTimeout(poll); element.hidden = true;
-    if (id) await enqueue(() => control({ kind: "findStop", tab: id })).catch(report);
+    if (id && stopNative) await enqueue(() => control({ kind: "findStop", tab: id })).catch(report);
   }
   async function dismiss() {
     const id = tab, stopped = close(), version = epoch;

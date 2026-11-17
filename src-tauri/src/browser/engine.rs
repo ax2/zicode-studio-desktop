@@ -6,6 +6,8 @@ use super::policy::BrowserPolicy;
 mod event_lifetime;
 #[path = "native_view.rs"]
 mod native_view;
+#[path = "native_process_failure.rs"]
+mod native_process_failure;
 #[path = "native_favicon.rs"]
 mod native_favicon;
 #[path = "native_page_controls.rs"]
@@ -84,6 +86,9 @@ pub(super) enum EngineEvent {
     PermissionBlocked {
         tab: String,
         permission_kind: i32,
+    },
+    ProcessFailed {
+        tab: String,
     },
     NavigationStarted {
         tab: String,
@@ -280,6 +285,11 @@ impl NativeBrowserEngine {
             webview: view,
             container,
         };
+        native_process_failure::install(
+            &view.webview,
+            view.events.on_failure(tab.to_owned(), view.container.hide_callback()),
+        )
+        .map_err(|error| startup_error("process failure observer", &error))?;
         // Security handlers are installed before any network navigation.
         let download_staging = self
             .context
@@ -346,6 +356,7 @@ impl NativeBrowserEngine {
     }
     #[allow(dead_code)] // Production Host capture uses this; the separate engine probe does not.
     pub fn document_revision(&self, tab: &str) -> Result<String, String> {
+        self.view(tab)?;
         let (instance, revision) = self
             .documents
             .get(tab)
@@ -360,10 +371,17 @@ impl NativeBrowserEngine {
     pub fn favicon(&self, tab: &str) -> Option<String> { self.views.get(tab).and_then(|view| view.favicon.image()) }
     #[allow(dead_code)] // Only Studio exports viewport images.
     pub fn export_ready(&self, tab: &str) -> bool {
-        self.views.get(tab).is_some_and(|view| !view.closing.get() && view.navigation.ready())
+        self.views.get(tab).is_some_and(|view| !view.closing.get() && view.events.is_live() && view.navigation.ready())
     }
     pub fn view_if_open(&self, tab: &str) -> Option<&WebView> {
-        self.views.get(tab).filter(|view| !view.closing.get()).map(|view| &view.webview)
+        self.views
+            .get(tab)
+            .filter(|view| !view.closing.get() && view.events.is_live())
+            .map(|view| &view.webview)
+    }
+    #[allow(dead_code)] // Used by Studio status, outside the standalone engine probe.
+    pub fn process_failed(&self, tab: &str) -> bool {
+        self.views.get(tab).is_some_and(|view| !view.closing.get() && !view.events.is_live())
     }
     pub fn view(&self, tab: &str) -> Result<&WebView, String> {
         self.view_if_open(tab).ok_or_else(|| "Browser tab is no longer available".into())
@@ -374,7 +392,7 @@ impl NativeBrowserEngine {
             self.view(tab)?;
         }
         self.popups.retain_source(tab);
-        for (id, view) in self.views.iter().filter(|(_, view)| !view.closing.get()) {
+        for (id, view) in self.views.iter().filter(|(_, view)| !view.closing.get() && view.events.is_live()) {
             if Some(id.as_str()) == tab {
                 view.present(bounds, focus)?;
             } else {

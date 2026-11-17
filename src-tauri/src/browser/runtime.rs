@@ -70,6 +70,8 @@ pub(super) fn execute(
             let tabs=if let Some(browser)=windows.get(window.label()) {
                 browser.tabs.iter().filter_map(|id| {
                     use wry::WebViewExtWindows;
+                    let crashed = || Ok(json!({"id":id,"processFailed":true,"popupOpener":browser.engine.popup_opener(id)}));
+                    if browser.engine.process_failed(id) { return Some(crashed()); }
                     let view = browser.engine.view_if_open(id)?;
                     let read = || -> Result<Value, String> {
                         let mut visible = windows::core::BOOL::default();
@@ -83,6 +85,7 @@ pub(super) fn execute(
                     };
                     let snapshot = read();
                     // COM calls can dispatch WindowCloseRequested while reading status.
+                    if browser.engine.process_failed(id) { return Some(crashed()); }
                     browser.engine.view_if_open(id).map(|_| snapshot)
                 }).collect::<Result<Vec<_>,String>>()?
             } else {Vec::new()};

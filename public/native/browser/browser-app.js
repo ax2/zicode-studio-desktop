@@ -40,6 +40,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const act = work => enqueue(work).catch(() => {});
   let saveTimer;
   const nativeTabs = new Set();
+  const crashedTabs = new Set();
+  const pageAvailable = id => nativeTabs.has(id) && !crashedTabs.has(id);
   const pendingZoom = new Set();
   const historyStates = new Map();
   const historyButtons = new Map();
@@ -54,7 +56,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const surface = createBrowserSurface(control);
   const paintStatus = () => {
     if (!status) return;
-    const failure = navigationStates.get(active) === "failed" ? t("Page could not be loaded") : "";
+    const failure = crashedTabs.has(active) ? t("The page process stopped. Reload the tab to reopen its address.")
+      : navigationStates.get(active) === "failed" ? t("Page could not be loaded") : "";
     const text = [statusMessage, failure].filter(Boolean).join(" ");
     if (status.textContent !== text) status.textContent = text;
   };
@@ -84,7 +87,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     blocked: () => report(t("Popup blocked")),
   });
   async function hide(preserve = false, stillNeeded = () => true) {
-    if (preserve && selected() && nativeTabs.has(active) && lastSurface) {
+    if (preserve && selected() && pageAvailable(active) && lastSurface) {
       try { await preview.show(active); } catch (error) { report(error); }
       if (!stillNeeded()) { preview.clear(); return; }
     } else if (!preserve) preview.clear();
@@ -105,10 +108,15 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (lastSurface) await hide(!browserWindow.minimized && overlayOpen(), () => blocked());
       return;
     }
+    if (crashedTabs.has(active)) {
+      if (lastSurface) await hide();
+      finishStartup();
+      return;
+    }
     try {
       const tab = selected();
       await ensureView(tab);
-      const current = () => !blocked() && selected()?.id === tab.id;
+      const current = () => !blocked() && selected()?.id === tab.id && !crashedTabs.has(tab.id);
       if (!current()) return;
       const key = JSON.stringify([tab.id, bounds()]);
       if (key === lastSurface) return;
@@ -146,7 +154,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   function save() { return persist(tabs, active); }
   async function ensureView(tab) {
-    if (nativeTabs.has(tab.id)) return;
+    if (crashedTabs.has(tab.id) || nativeTabs.has(tab.id)) return;
     if (creatingTabs.has(tab.id)) return creatingTabs.get(tab.id);
     const popupRequest = tab.popupRequest;
     if (popupRequest) creatingPopups.set(tab.id, tab);
@@ -162,6 +170,14 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   async function runPageAction(action, source) {
     if (!source || active !== source || blocked()) return;
+    if (crashedTabs.has(source)) {
+      if (action === "reload") {
+        const tab = selected();
+        if (tab?.popupOpener) await close(source);
+        else if (tab) await reopenCrashedTab(tab);
+      }
+      return;
+    }
     if (action === "zoomIn" || action === "zoomOut" || action === "zoomReset") {
       if (!nativeTabs.has(source)) return;
       return changePageSettings(source, settings => ({ kind: "zoom", value: action === "zoomReset"
@@ -207,15 +223,46 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     await activation.add({ id: crypto.randomUUID(), url: "about:blank", title: t("New tab") });
     address.focus(); address.select();
   }
-  async function discardTabView(id) {
+  async function discardTabView(id, reopening = false) {
     if (nativeTabs.has(id)) {
       await control({ kind: "close", tab: id });
       nativeTabs.delete(id);
     }
+    crashedTabs.delete(id);
     navigationStates.delete(id);
     historyStates.delete(id);
-    pageVersions.delete(id);
+    if (!reopening) pageVersions.delete(id);
     favicons.delete(id);
+  }
+  function recordCrash(id) {
+    const tab = tabs.find(item => item.id === id) ?? creatingPopups.get(id);
+    if (crashedTabs.has(id) || (!tab && !creatingTabs.has(id))) return;
+    crashedTabs.add(id);
+    navigationStates.delete(id);
+    historyStates.delete(id);
+    favicons.delete(id);
+    pageVersions.set(id, (pageVersions.get(id) ?? 0) + 1);
+    if (id === active) {
+      lastSurface = "";
+      preview.clear();
+      void find.close({ stopNative: false });
+    }
+    paint();
+    if (tab?.popupOpener || tab?.popupRequest) void act(() => close(id));
+  }
+  async function reopenCrashedTab(tab, url = tab.url) {
+    // Create a fresh navigation. Native Reload could replay the crashed request.
+    await discardTabView(tab.id, true);
+    try {
+      await ensureView({ ...tab, url });
+    } catch (error) {
+      recordCrash(tab.id);
+      throw error;
+    }
+    if (crashedTabs.has(tab.id)) return;
+    await syncSurface();
+    setStatus("");
+    paint();
   }
   async function close(id) {
     const index = tabs.findIndex(tab => tab.id === id);
@@ -266,7 +313,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       const index = tabs.findIndex(tab => tab.id === source), offset = action === "nextTab" ? 1 : -1;
       await select(tabs[(index + offset + tabs.length) % tabs.length].id);
     }
-    if (!blocked() && selected()) await control({ kind: "focusPage", tab: active });
+    if (!blocked() && selected() && pageAvailable(active)) await control({ kind: "focusPage", tab: active });
     else if (!selected()) address.focus();
   }
   async function persistPageSettings(id, effective) {
@@ -280,7 +327,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     return control({ kind: setting.kind === "zoom" ? "setZoom" : "setMuted", tab: id, [setting.kind]: setting.value });
   }
   async function changePageSettings(id, change) {
-    const tab = tabs.find(tab => tab.id === id); if (!tab || !nativeTabs.has(id)) throw new Error(t("Browser tab is no longer available"));
+    const tab = tabs.find(tab => tab.id === id); if (!tab || !pageAvailable(id)) throw new Error(t("Browser tab is no longer available"));
     await applyBrowserPageSetting({ change,
       read: () => control({ kind: "pageSettings", tab: id }),
       write: setting => writePageSetting(id, setting),
@@ -294,7 +341,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     void act(async () => {
       pendingZoom.delete(id);
       const tab = tabs.find(tab => tab.id === id);
-      if (!tab || !nativeTabs.has(id)) return;
+      if (!tab || !pageAvailable(id)) return;
       // The event is a notification. A newer wheel or keyboard action may
       // already have changed the live zoom before this work starts.
       const after = await control({ kind: "pageSettings", tab: id });
@@ -400,7 +447,13 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     tabs = groupBrowserTabs(stored.session.tabs.map(tab => ({ zoom: 1, muted: false, ...tab }))); active = stored.session.activeTab; closedTabs = stored.session.closedTabs ?? [];
     const recentlyClosed = new Set(closedTabs.map(entry => entry.tab.id));
     for (const tab of live.tabs) {
-      if (recentlyClosed.has(tab.id)) {
+      const saved = tabs.find(item => item.id === tab.id);
+      if (tab.processFailed && saved) {
+        nativeTabs.add(tab.id);
+        crashedTabs.add(tab.id);
+        continue;
+      }
+      if (recentlyClosed.has(tab.id) || tab.processFailed) {
         // A shell reload can interrupt native cleanup after a committed close.
         await control({ kind: "close", tab: tab.id }).catch(report);
         continue;
@@ -408,7 +461,6 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       nativeTabs.add(tab.id);
       if (tab.history) historyStates.set(tab.id, tab.history);
       if (tab.favicon) favicons.set(tab.id, tab.favicon);
-      const saved = tabs.find(item => item.id === tab.id);
       if (saved) { saved.url = tab.url; if (typeof tab.title === "string") saved.title = tab.title || (tab.url === "about:blank" ? t("New tab") : ""); if (tab.settings) Object.assign(saved, tab.settings); } else tabs.push({ ...tab, title: tab.url });
     }
     const visiblePopup = live.tabs.find(tab => tab.popupOpener && tab.visible);
@@ -417,6 +469,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     startup.value = stored.startupMode;
     searchSettings.initialize(stored.searchEngine);
     if (listen) await listen("zicode:browser-event", ({ payload }) => {
+      if (payload.kind === "processFailed") { recordCrash(payload.tab); return; }
+      if (payload.tab && crashedTabs.has(payload.tab)) return;
       if (payload.kind === "contextAction") {
         if (payload.tab === active && !blocked()) act(async () => {
           if (payload.tab !== active || blocked()) return;
@@ -450,7 +504,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
             // Downloads leave the original document open. Do not persist their
             // request URL as a page to redownload automatically after restart.
             const tab = tabs.find(item => item.id === download.tab);
-            if (tab && nativeTabs.has(tab.id)) {
+            if (tab && pageAvailable(tab.id)) {
               const version = pageVersions.get(tab.id);
               const current = await control({ kind: "url", tab: tab.id });
               if (version === pageVersions.get(tab.id)) {
@@ -546,7 +600,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           disabled: !enabled,
           hint: !enabled && "Pin up to four tabs",
         }] : [];
-        if (nativeTabs.has(id)) actions.push({
+        if (pageAvailable(id)) actions.push({
           label: tab.muted ? "Unmute tab" : "Mute tab",
           action: () => act(() => changePageSettings(id, { kind: "muted", value: !tab.muted })),
         });
@@ -598,9 +652,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     startup = document.createElement("select"); startup.className = "ui-select"; startup.setAttribute("aria-label", t("Start Studio in")); startup.title = t("Start Studio in");
     for (const [value, label] of [["browser", "Browser"], ["workspace", "Workspace"]]) { const option = document.createElement("option"); option.value = value; option.textContent = t(label); startup.append(option); }
     startup.addEventListener("change", () => run(() => invoke("browser_set_startup_mode", { mode: startup.value })));
-    find = createBrowserFind({ control, getTab: selected, available: () => visible && initialized && !blocked(), restoreFocus: async tab => {
+    find = createBrowserFind({ control, getTab: selected, available: () => visible && initialized && !blocked() && pageAvailable(active), restoreFocus: async tab => {
       await syncSurface();
-      if (visible && initialized && !blocked() && selected()?.id === tab && find.element.hidden) await control({ kind: "focusPage", tab });
+      if (visible && initialized && !blocked() && selected()?.id === tab && find.element.hidden && pageAvailable(tab)) await control({ kind: "focusPage", tab });
     }, report });
     fullscreen = createBrowserFullscreen({ control, report, beforeChange: () => { const menu = root.querySelector(".browser-options"); if (menu) menu.open = false; }, afterChange: () => run(syncSurface) });
     shortcuts = setupBrowserShortcuts({ available: () => visible && initialized && !blocked(), getTab: selected, focusChrome: tab => control({ kind: "focusChrome", tab }), find: () => find.open(), address, tabAction: (action, source) => enqueue(() => tabShortcut(action, source)),
@@ -620,7 +674,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     let exportingPage = false;
     const exportPage = (kind, success, pending) => {
       const page = selected();
-      if (!page || exportingPage) return;
+      if (!page || !pageAvailable(page.id) || exportingPage) return;
       const { id: tab, url: expectedUrl } = page;
       exportingPage = true;
       void run(async () => {
@@ -650,7 +704,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     };
     const options = createBrowserOptions(startup, () => act(async () => {
       await syncSurface();
-      if (active && nativeTabs.has(active)) await control({ kind: "action", tab: active, action: "selectAll" });
+      if (active && pageAvailable(active)) await control({ kind: "action", tab: active, action: "selectAll" });
     }), { reopen: () => act(reopen), canReopen: () => closedTabs.length > 0, bookmarks: () => act(() => openBookmarks(false)), history: () => act(() => openHistory()), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
       reader: () => act(openReader),
       translateSelection: onTranslateSelection && (() => {
@@ -714,7 +768,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (fromPage && target) {
           void run(async () => {
             await syncSurface();
-            if (!blocked() && !tabSearch && active === target) await control({ kind: "focusPage", tab: target });
+            if (!blocked() && !tabSearch && active === target && pageAvailable(target)) await control({ kind: "focusPage", tab: target });
           });
           return;
         }
@@ -729,12 +783,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   function restorePanelPage(tab) {
     void run(async () => {
       await syncSurface();
-      if (tab && active === tab && !blocked()) await control({ kind: "focusPage", tab });
+      if (tab && active === tab && !blocked() && pageAvailable(tab)) await control({ kind: "focusPage", tab });
     });
   }
   async function openBookmarks(editCurrent, returnToPage) {
     const selectedTab = selected(); let current = null;
-    if (selectedTab && nativeTabs.has(selectedTab.id)) {
+    if (selectedTab && pageAvailable(selectedTab.id)) {
       const result = await control({ kind: "url", tab: selectedTab.id });
       const url = typeof result === "string" ? result : result.url;
       if (active === selectedTab.id && /^https?:/.test(url)) current = { url, title: url === selectedTab.url ? selectedTab.title : url };
@@ -758,7 +812,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function tabPage(id) {
     const tab = tabs.find(item => item.id === id);
     if (!tab) throw new Error(t("Browser tab is no longer available"));
-    const url = nativeTabs.has(id) ? (await control({ kind: "url", tab: id })).url : tab.url;
+    const url = pageAvailable(id) ? (await control({ kind: "url", tab: id })).url : tab.url;
     if (!/^https?:/.test(url)) throw new Error(t("This browser action is not available yet"));
     return { url, title: url === tab.url ? tab.title : url, zoom: tab.zoom, muted: tab.muted };
   }
@@ -785,7 +839,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (!onTranslateSelection || blocked() || active !== source) return;
     const tab = selected(), url = tab?.url;
     let text = "", provenance;
-    if (tab && nativeTabs.has(source) && /^https?:/.test(url)) {
+    if (tab && pageAvailable(source) && /^https?:/.test(url)) {
       const version = pageVersions.get(source);
       await syncSurface();
       const { page, documentRevision, capturedAt } = await invoke("browser_read_selection", { tab: source, expectedUrl: url });
@@ -802,7 +856,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function openReader() {
     const tab = selected();
     if (blocked()) return;
-    if (!tab || !nativeTabs.has(tab.id) || !/^https?:/.test(tab.url) || navigationStates.has(tab.id)) {
+    if (!tab || !pageAvailable(tab.id) || !/^https?:/.test(tab.url) || navigationStates.has(tab.id)) {
       throw new Error(t("Wait for the current page to finish loading"));
     }
     const { id, url } = tab, version = pageVersions.get(id);
@@ -823,7 +877,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function readPage() {
     const tab = selected();
     if (blocked() || assistant.querySelector('[aria-busy="true"]')) return;
-    if (!tab || !nativeTabs.has(tab.id) || !/^https?:/.test(tab.url) || navigationStates.has(tab.id)) {
+    if (!tab || !pageAvailable(tab.id) || !/^https?:/.test(tab.url) || navigationStates.has(tab.id)) {
       throw new Error(t("Wait for the current page to finish loading"));
     }
     const url = tab.url, version = pageVersions.get(tab.id);
@@ -842,12 +896,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     let captureElement;
     // A successful handoff can detach the Browser while Chat becomes active.
     const isCurrent = () => sameDocument() && captureElement?.parentNode === assistant;
-    const peers = tabs.filter(peer => peer.id !== tab.id && nativeTabs.has(peer.id) &&
+    const peers = tabs.filter(peer => peer.id !== tab.id && pageAvailable(peer.id) &&
       /^https?:/.test(peer.url) && !navigationStates.has(peer.id)).map(peer => ({
       tab: peer.id, url: peer.url, title: peer.title, version: pageVersions.get(peer.id),
     }));
     const sourceIsCurrent = source => isCurrent() && source &&
-      nativeTabs.has(source.tab) && !navigationStates.has(source.tab) &&
+      pageAvailable(source.tab) && !navigationStates.has(source.tab) &&
       tabs.some(peer => peer.id === source.tab && peer.url === source.url) &&
       pageVersions.get(source.tab) === source.version;
     const readSource = async source => {
@@ -881,9 +935,14 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (active !== source || blocked()) return;
     const url = resolveBrowserAddress(submission.text, searchSettings.value());
     if (!active) await add();
-    if (!nativeTabs.has(active)) await ensureView({ ...selected(), url: "about:blank" });
     await find.close();
-    await control({ kind: "navigate", tab: active, url });
+    if (crashedTabs.has(active)) {
+      await reopenCrashedTab(selected(), url);
+      if (crashedTabs.has(active)) return;
+    } else {
+      if (!nativeTabs.has(active)) await ensureView({ ...selected(), url: "about:blank" });
+      await control({ kind: "navigate", tab: active, url });
+    }
     addressEditor.accepted(submission);
     selected().url = url; setStatus(""); paint(); await save();
   }
