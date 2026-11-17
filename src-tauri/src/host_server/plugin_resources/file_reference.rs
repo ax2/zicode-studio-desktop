@@ -8,11 +8,17 @@ use crate::plugin_resource_execution::encoding;
 
 pub(super) const MAX_BYTES: usize = encoding::MAX_BYTES;
 const SENDER: &str = "com.zicode.devtools.files";
-pub(super) fn target_max_bytes(profile: Option<&str>) -> usize {
-    if encoding::selected(profile) {
-        encoding::MAX_BYTES
-    } else {
-        encoding::LEGACY_MAX_BYTES
+pub(super) fn target_max_bytes(target: &Owner, profile: Option<&str>) -> Result<usize, ApiError> {
+    if target.plugin_id != encoding::PLUGIN {
+        return Err(rejected("resource_transfer_scope_invalid"));
+    }
+    match (target.capability_id.as_str(), profile) {
+        (encoding::CAPABILITY, None) => Ok(encoding::LEGACY_MAX_BYTES),
+        (encoding::CAPABILITY, Some(encoding::PROFILE))
+        | (encoding::MULTI_TARGET_CAPABILITY, Some(encoding::MULTI_TARGET_PROFILE)) => {
+            Ok(encoding::MAX_BYTES)
+        }
+        _ => Err(rejected("resource_transfer_scope_invalid")),
     }
 }
 
@@ -22,7 +28,11 @@ pub(super) fn is_source(owner: &Owner) -> bool {
 }
 
 fn is_target(owner: &Owner) -> bool {
-    owner.plugin_id == encoding::PLUGIN && owner.capability_id == encoding::CAPABILITY
+    owner.plugin_id == encoding::PLUGIN
+        && matches!(
+            owner.capability_id.as_str(),
+            encoding::CAPABILITY | encoding::MULTI_TARGET_CAPABILITY
+        )
 }
 
 pub(super) fn transfer_profile(original_file: bool) -> &'static str {

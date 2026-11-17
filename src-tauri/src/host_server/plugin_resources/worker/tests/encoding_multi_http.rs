@@ -118,11 +118,11 @@ fn assert_no_output(value: &Value) {
     );
 }
 
-fn derived(owner: &Value, output: &Value) -> Value {
+pub(super) fn derived(owner: &Value, output: &Value) -> Value {
     json!({"schemaVersion":1,"owner":owner,"resourceId":output["resourceId"],"contentVersion":output["contentVersion"]})
 }
 
-async fn invoke(
+pub(super) async fn invoke(
     host: &HostServer,
     client: &reqwest::Client,
     snapshot: &Value,

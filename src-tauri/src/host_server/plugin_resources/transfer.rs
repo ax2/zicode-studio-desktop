@@ -127,12 +127,15 @@ pub(in crate::host_server) async fn prepare(
             .resource_mime_type(&request.source, &source_proof)?;
         let (target_proof, presentation) =
             target_identity(&state, &request.target, Some(file_reference::transfer_mime(request.original_file, &mime_type)))?;
+        let original_file_limit = request.original_file.then(|| {
+            file_reference::target_max_bytes(&request.target, presentation["executionProfile"].as_str())
+        }).transpose()?;
         let mut result = state
             .plugin_resources
             .lock()
             .map_err(|_| rejected("resource_store_unavailable"))?
             .prepare_transfer(&request.source, &source_proof, request.target, target_proof,
-                request.original_file.then(|| file_reference::target_max_bytes(presentation["executionProfile"].as_str())))?;
+                original_file_limit)?;
         result["target"] = presentation;
         Ok(result)
     })

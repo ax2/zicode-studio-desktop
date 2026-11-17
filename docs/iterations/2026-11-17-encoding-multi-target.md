@@ -9,3 +9,11 @@
 独立证据在会话工作区 `outputs/issue28-encoding-targets-worker-proof03.log` 和 `outputs/issue28-encoding-targets-acceptance03.log`。当前为 Windows 开发候选，原生文件选择、预览和另存操作纳入主会话联合验收。
 
 跟踪 [Studio #28](https://github.com/ax2/zicode-studio-desktop/issues/28)。
+
+## 校验原文件接力与指定路径另存
+
+从文件校验结果选择「发送原文件」后，可接力到「检测文件编码」或「转换文件编码」。转换入口需要固定的多目标资源契约。共享确认只建立当前会话的文件引用，主动执行才复核文件身份和 SHA-256 并读取。关闭接力、取消共享和访问过期沿用原有控制。接力产物显示其自身 SHA-256，可进入标准保存确认。
+
+真实 Windows Host 和 Worker 使用工作区外 8 MiB 文件完成本机选取准备、文件校验、确认接力、主动转换到 UTF-16 LE 和指定目录另存。选址测试直接调用 Windows 原生选择器背后的 Host 处理，原生窗口操作纳入主会话清单。写入后的 16 MiB 输出从磁盘复核 SHA-256，原文件字节一致。验证确认前无读、无 Worker 启动、无写入，拒绝错误窗口、已存在目标、确认期间新建的冲突目标、同字节文件替换后再次运行，以及源授权撤销后的读取。58 项前端测试通过。
+
+证据为会话工作区 `outputs/issue28-original-convert-acceptance.log`。

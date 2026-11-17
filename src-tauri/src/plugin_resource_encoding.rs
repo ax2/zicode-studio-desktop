@@ -8,6 +8,7 @@ pub(crate) const MULTI_TARGET_PROFILE: &str = "resource.wasi.encoding-convert.v1
 pub(crate) const CONVERT_PROFILE: &str = "resource.wasi.encoding-utf8.v1";
 pub(crate) const VERSION: &str = "1.0.0-preview.1";
 pub(crate) const PLUGIN: &str = "com.zicode.devtools.encoding";
+pub(crate) const MULTI_TARGET_CAPABILITY: &str = "devtools.encoding.convert";
 pub(crate) const CAPABILITY: &str = "devtools.encoding.inspect";
 pub(crate) const MAX_BYTES: usize = 8 * 1024 * 1024;
 pub(crate) const LEGACY_MAX_BYTES: usize = 128 * 1024;
@@ -48,7 +49,7 @@ impl Operation {
         match self {
             Self::Inspect => CAPABILITY,
             Self::ToUtf8 => CONVERT_CAPABILITY,
-            Self::Convert => "devtools.encoding.convert",
+            Self::Convert => MULTI_TARGET_CAPABILITY,
         }
     }
 
@@ -192,10 +193,6 @@ fn target_encoding(slug: &str) -> Option<(&'static encoding_rs::Encoding, Option
 }
 
 const MIME_TYPES: [&str; 3] = ["text/plain", "application/octet-stream", "text/csv"];
-
-pub(crate) fn selected(profile: Option<&str>) -> bool {
-    profile == Some(PROFILE)
-}
 
 pub(crate) fn validate_manifest(manifest: &PluginManifest) -> Result<(), String> {
     validate_profile(manifest, PROFILE, Operation::Inspect)?;

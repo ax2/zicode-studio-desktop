@@ -10,6 +10,9 @@ mod encoding_convert_http;
 #[path = "encoding_multi_http.rs"]
 mod encoding_multi_http;
 
+#[path = "encoding_original_convert_http.rs"]
+mod encoding_original_convert_http;
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires frozen Files and Encoding candidates and the production Worker"]
 async fn original_file_handoff_rechecks_identity_and_runs_encoding_only_on_request() {
@@ -242,6 +245,17 @@ async fn original_file_handoff_rechecks_identity_and_runs_encoding_only_on_reque
             .set_enabled("programming", "com.zicode.artifacts", true)
             .unwrap();
         encoding_multi_http::verify(&host, &client, &receiver, &root, &package).await;
+    }
+    if std::env::var_os("ZICODE_TEST_ENCODING_ORIGINAL_CONVERT").is_some() {
+        encoding_original_convert_http::verify(
+            &host,
+            &client,
+            &sender,
+            &receiver,
+            &root,
+            &target.workspace_id,
+        )
+        .await;
     }
     host.stop_and_wait().await.unwrap();
 }
