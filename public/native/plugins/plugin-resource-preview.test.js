@@ -76,6 +76,19 @@ describe("trusted parent output preview",()=>{
     expect(editor.selectionEnd-editor.selectionStart).toBe(text.length);
     expect(document.querySelector("pre")).toBeNull();c.controller.clear();expect(document.querySelector("textarea")).toBeNull();c.controller.destroy();
   });
+  it("shows the encoded file digest and keeps save available when byte preview would be too large", () => {
+    const save = vi.fn();
+    const fixtureState = fixture({ executionProfile: "resource.wasi.encoding-convert.v1", onSave: save });
+    const hash = "1f".repeat(32);
+    Object.assign(fixtureState.resource, { mimeType: "application/x-zicode-encoded-text", contentVersion: hash, byteLength: 16 * 1024 * 1024 });
+    fixtureState.show();
+    expect(document.querySelector("code").textContent).toBe(`SHA-256 ${hash}`);
+    expect(document.querySelector("button").disabled).toBe(true);
+    expect(loadResourcePreview).not.toHaveBeenCalled();
+    [...document.querySelectorAll("button")].find(button => button.textContent === "Preview save").click();
+    expect(save.mock.calls[0][0].contentVersion).toBe(hash);
+    fixtureState.controller.destroy();
+  });
   it("does not read before a click and renders text using textContent",async()=>{
     const c=fixture();c.resource.mimeType="text/html";loadResourcePreview.mockResolvedValue({kind:"text",text:"<img src=private>"});c.show();
     expect(loadResourcePreview).not.toHaveBeenCalled();document.querySelector("button").click();await flush();

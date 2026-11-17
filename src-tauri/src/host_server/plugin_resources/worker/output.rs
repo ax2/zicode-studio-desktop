@@ -32,6 +32,12 @@ pub(super) fn register(
     let bundle = crate::plugin_worker::resource_output::decode_with_profile(frame, profiles.output)
         .map_err(|_| rejected("worker_protocol_error"))?;
     validate_types(&bundle, profiles.extended_output_types)?;
+    let encoding = crate::plugin_resource_execution::encoding::operation(capability.execution_profile.as_deref());
+    if !matches!(encoding, Some(crate::plugin_resource_execution::encoding::Operation::Convert))
+        && bundle.resources.iter().any(|blob| blob.mime_type == crate::plugin_output_types::ENCODED_TEXT)
+    {
+        return Err(rejected("invalid_output"));
+    }
     let file_digest = crate::plugin_resource_execution::file_digest::selected(capability.execution_profile.as_deref());
     if file_digest {
         if profiles.source_bytes.len() != request.accesses().count() { return Err(rejected("invalid_output")); }
@@ -79,7 +85,7 @@ pub(super) fn register(
         return Err(rejected("result_too_large"));
     }
     validate_result(capability, &bundle.result)?;
-    if let Some(encoding) = crate::plugin_resource_execution::encoding::operation(capability.execution_profile.as_deref()) {
+    if let Some(encoding) = encoding {
         let [bytes] = profiles.source_bytes else { return Err(rejected("invalid_output")) };
         encoding.validate_output(&bundle, bytes.len(), &request.input).map_err(rejected)?;
     }

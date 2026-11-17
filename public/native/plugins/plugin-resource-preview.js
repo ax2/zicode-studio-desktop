@@ -66,7 +66,11 @@ export function createResourcePreview({ container, read, isCurrent, plugin, exec
       const limit = isTextOutput(resource.mimeType) ? textPreviewLimit(executionProfile) : 8 * 1024 * 1024;
       preview.disabled = resource.byteLength > limit;
       if (preview.disabled) row.append(node("span", t("This result is too large to preview.")));
-      row.append(metadata, preview); panel.append(row);
+      row.append(metadata, preview);
+      if (executionProfile === "resource.wasi.encoding-convert.v1") {
+        row.append(node("code", `SHA-256 ${resource.contentVersion}`));
+      }
+      panel.append(row);
       if (onTransfer) row.append(button(t("Send to tool"), () => onTransfer(resource, owner, transferSlot)));
       if (onSave) {
         const savedStatus = node("span", t("Not saved"), "plugin-resource-saved-status");

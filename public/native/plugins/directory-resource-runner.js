@@ -143,7 +143,8 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const plugin = { id: tool.pluginId, name: tool.applicationName, version: tool.version, capabilities: [{ id: tool.capabilityId, title: tool.title }] };
   const fullFileEncoding = tool.pluginId === "com.zicode.devtools.encoding" && (
     (detail.capability.executionProfile === "resource.wasi.encoding-inspect.v1" && tool.capabilityId === "devtools.encoding.inspect") ||
-    (detail.capability.executionProfile === "resource.wasi.encoding-utf8.v1" && tool.capabilityId === "devtools.encoding.to_utf8")
+    (detail.capability.executionProfile === "resource.wasi.encoding-utf8.v1" && tool.capabilityId === "devtools.encoding.to_utf8") ||
+    (detail.capability.executionProfile === "resource.wasi.encoding-convert.v1" && tool.capabilityId === "devtools.encoding.convert")
   );
   const selectionOptions = { container: selectionContainer, plugin, target, gateway, catalogRevision: detail.revision, maxResources,
     markdownDraftMode, allowOriginalFile: fileDigest,

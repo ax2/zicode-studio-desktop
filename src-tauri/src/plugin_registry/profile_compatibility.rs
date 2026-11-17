@@ -77,6 +77,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             | crate::plugin_resource_execution::file_digest::PROFILE
             | crate::plugin_resource_execution::encoding::PROFILE
             | crate::plugin_resource_execution::encoding::CONVERT_PROFILE
+            | crate::plugin_resource_execution::encoding::MULTI_TARGET_PROFILE
             | crate::plugin_worker::resource_output::Profile::METADATA_NAME
             | crate::plugin_worker::resource_output::Profile::METADATA_SAVE
             | crate::plugin_registry::resource_input_types::PROFILE

@@ -164,6 +164,7 @@ describe("directory-owned resource execution", () => {
   it.each([
     ["inspect", "resource.wasi.encoding-inspect.v1"],
     ["to_utf8", "resource.wasi.encoding-utf8.v1"],
+    ["convert", "resource.wasi.encoding-convert.v1"],
   ])("caps full encoding %s at eight MiB before any file bytes are read", async (operation, executionProfile) => {
     const f = fixture({}, 1, false, { pluginId: "com.zicode.devtools.encoding", capabilityId: `devtools.encoding.${operation}`, executionProfile });
     const arrayBuffer = vi.fn(async () => new ArrayBuffer(0));

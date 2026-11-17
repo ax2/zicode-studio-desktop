@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { isBinaryOutput, isTextOutput, OUTPUT_EXTENSIONS, outputExtension } from "./plugin-output-formats.js";
 
 it("keeps legacy indexes and maps archive and document outputs to fixed suffixes", () => {
-  expect(Object.keys(OUTPUT_EXTENSIONS)).toHaveLength(28); // 27 guest types plus the Host-only report
+  expect(Object.keys(OUTPUT_EXTENSIONS)).toHaveLength(29); // 28 guest types plus the Host-only report
   expect(outputExtension("application/json")).toBe("json");
   expect(outputExtension("application/octet-stream")).toBe("bin");
   expect(outputExtension("application/x-zicode-archive-zip")).toBe("zip");
@@ -15,7 +15,9 @@ it("keeps legacy indexes and maps archive and document outputs to fixed suffixes
   expect(outputExtension("application/javascript")).toBeUndefined();
   expect(isBinaryOutput("application/x-zicode-archive-targzip")).toBe(true);
   expect(isBinaryOutput("application/x-zicode-sqlite")).toBe(true);
+  expect(isBinaryOutput("application/x-zicode-encoded-text")).toBe(true);
+  expect(outputExtension("application/x-zicode-encoded-text")).toBe("encoded.txt");
   expect(["text/plain", "text/csv", "text/markdown", "text/html", "application/json"].every(isTextOutput)).toBe(true);
   expect(isTextOutput("application/x-zicode-sqlite")).toBe(false);
-  expect(new Set(Object.values(OUTPUT_EXTENSIONS)).size).toBe(28);
+  expect(new Set(Object.values(OUTPUT_EXTENSIONS)).size).toBe(29);
 });
