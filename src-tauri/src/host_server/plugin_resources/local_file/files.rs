@@ -108,14 +108,21 @@ pub(super) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
 }
 
 pub(super) fn stamp(file: &File) -> Result<(String, usize), ApiError> {
+    let (identity, length) = regular_file_identity(file)?;
+    if length > MAX_BYTES as u64 {
+        return Err(rejected("resource_budget_exceeded"));
+    }
+    Ok((identity, length as usize))
+}
+
+pub(in crate::host_server::plugin_resources) fn regular_file_identity(
+    file: &File,
+) -> Result<(String, u64), ApiError> {
     let meta = file
         .metadata()
         .map_err(|_| rejected("resource_file_unavailable"))?;
     if !meta.is_file() {
         return Err(rejected("resource_file_not_regular"));
-    }
-    if meta.len() > MAX_BYTES as u64 {
-        return Err(rejected("resource_budget_exceeded"));
     }
     #[cfg(windows)]
     let identity = {
@@ -152,7 +159,7 @@ pub(super) fn stamp(file: &File) -> Result<(String, usize), ApiError> {
             meta.ctime_nsec()
         )
     };
-    Ok((sha256_hex(identity.as_bytes()), meta.len() as usize))
+    Ok((sha256_hex(identity.as_bytes()), meta.len()))
 }
 
 #[cfg(test)]

@@ -13,6 +13,7 @@ import { createImageMetadataResult } from "./image-metadata-result.js";
 import { createMarkdownResultDetails } from "./markdown-result-details.js";
 import { loadImageReportNoteMaterial } from "./image-report-note-material.js";
 import { createFileDigestManifestReview } from "./file-digest-manifest-review.js";
+import { createChecksumFolderReview } from "./checksum-folder-review.js";
 import { createFileDigestResult } from "./file-digest-result.js";
 import { createFileDigestNoteMaterial } from "./file-digest-note-material.js";
 
@@ -31,7 +32,7 @@ function button(text, action) { const el = node("button", text, "ui-button ui-bu
 // The directory owns the trusted resource UI; no provider view, path, or owner override.
 export function createDirectoryResourceRunner({ container, tool, detail, gateway, getTarget, onBusy = () => {}, onSuccess = () => {}, onReceiverExecuted, receiveNoteDraft, mountInputs = inputs }) {
   const target = getTarget?.(), original = resourceViewTarget(target);
-  let active = true, reference = null, executionAccess = null, form = null, running = false, reviewBusy = false, callId = null, timer = null, invoking = false, cancelRequested = false;
+  let active = true, reference = null, executionAccess = null, form = null, running = false, reviewBusy = false, folderBusy = false, callId = null, timer = null, invoking = false, cancelRequested = false;
   const valid = () => active && original === resourceViewTarget(getTarget?.());
   const status = node("p"); status.setAttribute("role", "status");
   const result = node("pre", null, "tool-result"), parameters = node("div"), controls = node("div", null, "ui-toolbar"), outputs = node("div");
@@ -76,7 +77,19 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     resourceLabel: `${tool.applicationName} · ${tool.title}`, resourceExecutionProfile: detail.capability.executionProfile };
   const read = (owner, resource, offset, length, current = valid) => readPluginViewResource({ instance, gateway, target: getTarget(),
     isCurrent: () => valid() && current(), params: { capabilityId: owner.capabilityId, resourceId: resource.resourceId, contentVersion: resource.contentVersion, offset, length } });
-  const manifestReview = detail.capability.executionProfile === "resource.wasi.file-digest.v1" && tool.capabilityId === "devtools.files.hash" && typeof gateway.searchTools === "function"
+  const fileDigest = detail.capability.executionProfile === "resource.wasi.file-digest.v1" &&
+    tool.pluginId === "com.zicode.devtools.files" && tool.capabilityId === "devtools.files.hash";
+  function refreshReviewControls() {
+    if (!active) return;
+    const busy = running || reviewBusy || folderBusy;
+    onBusy(busy);
+    run.disabled = busy || !reference || !form;
+    form?.setDisabled(busy);
+    selectionContainer.inert = busy;
+    manifestReview?.setBlocked(running || folderBusy);
+    folderReview?.refresh();
+  }
+  const manifestReview = fileDigest && typeof gateway.searchTools === "function"
     ? createFileDigestManifestReview({ container, gateway, getTarget, isCurrent: valid,
       verifySources: async current => {
         const source = reference;
@@ -84,8 +97,12 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
         for (const resource of [source, ...(source.additionalResources ?? [])])
           await read({ capabilityId: tool.capabilityId }, resource, 0, 1, () => valid() && current() && reference === source);
       },
-      onBusy: value => { reviewBusy = value; if (!active) return; onBusy(running || reviewBusy); run.disabled = running || reviewBusy || !reference; form?.setDisabled(running || reviewBusy); selectionContainer.inert = running || reviewBusy; },
+      onBusy: value => { reviewBusy = value; refreshReviewControls(); },
     }) : null;
+  const folderReview = fileDigest ? createChecksumFolderReview({
+    container, gateway, getTarget, isCurrent: valid, isBlocked: () => running || reviewBusy,
+    onBusy: value => { folderBusy = value; refreshReviewControls(); },
+  }) : null;
   const save = typeof gateway.prepareResourceSave === "function" ? createResourceSave({ gateway, getTarget, isCurrent: valid }) : null;
   const transfer = typeof gateway.prepareResourceTransfer === "function" ? createResourceTransfer({ gateway, getTarget, isCurrent: valid, mountInputs,
     onSave: save ? (...args) => save.open(...args) : undefined, onSaveClear: () => save?.clear(), onReceiverExecuted }) : null;
@@ -120,7 +137,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     isCurrent: () => valid() && !running,
     onResource: value => {
       clearTimeout(timer); reference = value; result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
-      run.disabled = !value || !form || running || reviewBusy;
+      run.disabled = !value || !form || running || reviewBusy || folderBusy;
     } };
   const directoryAvailable = detail.permissions.some(p => p.name === "resource.directory.read" && p.granted) &&
     ["choose", "prepare", "commit", "cancel"].every(key => typeof gateway.projectDirectories?.[key] === "function");
@@ -143,7 +160,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   }
   const parameterSchema = markdownDraftMode ? { ...detail.capability.inputSchema, properties: {}, required: [] } : detail.capability.inputSchema;
   void mountInputs(parameters, parameterSchema).then(value => {
-    if (!valid()) { value.destroy(); return; } form = value; run.disabled = !reference;
+    if (!valid()) { value.destroy(); return; } form = value; refreshReviewControls();
   }).catch(() => { if (valid()) status.textContent = t("This tool's parameter schema is not supported by the generic form. Choose another tool."); });
   async function stop() {
     if (!callId || !valid()) return;
@@ -161,21 +178,20 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       if (!valid()) return;
       status.textContent = t(resourceCallRecoveryMessage(state));
       if (state.executionFinished) {
-        running = false; callId = null; onBusy(false); check.hidden = true;
-        form.setDisabled(false); selectionContainer.inert = false; run.disabled = !reference; cancel.disabled = true;
+        running = false; callId = null; check.hidden = true; cancel.disabled = true; refreshReviewControls();
       }
     } catch (error) { if (valid()) status.textContent = t(resourceCallRecoveryMessage(null, error)); }
     finally { if (valid()) check.disabled = false; }
   }
   async function execute() {
-    if (!valid() || running || reviewBusy || !reference || !form) return;
+    if (!valid() || running || reviewBusy || folderBusy || !reference || !form) return;
     const prepared = form.prepare(); if (prepared.error) { status.textContent = t(prepared.error); return; }
     const input = { ...prepared.input, ...selection.getInputOptions?.() };
     const access = reference; executionAccess = access;
     // Names remain in the trusted parent; they are never added to the Worker request.
     const displayNames = selection.getDisplayNames?.() ?? [];
     clearTimeout(timer); result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
-    running = true; cancelRequested = false; callId = crypto.randomUUID(); check.hidden = true; run.disabled = true; cancel.disabled = false; form.setDisabled(true); selectionContainer.inert = true; onBusy(true);
+    running = true; cancelRequested = false; callId = crypto.randomUUID(); check.hidden = true; cancel.disabled = false; refreshReviewControls();
     status.textContent = t("Running…");
     try {
       const refreshed = await gateway.loadTool(target.sceneId ?? "programming", { pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision: detail.revision });
@@ -224,14 +240,14 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
           (uncertain && publicCode ? ` (${publicCode})` : "");
       }
     } finally {
-      running = computation.unresolved(callId); invoking = false; executionAccess = null; onBusy(running || reviewBusy);
+      running = computation.unresolved(callId); invoking = false; executionAccess = null; refreshReviewControls();
       if (!running) callId = null;
-      if (valid()) { form.setDisabled(running || reviewBusy); selectionContainer.inert = running || reviewBusy; run.disabled = running || reviewBusy || !reference; cancel.disabled = !running; check.hidden = !running; }
+      if (valid()) { cancel.disabled = !running; check.hidden = !running; }
     }
   }
   return { destroy() {
     if (!active) return;
-    active = false; clearTimeout(timer); computation.destroy(); selection.destroy(); preview.destroy(); manifestReview?.destroy(); metadataResult?.destroy(); transfer?.destroy(); save?.destroy(); form?.destroy();
+    active = false; clearTimeout(timer); computation.destroy(); selection.destroy(); preview.destroy(); manifestReview?.destroy(); folderReview?.destroy(); metadataResult?.destroy(); transfer?.destroy(); save?.destroy(); form?.destroy();
     container.replaceChildren();
   } };
 }

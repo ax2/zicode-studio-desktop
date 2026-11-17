@@ -68,6 +68,7 @@ export function createFileDigestManifestReview({ container, gateway, getTarget, 
     finally { pending = false; if (request === state) request = null; input.disabled = false; if (active) { render(); sync(); } }
   });
   return {
+    setBlocked(value) { root.inert = value; },
     show(result, names) { generation++; try { files = checksumReviewFiles(result, names); panel.hidden = false; } catch { files = null; panel.hidden = true; } reportRows = []; rows.replaceChildren(); statusKey = ""; generator.show(files); render(); sync(); },
     clear() { generation++; files = null; generator.clear(); fileInput.clear(); input.value = ""; reportRows = []; rows.replaceChildren(); statusKey = ""; panel.hidden = true; void request?.cancel?.(); render(); sync(); },
     destroy() { if (!active) return; active = false; generation++; void request?.cancel?.(); listeners.delete(sync); fileInput.destroy(); generator.destroy(); recovery.destroy(); window.removeEventListener("zicode:locale-changed", render); onBusy(false); root.remove(); },

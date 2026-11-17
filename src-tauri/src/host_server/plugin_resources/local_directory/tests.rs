@@ -1,9 +1,9 @@
 use super::*;
 use std::fs;
 
-struct Fixture(PathBuf);
+pub(super) struct Fixture(pub(super) PathBuf);
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let scratch = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.cache/task-scratch");
         let root = scratch.join(format!("local-directory-{}", uuid::Uuid::new_v4()));
         let data = root.join("data");
@@ -37,6 +37,10 @@ impl Drop for Fixture {
         let _ = fs::remove_dir(self.0.join("link"));
         let _ = fs::remove_dir(self.0.join("folder"));
         let _ = fs::remove_dir(root.join("outside"));
+        let _ = fs::remove_file(self.0.join("文件.txt"));
+        let _ = fs::remove_file(self.0.join("different.txt"));
+        let _ = fs::remove_file(self.0.join("large.bin"));
+        let _ = fs::remove_dir(self.0.join("directory.txt"));
         fs::remove_dir(&self.0).unwrap();
         fs::remove_file(root.join("owner.json")).unwrap();
         fs::remove_dir(root).unwrap();
@@ -53,6 +57,7 @@ fn owner() -> Owner {
 }
 fn grant(root: &Path) -> Grant {
     Grant {
+        purpose: Purpose::Metadata,
         owner: owner(),
         root: root.into(),
         relative: ".".into(),

@@ -924,6 +924,14 @@ const zhCN = {
   "Manifest loaded. Review has not run yet.": "清单已载入，尚未执行核对。",
   "Could not read a valid UTF-8 manifest. Existing text was kept.":
     "无法读取有效的UTF-8清单，原清单文本已保留。",
+  "Verify SHA256SUMS against a folder": "按文件夹校验 SHA256SUMS",
+  "Choose folder to verify": "选择要校验的文件夹",
+  "Confirm and verify folder": "确认并校验文件夹",
+  "Confirm reading the listed files from the selected folder.": "请确认读取所选文件夹中列在清单里的文件。",
+  "Could not prepare folder verification. Check the manifest and folder access.": "无法准备文件夹校验，请检查清单和文件夹访问权限。",
+  "Verifying files in the selected folder…": "正在校验所选文件夹中的文件…",
+  "File missing": "文件缺失",
+  "Could not read file": "无法读取文件",
   "Review SHA256SUMS manifest": "核对 SHA256SUMS 清单",
   "Review shares the displayed file names and SHA-256 values with the checksum plugin. Entries without a supplied file are not checked for absence on disk.":
     "核对时会将以上文件名和 SHA-256 与清单内容提供给校验清单插件。未提供文件的条目不会被判断为磁盘缺失。",
