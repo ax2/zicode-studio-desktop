@@ -41,6 +41,8 @@ it("keeps the source and question after a rejected handoff and Escape returns fo
   expect(document.activeElement).toBe(question);
   expect(trigger.getAttribute("aria-expanded")).toBe("true");
   expect(panel.textContent).toContain(capture.page.url);
+  expect(panel.textContent).toContain(`[1] ${capture.page.url}`);
+  expect(panel.querySelector(".browser-capture-text").value).toContain(capture.page.text);
   expect(panel.textContent).toContain(capture.capturedAt);
   expect(prepare).not.toHaveBeenCalled();
 
@@ -64,7 +66,7 @@ it("uses a separate explicit summary action and keeps page data in the source bl
   const prepare = vi.fn(async () => {});
   const { host, panel } = openDock(prepare);
   getByRole(panel, "textbox", { name: t("Question about this page") }).value = "Unsaved side question";
-  getByRole(panel, "button", { name: t("Prepare summary draft") }).click();
+  getByRole(panel, "button", { name: t("Prepare AI summary draft") }).click();
   await waitFor(() => expect(host.hidden).toBe(true));
   const [intent] = prepare.mock.calls[0];
   const [task, trust, json] = browserDraftPrompt(capture, intent).split("\n\n");
@@ -119,7 +121,7 @@ it("resizes the live surface around the open assistant and rejects the captured 
   setLocale("en");
   expect(getByRole(host, "complementary", { name: "Browser assistant" })).toBe(panel);
   expect(getByRole(panel, "textbox", { name: "Question about this page" })).toBe(question);
-  expect(getByRole(panel, "button", { name: "Prepare summary draft" })).toBeTruthy();
+  expect(getByRole(panel, "button", { name: "Prepare AI summary draft" })).toBeTruthy();
   expect(question.value).toBe("What changed?");
   publish({ kind: "navigationStarted", tab: capture.tab });
   getByRole(panel, "button", { name: t("Prepare chat draft") }).click();

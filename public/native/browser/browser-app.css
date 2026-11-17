@@ -86,7 +86,14 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-compare { min-width: 0; margin-block-start: var(--space-3); padding: var(--space-2); border: 1px solid var(--border); }
 .browser-compare-choices { max-block-size: min(25vh, calc(var(--space-12) * 4)); overflow: auto; margin-block-end: var(--space-2); }
 .browser-compare-choices label { display: flex; align-items: start; gap: var(--space-2); margin-block: var(--space-1); }
-.browser-compare-choices span, .browser-compare-preview summary { overflow-wrap: anywhere; }
+.browser-compare-choices span, .browser-compare-source { overflow-wrap: anywhere; }
+.browser-compare-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--space-12) * 3)), 1fr));
+  gap: var(--space-2);
+  align-items: start;
+}
+.browser-compare-source { min-inline-size: 0; }
 .browser-capture-dialog .browser-compare-preview textarea { height: min(24vh, calc(var(--space-12) * 4)); }
 .browser-capture-tables table { border-collapse: collapse; margin-block-end: var(--space-2); }
 .browser-capture-tables caption { text-align: start; font-weight: 600; }

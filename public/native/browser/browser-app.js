@@ -834,7 +834,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     };
     const capture = await invoke("browser_capture_page", { tab: tab.id, expectedUrl: url });
     ensureOpenSource();
-    if (capture.page.url !== url) throw new Error(t("Page changed. Read it again."));
+    if (capture.tab !== tab.id || capture.page.url !== url) throw new Error(t("Page changed. Read it again."));
     const openConversation = getTarget()?.runtimeMode === "tools" && await canOpenDraftConversation?.()
       ? openDraftConversation : undefined;
     ensureOpenSource();
@@ -859,14 +859,16 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const requestFor = source => source.tab === tab.id
       ? { tab: source.tab, url: source.url, version }
       : peers.find(peer => peer.tab === source.tab);
-    const comparison = onPrepareDraft && /^https?:/.test(capture.page.url) && {
+    const sourcesAreCurrent = sources => sources.every(source => sourceIsCurrent(requestFor(source)));
+    const comparison = /^https?:/.test(capture.page.url) && {
       peers,
       readSource,
-      prepare: sources => prepareBrowserComparisonDraft({
+      sourcesAreCurrent,
+      prepare: onPrepareDraft ? sources => prepareBrowserComparisonDraft({
         sources, getTarget, handoff: onPrepareDraft, openConversation,
-        isCurrent: () => sources.every(source => sourceIsCurrent(requestFor(source))),
+        isCurrent: () => sourcesAreCurrent(sources),
         readSource: source => readSource(requestFor(source)),
-      }),
+      }) : undefined,
     };
     captureElement = showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? attachments => prepareBrowserDraft({
       capture, isCurrent, getTarget, handoff: onPrepareDraft, attachments, openConversation,

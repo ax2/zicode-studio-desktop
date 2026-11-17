@@ -1,4 +1,5 @@
 import { t } from "../../i18n.js";
+import { numberBrowserSources } from "./browser-source-citations.js";
 
 const maxPeers = 2;
 
@@ -11,14 +12,14 @@ export function comparisonSource(capture) {
   };
 }
 
-export function createBrowserCompare({ capture, peers, readSource, prepare, setBusy, isOpen, onPrepared, opensChat }) {
+export function createBrowserCompare({ capture, peers, readSource, sourcesAreCurrent, prepare, setBusy, isOpen, onPrepared }) {
   const panel = document.createElement("fieldset"); panel.className = "browser-compare"; panel.hidden = true;
   const legend = document.createElement("legend"); legend.textContent = t("Compare open tabs"); panel.append(legend);
   const button = document.createElement("button"); button.type = "button"; button.className = "ui-button ui-button--secondary";
   button.textContent = t("Compare open tabs");
   button.addEventListener("click", () => { panel.hidden = !panel.hidden; if (!panel.hidden) panel.querySelector("input")?.focus(); });
   const hint = document.createElement("p");
-  hint.textContent = t(peers.length ? "Choose one or two loaded tabs. Review the sources before preparing a draft." : "Open another web page before comparing tabs.");
+  hint.textContent = t(peers.length ? "Choose one or two loaded tabs to compare with this page." : "Open another web page before comparing tabs.");
   panel.append(hint);
   if (!peers.length) return { button, panel };
 
@@ -37,8 +38,11 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
   const read = document.createElement("button"); read.type = "button"; read.className = "ui-button ui-button--secondary";
   read.textContent = t("Read selected tabs");
   const draft = document.createElement("button"); draft.type = "button"; draft.className = "ui-button ui-button--primary";
-  draft.textContent = t(opensChat ? "Open Chat and prepare comparison draft" : "Prepare comparison draft");
-  toolbar.append(read, draft); panel.append(choices, toolbar, status, preview);
+  draft.textContent = t("Prepare AI comparison draft");
+  draft.dataset.i18nText = "Prepare AI comparison draft";
+  toolbar.append(read);
+  if (prepare) toolbar.append(draft);
+  panel.append(choices, toolbar, status, preview);
   let reviewed = null;
   const selected = () => inputs.filter(({ input }) => input.checked);
   function update() {
@@ -49,13 +53,16 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
   }
   function clearReview() { reviewed = null; preview.replaceChildren(); status.textContent = ""; update(); }
   function showReview(sources) {
-    for (const [index, source] of sources.entries()) {
-      const details = document.createElement("details");
-      const summary = document.createElement("summary"); summary.textContent = `[${index + 1}] ${source.title || source.url}`;
+    for (const source of sources) {
+      const details = document.createElement("article");
+      details.className = "ui-card browser-compare-source";
+      const summary = document.createElement("h3"); summary.textContent = `${source.citation} ${source.title || source.url}`;
+      summary.setAttribute("translate", "no");
       const url = document.createElement("p"); url.textContent = source.url;
+      url.setAttribute("translate", "no");
       const time = document.createElement("p"); time.textContent = `${t("Captured at")}: ${source.capturedAt}`;
       const excerpt = document.createElement("textarea"); excerpt.className = "ui-textarea"; excerpt.readOnly = true;
-      excerpt.setAttribute("aria-label", t("Comparison source text"));
+      excerpt.setAttribute("aria-label", `${source.citation} ${t("Comparison source text")}`);
       excerpt.value = [source.selection && `${t("Selected text")}\n${source.selection}`, source.text].filter(Boolean).join("\n\n");
       details.append(summary, url, time, excerpt);
       if (source.truncated) {
@@ -82,11 +89,18 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
     status.textContent = t("Reading selected tabs…");
     void work(async () => {
       const sources = [comparisonSource(capture)];
-      for (const source of targets) sources.push(comparisonSource(await readSource(source)));
+      for (const source of targets) {
+        const fresh = await readSource(source);
+        if (fresh.tab !== source.tab || fresh.page.url !== source.url) {
+          throw new Error(t("A selected tab changed. Reopen the page preview and try again."));
+        }
+        sources.push(comparisonSource(fresh));
+      }
       if (!isOpen()) return;
-      showReview(sources);
+      if (!sourcesAreCurrent(sources)) throw new Error(t("A selected tab changed. Reopen the page preview and try again."));
+      showReview(numberBrowserSources(sources));
       reviewed = sources;
-      status.textContent = t("Review the sources, then prepare an unsent draft.");
+      status.textContent = t("Content read locally. Nothing has been sent to AI.");
     });
   });
   draft.addEventListener("click", () => {

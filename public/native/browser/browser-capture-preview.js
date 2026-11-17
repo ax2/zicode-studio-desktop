@@ -1,6 +1,7 @@
 import { createBrowserCompare } from "./browser-compare.js";
 import { createBrowserCaptureMedia } from "./browser-capture-media.js";
 import { createBrowserNoteClip } from "./browser-note-clip.js";
+import { browserCitation } from "./browser-source-citations.js";
 import { t } from "../../i18n.js";
 
 function setLabel(element, key) {
@@ -28,7 +29,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     title.setAttribute("translate", "no");
     title.textContent = capture.page.title;
   } else setLabel(title, "Page content");
-  const source = document.createElement("p"); source.textContent = capture.page.url;
+  const source = document.createElement("p"); source.textContent = `${browserCitation(0)} ${capture.page.url}`;
   source.setAttribute("translate", "no");
   const time = document.createElement("p");
   const timeLabel = document.createElement("span");
@@ -141,7 +142,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
       const summarize = document.createElement("button");
       summarize.type = "button";
       summarize.className = "ui-button ui-button--secondary browser-capture-prepare";
-      setLabel(summarize, "Prepare summary draft");
+      setLabel(summarize, "Prepare AI summary draft");
       summarize.title = prepare.title;
       summarize.setAttribute("data-i18n-title", help);
       summarize.addEventListener("click", () => void stageDraft({ summarize: true }));
@@ -162,7 +163,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
       for (const button of pausedActions.splice(0)) button.disabled = false;
     }
   };
-  const compare = comparison && createBrowserCompare({ ...comparison, capture, setBusy, opensChat,
+  const compare = comparison && createBrowserCompare({ ...comparison, capture, setBusy,
     isOpen, onPrepared: dismiss,
   });
   if (compare) actions.append(compare.button);
