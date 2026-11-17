@@ -63,11 +63,12 @@ function issueSummary({ number, title, state, html_url }) {
 const issuesWithoutMilestone = repositoryIssues
   .filter(issue => !issue.milestone)
   .map(issueSummary);
-const issuesAwaitingVersion = repositoryIssues
-  .filter(issue => issue.state === "open" && issue.milestone?.title === "待排期")
-  .map(issueSummary);
+const versionMilestone = /^v\d+\.\d+\.\d+(?:-[\w.-]+)?$/;
+const issuesWithoutVersionMilestone = repositoryIssues
+  .filter(issue => !versionMilestone.test(issue.milestone?.title ?? ""))
+  .map(issue => ({ ...issueSummary(issue), milestone: issue.milestone?.title ?? null }));
 const releaseMilestonesWithoutView = repositoryMilestones
-  .filter(m => /^v\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(m.title))
+  .filter(m => versionMilestone.test(m.title))
   .filter(m => !project.views.some(view =>
     [m.title, `${m.title} 版本计划`].includes(view.name) &&
     [`milestone:${m.title}`, `milestone:"${m.title}"`].includes(view.filter)))
@@ -76,9 +77,9 @@ const known = new Set(items.map(i => i.url));
 const untracked = repositoryIssues
   .filter(issue => issue.state === "open" && !known.has(issue.html_url))
   .map(issueSummary);
-console.log(JSON.stringify({ checkedAt: new Date().toISOString(), ...project, items, milestones, untracked, issuesWithoutMilestone, issuesAwaitingVersion, releaseMilestonesWithoutView,
+console.log(JSON.stringify({ checkedAt: new Date().toISOString(), ...project, items, milestones, untracked, issuesWithoutMilestone, issuesWithoutVersionMilestone, releaseMilestonesWithoutView,
   instruction: "Read selected issue body, all comments and dependencies before work. Untracked items are for review only; do not automatically re-add removed work." }, null, 2));
 
-if (process.argv.includes("--check-milestones") && (issuesWithoutMilestone.length || releaseMilestonesWithoutView.length)) {
+if (process.argv.includes("--check-milestones") && (issuesWithoutVersionMilestone.length || releaseMilestonesWithoutView.length)) {
   process.exitCode = 1;
 }

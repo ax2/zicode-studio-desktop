@@ -6,7 +6,7 @@ This clone also has a read-only `upstream` remote at `shixin-guo/picot`. `gh` ma
 
 ## Conventions
 
-- **Create an issue**: `gh issue create -R ax2/zicode-studio-desktop --title "..." --body-file <file> --milestone "<version>"`. Use a body file for multi-line text. Use the existing `待排期` milestone when the release has not been decided.
+- **Create an issue**: `gh issue create -R ax2/zicode-studio-desktop --title "..." --body-file <file> --milestone "<version>"`. Use a body file for multi-line text. Select a numbered target release for every issue. Plan a later numbered release when the schedule is uncertain.
 - **Read an issue**: `gh issue view <number> -R ax2/zicode-studio-desktop --comments`, filtering comments by `jq` and also fetching labels.
 - **List issues**: `gh issue list -R ax2/zicode-studio-desktop --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Comment on an issue**: `gh issue comment <number> -R ax2/zicode-studio-desktop --body-file <file>`
