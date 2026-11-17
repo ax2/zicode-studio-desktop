@@ -67,6 +67,7 @@ pub enum Request {
     SavePdf { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
     MenuLanguage { chinese: bool },
     CancelPopup { request: String },
+    Suspend { tab: String },
     Create {
         url: String,
         bounds: Viewport,
@@ -151,7 +152,11 @@ pub(crate) async fn browser_control(
         } else {
             None
         };
-        let is_find = matches!(&request, Request::FindStart { .. });
+        let deadline = match &request {
+            Request::FindStart { .. } => Some("Page search timed out"),
+            Request::Suspend { .. } => Some("Could not confirm tab suspension"),
+            _ => None,
+        };
         let (tx, rx) = tokio::sync::oneshot::channel();
         let app = window.app_handle().clone();
         app.run_on_main_thread(move || {
@@ -159,13 +164,14 @@ pub(crate) async fn browser_control(
             if let Err(error) = crate::require_workspace_window(&window) { let _ = tx.send(Err(error)); return; }
             match request {
                 Request::FindStart { tab, text, case_sensitive } => runtime::start_find(&window, tab, text, case_sensitive, tx),
+                Request::Suspend { tab } => runtime::start_suspend(&window, &tab, tx),
                 request => { let _ = tx.send(runtime::execute(&window, profile, request)); }
             }
         })
         .map_err(|e| e.to_string())?;
-        if is_find {
+        if let Some(message) = deadline {
             tokio::time::timeout(std::time::Duration::from_secs(10), rx).await
-                .map_err(|_| "Page search timed out")?.map_err(|_| "Browser UI thread stopped")?
+                .map_err(|_| message)?.map_err(|_| "Browser UI thread stopped")?
         } else { rx.await.map_err(|_| "Browser UI thread stopped")? }
     }
     #[cfg(not(windows))]

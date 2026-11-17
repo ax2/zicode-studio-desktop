@@ -1,6 +1,6 @@
 //! Each untrusted page owns a child HWND. Wry 0.55.1 removes its parent
 //! subclass even for child views on drop; never give it the Studio HWND.
-use super::{event_lifetime::EventLifetime, Bounds};
+use super::{event_lifetime::EventLifetime, native_suspension::Suspension, Bounds};
 use raw_window_handle::{
     HandleError, HasWindowHandle, RawWindowHandle, Win32WindowHandle, WindowHandle,
 };
@@ -96,6 +96,7 @@ pub(super) struct NativeView {
     pub opener: Option<String>,
     pub closing: Rc<Cell<bool>>,
     pub navigation: super::super::windows_policy::NavigationState,
+    pub suspension: Suspension,
     // Rust drops fields in declaration order: Wry must detach before the HWND dies.
     pub webview: WebView,
     pub container: Container,
@@ -106,6 +107,9 @@ impl NativeView {
         rect.position = LogicalPosition::new(0.0, 0.0).into();
         self.container.bounds(bounds)?;
         self.webview.set_bounds(rect).map_err(|e| e.to_string())?;
+        // WebView2 also wakes automatically on visibility. Keep that fallback
+        // even if a best-effort early Resume call failed.
+        let _ = self.suspension.wake();
         self.webview.set_visible(true).map_err(|e| e.to_string())?;
         let _ = unsafe { ShowWindow(self.container.0, SW_SHOWNA) };
         if focus {

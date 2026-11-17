@@ -28,6 +28,10 @@ impl EventLifetime {
     pub fn is_live(&self) -> bool {
         self.live.load(Ordering::Acquire)
     }
+    pub fn live_check(&self) -> impl Fn() -> bool + use<> {
+        let live = self.live.clone();
+        move || live.load(Ordering::Acquire)
+    }
     pub fn retire(&self) {
         self.live.store(false, Ordering::Release);
     }

@@ -41,6 +41,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   let saveTimer;
   const nativeTabs = new Set();
   const crashedTabs = new Set();
+  const pendingSuspensions = new Set();
   const pageAvailable = id => nativeTabs.has(id) && !crashedTabs.has(id);
   const pendingZoom = new Set();
   const historyStates = new Map();
@@ -263,6 +264,20 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     await syncSurface();
     setStatus("");
     paint();
+  }
+  async function suspendBackgroundTab(tab) {
+    if (active === tab.id || !pageAvailable(tab.id) || blocked() || pendingSuspensions.has(tab)) return;
+    pendingSuspensions.add(tab);
+    const current = () => tabs.includes(tab) && active !== tab.id && pageAvailable(tab.id) && !blocked();
+    try {
+      // Keep the tab action queue free while WebView2 decides whether it can suspend.
+      const result = await control({ kind: "suspend", tab: tab.id });
+      if (current()) setStatus(result.suspended ? t("Background tab suspended") : t("The browser kept this tab awake"));
+    } catch (error) {
+      if (current()) report(t(String(error?.message ?? error)));
+    } finally {
+      pendingSuspensions.delete(tab);
+    }
   }
   async function close(id) {
     const index = tabs.findIndex(tab => tab.id === id);
@@ -603,6 +618,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (pageAvailable(id)) actions.push({
           label: tab.muted ? "Unmute tab" : "Mute tab",
           action: () => act(() => changePageSettings(id, { kind: "muted", value: !tab.muted })),
+        });
+        if (id !== active && !tab.popupOpener && pageAvailable(id)) actions.push({
+          label: "Suspend background tab",
+          action: () => void suspendBackgroundTab(tab),
+          disabled: pendingSuspensions.has(tab),
+          hint: "Timers pause until you select this tab again",
         });
         if (/^https?:/.test(tab.url)) {
           actions.push(

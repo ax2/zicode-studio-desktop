@@ -8,6 +8,8 @@ mod event_lifetime;
 mod native_view;
 #[path = "native_process_failure.rs"]
 mod native_process_failure;
+#[path = "native_suspension.rs"]
+mod native_suspension;
 #[path = "native_favicon.rs"]
 mod native_favicon;
 #[path = "native_page_controls.rs"]
@@ -140,6 +142,7 @@ pub struct NativeBrowserEngine {
     popups: std::rc::Rc<native_popups::PendingPopups>,
     menu_cache: std::rc::Rc<std::cell::RefCell<native_context_menu::MenuCache>>,
     views: HashMap<String, NativeView>,
+    selected: std::cell::RefCell<Option<String>>,
     documents: HashMap<String, (String, Arc<std::sync::atomic::AtomicU64>)>,
     context: WebContext,
     policy: BrowserPolicy,
@@ -158,6 +161,7 @@ impl NativeBrowserEngine {
             popups: Default::default(),
             menu_cache: Default::default(),
             views: HashMap::new(),
+            selected: Default::default(),
             documents: HashMap::new(),
             // Chromium storage should receive a conventional Win32 path, not
             // Rust canonicalize's verbatim prefix (the owner check may use it).
@@ -277,6 +281,7 @@ impl NativeBrowserEngine {
             .build_as_child(&container)
             .map_err(|error| startup_error("create renderer", &error))?;
         let view = NativeView {
+            suspension: native_suspension::Suspension::new(&view, &events),
             favicon,
             events,
             opener,
@@ -374,10 +379,17 @@ impl NativeBrowserEngine {
         self.views.get(tab).is_some_and(|view| !view.closing.get() && view.events.is_live() && view.navigation.ready())
     }
     pub fn view_if_open(&self, tab: &str) -> Option<&WebView> {
+        self.live_view(tab).map(|view| &view.webview)
+    }
+    fn live_view(&self, tab: &str) -> Option<&NativeView> {
         self.views
             .get(tab)
             .filter(|view| !view.closing.get() && view.events.is_live())
-            .map(|view| &view.webview)
+    }
+    #[allow(dead_code)] // Studio uses this for asynchronous page operations.
+    pub fn begin_page_work(&self, tab: &str) -> Result<(&WebView, native_suspension::PageWork), String> {
+        let view = self.live_view(tab).ok_or("Browser tab is no longer available")?;
+        Ok((&view.webview, view.suspension.begin_work()?))
     }
     #[allow(dead_code)] // Used by Studio status, outside the standalone engine probe.
     pub fn process_failed(&self, tab: &str) -> bool {
@@ -390,7 +402,13 @@ impl NativeBrowserEngine {
         bounds.rect()?;
         if let Some(tab) = tab {
             self.view(tab)?;
+            let mut selected = self.selected.borrow_mut();
+            if selected.as_deref() != Some(tab) {
+                *selected = Some(tab.to_owned());
+            }
         }
+        // A temporary Hide request (overlay, minimize, or other Studio view)
+        // does not make the selected tab eligible for suspension.
         self.popups.retain_source(tab);
         for (id, view) in self.views.iter().filter(|(_, view)| !view.closing.get() && view.events.is_live()) {
             if Some(id.as_str()) == tab {
@@ -401,16 +419,30 @@ impl NativeBrowserEngine {
         }
         Ok(())
     }
+    #[allow(dead_code)] // The standalone engine probe has no Studio tab menu.
+    pub fn suspend(&self, tab: &str, complete: impl FnOnce(Result<bool, String>) + 'static) -> Result<(), String> {
+        let view = self.live_view(tab).ok_or("Browser tab is no longer available")?;
+        let has_live_popup = self.views.values().any(|candidate| {
+            candidate.opener.as_deref() == Some(tab) && candidate.events.is_live() && !candidate.closing.get()
+        });
+        if self.selected.borrow().as_deref() == Some(tab) || !view.navigation.ready()
+            || self.downloads.active_for(tab) || view.opener.is_some() || has_live_popup
+            || self.popups.pending_for(tab)
+        {
+            return Err("This tab is still in use".into());
+        }
+        view.suspension.request(&view.webview, complete)
+    }
     pub fn navigate(&self, tab: &str, url: &str) -> Result<(), String> {
         if !self.policy.permits(url) {
             return Err("Browser navigation blocked".into());
         }
-        self.view(tab)?
-            .load_url(url)
+        let (view, _work) = self.begin_page_work(tab)?;
+        view.load_url(url)
             .map_err(|error| error.to_string())
     }
     pub fn action(&self, tab: &str, action: &str) -> Result<(), String> {
-        let view = self.view(tab)?;
+        let (view, _work) = self.begin_page_work(tab)?;
         if action == "selectAll" {
             // Fixed explicit browser edit action, not an arbitrary page-evaluation API.
             return view.evaluate_script("(() => { const body = document.body; const selection = getSelection(); if (!body || !selection) return; const range = document.createRange(); range.selectNodeContents(body); selection.removeAllRanges(); selection.addRange(range); })()")
@@ -430,6 +462,12 @@ impl NativeBrowserEngine {
         }
     }
     pub fn destroy(&mut self, tab: &str) -> Result<(), String> {
+        if let Some(view) = self.views.get(tab) {
+            view.events.retire();
+        }
+        if self.selected.get_mut().as_deref() == Some(tab) {
+            *self.selected.get_mut() = None;
+        }
         self.popups.cancel_source(tab);
         self.downloads.cancel_tab(tab);
         self.documents.remove(tab);
@@ -442,12 +480,12 @@ impl NativeBrowserEngine {
 
 impl Drop for NativeBrowserEngine {
     fn drop(&mut self) {
-        self.downloads.cancel_all();
         // Retire every tab before closing any controller: closing one can pump
         // COM callbacks belonging to another page in the same owner.
         for view in self.views.values() {
             view.events.retire();
         }
+        self.downloads.cancel_all();
         self.popups.retain_source(None);
     }
 }

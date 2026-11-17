@@ -222,6 +222,9 @@ pub fn save(&self, id: &str, target: &Path) -> Result<(), String> {
         };
         self.emit(record); result.map_err(|e| e.to_string())
     }
+    pub(super) fn active_for(&self, tab: &str) -> bool {
+        self.entries.borrow().values().any(|entry| entry.record.tab == tab && active(&entry.record.state))
+    }
     pub fn cancel_tab(&self, tab: &str) {
         let ids: Vec<_> = self.entries.borrow().values().filter(|e| e.record.tab == tab && active(&e.record.state)).map(|e| e.record.id.clone()).collect();
         for id in ids { let _ = self.cancel(&id); }

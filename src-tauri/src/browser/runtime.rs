@@ -231,7 +231,7 @@ pub(super) fn execute(
                     json!({"url":browser.engine.view(&tab)?.url().map_err(|e|e.to_string())?}),
                 )
             }
-            Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } => unreachable!(),
+            Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Suspend { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } => unreachable!(),
         }
         Ok(Value::Null)
     }))
@@ -244,13 +244,36 @@ pub(super) fn shutdown_downloads() {
     let managers = WINDOWS.with(|slot| slot.with_mut(|windows| Ok(windows.values().map(|browser| browser.engine.downloads.clone()).collect::<Vec<_>>())));
     if let Ok(managers) = managers { for manager in managers { manager.cancel_all(); } }
 }
+pub(super) fn start_suspend(
+    window: &WebviewWindow,
+    tab: &str,
+    sender: tokio::sync::oneshot::Sender<Result<Value, String>>,
+) {
+    let sender = std::rc::Rc::new(RefCell::new(Some(sender)));
+    let completion = sender.clone();
+    let result = WINDOWS.with(|slot| slot.with_mut(|windows| {
+        let browser = windows.get(window.label()).ok_or("Browser unavailable")?;
+        browser.engine.suspend(tab, move |result| {
+            if let Some(sender) = completion.borrow_mut().take() {
+                let _ = sender.send(result.map(|suspended| json!({"suspended":suspended})));
+            }
+        })
+    }));
+    if let Err(error) = result {
+        if let Some(sender) = sender.borrow_mut().take() {
+            let _ = sender.send(Err(error));
+        }
+    }
+}
 pub(super) fn start_find(window: &WebviewWindow, tab: String, text: String, case_sensitive: bool,
     sender: tokio::sync::oneshot::Sender<Result<Value, String>>) {
     let sender = std::rc::Rc::new(RefCell::new(Some(sender)));
     let completion = sender.clone();
     let result = WINDOWS.with(|slot| slot.with_mut(|windows| {
         let browser = windows.get(window.label()).ok_or("Browser unavailable")?;
-        super::native_find::start(browser.engine.view(&tab)?, &text, case_sensitive, move |result| {
+        let (view, work) = browser.engine.begin_page_work(&tab)?;
+        super::native_find::start(view, &text, case_sensitive, move |result| {
+            drop(work);
             if let Some(sender) = completion.borrow_mut().take() { let _ = sender.send(result); }
         })
     }));
@@ -279,7 +302,8 @@ pub(super) fn capture<T: Send + 'static>(
         WINDOWS.with(|slot| {
             slot.with_mut(|windows| {
                 let browser = windows.get(window.label()).ok_or("Browser unavailable")?;
-                let view = browser.engine.view(&tab)?;
+                let (view, work) = browser.engine.begin_page_work(&tab)?;
+                let work = std::sync::Mutex::new(Some(work));
                 let url = view.url().map_err(|e| e.to_string())?;
                 if url != expected_url {
                     return Err("Browser page changed; read it again".into());
@@ -289,6 +313,7 @@ pub(super) fn capture<T: Send + 'static>(
                     REVISIONS.with(|s| s.borrow().get(window.label()).copied().unwrap_or(0));
                 let owner = window.clone();
                 view.evaluate_script_with_callback(script, move |raw| {
+                    if let Ok(mut work) = work.lock() { work.take(); }
                     let owner = owner.clone();
                     let tab = tab.clone();
                     let url = url.clone();
@@ -370,7 +395,7 @@ pub(super) fn page_output(
     let result = crate::require_workspace_window(window).and_then(|_| {
         WINDOWS.with(|slot| slot.with_mut(|windows| {
             let browser = windows.get(window.label()).ok_or("Browser unavailable")?;
-            let view = browser.engine.view(&tab)?;
+            let (view, work) = browser.engine.begin_page_work(&tab)?;
             let stamp = browser.engine.document_revision(&tab)?;
             let surface = REVISIONS.with(|revisions| revisions.borrow().get(window.label()).copied());
             if let Some(expected) = &expected_url {
@@ -383,6 +408,7 @@ pub(super) fn page_output(
             }
             let owner = window.clone();
             super::page_output::capture(view, format, move |output| {
+                drop(work);
                 let queued = completion.clone();
                 let app = owner.app_handle().clone();
                 let dispatched = app.run_on_main_thread(move || {

@@ -34,6 +34,7 @@ async function start(initialNative = [first, peer]) {
   let emit;
   let revision = 0;
   let failCreation = false;
+  let resolveSuspension;
   const requests = [];
   const saves = [];
   const container = document.createElement("main");
@@ -49,6 +50,7 @@ async function start(initialNative = [first, peer]) {
     const request = args.request;
     requests.push(request);
     if (request.kind === "status") return { surfaceRevision: 0, tabs: initialNative };
+    if (request.kind === "suspend") return new Promise(resolve => { resolveSuspension = resolve; });
     if (request.kind === "create" && failCreation) {
       failCreation = false;
       throw new Error("Test controller unavailable");
@@ -68,6 +70,13 @@ async function start(initialNative = [first, peer]) {
     event: payload => emit(payload),
     status: () => container.querySelector('.browser-footer > [role="status"]').textContent,
     failNextCreation: () => { failCreation = true; },
+    finishSuspend: suspended => resolveSuspension({ suspended }),
+    tabAction: (id, label) => {
+      const tab = container.querySelector(`[data-browser-tab-id="${id}"] [role="tab"]`);
+      tab.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      return [...document.querySelectorAll('.browser-tab-menu:not([hidden]) [role="menuitem"]')]
+        .find(button => button.textContent === t(label));
+    },
     reload: () => container.querySelector(`button[aria-label="${t("Reload")}"]`).click(),
   };
 }
@@ -128,4 +137,49 @@ it("keeps a crashed tab retryable after new controller creation fails", async ()
   expect(view.requests.filter(request => request.kind === "create")).toHaveLength(2);
   expect(view.requests.filter(request => request.kind === "close")).toEqual([{ kind: "close", tab: first.id }]);
   expect(view.saves).toEqual([]);
+});
+
+
+it("offers suspension only for a live background tab and switches while the WebView2 request is pending", async () => {
+  const view = await start();
+  expect(view.tabAction(first.id, "Suspend background tab")).toBeUndefined();
+  view.tabAction(peer.id, "Suspend background tab").click();
+  await waitFor(() => expect(view.requests.filter(request => request.kind === "suspend")).toEqual([
+    { kind: "suspend", tab: peer.id },
+  ]));
+  await view.select(peer.id);
+  await waitFor(() => expect(view.requests.some(request => request.kind === "present" && request.tab === peer.id)).toBe(true));
+  view.finishSuspend(false);
+  await Promise.resolve();
+  expect(view.status()).toBe("");
+  expect(view.requests.filter(request => request.kind === "create" || request.kind === "close")).toEqual([]);
+  expect(view.saves.at(-1).tabs).toEqual([first, peer]);
+});
+
+it("allows closing the same tab while suspension is pending and discards its late response", async () => {
+  const view = await start();
+  view.tabAction(peer.id, "Suspend background tab").click();
+  await waitFor(() => expect(view.requests.some(request => request.kind === "suspend")).toBe(true));
+  expect(view.tabAction(peer.id, "Suspend background tab").disabled).toBe(true);
+  view.tabAction(peer.id, "Close tab").click();
+  await waitFor(() => expect(view.requests.filter(request => request.kind === "close")).toEqual([
+    { kind: "close", tab: peer.id },
+  ]));
+  view.finishSuspend(true);
+  await Promise.resolve();
+  expect(view.status()).toBe("");
+  expect(view.saves.at(-1).tabs).toEqual([first]);
+});
+
+it("confirms successful suspension and reselects the same native tab without rebuilding it", async () => {
+  const view = await start();
+  view.tabAction(peer.id, "Suspend background tab").click();
+  await waitFor(() => expect(view.requests.some(request => request.kind === "suspend")).toBe(true));
+  view.finishSuspend(true);
+  await waitFor(() => expect(view.status()).toBe(t("Background tab suspended")));
+  expect(view.saves).toEqual([]);
+  await view.select(peer.id);
+  await waitFor(() => expect(view.requests.some(request => request.kind === "present" && request.tab === peer.id)).toBe(true));
+  expect(view.status()).toBe("");
+  expect(view.requests.filter(request => request.kind === "create" || request.kind === "close")).toEqual([]);
 });

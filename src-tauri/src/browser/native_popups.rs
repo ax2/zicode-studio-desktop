@@ -44,6 +44,9 @@ impl PendingPopups {
     pub(super) fn retain_source(&self, tab: Option<&str>) {
         drop(self.take_if(|request| Some(request.tab.as_str()) != tab));
     }
+    pub(super) fn pending_for(&self, tab: &str) -> bool {
+        self.0.borrow().as_ref().is_some_and(|request| request.tab == tab)
+    }
     pub(super) fn cancel_source(&self, tab: &str) {
         drop(self.take_if(|request| request.tab == tab));
     }
