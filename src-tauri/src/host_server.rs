@@ -789,8 +789,7 @@ impl HostServer {
             .route(
                 "/v2/plugin-resources/prepare-local-directory",
                 post(plugin_resources::local_directory::prepare)
-                    // The 32 KiB manifest's line breaks are escaped in JSON.
-                    .layer(axum::extract::DefaultBodyLimit::max(96 * 1024)),
+                    .layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
             )
             .route(
                 "/v2/plugin-resources/commit-local-directory",

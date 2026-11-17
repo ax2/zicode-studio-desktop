@@ -12,12 +12,11 @@ function setup(report) {
   const container = document.body;
   const manifest = report.map(({ name, expected }) => `${expected}  ${name}`).join("\r\n");
   const gateway = {
-    projectDirectories: {
-      choose: vi.fn(async () => "resources"),
-      prepareChecksum: vi.fn(async (owner, relativePath) => ({
-        schemaVersion: 1, profile, grantId, owner, relativePath, confirmed: false, entryNamesRead: false,
+    checksumFolders: {
+      prepare: vi.fn(async (_workspace, owner) => ({
+        schemaVersion: 1, profile, grantId, owner, displayName: "素材", confirmed: false, entryNamesRead: false,
       })),
-      commitChecksum: vi.fn(async () => ({ schemaVersion: 1, profile, entries: report })),
+      commit: vi.fn(async () => ({ schemaVersion: 1, profile, entries: report })),
       cancel: vi.fn(async () => ({})),
     },
     searchTools: vi.fn(async () => ({ revision: other, items: [{ pluginId, capabilityId, enabled: true, runtime: "wasi", version: "0.2.0" }] })),
@@ -59,7 +58,8 @@ it("confirms before reading a directory and checks all 64 entries through four b
   const { gateway, button } = setup(report);
   button("Choose folder to verify").click();
   await vi.waitFor(() => expect(button("Confirm and verify folder").hidden).toBe(false));
-  expect(gateway.projectDirectories.commitChecksum).not.toHaveBeenCalled();
+  expect(gateway.checksumFolders.prepare.mock.calls[0][0]).toBe("w");
+  expect(gateway.checksumFolders.commit).not.toHaveBeenCalled();
   expect(gateway.invoke).not.toHaveBeenCalled();
   button("Confirm and verify folder").click();
   await vi.waitFor(() => expect(document.body.textContent).toContain("Manifest review completed"));
@@ -74,14 +74,14 @@ it("discards a late Host response after cancellation and sends nothing to the Wo
   const report = [{ name: "a.txt", expected: sha, actual: sha, status: "match" }];
   const { button, gateway } = setup(report);
   let resolveCommit;
-  gateway.projectDirectories.commitChecksum.mockImplementation(() => new Promise(resolve => { resolveCommit = resolve; }));
+  gateway.checksumFolders.commit.mockImplementation(() => new Promise(resolve => { resolveCommit = resolve; }));
   button("Choose folder to verify").click();
   await vi.waitFor(() => expect(button("Confirm and verify folder").hidden).toBe(false));
   button("Confirm and verify folder").click();
   button("Cancel").click();
   resolveCommit({ schemaVersion: 1, profile, entries: report });
   await vi.waitFor(() => expect(button("Choose folder to verify").disabled).toBe(false));
-  expect(gateway.projectDirectories.cancel).toHaveBeenCalledOnce();
+  expect(gateway.checksumFolders.cancel).toHaveBeenCalledOnce();
   expect(gateway.invoke).not.toHaveBeenCalled();
   expect(document.querySelectorAll("li")).toHaveLength(0);
 });

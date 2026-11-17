@@ -37,15 +37,15 @@ function element(tag, className) {
 }
 
 export function createChecksumFolderReview({ container, gateway, getTarget, isCurrent, isBlocked, onBusy }) {
-  const api = gateway.projectDirectories;
-  if (!api?.prepareChecksum || typeof gateway.searchTools !== "function") return null;
+  const api = gateway.checksumFolders;
+  if (!api || typeof gateway.searchTools !== "function") return null;
   const root = element("details", "file-digest-manifest-review");
   const title = element("summary"), fileSlot = element("div"), input = element("textarea", "ui-textarea");
   const bar = element("div", "ui-toolbar file-digest-manifest-actions");
   const choose = element("button", "ui-button ui-button--secondary");
   const verify = element("button", "ui-button ui-button--secondary");
   const cancel = element("button", "ui-button ui-button--secondary");
-  const status = element("p"), summary = element("p"), list = element("ul");
+  const status = element("p"), summary = element("bdi"), list = element("ul");
   status.setAttribute("role", "status"); summary.setAttribute("translate", "no");
   input.rows = 4; input.maxLength = 32768; input.setAttribute("translate", "no");
   bar.append(choose, verify, cancel);
@@ -76,7 +76,7 @@ export function createChecksumFolderReview({ container, gateway, getTarget, isCu
     verify.textContent = t("Confirm and verify folder");
     cancel.textContent = t("Cancel");
     status.textContent = statusKey ? t(statusKey) : "";
-    summary.textContent = pending?.phase === "confirm" && pending.path !== "." ? pending.path.split("/").at(-1) : "";
+    summary.textContent = pending?.phase === "confirm" ? pending.displayName : "";
     list.replaceChildren(...rows.map(row => {
       const item = element("li"), name = element("bdi");
       name.textContent = row.name;
@@ -90,7 +90,7 @@ export function createChecksumFolderReview({ container, gateway, getTarget, isCu
   function update() { onBusy(Boolean(pending) || imported); render(); }
   function edited() { revision++; statusKey = ""; rows = []; render(); }
   const cancelGrant = async (job, grantId = job.grantId) => {
-    if (grantId) await api.cancel(job.owner, grantId).catch(() => {});
+    if (grantId) await api.cancel(job.target.workspaceId, job.owner, grantId).catch(() => {});
   };
 
   input.addEventListener("input", edited);
@@ -107,18 +107,18 @@ export function createChecksumFolderReview({ container, gateway, getTarget, isCu
     statusKey = "";
     update();
     try {
-      const path = await api.choose(target.workspaceId);
-      if (!current(job) || typeof path !== "string" || !path) return;
-      const preview = await api.prepareChecksum(owner, path, manifest);
+      const preview = await api.prepare(target.workspaceId, owner, manifest);
+      if (preview === null) return;
       const grantId = /^[0-9a-f-]{36}$/u.test(preview?.grantId ?? "") ? preview.grantId : null;
       if (!current(job) || !grantId || preview.profile !== profile || preview.schemaVersion !== 1 ||
-          preview.relativePath !== path || preview.confirmed !== false || preview.entryNamesRead !== false ||
+          typeof preview.displayName !== "string" || /[\\/]/u.test(preview.displayName) ||
+          preview.confirmed !== false || preview.entryNamesRead !== false ||
           Object.keys(owner).some(key => preview.owner?.[key] !== owner[key])) {
         await cancelGrant(job, grantId);
         if (current(job)) throw new Error("invalid_checksum_folder");
         return;
       }
-      Object.assign(job, { grantId, phase: "confirm", path });
+      Object.assign(job, { grantId, phase: "confirm", displayName: preview.displayName });
       statusKey = "Confirm reading the listed files from the selected folder.";
     } catch {
       if (current(job)) statusKey = "Could not prepare folder verification. Check the manifest and folder access.";
@@ -134,7 +134,7 @@ export function createChecksumFolderReview({ container, gateway, getTarget, isCu
     statusKey = "Verifying files in the selected folder…";
     render();
     try {
-      const result = await api.commitChecksum(job.owner, job.grantId);
+      const result = await api.commit(job.target.workspaceId, job.owner, job.grantId);
       if (!current(job)) return;
       const report = validateChecksumFolder(result, job.manifest);
       const sceneId = job.target.sceneId ?? "programming";

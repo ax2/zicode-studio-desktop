@@ -19,9 +19,13 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../.cache/task-scratch")
         .join(format!("checksum-folder-{}", uuid::Uuid::new_v4()));
-    let folder = root.join("workspace/folder");
+    let folder = root.join("用户选择的目录");
+    let workspace = root.join("workspace");
     let public = root.join("public");
     fs::create_dir_all(&folder).unwrap();
+    fs::create_dir_all(&workspace).unwrap();
+    let folder = folder.canonicalize().unwrap();
+    assert!(!folder.starts_with(workspace.canonicalize().unwrap()));
     fs::create_dir_all(&public).unwrap();
     fs::write(root.join("owner.json"), br#"{"purpose":"Checksum folder Host/Worker acceptance","lifetime":"retain compact evidence"}"#).unwrap();
     fs::create_dir(folder.join("entry-3.txt")).unwrap();
@@ -61,7 +65,7 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
         .workspace_roots()
         .write()
         .unwrap()
-        .insert(target.workspace_id.clone(), root.join("workspace"));
+        .insert(target.workspace_id.clone(), workspace);
     {
         let mut registry = host.state.plugins.lock().unwrap();
         for (id, package) in [(FILES, files_package), (MANIFEST, manifest_package)] {
@@ -88,37 +92,83 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
             .send()
     };
     let owner = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,"pluginId":FILES,"capabilityId":HASH});
+    let context = Context {
+        window: "native-workspace-checksum".into(),
+        workspace: target.workspace_id.clone(),
+        route: "/workspace".into(),
+    };
+    let foreign_window = Context {
+        window: "native-workspace-other".into(),
+        ..context.clone()
+    };
+    let foreign_route = Context {
+        route: "/other".into(),
+        ..context.clone()
+    };
+    let foreign_workspace = Context {
+        workspace: "other-workspace".into(),
+        ..context.clone()
+    };
     let prepare = || {
-        post(
-            "/v2/plugin-resources/prepare-local-directory",
-            json!({"schemaVersion":1,"owner":owner,"relativePath":"folder","checksumManifest":manifest}),
+        host.prepare_native_checksum_folder(
+            context.clone(),
+            owner.clone(),
+            manifest.clone(),
+            folder.clone(),
         )
     };
-    let commit = |grant: &Value, confirmed: bool| {
-        post(
-            "/v2/plugin-resources/commit-local-directory",
-            json!({"schemaVersion":1,"owner":owner,"grantId":grant,"confirmed":confirmed}),
+    let commit = |grant: &str, confirmed: bool| {
+        host.commit_native_checksum_folder(
+            context.clone(),
+            owner.clone(),
+            grant.to_owned(),
+            confirmed,
         )
     };
-    let preview: Value = prepare().await.unwrap().json().await.unwrap();
+    let denied = host
+        .prepare_native_checksum_folder(
+            foreign_workspace,
+            owner.clone(),
+            manifest.clone(),
+            folder.clone(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(denied, "resource_authorization_changed");
+    let preview = prepare().await.unwrap();
     assert_eq!(preview["profile"], checksum::PROFILE, "{preview}");
     assert_eq!(preview["entryNamesRead"], false);
-    assert!(preview.get("entries").is_none());
+    assert_eq!(preview["displayName"], "用户选择的目录");
+    assert!(preview.get("entries").is_none() && preview.get("relativePath").is_none());
+    assert!(!preview.to_string().contains("task-scratch"));
+    let grant_id = preview["grantId"].as_str().unwrap();
     assert_eq!(
-        commit(&preview["grantId"], false)
-            .await
-            .unwrap()
-            .json::<Value>()
-            .await
-            .unwrap()["error"]["code"],
+        commit(grant_id, false).await.unwrap_err(),
         "resource_confirmation_required"
     );
-    let report: Value = commit(&preview["grantId"], true)
+    let denied = host
+        .commit_native_checksum_folder(foreign_window, owner.clone(), grant_id.to_owned(), true)
         .await
-        .unwrap()
-        .json()
-        .await
-        .unwrap();
+        .unwrap_err();
+    assert_eq!(denied, "resource_directory_grant_unavailable");
+    let denied = host
+        .cancel_native_checksum_folder(&foreign_route, owner.clone(), grant_id.to_owned())
+        .unwrap_err();
+    assert_eq!(denied, "resource_directory_grant_unavailable");
+    let denied: Value = post(
+        "/v2/plugin-resources/commit-local-directory",
+        json!({"schemaVersion":1,"owner":owner,"grantId":grant_id,"confirmed":true}),
+    )
+    .await
+    .unwrap()
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(
+        denied["error"]["code"],
+        "resource_directory_grant_unavailable"
+    );
+    let report = commit(grant_id, true).await.unwrap();
     assert_eq!(report["profile"], checksum::PROFILE, "{report}");
     let rows = report["entries"].as_array().unwrap();
     assert_eq!(rows.len(), 64);
@@ -185,50 +235,30 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
         }
     }
     assert_eq!(
-        commit(&preview["grantId"], true)
-            .await
-            .unwrap()
-            .json::<Value>()
-            .await
-            .unwrap()["error"]["code"],
+        commit(grant_id, true).await.unwrap_err(),
         "resource_directory_grant_unavailable"
     );
-    let preview: Value = prepare().await.unwrap().json().await.unwrap();
-    let cancelled: Value = post(
-        "/v2/plugin-resources/cancel-local-directory",
-        json!({"schemaVersion":1,"owner":owner,"grantId":preview["grantId"]}),
-    )
-    .await
-    .unwrap()
-    .json()
-    .await
-    .unwrap();
+    let preview = prepare().await.unwrap();
+    let grant_id = preview["grantId"].as_str().unwrap();
+    let cancelled = host
+        .cancel_native_checksum_folder(&context, owner.clone(), grant_id.to_owned())
+        .unwrap();
     assert_eq!(cancelled["cancelled"], true, "{cancelled}");
     assert_eq!(
-        commit(&preview["grantId"], true)
-            .await
-            .unwrap()
-            .json::<Value>()
-            .await
-            .unwrap()["error"]["code"],
+        commit(grant_id, true).await.unwrap_err(),
         "resource_directory_grant_unavailable"
     );
-    let preview: Value = prepare().await.unwrap().json().await.unwrap();
+    let preview = prepare().await.unwrap();
+    let grant_id = preview["grantId"].as_str().unwrap();
     host.state
         .plugins
         .lock()
         .unwrap()
         .set_permission("programming", FILES, "resource.read", false)
         .unwrap();
-    let rejected: Value = commit(&preview["grantId"], true)
-        .await
-        .unwrap()
-        .json()
-        .await
-        .unwrap();
     assert_eq!(
-        rejected["error"]["code"], "resource_plugin_unavailable",
-        "{rejected}"
+        commit(grant_id, true).await.unwrap_err(),
+        "resource_plugin_unavailable"
     );
     assert_eq!(fs::read(folder.join("entry-0.txt")).unwrap(), b"abc");
     assert_eq!(fs::read(folder.join("entry-1.txt")).unwrap(), b"modified");

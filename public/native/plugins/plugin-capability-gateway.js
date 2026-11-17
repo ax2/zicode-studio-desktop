@@ -49,6 +49,11 @@ export class PluginCapabilityGateway {
       cancel: (workspaceId, source, grantId) => nativeInvoke("cancel_result_text_export", { workspaceId, source, grantId }),
       verify: (workspaceId, source, grantId) => nativeInvoke("verify_result_text_export", { workspaceId, source, grantId }),
     } : null;
+    this.checksumFolders = typeof nativeInvoke === "function" ? {
+      prepare: (workspaceId, owner, manifest) => nativeInvoke("select_checksum_folder", { workspaceId, owner, manifest }),
+      commit: (workspaceId, owner, grantId) => nativeInvoke("commit_checksum_folder", { workspaceId, owner, grantId, confirmed: true }),
+      cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_checksum_folder", { workspaceId, owner, grantId }),
+    } : null;
     this.savedOutputs = createSavedOutputGateway({ fetchImpl, location, timeoutMs });
     this.resourceCalls = createResourceCallJournal();
     this.projectFiles = typeof pickProjectFile === "function" ? {
@@ -64,12 +69,6 @@ export class PluginCapabilityGateway {
       choose: pickProjectDirectory,
       entry: getProjectDirectoryEntry,
       prepare: (owner, relativePath) => this.#request(this.#url("/v2/plugin-resources/prepare-local-directory"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, relativePath }) }),
-      prepareChecksum: (owner, relativePath, checksumManifest) => this.#request(this.#url("/v2/plugin-resources/prepare-local-directory"), {
-        method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, relativePath, checksumManifest }),
-      }),
-      commitChecksum: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/commit-local-directory"), {
-        method: "POST", timeoutMs: 40_000, body: JSON.stringify({ schemaVersion: 1, owner, grantId, confirmed: true }),
-      }),
       commit: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/commit-local-directory"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId, confirmed: true }) }),
       cancel: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/cancel-local-directory"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId }) }),
     } : null;

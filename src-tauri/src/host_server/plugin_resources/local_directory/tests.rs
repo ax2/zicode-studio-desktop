@@ -60,7 +60,7 @@ fn grant(root: &Path) -> Grant {
         purpose: Purpose::Metadata,
         owner: owner(),
         root: root.into(),
-        relative: ".".into(),
+        selection: Selection::Workspace(".".into()),
         proof: "proof".into(),
         registry_revision: "revision".into(),
         stamp: "stamp".into(),
@@ -132,15 +132,15 @@ fn directory_grants_require_matching_owner_and_are_one_use() {
     let id = grants.insert(grant(&fixture.0)).unwrap();
     let mut wrong = request(id.clone());
     wrong.owner.plugin_id = "other".into();
-    assert!(grants.take(&wrong).is_err());
-    assert!(grants.take(&request(id.clone())).is_ok());
-    assert!(grants.take(&request(id)).is_err());
+    assert!(grants.take(&wrong, None).is_err());
+    assert!(grants.take(&request(id.clone()), None).is_ok());
+    assert!(grants.take(&request(id), None).is_err());
     let id = grants.insert(grant(&fixture.0)).unwrap();
     assert_eq!(
-        grants.cancel(&request(id.clone())).unwrap()["cancelled"],
+        grants.cancel(&request(id.clone()), None).unwrap()["cancelled"],
         true
     );
-    assert!(grants.take(&request(id)).is_err());
+    assert!(grants.take(&request(id), None).is_err());
 }
 
 #[cfg(windows)]
@@ -152,6 +152,9 @@ fn directory_snapshot_rejects_reparse_entries_and_intermediate_directories() {
     let link = fixture.0.join("link");
     create_directory_link(&outside, &link);
     let error = open_directory(&fixture.0, "link").err().unwrap();
+    assert!(native_checksum::open_picked_directory(&outside).is_ok());
+    assert!(native_checksum::open_picked_directory(&link).is_err());
+    assert!(native_checksum::open_picked_directory(Path::new(r"\\remote\share\directory")).is_err());
     assert_eq!(
         error.1 .0["error"]["code"],
         "resource_directory_path_invalid"

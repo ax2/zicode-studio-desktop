@@ -481,3 +481,20 @@ it("routes text snapshot exports only through explicit native commands", async (
   expect(nativeInvoke.mock.calls).toEqual([["select_result_text_export", { workspaceId: "w", source }], ["commit_result_text_export", { workspaceId: "w", source, grantId: "g", confirmed: true }], ["cancel_result_text_export", { workspaceId: "w", source, grantId: "g" }], ["verify_result_text_export", { workspaceId: "w", source, grantId: "g" }]]); expect(fetchImpl).not.toHaveBeenCalled();
   expect(new PluginCapabilityGateway({ fetchImpl, nativeInvoke: null }).textExports).toBeNull();
 });
+
+it("uses the native folder picker and sends only the returned one-use grant on confirmation", async () => {
+  const nativeInvoke = vi.fn(async () => null), fetchImpl = vi.fn();
+  const gateway = new PluginCapabilityGateway({ nativeInvoke, fetchImpl });
+  const owner = { runtimeId: "runtime", sessionId: "session", pluginId: "files", capabilityId: "hash" };
+  const manifest = "a".repeat(64) + "  文件.txt";
+  await gateway.checksumFolders.prepare("workspace", owner, manifest);
+  await gateway.checksumFolders.commit("workspace", owner, "grant");
+  await gateway.checksumFolders.cancel("workspace", owner, "grant");
+  expect(nativeInvoke.mock.calls).toEqual([
+    ["select_checksum_folder", { workspaceId: "workspace", owner, manifest }],
+    ["commit_checksum_folder", { workspaceId: "workspace", owner, grantId: "grant", confirmed: true }],
+    ["cancel_checksum_folder", { workspaceId: "workspace", owner, grantId: "grant" }],
+  ]);
+  expect(fetchImpl).not.toHaveBeenCalled();
+  expect(new PluginCapabilityGateway({ fetchImpl, nativeInvoke: null }).checksumFolders).toBeNull();
+});
