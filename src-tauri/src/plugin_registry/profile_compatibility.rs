@@ -76,6 +76,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             | crate::plugin_resource_execution::markdown::PROFILE
             | crate::plugin_resource_execution::file_digest::PROFILE
             | crate::plugin_resource_execution::encoding::PROFILE
+            | crate::plugin_resource_execution::encoding::CONVERT_PROFILE
             | crate::plugin_worker::resource_output::Profile::METADATA_NAME
             | crate::plugin_worker::resource_output::Profile::METADATA_SAVE
             | crate::plugin_registry::resource_input_types::PROFILE
@@ -96,7 +97,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
                     if range == "=1.0.0-preview.1" { crate::plugin_resource_execution::markdown::LEGACY_VERSION } else { crate::plugin_resource_execution::markdown::VERSION }
                 } else if name == crate::plugin_resource_execution::file_digest::PROFILE {
                     crate::plugin_resource_execution::file_digest::VERSION
-                } else if name == crate::plugin_resource_execution::encoding::PROFILE {
+                } else if crate::plugin_resource_execution::encoding::operation(Some(name)).is_some() {
                     crate::plugin_resource_execution::encoding::VERSION
                 } else if name == "resource.host.input.v1" {
                     crate::plugin_resource_execution::HOST_IMAGE_INPUT_PROFILE_VERSION
@@ -376,7 +377,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
                     && requirements.contains_key(crate::plugin_resource_execution::markdown::PROFILE))
                 || (crate::plugin_resource_execution::file_digest::selected(profile.as_str())
                     && requirements.contains_key(crate::plugin_resource_execution::file_digest::PROFILE))
-                || (crate::plugin_resource_execution::encoding::selected(profile.as_str()) && requirements.contains_key(crate::plugin_resource_execution::encoding::PROFILE)))
+                || (profile.as_str().is_some_and(|name| crate::plugin_resource_execution::encoding::operation(Some(name)).is_some() && requirements.contains_key(name))))
             {
                 return Err("Capability executionProfile is unsupported or missing its requiredProfiles declaration".into());
             }

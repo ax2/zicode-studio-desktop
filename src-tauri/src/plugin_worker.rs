@@ -240,9 +240,9 @@ fn execute_wasi_bundle(
     let metadata_profile = request.execution_profile.as_deref() == Some(resource_output::Profile::METADATA_EXECUTION);
     let markdown_profile = crate::plugin_resource_execution::markdown::selected(request.execution_profile.as_deref());
     let digest_profile = crate::plugin_resource_execution::file_digest::selected(request.execution_profile.as_deref());
-    let encoding_profile = crate::plugin_resource_execution::encoding::selected(request.execution_profile.as_deref());
+    let encoding_profile = crate::plugin_resource_execution::encoding::operation(request.execution_profile.as_deref());
     let output_profile = if metadata_profile { resource_output::Profile::ImageMetadata2 } else { resource_output::Profile::Draft1 };
-    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !encoding_profile {
+    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && encoding_profile.is_none() {
         return Err("Unsupported resource execution profile".into());
     }
     if image_resize_profile && (!resource_mode || !binary) {
@@ -262,11 +262,11 @@ fn execute_wasi_bundle(
             "Regex replacement execution profile requires resource input and output".into(),
         );
     }
-    if encoding_profile {
+    if let Some(encoding) = encoding_profile {
         if !resource_mode || !binary {
-            return Err("Encoding inspection requires a resource snapshot".into());
+            return Err("Encoding requires a resource snapshot".into());
         }
-        crate::plugin_resource_execution::encoding::validate_input(&request.plugin_id, request.capability_id.as_deref(),
+        encoding.validate_input(&request.plugin_id, request.capability_id.as_deref(),
             &resources.iter().map(|resource| resource.bytes.len()).collect::<Vec<_>>())?;
     }
     let mut envelope = serde_json::json!({
@@ -356,7 +356,7 @@ fn execute_wasi_bundle(
                 crate::plugin_resource_execution::markdown::MEMORY_MIB
             } else if image_resize_profile {
                 crate::plugin_resource_execution::IMAGE_RESIZE_MEMORY_MIB
-            } else if encoding_profile {
+            } else if encoding_profile.is_some() {
                 crate::plugin_resource_execution::encoding::MEMORY_MIB
             } else if resource_mode {
                 256
@@ -390,8 +390,8 @@ fn execute_wasi_bundle(
             crate::plugin_resource_regex::FUEL
         } else if digest_profile {
             crate::plugin_resource_execution::file_digest::FUEL
-        } else if encoding_profile {
-            crate::plugin_resource_execution::encoding::FUEL
+        } else if let Some(encoding) = encoding_profile {
+            encoding.fuel()
         } else {
             10_000_000
         })

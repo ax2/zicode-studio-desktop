@@ -141,11 +141,13 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const select = Number.isInteger(maxResources) && maxResources >= 2 && maxResources <= 4
     ? createMultiResourceSelection : createPluginResourceSelection;
   const plugin = { id: tool.pluginId, name: tool.applicationName, version: tool.version, capabilities: [{ id: tool.capabilityId, title: tool.title }] };
-  const inspectFullFile = detail.capability.executionProfile === "resource.wasi.encoding-inspect.v1" &&
-    tool.pluginId === "com.zicode.devtools.encoding" && tool.capabilityId === "devtools.encoding.inspect";
+  const fullFileEncoding = tool.pluginId === "com.zicode.devtools.encoding" && (
+    (detail.capability.executionProfile === "resource.wasi.encoding-inspect.v1" && tool.capabilityId === "devtools.encoding.inspect") ||
+    (detail.capability.executionProfile === "resource.wasi.encoding-utf8.v1" && tool.capabilityId === "devtools.encoding.to_utf8")
+  );
   const selectionOptions = { container: selectionContainer, plugin, target, gateway, catalogRevision: detail.revision, maxResources,
     markdownDraftMode, allowOriginalFile: fileDigest,
-    ...(inspectFullFile ? { maxBytes: 8 * 1024 * 1024 } : {}),
+    ...(fullFileEncoding ? { maxBytes: 8 * 1024 * 1024 } : {}),
     readInput: (resource, offset, length, current) => read({ capabilityId: tool.capabilityId }, resource, offset, length, current),
     minResources: detail.capability.resourceInputMin ?? 1, resourceLabels: detail.capability.resourceInputLabels ?? [],
     isCurrent: () => valid() && !running,

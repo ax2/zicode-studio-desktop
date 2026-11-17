@@ -411,8 +411,8 @@ fn execute(
         let metadata_profile = crate::plugin_resource_execution::metadata::selected(capability.execution_profile.as_deref());
         let markdown_profile = crate::plugin_resource_execution::markdown::selected(capability.execution_profile.as_deref());
         let digest_profile = crate::plugin_resource_execution::file_digest::selected(capability.execution_profile.as_deref());
-        let encoding_profile = crate::plugin_resource_execution::encoding::selected(capability.execution_profile.as_deref());
-        if capability.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !encoding_profile
+        let encoding_profile = crate::plugin_resource_execution::encoding::operation(capability.execution_profile.as_deref());
+        if capability.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && encoding_profile.is_none()
         {
             return Err(rejected("resource_execution_profile_unsupported"));
         }
@@ -420,7 +420,7 @@ fn execute(
             return Err(rejected("resource_profile_unsupported"));
         }
         // Both negotiated heavy profiles share the same global memory reservation pool.
-        let profile_lease = if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || encoding_profile {
+        let profile_lease = if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || encoding_profile.is_some() {
             let call_lease = state
                 .plugin_resource_workers
                 .image_profile_slots
@@ -493,9 +493,9 @@ fn execute(
         crate::plugin_resource_regex::selected(output_contract.execution_profile.as_deref());
     let markdown_profile = crate::plugin_resource_execution::markdown::selected(output_contract.execution_profile.as_deref());
     let digest_profile = crate::plugin_resource_execution::file_digest::selected(output_contract.execution_profile.as_deref());
-    let encoding_profile = crate::plugin_resource_execution::encoding::selected(output_contract.execution_profile.as_deref());
-    if encoding_profile {
-        crate::plugin_resource_execution::encoding::validate_input(&owner.plugin_id, Some(&owner.capability_id),
+    let encoding_profile = crate::plugin_resource_execution::encoding::operation(output_contract.execution_profile.as_deref());
+    if let Some(encoding) = encoding_profile {
+        encoding.validate_input(&owner.plugin_id, Some(&owner.capability_id),
             &resources.iter().map(|resource| resource.bytes.len()).collect::<Vec<_>>()).map_err(rejected)?;
     }
     if digest_profile {
@@ -537,7 +537,7 @@ fn execute(
         "sceneId":scene,"input":request.input
     });
     let metadata_profile=crate::plugin_resource_execution::metadata::selected(output_contract.execution_profile.as_deref());
-    if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || encoding_profile {
+    if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || encoding_profile.is_some() {
         worker_request["executionProfile"] = json!(output_contract.execution_profile);
     }
     if binary {
@@ -602,7 +602,7 @@ fn execute(
                     crate::plugin_resource_regex::TIMEOUT_SECS
                 } else if digest_profile {
                     crate::plugin_resource_execution::file_digest::TIMEOUT_SECS
-                } else if encoding_profile {
+                } else if encoding_profile.is_some() {
                     crate::plugin_resource_execution::encoding::TIMEOUT_SECS
                 } else {
                     5

@@ -91,7 +91,9 @@ fn encoding_8_mib_worker_checks_full_input_and_matches_native() {
             "{case}"
         );
         assert_eq!(actual.result, expected, "{case}");
-        policy::validate_output(&actual.result, policy::MAX_BYTES, 0).unwrap();
+        policy::Operation::Inspect
+            .validate_output(&actual, policy::MAX_BYTES, &json!({}))
+            .unwrap();
         if case == "malformed-utf8-tail" {
             assert_eq!(actual.result["strictlyDecodable"], false);
         }

@@ -79,9 +79,9 @@ pub(super) fn register(
         return Err(rejected("result_too_large"));
     }
     validate_result(capability, &bundle.result)?;
-    if crate::plugin_resource_execution::encoding::selected(capability.execution_profile.as_deref()) {
+    if let Some(encoding) = crate::plugin_resource_execution::encoding::operation(capability.execution_profile.as_deref()) {
         let [bytes] = profiles.source_bytes else { return Err(rejected("invalid_output")) };
-        crate::plugin_resource_execution::encoding::validate_output(&bundle.result, bytes.len(), bundle.resources.len()).map_err(rejected)?;
+        encoding.validate_output(&bundle, bytes.len(), &request.input).map_err(rejected)?;
     }
     let sources = request.accesses().cloned().collect::<Vec<_>>();
     let mut pending = if profiles.output==crate::plugin_worker::resource_output::Profile::Draft1 {
