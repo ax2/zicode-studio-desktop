@@ -253,20 +253,76 @@ impl HostServer {
                 state: state.clone(),
                 id,
             };
-            let result = execute(&state, grant.clone(), run.clone(), expected)?;
+            let mut result = execute(&state, grant.clone(), run.clone(), expected)?;
             check_scope(&state, &grant)?;
-            let _store = state
+            let mut store = state
                 .plugin_resources
                 .lock()
                 .map_err(|_| rejected("resource_store_unavailable"))?;
             if run.cancelled.load(Ordering::Acquire) {
                 return Err(rejected("worker_cancelled"));
             }
+            let hashes = result["result"]["files"]
+                .as_array()
+                .ok_or_else(|| rejected("invalid_output"))?;
+            let originals = grant
+                .files
+                .iter()
+                .zip(hashes)
+                .map(|(file, row)| {
+                    if file.stamp.1 > file_reference::MAX_BYTES as u64 {
+                        return None;
+                    }
+                    Some(store::StreamOriginal {
+                        file: Arc::new(file_reference::OriginalFile::new(
+                            grant.root.clone(),
+                            file.name.clone(),
+                            file.stamp.0.clone(),
+                            Some(file.directory.clone()),
+                        )),
+                        length: file.stamp.1 as usize,
+                        sha256: row["sha256"].as_str()?.into(),
+                    })
+                })
+                .collect();
+            let (access, report) = store.publish_stream_report(
+                &grant.owner,
+                &grant.proof,
+                grant.context.clone(),
+                &result["report"],
+                originals,
+            )?;
+            result["reportResource"] = report;
+            result["reportAccess"] =
+                serde_json::to_value(access).map_err(|_| rejected("invalid_output"))?;
+            store.digest_streams.active.remove(&_lease.id);
             Ok(result)
         })
         .await
         .map(|Json(value)| value)
         .map_err(code)
+    }
+
+    pub(crate) fn prepare_native_digest_stream_original(
+        &self,
+        context: &Context,
+        report_value: Value,
+        index: usize,
+    ) -> Result<Value, String> {
+        let report: Access =
+            serde_json::from_value(report_value).map_err(|_| "resource_scope_invalid")?;
+        validate(&report).map_err(code)?;
+        if !file_reference::is_source(&report.owner) {
+            return Err("resource_scope_invalid".into());
+        }
+        let (_, proof) = scope_in_workspace(&self.state, &report.owner, Some(&context.workspace))
+            .map_err(code)?;
+        self.state
+            .plugin_resources
+            .lock()
+            .map_err(|_| "resource_store_unavailable")?
+            .stream_original(context, &report, &proof, index)
+            .map_err(code)
     }
 
     pub(crate) fn native_digest_stream_progress(

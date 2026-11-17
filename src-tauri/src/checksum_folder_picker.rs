@@ -205,8 +205,18 @@ pub(crate) async fn run_digest_stream_files(
 ) -> Result<Value, String> {
     let original = context(&window, &workspace_id)?;
     let result = window.state::<HostServer>().run_native_digest_stream(original.clone(), owner, grant_id, confirmed, expected).await?;
-    if context(&window, &workspace_id)? != original { return Err("resource_directory_window_changed".into()); }
+    if context(&window, &workspace_id).ok().as_ref() != Some(&original) {
+        window.state::<HostServer>().discard_native_digest_snapshot(&serde_json::json!({"access":result["reportAccess"]}));
+        return Err("resource_directory_window_changed".into());
+    }
     Ok(result)
+}
+
+#[tauri::command]
+pub(crate) fn prepare_digest_stream_original(
+    window: WebviewWindow, workspace_id: String, report: Value, index: usize,
+) -> Result<Value, String> {
+    window.state::<HostServer>().prepare_native_digest_stream_original(&context(&window, &workspace_id)?, report, index)
 }
 
 #[tauri::command]

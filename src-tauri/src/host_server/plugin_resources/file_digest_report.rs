@@ -7,6 +7,9 @@ use super::*;
 const FILES_012_MODULE_SHA256: &str =
     "5ad444f573c238b5f22b92d18b6f16543ba5ebdf5435a36172c512794bbd9f4d";
 
+const FILES_STREAM_MODULE_SHA256: &str =
+    "9b69130fa4b9445c17faee3d1a92ebd263c125d221a8ccd7e81e4d0cab9867ce";
+
 pub(super) fn safe_file_name(name: &str) -> Option<&str> {
     (!name.is_empty() && name.chars().take(256).count() <= 255 && !name.chars().any(|ch| {
         ch.is_control()
@@ -17,8 +20,11 @@ pub(super) fn safe_file_name(name: &str) -> Option<&str> {
 
 pub(super) fn provenance(owner: &Owner, package_version: &str, module: &[u8]) -> Value {
     let tool_version = if file_reference::is_source(owner)
-        && package_version == "0.1.0"
-        && sha256_hex(module) == FILES_012_MODULE_SHA256
+        && match package_version {
+            "0.1.0" => sha256_hex(module) == FILES_012_MODULE_SHA256,
+            "0.2.0" => sha256_hex(module) == FILES_STREAM_MODULE_SHA256,
+            _ => false,
+        }
     {
         Some("1.2.0")
     } else {

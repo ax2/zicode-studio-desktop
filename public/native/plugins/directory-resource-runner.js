@@ -14,6 +14,7 @@ import { createMarkdownResultDetails } from "./markdown-result-details.js";
 import { loadImageReportNoteMaterial } from "./image-report-note-material.js";
 import { createFileDigestManifestReview } from "./file-digest-manifest-review.js";
 import { createChecksumFolderReview } from "./checksum-folder-review.js";
+import { streamOriginal, streamProgress, streamReport, streamReportAccess } from "./file-digest-stream.js";
 import { createFileDigestResult } from "./file-digest-result.js";
 import { createFileDigestNoteMaterial, loadFileDigestReportNoteMaterial } from "./file-digest-note-material.js";
 
@@ -33,6 +34,7 @@ function button(text, action) { const el = node("button", text, "ui-button ui-bu
 export function createDirectoryResourceRunner({ container, tool, detail, gateway, getTarget, onBusy = () => {}, onSuccess = () => {}, onReceiverExecuted, receiveNoteDraft, mountInputs = inputs }) {
   const target = getTarget?.(), original = resourceViewTarget(target);
   let active = true, reference = null, executionAccess = null, form = null, running = false, reviewBusy = false, folderBusy = false, callId = null, timer = null, invoking = false, cancelRequested = false;
+  let streamedReport = null, liveStream = null, openingOriginal = false;
   const valid = () => active && original === resourceViewTarget(getTarget?.());
   const status = node("p"); status.setAttribute("role", "status");
   const result = node("pre", null, "tool-result"), parameters = node("div"), controls = node("div", null, "ui-toolbar"), outputs = node("div");
@@ -61,6 +63,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     createMarkdownResultDetails({ raw: result, executionProfile: detail.capability.executionProfile }) ??
     createFileDigestResult({ raw: result, executionProfile: detail.capability.executionProfile, capabilityId: tool.capabilityId,
       onSendOriginal: (resource, slot) => {
+        if (Number.isInteger(resource.streamIndex)) { void sendStreamOriginal(resource.streamIndex, slot); return; }
         const sources = reference ? [reference, ...(reference.additionalResources ?? [])] : [];
         if (valid() && sources.some(source => source.resourceId === resource.resourceId && source.contentVersion === resource.contentVersion)) transfer?.open(resource, {
           runtimeId: target.instanceId, sessionId: target.sessionId, pluginId: tool.pluginId, capabilityId: tool.capabilityId,
@@ -89,11 +92,31 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     isCurrent: () => valid() && current(), params: { capabilityId: owner.capabilityId, resourceId: resource.resourceId, contentVersion: resource.contentVersion, offset, length } });
   const fileDigest = detail.capability.executionProfile === "resource.wasi.file-digest.v1" &&
     tool.pluginId === "com.zicode.devtools.files" && tool.capabilityId === "devtools.files.hash";
+  const nativeStream = fileDigest && detail.nativeDigestStream === true &&
+    ["choose", "run", "cancel", "progress", "original"].every(key => typeof gateway.digestStreams?.[key] === "function") ? gateway.digestStreams : null;
+  function releaseStreamReport() {
+    const previous = streamedReport;
+    streamedReport = null;
+    if (previous) void gateway.revokeResource(previous.access).catch(() => {});
+  }
+  async function sendStreamOriginal(index, slot) {
+    const report = streamedReport;
+    if (!valid() || !report || !nativeStream || !transfer || openingOriginal) return;
+    openingOriginal = true;
+    transfer.clear();
+    try {
+      const response = await nativeStream.original(target.workspaceId, report.access, index);
+      if (!valid() || report !== streamedReport) return;
+      transfer.open(streamOriginal(response, report, index), report.access.owner, slot);
+    } catch {
+      if (valid() && report === streamedReport) status.textContent = t("The original file moved or changed. Share it again before retrying.");
+    } finally { openingOriginal = false; }
+  }
   function refreshReviewControls() {
     if (!active) return;
     const busy = running || reviewBusy || folderBusy;
     onBusy(busy);
-    run.disabled = busy || !reference || !form;
+    run.disabled = busy || !reference || !form || reference.digestStream?.used === true;
     form?.setDisabled(busy);
     selectionContainer.inert = busy;
     manifestReview?.setBlocked(running || folderBusy);
@@ -104,6 +127,10 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       verifySources: async current => {
         const source = reference;
         if (!source || !valid() || !current()) throw new Error("file_report_unavailable");
+        if (source.digestStream && streamedReport) {
+          await read(streamedReport.access.owner, streamedReport.resource, 0, 1, () => valid() && current() && reference === source);
+          return;
+        }
         for (const resource of [source, ...(source.additionalResources ?? [])])
           await read({ capabilityId: tool.capabilityId }, resource, 0, 1, () => valid() && current() && reference === source);
       },
@@ -147,13 +174,13 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     (detail.capability.executionProfile === "resource.wasi.encoding-convert.v1" && tool.capabilityId === "devtools.encoding.convert")
   );
   const selectionOptions = { container: selectionContainer, plugin, target, gateway, catalogRevision: detail.revision, maxResources,
-    markdownDraftMode, allowOriginalFile: fileDigest,
+    markdownDraftMode, allowOriginalFile: fileDigest, nativeStream,
     ...(fullFileEncoding ? { maxBytes: 8 * 1024 * 1024 } : {}),
     readInput: (resource, offset, length, current) => read({ capabilityId: tool.capabilityId }, resource, offset, length, current),
     minResources: detail.capability.resourceInputMin ?? 1, resourceLabels: detail.capability.resourceInputLabels ?? [],
     isCurrent: () => valid() && !running,
     onResource: value => {
-      clearTimeout(timer); reference = value; result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
+      clearTimeout(timer); releaseStreamReport(); reference = value; result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
       run.disabled = !value || !form || running || reviewBusy || folderBusy;
     } };
   const directoryAvailable = detail.permissions.some(p => p.name === "resource.directory.read" && p.granted) &&
@@ -180,7 +207,17 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     if (!valid()) { value.destroy(); return; } form = value; refreshReviewControls();
   }).catch(() => { if (valid()) status.textContent = t("This tool's parameter schema is not supported by the generic form. Choose another tool."); });
   async function stop() {
-    if (!callId || !valid()) return;
+    if (!valid()) return;
+    const stream = liveStream;
+    if (stream) {
+      cancelRequested = true; cancel.disabled = true;
+      try {
+        await nativeStream.cancel(target.workspaceId, stream.owner, stream.grantId);
+        if (valid() && liveStream === stream) status.textContent = t("Cancellation requested. Waiting for the tool to finish.");
+      } catch { if (valid() && liveStream === stream) status.textContent = t("Cancellation could not be confirmed. Wait before running again."); }
+      return;
+    }
+    if (!callId) return;
     cancelRequested = true;
     cancel.disabled = true;
     if (!invoking && !computation.unresolved(callId)) { status.textContent = t("Cancellation requested. Waiting for the tool to finish."); return; }
@@ -200,10 +237,60 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     } catch (error) { if (valid()) status.textContent = t(resourceCallRecoveryMessage(null, error)); }
     finally { if (valid()) check.disabled = false; }
   }
+  async function executeStream(access, input) {
+    const chosen = access.digestStream;
+    if (chosen.used) return;
+    chosen.used = true; liveStream = chosen; running = true; cancelRequested = false;
+    clearTimeout(timer); releaseStreamReport(); result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
+    cancel.disabled = false; refreshReviewControls(); status.textContent = t("Running…");
+    const current = () => valid() && reference === access;
+    const stopProgress = streamProgress(container,
+      () => nativeStream.progress(target.workspaceId, chosen.owner, chosen.grantId), chosen, current);
+    let reply;
+    try {
+      reply = await nativeStream.run(target.workspaceId, chosen.owner, chosen.grantId, input.expected ?? "");
+      if (!current() || cancelRequested) return;
+      liveStream = null; cancel.disabled = true; stopProgress();
+      const report = streamReport(reply, chosen, input);
+      streamedReport = report;
+      result.textContent = JSON.stringify(reply.report ?? report.result, null, 2);
+      const originals = transfer ? report.rows.map(row => row.bytes <= 8 * 1024 * 1024 ? { streamIndex: row.index, byteLength: row.bytes } : null) : [];
+      metadataResult?.setReportResource(report.resource, report.access.owner);
+      metadataResult?.show(report.result, report.names, input, originals, { streamed: true });
+      manifestReview?.show(report.result, report.names);
+      preview.show([report.resource], report.access.owner, ["File digest results"]);
+      status.textContent = t("File checks completed. Original files were not changed.");
+      try { await onSuccess(reply); } catch { if (current()) status.textContent = t("Tool completed, but history could not be saved."); }
+      const verify = async () => {
+        if (!current() || streamedReport !== report) return;
+        try {
+          await read(report.access.owner, report.resource, 0, 1, current);
+          if (current() && streamedReport === report) timer = setTimeout(verify, 5000);
+        } catch {
+          if (current() && streamedReport === report) {
+            releaseStreamReport(); result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
+            status.textContent = t("Tool access expired or changed. Refresh tools and confirm sharing again.");
+          }
+        }
+      };
+      if (current()) timer = setTimeout(verify, 5000);
+    } catch (error) {
+      if (current()) status.textContent = t(cancelRequested || error === "worker_cancelled"
+        ? "Tool execution was cancelled. Choose the files again to run."
+        : "File checks could not complete. Check access and select the files again.");
+    } finally {
+      const unclaimed = streamReportAccess(reply, chosen.owner);
+      if (unclaimed && unclaimed.resourceId !== streamedReport?.access.resourceId)
+        void gateway.revokeResource(unclaimed).catch(() => {});
+      if (current() && cancelRequested) status.textContent = t("Tool execution was cancelled. Choose the files again to run.");
+      stopProgress(); liveStream = null; running = false; cancel.disabled = true; refreshReviewControls();
+    }
+  }
   async function execute() {
     if (!valid() || running || reviewBusy || folderBusy || !reference || !form) return;
     const prepared = form.prepare(); if (prepared.error) { status.textContent = t(prepared.error); return; }
     const input = { ...prepared.input, ...selection.getInputOptions?.() };
+    if (reference.digestStream) return executeStream(reference, input);
     const access = reference; executionAccess = access;
     // Names remain in the trusted parent; they are never added to the Worker request.
     const displayNames = selection.getDisplayNames?.() ?? [];
@@ -264,7 +351,9 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   }
   return { destroy() {
     if (!active) return;
-    active = false; clearTimeout(timer); computation.destroy(); selection.destroy(); preview.destroy(); manifestReview?.destroy(); folderReview?.destroy(); metadataResult?.destroy(); transfer?.destroy(); save?.destroy(); form?.destroy();
+    active = false; clearTimeout(timer);
+    if (liveStream) void nativeStream.cancel(target.workspaceId, liveStream.owner, liveStream.grantId).catch(() => {});
+    releaseStreamReport(); computation.destroy(); selection.destroy(); preview.destroy(); manifestReview?.destroy(); folderReview?.destroy(); metadataResult?.destroy(); transfer?.destroy(); save?.destroy(); form?.destroy();
     container.replaceChildren();
   } };
 }

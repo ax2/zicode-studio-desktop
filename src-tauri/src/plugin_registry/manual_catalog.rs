@@ -453,8 +453,12 @@ impl PluginRegistry {
             }).collect();
         let resource_input_profile = capability.get("resourceInputProfile").and_then(Value::as_str)
             .or_else(|| plugin.manifest.runtime.get("resourceInputProfile").and_then(Value::as_str));
+        use crate::plugin_resource_execution::file_digest as digest;
+        let native_digest_stream = cfg!(windows) && request.plugin_id == digest::PLUGIN && request.capability_id == digest::CAPABILITY
+            && plugin.manifest.required_profiles[digest::STREAM_PROFILE] == "=1.0.0-preview.1";
         Ok(
             json!({"schemaVersion":1,"sceneId":request.scene_id,"revision":revision,
+            "nativeDigestStream":native_digest_stream,
             "pluginId":request.plugin_id,"version":plugin.manifest.version,
             "resourceInputProfile":resource_input_profile,
             "enabled":self.manual_enabled(&request.scene_id,plugin),

@@ -66,7 +66,8 @@ impl Store {
             return Err(rejected("resource_transfer_busy"));
         }
         let record = &self.records[&source.resource_id];
-        let original = if record.is_file_reference() {
+        let verified_stream = matches!(record.original, Some(file_reference::FileBinding::VerifiedStream(_)));
+        let original = if record.is_file_reference() && !(original_file_limit.is_some() && verified_stream) {
             return Err(rejected("resource_file_reference_requires_run"));
         } else if let Some(limit) = original_file_limit {
             Some(file_reference::checked_source(record.original.as_ref(), record.expected, &source.owner, &target, limit)?)

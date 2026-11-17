@@ -6,6 +6,8 @@ const MAX_RECORDS: usize = 32;
 const MAX_CHUNKS: usize = MAX_RESOURCE.div_ceil(MAX_CHUNK);
 
 mod file_reference_store;
+mod stream_reports;
+pub(in crate::host_server::plugin_resources) use stream_reports::StreamOriginal;
 
 struct Record {
     output_profile: crate::plugin_worker::resource_output::Profile,
@@ -39,6 +41,7 @@ pub(crate) struct Store {
     pub(super) digest_streams: local_file::digest_stream::Grants,
     pub(super) directory_imports: local_directory::Grants,
     records: HashMap<String, Record>,
+    stream_reports: HashMap<String, stream_reports::StreamReport>,
     transfers: HashMap<String, transfer::Grant>,
     saves: HashMap<String, save::SaveGrant>,
 }
@@ -162,6 +165,7 @@ impl Store {
                 self.records.remove(&id);
             }
         }
+        self.stream_reports.retain(|id, _| self.records.contains_key(id));
     }
 
     pub(super) fn prepare(&mut self, request: Prepare, proof: String) -> Result<Value, ApiError> {

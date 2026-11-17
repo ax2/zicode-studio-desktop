@@ -70,6 +70,7 @@ pub(super) enum FileBinding {
         verified: bool,
     },
     AwaitingRead(Arc<OriginalFile>),
+    VerifiedStream(Arc<OriginalFile>),
 }
 
 impl OriginalFile {
@@ -166,7 +167,7 @@ pub(super) fn checked_source(
         Some(FileBinding::Source {
             file,
             verified: true,
-        }) => Ok(file.clone()),
+        }) | Some(FileBinding::VerifiedStream(file)) => Ok(file.clone()),
         _ => Err(rejected("resource_file_reference_unavailable")),
     }
 }

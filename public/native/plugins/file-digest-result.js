@@ -36,10 +36,10 @@ export function createFileDigestResult({ raw, executionProfile, capabilityId, on
       if (isCurrent()) noteStatus.textContent = t("Could not create the note draft. Check file access and try again.");
     } finally { if (isCurrent()) note.disabled = completed; }
   });
-  function valid(value) {
+  function valid(value, streamed) {
     return value?.ok === true && value.schemaVersion === 2 && value.material === "file-integrity-report-list" &&
-      Array.isArray(value.files) && value.files.length >= 1 && value.files.length <= 4 &&
-      value.files.every((row, index) => row?.index === index && Number.isSafeInteger(row.bytes) && row.bytes >= 0 && row.bytes <= 33554432 &&
+      Array.isArray(value.files) && value.files.length >= 1 && value.files.length <= (streamed ? 64 : 4) &&
+      value.files.every((row, index) => row?.index === index && Number.isSafeInteger(row.bytes) && row.bytes >= 0 && (streamed || row.bytes <= 33554432) &&
         hex(row.sha256, 64) && hex(row.sha512, 128) && [null, true, false].includes(row.matches));
   }
   function render() {
@@ -72,7 +72,7 @@ export function createFileDigestResult({ raw, executionProfile, capabilityId, on
   window.addEventListener("zicode:locale-changed", render);
   return {
     setReportResource(resource, owner) { publishedReport = resource && owner ? { resource, owner } : null; },
-    show(value, displayNames = [], input = {}, originalFiles = []) { generation++; note.disabled = false; noteStatus.textContent = ""; current = valid(value) ? value : null;
+    show(value, displayNames = [], input = {}, originalFiles = [], { streamed = false } = {}) { generation++; note.disabled = false; noteStatus.textContent = ""; current = valid(value, streamed) ? value : null;
       currentInput = { expected: input?.expected ?? "" }; comparisonValue = null;
       try { if (current) comparisonValue = fileDigestComparison(currentInput, current.files); } catch { current = null; }
       note.hidden = !current || typeof onNoteReport !== "function";

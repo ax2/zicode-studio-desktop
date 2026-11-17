@@ -1,3 +1,4 @@
+import { REPORT_PROFILE } from "./file-digest-stream.js";
 import { fileDigestComparison } from "./file-digest-comparison.js";
 import { jsonReportMarkdown } from "./json-report-markdown.js";
 import { loadResourcePreview } from "./plugin-resource-preview-load.js";
@@ -6,7 +7,7 @@ import { loadResourcePreview } from "./plugin-resource-preview-load.js";
 export async function loadFileDigestReportNoteMaterial({ resource, owner, read, isCurrent }) {
   if (owner?.capabilityId !== "devtools.files.hash" || resource?.origin !== "host-report" || resource.saved !== false ||
       resource.mimeType !== "application/json" || !Number.isSafeInteger(resource.byteLength) ||
-      resource.byteLength < 1 || resource.byteLength > 8192 || !isCurrent()) throw new Error("file_report_unavailable");
+      resource.byteLength < 1 || resource.byteLength > (resource.profile === REPORT_PROFILE ? 128 * 1024 : 8192) || !isCurrent()) throw new Error("file_report_unavailable");
   const result = await loadResourcePreview({ resource, read: (offset, length) => read(owner, resource, offset, length, isCurrent), isCurrent });
   if (result.kind !== "text" || !isCurrent()) throw new Error("file_report_unavailable");
   const report = JSON.parse(result.text);

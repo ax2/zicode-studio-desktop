@@ -171,6 +171,9 @@ async fn native_digest_stream_checks_disk_progress_cancellation_and_revocation()
     assert_eq!(result["report"]["files"][1]["name"], "大文件.bin");
     assert_eq!(result["report"]["packageVersion"], "0.2.0");
     assert_eq!(result["report"]["comparison"]["algorithm"], "SHA-512");
+    assert!(host
+        .prepare_native_digest_stream_original(&context, result["reportAccess"].clone(), 1)
+        .is_err());
     assert!(!result.to_string().contains("outside-workspace"));
     assert_eq!(
         run(id, true, String::new()).await.unwrap_err(),
@@ -232,9 +235,166 @@ async fn native_digest_stream_checks_disk_progress_cancellation_and_revocation()
     }
     assert_eq!(result["result"]["files"].as_array().unwrap().len(), 64);
     eprintln!("native stream: 96 MiB, 64 files, live progress, cancel, revocation, wrong window and replacement passed");
+    verify_report_and_original(&host, &context, &selected, &result, &owner).await;
     host.stop_and_wait().await.unwrap();
 }
 
 fn grant_id(value: &Value) -> String {
     value["grantId"].as_str().unwrap().to_owned()
+}
+
+async fn verify_report_and_original(
+    host: &HostServer,
+    context: &export::Context,
+    root: &std::path::Path,
+    result: &Value,
+    owner: &Value,
+) {
+    let report = &result["reportAccess"];
+    let descriptor = &result["reportResource"];
+    assert_eq!(
+        descriptor["profile"],
+        "resource.host.file-digest-stream-report.draft1"
+    );
+    assert!(descriptor["byteLength"].as_u64().unwrap() > 8192);
+    let destination = root.join("64-file-report.json");
+    let preview = host
+        .prepare_resource_export(context.clone(), report.clone(), destination.clone())
+        .unwrap();
+    let grant = grant_id(&preview);
+    assert!(!destination.exists());
+    assert_eq!(
+        host.commit_resource_export(context.clone(), report.clone(), grant.clone(), false)
+            .unwrap_err(),
+        "resource_confirmation_required"
+    );
+    assert!(!destination.exists());
+    let receipt = host
+        .commit_resource_export(context.clone(), report.clone(), grant.clone(), true)
+        .unwrap();
+    assert_eq!(
+        receipt["receipt"]["contentVersion"],
+        descriptor["contentVersion"]
+    );
+    host.verify_resource_export(context.clone(), report.clone(), grant)
+        .unwrap();
+    let bytes = std::fs::read(&destination).unwrap();
+    assert_eq!(sha256_hex(&bytes), descriptor["contentVersion"]);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&bytes).unwrap(),
+        result["report"]
+    );
+    assert_eq!(
+        host.prepare_resource_export(context.clone(), report.clone(), destination)
+            .unwrap_err(),
+        "resource_export_conflict"
+    );
+
+    let receiver = "com.zicode.devtools.encoding";
+    {
+        let mut registry = host.state.plugins.lock().unwrap();
+        let package = PathBuf::from(std::env::var_os("ZICODE_TEST_ENCODING_PACKAGE").unwrap());
+        assert_eq!(registry.install_developer(&package).unwrap(), receiver);
+        registry
+            .set_permission("programming", receiver, "resource.read", true)
+            .unwrap();
+        registry.set_enabled("programming", receiver, true).unwrap();
+    }
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let request = |route, payload| output_http::post(host, &client, route, payload);
+    let mut target = owner.clone();
+    target["pluginId"] = json!(receiver);
+    target["capabilityId"] = json!("devtools.encoding.convert");
+    let original =
+        |index| host.prepare_native_digest_stream_original(context, report.clone(), index);
+    let first = original(42).unwrap();
+    assert_eq!(first["contentRead"], false);
+    assert_eq!(first["access"], original(42).unwrap()["access"]);
+    let wrong = export::Context {
+        window: "wrong".into(),
+        ..context.clone()
+    };
+    assert!(host
+        .prepare_native_digest_stream_original(&wrong, report.clone(), 42)
+        .is_err());
+    assert_eq!(first["fileName"], "file-42.txt");
+    let source = &first["access"];
+    let direct = request("read-view", json!({"access":source,"offset":0,"length":1}))
+        .await
+        .json::<Value>()
+        .await
+        .unwrap();
+    assert_eq!(
+        direct["error"]["code"],
+        "resource_file_reference_requires_run"
+    );
+    assert!(host
+        .resource_export_metadata(context, source.clone())
+        .is_err());
+    let prepare = |source: &Value| {
+        request(
+            "prepare-transfer",
+            json!({"schemaVersion":1,"source":source,"target":target,"originalFile":true}),
+        )
+    };
+    let consent = prepare(source).await.json::<Value>().await.unwrap();
+    let commit = |source: &Value, grant_id: &Value, confirmed| {
+        request(
+            "commit-transfer",
+            json!({"schemaVersion":1,"source":source,"grantId":grant_id,"confirmed":confirmed}),
+        )
+    };
+    assert_eq!(
+        commit(source, &consent["grantId"], false)
+            .await
+            .json::<Value>()
+            .await
+            .unwrap()["error"]["code"],
+        "resource_confirmation_required"
+    );
+    let shared = commit(source, &consent["grantId"], true)
+        .await
+        .json::<Value>()
+        .await
+        .unwrap();
+    assert_eq!(shared["contentRead"], false);
+    let delegated = json!({"schemaVersion":1,"owner":target,"resourceId":shared["reference"]["resourceId"],"contentVersion":shared["reference"]["contentVersion"]});
+    let input = json!({"sourceEncoding":"utf8","targetEncoding":"utf16le"});
+    let prepared = request(
+        "prepare-call",
+        json!({"schemaVersion":1,"access":delegated,"input":input}),
+    )
+    .await
+    .json::<Value>()
+    .await
+    .unwrap();
+    let response = request("invoke-call", json!({"access":delegated,"callId":prepared["callId"],"hostInstanceId":prepared["hostInstanceId"],"input":input})).await;
+    let status = response.status();
+    let converted = response.json::<Value>().await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{converted}");
+    assert_eq!(
+        converted["resources"][0]["contentVersion"],
+        sha256_hex(b"*\0")
+    );
+
+    let other = original(43).unwrap();
+    let changed = root.join("file-43.txt");
+    std::fs::rename(&changed, changed.with_extension("prior")).unwrap();
+    std::fs::write(&changed, [43]).unwrap();
+    let source = &other["access"];
+    let consent = prepare(source).await.json::<Value>().await.unwrap();
+    assert_eq!(
+        commit(source, &consent["grantId"], true)
+            .await
+            .json::<Value>()
+            .await
+            .unwrap()["error"]["code"],
+        "resource_file_changed"
+    );
+    assert_eq!(
+        request("revoke", report.clone()).await.status(),
+        StatusCode::OK
+    );
+    assert!(original(42).is_err());
+    eprintln!("64-file JSON saved and verified; original reference guarded and converted; replace and revoke rejected");
 }

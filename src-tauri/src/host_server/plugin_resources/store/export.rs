@@ -7,7 +7,10 @@ impl Store {
     ) -> Result<Value, ApiError> {
         self.check(access, proof)?;
         let record = &self.records[&access.resource_id];
-        if record.parents.is_empty() {
+        if record.is_file_reference() {
+            return Err(rejected("resource_file_reference_requires_run"));
+        }
+        if record.parents.is_empty() && !self.stream_reports.contains_key(&access.resource_id) {
             return Err(rejected("resource_export_requires_output"));
         }
         let extension = crate::plugin_output_types::extension(&record.mime)

@@ -56,6 +56,13 @@ export class PluginCapabilityGateway {
       progress: (workspaceId, owner, grantId) => nativeInvoke("checksum_folder_progress", { workspaceId, owner, grantId }),
       cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_checksum_folder", { workspaceId, owner, grantId }),
     } : null;
+    this.digestStreams = typeof nativeInvoke === "function" ? {
+      choose: (workspaceId, owner) => nativeInvoke("select_digest_stream_files", { workspaceId, owner }),
+      run: (workspaceId, owner, grantId, expected) => nativeInvoke("run_digest_stream_files", { workspaceId, owner, grantId, expected, confirmed: true }),
+      progress: (workspaceId, owner, grantId) => nativeInvoke("digest_stream_progress", { workspaceId, owner, grantId }),
+      cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_digest_stream", { workspaceId, owner, grantId }),
+      original: (workspaceId, report, index) => nativeInvoke("prepare_digest_stream_original", { workspaceId, report, index }),
+    } : null;
     this.digestFiles = typeof nativeInvoke === "function" ? {
       choose: (workspaceId, owner) => nativeInvoke("select_digest_files", { workspaceId, owner }),
       commit: (workspaceId, owner, grantId) => nativeInvoke("commit_digest_file", { workspaceId, owner, grantId, confirmed: true }),

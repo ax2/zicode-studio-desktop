@@ -1,4 +1,5 @@
 import { t } from "../../i18n.js";
+import { streamSelection } from "./file-digest-stream.js";
 import { renderResourceFileList } from "./plugin-resource-file-list.js";
 import { uploadConfirmedResource } from "./plugin-resource-upload.js";
 import { confirmProjectResource, prepareNativeDigestSelection, prepareProjectResource } from "./project-file-resource.js";
@@ -9,7 +10,7 @@ const validEntryName = value => typeof value === "string" && value.length > 0 &&
 
 // Only capabilities declaring resourceInputMax use this trusted-parent control.
 export function createMultiResourceSelection({ container, plugin, target, gateway, isCurrent,
-  onResource, catalogRevision, maxResources, minResources = 1, resourceLabels = [], allowOriginalFile = false }) {
+  onResource, catalogRevision, maxResources, minResources = 1, resourceLabels = [], allowOriginalFile = false, nativeStream = null }) {
   const panel = document.createElement("section");
   panel.className = "plugin-resource-selection";
   panel.setAttribute("aria-label", t("Studio resource selection"));
@@ -17,7 +18,9 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   title.textContent = t("Share files with this tool");
   const description = document.createElement("p");
   const describe = () => {
-    description.textContent = minResources === maxResources
+    description.textContent = nativeStream
+      ? t("Choose up to 64 local files. Confirm sharing, then run to read them.")
+      : minResources === maxResources
       ? t("Choose exactly {count} files in the required order, then confirm. Nothing runs until you execute the tool.").replace("{count}", String(maxResources))
       : t("Choose up to {count} files, then confirm. The total must be at most 32 MiB. Nothing runs until you execute the tool.").replace("{count}", String(maxResources));
   };
@@ -28,7 +31,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
     commit: (owner, id) => native.commit(target.workspaceId, owner, id),
     cancel: (owner, id) => native.cancel(target.workspaceId, owner, id),
   } : null;
-  const browse = nativeApi ? document.createElement("button") : null;
+  const browse = nativeStream || nativeApi ? document.createElement("button") : null;
   if (browse) { browse.type = "button"; browse.className = "ui-button ui-button--secondary"; browse.textContent = t("Browse local files"); }
   const apiFor = preview => preview.native ? nativeApi : gateway.projectFiles;
   const input = document.createElement("input");
@@ -60,15 +63,15 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   container.prepend(panel);
 
   let active = true, revision = 0, entryRequest = 0, entryPaths = [], uploading = false;
-  let selected = [], granted = [], originalFiles = [], projectPreviews = [];
-  const allowedSelection = () => selected.length >= minResources && selected.length <= maxResources &&
+  let selected = [], granted = [], originalFiles = [], projectPreviews = [], stagedStream = null, streamShared = false;
+  const allowedSelection = () => stagedStream !== null || selected.length >= minResources && selected.length <= maxResources &&
     selected.every(file => Number.isSafeInteger(file.size) && file.size >= 0 && file.size <= MAX_BYTES) &&
     Number.isSafeInteger(selected.reduce((sum, file) => sum + file.size, 0)) &&
     selected.reduce((sum, file) => sum + file.size, 0) <= MAX_BYTES;
   const owner = { runtimeId: target.instanceId, sessionId: target.sessionId,
     pluginId: plugin.id, capabilityId: plugin.capabilities[0].id };
   const valid = token => active && token === revision && isCurrent();
-  const renderFiles = () => renderResourceFileList(list, { files: selected.slice(0, maxResources), labels: resourceLabels, busy: uploading,
+  const renderFiles = () => renderResourceFileList(list, { files: stagedStream ? selected : selected.slice(0, maxResources), labels: resourceLabels, busy: uploading,
     onMove: (index, step) => {
       const next = index + step;
       if (!active || uploading || !isCurrent() || next < 0 || next >= selected.length) return;
@@ -80,6 +83,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
     } });
   function release() {
     originalFiles = [];
+    if (streamShared) { streamShared = false; onResource(null); }
     if (!granted.length) return;
     const old = granted;
     granted = [];
@@ -96,6 +100,10 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   function reset({ clearInput = true } = {}) {
     revision++;
     selected = [];
+    if (stagedStream) {
+      void nativeStream.cancel(target.workspaceId, owner, stagedStream.grantId).catch(() => {});
+      stagedStream = null;
+    }
     cancelProjectPreviews();
     if (clearInput) input.value = "";
     list.replaceChildren();
@@ -126,6 +134,16 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
     if (opened) opened.disabled = true;
     panel.setAttribute("aria-busy", "true");
     try {
+      if (nativeStream) {
+        const response = await nativeStream.choose(target.workspaceId, owner);
+        if (!response) return;
+        const candidate = streamSelection(response, owner);
+        if (!valid(token)) { void nativeStream.cancel(target.workspaceId, owner, candidate.grantId).catch(() => {}); return; }
+        reset(); stagedStream = candidate;
+        selected = candidate.files.map(file => ({ name: file.name, size: file.byteLength }));
+        status.textContent = t("Selected {count} files. Confirm sharing before running the tool.").replace("{count}", String(selected.length));
+        return;
+      }
       const previews = await prepareNativeDigestSelection({ api: nativeApi, owner, isCurrent: () => valid(token), minResources, maxResources });
       if (!previews) return;
       if (!valid(token)) {
@@ -136,13 +154,13 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
       selected = previews.map(preview => ({ name: preview.name, size: preview.byteLength, projectPreview: preview }));
       status.textContent = t("Selected {count} files. Confirm sharing before running the tool.").replace("{count}", String(selected.length));
     } catch {
-      if (valid(token)) status.textContent = t("Could not prepare local files. Choose up to four files totaling 32 MiB.");
+      if (valid(token)) status.textContent = t(nativeStream ? "Could not prepare local files. Choose up to 64 local files." : "Could not prepare local files. Choose up to four files totaling 32 MiB.");
     } finally {
       uploading = false;
       if (active && isCurrent()) {
         panel.removeAttribute("aria-busy"); browse.disabled = false;
         if (opened) opened.disabled = false;
-        confirm.disabled = !allowedSelection() || granted.length > 0;
+        confirm.disabled = !allowedSelection() || granted.length > 0 || streamShared;
         renderFiles();
       }
     }
@@ -204,6 +222,12 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   });
   confirm.addEventListener("click", async () => {
     if (confirm.disabled || uploading || !active || !isCurrent() || !selected.length) return;
+    if (stagedStream) {
+      streamShared = true; confirm.disabled = true;
+      onResource({ digestStream: stagedStream });
+      status.textContent = t("Sharing confirmed. Run the tool to read the selected files.");
+      return;
+    }
     uploading = true;
     renderFiles();
     const token = ++revision;

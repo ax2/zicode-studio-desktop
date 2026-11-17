@@ -13,7 +13,7 @@ impl Record {
     }
 
     pub(super) fn is_file_reference(&self) -> bool {
-        matches!(self.original, Some(FileBinding::AwaitingRead(_)))
+        matches!(self.original, Some(FileBinding::AwaitingRead(_) | FileBinding::VerifiedStream(_)))
     }
 }
 

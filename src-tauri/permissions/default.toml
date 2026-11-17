@@ -305,6 +305,11 @@ description = "Poll only byte and count metadata for the current streaming diges
 commands.allow = ["digest_stream_progress"]
 
 [[permission]]
+identifier = "allow-prepare-digest-stream-original"
+description = "Prepare a metadata-only original reference from a verified window-bound digest report."
+commands.allow = ["prepare_digest_stream_original"]
+
+[[permission]]
 identifier = "allow-cancel-digest-stream"
 description = "Cancel a window-bound streaming digest grant."
 commands.allow = ["cancel_digest_stream"]
@@ -361,6 +366,7 @@ permissions = [
   "allow-select-digest-stream-files",
   "allow-run-digest-stream-files",
   "allow-digest-stream-progress",
+  "allow-prepare-digest-stream-original",
   "allow-cancel-digest-stream",
   "allow-commit-checksum-folder",
   "allow-checksum-folder-progress",

@@ -11,6 +11,7 @@ function fixture(overrides = {}, maxResources = 1, directory = false, receiver =
   const tool = { pluginId: "receiver", capabilityId: "consume", title: "Consume", applicationName: "Receiver", version: "1", runtime: "wasi", ...receiver };
   const profile = receiver?.resourceInputProfile ?? "resource.wasi.input.draft2";
   const detail = { pluginId: tool.pluginId, version: "1", revision: "a".repeat(64), enabled: true, resourceInputProfile: profile, capability: { id: tool.capabilityId, inputSchema: {}, ...(receiver?.executionProfile ? { executionProfile: receiver.executionProfile } : {}), ...(receiver?.resourceInputMimeTypes ? { resourceInputMimeTypes: receiver.resourceInputMimeTypes } : {}), ...(maxResources > 1 ? { resourceInputMax: maxResources } : {}) }, permissions: [{ name: "resource.read", granted: true }, ...(directory ? [{ name: "resource.directory.read", granted: true }] : [])] };
+  if (receiver?.nativeDigestStream) detail.nativeDigestStream = true;
   const gateway = { loadTool: vi.fn(async () => detail), prepareResource: vi.fn(async () => ({ resourceId: id })), appendResource: vi.fn(async () => ({ uploadedBytes: 3 })), commitResource: vi.fn(async access => ({ ...access, confirmed: true, byteLength: 3 })), revokeResource: vi.fn(async () => ({})), readResource: vi.fn(async () => ({})), cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })),
     invokeResource: vi.fn(async (owner, request) => ({ schemaVersion: 1, operationId: id, source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile }, result: { text: "received <script>literal</script>" } })), ...overrides };
   gateway.resourceCalls = { keep: vi.fn(async (target, owner, ticket) => ({ target, owner, ticket })), remove: vi.fn(async () => {}) };
@@ -28,8 +29,85 @@ function fixture(overrides = {}, maxResources = 1, directory = false, receiver =
   }
   return { gateway, form, onBusy, onSuccess, controller, button, share, switchTarget: () => { target = { ...target, sessionId: "other" }; } };
 }
+function streamingFixture() {
+  const receiver = { pluginId: "com.zicode.devtools.files", capabilityId: "devtools.files.hash",
+    executionProfile: "resource.wasi.file-digest.v1", nativeDigestStream: true };
+  const owner = { runtimeId: "runtime", sessionId: "session", pluginId: receiver.pluginId, capabilityId: receiver.capabilityId };
+  const profile = "resource.local-file.digest-stream.draft1", reportId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const files = Array.from({ length: 5 }, (_, index) => ({ name: `file-${index}.txt`, byteLength: index ? index : 96 * 1024 * 1024 }));
+  const totalBytes = files.reduce((sum, file) => sum + file.byteLength, 0), contentVersion = "c".repeat(64);
+  const reportAccess = { schemaVersion: 1, owner, resourceId: reportId, contentVersion };
+  const reply = { schemaVersion: 1, profile, reportAccess,
+    result: { ok: true, schemaVersion: 2, material: "file-integrity-report-list", files: files.map((file, index) => ({ index, bytes: file.byteLength, sha256: "a".repeat(64), sha512: "b".repeat(128), matches: null })) },
+    reportResource: { profile: "resource.host.file-digest-stream-report.draft1", index: 0, resourceId: reportId, contentVersion, mimeType: "application/json", byteLength: 750, origin: "host-report", saved: false } };
+  const api = {
+    choose: vi.fn(async () => ({ schemaVersion: 1, profile, grantId: id, owner, contentRead: false, confirmed: false, files, totalBytes })),
+    progress: vi.fn(async () => ({ schemaVersion: 1, profile, grantId: id, fileCount: 5, completedFiles: 0, bytesRead: 65536, totalBytes })),
+    run: vi.fn(async () => reply), cancel: vi.fn(async () => {}),
+    original: vi.fn(async () => ({ schemaVersion: 1, contentRead: false, mimeType: "application/octet-stream", fileName: files[1].name, byteLength: files[1].byteLength,
+      access: { schemaVersion: 1, owner, resourceId: id, contentVersion: "a".repeat(64) } })),
+  };
+  const searchTools = vi.fn(async () => ({ schemaVersion: 1, revision: "a".repeat(64), offset: 0, nextOffset: null, items: [] }));
+  const prepareResourceSave = vi.fn(async () => ({})), commitResourceSave = vi.fn(async () => ({}));
+  const f = fixture({ digestStreams: api, searchTools, prepareResourceTransfer: vi.fn(), prepareResourceSave, commitResourceSave }, 4, false, receiver);
+  f.form.prepare.mockReturnValue({ input: {} });
+  return { f, files, api, owner, reply };
+}
 afterEach(() => { for (const root of roots.splice(0)) root.destroy(); vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
 describe("directory-owned resource execution", () => {
+  it("runs native streaming from the existing browse action and offers save and original relay", async () => {
+    const { f, files, api, owner, reply } = streamingFixture();
+    let finish;
+    api.run.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    f.button("Browse local files").click();
+    await vi.waitFor(() => expect(document.querySelectorAll(".plugin-resource-file-list li")).toHaveLength(files.length));
+    expect(api.run).not.toHaveBeenCalled();
+    f.button("Confirm file sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    expect(api.run).not.toHaveBeenCalled();
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(document.querySelector("progress")?.value).toBe(65536));
+    expect(api.run).toHaveBeenCalledWith("workspace", owner, id, "");
+    finish(reply);
+    await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    expect(document.querySelector("progress")).toBeNull();
+    expect(f.button("Execute tool").disabled).toBe(true);
+    expect(document.querySelectorAll(".file-digest-result h4")).toHaveLength(files.length);
+    expect(document.querySelectorAll(".file-digest-result button").length).toBeGreaterThanOrEqual(4);
+    expect(f.gateway.invokeResource).not.toHaveBeenCalled();
+
+    f.button("Preview save").click();
+    await vi.waitFor(() => expect(f.gateway.prepareResourceSave).toHaveBeenCalledWith(reply.reportAccess));
+    expect(f.gateway.commitResourceSave).not.toHaveBeenCalled();
+    f.button("Cancel save").click();
+    f.button("Send original file").click();
+    await vi.waitFor(() => expect(api.original).toHaveBeenCalledWith("workspace", reply.reportAccess, 1));
+    await vi.waitFor(() => expect(f.gateway.searchTools).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({resourceMimeType:"application/octet-stream"}), expect.anything()));
+    expect(f.gateway.prepareResourceTransfer).not.toHaveBeenCalled();
+    f.button("Close transfer").click();
+    f.button("Cancel file sharing").click();
+    expect(f.gateway.revokeResource).toHaveBeenCalledWith(reply.reportAccess);
+    expect(f.button("Preview save")).toBeUndefined();
+  });
+
+  it("suppresses and revokes a late stream report after cancelling", async () => {
+    const { f, api, reply } = streamingFixture();
+    let finish;
+    api.run.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    f.button("Browse local files").click();
+    await vi.waitFor(() => expect(f.button("Confirm file sharing").disabled).toBe(false));
+    f.button("Confirm file sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(api.run).toHaveBeenCalledOnce());
+    f.button("Cancel tool").click();
+    await vi.waitFor(() => expect(api.cancel).toHaveBeenCalledOnce());
+    finish(reply);
+    await vi.waitFor(() => expect(f.gateway.revokeResource).toHaveBeenCalledWith(reply.reportAccess));
+    expect(f.onSuccess).not.toHaveBeenCalled();
+    expect(document.querySelector("progress")).toBeNull();
+    expect(f.button("Preview save")).toBeUndefined();
+  });
   it("does not stage a draft when the file grant is revoked", async () => {
     const received = vi.fn();
     const f = fixture({}, 1, false, { pluginId: "com.zicode.devtools.files", capabilityId: "devtools.files.hash", executionProfile: "resource.wasi.file-digest.v1" }, received);
