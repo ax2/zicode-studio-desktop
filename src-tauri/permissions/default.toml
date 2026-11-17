@@ -290,6 +290,26 @@ description = "Cancel a digest file selected through the native dialog"
 commands.allow = ["cancel_digest_file"]
 
 [[permission]]
+identifier = "allow-select-digest-stream-files"
+description = "Prepare a window-bound streaming digest grant from a native file selection."
+commands.allow = ["select_digest_stream_files"]
+
+[[permission]]
+identifier = "allow-run-digest-stream-files"
+description = "Run one window-bound streaming digest grant after explicit confirmation."
+commands.allow = ["run_digest_stream_files"]
+
+[[permission]]
+identifier = "allow-digest-stream-progress"
+description = "Poll only byte and count metadata for the current streaming digest grant."
+commands.allow = ["digest_stream_progress"]
+
+[[permission]]
+identifier = "allow-cancel-digest-stream"
+description = "Cancel a window-bound streaming digest grant."
+commands.allow = ["cancel_digest_stream"]
+
+[[permission]]
 identifier = "allow-select-checksum-files"
 description = "Select one to 64 files from a local folder and prepare a window-bound checksum read grant."
 commands.allow = ["select_checksum_files"]
@@ -338,6 +358,10 @@ permissions = [
   "allow-select-digest-files",
   "allow-commit-digest-file",
   "allow-cancel-digest-file",
+  "allow-select-digest-stream-files",
+  "allow-run-digest-stream-files",
+  "allow-digest-stream-progress",
+  "allow-cancel-digest-stream",
   "allow-commit-checksum-folder",
   "allow-checksum-folder-progress",
   "allow-cancel-checksum-folder",

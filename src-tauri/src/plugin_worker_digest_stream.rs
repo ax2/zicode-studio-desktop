@@ -4,10 +4,10 @@ use sha2::{Digest, Sha256};
 use std::io::Read;
 
 pub(super) const MAGIC: &[u8; 8] = b"ZIDF\0\0\0\x01";
-pub(super) const EXECUTION_PROFILE: &str = "resource.wasi.file-digest-stream.v1";
+pub(crate) use crate::plugin_resource_execution::file_digest::STREAM_PROFILE as EXECUTION_PROFILE;
 pub(super) const INPUT_PROFILE: &str = "resource.wasi.input.stream.draft1";
-const MAX_FILES: usize = 64;
-const CHUNK_BYTES: usize = 64 * 1024;
+pub(crate) const MAX_FILES: usize = 64;
+pub(crate) const CHUNK_BYTES: usize = 64 * 1024;
 const MAX_HEADER: usize = 256 * 1024;
 const MAX_MODULE: usize = 2 * 1024 * 1024;
 const BASE_FUEL: u64 = 10_000_000;
@@ -32,6 +32,37 @@ pub(super) struct Stream {
 
 fn invalid() -> String {
     "Invalid file digest stream".into()
+}
+
+pub(crate) fn encode_prefix(
+    scene: &str,
+    input: serde_json::Value,
+    resources: &[Descriptor],
+    module: &[u8],
+) -> Result<Vec<u8>, String> {
+    use crate::plugin_resource_execution::file_digest::{CAPABILITY, PLUGIN};
+    if resources.is_empty()
+        || resources.len() > MAX_FILES
+        || module.is_empty()
+        || module.len() > MAX_MODULE
+    {
+        return Err(invalid());
+    }
+    let metadata = serde_json::json!({
+        "request": {"workerKind":"wasi", "workerPath":"", "pluginId":PLUGIN, "sceneId":scene,
+            "capabilityId":CAPABILITY, "executionProfile":EXECUTION_PROFILE, "input":input},
+        "resources":resources, "moduleBytes":module.len(), "moduleSha256":format!("{:x}", Sha256::digest(module)),
+    });
+    let metadata = serde_json::to_vec(&metadata).map_err(|_| invalid())?;
+    if metadata.len() > MAX_HEADER {
+        return Err(invalid());
+    }
+    let mut prefix = Vec::with_capacity(MAGIC.len() + 4 + metadata.len() + module.len());
+    prefix.extend_from_slice(MAGIC);
+    prefix.extend_from_slice(&(metadata.len() as u32).to_le_bytes());
+    prefix.extend_from_slice(&metadata);
+    prefix.extend_from_slice(module);
+    Ok(prefix)
 }
 
 pub(super) fn read(

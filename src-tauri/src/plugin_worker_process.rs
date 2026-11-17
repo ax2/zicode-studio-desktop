@@ -1,6 +1,6 @@
 //! Bounded stdio transport: drain output while the isolated worker runs.
 use std::io::{Read, Write};
-use std::process::{Command, ExitStatus};
+use std::process::{ChildStdin, Command, ExitStatus};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::thread;
@@ -36,13 +36,26 @@ pub(crate) fn run_cancellable(
 }
 
 pub(crate) fn run_observed(
-    mut command: Command,
+    command: Command,
     request: Vec<u8>,
     timeout: Duration,
     limit: usize,
     cancelled: Option<&AtomicBool>,
     observer: Option<&dyn Fn(&'static str, u32)>,
 ) -> Result<(ExitStatus, Vec<u8>), Error> {
+    run_with_writer(command, timeout, limit, cancelled, observer, move |pipe| {
+        pipe.write_all(&request).map_err(|_| Error {code:"worker_protocol_error", message:"Cannot send Worker request"})
+    }).map(|(status, output, ())| (status, output))
+}
+
+pub(crate) fn run_with_writer<T: Send + 'static>(
+    mut command: Command,
+    timeout: Duration,
+    limit: usize,
+    cancelled: Option<&AtomicBool>,
+    observer: Option<&dyn Fn(&'static str, u32)>,
+    write_request: impl FnOnce(&mut ChildStdin) -> Result<T, Error> + Send + 'static,
+) -> Result<(ExitStatus, Vec<u8>, T), Error> {
     let check_cancelled = || {
         if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
             Err(Error {
@@ -101,13 +114,13 @@ pub(crate) fn run_observed(
     });
     let (write_tx, write_rx) = mpsc::channel();
     let writer = thread::spawn(move || {
-        let result = stdin.write_all(&request);
+        let result = write_request(&mut stdin);
         drop(stdin); // Deliver EOF before waiting for execution.
-        let _ = write_tx.send(result.is_ok());
+        let _ = write_tx.send(result);
     });
     let result = (|| {
         let mut output = None;
-        let mut written = false;
+        let mut written = None;
         let mut status = None;
         loop {
             if let Err(error) = check_cancelled() {
@@ -129,12 +142,12 @@ pub(crate) fn run_observed(
                 _ => {}
             }
             match write_rx.try_recv() {
-                Ok(true) => written = true,
-                Ok(false) => {
+                Ok(result) => written = Some(result?),
+                Err(mpsc::TryRecvError::Disconnected) if written.is_none() => {
                     return Err(Error {
                         code: "worker_protocol_error",
-                        message: "Cannot send Worker request",
-                    })
+                        message: "Worker request writer disconnected",
+                    });
                 }
                 _ => {}
             }
@@ -156,11 +169,9 @@ pub(crate) fn run_observed(
                     })?;
                 }
             }
-            if written {
+            if written.is_some() && output.is_some() {
                 if let Some(status) = status {
-                    if let Some(output) = output.take() {
-                        return Ok((status, output));
-                    }
+                    return Ok((status, output.take().unwrap(), written.take().unwrap()));
                 }
             }
             if started.elapsed() >= timeout {

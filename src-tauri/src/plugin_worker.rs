@@ -11,7 +11,7 @@ mod diagnostics_tests;
 #[path = "plugin_worker_encoding_tests.rs"]
 mod encoding_tests;
 #[path = "plugin_worker_digest_stream.rs"]
-mod digest_stream;
+pub(crate) mod digest_stream;
 #[path = "plugin_worker_stack.rs"]
 mod execution_stack;
 #[path = "plugin_worker_failures.rs"]

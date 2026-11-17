@@ -1106,3 +1106,7 @@ async fn actual_http_devtools_image_resize_candidate_host_flow() {
         .starts_with(scratch.canonicalize().unwrap()));
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[cfg(windows)]
+#[path = "tests/digest_stream_http.rs"]
+mod digest_stream_http;

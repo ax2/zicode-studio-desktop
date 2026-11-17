@@ -12,6 +12,8 @@ mod host_image;
 mod host_ocr;
 mod host_text;
 mod lifecycle;
+mod stream_digest_process;
+pub(super) use stream_digest_process::run_native_digest_stream;
 mod output;
 mod slots;
 struct Execution {

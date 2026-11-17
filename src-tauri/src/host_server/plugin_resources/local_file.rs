@@ -3,6 +3,7 @@ use super::*;
 use std::path::{Path, PathBuf};
 #[cfg(test)]
 mod cancellation_http;
+pub(super) mod digest_stream;
 pub(super) mod files;
 mod native;
 pub(super) mod reading;

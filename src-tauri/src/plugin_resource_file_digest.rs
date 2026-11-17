@@ -3,6 +3,7 @@ use crate::plugin_registry::PluginManifest;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha512};
 
+pub(crate) const STREAM_PROFILE: &str = "resource.wasi.file-digest-stream.v1";
 pub(crate) const PROFILE: &str = "resource.wasi.file-digest.v1";
 pub(crate) const VERSION: &str = "1.0.0-preview.1";
 pub(crate) const PLUGIN: &str = "com.zicode.devtools.files";
@@ -23,13 +24,15 @@ pub(crate) fn validate_manifest(manifest: &PluginManifest) -> Result<(), String>
         .into_iter()
         .flatten()
         .any(|cap| selected(cap["executionProfile"].as_str()));
-    if !required && !declares {
+    let stream = manifest.required_profiles.get(STREAM_PROFILE);
+    if !required && !declares && stream.is_none() {
         return Ok(());
     }
     let fail = || "File digest requires the exact bounded resource-only contract".to_owned();
     let input = json!({"type":"object","properties":{"expected":{"type":"string","maxLength":128}},"additionalProperties":false});
     if manifest.schema_version != 2
         || manifest.required_profiles[PROFILE] != "=1.0.0-preview.1"
+        || stream.is_some_and(|range| manifest.id != PLUGIN || range != "=1.0.0-preview.1")
         || caps.is_none_or(|items| items.len() != 1)
         || manifest.runtime["wasi"].as_str().is_none()
         || manifest.runtime["resourceInputProfile"] != "resource.wasi.input.draft2"
@@ -92,6 +95,24 @@ pub(crate) fn validate_resources(lengths: &[usize]) -> Result<(), &'static str> 
         return Err("resource_input_too_large");
     }
     Ok(())
+}
+
+pub(crate) struct MeasuredDigest {
+    pub length: u64,
+    pub sha256: String,
+    pub sha512: String,
+}
+
+pub(crate) fn report_from_hashes(hashes: &[MeasuredDigest], expected: &str) -> Value {
+    let rows = hashes.iter().enumerate().map(|(index, actual)| {
+        let matches = match expected.len() {
+            64 => Some(expected.eq_ignore_ascii_case(&actual.sha256)),
+            128 => Some(expected.eq_ignore_ascii_case(&actual.sha512)),
+            _ => None,
+        };
+        json!({"index":index,"bytes":actual.length,"sha256":actual.sha256,"sha512":actual.sha512,"matches":matches})
+    }).collect::<Vec<_>>();
+    json!({"ok":true,"schemaVersion":2,"material":"file-integrity-report-list","files":rows})
 }
 
 pub(crate) fn validate_result(

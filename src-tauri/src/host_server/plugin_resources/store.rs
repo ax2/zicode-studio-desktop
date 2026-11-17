@@ -36,6 +36,7 @@ mod tests;
 pub(crate) struct Store {
     pub(super) exports: super::export::Grants,
     pub(super) file_imports: local_file::Grants,
+    pub(super) digest_streams: local_file::digest_stream::Grants,
     pub(super) directory_imports: local_directory::Grants,
     records: HashMap<String, Record>,
     transfers: HashMap<String, transfer::Grant>,
@@ -51,6 +52,7 @@ impl Store {
     pub(in crate::host_server) fn invalidate_runtime(&mut self, runtime_id: &str) {
         self.exports.invalidate_runtime(runtime_id);
         self.file_imports.invalidate_runtime(runtime_id);
+        self.digest_streams.invalidate_runtime(runtime_id);
         self.directory_imports.invalidate_runtime(runtime_id);
         self.records
             .retain(|_, record| record.owner.runtime_id != runtime_id);
