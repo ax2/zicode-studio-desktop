@@ -1,5 +1,5 @@
 import { resourceViewTarget } from "./plugin-view-resource.js";
-import { normalizeResourceOutputs, normalizeHostMetadataReport } from "./plugin-resource-outputs.js";
+import { normalizeResourceOutputs, normalizeHostReport } from "./plugin-resource-outputs.js";
 import { resourceExecutionProfile } from "./image-metadata-output.js";
 import { normalizeResourceAdmission, normalizeResourceReconciliation } from "./resource-call-admission.js";
 
@@ -158,7 +158,7 @@ export function createResourceComputation({ instance, gateway, getTarget, isCurr
           result.result == null || new TextEncoder().encode(JSON.stringify(result.result)).length > 1024 * 1024)
         fail("resource_response_invalid");
       const resources = normalizeResourceOutputs(result, params, resourceExecutionProfile(instance, params.capabilityId));
-      const reportResource = normalizeHostMetadataReport(result, params, resourceExecutionProfile(instance, params.capabilityId));
+      const reportResource = normalizeHostReport(result, params, resourceExecutionProfile(instance, params.capabilityId));
       const response = { schemaVersion: 1, operationId: result.operationId,
         source: { pluginId: owner.pluginId, capabilityId: owner.capabilityId,
           packageVersion: source.packageVersion, contentVersion: params.contentVersion, profile: source.profile },

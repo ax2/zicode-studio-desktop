@@ -55,6 +55,29 @@ describe("directory-owned resource execution", () => {
     await vi.waitFor(() => expect(document.body.textContent).toContain("Report draft is in Notes recovery"));
   });
 
+  it("offers an authorized digest report to the existing receiver picker and clears it with the source", async () => {
+    const searchTools = vi.fn(async () => ({ schemaVersion: 1, revision: "a".repeat(64), total: 0, items: [] }));
+    const f = fixture({ prepareResourceTransfer: vi.fn(), searchTools }, 1, false,
+      { pluginId: "com.zicode.devtools.files", capabilityId: "devtools.files.hash", executionProfile: "resource.wasi.file-digest.v1" });
+    const reportId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    f.gateway.invokeResource.mockImplementation(async (owner, request) => ({ schemaVersion: 1, operationId: id,
+      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" },
+      outputProfile: "resource.wasi.output.draft1", resources: [],
+      result: { ok: true, schemaVersion: 2, material: "file-integrity-report-list", files: [
+        { index: 0, bytes: 3, sha256: "a".repeat(64), sha512: "b".repeat(128), matches: null }] },
+      reportResource: { index: 0, resourceId: reportId, contentVersion: "c".repeat(64), profile: "resource.host.file-digest-report.draft1",
+        mimeType: "application/json", byteLength: 320, expiresInSeconds: 900, origin: "host-report", saved: false,
+        derivedFrom: { resourceId: request.resourceId, contentVersion: request.contentVersion } } }));
+    await f.share(); f.button("Execute tool").click(); await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    expect(searchTools).not.toHaveBeenCalled();
+    f.button("Send to tool").click();
+    await vi.waitFor(() => expect(searchTools).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ resourceMimeType: "application/json" }), expect.anything()));
+    expect(f.gateway.prepareResourceTransfer).not.toHaveBeenCalled();
+    f.button("Cancel file sharing").click();
+    expect(document.querySelector(".plugin-resource-transfer")).toBeNull();
+    expect(f.button("Send to tool")).toBeUndefined();
+  });
+
   it("renders the negotiated metadata report and clears it when sharing is cancelled", async () => {
     const f = fixture({}, 1, false, { pluginId: "com.zicode.devtools.image.metadata", capabilityId: "devtools.image.metadata.inspect", executionProfile: "resource.wasi.image.metadata.v1" });
     f.gateway.invokeResource.mockImplementation(async (owner, request) => ({ schemaVersion: 1, operationId: id,

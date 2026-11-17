@@ -112,7 +112,8 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid, recoverable: true, onOutputs: (items, owner, labels, reportResource) => {
     if (!valid() || reference !== executionAccess) return;
     metadataResult?.setReportResource?.(reportResource, owner);
-    if (["resource.wasi.image.metadata.v1", "resource.wasi.markdown.v1"].includes(detail.capability.executionProfile)) preview.show(items, owner, items.map(item => item.outputLabel));
+    if (fileDigest && reportResource) preview.show([reportResource], owner, ["File digest results"]);
+    else if (["resource.wasi.image.metadata.v1", "resource.wasi.markdown.v1"].includes(detail.capability.executionProfile)) preview.show(items, owner, items.map(item => item.outputLabel));
     else if (detail.capability.executionProfile === "resource.wasi.regex.review.v1") preview.show(items, owner, labels);
     else preview.show(items, owner);
   } });

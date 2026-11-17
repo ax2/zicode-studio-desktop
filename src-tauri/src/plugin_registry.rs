@@ -2882,14 +2882,14 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         "id": "text.inspect",
                         "title": "Inspect text resource",
                         "description": "Show a bounded preview and counts for explicitly shared UTF-8 text.",
-                        "resourceInputMimeTypes": ["text/plain"],
+                        "resourceInputMimeTypes": ["text/plain", "application/json"],
                         "directory": { "categoryId": "text", "aliases": ["查看文本", "文本预览"] },
                         "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} },
                         "outputSchema": {
                             "type": "object", "additionalProperties": false,
                             "properties": {
                                 "ok": { "type": "boolean" },
-                                "mimeType": { "type": "string", "enum": ["text/plain"] },
+                                "mimeType": { "type": "string", "enum": ["text/plain", "application/json"] },
                                 "byteLength": { "type": "integer", "minimum": 0 },
                                 "charCount": { "type": "integer", "minimum": 0 },
                                 "text": { "type": "string" },

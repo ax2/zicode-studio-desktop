@@ -3,6 +3,7 @@ use std::sync::mpsc;
 mod admission_http;
 mod archive_save_http;
 mod cross_plugin_http;
+mod file_report_http;
 mod host_text_http;
 mod image_metadata_http;
 mod lifecycle_http;

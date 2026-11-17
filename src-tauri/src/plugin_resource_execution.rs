@@ -40,7 +40,7 @@ pub(crate) fn inspect_text(
     bytes: &[u8],
     mime_type: &str,
 ) -> Result<serde_json::Value, &'static str> {
-    if mime_type != "text/plain" || bytes.len() > HOST_TEXT_MAX_BYTES {
+    if !matches!(mime_type, "text/plain" | "application/json") || bytes.len() > HOST_TEXT_MAX_BYTES {
         return Err("resource_input_invalid");
     }
     let text = std::str::from_utf8(bytes).map_err(|_| "resource_input_invalid")?;

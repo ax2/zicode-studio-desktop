@@ -107,23 +107,39 @@ impl Pending {
         })
     }
 
-    // The report is constructed only after the exact metadata profile and
-    // schema were validated by the Host. Guest output types remain unchanged.
     pub(in crate::host_server::plugin_resources) fn attach_metadata_report(
         &mut self, report: &Value,
     ) -> Result<(), ApiError> {
+        self.attach_host_report(report, "resource.host.image-metadata-report.draft1", 48 * 1024)
+    }
+
+    pub(in crate::host_server::plugin_resources) fn attach_file_digest_report(
+        &mut self, report: &Value,
+    ) -> Result<(), ApiError> {
+        self.attach_host_report(report, "resource.host.file-digest-report.draft1", 8 * 1024)
+    }
+
+    // Only Host-validated results can become JSON resources. Guest output types remain unchanged.
+    fn attach_host_report(
+        &mut self, report: &Value, report_profile: &str, max_bytes: usize,
+    ) -> Result<(), ApiError> {
         let bytes = serde_json::to_vec_pretty(report).map_err(|_| rejected("invalid_output"))?;
-        if bytes.is_empty() || bytes.len() > 48 * 1024 || self.host_report.is_some() {
+        if bytes.is_empty() || bytes.len() > max_bytes || self.host_report.is_some() {
             return Err(rejected("invalid_output"));
         }
         let source = self.sources.first().ok_or_else(|| rejected("resource_metadata_invalid"))?;
         let id = uuid::Uuid::new_v4().to_string();
         let version = sha256_hex(&bytes);
         let length = bytes.len();
-        let descriptor = json!({"profile":"resource.host.image-metadata-report.draft1","index":0,"resourceId":id,"contentVersion":version,
+        let mut descriptor = json!({"profile":report_profile,"index":0,"resourceId":id,"contentVersion":version,
             "mimeType":"application/json","byteLength":length,"expiresInSeconds":900,
             "origin":"host-report","saved":false,
             "derivedFrom":{"resourceId":source.resource_id,"contentVersion":source.content_version}});
+        if self.sources.len() > 1 {
+            descriptor["derivedFromAll"] = json!(self.sources.iter().map(|source| {
+                json!({"resourceId":source.resource_id,"contentVersion":source.content_version})
+            }).collect::<Vec<_>>());
+        }
         self.records.push((id, Record {
             output_profile: Profile::Draft1, owner: source.owner.clone(), proof: self.proof.clone(),
             mime:"application/json".into(), expected:length, version,
@@ -155,7 +171,7 @@ impl Store {
         for source in &pending.sources {
             self.check(source, &pending.proof)?;
         }
-        // A supplemental report must never make a previously valid image call
+        // A supplemental report must never make a previously valid call
         // fail solely because the legacy pool or the last resource slot is full.
         let draft_used: usize = self.records.values().filter(|record|record.output_profile==Profile::Draft1).map(|record|record.expected).sum();
         let total_used: usize = self.records.values().map(|record|record.expected).sum();

@@ -30,7 +30,8 @@ pub(super) fn register(
     let bundle = crate::plugin_worker::resource_output::decode_with_profile(frame, profiles.output)
         .map_err(|_| rejected("worker_protocol_error"))?;
     validate_types(&bundle, profiles.extended_output_types)?;
-    if crate::plugin_resource_execution::file_digest::selected(capability.execution_profile.as_deref()) {
+    let file_digest = crate::plugin_resource_execution::file_digest::selected(capability.execution_profile.as_deref());
+    if file_digest {
         if profiles.source_bytes.len() != request.accesses().count() { return Err(rejected("invalid_output")); }
         let versions = request.accesses().map(|access| access.content_version.as_str()).zip(profiles.source_bytes.iter().copied()).collect::<Vec<_>>();
         let expected = request.input.get("expected").and_then(Value::as_str).unwrap_or("");
@@ -84,6 +85,8 @@ pub(super) fn register(
     };
     if crate::plugin_resource_execution::metadata::selected(capability.execution_profile.as_deref()) {
         pending.attach_metadata_report(&bundle.result["report"])?;
+    } else if file_digest {
+        pending.attach_file_digest_report(&bundle.result)?;
     }
     #[cfg(test)]
     {
