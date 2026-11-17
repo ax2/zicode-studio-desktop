@@ -87,6 +87,8 @@ it("requires inline citations for source facts and joint conclusions in both loc
     expect(englishCue).toContain("including every Summary bullet");
     expect(englishCue).toContain("start with all sources compared");
     expect(englishCue).toContain("Do not call a reported fact missing");
+    expect(englishCue).toContain("such as exact test dates or methods");
+    expect(englishCue).toContain("Cite the sources checked at the beginning of that same bullet");
 
     setLocale("zh-CN");
     const [chinese, , , chineseCue] = browserComparisonPrompt([]).split("\n\n");
@@ -94,6 +96,8 @@ it("requires inline citations for source facts and joint conclusions in both loc
     expect(chinese).toContain("共同结论以所有支持它的来源编号开头");
     expect(chineseCue).toContain("总结的每条也一样");
     expect(chineseCue).toContain("标注所有参与比较的来源");
+    expect(chineseCue).toContain("确切的测试日期或方法");
+    expect(chineseCue).toContain("在同一条开头先标注检查过的来源编号");
   } finally {
     setLocale(locale);
   }

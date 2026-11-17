@@ -847,8 +847,8 @@ const zhCN = {
     "用 Markdown 比较这些网页来源，分为来源事实和总结两部分。每个来源列出一条主要事实。总结列出一致之处、差异和证据不足之处。两部分的每条开头都标注支持该条内容的原始来源编号。共同结论以所有支持它的来源编号开头，例如先写 - [1][2]，再写结论。",
   "A selected tab changed. Reopen the page preview and try again.":
     "所选标签已变化。请重新打开网页预览后再试。",
-  "Write Source facts and Summary now. Begin each bullet with its citations, including every Summary bullet. For any comparison between sources, start with all sources compared, as in - [1][2] finding. For missing evidence, name a detail the sources do not provide and cite the sources checked. Do not call a reported fact missing. Do not repeat the source JSON.":
-    "现在写出来源事实和总结。每条开头标注引用，总结的每条也一样。比较不同来源时，在开头标注所有参与比较的来源，例如先写 - [1][2]，再写结论。指出证据不足时，写明来源未提供的细节并标注检查过的来源。不要把已记录的事实说成缺失。不要复述来源 JSON。",
+  "Write Source facts and Summary now. Begin each bullet with its citations, including every Summary bullet. For any comparison between sources, start with all sources compared, as in - [1][2] finding. For missing evidence, name a concrete detail the sources do not provide, such as exact test dates or methods. Cite the sources checked at the beginning of that same bullet, before naming the missing detail. Do not call a reported fact missing. Do not repeat the source JSON.":
+    "现在写出来源事实和总结。每条开头标注引用，总结的每条也一样。比较不同来源时，在开头标注所有参与比较的来源，例如先写 - [1][2]，再写结论。指出证据不足时，点明来源确实未提供的具体信息，例如确切的测试日期或方法。在同一条开头先标注检查过的来源编号，再写缺少的信息。不要把已记录的事实说成缺失。不要复述来源 JSON。",
   "Page tables": "网页表格",
   "Include tables in the page note or chat draft": "将表格一并加入整页笔记或聊天草稿",
   "Only some table data is shown.": "只显示部分表格数据。",
