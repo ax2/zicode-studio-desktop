@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-11-18T05:00:23.523458+00:00",
+  "issue": "https://github.com/ax2/zicode-studio-desktop/issues/37",
+  "milestone": "v0.6.5",
+  "sourceBase": "46492da67c04bd073c98268d5432f2414c8ec21c",
+  "officialRelease": {
+    "version": "1.5.2",
+    "url": "https://github.com/earendil-works/pi/releases/tag/v1.5.2",
+    "publishedAt": "2026-11-10T12:25:43Z",
+    "draft": false,
+    "prerelease": false
+  },
+  "windowsX64Asset": {
+    "url": "https://github.com/earendil-works/pi/releases/download/v1.5.2/pi-windows-x64.zip",
+    "bytes": 61940631,
+    "sha256": "e6adb8cb8c84eca14391ad24b363de9d2be98a89ca3ba3fdee1fa4de32b7f2e8"
+  },
+  "allSixLockedAssetDigestsMatch": true,
+  "sdk": {
+    "@earendil-works/pi-coding-agent": {
+      "version": "1.5.2",
+      "source": "https://registry.npmjs.org/@earendil-works/pi-coding-agent/latest",
+      "integrity": "sha512-mUWI04rqF1Vd/m1q+Ps1XeWsTXEVvRUnsmRa83I3Dzua0Tx5bYS93imeqtIfrXf7PkkaR6ERz+AuQhIJlom5yA==",
+      "lockedIntegrityMatches": true
+    },
+    "@earendil-works/pi-tui": {
+      "version": "1.5.2",
+      "source": "https://registry.npmjs.org/@earendil-works/pi-tui/latest",
+      "integrity": "sha512-WK8ih+c88GWizaB79y7Pq3PV7ySf5VI1pZ1i/6aBBjDOAiG2EE3ojKjl+pxQqLfyQGnzHYu4VfakOBJgumuoyw==",
+      "lockedIntegrityMatches": true
+    },
+    "@earendil-works/pi-ai": {
+      "version": "1.5.2",
+      "source": "https://registry.npmjs.org/@earendil-works/pi-ai/latest",
+      "integrity": "sha512-2tWPSnV3qzfiDIY3aWluBag3vC++Vs+VsXt/UquSU5onPMohPih72FUhIhaqmDdMYubOgB3Byl9uF4Vk40JLvQ==",
+      "lockedIntegrityMatches": true
+    }
+  },
+  "existingWindowsRuntimeMarkerMatches": true,
+  "decision": "Keep already-current 1.5.2; no dependency update, download, rebuild, fixture rewrite or repeated runtime calls",
+  "reusedEvidence": [
+    {
+      "path": "tests/fixtures/pi-rpc/1.5.2/contract.json",
+      "scope": "Existing versioned RPC command/state/extension-event contract; unchanged"
+    },
+    {
+      "path": "docs/iterations/evidence/2026-11-18-module-model-routing.json",
+      "source": "052225b9490f6b199a056acdbb2bdfa3a725bac3",
+      "scope": "Actual locked Pi JSONL, two local model APIs, extension execution, explicit cancellation, unchanged Chat state/history and module reference persistence across process restart"
+    },
+    {
+      "path": "docs/iterations/2026-11-18-module-model-routing.md",
+      "scope": "50 related JavaScript and 21 visual Rust tests, source typechecks, all-target static checks, 92 command permissions and Windows subprocess policy"
+    }
+  ],
+  "unchangedSources": [
+    "scripts/pi-version.json",
+    "package.json",
+    "bun.lock",
+    "tests/fixtures/pi-rpc/1.5.2/contract.json"
+  ],
+  "publicStudioReleaseAtCheck": {
+    "version": "v0.6.2",
+    "url": "https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.6.2",
+    "source": "https://api.github.com/repos/ax2/zicode-studio-desktop/releases/latest"
+  },
+  "limits": [
+    "No claim of all historic session-format migration coverage",
+    "No paid or local user model calls",
+    "No desktop launch, personal profile access, build on another platform or scheduling",
+    "README source features are not a declaration that a draft version is published"
+  ],
+  "documentationChecks": {
+    "localLinksResolved": 26,
+    "auditJsonParsed": true,
+    "sdkAlignmentPassed": true
+  }
+}
