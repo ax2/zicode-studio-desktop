@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import { NotesSyncRunControl } from "./NotesSyncRunControl";
 
 type Connection = { endpoint: string; username: string; vaultId: string };
 type Status = {
@@ -31,8 +32,8 @@ const errors: Record<string, string> = {
   notes_sync_workspace_unavailable: "The current workspace is unavailable. Reopen cloud sync settings.",
 };
 
-export function NotesSyncTab({ getWorkspaceId, invoke }: {
-  getWorkspaceId?: () => string | undefined; invoke?: Invoke;
+export function NotesSyncTab({ getWorkspaceId, getSceneId, invoke }: {
+  getWorkspaceId?: () => string | undefined; getSceneId?: () => string; invoke?: Invoke;
 }) {
   const native = invoke ?? (globalThis as { __TAURI__?: { core?: { invoke?: Invoke } } }).__TAURI__?.core?.invoke;
   const [status, setStatus] = useState<Status | null>(null);
@@ -79,8 +80,8 @@ export function NotesSyncTab({ getWorkspaceId, invoke }: {
   const dirty = status && (password || recovery || (["endpoint", "username", "vaultId"] as const).some(key => connection[key] !== status.connection[key]));
   return <section className="settings-section" aria-label={t("Notes cloud sync")}>
     <h2 className="settings-section-title">{t("Notes cloud sync")}</h2>
-    <p className="ui-muted">{t("Saving these settings does not connect to WebDAV or upload notes. The sync task is not connected yet.")}</p>
-    <p role="status">{busy ? t("Loading...") : status ? t(statusLabels[status.state] ?? "Could not read or save cloud sync settings.") : t(error ? "Cloud sync status is unavailable." : "Loading...")}</p>
+    <p className="ui-muted">{t(status?.syncAvailable ? "Saving settings never starts sync. Use Sync now to review the destination and sync saved notes." : "Saving these settings does not connect to WebDAV or upload notes. The sync task is not connected yet.")}</p>
+    <p role="status">{busy ? t("Loading...") : status ? t(status.syncAvailable && status.state === "configured" ? "Configuration and credentials are saved." : statusLabels[status.state] ?? "Could not read or save cloud sync settings.") : t(error ? "Cloud sync status is unavailable." : "Loading...")}</p>
     {dirty && <p className="ui-muted">{t("Cloud sync settings have unsaved changes.")}</p>}
     {error && <p role="alert">{error}</p>}
     <form onSubmit={event => { event.preventDefault(); void action("save"); }}>
@@ -103,5 +104,7 @@ export function NotesSyncTab({ getWorkspaceId, invoke }: {
       </fieldset>
     </form>
     <button type="button" className="ui-button ui-button--secondary" disabled={busy} onClick={() => void load()}>{t("Refresh")}</button>
+    {status?.syncAvailable && <NotesSyncRunControl workspaceId={scope.current} revision={status.revision} connection={status.connection}
+      ready={status.state === "configured" && !disabled && !dirty} getWorkspaceId={getWorkspaceId} getSceneId={getSceneId} onRefreshSettings={load} invoke={native} />}
   </section>;
 }

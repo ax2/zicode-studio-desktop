@@ -146,7 +146,7 @@ export function SettingsContent({
         <UpdatesTab store={store} widgets={controller.widgetsStore} />
       </div>
       <div className={`settings-tab${activeTab === "notes-sync" ? " active" : ""}`} data-settings-panel="notes-sync">
-        {activeTab === "notes-sync" && <NotesSyncTab getWorkspaceId={controller.getWorkspaceId} />}
+        {activeTab === "notes-sync" && <NotesSyncTab getWorkspaceId={controller.getWorkspaceId} getSceneId={controller.getSceneId} />}
       </div>
       <div className={`settings-tab${activeTab === "system" ? " active" : ""}`} data-settings-panel="system">
         {activeTab === "system" && <SystemInfoTab />}
