@@ -1,3 +1,6 @@
+#[path = "isolation_tests.rs"]
+mod isolation;
+
 use super::*;
 use std::{
     cell::{Cell, RefCell},
@@ -99,9 +102,13 @@ fn metadata_and_status_never_store_or_expose_secrets_or_change_notes() {
     assert_eq!(saved.state, "configured");
     assert!(!saved.sync_available);
     let serialized = serde_json::to_string(&saved).unwrap();
-    let store = Storage::open(&root.0, &workspace_key("workspace").unwrap(), false)
-        .unwrap()
-        .unwrap();
+    let store = Storage::open(
+        &root.0,
+        &configuration_key("workspace", Some("synthetic")).unwrap(),
+        false,
+    )
+    .unwrap()
+    .unwrap();
     let bytes = String::from_utf8(store.read_current().unwrap().unwrap()).unwrap();
     for content in [serialized, bytes] {
         assert!(!content.contains("test-password"));
@@ -408,7 +415,7 @@ fn windows_system_credentials_roundtrip_in_fresh_named_scope() {
         )
         .unwrap()
         .state,
-        "credentialsMissing"
+        "unconfigured"
     );
     assert_eq!(
         status(

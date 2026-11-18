@@ -67,6 +67,21 @@ fn workspace_key(workspace: &str) -> Result<String> {
     Ok(format!("{:x}", Sha256::digest(workspace.as_bytes())))
 }
 
+// Personal paths remain stable; named profiles own separate metadata as well as secrets.
+fn configuration_key(workspace: &str, test_name: Option<&str>) -> Result<String> {
+    let personal = workspace_key(workspace)?;
+    let Some(name) = test_name else {
+        return Ok(personal);
+    };
+    if name.is_empty() || name.len() > 128 || name.chars().any(char::is_control) {
+        return Err("notes_sync_settings_invalid");
+    }
+    Ok(format!(
+        "named-{:x}",
+        Sha256::digest(format!("notes-sync-config-v1\0{name}\0{workspace}").as_bytes())
+    ))
+}
+
 fn validate_connection(connection: &Connection) -> Result<()> {
     let url =
         reqwest::Url::parse(&connection.endpoint).map_err(|_| "notes_sync_invalid_endpoint")?;
@@ -141,7 +156,7 @@ fn status(
     enabled: bool,
     secrets: &impl Secrets,
 ) -> Result<Status> {
-    let key = workspace_key(workspace)?;
+    let key = configuration_key(workspace, test_name)?;
     let config = Storage::open(root, &key, false)?
         .as_ref()
         .map(|store| read(store, workspace))
@@ -224,7 +239,7 @@ fn save(
         }
         SyncKey::from_recovery(recovery).map_err(|_| "notes_sync_invalid_key")?;
     }
-    let store = Storage::open(root, &workspace_key(workspace)?, true)?
+    let store = Storage::open(root, &configuration_key(workspace, test_name)?, true)?
         .ok_or("notes_sync_settings_unavailable")?;
     let _lock = store.lock()?;
     let before = read(&store, workspace)?;
