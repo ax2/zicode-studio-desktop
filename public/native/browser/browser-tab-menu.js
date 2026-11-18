@@ -66,6 +66,7 @@ export function setupBrowserTabMenu(host, { available, actionsFor, focusTab }) {
     if (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey)) open(event, true);
   });
   menu.addEventListener("keydown", event => {
+    if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key === "Tab") { close(true); return; }
     if (event.key === "Escape") close(true);
     else {
@@ -76,6 +77,11 @@ export function setupBrowserTabMenu(host, { available, actionsFor, focusTab }) {
       if (event.key === "End") target = items.at(-1);
       if (event.key === "ArrowUp") target = items[(index + items.length - 1) % items.length];
       if (event.key === "ArrowDown") target = items[(index + 1) % items.length];
+      if (event.key.length === 1 && event.key.trim()) {
+        const initial = event.key.toLocaleLowerCase();
+        target = [...items.slice(index + 1), ...items.slice(0, index + 1)]
+          .find(item => item.textContent.trimStart().toLocaleLowerCase().startsWith(initial));
+      }
       if (!target) return;
       target.focus({ preventScroll: true });
     }
