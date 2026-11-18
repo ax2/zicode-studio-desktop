@@ -82,6 +82,6 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
       </div>
     {updater.update?.body && <details className="ui-card"><summary>{t("Release notes")}</summary><p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }} translate="no">{updater.update.body.slice(0, 16000)}</p></details>}
     {!updater.enabled && <p className="ui-muted">{t("Check the latest version, release notes and Windows installer on GitHub.")}</p>}
-    <p className="ui-muted">{t("Installing an update will restart Studio. Save your work first.")}</p>
+    {(updater.canInstall || updater.installing) && <p className="ui-muted">{t("Installing an update will restart Studio. Save your work first.")}</p>}
   </>;
 }

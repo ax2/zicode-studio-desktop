@@ -29,6 +29,14 @@ it.each(["en", "zh-CN"])("shows the native installed version and an honest manua
   expect(anchor.target).toBe("_blank"); expect(anchor.rel).toBe("noopener noreferrer");
   expect(invoke).not.toHaveBeenCalled();
   expect(view.queryByText(t("Check the latest version, release notes and Windows installer on GitHub."))).not.toBeNull();
+  const restartWarning = t("Installing an update will restart Studio. Save your work first.");
+  expect(view.queryByText(restartWarning)).toBeNull();
+  act(() => useAppUpdaterStore.getState().configure(true));
+  expect(view.queryByText(restartWarning)).toBeNull();
+  act(() => useAppUpdaterStore.getState().showAvailable({ version: "0.6.6" }));
+  expect(view.queryByText(restartWarning)).not.toBeNull();
+  act(() => useAppUpdaterStore.getState().configure(false));
+  expect(view.queryByText(restartWarning)).toBeNull();
 });
 
 it("localizes unavailable installed-version fallbacks without inventing a latest version", async () => {
