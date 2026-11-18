@@ -86,11 +86,14 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     if (busy || !snapshot || !current()) return;
     const before = snapshot;
     const selection = select.value ? (() => { const [provider, modelId] = JSON.parse(select.value); return { provider, modelId }; })() : null;
-    analysis = undefined; savedArtifact = undefined; saveStatus.textContent = "";
-    busy = true; controls(); answer.hidden = true; answer.value = ""; status.textContent = "";
+    busy = true; controls(); status.textContent = "";
     try {
       const value = await actions.save(selection, before.revision);
-      if (current()) render(value);
+      if (current()) {
+        analysis = undefined; savedArtifact = undefined; saveStatus.textContent = "";
+        answer.hidden = true; answer.value = "";
+        render(value);
+      }
     } catch (reason) { if (current()) { render(before); status.textContent = browserModelError(reason); } }
     finally { if (current()) { busy = false; controls(); } }
   });

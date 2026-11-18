@@ -126,3 +126,29 @@ it("saves summary intent with its original result instead of treating a later qu
   expect(artifacts.save.mock.calls[0][0]).toMatchObject({ kind: "summary", question: "", text: "<script>inert answer</script>" });
   expect(f.actions.ask).toHaveBeenCalledOnce();
 });
+
+it("keeps the previous reviewed answer and its original model saveable when a model change fails", async () => {
+  const artifacts = { save: vi.fn(async () => ({ id: "original-answer" })), open: vi.fn() };
+  const f = fixture(true, artifacts);
+  f.actions.ask.mockResolvedValueOnce({ text: "Existing A answer", model: a });
+  await waitFor(() => expect(getByRole(f.el, "combobox").disabled).toBe(false));
+  fireEvent.click(getByRole(f.el, "button", { name: "Send page and ask" }));
+  await waitFor(() => expect(getByRole(f.el, "textbox", { name: "Browser model answer" }).value).toBe("Existing A answer"));
+  const answer = getByRole(f.el, "textbox", { name: "Browser model answer" });
+  f.actions.save.mockRejectedValueOnce(new Error("module_model_config_changed"));
+  fireEvent.change(getByRole(f.el, "combobox"), { target: { value: JSON.stringify(["fixture", "b"]) } });
+  await waitFor(() => expect(f.el.textContent).toContain("Model configuration changed."));
+  expect(getByRole(f.el, "combobox").value).toBe("");
+  expect(answer.hidden).toBe(false);
+  expect(answer.value).toBe("Existing A answer");
+  const save = getByRole(f.el, "button", { name: "Save analysis to Artifacts" });
+  expect(save.disabled).toBe(false);
+  fireEvent.click(save);
+  await waitFor(() => expect(artifacts.save).toHaveBeenCalledOnce());
+  expect(artifacts.save.mock.calls[0][0]).toMatchObject({ text: "Existing A answer", model: a, question: "What does this page say?" });
+  expect(f.actions.ask).toHaveBeenCalledOnce();
+  fireEvent.change(getByRole(f.el, "combobox"), { target: { value: JSON.stringify(["fixture", "b"]) } });
+  await waitFor(() => expect(answer.hidden).toBe(true));
+  expect(answer.value).toBe("");
+  expect(f.el.querySelector('button[data-i18n-text="Open saved artifact"]').hidden).toBe(true);
+});

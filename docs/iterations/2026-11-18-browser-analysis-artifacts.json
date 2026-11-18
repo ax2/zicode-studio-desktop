@@ -11,7 +11,7 @@
   "desktopInteraction": false,
   "applicationBuild": false,
   "checks": {
-    "relatedJsReactTests": 21,
+    "relatedJsReactTests": 22,
     "nativeHostRestartTests": 1,
     "rustTestThreads": 2,
     "cargoCheckAllTargets": "passed",
