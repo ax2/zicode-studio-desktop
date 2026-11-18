@@ -19,7 +19,7 @@ export function browserModelError(reason) {
   return t("Could not load Pi models. Open Chat or model settings, then retry.");
 }
 
-export function createBrowserModelAssistant({ actions, question, prompt, isCurrent, setBusy }) {
+export function createBrowserModelAssistant({ actions, question, prompt, isCurrent, setBusy, artifacts }) {
   const element = document.createElement("section"); element.className = "ui-card browser-model-assistant";
   element.setAttribute("aria-label", t("Browser model"));
   const field = document.createElement("label"), title = document.createElement("span"); label(title, "Browser model");
@@ -34,6 +34,13 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
   const cancel = button("Cancel model request", () => { if (requestId) void actions.cancel(requestId); });
   const answer = document.createElement("textarea"); answer.className = "ui-textarea"; answer.rows = 5; answer.readOnly = true; answer.hidden = true;
   answer.setAttribute("aria-label", t("Browser model answer"));
+  const save = button("Save analysis to Artifacts", () => void saveAnalysis());
+  const open = button("Open saved artifact", () => {
+    try { artifacts.open(savedArtifact); }
+    catch { saveStatus.textContent = t("Page or destination changed. Read the page again."); }
+  });
+  const saveStatus = document.createElement("p"); saveStatus.setAttribute("role", "status");
+  let analysis, savedArtifact;
   let snapshot, busy = false, disposed = false, requestId, generation = 0;
   const current = () => !disposed && isCurrent();
   function controls() {
@@ -42,6 +49,10 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     ask.disabled = busy || !snapshot?.effectiveBrowserModel || !question?.value.trim();
     summarize.disabled = busy || !snapshot?.effectiveBrowserModel;
     cancel.hidden = !requestId;
+    save.hidden = !artifacts || !analysis;
+    save.disabled = busy || !analysis || Boolean(savedArtifact);
+    open.hidden = !savedArtifact;
+    open.disabled = busy;
   }
   function render(value) {
     snapshot = value;
@@ -75,29 +86,49 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     if (busy || !snapshot || !current()) return;
     const before = snapshot;
     const selection = select.value ? (() => { const [provider, modelId] = JSON.parse(select.value); return { provider, modelId }; })() : null;
-    busy = true; controls(); answer.hidden = true; answer.value = ""; status.textContent = "";
+    busy = true; controls(); status.textContent = "";
     try {
       const value = await actions.save(selection, before.revision);
-      if (current()) render(value);
+      if (current()) {
+        analysis = undefined; savedArtifact = undefined; saveStatus.textContent = "";
+        answer.hidden = true; answer.value = "";
+        render(value);
+      }
     } catch (reason) { if (current()) { render(before); status.textContent = browserModelError(reason); } }
     finally { if (current()) { busy = false; controls(); } }
   });
   async function send(summary) {
     if (busy || !snapshot?.effectiveBrowserModel || !current() || (!summary && !question?.value.trim())) return;
     const mine = ++generation;
+    const requestedQuestion = summary ? "" : question.value.trim();
+    analysis = undefined; savedArtifact = undefined; saveStatus.textContent = "";
     requestId = `browser-${randomId()}`; busy = true; setBusy(true); controls();
     answer.hidden = true; answer.value = ""; status.textContent = t("Sending reviewed page content to the selected model…");
     try {
       const value = await actions.ask({ requestId, confirmed: true, prompt: prompt(summary), expectedRevision: snapshot.revision,
         expectedModelFingerprint: snapshot.effectiveBrowserModel.fingerprint });
       if (!current() || mine !== generation) return;
+      analysis = { text: value.text, model: value.model, kind: summary ? "summary" : "analysis",
+        question: requestedQuestion, generatedAt: new Date().toISOString() };
       answer.value = value.text; answer.hidden = false;
       status.textContent = `${name(value.model)}${Number.isSafeInteger(value.usage?.totalTokens) ? ` · ${value.usage.totalTokens} ${t("tokens")}` : ""}`;
     } catch (reason) { if (current() && mine === generation) status.textContent = browserModelError(reason); }
     finally { requestId = undefined; busy = false; setBusy(false); if (current()) controls(); }
   }
+  async function saveAnalysis() {
+    if (busy || !analysis || savedArtifact || !artifacts || !current()) return;
+    const mine = generation;
+    busy = true; setBusy(true); controls(); saveStatus.textContent = t("Saving…");
+    try {
+      const result = await artifacts.save(analysis);
+      if (current() && mine === generation) { savedArtifact = result; saveStatus.textContent = t("Analysis saved to Artifacts"); }
+    } catch {
+      if (current() && mine === generation) saveStatus.textContent = t("Could not save analysis. Try again.");
+    } finally { busy = false; setBusy(false); if (current()) controls(); }
+  }
   question?.addEventListener("input", controls);
   toolbar.append(refresh, ask, summarize, cancel); element.append(field, hint, destination, toolbar, status, answer);
+  if (artifacts) element.append(save, open, saveStatus);
   controls();
   if (actions.autoLoad()) queueMicrotask(() => void load());
   return { element, cancel() { if (requestId) void actions.cancel(requestId); }, dispose() {

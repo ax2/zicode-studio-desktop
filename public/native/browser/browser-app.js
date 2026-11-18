@@ -26,6 +26,8 @@ import { prepareBrowserComparisonDraft, prepareBrowserDraft } from "./browser-ch
 import { showBrowserCapture } from "./browser-capture-preview.js";
 import { createBrowserModelGateway } from "./browser-model-gateway.js";
 import { showBrowserReader } from "./browser-reader.js";
+import { createBrowserAnalysisArtifacts } from "./browser-analysis-artifact.js";
+import { ArtifactGateway } from "../plugins/artifact-gateway.js";
 import { NotesGateway } from "../plugins/notes-gateway.js";
 import { createBrowserNoteWriter } from "./browser-note-snapshot.js";
 import { t } from "../../i18n.js";
@@ -945,13 +947,15 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       }),
     };
     const modelActions = modelGateway && createBrowserModelGateway({ gateway: modelGateway, getTarget, isCurrent, openConversation });
+    const analysisArtifacts = createBrowserAnalysisArtifacts({ capture, getTarget,
+      isCurrent: () => Boolean(captureElement?.isConnected), gateway: new ArtifactGateway() });
     captureElement = showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? attachments => prepareBrowserDraft({
       capture, isCurrent, getTarget, handoff: onPrepareDraft, attachments, openConversation,
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
     }) : undefined, isOpen => createBrowserNoteWriter({ capture, getTarget,
       isCurrent: () => isOpen() && isCurrent(), gateway: new NotesGateway(),
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
-    }), comparison, Boolean(openConversation), { host: assistant, trigger: read, modelActions });
+    }), comparison, Boolean(openConversation), { host: assistant, trigger: read, modelActions, analysisArtifacts });
     await syncSurface();
   }
   async function navigate(submission, source) {

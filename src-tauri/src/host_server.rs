@@ -1,5 +1,7 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
+#[cfg(test)]
+mod browser_artifact_tests;
 mod automation_dispatch;
 mod automation_leader;
 mod automation_orphans;
