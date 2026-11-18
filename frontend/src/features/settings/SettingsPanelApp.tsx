@@ -1,3 +1,4 @@
+import { NotesSyncTab } from "./NotesSyncTab";
 import { UpdatesTab } from "./UpdatesTab";
 import { SettingsToggle } from "./SettingsToggle";
 import { SystemInfoTab } from "./SystemInfoTab";
@@ -143,6 +144,9 @@ export function SettingsContent({
       </div>
       <div className={`settings-tab${activeTab === "updates" ? " active" : ""}`} data-settings-panel="updates">
         <UpdatesTab store={store} widgets={controller.widgetsStore} />
+      </div>
+      <div className={`settings-tab${activeTab === "notes-sync" ? " active" : ""}`} data-settings-panel="notes-sync">
+        {activeTab === "notes-sync" && <NotesSyncTab getWorkspaceId={controller.getWorkspaceId} />}
       </div>
       <div className={`settings-tab${activeTab === "system" ? " active" : ""}`} data-settings-panel="system">
         {activeTab === "system" && <SystemInfoTab />}
