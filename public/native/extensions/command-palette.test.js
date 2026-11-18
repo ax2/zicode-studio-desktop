@@ -30,6 +30,20 @@ describe("command palette", () => {
     delete globalThis.KeyboardEvent;
   });
 
+  it("returns to visible compact navigation when the original launcher is hidden", () => {
+    const more = document.createElement("button");
+    more.setAttribute("data-mobile-activity-more", "");
+    document.body.append(more);
+    button.style.display = "none";
+    setupCommandPalette({ button, palette, overlay, list,
+      commands: [{ label: "First", action() {} }],
+    });
+    button.click();
+    expect(palette.classList.contains("hidden")).toBe(false);
+    document.activeElement.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(palette.classList.contains("hidden")).toBe(true);
+    expect(document.activeElement).toBe(more);
+  });
   it("opens command actions from the command button", () => {
     const action = vi.fn();
     setupCommandPalette({

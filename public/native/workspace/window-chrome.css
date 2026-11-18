@@ -4,7 +4,7 @@
 .window-controls .window-control { flex: 0 0 var(--control-height-sm); width: var(--control-height-sm); min-width: var(--control-height-sm); height: var(--control-height-sm); min-height: var(--control-height-sm); padding: var(--space-1); }
 .window-control svg { width: var(--space-4); height: var(--space-4); }
 .window-control:not([data-window-action="close"]) { display: none; }
-.window-controls:hover .window-control, .window-controls:has(:focus-visible) .window-control { display: inline-flex; }
+.window-controls:hover .window-control, .window-controls:has(:focus-visible) .window-control, .window-controls[data-keyboard-expanded] .window-control { display: inline-flex; }
 .window-controls [data-window-action="close"]:hover { background: var(--error); color: var(--bg-solid); }
 .window-drag-handle { flex: 0 0 var(--space-3); align-self: stretch; cursor: grab; touch-action: none; pointer-events: auto; }
 .window-drag-handle:active { cursor: grabbing; }
