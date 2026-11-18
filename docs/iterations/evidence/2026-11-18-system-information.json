@@ -1,0 +1,99 @@
+{
+  "scopeIssue": 33,
+  "clockFixIssue": 89,
+  "clockFixMilestone": "v0.6.6",
+  "baseCommit": "fe9b5b441640e5ccb121744cd2a992b784768515",
+  "priorActualWindows": {
+    "checkedAt": "2026-11-04T03:31:55.359Z",
+    "passed": true,
+    "viewportWidths": [
+      1280,
+      900,
+      769,
+      768,
+      360
+    ],
+    "allHeadingsUncovered": true,
+    "noHorizontalOverflow": true,
+    "themeCount": 6,
+    "temperatureCelsius": [
+      48.37500762939453,
+      47.00000762939453,
+      48.75000762939453
+    ],
+    "stopped": {
+      "state": "idle",
+      "temperatureCelsius": null
+    },
+    "callerIntegrity": 8192,
+    "liveSensorReadersAfterStop": 0,
+    "nativeTrayMouseInteractionVerified": false,
+    "receiptHashes": {
+      "hardware-info-windows.json": "fe4d42a5333d45f664bbbf718220789329454b4665d05b41a8e4bb536872d770",
+      "hardware-info-native-tests/result.json": "24fb20d6476a38ce3de0c76319ca48ba451d6546854b4c38314ca09d699c22ff",
+      "hardware-info-normal-state.json": "60c01252b604e458a2ac3f3d6b00902d52ff915985f85ea3e73d5f312d8f0424"
+    }
+  },
+  "newFocusedChecks": {
+    "passed": true,
+    "tests": 11,
+    "initialClockRegressionFailed": true,
+    "equivalentSamples": 40000,
+    "sampleIntervalMs": 2500,
+    "realHardwareSoak": false,
+    "scope": [
+      "units and unavailable readings",
+      "explicit authorization control and cancellation",
+      "backward clock recovery",
+      "bounded history with missing sensor gaps",
+      "tray event disposal and late registration"
+    ],
+    "productionSensorLifecycle": {
+      "passed": true,
+      "source": "src-tauri/sensors/SensorReader.cs",
+      "sourceSha256": "7f79ca9054c45b306f388278fb70da365430bab006629b9f02e9aaf78fd61a4f",
+      "cases": [
+        {
+          "case": "pipe-disconnect",
+          "emptyFrameReceived": true,
+          "libraryClosed": true,
+          "readerExitedNormally": true,
+          "exitCode": 0
+        },
+        {
+          "case": "owner-exit",
+          "emptyFrameReceived": true,
+          "libraryClosed": true,
+          "readerExitedNormally": true,
+          "exitCode": 0
+        }
+      ],
+      "diagnostics": [],
+      "ordinaryCaller": true,
+      "elevationRequested": false,
+      "hardwareAccess": false,
+      "desktopOpened": false,
+      "realTemperatureTest": false,
+      "failure": null,
+      "scratchRoot": "C:\\Users\\ax2\\Documents\\ChatGPT\\工作台\\.cache\\task-scratch",
+      "fixture": null
+    },
+    "typesPassed": true,
+    "repositoryCheckPassed": true
+  },
+  "generatedSettingsSha256": "80354396c3b336884c69d32ccd71eb92a240f50cab4bc2c87063632e92a4da99",
+  "boundaries": {
+    "newDesktopInteraction": false,
+    "newRealHardwareMonitor": false,
+    "elevationRequested": false,
+    "modelsCalled": false,
+    "userDataWritten": false,
+    "r65OrFrozenVersionChanged": false,
+    "otherPhysicalHardwareTested": false,
+    "realHardwareLongDurationTested": false
+  },
+  "retainedFailures": [
+    "clock rollback regression before fix",
+    "two local fixture pipe failures; old .NET rejected D-drive assembly loading with 0x80131515; local C-drive fixture passed without changing production guards"
+  ]
+}
