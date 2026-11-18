@@ -8,6 +8,12 @@
   };
   const visible = element => allowed(element) &&
     element.checkVisibility?.({ opacityProperty: true, visibilityProperty: true }) !== false;
+  // Preserve the UTF-16 budget without passing half an emoji to the Rust JSON decoder.
+  const clip = (value, limit) => {
+    if (value.length <= limit) return value;
+    const last = value.charCodeAt(limit - 1);
+    return value.slice(0, last >= 0xd800 && last <= 0xdbff ? limit - 1 : limit);
+  };
   const shortText = (value, max) => [...value.trim().slice(0, max * 2)].slice(0, max).join("");
   const webUrl = value => {
     if (!value || value.length > 1024 || !/^https?:\/\//.test(value)) return null;
@@ -24,7 +30,7 @@
     const part = (node.nodeValue || '').trim();
     if (!part) continue;
     const remaining = 48000 - text.length;
-    if (part.length + 1 > remaining) { text += part.slice(0, Math.max(0, remaining)); truncated = true; break; }
+    if (part.length + 1 > remaining) { text += clip(part, remaining); truncated = true; break; }
     text += part + '\n';
   }
   const selection = getSelection();
@@ -34,7 +40,11 @@
     const range = selection.getRangeAt(0);
     const safe = allowed(range.startContainer) && allowed(range.endContainer) &&
       ![...document.querySelectorAll('input,textarea,select,[contenteditable]')].some(element => range.intersectsNode(element));
-    if (safe) selected = selection.toString().slice(0, 8192);
+    if (safe) {
+      const value = selection.toString();
+      selected = clip(value, 8192);
+      if (selected.length < value.length) truncated = true;
+    }
   }
   const links = [];
   const seen = new Set();
@@ -139,6 +149,6 @@
     if (key) imageKeys.add(key);
     images.push({ alt, width, height, url });
   }
-  return { title: document.title.slice(0, 512), url: location.href, text, selection: selected, truncated,
+  return { title: clip(document.title, 512), url: location.href, text, selection: selected, truncated,
     links, linksTruncated, tables, tablesTruncated, metadata, images, imagesTruncated };
 })()
