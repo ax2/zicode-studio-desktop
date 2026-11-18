@@ -24,13 +24,14 @@ import { createBrowserSurface } from "./browser-surface.js";
 import { createBrowserOptions } from "./browser-options.js";
 import { prepareBrowserComparisonDraft, prepareBrowserDraft } from "./browser-chat-draft.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
+import { createBrowserModelGateway } from "./browser-model-gateway.js";
 import { showBrowserReader } from "./browser-reader.js";
 import { NotesGateway } from "../plugins/notes-gateway.js";
 import { createBrowserNoteWriter } from "./browser-note-snapshot.js";
 import { t } from "../../i18n.js";
 
 export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
-  listen = globalThis.__TAURI__?.event?.listen, nativeWindow = globalThis.__TAURI__?.window?.getCurrentWindow?.(), notify = () => {}, getTarget = () => null, onPrepareDraft, canOpenDraftConversation, openDraftConversation, onTranslateSelection } = {}) {
+  listen = globalThis.__TAURI__?.event?.listen, nativeWindow = globalThis.__TAURI__?.window?.getCurrentWindow?.(), notify = () => {}, getTarget = () => null, onPrepareDraft, canOpenDraftConversation, openDraftConversation, onTranslateSelection, modelGateway } = {}) {
   let startupState, searchSettings, ordering, tabStripControls, tabMenu, tabSearch, pageControls, find, shortcuts, fullscreen;
   let root, viewport, assistant, read, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
@@ -943,13 +944,14 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         readSource: source => readSource(requestFor(source)),
       }),
     };
+    const modelActions = modelGateway && createBrowserModelGateway({ gateway: modelGateway, getTarget, isCurrent, openConversation });
     captureElement = showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? attachments => prepareBrowserDraft({
       capture, isCurrent, getTarget, handoff: onPrepareDraft, attachments, openConversation,
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
     }) : undefined, isOpen => createBrowserNoteWriter({ capture, getTarget,
       isCurrent: () => isOpen() && isCurrent(), gateway: new NotesGateway(),
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
-    }), comparison, Boolean(openConversation), { host: assistant, trigger: read });
+    }), comparison, Boolean(openConversation), { host: assistant, trigger: read, modelActions });
     await syncSurface();
   }
   async function navigate(submission, source) {
@@ -975,7 +977,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       initPromise ??= restore();
       void initPromise.then(() => run(syncSurface));
     },
-    async canDeactivate() { tabMenu?.close(); tabSearch?.close(); await fullscreen?.leave(); await find?.close(); ordering?.cancel(); visible = false; await initPromise; await hide(); return true; },
-    deactivate() { tabMenu?.close(); tabSearch?.close(); void fullscreen?.leave(); void find?.close(); ordering?.cancel(); visible = false; void run(hide); },
+    async canDeactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); await fullscreen?.leave(); await find?.close(); ordering?.cancel(); visible = false; await initPromise; await hide(); return true; },
+    deactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); void fullscreen?.leave(); void find?.close(); ordering?.cancel(); visible = false; void run(hide); },
   };
 }

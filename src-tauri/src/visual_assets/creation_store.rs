@@ -42,13 +42,15 @@ impl Store {
             workspace: workspace.into(),
             scene: scene.into(),
         };
-        store.db()?.execute_batch("CREATE TABLE IF NOT EXISTS image_settings(workspace TEXT,scene TEXT,settings TEXT NOT NULL,PRIMARY KEY(workspace,scene));
+        let db = store.db()?;
+        db.execute_batch("CREATE TABLE IF NOT EXISTS image_settings(workspace TEXT,scene TEXT,settings TEXT NOT NULL,PRIMARY KEY(workspace,scene));
             CREATE TABLE IF NOT EXISTS image_job(id TEXT PRIMARY KEY,library TEXT NOT NULL,workspace TEXT NOT NULL,scene TEXT NOT NULL,plan TEXT NOT NULL,digest TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('unknown','ready','rejected')),created INTEGER NOT NULL DEFAULT(unixepoch('now')),output BLOB,thumbnail TEXT,sha256 TEXT,usage TEXT,CHECK(output IS NULL OR length(output)<=25165824));
             CREATE TABLE IF NOT EXISTS image_job_error(id TEXT PRIMARY KEY,error TEXT NOT NULL);
             CREATE UNIQUE INDEX IF NOT EXISTS image_unknown_plan ON image_job(library,workspace,scene,digest) WHERE state='unknown';")?;
+        super::creation_model_profiles::initialize(&db)?;
         Ok(store)
     }
-    fn db(&self) -> Result<Connection> {
+    pub(super) fn db(&self) -> Result<Connection> {
         let db = Connection::open(&self.path)?;
         db.busy_timeout(std::time::Duration::from_millis(250))?;
         db.execute_batch(
@@ -72,7 +74,11 @@ impl Store {
     }
     pub fn save_settings(&self, settings: &Settings) -> Result<()> {
         settings.endpoint()?;
-        self.db()?.execute("INSERT INTO image_settings VALUES (?1,?2,?3) ON CONFLICT(workspace,scene) DO UPDATE SET settings=excluded.settings",params![self.workspace,self.scene,serde_json::to_string(settings)?])?;
+        let mut db = self.db()?;
+        let tx = db.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        tx.execute("INSERT INTO image_settings VALUES (?1,?2,?3) ON CONFLICT(workspace,scene) DO UPDATE SET settings=excluded.settings",params![self.workspace,self.scene,serde_json::to_string(settings)?])?;
+        tx.execute("DELETE FROM image_model_selection WHERE workspace=?1 AND scene=?2", params![self.workspace,self.scene])?;
+        tx.commit()?;
         Ok(())
     }
     pub fn get(&self, library: &str, id: Uuid) -> Result<Option<Value>> {

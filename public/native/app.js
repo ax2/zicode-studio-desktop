@@ -1230,6 +1230,7 @@ async function openBrowserDraftConversation({ target: source, isCurrent }) {
 }
 
 const browserApp = setupBrowserApp({
+  modelGateway: configGateway,
   notify: notifications.notify, getTarget: () => target, onPrepareDraft: projectChatDraftHandoff,
   canOpenDraftConversation: canOpenBrowserDraftConversation, openDraftConversation: openBrowserDraftConversation,
   onTranslateSelection: (text, provenance) => translationNavigation.open(text, { historyMode: "push" }, undefined, provenance),
