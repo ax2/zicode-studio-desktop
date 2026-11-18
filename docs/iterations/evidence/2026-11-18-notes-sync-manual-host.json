@@ -77,18 +77,6 @@
     "automatic startup/retry/scheduled sync",
     "full Studio build or installer acceptance"
   ],
-  "sourceSha256": {
-    "src-tauri/src/notes_sync_task.rs": "b384fd7670b0454d8e91b35eafea16f07b4f10efe51b5a8cc0ed6be71b9b5307",
-    "src-tauri/src/notes_sync_task/state.rs": "6c806eb88083e0f67f3cabe760b222b5f01f72308939db4fb643913d2cd44a8b",
-    "src-tauri/src/host_server/notes_sync_task.rs": "a8c3664d1d55be52ed78fbfca0b45c831a738690dc3e6c4a3469843b8c8e2952",
-    "src-tauri/src/host_server/notes_sync_task/tests.rs": "0cfdb263043e40223846760ffd27cb36ab5efff274898dbf95e39239103870ad",
-    "src-tauri/src/notes_sync_settings/resolver.rs": "d3a9dae7e116e8f9c99ed54b32fd19027716e7423f06a90b5e086c2f957114a9",
-    "src-tauri/src/notes_sync_settings/tests/resolver.rs": "27c55963e8e1ad110b5f317ef873a0f238ba19178c19814d74fca220a1e045b4",
-    "src-tauri/src/notes_sync/repository.rs": "d5b40fd812e3f36f351f260107980ec48070861bbea2bafd099cf9efa8c8e035",
-    "src-tauri/src/notes_vault/sync/tests/caller_guard.rs": "bf9a5c1d5df9fcb20c298c0949fec2d7451955d25d0c255be598ce270275ea54",
-    "tests/fixtures/notes-sync-task/contract.json": "ec671113a1f13d7017db1206680275d743f9d1a7c563f2a248630b3b89e1789a",
-    "public/native/react/settings.js": "2e50b2990294d659cd790ce301c2b60c1e027eeeaab49e0b98e732685df02ac3"
-  },
   "localLogSha256": {
     "notes-sync-entry-rust-first.log": "38227554b58ce29dd6fe5f9044ed7418c69ba535fc36f554ad260245632f3a4a",
     "notes-sync-entry-rust-final.log": "ee6b8f6c6cbda9b333238f5512b5629dac434caa428c7ae0d6fcf1ab33d48665",
@@ -100,5 +88,32 @@
     "notes-sync-entry-wincred-verified.log": "5c5d7bedfdbe3fd826d45f6d6c852b5fdaae140876b04a2d9e94395836765177",
     "notes-sync-entry-permissions.log": "b5ff208319cc673c77d3e552d0a9054806e941c6d8008e1f30b35c84377407a7",
     "notes-sync-entry-fmt-advisory.log": "ede64434f7a9a62a6a67148486b03fb95219f5a7803f2cc148da6198367c6ced"
-  }
+  },
+  "validatedWorkingTreeSha256": {
+    "src-tauri/src/notes_sync_task.rs": "b384fd7670b0454d8e91b35eafea16f07b4f10efe51b5a8cc0ed6be71b9b5307",
+    "src-tauri/src/notes_sync_task/state.rs": "6c806eb88083e0f67f3cabe760b222b5f01f72308939db4fb643913d2cd44a8b",
+    "src-tauri/src/host_server/notes_sync_task.rs": "a8c3664d1d55be52ed78fbfca0b45c831a738690dc3e6c4a3469843b8c8e2952",
+    "src-tauri/src/host_server/notes_sync_task/tests.rs": "0cfdb263043e40223846760ffd27cb36ab5efff274898dbf95e39239103870ad",
+    "src-tauri/src/notes_sync_settings/resolver.rs": "d3a9dae7e116e8f9c99ed54b32fd19027716e7423f06a90b5e086c2f957114a9",
+    "src-tauri/src/notes_sync_settings/tests/resolver.rs": "27c55963e8e1ad110b5f317ef873a0f238ba19178c19814d74fca220a1e045b4",
+    "src-tauri/src/notes_sync/repository.rs": "d5b40fd812e3f36f351f260107980ec48070861bbea2bafd099cf9efa8c8e035",
+    "src-tauri/src/notes_vault/sync/tests/caller_guard.rs": "bf9a5c1d5df9fcb20c298c0949fec2d7451955d25d0c255be598ce270275ea54",
+    "tests/fixtures/notes-sync-task/contract.json": "ec671113a1f13d7017db1206680275d743f9d1a7c563f2a248630b3b89e1789a",
+    "public/native/react/settings.js": "2e50b2990294d659cd790ce301c2b60c1e027eeeaab49e0b98e732685df02ac3"
+  },
+  "sourceHashNote": "Observed file bytes at validation, before Git checkout newline conversion. Canonical LF source hashes below are portable across Windows CRLF checkouts; no provider artifacts or frozen receipts were changed.",
+  "canonicalLfSourceSha256": {
+    "src-tauri/src/notes_sync_task.rs": "b384fd7670b0454d8e91b35eafea16f07b4f10efe51b5a8cc0ed6be71b9b5307",
+    "src-tauri/src/notes_sync_task/state.rs": "6c806eb88083e0f67f3cabe760b222b5f01f72308939db4fb643913d2cd44a8b",
+    "src-tauri/src/host_server/notes_sync_task.rs": "a8c3664d1d55be52ed78fbfca0b45c831a738690dc3e6c4a3469843b8c8e2952",
+    "src-tauri/src/host_server/notes_sync_task/tests.rs": "0cfdb263043e40223846760ffd27cb36ab5efff274898dbf95e39239103870ad",
+    "src-tauri/src/notes_sync_settings/resolver.rs": "d3a9dae7e116e8f9c99ed54b32fd19027716e7423f06a90b5e086c2f957114a9",
+    "src-tauri/src/notes_sync_settings/tests/resolver.rs": "27c55963e8e1ad110b5f317ef873a0f238ba19178c19814d74fca220a1e045b4",
+    "src-tauri/src/notes_sync/repository.rs": "d5b40fd812e3f36f351f260107980ec48070861bbea2bafd099cf9efa8c8e035",
+    "src-tauri/src/notes_vault/sync/tests/caller_guard.rs": "bf9a5c1d5df9fcb20c298c0949fec2d7451955d25d0c255be598ce270275ea54",
+    "tests/fixtures/notes-sync-task/contract.json": "ec671113a1f13d7017db1206680275d743f9d1a7c563f2a248630b3b89e1789a",
+    "public/native/react/settings.js": "d1a2b4b7084886695faa77ab43ac9314781d2bb88ed707104f1cee62396ce350"
+  },
+  "validatedProductCommit": "1df4f1560f01c15cc9ed200ce01fbc22facc403f",
+  "rebasedOn": "9acce9f06d8d8bbb0759fc8a31d04250ede2ea37"
 }
