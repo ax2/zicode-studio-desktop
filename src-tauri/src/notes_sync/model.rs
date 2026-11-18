@@ -16,6 +16,7 @@ pub enum SyncError {
     Cancelled,
     LocalStorage,
     LocalChanged,
+    ConfigurationChanged,
     Authentication,
     RateLimited { retry_after_seconds: u64 },
     RemoteChanged,

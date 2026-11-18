@@ -60,8 +60,10 @@ mod image_tools;
 mod metadata_store;
 mod model_tools;
 mod native_pi_manager;
-#[cfg_attr(not(test), allow(dead_code))] // Network sync tasks are not yet connected to application commands.
+#[cfg_attr(not(test), allow(dead_code))] // Some conflict-resolution APIs remain staged for a later UI.
 mod notes_sync;
+mod notes_sync_task;
+use notes_sync_task::notes_sync_task;
 mod notes_vault;
 mod notes_sync_settings;
 use notes_sync_settings::notes_sync_settings;
@@ -2186,6 +2188,7 @@ fn main() {
             send_desktop_notification,
             publish_notes_notebook,
             notes_sync_settings,
+            notes_sync_task,
             get_system_information,
             browser_control,
             desktop_window_control,

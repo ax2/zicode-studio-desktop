@@ -81,7 +81,9 @@ fn transfer(source: &NotesVault, target: &NotesVault) -> SyncCapture {
 mod domain;
 mod guards;
 mod recovery;
-mod transport;
 mod transfer;
+mod transport;
 
 mod hardening;
+
+mod caller_guard;

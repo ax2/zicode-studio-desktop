@@ -2,6 +2,7 @@
 mod isolation;
 
 use super::*;
+mod resolver;
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
@@ -100,7 +101,7 @@ fn metadata_and_status_never_store_or_expose_secrets_or_change_notes() {
     )
     .unwrap();
     assert_eq!(saved.state, "configured");
-    assert!(!saved.sync_available);
+    assert!(saved.sync_available);
     let serialized = serde_json::to_string(&saved).unwrap();
     let store = Storage::open(
         &root.0,

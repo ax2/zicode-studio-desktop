@@ -1,5 +1,7 @@
-//! Workspace-scoped cloud configuration only. No note or network operations.
+//! Workspace-scoped cloud configuration and internal credential resolution. No network operations.
 mod command;
+mod resolver;
+pub(crate) use resolver::{lock_current_config, resolve_for_sync};
 mod secrets;
 mod storage;
 #[cfg(test)]
@@ -180,7 +182,7 @@ fn status(
         } else {
             "credentialStorageDisabled"
         },
-        sync_available: false,
+        sync_available: enabled,
     };
     if !enabled {
         return Ok(result);
