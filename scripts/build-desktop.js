@@ -6,11 +6,17 @@ const { spawnSync } = require("node:child_process");
 const { withCargoBin } = require("./cargo-path");
 
 const args = process.argv.slice(2);
-if (args.some((arg) => arg !== "--local")) {
-  console.error("Usage: build-desktop.js [--local]");
+if (args.some((arg) => arg !== "--local" && arg !== "--shell-only") ||
+    (args.includes("--local") && args.includes("--shell-only"))) {
+  console.error("Usage: build-desktop.js [--local | --shell-only]");
   process.exit(1);
 }
 const local = args.includes("--local");
+const shellOnly = args.includes("--shell-only");
+if (shellOnly && process.platform !== "win32") {
+  console.error("[build-desktop] Explorer selection bridge requires Windows");
+  process.exit(1);
+}
 
 const bundlesByPlatform = {
   win32: "nsis",
@@ -29,7 +35,7 @@ const root = path.resolve(__dirname, "..");
 
 if (process.platform === "win32") {
   const profile = local ? "debug" : "release";
-  const shellArgs = ["build", "--manifest-path", path.join(root, "shell", "Cargo.toml"), "--target-dir", env.CARGO_TARGET_DIR];
+  const shellArgs = ["build", "--locked", "--manifest-path", path.join(root, "shell", "Cargo.toml"), "--target-dir", env.CARGO_TARGET_DIR];
   if (!local) shellArgs.push("--release");
   const shell = spawnSync("cargo", shellArgs, { cwd: root, env, stdio: "inherit", windowsHide: true });
   if (shell.error || shell.status !== 0) {
@@ -43,6 +49,8 @@ if (process.platform === "win32") {
     fs.copyFileSync(output, staged);
   }
 }
+
+if (shellOnly) process.exit(0);
 
 console.log(
   local

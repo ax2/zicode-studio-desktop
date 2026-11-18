@@ -28,8 +28,8 @@ describe("release dependency cache reuse", () => {
     const globalSettings = release.split(/^jobs:/m)[0];
     expect(globalSettings).not.toContain("CARGO_HTTP_MULTIPLEXING");
     expect(globalSettings).not.toContain("CARGO_NET_RETRY");
-    expect(release.match(/CARGO_HTTP_MULTIPLEXING: "false"/g)).toHaveLength(4);
-    expect(release.match(/CARGO_NET_RETRY: "10"/g)).toHaveLength(4);
+    expect(release.match(/CARGO_HTTP_MULTIPLEXING: "false"/g)).toHaveLength(5);
+    expect(release.match(/CARGO_NET_RETRY: "10"/g)).toHaveLength(5);
     expect(platform).toContain("cancel-in-progress: ${{ github.event_name == 'pull_request' }}");
   });
 });

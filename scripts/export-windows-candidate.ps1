@@ -17,8 +17,19 @@ $runtime = $entries[0].Directory.FullName
 if (-not (Test-Path (Join-Path $runtime 'public/native/react/visual-assets.js'))) {
     throw 'Installer is missing the visual assets bundle'
 }
+$shellName = 'zicode_studio_shell.dll'
+$shell = Get-Item -LiteralPath (Join-Path $runtime $shellName)
+$stagedShell = Join-Path $PSScriptRoot '../src-tauri/resources/shell/zicode_studio_shell.dll'
+if ($shell.PSIsContainer -or -not (Test-Path -LiteralPath $stagedShell -PathType Leaf)) {
+    throw 'Windows Explorer selection bridge is missing from the installer or build'
+}
+if ((Get-FileHash -LiteralPath $shell.FullName -Algorithm SHA256).Hash -ne
+    (Get-FileHash -LiteralPath $stagedShell -Algorithm SHA256).Hash) {
+    throw 'Installer Explorer selection bridge differs from the staged build'
+}
 New-Item -ItemType Directory -Path $candidate | Out-Null
-$files = @($entries[0])
+$files = @($entries[0], $shell)
+Copy-Item -LiteralPath $shell.FullName -Destination (Join-Path $candidate $shellName)
 foreach ($folder in @('public', 'extensions', 'pi', 'portable-git', 'bun', 'webview2')) {
     $resource = Join-Path $runtime $folder
     if (-not (Test-Path $resource)) { throw "Missing runtime resource: $folder" }
