@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "verified": true,
+  "piVersion": "1.5.2",
+  "extensionSha256": "9315d530494201a570d092e1c2253ef6aa7bf190efae251a9c3fa106047c4559",
+  "requests": [
+    {
+      "path": "/b/v1/responses",
+      "model": "responses-b",
+      "authenticationMatched": true,
+      "maxTokens": 1024
+    },
+    {
+      "path": "/a/v1/chat/completions",
+      "model": "chat-a",
+      "authenticationMatched": true,
+      "maxTokens": 1024
+    }
+  ],
+  "defaultPiUnchanged": true,
+  "chatHistoryUnchanged": true,
+  "explicitCancellation": true,
+  "moduleSelectionSurvivedProcessRestart": true,
+  "automaticModelCallsOnConfiguration": 0,
+  "syntheticCredentialsOnly": true,
+  "issue": "https://github.com/ax2/zicode-studio-desktop/issues/79",
+  "milestone": "v0.6.5",
+  "platform": "Windows x64",
+  "sourceBase": "55adf1eeca6c643e8b8c4703afb4db2ccc6b1d0a",
+  "javascript": {
+    "passed": 50,
+    "failed": 0,
+    "files": 8
+  },
+  "rust": {
+    "passed": 21,
+    "failed": 0,
+    "newTests": 3,
+    "allTargetCheck": true,
+    "strictClippy": true,
+    "newModuleFormat": true
+  },
+  "typechecks": [
+    "frontend",
+    "extensions-source"
+  ],
+  "i18nMissing": 0,
+  "builds": [
+    "React resources",
+    "Pi extension bundles"
+  ],
+  "nativeDesktopUi": "deferred to consolidated main-session acceptance",
+  "dailyAndNamedTestModelDeployment": "owned by main session; not performed in this subtask",
+  "failureEvidenceRetained": [
+    "initial actual Pi extension load rejected system TEMP/jiti write; own fixture TEMP/TMP fixed the environment",
+    "first new-worktree Rust checks lacked generated extension and resource directories; generated own extension and created debug placeholders before rerunning",
+    "new lint/type errors fixed without changing assertions or raising budgets",
+    "repository-wide cargo fmt reports existing differences; both new Rust modules pass separately"
+  ]
+}

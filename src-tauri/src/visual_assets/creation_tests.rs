@@ -479,3 +479,6 @@ async fn cancellation_does_not_send_and_connection_loss_remains_unknown() {
     );
     f.clean();
 }
+
+#[path = "creation_model_profile_tests.rs"]
+mod model_profiles;

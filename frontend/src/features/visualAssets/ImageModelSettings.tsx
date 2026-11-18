@@ -2,6 +2,7 @@ import { useState } from "react";
 import { t } from "../../shared/i18n";
 import type { ImageCapabilities } from "./generation-types";
 import { ImageCapabilitySettings } from "./ImageCapabilitySettings";
+import { SavedImageModels } from "./SavedImageModels";
 import { type CreationRequest, type ImageSettings, outfitError } from "./outfit-types";
 export function ImageModelSettings({
   settings,
@@ -31,6 +32,7 @@ export function ImageModelSettings({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [manualSaveVersion, setManualSaveVersion] = useState(0);
   async function save() {
     if (busy || disabled) return;
     setBusy(true);
@@ -50,6 +52,7 @@ export function ImageModelSettings({
       setKey("");
       setSaved(true);
       onSaved(value);
+      setManualSaveVersion(version => version + 1);
     } catch (reason) {
       setError(t(outfitError(reason)));
     } finally {
@@ -177,6 +180,10 @@ export function ImageModelSettings({
           </button>
         </fieldset>
       </form>
+      <SavedImageModels key={manualSaveVersion} settings={draft} apiKey={key} request={request} disabled={disabled || busy}
+        onEdit={onEdit} onBusyChange={onBusyChange} onSaved={value => {
+          setDraft(value.settings); setKey(""); setSaved(true); setError(""); onSaved(value);
+        }} />
       {saved && <p role="status">{t("Image model settings saved.")}</p>}
       {error && <p role="alert">{error}</p>}
     </details>

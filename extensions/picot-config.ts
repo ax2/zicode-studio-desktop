@@ -1,4 +1,5 @@
 import { automationDraftOperation } from "./automation-drafts";
+import { cancelModuleModelRequests, isModuleModelOperation, moduleModelOperation, moduleModelErrorCode, ModuleModelStore, type ModuleRoutingContext } from "./module-model-routing";
 import { readAutomationWorkspaceFile, updateAutomationWorkspaceFile } from "./automation-workspace-repository";
 import { modelChannelDocument, providerKeyReference } from "./model-channels";
 import {
@@ -14,7 +15,9 @@ import { fetchOpenAIModelIds } from "./openai-model-catalog";
 // to the Rust host, which forwards commands to pi over stdio RPC. pi's native
 // RPC command set is fixed (see docs/rpc.md) and cannot be extended, so this
 // module is invoked through a registered pi command (`/picot-config`) whose
-// handler runs immediately without hitting the LLM or session history. Results
+// handler bypasses the agent loop and session history. Configuration operations
+// never invoke a model; browser_model_request is an explicit, confirmed request.
+// Results
 // are returned to the WebView via `ctx.ui.notify(JSON)`, correlated by request
 // id (see public/native/config-gateway.js).
 //
@@ -1003,7 +1006,7 @@ async function removeStoredApiKey(
 export async function handlePicotConfig(
   op: string,
   params: Record<string, unknown>,
-  ctx: { modelRegistry?: CatalogRegistry; cwd?: string },
+  ctx: { modelRegistry?: CatalogRegistry; cwd?: string; model?: CatalogModel },
 ): Promise<PicotConfigResult> {
   const registry = ctx.modelRegistry;
   const preferences = new ModelPreferencesStore();
@@ -1017,6 +1020,20 @@ export async function handlePicotConfig(
     // The Rust broker materializes auth.json only long enough for Pi to load
     // its live registry. Commands are available after that initialization.
     await sealBrokerAuthConfig(registry);
+    if (isModuleModelOperation(op)) {
+      try {
+        requireRegistry();
+        const data = await moduleModelOperation(op, params, ctx as unknown as ModuleRoutingContext,
+          new ModuleModelStore(path.join(PI_AGENT_ROOT, "module-models.json")),
+          provider => !isModelChannelDisabled(provider));
+        return { ok: true, data };
+      } catch (reason) {
+        return { ok: false, error: moduleModelErrorCode(reason) };
+      }
+    }
+    if (["save_provider_channel", "write_models_config", "set_provider_channel_enabled", "set_api_key", "remove_api_key"].includes(op)) {
+      cancelModuleModelRequests();
+    }
     switch (op) {
       case "list_model_catalog": {
         const catalog = await buildModelCatalog(requireRegistry(), preferences);

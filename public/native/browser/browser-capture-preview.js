@@ -2,6 +2,8 @@ import { createBrowserCompare } from "./browser-compare.js";
 import { createBrowserCaptureMedia } from "./browser-capture-media.js";
 import { createBrowserNoteClip } from "./browser-note-clip.js";
 import { t } from "../../i18n.js";
+import { createBrowserModelAssistant } from "./browser-model-assistant.js";
+import { browserDraftPrompt } from "./browser-chat-draft.js";
 
 function setLabel(element, key) {
   element.dataset.i18nText = key;
@@ -10,11 +12,13 @@ function setLabel(element, key) {
 
 export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWriter, comparison, opensChat = false, dock) {
   let busy = false;
+  let modelAssistant;
   const dialog = document.createElement(dock ? "section" : "dialog");
   dialog.className = dock ? "browser-capture-panel" : "browser-capture-dialog ui-panel";
   if (!dock) dialog.setAttribute("aria-label", t("Page content"));
   const isOpen = () => dialog.isConnected && (Boolean(dock) || dialog.open);
   const dismiss = (restoreFocus = false) => {
+    modelAssistant?.dispose();
     if (!dock) { dialog.close(); return; }
     if (dialog.parentNode !== dock.host) return;
     dialog.remove();
@@ -106,7 +110,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   setLabel(close, "Close");
   close.addEventListener("click", () => { if (!busy) dismiss(true); });
   dialog.addEventListener("cancel", event => { if (busy) event.preventDefault(); });
-  dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
+  dialog.addEventListener("close", () => { modelAssistant?.dispose(); dialog.remove(); onClose(); }, { once: true });
   if (dock) dialog.addEventListener("keydown", event => {
     if (event.key !== "Escape" || busy || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
     event.preventDefault();
@@ -187,10 +191,19 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (tables) dialog.append(tables);
   if (media.element) dialog.append(media.element);
   if (questionLabel) dialog.append(questionLabel);
+  if (dock?.modelActions) {
+    modelAssistant = createBrowserModelAssistant({ actions: dock.modelActions, question,
+      prompt: summarize => browserDraftPrompt(capture, { ...attachments(), question: question?.value, summarize }),
+      isCurrent: isOpen, setBusy });
+    dialog.append(modelAssistant.element);
+    dialog.disposeBrowserModel = () => modelAssistant.dispose();
+    dialog.cancelBrowserModel = () => modelAssistant.cancel();
+  }
   dialog.append(note, error, actions);
   if (clip) dialog.append(clip.panel);
   if (compare) dialog.append(compare.panel);
   if (dock) {
+    for (const previous of dock.host.children) previous.disposeBrowserModel?.();
     dock.host.replaceChildren(dialog);
     dock.host.hidden = false;
     dock.trigger.setAttribute("aria-expanded", "true");

@@ -27,6 +27,9 @@ export type OutfitPlan = {
 export type CreationRequest = (action: Record<string, unknown>) => Promise<unknown>;
 export function outfitError(reason: unknown) {
   const code = String(reason);
+  if (code.includes("model_profile_name_invalid")) return "Enter a model name of 1–80 characters without control characters.";
+  if (code.includes("model_profile_limit")) return "You can save up to 32 image model configurations. Remove an unused entry first.";
+  if (code.includes("model_profile_unavailable")) return "This saved model is unavailable. Reload the saved model list.";
   if (code.includes("parameter_unsupported"))
     return "The selected parameters are not supported by this model configuration. Review the image options.";
   if (code.includes("quota_exhausted"))

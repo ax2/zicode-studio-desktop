@@ -1,0 +1,20 @@
+# 2026-11-18: independent module models
+
+Issue [#79](https://github.com/ax2/zicode-studio-desktop/issues/79), milestone v0.6.5. Work was implemented in the isolated `codex/module-model-routing` branch from frozen v0.6.4, for integration into `integration/v0.6.5` only. Product version remains 0.6.4 until an intentional release.
+
+Browser now exposes a model chooser and explicit ask/summarize actions in the existing page assistant. It defaults to Pi, supports a persistent provider/model override using Pi's live registry/authentication, and preserves Chat state/history. Configuration changes make no model request. Visual assets now retain/select several named image configurations with the original endpoint/capability/manual-local settings preserved. The first distinct named replacement retains the prior valid configuration. Existing SQLite jobs/images are preserved; entry removal leaves active settings and credentials intact.
+
+The [contract and user paths](../module-model-routing.md) describe the two stores and bounded request policy. No credentials are copied from Chat, logged or included in route metadata. Tests used only synthetic keys and local controlled services.
+
+## Evidence
+
+- Windows all-target `cargo check --locked --offline` and strict all-target Clippy passed. The existing shared Cargo target/toolchain was reused; no native application build or desktop launch was performed.
+- `visual_assets::creation_tests`: **21 passed**, including **3 new** named-profile tests. They cover old configuration/jobs retained after reopen, workspace/scene isolation, bounded names/count, removal/manual-save semantics, and an actual selected endpoint/model/auth HTTP Images request with byte-exact PNG output.
+- Eight related Vitest files: **50 passed**, including live Pi SDK Chat Completions/Responses routing, inheritance/override, unavailable/disabled/stale selection rejection, no retry on rate rejection, cancellation, browser UI and saved-image-model UI. Existing Chat draft, generation and settings-recovery cases also pass.
+- Frontend and extension source TypeScript checks pass. `bun run check` passes (existing warning baseline plus two test-only explicit-any warnings); i18n coverage reports **0 missing keys**. New Rust modules pass rustfmt. Repository-wide rustfmt still reports pre-existing differences and was not auto-applied.
+- `build:react` and `build:extensions` pass. The changed visual-assets bundle is included. Seven unrelated generated bundle changes from the standard React build are deliberately left unstaged in the isolated worktree, with byte-identical recoverable backups; no source/user changes are discarded.
+- `scripts/verify-module-model-routing.mjs` drives the actual locked **Pi 1.5.2** binary with the final bundled extension: **2 loopback model calls**, selection persistence across Pi restart, explicit cancellation, unchanged Chat default/history and **0 automatic calls for metadata/save**. The compact [receipt](evidence/2026-11-18-module-model-routing.json) records the extension SHA-256. No paid model calls were made.
+
+Initial new-worktree failures were preserved: missing generated extension/resource directories, system TEMP/jiti write denial, and new lint/type errors. The fixture now uses its own TEMP/TMP; generated extensions/debug resource placeholders prepared only this worktree. Assertions, timeouts, model retry/output limits and normal application resource requirements were not widened. Full initial and final logs remain in the main-session workbench `outputs/model-routing-*`.
+
+Daily/named-test model deployment and consolidated desktop UI acceptance remain owned by the main session. The compatible credential namespace work in PR #81 is separate; this work does not change broker/profile APIs or claim its real-account deployment is done. Issue #79 remains open for that combined handoff. Frozen v0.6.4 installers, prior evidence, user Notes/data and other worktrees are untouched. No scheduling, other-platform builds or GUI automation was used.

@@ -31,6 +31,10 @@ static ACTIVE: LazyLock<Mutex<HashMap<Uuid, CancellationToken>>> =
 )]
 pub(crate) enum Action {
     Settings,
+    ModelProfiles,
+    SaveModelProfile { name: String, settings: Settings, api_key: Option<String> },
+    SelectModelProfile { id: Uuid },
+    RemoveModelProfile { id: Uuid, confirmed: bool },
     SaveSettings {
         settings: Settings,
         api_key: Option<String>,
@@ -87,10 +91,25 @@ pub(super) async fn handle(
             if let Some(expected) = expected.as_deref() { library_matches(&db,expected)?; }
             if resource_export_picker::context(&window,&owner.workspace)? != owner { return Err("visual_assets_window_changed".into()); }
             match action {
-                Action::Settings => {
-                    let settings = store.settings()?;
-                    let configured = settings.credential_id().ok().and_then(|provider|credential_broker::model_tool_credential(&credential_scene,&provider).ok().flatten()).is_some();
-                    Ok(json!({"libraryId":id,"capabilities":super::creation_types::generation::capabilities(&settings),"settings":settings,"credentialConfigured":configured}))
+                Action::Settings => model_settings_response(&store, &id, &credential_scene),
+                Action::ModelProfiles => Ok(json!({"profiles":store.model_profiles()?,"selectedProfileId":store.selected_model_profile()?})),
+                Action::SaveModelProfile { name, settings, api_key } => {
+                    store.check_model_profile(&name, &settings)?;
+                    if let Some(secret) = api_key.filter(|key| !key.is_empty()) {
+                        if secret.len()>8192 || secret.chars().any(char::is_control) { return Err("visual_assets_creation_credential_invalid".into()); }
+                        credential_broker::store_scene_credential(&credential_scene,&settings.credential_id()?,&secret)?;
+                    }
+                    store.save_model_profile(&name, &settings)?;
+                    model_settings_response(&store, &id, &credential_scene)
+                }
+                Action::SelectModelProfile { id: profile } => {
+                    store.select_model_profile(profile)?;
+                    model_settings_response(&store, &id, &credential_scene)
+                }
+                Action::RemoveModelProfile { id: profile, confirmed } => {
+                    if !confirmed { return Err("visual_assets_creation_confirmation_required".into()); }
+                    store.remove_model_profile(profile)?;
+                    model_settings_response(&store, &id, &credential_scene)
                 }
                 Action::SaveSettings { settings, api_key } => {
                     settings.endpoint()?;
@@ -235,4 +254,12 @@ fn dispatch(work: Dispatch) {
         }
         drop(work.lease);
     });
+}
+
+fn model_settings_response(store: &Store, library: &str, credential_scene: &str) -> Result<Value> {
+    let settings = store.settings()?;
+    let configured = settings.credential_id().ok().and_then(|provider| credential_broker::model_tool_credential(credential_scene, &provider).ok().flatten()).is_some();
+    Ok(json!({"libraryId":library,"settings":settings,"credentialConfigured":configured,
+        "capabilities":super::creation_types::generation::capabilities(&settings),
+        "selectedProfileId":store.selected_model_profile()?}))
 }
