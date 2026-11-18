@@ -24,7 +24,7 @@ it.each(["en", "zh-CN"])("shows the native installed version and an honest manua
   expect(view.container.querySelector("#setting-update-status")?.textContent).toBe(t("Automatic updates are not configured"));
   const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   fireEvent.click(view.container.querySelector("#btn-check-updates") as HTMLButtonElement);
-  const anchor = click.mock.instances[0] as HTMLAnchorElement;
+  const anchor = click.mock.contexts[0] as HTMLAnchorElement;
   expect(anchor.href).toBe("https://github.com/ax2/zicode-studio-desktop/releases/latest");
   expect(anchor.target).toBe("_blank"); expect(anchor.rel).toBe("noopener noreferrer");
   expect(invoke).not.toHaveBeenCalled();

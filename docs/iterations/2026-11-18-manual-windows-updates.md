@@ -20,3 +20,11 @@ Scope: [#32](https://github.com/ax2/zicode-studio-desktop/issues/32), v0.6.6. Ba
 ## Remaining #32 scope
 
 Keep #32 open: signed update manifests, digest/signature verification on actual updater artifacts, cancel/failure recovery and restart/data preservation across a real update remain unverified. `createUpdaterArtifacts` stays false. This increment adds no network permission, backend endpoint, dependency, release build, desktop operation, account access, credential, tag or publication. Reuse these receipts for this change; do not add routine post-release checks.
+
+## CI follow-up · 2026-11-18
+
+The first remote unit run [44245830953](https://github.com/ax2/zicode-studio-desktop/actions/runs/44245830953/job/134604433400) failed during frontend typecheck: `updates-manual.test.tsx:27` treated a method spy's `mock.instances[0]` (typed `void`) as an `HTMLAnchorElement`. Earlier focused strict checking covered production modules, not this test. The fixture now reads the method receiver from `mock.contexts[0]`.
+
+The full CI frontend typecheck command (`tsc -p frontend/tsconfig.json --noEmit`) now passes locally, as do the 3 affected rendered settings cases, focused test lint and diff check. A first local full check reported the sparse worktree's omitted diagnostics JSON fixture; checking out that existing frozen fixture resolved the environment omission without changing its bytes. The original remote failure remains recorded; this local result is not a claim that the rerun has passed remotely.
+
+The concurrent PR #91 failure is separate: its newly added Unicode capture test imported `bun:test` under Vitest. That file is absent from this PR's base and is being handled by its owner, so it is not modified here.
