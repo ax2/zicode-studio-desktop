@@ -62,6 +62,8 @@ export function betaUpdatesEnabled(): boolean {
   }
 }
 
+let checkGeneration = 0;
+
 export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   enabled: false,
   update: null,
@@ -77,6 +79,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   lastCheckMs: 0,
   logger: console,
   configure(enabled, logger = console) {
+    checkGeneration++;
     set({
       enabled,
       logger,
@@ -99,7 +102,9 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     get().showIdle();
   },
   showIdle() {
+    checkGeneration++;
     set({
+      checking: false,
       update: null,
       status: t("Click to check"),
       button: t("Check now"),
@@ -123,9 +128,13 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   },
   async checkNow({ silent = false } = {}) {
     const state = get();
+    if (!state.enabled) return null;
     if (state.checking || state.installing) return state.update;
-    set({ checking: true, lastCheckMs: Date.now() });
-    if (!silent) {
+    const generation = ++checkGeneration;
+    const beta = betaUpdatesEnabled();
+    const current = () => generation === checkGeneration && get().enabled && beta === betaUpdatesEnabled();
+    set({ checking: true, lastCheckMs: Date.now(), update: null, canInstall: false, sidebarVisible: false, disabled: true });
+    if (!silent || state.canInstall) {
       set({
         status: t("Checking…"),
         button: t("Checking…"),
@@ -134,13 +143,13 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     }
     try {
       const tauri = (globalThis as unknown as TauriGlobal).__TAURI__;
-      const beta = betaUpdatesEnabled();
       let result: unknown = null;
       const invoke = tauri?.core?.invoke;
       const native = typeof invoke === "function";
       if (native) result = await invoke("check_desktop_update", { beta });
       else if (!beta && typeof tauri?.updater?.check === "function") result = await tauri.updater.check();
       else throw new Error("Desktop updater is unavailable");
+      if (!current()) return null;
       const update = result ? native ? {
         ...(result as UpdateInfo), nativeManaged: true,
         downloadAndInstall: () => invoke?.("install_desktop_update", { expectedVersion: (result as UpdateInfo).version, beta }),
@@ -149,6 +158,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
         get().showAvailable(update);
       } else {
         set({
+          update: null,
           status: t("Up to date"),
           button: t("Check now"),
           disabled: false,
@@ -158,17 +168,19 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       }
       return update;
     } catch (error) {
-      if (!silent) {
-        set({
-          status: t("Update check unavailable"),
-          button: t("Check now"),
-          disabled: false,
-        });
-      }
+      if (!current()) return null;
+      set({
+        update: null,
+        status: t("Update check unavailable"),
+        button: t("Check now"),
+        disabled: false,
+        canInstall: false,
+        sidebarVisible: false,
+      });
       if (!silent) get().logger.warn?.("[Updater] Check failed:", error);
       return null;
     } finally {
-      set({ checking: false });
+      if (generation === checkGeneration) set({ checking: false });
     }
   },
   formatProgress() {
@@ -182,7 +194,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   },
   async installUpdate() {
     const state = get();
-    if (state.installing) return;
+    if (!state.enabled || state.checking || state.installing) return;
     if (!state.update) {
       await get().checkNow();
       if (!get().update) return;

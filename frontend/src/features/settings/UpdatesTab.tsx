@@ -14,13 +14,13 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
         <div className="settings-row" id="setting-pi-version">
           <span className="settings-label">{t("Pi version")}</span>
           <span className="settings-static-value" id="setting-pi-version-value">
-            {piVersion}
+            {t(piVersion)}
           </span>
         </div>
         <div className="settings-row">
           <span className="settings-label">{t("Desktop version")}</span>
           <span className="settings-static-value" id="setting-app-version-value">
-            {appVersion}
+            {t(appVersion)}
           </span>
         </div>
         <div className="settings-row settings-update-row">
@@ -45,7 +45,7 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
                 if (!updater.enabled) {
                   // Signed auto-updates are disabled; open the manual
                   // installer list advertised by this button.
-                  const url = "https://github.com/ax2/zicode-studio-desktop/releases";
+                  const url = "https://github.com/ax2/zicode-studio-desktop/releases/latest";
                   const anchor = document.createElement("a");
                   anchor.href = url;
                   anchor.target = "_blank";
@@ -81,6 +81,7 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
         </div>
       </div>
     {updater.update?.body && <details className="ui-card"><summary>{t("Release notes")}</summary><p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }} translate="no">{updater.update.body.slice(0, 16000)}</p></details>}
+    {!updater.enabled && <p className="ui-muted">{t("Check the latest version, release notes and Windows installer on GitHub.")}</p>}
     <p className="ui-muted">{t("Installing an update will restart Studio. Save your work first.")}</p>
   </>;
 }

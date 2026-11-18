@@ -4397,6 +4397,7 @@ const zhCN = {
   "Receive beta updates": "接收测试版更新",
   "Automatic updates are not configured": "自动更新尚未配置",
   "Use GitHub Releases": "使用 GitHub Releases",
+  "Check the latest version, release notes and Windows installer on GitHub.": "前往 GitHub 查看最新版本、发行说明和 Windows 安装包。",
   "No configured channels.": "尚未配置消息渠道。",
   Back: "返回",
   "Browse Community Packages": "浏览社区包",
