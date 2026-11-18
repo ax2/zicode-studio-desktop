@@ -1,5 +1,9 @@
 # 下一版本发布要求
 
+## 当前候选 v0.6.4
+
+仅构建 Windows。集成浏览器故障恢复、后台标签挂起、文件工具和笔记同步基础，验证及待完成范围见 [#70](https://github.com/ax2/zicode-studio-desktop/issues/70) 与 [本版说明](v0.6.4.md)。原生桌面由主会话集中验收。以下为既有版本记录。
+
 ## 当前候选 v0.6.3
 
 仅构建 Windows 草稿，按 [#66](https://github.com/ax2/zicode-studio-desktop/issues/66) 验证安装器进程保护、核心功能和资料保留。详细候选范围见 [v0.6.3 发布说明](v0.6.3.md)。以下为历史记录。
