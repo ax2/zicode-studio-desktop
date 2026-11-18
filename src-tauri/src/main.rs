@@ -60,9 +60,11 @@ mod image_tools;
 mod metadata_store;
 mod model_tools;
 mod native_pi_manager;
-#[cfg_attr(not(test), allow(dead_code))] // Settings do not yet configure or start the Notes sync service.
+#[cfg_attr(not(test), allow(dead_code))] // Network sync tasks are not yet connected to application commands.
 mod notes_sync;
 mod notes_vault;
+mod notes_sync_settings;
+use notes_sync_settings::notes_sync_settings;
 mod ocr;
 mod p2p;
 mod pi_launch;
@@ -2183,6 +2185,7 @@ fn main() {
             scene_credential_status,
             send_desktop_notification,
             publish_notes_notebook,
+            notes_sync_settings,
             get_system_information,
             browser_control,
             desktop_window_control,

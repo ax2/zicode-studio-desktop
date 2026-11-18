@@ -1,6 +1,7 @@
 export type SettingsTabKey =
   | "general"
   | "system"
+  | "notes-sync"
   | "updates"
   | "extensions"
   | "usage"
@@ -18,6 +19,7 @@ export interface SettingsTabDef {
 export const SETTINGS_TABS: SettingsTabDef[] = [
   { key: "general", label: "General" },
   { key: "system", label: "System information" },
+  { key: "notes-sync", label: "Notes cloud sync" },
   { key: "updates", label: "Software updates" },
   { key: "extensions", label: "Extensions" },
   { key: "usage", label: "Usage" },
