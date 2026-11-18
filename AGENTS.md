@@ -304,7 +304,7 @@ install of pi. macOS and Linux currently use system Git and shell tools.
 
 ## Post-fix verification (Rust / Tauri)
 
-After every edit under `src-tauri/` (or any Rust fix), run the static lint+check script before declaring the work done. It catches compile-time errors (e.g. `E0282`, `E0061`, Tauri v1→v2 API drift, deprecated APIs) without producing a binary, so it is much faster than `tauri build`. The full script also runs Rust tests and remains the release gate.
+After every edit under `src-tauri/` (or any Rust fix), run the static lint+check script before declaring the work done. It catches compile-time errors (e.g. `E0282`, `E0061`, Tauri v1→v2 API drift, deprecated APIs) without producing a binary, so it is much faster than `tauri build`. The full script also runs Rust tests. Select verification and reuse receipts according to the [release and validation policy](docs/agents/project-management.md#快速迭代与验证用户规则2026-11-18).
 
 ```bash
 bun run check:rust:static
@@ -343,15 +343,11 @@ Preserve an explicitly selected thread count and record the actual setting in
 the validation receipt. This controls concurrency between tests only: do not
 reduce each test's internal load, skip assertions, increase production Worker
 budgets, or treat a prior default-concurrency failure as erased by a rerun.
-Run required ignored real-runtime acceptance tests separately and retain their
-failures even when the ordinary full suite passes.
+When the changed production path requires an ignored real-runtime test, run it
+separately or reuse its applicable receipt, and retain previous failures.
 
 Vitest tests live in `public/` as `*.test.js` files (jsdom environment). The full `bun run test` also runs `scripts/check-tauri-permissions.js` to validate Tauri capability permissions.
 
-## Release priority (user instruction, 2026-11-16)
-
-Ship verified core workflows promptly. Track low-impact issues and independent enhancements for the next iteration. Keep Windows installer, startup, and user data verification in the release process. See [the release rules](docs/agents/project-management.md).
-
 ## GitHub Project execution policy (user instruction, 2026-11-13)
 
-Before each work turn, task switch, commit or release, run `bun scripts/project-status.mjs` and read the selected Issue's latest body, comments, dependencies and Milestone. During continuous work, refresh every 30 minutes without creating scheduled tasks. [Project #4](https://github.com/users/ax2/projects/4) is authoritative for current priorities and release scope; user edits override old local plans. Never automatically restore removed items or overwrite user priority/date/version changes. See [execution rules](docs/agents/project-management.md). Only mark work complete after scope-matched evidence; if current project state is unavailable, do not begin new work or publish.
+Before each work turn, task switch, commit or release, run `bun scripts/project-status.mjs` and read the selected Issue's latest body, comments, dependencies and Milestone. During continuous work, refresh every 30 minutes without creating scheduled tasks. [Project #4](https://github.com/users/ax2/projects/4) is authoritative for current priorities and release scope; user edits override old local plans. Never automatically restore removed items or overwrite user priority/date/version changes. For issue work, validation, releases and historical issue closure, follow the current [execution rules](docs/agents/project-management.md). Only mark work complete after scope-matched evidence; if current project state is unavailable, do not begin new work or publish.

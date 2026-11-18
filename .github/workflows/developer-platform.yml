@@ -1,9 +1,32 @@
 name: Developer platform
 
 on:
+  # Human-readable guidance only. Keep machine inputs and packaged notices
+  # under full platform checks, including all docs/plugins and nested fixtures.
+  # Any mixed code/workflow change still triggers the job.
   pull_request:
+    paths-ignore:
+      - "AGENTS.md"
+      - "CONTEXT.md"
+      - "README.md"
+      - "docs/*.md"
+      - "docs/agents/*.md"
+      - "docs/adr/*.md"
+      - "docs/iterations/*.md"
+      - "docs/releases/*.md"
+      - "docs/reviews/*.md"
   push:
     branches: [main]
+    paths-ignore:
+      - "AGENTS.md"
+      - "CONTEXT.md"
+      - "README.md"
+      - "docs/*.md"
+      - "docs/agents/*.md"
+      - "docs/adr/*.md"
+      - "docs/iterations/*.md"
+      - "docs/releases/*.md"
+      - "docs/reviews/*.md"
   workflow_dispatch:
     inputs:
       platform:
