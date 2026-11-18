@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "issue": "https://github.com/ax2/zicode-studio-desktop/issues/35",
+  "checkedAt": "2026-11-18T05:35:40.250726+00:00",
+  "fixTarget": "v0.6.6",
+  "historicalIssueMilestone": "v0.6.5; retained, not rewritten as delivery of these fixes",
+  "sourceBase": "f543a7c786ab8bdf5712b3103efe6bd25382f86b",
+  "targetBranch": "integration/v0.6.6",
+  "targetBase": "fe9b5b44",
+  "engine": "Playwright bundled Chromium 1248, headless on Windows; fresh memory contexts",
+  "browserPlugin": "absent; regular existing Playwright used, no installation",
+  "nativeAdapter": "In-memory deterministic loopback fixture; actual shipped index, CSS and production modules, no real native child page/OS actions",
+  "counts": {
+    "matrix": 48,
+    "boundary": 6,
+    "passed": 54,
+    "failed": 0,
+    "relatedUnitTestsPassed": 23
+  },
+  "themes": [
+    "clean",
+    "dawn",
+    "midnight",
+    "night",
+    "sage",
+    "terracotta"
+  ],
+  "locales": [
+    "en",
+    "zh-CN"
+  ],
+  "cssWidths": [
+    360,
+    768,
+    769,
+    900,
+    1280
+  ],
+  "deviceScaleFactors": [
+    1,
+    1.5,
+    2
+  ],
+  "keyboard": [
+    "Ctrl+L address focus",
+    "Ctrl+Tab selection",
+    "Ctrl+F/Escape page find",
+    "Tab/Shift+Tab window control traversal",
+    "Enter maximize/restore with synthetic native adapter",
+    "command palette focus trap/Escape return",
+    "bookmark modal Escape/restore",
+    "Ctrl+T/Ctrl+W in six boundary cases"
+  ],
+  "checks": [
+    "meaningful actual shell rendering",
+    "page identity",
+    "no document horizontal overflow",
+    "18 tab icons and selected state",
+    "scrollbar hidden/arrows retained",
+    "close-only default window control; hover/keyboard expands 3",
+    "zero captured page/console errors",
+    "zero external requests",
+    "visible palette return target",
+    "bookmark overlay teardown/restored synthetic surface",
+    "original 18 tab identities preserved after new/close at boundaries"
+  ],
+  "failuresPreserved": [
+    {
+      "file": "window-keyboard-before-fix.json",
+      "kind": "product",
+      "cause": "Shift+Tab from Close briefly removed focus-visible expansion; maximize/minimize became display:none and focus fell to body"
+    },
+    {
+      "file": "compact-palette-before-fix.json",
+      "kind": "product",
+      "cause": "narrow navigation closes before command panel; Escape returned to a hidden menu/composer launcher"
+    },
+    {
+      "file": "initial-fixture-failure.json",
+      "kind": "harness",
+      "cause": "incorrect Composer API shape, then tab selector included hidden Composer tab roles"
+    },
+    {
+      "file": "initial-boundary-hover-settling.json",
+      "kind": "harness",
+      "cause": "opacity asserted before CSS transition settled; retained, then waited for actual condition without changing budgets"
+    }
+  ],
+  "sourceLfSha256": {
+    "frontend/src/features/commandPalette/index.ts": "404c7051bb4625271fa382ae1fe80cbeef56b0726ec40e998caa73f8439a2c28",
+    "frontend/src/features/commandPalette/restoreFocus.ts": "58d719aa31465bf7d72a30c36ed5b9a7f74af78673ee9d85bc48d1237213aece",
+    "public/native/react/command-palette.js": "2e5834d0c0f483b7536567dc6a4be6d640419a7a88831bd594c32362a7803127",
+    "public/native/workspace/window-chrome.js": "295b60f4a992fbae77755c337468132357c80b037d2331461c1c3eee75c478ec",
+    "public/native/workspace/window-chrome.css": "db7faa2c141e7023100e3abfdcee2f392388c0999f9ad307d0f62df215f6e1e6"
+  },
+  "screenshots": [
+    {
+      "file": "clean-zh-CN-1280.png",
+      "bytes": 22511,
+      "sha256": "c1f9d4016744343cc1ea7ea7bba9a03ba8e52f6d0d527155b2a8cfcaefa0dada"
+    },
+    {
+      "file": "clean-zh-CN-360.png",
+      "bytes": 15810,
+      "sha256": "caa5395fbe349505489384ed05d50fd8de4685823ad25a0e3f0ce2a62206c06d"
+    },
+    {
+      "file": "night-zh-CN-1280.png",
+      "bytes": 22282,
+      "sha256": "ca020519f9c519eecb8a01fe3dd409415e2df69994d65a767dcca1b4390328c7"
+    },
+    {
+      "file": "night-zh-CN-360.png",
+      "bytes": 15241,
+      "sha256": "8db368b73b489cdabe53e10019a4ad1f511a0bd33d1c7b1c11a39b9007f54a1c"
+    }
+  ],
+  "screenshotReview": [
+    "night-zh-CN-360.png",
+    "clean-zh-CN-1280.png"
+  ],
+  "reusedNativeEvidence": [
+    {
+      "path": "docs/iterations/2026-11-02-single-default-workspace.md",
+      "scope": "actual Windows default workspace/root label removal, 360px layout, original note hashes and native tray callback restore"
+    },
+    {
+      "path": "docs/iterations/2026-10-27-narrow-tool-overlay.md",
+      "scope": "actual Windows narrow overlay, lifecycle cleanup, original files preserved and Host/Worker execution"
+    },
+    {
+      "path": "docs/iterations/2026-11-05-browser-bookmarks.md",
+      "scope": "actual Windows 1200/421 bookmark modal/native hide-restoration, durable library and retained original tabs/Notes"
+    },
+    {
+      "path": "docs/iterations/2026-11-05-browser-window-recovery.md",
+      "scope": "actual same-window close-to-tray, minimized restore, preserved tabs/document/unsent address; not physical tray menu clicks"
+    },
+    {
+      "path": "docs/iterations/2026-10-26-windows-tray-and-persistence.md",
+      "scope": "historical tray registration/locales/restore and fixed data evidence"
+    }
+  ],
+  "limits": [
+    "headless deviceScaleFactor is not physical Windows DPI/mixed-monitor acceptance",
+    "native page pixels, physical tray menu and OS frameless controls not exercised again",
+    "no daily profile/user data read or changed",
+    "not a blanket pass for every application, disabled tool, all screen readers or WCAG contrast",
+    "v0.6.5 frozen release and other worktrees untouched"
+  ]
+}

@@ -47,6 +47,16 @@ export function setupWindowChrome({ doc = document, invoke = globalThis.__TAURI_
     button.dataset.windowAction = action; buttons[action] = button;
     button.addEventListener("click", () => void act(action)); group.append(button);
   }
+  // Keep controls present while keyboard focus moves between them. The CSS
+  // focus-visible selector briefly stops matching during native Tab navigation.
+  const focusIn = event => {
+    if (event.target.matches(":focus-visible")) group.setAttribute("data-keyboard-expanded", "");
+  };
+  const focusOut = event => {
+    if (!group.contains(event.relatedTarget)) group.removeAttribute("data-keyboard-expanded");
+  };
+  group.addEventListener("focusin", focusIn);
+  group.addEventListener("focusout", focusOut);
   // Reserve space in the toolbar while layering the controls above the drawer.
   header.append(grip, slot);
   layout.append(group);
@@ -82,6 +92,8 @@ export function setupWindowChrome({ doc = document, invoke = globalThis.__TAURI_
       clearTimeout(timer);
       ++revision;
       geometry?.disconnect();
+      group.removeEventListener("focusin", focusIn);
+      group.removeEventListener("focusout", focusOut);
       group.remove();
       slot.remove();
       grip.remove();
