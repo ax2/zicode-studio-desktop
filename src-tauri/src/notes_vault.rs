@@ -1217,6 +1217,7 @@ impl NotesVault {
             .map_err(|_| NotesError::new("attachment_not_found", "Attachment does not exist"))?;
         if !metadata.is_file()
             || metadata.file_type().is_symlink()
+            || metadata.len() == 0
             || metadata.len() > MAX_ATTACHMENT_BYTES as u64
         {
             return Err(NotesError::new(
@@ -1273,26 +1274,35 @@ impl NotesVault {
             .vault_root(&notebook_id)?
             .join("public")
             .join("attachments");
-        if let Ok(note_directories) = fs::read_dir(attachment_root) {
-            for note_directory in note_directories.flatten() {
+        let note_directories = match fs::read_dir(attachment_root) {
+            Ok(entries) => Some(entries),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(_) => return Err(NotesError::new("storage_unavailable", "Cannot read attachment")),
+        };
+        if let Some(note_directories) = note_directories {
+            for note_directory in note_directories {
+                let note_directory = note_directory.map_err(|_| {
+                    NotesError::new("storage_unavailable", "Cannot read attachment")
+                })?;
                 let Some(note_id) = note_directory.file_name().to_str().map(str::to_string) else {
                     continue;
                 };
                 if validate_opaque_id(&note_id).is_err() {
                     continue;
                 }
-                let Ok(files) = fs::read_dir(note_directory.path()) else {
-                    continue;
-                };
-                for file in files.flatten() {
+                let files = fs::read_dir(note_directory.path()).map_err(|_| {
+                    NotesError::new("storage_unavailable", "Cannot read attachment")
+                })?;
+                for file in files {
+                    let file = file.map_err(|_| {
+                        NotesError::new("storage_unavailable", "Cannot read attachment")
+                    })?;
                     let Some(file_name) = file.file_name().to_str().map(str::to_string) else {
                         continue;
                     };
-                    let Ok((bytes, mime_type)) =
-                        self.read_attachment(&notebook_id, &note_id, &file_name)
-                    else {
-                        continue;
-                    };
+                    // An archival export must be restorable, never silently partial.
+                    let (bytes, mime_type) =
+                        self.read_attachment(&notebook_id, &note_id, &file_name)?;
                     total_attachment_bytes = total_attachment_bytes.saturating_add(bytes.len());
                     if total_attachment_bytes > MAX_EXPORT_ATTACHMENT_BYTES {
                         return Err(NotesError::new(
