@@ -26,6 +26,10 @@ impl Drop for StartupGuard {
 }
 
 impl HostLifecycle {
+    pub fn service<S>(&self, service: S) -> super::lifecycle_service::TrackedService<S> {
+        super::lifecycle_service::TrackedService::new(service, self.lease())
+    }
+
     pub fn startup_guard(&self) -> StartupGuard {
         StartupGuard(Some(self.clone()))
     }
