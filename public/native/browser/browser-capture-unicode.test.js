@@ -1,8 +1,8 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 
-const script = readFileSync(new URL("../../../src-tauri/src/browser/capture.js", import.meta.url), "utf8");
+const script = readFileSync("src-tauri/src/browser/capture.js", "utf8");
 
 function capture(title, body, selection) {
   const parentElement = { closest: () => null, getClientRects: () => [{}] };
