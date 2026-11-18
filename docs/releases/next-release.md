@@ -1,6 +1,10 @@
 # 下一版本发布要求
 
-## 开发中 v0.6.6
+## 开发中 v0.6.7
+
+[本版说明](v0.6.7.md)记录已合入范围。笔记备份修复与恢复验证见 [#25](https://github.com/ax2/zicode-studio-desktop/issues/25)，Windows 安装包进度见 [#108](https://github.com/ax2/zicode-studio-desktop/issues/108)。
+
+## v0.6.6 发行草稿
 
 发布范围与 Windows 安装包进度见 [发布清单 #98](https://github.com/ax2/zicode-studio-desktop/issues/98)。[本版说明](v0.6.6.md) 列出已合入的笔记同步配置、浏览器、窗口、更新与系统信息改进。
 
