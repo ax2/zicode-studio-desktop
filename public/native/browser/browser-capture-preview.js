@@ -194,7 +194,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (dock?.modelActions) {
     modelAssistant = createBrowserModelAssistant({ actions: dock.modelActions, question,
       prompt: summarize => browserDraftPrompt(capture, { ...attachments(), question: question?.value, summarize }),
-      isCurrent: isOpen, setBusy });
+      isCurrent: isOpen, setBusy, artifacts: dock.analysisArtifacts });
     dialog.append(modelAssistant.element);
     dialog.disposeBrowserModel = () => modelAssistant.dispose();
     dialog.cancelBrowserModel = () => modelAssistant.cancel();

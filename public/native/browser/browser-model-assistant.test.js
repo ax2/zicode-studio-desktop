@@ -11,14 +11,14 @@ const state = (selection = null) => ({ schemaVersion: 1, revision: selection ? "
 const controllers = [];
 afterEach(() => { controllers.splice(0).forEach(controller => { controller.dispose(); }); document.body.replaceChildren(); setLocale("zh-CN"); vi.restoreAllMocks(); });
 
-function fixture(autoLoad = true) {
+function fixture(autoLoad = true, artifacts) {
   setLocale("en");
   const question = document.createElement("textarea"); question.value = "What does this page say?";
   const actions = { autoLoad: () => autoLoad, load: vi.fn(async () => state()),
     save: vi.fn(async selection => state(selection)), ask: vi.fn(async () => ({ text: "<script>inert answer</script>", model: b, inherited: false, usage: { totalTokens: 5 } })), cancel: vi.fn(async () => {}) };
   const prompt = vi.fn(summary => summary ? "reviewed summary source" : `reviewed question: ${question.value}`);
   const setBusy = vi.fn();
-  const controller = createBrowserModelAssistant({ actions, question, prompt, isCurrent: () => controller.element.isConnected, setBusy });
+  const controller = createBrowserModelAssistant({ actions, question, prompt, isCurrent: () => controller.element.isConnected, setBusy, artifacts });
   controllers.push(controller); document.body.append(question, controller.element);
   return { controller, actions, question, prompt, setBusy, el: controller.element };
 }
@@ -90,4 +90,39 @@ it("initializes Pi only on explicit load and binds all calls to that exact targe
   expect(gateway.call).toHaveBeenCalledOnce();
   await actions.cancel("owned");
   expect(gateway.call).toHaveBeenLastCalledWith("cancel_browser_model_request", { requestId: "owned" }, { target: ai });
+});
+
+it("saves an existing reviewed answer only after click, keeps it on failure and opens after retry without another model request", async () => {
+  const artifacts = { save: vi.fn().mockRejectedValueOnce(Error("Disk full")).mockResolvedValue({ id: "saved-analysis" }), open: vi.fn() };
+  const f = fixture(true, artifacts);
+  await waitFor(() => expect(getByRole(f.el, "combobox").disabled).toBe(false));
+  expect(artifacts.save).not.toHaveBeenCalled();
+  fireEvent.click(getByRole(f.el, "button", { name: "Send page and ask" }));
+  await waitFor(() => expect(getByRole(f.el, "textbox", { name: "Browser model answer" }).value).toBe("<script>inert answer</script>"));
+  expect(artifacts.save).not.toHaveBeenCalled();
+  fireEvent.click(getByRole(f.el, "button", { name: "Save analysis to Artifacts" }));
+  await waitFor(() => expect(f.el.textContent).toContain("Could not save analysis. Try again."));
+  expect(getByRole(f.el, "textbox", { name: "Browser model answer" }).value).toBe("<script>inert answer</script>");
+  fireEvent.click(getByRole(f.el, "button", { name: "Save analysis to Artifacts" }));
+  await waitFor(() => expect(f.el.textContent).toContain("Analysis saved to Artifacts"));
+  expect(artifacts.save.mock.calls[0][0]).toMatchObject({ text: "<script>inert answer</script>", kind: "analysis", question: "What does this page say?", model: b });
+  expect(Date.parse(artifacts.save.mock.calls[0][0].generatedAt)).toBeGreaterThan(0);
+  expect(artifacts.save.mock.calls[1][0]).toBe(artifacts.save.mock.calls[0][0]);
+  expect(getByRole(f.el, "button", { name: "Save analysis to Artifacts" }).disabled).toBe(true);
+  fireEvent.click(getByRole(f.el, "button", { name: "Open saved artifact" }));
+  expect(artifacts.open).toHaveBeenCalledWith({ id: "saved-analysis" });
+  expect(f.actions.ask).toHaveBeenCalledOnce();
+});
+
+it("saves summary intent with its original result instead of treating a later question as the source", async () => {
+  const artifacts = { save: vi.fn(async () => ({ id: "summary" })), open: vi.fn() };
+  const f = fixture(true, artifacts);
+  await waitFor(() => expect(getByRole(f.el, "combobox").disabled).toBe(false));
+  fireEvent.click(getByRole(f.el, "button", { name: "Send page and summarize" }));
+  await waitFor(() => expect(getByRole(f.el, "button", { name: "Save analysis to Artifacts" }).disabled).toBe(false));
+  f.question.value = "A later unrelated question";
+  fireEvent.click(getByRole(f.el, "button", { name: "Save analysis to Artifacts" }));
+  await waitFor(() => expect(artifacts.save).toHaveBeenCalledOnce());
+  expect(artifacts.save.mock.calls[0][0]).toMatchObject({ kind: "summary", question: "", text: "<script>inert answer</script>" });
+  expect(f.actions.ask).toHaveBeenCalledOnce();
 });

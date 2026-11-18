@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "issue": 16,
+  "subscope": "explicit-reviewed-browser-analysis-artifact-reopen",
+  "plannedMilestone": "v0.6.6",
+  "base": "65d816e34dac667494be49e8b5f178d87b726f5a",
+  "platform": "windows-x86_64",
+  "syntheticInputs": true,
+  "paidModelRequests": 0,
+  "personalDataAccess": false,
+  "desktopInteraction": false,
+  "applicationBuild": false,
+  "checks": {
+    "relatedJsReactTests": 21,
+    "nativeHostRestartTests": 1,
+    "rustTestThreads": 2,
+    "cargoCheckAllTargets": "passed",
+    "strictClippyAllTargets": "passed",
+    "frontendCheck": "passed-with-existing-warnings",
+    "frontendTypecheck": "passed",
+    "missingI18nKeys": 0,
+    "format": "new-test-formatted-baseline-drift-advisory"
+  },
+  "remainingIssueScope": [
+    "complex-frame-capture",
+    "separate-image-ocr-authorization",
+    "broader-knowledge-integration"
+  ],
+  "closesWholeIssue": false
+}
