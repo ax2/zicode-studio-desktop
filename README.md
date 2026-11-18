@@ -79,7 +79,7 @@ RPC 冒烟测试在隔离目录运行，验证二进制版本、命令发现和�
 
 ### 发布
 
-正式发布使用 `bun run release VERSION`。发布脚本在干净的发布工作树校验版本并推送标签。[GitHub Actions 发布流程](.github/workflows/release.yml)默认只构建并核对 Windows 安装包后发布 Release。仅在用户明确要求时手动选择 `all`，才构建 macOS 和 Linux；开发平台 CI 同样默认只检查 Windows。
+正式发布使用 `bun run release VERSION`。发布脚本在干净的发布工作树校验版本并推送标签。[GitHub Actions 发布流程](.github/workflows/release.yml)默认只构建并核对 Windows 安装包后发布 Release。仅在用户明确要求时手动选择 `all`，才构建 macOS 和 Linux；开发平台 CI 同样默认只检查 Windows。发版前验证、回执复用和后续问题排期遵循[快速迭代与验证规则](docs/agents/project-management.md#快速迭代与验证用户规则2026-11-18)。
 
 ## 文档与许可
 
