@@ -287,7 +287,7 @@ describe("settings React panel", () => {
     fireEvent.click(required("#btn-check-updates"));
     const anchor = clickSpy.mock.instances[0] as HTMLAnchorElement | undefined;
     expect(anchor).toBeTruthy();
-    expect(anchor?.href).toBe("https://github.com/ax2/zicode-studio-desktop/releases");
+    expect(anchor?.href).toBe("https://github.com/ax2/zicode-studio-desktop/releases/latest");
     expect(anchor?.target).toBe("_blank");
     clickSpy.mockRestore();
   });
