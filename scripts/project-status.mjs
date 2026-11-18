@@ -22,7 +22,8 @@ const query = `query($cursor:String){user(login:"ax2"){projectV2(number:4){
   views(first:100){nodes{name number filter}}
   items(first:100,after:$cursor){pageInfo{hasNextPage endCursor}nodes{
     id isArchived updatedAt
-    content{... on Issue{number title url state updatedAt milestone{title} repository{nameWithOwner}}
+    content{__typename ... on Issue{number title url state updatedAt milestone{title} repository{nameWithOwner}}
+      ... on PullRequest{number title url state updatedAt milestone{title} repository{nameWithOwner}}
       ... on DraftIssue{title body}}
     fieldValues(first:30){nodes{
       ... on ProjectV2ItemFieldSingleSelectValue{name field{... on ProjectV2SingleSelectField{name}}}
