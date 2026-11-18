@@ -1,3 +1,4 @@
+mod backup_note_files;
 #[cfg(test)]
 mod body_whitespace_tests;
 #[cfg(test)]
@@ -1217,7 +1218,6 @@ impl NotesVault {
             .map_err(|_| NotesError::new("attachment_not_found", "Attachment does not exist"))?;
         if !metadata.is_file()
             || metadata.file_type().is_symlink()
-            || metadata.len() == 0
             || metadata.len() > MAX_ATTACHMENT_BYTES as u64
         {
             return Err(NotesError::new(
@@ -1234,39 +1234,26 @@ impl NotesVault {
     pub fn export_notebook(&self, notebook_id: &str) -> Result<VaultExport, NotesError> {
         let notebook_id = validate_opaque_id(notebook_id)?;
         let notebook = self.read_notebook(&notebook_id)?;
-        let summaries = self.scan_notebook_notes(&notebook_id)?;
-        let mut notes = Vec::with_capacity(summaries.len());
-        for summary in summaries {
-            notes.push(self.get_note(&notebook_id, &summary.id)?);
-        }
+        let vault = self.vault_root(&notebook_id)?;
+        let notes = backup_note_files::read(&vault.join("src/content/notes"), &notebook_id, false)?
+            .into_iter()
+            .map(|(_, document)| document)
+            .collect::<Vec<_>>();
         let mut trashed_notes = Vec::new();
-        let trash_dir = self.vault_root(&notebook_id)?.join(".trash");
-        if trash_dir.is_dir() {
-            for entry in fs::read_dir(&trash_dir)
-                .map_err(|_| NotesError::new("storage_unavailable", "Cannot read trash"))?
-                .flatten()
-            {
-                let Ok(file_type) = entry.file_type() else {
-                    continue;
-                };
-                if !file_type.is_file() || file_type.is_symlink() {
-                    continue;
-                }
-                let Some(name) = entry.file_name().to_str().map(str::to_string) else {
-                    continue;
-                };
-                if !name.ends_with(".md") {
-                    continue;
-                }
-                if let Ok(document) = read_note_file(&entry.path(), &notebook_id) {
-                    let stamp = trash_metadata::read_or_initialize(&entry.path())?;
-                    trashed_notes.push(TrashNoteExport {
-                        note: document,
-                        deleted_at: stamp.deleted_at,
-                        deletion_time_known: stamp.deletion_time_known,
-                    });
-                }
-            }
+        for (path, document) in backup_note_files::read(&vault.join(".trash"), &notebook_id, true)?
+        {
+            let stamp = trash_metadata::read_or_initialize(&path)?;
+            trashed_notes.push(TrashNoteExport {
+                note: document,
+                deleted_at: stamp.deleted_at,
+                deletion_time_known: stamp.deletion_time_known,
+            });
+        }
+        if notes.len().saturating_add(trashed_notes.len()) > MAX_NOTES {
+            return Err(NotesError::new(
+                "quota_exceeded",
+                "Notes backup contains too many notes",
+            ));
         }
         let mut attachments = Vec::new();
         let mut total_attachment_bytes = 0usize;
@@ -1277,7 +1264,12 @@ impl NotesVault {
         let note_directories = match fs::read_dir(attachment_root) {
             Ok(entries) => Some(entries),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-            Err(_) => return Err(NotesError::new("storage_unavailable", "Cannot read attachment")),
+            Err(_) => {
+                return Err(NotesError::new(
+                    "storage_unavailable",
+                    "Cannot read attachment",
+                ))
+            }
         };
         if let Some(note_directories) = note_directories {
             for note_directory in note_directories {
@@ -1303,6 +1295,12 @@ impl NotesVault {
                     // An archival export must be restorable, never silently partial.
                     let (bytes, mime_type) =
                         self.read_attachment(&notebook_id, &note_id, &file_name)?;
+                    if bytes.is_empty() {
+                        return Err(NotesError::new(
+                            "payload_too_large",
+                            "Backup attachment size is invalid",
+                        ));
+                    }
                     total_attachment_bytes = total_attachment_bytes.saturating_add(bytes.len());
                     if total_attachment_bytes > MAX_EXPORT_ATTACHMENT_BYTES {
                         return Err(NotesError::new(

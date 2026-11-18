@@ -6,6 +6,9 @@ use base64::Engine;
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, fs, path::Path};
 
+const OWNER_RECORD: &str =
+    r#"{"purpose":"synthetic Notes backup recovery acceptance","removeOnSuccess":true}"#;
+
 const WORKSPACE: &str = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 async fn start_profile(profile: &Path) -> HostServer {
@@ -223,6 +226,92 @@ async fn source(owner: &Path, host: &HostServer, client: &reqwest::Client) {
         "empty attachment produced an archive the importer would reject"
     );
     fs::write(&path, &original).unwrap();
+
+    let books = backup["notebooks"].as_array().unwrap();
+    let active = books
+        .iter()
+        .find(|book| !book["notes"].as_array().unwrap().is_empty())
+        .unwrap();
+    let deleted = books
+        .iter()
+        .find(|book| !book["trashedNotes"].as_array().unwrap().is_empty())
+        .unwrap();
+    let active_dir = data
+        .join("notes")
+        .join(active["notebook"]["id"].as_str().unwrap())
+        .join("src/content/notes");
+    let trash_dir = data
+        .join("notes")
+        .join(deleted["notebook"]["id"].as_str().unwrap())
+        .join(".trash");
+    for directory in [&active_dir, &trash_dir] {
+        // These were never managed notes and must remain ignored by export.
+        fs::write(directory.join("README.md"), "ordinary non-note markdown").unwrap();
+        fs::write(directory.join("unrelated.txt"), [0xff]).unwrap();
+        fs::create_dir(directory.join(format!("{}.md", uuid::Uuid::new_v4()))).unwrap();
+    }
+    assert_eq!(
+        client
+            .get(format!("{}{}", host.origin(), export_path()))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::OK
+    );
+    let active_path = active_dir.join(format!("{}.md", active["notes"][0]["id"].as_str().unwrap()));
+    let trash_path = trash_dir.join(format!(
+        "{}.md",
+        deleted["trashedNotes"][0]["note"]["id"].as_str().unwrap()
+    ));
+    let mut omissions = Vec::new();
+    for (kind, note_path) in [("active", active_path), ("trash", trash_path)] {
+        let bytes = fs::read(&note_path).unwrap();
+        fs::write(&note_path, [0xff, 0xfe, 0x00]).unwrap();
+        let response = client
+            .get(format!("{}{}", host.origin(), export_path()))
+            .send()
+            .await
+            .unwrap();
+        if response.status().is_success() {
+            omissions.push(format!("parse-{kind}"));
+        }
+        if kind == "active" {
+            // Ordinary UI discovery remains tolerant; only archival export is strict.
+            let list = client
+                .get(format!(
+                    "{}/v2/notes?sceneId=programming&workspaceId={WORKSPACE}",
+                    host.origin()
+                ))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(list.status(), StatusCode::OK);
+        }
+        fs::write(note_path, bytes).unwrap();
+    }
+    for (kind, directory) in [("active", active_dir), ("trash", trash_dir)] {
+        let held = directory.with_file_name(format!(
+            "{}-held-for-test",
+            directory.file_name().unwrap().to_str().unwrap()
+        ));
+        fs::rename(&directory, &held).unwrap();
+        fs::write(&directory, "synthetic non-directory container").unwrap();
+        let response = client
+            .get(format!("{}{}", host.origin(), export_path()))
+            .send()
+            .await
+            .unwrap();
+        if response.status().is_success() {
+            omissions.push(format!("enumerate-{kind}"));
+        }
+        fs::remove_file(&directory).unwrap();
+        fs::rename(&held, &directory).unwrap();
+    }
+    assert!(
+        omissions.is_empty(),
+        "complete export silently omitted managed note data: {omissions:?}"
+    );
 }
 
 async fn import_archive(owner: &Path, host: &HostServer, client: &reqwest::Client, backup: &Value) {
@@ -441,7 +530,7 @@ async fn local_complete_copy_and_independent_archive_restore_without_cloud_recov
         assert!(["source", "copy", "archive"].contains(&role.as_str()));
         assert_eq!(
             fs::read_to_string(owner.join("owner.json")).unwrap(),
-            "synthetic Notes backup recovery acceptance"
+            OWNER_RECORD
         );
         let profile = owner.join(format!("profile-{role}"));
         let host = start_profile(&profile).await;
@@ -468,11 +557,7 @@ async fn local_complete_copy_and_independent_archive_restore_without_cloud_recov
     let scratch = scratch.canonicalize().unwrap();
     let owner = scratch.join(format!("notes-backup-recovery-{}", uuid::Uuid::new_v4()));
     fs::create_dir(&owner).unwrap();
-    fs::write(
-        owner.join("owner.json"),
-        "synthetic Notes backup recovery acceptance",
-    )
-    .unwrap();
+    fs::write(owner.join("owner.json"), OWNER_RECORD).unwrap();
     for role in ["source", "copy", "archive"] {
         if role == "copy" {
             copy_tree(&owner.join("profile-source"), &owner.join("profile-copy"));
