@@ -45,6 +45,27 @@ describe("app updater store", () => {
     expect(useAppUpdaterStore.getState().button).toBe("Download & install");
   });
 
+  it.each([100, undefined])("displays the current chunk immediately with total %s", async total => {
+    const statuses: string[] = [];
+    const store = useAppUpdaterStore;
+    vi.stubGlobal("__TAURI__", { process: { relaunch: vi.fn() } });
+    store.getState().configure(true);
+    store.getState().showAvailable({ version: "1.0.0", async downloadAndInstall(report) {
+      for (const event of [
+        { event: "Started", data: { contentLength: total } },
+        { event: "Progress", data: { chunkLength: 40 } },
+        { event: "Progress", data: { chunkLength: 60 } },
+      ]) {
+        report?.(event);
+        statuses.push(store.getState().status);
+      }
+    } });
+    await store.getState().installUpdate();
+    expect(statuses).toEqual(total
+      ? ["Downloading 0%…", "Downloading 40%…", "Downloading 99%…"]
+      : ["Downloading…", "Downloading…", "Downloading…"]);
+  });
+
   it("marks the update row as unconfigured when updates are disabled", () => {
     useAppUpdaterStore.getState().configure(false);
 

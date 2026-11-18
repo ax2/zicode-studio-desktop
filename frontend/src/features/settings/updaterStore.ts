@@ -51,7 +51,12 @@ export interface AppUpdaterState {
   showAvailable(nextUpdate: UpdateInfo | null | undefined): void;
   checkNow(options?: { silent?: boolean }): Promise<unknown>;
   installUpdate(): Promise<void>;
-  formatProgress(): string;
+}
+
+function formatProgress(downloadedBytes: number, totalBytes: number): string {
+  if (!totalBytes) return t("Downloading…");
+  const percent = Math.min(99, Math.floor((downloadedBytes / totalBytes) * 100));
+  return t("Downloading {percent}%…").replace("{percent}", String(percent));
 }
 
 export function betaUpdatesEnabled(): boolean {
@@ -183,15 +188,6 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       if (generation === checkGeneration) set({ checking: false });
     }
   },
-  formatProgress() {
-    const { totalBytes, downloadedBytes } = get();
-    if (!totalBytes) return t("Downloading…");
-    const percent = Math.min(
-      99,
-      Math.floor((downloadedBytes / totalBytes) * 100),
-    );
-    return t("Downloading {percent}%…").replace("{percent}", String(percent));
-  },
   async installUpdate() {
     const state = get();
     if (!state.enabled || state.checking || state.installing) return;
@@ -227,18 +223,19 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
           (rawEvent: unknown) => {
             const event = rawEvent as UpdateProgressEvent;
             if (event?.event === "Started") {
+              const totalBytes = event.data?.contentLength || 0;
               set({
-                totalBytes: event.data?.contentLength || 0,
+                totalBytes,
                 downloadedBytes: 0,
-                status: get().formatProgress(),
+                status: formatProgress(0, totalBytes),
                 button: t("Installing…"),
                 disabled: true,
               });
             } else if (event?.event === "Progress") {
+              const downloadedBytes = get().downloadedBytes + (event.data?.chunkLength || 0);
               set({
-                downloadedBytes:
-                  get().downloadedBytes + (event.data?.chunkLength || 0),
-                status: get().formatProgress(),
+                downloadedBytes,
+                status: formatProgress(downloadedBytes, get().totalBytes),
                 button: t("Installing…"),
                 disabled: true,
               });
