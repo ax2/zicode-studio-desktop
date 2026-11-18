@@ -1,7 +1,10 @@
 //! Explicit isolated desktop profile for native acceptance and disposable work.
 //! This redirects Studio state; it is not an OS sandbox for user-selected tools.
 
+mod arguments;
 mod persistent_profile;
+
+use arguments::parse;
 
 use fs2::FileExt;
 use std::ffi::OsString;
@@ -17,6 +20,7 @@ struct Profile {
     _lock: Option<File>,
     system_credentials: bool,
     explicit_isolation: bool,
+    test_name: Option<String>,
 }
 
 pub fn root() -> Option<&'static Path> {
@@ -27,12 +31,19 @@ pub fn is_isolated() -> bool {
     root().is_some()
 }
 
-/// Only an explicitly opted-in persistent personal profile may use its vault.
-/// A command-line test profile always wins and never inherits this permission.
+/// Only an explicitly opted-in personal or named test profile may use its vault.
+/// Ordinary command-line isolation never inherits personal vault permission.
 pub fn system_credentials_enabled() -> bool {
     PROFILE
         .get()
         .is_none_or(|profile| profile.system_credentials)
+}
+
+/// An explicit test name selects a separate model credential namespace.
+pub fn test_profile_name() -> Option<&'static str> {
+    PROFILE
+        .get()
+        .and_then(|profile| profile.test_name.as_deref())
 }
 
 pub fn requires_explicit_argument() -> bool {
@@ -99,47 +110,24 @@ fn initialize_with_selection(
     selected: impl FnOnce() -> Result<Option<(PathBuf, bool)>, String>,
 ) -> Result<(), String> {
     let selected = match parse(arguments)? {
-        Some(explicit) => Some((explicit, false, true)),
-        None => selected()?.map(|(path, credentials)| (path, credentials, false)),
+        Some(explicit) => Some((
+            explicit.root,
+            explicit.test_name.is_some(),
+            true,
+            explicit.test_name,
+        )),
+        None => selected()?.map(|(path, credentials)| (path, credentials, false, None)),
     };
-    if let Some((path, system_credentials, explicit_isolation)) = selected {
+    if let Some((path, system_credentials, explicit_isolation, test_name)) = selected {
         let mut profile = prepare(&path)?;
         profile.system_credentials = system_credentials;
         profile.explicit_isolation = explicit_isolation;
+        profile.test_name = test_name;
         PROFILE
             .set(profile)
             .map_err(|_| "Desktop profile already initialized")?;
     }
     Ok(())
-}
-
-fn parse(arguments: impl IntoIterator<Item = OsString>) -> Result<Option<PathBuf>, String> {
-    let mut arguments = arguments.into_iter();
-    let mut profile = None;
-    while let Some(argument) = arguments.next() {
-        if argument != "--isolated-profile" {
-            if argument
-                .to_string_lossy()
-                .starts_with("--isolated-profile=")
-            {
-                return Err("Use --isolated-profile followed by an absolute directory".into());
-            }
-            continue;
-        }
-        if profile.is_some() {
-            return Err("Only one --isolated-profile is allowed".into());
-        }
-        let path = PathBuf::from(
-            arguments
-                .next()
-                .ok_or("--isolated-profile requires an absolute directory")?,
-        );
-        if !path.is_absolute() || path.parent().is_none() {
-            return Err("--isolated-profile requires an absolute non-root directory".into());
-        }
-        profile = Some(path);
-    }
-    Ok(profile)
 }
 
 fn require_unlinked(path: &Path) -> Result<(), String> {
@@ -211,6 +199,7 @@ fn prepare(path: &Path) -> Result<Profile, String> {
         _lock: lock,
         system_credentials: false,
         explicit_isolation: true,
+        test_name: None,
     })
 }
 
@@ -434,7 +423,10 @@ mod tests {
         let path = std::env::temp_dir().join("isolated-profile-parser");
         assert_eq!(
             parse(["--isolated-profile".into(), path.clone().into_os_string()]).unwrap(),
-            Some(path.clone())
+            Some(arguments::Selection {
+                root: path.clone(),
+                test_name: None
+            })
         );
         assert!(parse([
             "--isolated-profile".into(),

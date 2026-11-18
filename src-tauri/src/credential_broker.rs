@@ -11,6 +11,10 @@ const INDEX_VERSION: u32 = 1;
 #[path = "credential_broker_acceptance.rs"]
 mod acceptance;
 
+#[cfg(test)]
+#[path = "credential_broker_named_tests.rs"]
+mod named_tests;
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 struct CredentialIndex {
@@ -345,10 +349,25 @@ fn migrate_legacy_auth(root: &Path, scene_id: &str, auth_path: &Path) -> Result<
 }
 
 fn credential_account(scene_id: &str, provider: &str) -> String {
-    credential_account_in(crate::desktop_profile::root(), scene_id, provider)
+    credential_account_in_scope(
+        crate::desktop_profile::root(),
+        crate::desktop_profile::test_profile_name(),
+        scene_id,
+        provider,
+    )
 }
 
+#[cfg(test)]
 fn credential_account_in(profile: Option<&Path>, scene_id: &str, provider: &str) -> String {
+    credential_account_in_scope(profile, None, scene_id, provider)
+}
+
+fn credential_account_in_scope(
+    profile: Option<&Path>,
+    test_name: Option<&str>,
+    scene_id: &str,
+    provider: &str,
+) -> String {
     let namespace = profile
         .map(|path| {
             let value = path.to_string_lossy().into_owned();
@@ -357,6 +376,12 @@ fn credential_account_in(profile: Option<&Path>, scene_id: &str, provider: &str)
             format!("profile:{value}\0")
         })
         .unwrap_or_default();
+    // Domain separation preserves existing personal accounts and excludes them
+    // from every named test, even when scene/provider identifiers are identical.
+    let namespace = match test_name {
+        Some(name) => format!("named-test:{name}\0{namespace}"),
+        None => namespace,
+    };
     let digest = Sha256::digest(format!("{namespace}{scene_id}\0{provider}").as_bytes());
     format!(
         "scene-provider-{}",
@@ -381,7 +406,14 @@ fn validate_identifier(label: &str, value: &str) -> Result<(), String> {
 }
 
 fn index_path(root: &Path) -> PathBuf {
-    root.join("credentials").join("index.json")
+    let directory = root.join("credentials");
+    match crate::desktop_profile::test_profile_name() {
+        Some(name) => directory
+            .join("test-profiles")
+            .join(name)
+            .join("index.json"),
+        None => directory.join("index.json"),
+    }
 }
 
 fn read_index(root: &Path) -> Result<CredentialIndex, String> {
