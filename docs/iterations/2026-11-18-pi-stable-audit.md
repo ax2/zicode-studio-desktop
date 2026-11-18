@@ -10,7 +10,7 @@ There is no stable upgrade to perform. `scripts/pi-version.json`, `package.json`
 
 ## Compatibility evidence reused
 
-- Existing [Pi 1.5.2 RPC contract](../../tests/fixtures/pi-rpc/1.5.2/contract.json): command discovery, state fields, extension UI events, prompt acceptance and abort. It is retained, not regenerated to hide differences.
+- Existing [Pi 1.5.2 RPC contract](https://github.com/ax2/zicode-studio-desktop/blob/46492da67c04bd073c98268d5432f2414c8ec21c/tests/fixtures/pi-rpc/1.5.2/contract.json): command discovery, state fields, extension UI events, prompt acceptance and abort. It is retained, not regenerated to hide differences.
 - Integrated [actual Pi 1.5.2 receipt](evidence/2026-11-18-module-model-routing.json), from source `052225b9490f6b199a056acdbb2bdfa3a725bac3`: actual locked binary/extension JSONL, local Chat Completions and reasoning Responses requests, supported `low` effort, cancellation, unchanged Chat model/history and module selection across process restart. Synthetic credentials/local services only.
 - [Module verification](2026-11-18-module-model-routing.md): source typechecks, 50 related JS tests, 21 visual Rust tests, all-target static checks, strict Clippy, 92 command permissions and Windows subprocess policy. The reuse is limited to the unchanged runtime and integrated sources; it is not a claim that every historical session format was migrated, or that native desktop/provider/account acceptance is complete.
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "checkedAt": "2026-11-18T05:00:23.523458+00:00",
+  "checkedAt": "2026-11-18T13:00:23.523458+08:00",
   "issue": "https://github.com/ax2/zicode-studio-desktop/issues/37",
   "milestone": "v0.6.5",
   "sourceBase": "46492da67c04bd073c98268d5432f2414c8ec21c",
@@ -72,8 +72,14 @@
     "README source features are not a declaration that a draft version is published"
   ],
   "documentationChecks": {
-    "localLinksResolved": 26,
+    "localLinksResolved": 25,
     "auditJsonParsed": true,
     "sdkAlignmentPassed": true
+  },
+  "documentationCiInitialFailure": {
+    "Run": 44241427723,
+    "Head": "c19dbda3c967e449f904236a9e36aced08929049",
+    "Cause": "RPC contract repository-relative link resolved outside MkDocs docs_dir",
+    "Fix": "Use immutable GitHub source URL; strict warning policy unchanged"
   }
 }
