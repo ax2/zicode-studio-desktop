@@ -27,7 +27,7 @@ const server = createServer(async (request, response) => {
   const isB = request.url.startsWith("/b/");
   requests.push({ path: request.url, model: body.model,
     authenticationMatched: request.headers.authorization === `Bearer fixture-only-${isB ? "b" : "a"}`,
-    maxTokens: body.max_output_tokens ?? body.max_tokens ?? body.max_completion_tokens });
+    maxTokens: body.max_output_tokens ?? body.max_tokens ?? body.max_completion_tokens, reasoningEffort: body.reasoning?.effort });
   response.writeHead(200, { "content-type": "text/event-stream" });
   if (isB) {
     const message = { id: "message-fixture", type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: "Pi routed responses-b", annotations: [] }] };
@@ -52,7 +52,7 @@ const address = server.address();
 assert(address && typeof address !== "string");
 const config = { providers: Object.fromEntries(["a", "b"].map(id => [`fixture-${id}`, {
   baseUrl: `http://127.0.0.1:${address.port}/${id}/v1`, api: id === "a" ? "openai-completions" : "openai-responses", apiKey: `fixture-only-${id}`,
-  models: [{ id: id === "a" ? "chat-a" : "responses-b", name: `Fixture ${id}`, input: ["text"], reasoning: false,
+  models: [{ id: id === "a" ? "chat-a" : "responses-b", name: `Fixture ${id}`, input: ["text"], reasoning: id === "b",
     contextWindow: 32768, maxTokens: 2048, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }],
 }])) };
 await writeFile(join(directory, "models.json"), JSON.stringify(config));
@@ -163,6 +163,8 @@ try {
   assert.equal(reopened.data.effectiveBrowserModel.modelId, "responses-b");
   assert.equal(requests.length, 2);
   assert(requests.every(request => request.authenticationMatched && request.maxTokens === 1024));
+  assert.equal(requests[0].reasoningEffort, "low", "Reasoning Responses models must receive a supported low-budget effort");
+  assert.equal(requests[1].reasoningEffort, undefined, "Non-reasoning Chat Completions models must not acquire a reasoning effort");
   await pi.stop(); pi = undefined;
   const receipt = { schemaVersion: 1, verified: true, piVersion: expectedVersion,
     extensionSha256: createHash("sha256").update(await readFile(extension)).digest("hex"),

@@ -28,7 +28,7 @@ it("persists only module references, checks revisions and preserves unreadable c
 
 it("routes through real Pi registry authentication with module override, inheritance, disable and cancellation", async () => {
   const directory = root();
-  const requests: Array<{ url: string; model: string; authorization: string; limit: number }> = [];
+  const requests: Array<{ url: string; model: string; authorization: string; limit: number; effort?: string }> = [];
   let hold = false;
   let held: ServerResponse | undefined;
   let observed: (() => void) | undefined;
@@ -36,7 +36,7 @@ it("routes through real Pi registry authentication with module override, inherit
     const chunks: Buffer[] = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    requests.push({ url: request.url ?? "", model: body.model, authorization: request.headers.authorization ?? "", limit: body.max_tokens ?? body.max_completion_tokens ?? body.max_output_tokens });
+    requests.push({ url: request.url ?? "", model: body.model, authorization: request.headers.authorization ?? "", limit: body.max_tokens ?? body.max_completion_tokens ?? body.max_output_tokens, effort: body.reasoning?.effort });
     if (JSON.stringify(body).includes("fixture-reject")) {
       response.writeHead(429, { "content-type": "application/json" });
       response.end(JSON.stringify({ error: { message: "untrusted fixture-only-a detail", type: "rate_limit_error" } }));
@@ -68,7 +68,7 @@ it("routes through real Pi registry authentication with module override, inherit
   writeFileSync(authPath, "{}");
   writeFileSync(modelsPath, JSON.stringify({ providers: Object.fromEntries(["a", "b"].map(id => [`fixture-${id}`, {
     baseUrl: `http://127.0.0.1:${address.port}/${id}/v1`, api: id === "a" ? "openai-completions" : "openai-responses", apiKey: `fixture-only-${id}`,
-    models: [{ id, name: `Model ${id}`, reasoning: false, input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 32768, maxTokens: 2048 }],
+    models: [{ id, name: `Model ${id}`, reasoning: id === "b", input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 32768, maxTokens: 2048 }],
   }])) }));
   try {
     const runtime = await ModelRuntime.create({ modelsPath, authPath, allowModelNetwork: false });
@@ -94,7 +94,7 @@ it("routes through real Pi registry authentication with module override, inherit
     expect(response.model.provider).toBe("fixture-b");
     expect(response.inherited).toBe(false);
     expect(JSON.stringify(response)).not.toContain("fixture-only-");
-    expect(requests[0]).toEqual({ url: "/b/v1/responses", model: "b", authorization: "Bearer fixture-only-b", limit: 1024 });
+    expect(requests[0]).toEqual({ url: "/b/v1/responses", model: "b", authorization: "Bearer fixture-only-b", limit: 1024, effort: "low" });
     expect(current?.id).toBe("a");
     disabled.add("fixture-b");
     const unavailable = await call("get_module_models");

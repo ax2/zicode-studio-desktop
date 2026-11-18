@@ -2,13 +2,14 @@
   "schemaVersion": 1,
   "verified": true,
   "piVersion": "1.5.2",
-  "extensionSha256": "9315d530494201a570d092e1c2253ef6aa7bf190efae251a9c3fa106047c4559",
+  "extensionSha256": "803b3d8a194d60798d980960ade85bb68c3356e4888b9861aed1bb57882c968b",
   "requests": [
     {
       "path": "/b/v1/responses",
       "model": "responses-b",
       "authenticationMatched": true,
-      "maxTokens": 1024
+      "maxTokens": 1024,
+      "reasoningEffort": "low"
     },
     {
       "path": "/a/v1/chat/completions",
@@ -55,6 +56,14 @@
     "initial actual Pi extension load rejected system TEMP/jiti write; own fixture TEMP/TMP fixed the environment",
     "first new-worktree Rust checks lacked generated extension and resource directories; generated own extension and created debug placeholders before rerunning",
     "new lint/type errors fixed without changing assertions or raising budgets",
-    "repository-wide cargo fmt reports existing differences; both new Rust modules pass separately"
-  ]
+    "repository-wide cargo fmt reports existing differences; both new Rust modules pass separately",
+    "reasoning:true Responses fixture exposed literal minimal effort; low fix proved in real SDK and actual locked Pi request bodies"
+  ],
+  "reasoningModelRegression": {
+    "actualPiResponseEffort": "low",
+    "reasoningFixtureEnabled": true,
+    "nonReasoningChatAcquiresNoEffort": true,
+    "originalRegression": "initial reasoning:true real SDK fixture received unsupported minimal instead of expected low; original failed assertions retained",
+    "targetedSdkRegressionPassed": 2
+  }
 }
