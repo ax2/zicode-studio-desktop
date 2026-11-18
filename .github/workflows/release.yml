@@ -375,6 +375,22 @@ jobs:
     needs: [prepare-release, build]
     runs-on: ubuntu-22.04
     steps:
+      - name: Checkout publishing verifier source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Preserve fixed publishing verifier
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/studio-release-inventory"
+          cp scripts/verify-release-inventory.mjs scripts/release-draft-assets.mjs "$RUNNER_TEMP/studio-release-inventory/"
+
       - name: Checkout release tag
         uses: actions/checkout@v6
         with:
@@ -397,44 +413,7 @@ jobs:
           RELEASE_PLATFORM: ${{ inputs.platform || 'windows' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
-        run: |
-          set -euo pipefail
-          IS_DRAFT="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
-          if [[ "$IS_DRAFT" != "true" ]]; then
-            echo "::error::Release $RELEASE_TAG is no longer a draft."
-            exit 1
-          fi
-          mapfile -t ASSETS < <(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-          EXPECTED=1
-          if [[ "$RELEASE_PLATFORM" == all ]]; then EXPECTED=5; fi
-          if [[ "${#ASSETS[@]}" -ne "$EXPECTED" ]]; then
-            echo "::error::Expected exactly $EXPECTED installer assets in draft $RELEASE_TAG; found ${#ASSETS[@]}."
-            exit 1
-          fi
-          EXE=0
-          DMG_ARM64=0
-          DMG_X64=0
-          APPIMAGE=0
-          DEB=0
-          for ASSET in "${ASSETS[@]}"; do
-            case "$ASSET" in
-              *_x64-setup.exe) EXE=$((EXE + 1)) ;;
-              *_aarch64.dmg) DMG_ARM64=$((DMG_ARM64 + 1)) ;;
-              *_x64.dmg) DMG_X64=$((DMG_X64 + 1)) ;;
-              *_amd64.AppImage) APPIMAGE=$((APPIMAGE + 1)) ;;
-              *_amd64.deb) DEB=$((DEB + 1)) ;;
-              *) echo "::error::Unexpected release asset: $ASSET"; exit 1 ;;
-            esac
-          done
-          if [[ "$RELEASE_PLATFORM" == windows ]]; then
-            if [[ "$EXE" -ne 1 || "$DMG_ARM64" -ne 0 || "$DMG_X64" -ne 0 || "$APPIMAGE" -ne 0 || "$DEB" -ne 0 ]]; then
-              echo "::error::Windows release requires exactly one Windows EXE and no other installers."
-              exit 1
-            fi
-          elif [[ "$EXE" -ne 1 || "$DMG_ARM64" -ne 1 || "$DMG_X64" -ne 1 || "$APPIMAGE" -ne 1 || "$DEB" -ne 1 ]]; then
-            echo "::error::Draft must contain one Windows EXE, one macOS ARM64 DMG, one macOS x64 DMG, one Linux AppImage, and one Debian package."
-            exit 1
-          fi
+        run: bun "$RUNNER_TEMP/studio-release-inventory/verify-release-inventory.mjs"
 
       - name: Publish completed release
         env:
