@@ -1,6 +1,9 @@
 //! Native browser adapter. Must stay on the native UI thread.
 //! Wry children are intentionally NOT registered as Tauri webviews. No IPC,
 //! initialization scripts, local protocols or Studio token are installed.
+#[cfg(test)]
+#[path = "native_privacy_tests.rs"]
+mod native_privacy_tests;
 use super::policy::BrowserPolicy;
 #[path = "event_lifetime.rs"]
 mod event_lifetime;
@@ -251,6 +254,8 @@ impl NativeBrowserEngine {
             .with_additional_browser_args("--disable-features=msWebOOUI,msPdfOOUI")
             .with_devtools(false)
             .with_clipboard(false)
+            // General form data must not be retained without a Studio privacy setting.
+            .with_general_autofill_enabled(false)
             .with_navigation_handler(move |url| {
                 let permitted = gate.get() && nav_policy.permits(&url);
                 if permitted {
