@@ -1332,11 +1332,29 @@ impl NotesVault {
     /// Export every notebook in this vault as one archival bundle so users can
     /// back up an entire workspace without exporting notebooks one by one.
     pub fn export_all_notebooks(&self) -> Result<Vec<VaultExport>, NotesError> {
-        let notebooks = self.list_notebooks()?;
-        let mut exports = Vec::with_capacity(notebooks.len());
-        for notebook in notebooks {
-            exports.push(self.export_notebook(&notebook.id)?);
+        let vaults = self.vaults_dir();
+        let unavailable = |_| NotesError::new("storage_unavailable", "Cannot enumerate notebooks for backup");
+        fs::create_dir_all(&vaults).map_err(unavailable)?;
+        let mut exports = Vec::new();
+        for entry in fs::read_dir(vaults).map_err(unavailable)? {
+            let entry = entry.map_err(unavailable)?;
+            let name = entry.file_name();
+            let Some(id) = name.to_str().filter(|id| validate_opaque_id(id).is_ok()) else {
+                continue;
+            };
+            let kind = entry.file_type().map_err(unavailable)?;
+            if kind.is_symlink() {
+                return Err(NotesError::new("vault_corrupt", "Notebook backup cannot follow a linked notebook"));
+            }
+            if !kind.is_dir() {
+                continue;
+            }
+            if exports.len() == MAX_NOTEBOOKS {
+                return Err(NotesError::new("quota_exceeded", "Too many notebooks to export"));
+            }
+            exports.push(self.export_notebook(id)?);
         }
+        exports.sort_by_cached_key(|item| item.notebook.title.to_lowercase());
         Ok(exports)
     }
 
@@ -2477,6 +2495,19 @@ mod tests {
         assert!(snippet.ends_with('…'));
         assert_eq!(snippet_for("", "needle"), None);
         assert_eq!(snippet_for("body", ""), None);
+    }
+
+    #[test]
+    fn full_backup_rejects_a_notebook_missing_from_the_tolerant_list() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let bad = vault.create_notebook("Broken", None, None).unwrap();
+        vault.create_notebook("Healthy", None, None).unwrap();
+        let metadata = vault.vaults_dir().join(bad.id).join(".zicode").join("vault.json");
+        fs::write(metadata, b"{broken").unwrap();
+        assert_eq!(vault.list_notebooks().unwrap().len(), 1);
+        assert!(vault.export_all_notebooks().is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
