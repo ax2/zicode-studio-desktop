@@ -37,11 +37,10 @@ describe("bounded parent preview reads", () => {
     await expect(loadResourcePreview({ ...c, executionProfile: "resource.wasi.regex.replace.v1" })).rejects.toThrow();
     expect(c.read).not.toHaveBeenCalled();
   });
-  it("reads and hashes up to 8 MiB of JSON only for the exact JSON file profile", async () => {
+  it.each(["resource.wasi.json-file-compare.v1", "resource.wasi.json-file-transform.v1"])("reads and hashes up to 8 MiB of JSON only for %s", async executionProfile => {
     const maxBytes = 8 * 1024 * 1024;
     const text = `["${"x".repeat(maxBytes - 4)}"]`;
     const c = await fixture(new TextEncoder().encode(text), "application/json");
-    const executionProfile = "resource.wasi.json-file-compare.v1";
     const result = await loadResourcePreview({ ...c, executionProfile });
     expect(result.text).toBe(text);
     expect(c.read).toHaveBeenCalledTimes(256);
