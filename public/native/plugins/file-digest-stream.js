@@ -14,7 +14,7 @@ export function streamSelection(value, owner) {
       value.contentRead !== false || value.confirmed !== false || !sameOwner(owner, value.owner) ||
       !Array.isArray(value.files) || value.files.length < 1 || value.files.length > 64 ||
       !value.files.every(file => typeof file?.name === "string" && [...file.name].length >= 1 && [...file.name].length <= 255 &&
-        !/[\\/:\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u.test(file.name) && size(file.byteLength)) ||
+        !/[\\/:\p{Cc}\u202a-\u202e\u2066-\u2069]/u.test(file.name) && size(file.byteLength)) ||
       !size(value.totalBytes) || value.totalBytes !== value.files.reduce((sum, file) => sum + file.byteLength, 0)) {
     throw new Error("resource_stream_invalid");
   }
