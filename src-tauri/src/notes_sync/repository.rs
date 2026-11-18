@@ -11,11 +11,14 @@ use std::collections::BTreeMap;
 use tokio::sync::OnceCell;
 use tokio_util::sync::CancellationToken;
 
+type CurrentGuard = Box<dyn Fn() -> Result<Box<dyn Send>, SyncError> + Send + Sync>;
+
 pub struct SyncRepository {
     dav: WebDav,
     vault_id: String,
     key: SyncKey,
     initialized: OnceCell<()>,
+    current: Option<CurrentGuard>,
 }
 
 impl SyncRepository {
@@ -34,6 +37,7 @@ impl SyncRepository {
             vault_id: vault_id.to_owned(),
             key,
             initialized: OnceCell::new(),
+            current: None,
         })
     }
 
@@ -48,6 +52,22 @@ impl SyncRepository {
         let repository = Self::configured(endpoint, username, password, vault_id, key)?;
         repository.initialize().await?;
         Ok(repository)
+    }
+
+    /// The desktop caller rechecks destination revision and authorization before
+    /// capture and before applying any downloaded result to local saved notes.
+    pub(crate) fn with_guard(
+        mut self,
+        guard: impl Fn() -> Result<Box<dyn Send>, SyncError> + Send + Sync + 'static,
+    ) -> Self {
+        self.current = Some(Box::new(guard));
+        self
+    }
+
+    fn lock_current(&self) -> Result<Box<dyn Send>, SyncError> {
+        self.current
+            .as_ref()
+            .map_or_else(|| Ok(Box::new(()) as Box<dyn Send>), |guard| guard())
     }
 
     async fn initialize(&self) -> Result<(), SyncError> {
@@ -79,6 +99,7 @@ impl SyncRepository {
             return Err(SyncError::Cancelled);
         }
         let (transfer, local) = {
+            let _current = self.lock_current()?;
             let vault = storage.scope_for_sync(workspace_id)?;
             let transfer = vault.lock_sync_transfer(&self.dav.scope())?;
             transfer.check_backoff()?;
@@ -108,6 +129,10 @@ impl SyncRepository {
             }
             other => other?,
         };
+        let _current = self.lock_current()?;
+        if cancel.is_cancelled() {
+            return Err(SyncError::Cancelled);
+        }
         if let SyncOutcome::Synced { manifest, snapshot } = &outcome {
             let vault = storage.scope_for_sync(workspace_id)?;
             transfer.check_vault(&vault)?;

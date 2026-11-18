@@ -41,6 +41,7 @@ mod manual_tool_calls;
 mod manual_tool_catalog;
 mod model_tools_http;
 mod notes_create;
+mod notes_sync_task;
 #[cfg(windows)]
 mod novel_notes;
 mod plugin_call_lifecycle;
@@ -186,6 +187,7 @@ struct HostState {
     plugin_resource_operations: plugin_resources::Operations,
     plugin_resource_workers: plugin_resources::worker::Workers,
     notes: Mutex<NotesVault>,
+    notes_sync_runs: crate::notes_sync_task::Runs,
     artifacts: Mutex<ArtifactStore>,
     plugin_tokens: Mutex<HashMap<String, RuntimePluginToken>>,
     workspace_write_gates: WorkspaceWriteGates,
@@ -529,6 +531,7 @@ impl HostServer {
             plugin_resource_operations: plugin_resources::Operations::default(),
             plugin_resource_workers: plugin_resources::worker::Workers::default(),
             notes: Mutex::new(notes),
+            notes_sync_runs: crate::notes_sync_task::Runs::default(),
             artifacts: Mutex::new(artifacts),
             plugin_tokens: Mutex::new(HashMap::new()),
             workspace_write_gates: WorkspaceWriteGates::default(),

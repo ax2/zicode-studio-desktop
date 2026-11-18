@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-18",
+  "platform": "Windows",
+  "base": "0cc8b4113a9a63794b460a9b507277395953e7be",
+  "branch": "codex/notes-sync-run-23",
+  "issues": [
+    23,
+    24
+  ],
+  "checks": {
+    "allTargetCheck": "passed, repeated after receipt identity fix",
+    "strictClippy": "passed, repeated after receipt identity fix",
+    "newModuleRustfmt": "passed",
+    "wholeRepositoryFmt": "advisory baseline drift; not reformatted",
+    "permissions": {
+      "passed": true,
+      "registeredCommands": 94
+    }
+  },
+  "rustCases": {
+    "hostAndContract": 7,
+    "receiptReplacementRegression": 1,
+    "configurationAndResolver": 11,
+    "callerGuard": 2,
+    "durableSavedTransfer": 6,
+    "ordinaryTotal": 27,
+    "explicitWindowsSyntheticCredentials": 1,
+    "totalExecutedPassed": 28,
+    "defaultIgnoredCredentialCase": "explicitly executed separately; 1 passed, 0 ignored"
+  },
+  "frontendReuse": {
+    "pr": 100,
+    "source": "d759d032b06e694a88f22babc2799dd9fbb10953",
+    "cases": 49,
+    "typecheck": "passed",
+    "check": "passed",
+    "missingTranslations": 0
+  },
+  "realTransport": {
+    "hostHttpCreatesNotes": true,
+    "sameProductionHostLauncher": true,
+    "ownedLoopbackWebDav": true,
+    "freshWorkspaceVaultDownload": true,
+    "exactUtf8BodyAndTitleReadback": true,
+    "fixedWorkspaceLayout": "<synthetic-system>/.zicode/notes",
+    "duplicateStartAndStaleCancelRejected": true,
+    "permissionRevocationRejected": true,
+    "hostShutdownReleasesState": true,
+    "queueResumeAndConcurrentEdits": "6 existing real transfer tests reused without changing assertions or budgets"
+  },
+  "credentialBoundary": {
+    "savedRevisionVerifiedBeforeReadingSecrets": true,
+    "personalAndNamedDomainsSeparate": true,
+    "applyHoldsSameSettingsLockAsSave": true,
+    "noSettingsLockAcrossNetwork": true,
+    "uiSuppliesNoEndpointPasswordOrKey": true
+  },
+  "failuresRetained": [
+    {
+      "log": "notes-sync-entry-rust-first.log",
+      "cause": "Clippy type_complexity on new callback field; replaced with a named alias, no lint suppression"
+    },
+    {
+      "log": "notes-sync-entry-rust-final.log",
+      "cause": "First Host test fixture used nested summary instead of flattened note JSON and expected restoring a required permission to re-enable the disabled plugin; corrected fixtures, kept assertions and time budgets"
+    },
+    {
+      "log": "notes-sync-entry-wincred-fmt.log",
+      "cause": "Finish CMD wrapper parsing error; it did not execute the credential test. Re-run directly using the original test EXE; separate verified log records 1 pass"
+    }
+  ],
+  "notClaimed": [
+    "native Tauri-window invocation or visual desktop acceptance",
+    "real user cloud endpoint or physical multi-device acceptance",
+    "conflict selection or recovery-management UI",
+    "automatic startup/retry/scheduled sync",
+    "full Studio build or installer acceptance"
+  ],
+  "sourceSha256": {
+    "src-tauri/src/notes_sync_task.rs": "b384fd7670b0454d8e91b35eafea16f07b4f10efe51b5a8cc0ed6be71b9b5307",
+    "src-tauri/src/notes_sync_task/state.rs": "6c806eb88083e0f67f3cabe760b222b5f01f72308939db4fb643913d2cd44a8b",
+    "src-tauri/src/host_server/notes_sync_task.rs": "a8c3664d1d55be52ed78fbfca0b45c831a738690dc3e6c4a3469843b8c8e2952",
+    "src-tauri/src/host_server/notes_sync_task/tests.rs": "0cfdb263043e40223846760ffd27cb36ab5efff274898dbf95e39239103870ad",
+    "src-tauri/src/notes_sync_settings/resolver.rs": "d3a9dae7e116e8f9c99ed54b32fd19027716e7423f06a90b5e086c2f957114a9",
+    "src-tauri/src/notes_sync_settings/tests/resolver.rs": "27c55963e8e1ad110b5f317ef873a0f238ba19178c19814d74fca220a1e045b4",
+    "src-tauri/src/notes_sync/repository.rs": "d5b40fd812e3f36f351f260107980ec48070861bbea2bafd099cf9efa8c8e035",
+    "src-tauri/src/notes_vault/sync/tests/caller_guard.rs": "bf9a5c1d5df9fcb20c298c0949fec2d7451955d25d0c255be598ce270275ea54",
+    "tests/fixtures/notes-sync-task/contract.json": "ec671113a1f13d7017db1206680275d743f9d1a7c563f2a248630b3b89e1789a",
+    "public/native/react/settings.js": "2e50b2990294d659cd790ce301c2b60c1e027eeeaab49e0b98e732685df02ac3"
+  },
+  "localLogSha256": {
+    "notes-sync-entry-rust-first.log": "38227554b58ce29dd6fe5f9044ed7418c69ba535fc36f554ad260245632f3a4a",
+    "notes-sync-entry-rust-final.log": "ee6b8f6c6cbda9b333238f5512b5629dac434caa428c7ae0d6fcf1ab33d48665",
+    "notes-sync-entry-verified.log": "8752074f5e2ec4b2069c000f084f401ac78bd01de253f6f006e64f388e71d27a",
+    "notes-sync-entry-receipt-verified.log": "8c4d84974ac01a3454921bc4a9e2c188d5cc246a5b04c1d1650b830e4bfc52fb",
+    "notes-sync-entry-resolver-first.log": "2c886ea333a22a2200b5423525348d7fe0e8ae2efb778b25bdd610ab5917c6d2",
+    "notes-sync-entry-caller-guard-first.log": "d5328088192935633e144f8d172343c2cf6346fd7e30d9a63b5f31cbd1177591",
+    "notes-sync-entry-transfer-first.log": "ed8a37798c34d9d1d4c89cdc16813159feaa42389794ab9705e25ee221743dae",
+    "notes-sync-entry-wincred-verified.log": "5c5d7bedfdbe3fd826d45f6d6c852b5fdaae140876b04a2d9e94395836765177",
+    "notes-sync-entry-permissions.log": "b5ff208319cc673c77d3e552d0a9054806e941c6d8008e1f30b35c84377407a7",
+    "notes-sync-entry-fmt-advisory.log": "ede64434f7a9a62a6a67148486b03fb95219f5a7803f2cc148da6198367c6ced"
+  }
+}
