@@ -17,9 +17,15 @@ export type MetricField = "cpu" | "memory" | "frequency" | "temperature";
 export const percentage = (used: number, total: number) => total > 0 ? Math.max(0, Math.min(100, used * 100 / total)) : 0;
 export const formatBytes = (value: number) => `${(value / 1024 ** 3).toLocaleString(undefined, { maximumFractionDigits: 1 })} GiB`;
 export function appendMetricSample(history: MetricSample[], data: SystemInformation): MetricSample[] {
-  if (!Number.isFinite(data.sampledAt) || (history.length && data.sampledAt <= history[history.length - 1].at)) return history;
+  if (!Number.isFinite(data.sampledAt)) return history;
+  const latest = history[history.length - 1]?.at;
+  // Requests are serialized by the page. A large backwards clock correction
+  // starts a fresh timeline; small cached/out-of-order results stay ignored.
+  const clockChanged = latest !== undefined && latest - data.sampledAt > 10000;
+  if (!clockChanged && latest !== undefined && data.sampledAt <= latest) return history;
+  const timeline = clockChanged ? [] : history;
   const next: MetricSample = { at: data.sampledAt, cpu: data.cpuUsage, memory: percentage(data.memoryTotal - data.memoryAvailable, data.memoryTotal), frequency: data.reportedFrequencyMhz === null ? null : data.reportedFrequencyMhz / 1000, temperature: data.temperatureCelsius };
-  return [...history.filter(sample => sample.at >= next.at - 60000), next].slice(-64);
+  return [...timeline.filter(sample => sample.at >= next.at - 60000), next].slice(-64);
 }
 // SVG dimensions describe chart geometry, not UI spacing. Keep gaps for missing
 // samples or pauses instead of drawing a fabricated continuous measurement.
