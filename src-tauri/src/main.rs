@@ -75,6 +75,7 @@ mod plugin_archive_events;
 mod plugin_archive_transport;
 mod plugin_capabilities;
 mod plugin_json_decode;
+mod plugin_json_file_numbers;
 mod plugin_output_types;
 mod plugin_package;
 mod plugin_registry;

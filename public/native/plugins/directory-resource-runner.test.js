@@ -260,6 +260,24 @@ describe("directory-owned resource execution", () => {
     expect(f.gateway.prepareResource).not.toHaveBeenCalled();
   });
 
+  it.each(["format", "minify", "validate"])("caps JSON file %s at one MiB before reading", async operation => {
+    const executionProfile = "resource.wasi.json-file-transform.v1";
+    const f = fixture({}, 1, false, { pluginId: "com.zicode.devtools.json-file", capabilityId: `devtools.json-file.${operation}`, executionProfile });
+    const arrayBuffer = vi.fn(async () => new ArrayBuffer(0));
+    const input = document.querySelector('input[type="file"]');
+    const select = size => {
+      Object.defineProperty(input, "files", { configurable: true, value: [{ name: "fixture.txt", size, type: "text/plain", arrayBuffer }] });
+      input.dispatchEvent(new Event("change"));
+    };
+    select(1024 * 1024 + 1);
+    expect(f.button("Confirm file sharing").disabled).toBe(true);
+    expect(document.body.textContent).toContain("Choose a file up to 1 MiB");
+    select(1024 * 1024);
+    expect(f.button("Confirm file sharing").disabled).toBe(false);
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(f.gateway.prepareResource).not.toHaveBeenCalled();
+  });
+
   it("shows declared input MIME types and explains a mismatched file without losing recovery", async () => {
     const f = fixture({}, 1, false, { resourceInputMimeTypes: ["text/plain"] });
     expect(document.body.textContent).toContain("Accepted file types: text/plain");

@@ -86,9 +86,10 @@ pub(super) fn register(
     }
     validate_result(capability, &bundle.result)?;
     if profiles.output == crate::plugin_worker::resource_output::Profile::JsonCompare1 {
-        crate::plugin_resource_execution::json_compare::validate_output(
-            &bundle, profiles.source_bytes, &request.access.owner.capability_id,
-        ).map_err(rejected)?;
+        let validate = if crate::plugin_resource_execution::json_transform::selected(capability.execution_profile.as_deref()) {
+            crate::plugin_resource_execution::json_transform::validate_output
+        } else { crate::plugin_resource_execution::json_compare::validate_output };
+        validate(&bundle, profiles.source_bytes, &request.access.owner.capability_id).map_err(rejected)?;
     }
     if let Some(encoding) = encoding {
         let [bytes] = profiles.source_bytes else { return Err(rejected("invalid_output")) };

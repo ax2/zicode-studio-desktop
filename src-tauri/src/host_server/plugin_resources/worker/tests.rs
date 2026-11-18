@@ -1111,3 +1111,6 @@ async fn actual_http_devtools_image_resize_candidate_host_flow() {
 #[cfg(windows)]
 #[path = "tests/digest_stream_http.rs"]
 mod digest_stream_http;
+
+#[path = "tests/json_format_http.rs"]
+mod json_format_http;

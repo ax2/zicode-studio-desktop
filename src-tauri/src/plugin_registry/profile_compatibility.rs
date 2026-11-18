@@ -78,6 +78,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             | crate::plugin_resource_execution::file_digest::PROFILE
             | crate::plugin_resource_execution::file_digest::STREAM_PROFILE
             | json_compare::PROFILE
+            | crate::plugin_resource_execution::json_transform::PROFILE
             | crate::plugin_resource_execution::encoding::PROFILE
             | crate::plugin_resource_execution::encoding::CONVERT_PROFILE
             | crate::plugin_resource_execution::encoding::MULTI_TARGET_PROFILE
@@ -313,6 +314,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
     crate::plugin_resource_execution::file_digest::validate_manifest(manifest)?;
     crate::plugin_resource_execution::encoding::validate_manifest(manifest)?;
     json_compare::validate_manifest(manifest)?;
+    crate::plugin_resource_execution::json_transform::validate_manifest(manifest)?;
     crate::plugin_resource_execution::metadata::validate_declaration(
         manifest.schema_version, requirements, &manifest.runtime, &manifest.contributes,
         manifest.permissions.required.iter().chain(&manifest.permissions.optional).any(|permission|permission.name=="resource.read"),
@@ -382,7 +384,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
                     && requirements.contains_key(crate::plugin_resource_execution::markdown::PROFILE))
                 || (crate::plugin_resource_execution::file_digest::selected(profile.as_str())
                     && requirements.contains_key(crate::plugin_resource_execution::file_digest::PROFILE))
-                || (profile.as_str() == Some(json_compare::PROFILE) && requirements.contains_key(json_compare::PROFILE))
+                || (crate::plugin_resource_execution::json_file_selected(profile.as_str()) && profile.as_str().is_some_and(|name| requirements.contains_key(name)))
                 || (profile.as_str().is_some_and(|name| crate::plugin_resource_execution::encoding::operation(Some(name)).is_some() && requirements.contains_key(name))))
             {
                 return Err("Capability executionProfile is unsupported or missing its requiredProfiles declaration".into());

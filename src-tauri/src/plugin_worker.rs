@@ -281,7 +281,7 @@ fn execute_wasi_bundle_with_reads(
     let digest_profile = crate::plugin_resource_execution::file_digest::selected(request.execution_profile.as_deref());
     let encoding_profile = crate::plugin_resource_execution::encoding::operation(request.execution_profile.as_deref());
     use crate::plugin_resource_execution::json_compare;
-    let json_compare_profile = request.execution_profile.as_deref() == Some(json_compare::PROFILE);
+    let json_compare_profile = crate::plugin_resource_execution::json_file_selected(request.execution_profile.as_deref());
     let output_profile = resource_output::Profile::negotiate(
         binary.then_some(if metadata_profile { resource_output::Profile::METADATA_NAME } else { resource_output::PROFILE }),
         request.execution_profile.as_deref(),
@@ -314,7 +314,7 @@ fn execute_wasi_bundle_with_reads(
             &descriptors.iter().map(|(_, length)| *length).collect::<Vec<_>>())?;
     }
     if json_compare_profile {
-        let count = json_compare::input_count(&request.plugin_id, request.capability_id.as_deref());
+        let count = crate::plugin_resource_execution::json_file_input_count(request.execution_profile.as_deref(), &request.plugin_id, request.capability_id.as_deref());
         if !binary || module_snapshot.is_none() || request.command_id.is_some() || count != Some(descriptors.len()) {
             return Err("JSON comparison requires the matching capability and resource count".into());
         }

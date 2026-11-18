@@ -1,5 +1,5 @@
 //! Explicit output wire profiles. A newer frame never enlarges a legacy request.
-use crate::{plugin_output_types::JSON, plugin_resource_execution::json_compare};
+use crate::{plugin_output_types::JSON, plugin_resource_execution::{json_compare, json_transform}};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Profile {
@@ -27,8 +27,8 @@ impl Profile {
         execution: Option<&str>,
     ) -> Result<Option<Self>, String> {
         match (output, execution) {
-            (Some(super::PROFILE), Some(json_compare::PROFILE)) => Ok(Some(Self::JsonCompare1)),
-            (_, Some(json_compare::PROFILE)) => Err("JSON comparison requires binary output".into()),
+            (Some(super::PROFILE), Some(json_compare::PROFILE | json_transform::PROFILE)) => Ok(Some(Self::JsonCompare1)),
+            (_, Some(json_compare::PROFILE | json_transform::PROFILE)) => Err("JSON comparison requires binary output".into()),
             (Some(Self::METADATA_NAME), Some(Self::METADATA_EXECUTION)) => {
                 Ok(Some(Self::ImageMetadata2))
             }
