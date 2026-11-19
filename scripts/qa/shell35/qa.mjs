@@ -66,7 +66,8 @@ try{
     const b=document.createElement('button');b.id='auth';b.style.cssText='position:fixed;inset:0;z-index:100000';b.textContent='Synthetic sign-in';
     b.onclick=()=>{window.qaPopup=window.open(issuer,'qa10login','width=600,height=500');};document.body.append(b);
   },{issuer});
-  await child.locator('#auth').click();const aux=await wait('auth popup WebView',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===issuer));
+  await child.locator('#auth').click();let found;for(let i=0;i<8&&!found;i++){await sleep(600);let ps=nativeBrowser.contexts().flatMap(c=>c.pages());let ep=await endpoint('browser/profiles');let targets=await (await fetch('http://'+new URL(ep).host+'/json/list')).json();console.log('Popup targets',ps.map(p=>p.url()),targets.map(p=>[p.type,p.url]),await ui.locator('[role=tab]').evaluateAll(es=>es.map(e=>e.title)),await child.evaluate(()=>({proxy:!!window.qaPopup,closed:window.qaPopup?.closed})));found=ps.find(p=>p!==child&&p.url().startsWith(issuer));if(!found&&targets.some(p=>p.url?.startsWith(issuer))){let another=await chromium.connectOverCDP(ep);found=another.contexts().flatMap(c=>c.pages()).find(p=>p.url().startsWith(issuer));}}
+  assert.ok(found,'missing named popup target');const aux=found;
   await aux.waitForLoadState('domcontentloaded');assert.ok(await aux.evaluate(()=>!!window.opener));
   await aux.evaluate(o=>window.opener.postMessage({receipt:'fixture-ok'},o),openerOrigin);await sleep(200);assert.deepEqual(await child.evaluate(()=>window.qaReceipt),[]);
   await aux.evaluate(url=>location.assign(url),callback);await aux.waitForURL(callback);
