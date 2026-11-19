@@ -30,3 +30,9 @@ UI integrations must key asynchronous view results by account and generation, cl
 Protocol tests bind only to loopback, use ephemeral OAuth credentials and synthetic messages, and override transport endpoints only inside Rust tests. A real Google test-user run and any external OAuth review are separate prerequisites to declaring Gmail publicly usable. No real account is used by CI.
 
 References: [Google desktop OAuth](https://developers.google.com/identity/protocols/oauth2/native-app), [Gmail scopes](https://developers.google.com/workspace/gmail/api/auth/scopes), [Gmail sending](https://developers.google.com/workspace/gmail/api/guides/sending).
+
+## 邮箱面板
+
+在邮箱应用中选定 Gmail 账号后，默认只读本地连接状态与收件箱缓存。点击“登录 Gmail 以阅读邮件”才会请求 Google 授权；首次连接不请求发信。用户可取消登录、重新连接或断开连接，切换账号后不显示旧账号迟到的正文。点“从服务器刷新”读取在线邮件，离线阅读不会后台获取追踪图片或 HTML。
+
+需要发信时，先单独授权发信、保存草稿，再核对发件账号、收件人、完整主题与正文，最后点击确认发送。授权完成不会衔接发送。桌面调用丢失回包时，界面仅查询本地投递记录；状态未知时引导先查看 Gmail 的“已发送”，不自动重投。公开分发及真实收发仍需完成上述 Google 测试账号和 OAuth 应用条件。
