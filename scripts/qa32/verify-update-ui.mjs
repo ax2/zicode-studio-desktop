@@ -44,12 +44,12 @@ async function noteAndBookmark(ui,seed){
       const {snapshot}=await gateway.list(scene,ws),book=snapshot.notebooks.find(v=>v.title==='Issue 32 retained notebook');
       await gateway.create(scene,ws,book.id,{title:'Issue 32 retained note',content:'Local full upgrade · 文件完整保留'});
       const lib=await invoke('browser_bookmarks',{request:{kind:'list'}});
-      await invoke('browser_bookmarks',{request:{kind:'save',expectedRevision:lib.revision,folders:lib.folders,bookmarks:[...lib.bookmarks,{id:'q32-retained-bookmark',title:'Issue32 bookmark',url:'https://example.org/issue32',folderId:null}]}});
+      await invoke('browser_bookmarks',{request:{kind:'save',expectedRevision:lib.revision,folders:lib.folders,bookmarks:[...lib.bookmarks,{id:'0c4908f1-f40f-405a-aed1-0fa8e317b22f',title:'Issue32 bookmark',url:'https://example.org/issue32',folderId:null}]}});
     }
     const {snapshot}=await gateway.list(scene,ws),note=snapshot.notes.find(v=>v.title==='Issue 32 retained note');
     if(!note)throw Error('Retained note missing');
     const full=(await gateway.get(scene,ws,note.notebookId,note.id)).note;
-    const bookmark=(await invoke('browser_bookmarks',{request:{kind:'list'}})).bookmarks.find(v=>v.id==='q32-retained-bookmark');
+    const bookmark=(await invoke('browser_bookmarks',{request:{kind:'list'}})).bookmarks.find(v=>v.id==='0c4908f1-f40f-405a-aed1-0fa8e317b22f');
     if(!bookmark)throw Error('Retained bookmark missing');
     return {note:[full.id,full.title,full.content],bookmark};
   },seed);

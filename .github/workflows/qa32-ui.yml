@@ -40,6 +40,10 @@ jobs:
           Copy-Item -LiteralPath $exe.FullName -Destination $env:Q32_EXE -Force
           robocopy "$new/public" "$dir/public" /E /NFL /NDL /NJH /NJS /NP|Out-Null
           if($LASTEXITCODE -ge 8){throw 'Could not install production UI under test'}
+          $js=Join-Path $env:RUNNER_TEMP driver
+          [void][IO.Directory]::CreateDirectory($js)
+          Copy-Item verify-update-ui.mjs "$js/verify-update-ui.mjs"
+          Set-Location $js
           npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
           if($LASTEXITCODE){exit $LASTEXITCODE}
           node verify-update-ui.mjs
