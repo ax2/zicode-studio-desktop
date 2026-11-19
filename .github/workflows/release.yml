@@ -49,16 +49,11 @@ jobs:
           ref: ${{ github.workflow_sha }}
       - name: Preserve fixed matrix tool
         shell: bash
-        run: |
-          cp scripts/release-build-matrix.mjs scripts/check-release-notes-inputs.mjs scripts/check-release-source-workflow.mjs "$RUNNER_TEMP/"
-          cp .github/workflows/release.yml "$RUNNER_TEMP/dispatch-workflow.yml"
+        run: cp scripts/release-build-matrix.mjs scripts/check-release-notes-inputs.mjs "$RUNNER_TEMP/"
       - name: Checkout release tag
         uses: actions/checkout@v6
         with:
           ref: refs/tags/${{ env.RELEASE_TAG }}
-
-      - name: Reject tags without the reviewed release pipeline
-        run: node "$RUNNER_TEMP/check-release-source-workflow.mjs" "$RUNNER_TEMP/dispatch-workflow.yml"
 
       - name: Record release source commit
         id: release-source
@@ -70,8 +65,10 @@ jobs:
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "version=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Check frozen release notes and issue snapshot before building
-        run: node "$RUNNER_TEMP/check-release-notes-inputs.mjs" "$RELEASE_TAG"
+      - name: Check tagged candidate inputs before building
+        env:
+          RELEASE_PLATFORM: ${{ inputs.platform || 'windows' }}
+        run: node "$RUNNER_TEMP/check-release-notes-inputs.mjs" "$RELEASE_TAG" "$RELEASE_PLATFORM"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

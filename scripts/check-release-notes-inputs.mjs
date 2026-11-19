@@ -13,3 +13,10 @@ required("md");
 const plan = JSON.parse(required("issues.json"));
 if (!Array.isArray(plan.milestones) || !plan.milestones.includes(tag))
   throw Error(`Release issue snapshot does not include ${tag}`);
+
+if (["windows", "all"].includes(process.argv[3])) {
+  for (const file of ["scripts/export-windows-candidate.ps1", "src-tauri/tauri.shell.windows.conf.json"]) {
+    const stat = lstatSync(file, {throwIfNoEntry: false});
+    if (!stat?.isFile() || stat.size === 0) throw Error(`Missing Windows candidate input: ${file}`);
+  }
+}
