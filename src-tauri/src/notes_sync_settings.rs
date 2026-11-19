@@ -62,6 +62,40 @@ fn valid_id(value: &str) -> bool {
     Uuid::parse_str(value).is_ok_and(|id| id.to_string() == value)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HistoryEntry {
+    revision: String,
+    archived_at: u64,
+    connection: Connection,
+}
+
+fn history(root: &Path, test_name: Option<&str>, workspace: &str) -> Result<Vec<HistoryEntry>> {
+    match Storage::open(root, &configuration_key(workspace, test_name)?, false)? {
+        Some(store) => store.history(workspace),
+        None => Ok(Vec::new()),
+    }
+}
+
+fn restore(
+    root: &Path,
+    test_name: Option<&str>,
+    workspace: &str,
+    expected: &str,
+    revision: &str,
+) -> Result<()> {
+    let store = Storage::open(root, &configuration_key(workspace, test_name)?, false)?
+        .ok_or("notes_sync_settings_changed")?;
+    let _lock = store.lock()?;
+    let before = read(&store, workspace)?.ok_or("notes_sync_settings_changed")?;
+    if before.revision != expected {
+        return Err("notes_sync_settings_changed");
+    }
+    let mut next = store.historical(revision, workspace)?;
+    next.revision = Uuid::new_v4().to_string();
+    store.publish(&next, Some(&before))
+}
+
 fn workspace_key(workspace: &str) -> Result<String> {
     if workspace.is_empty() || workspace.len() > 256 || workspace.chars().any(char::is_control) {
         return Err("notes_sync_workspace_unavailable");
