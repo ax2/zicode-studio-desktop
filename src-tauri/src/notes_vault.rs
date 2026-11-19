@@ -1,3 +1,4 @@
+mod backup_note_files;
 #[cfg(test)]
 mod body_whitespace_tests;
 #[cfg(test)]
@@ -1233,39 +1234,26 @@ impl NotesVault {
     pub fn export_notebook(&self, notebook_id: &str) -> Result<VaultExport, NotesError> {
         let notebook_id = validate_opaque_id(notebook_id)?;
         let notebook = self.read_notebook(&notebook_id)?;
-        let summaries = self.scan_notebook_notes(&notebook_id)?;
-        let mut notes = Vec::with_capacity(summaries.len());
-        for summary in summaries {
-            notes.push(self.get_note(&notebook_id, &summary.id)?);
-        }
+        let vault = self.vault_root(&notebook_id)?;
+        let notes = backup_note_files::read(&vault.join("src/content/notes"), &notebook_id, false)?
+            .into_iter()
+            .map(|(_, document)| document)
+            .collect::<Vec<_>>();
         let mut trashed_notes = Vec::new();
-        let trash_dir = self.vault_root(&notebook_id)?.join(".trash");
-        if trash_dir.is_dir() {
-            for entry in fs::read_dir(&trash_dir)
-                .map_err(|_| NotesError::new("storage_unavailable", "Cannot read trash"))?
-                .flatten()
-            {
-                let Ok(file_type) = entry.file_type() else {
-                    continue;
-                };
-                if !file_type.is_file() || file_type.is_symlink() {
-                    continue;
-                }
-                let Some(name) = entry.file_name().to_str().map(str::to_string) else {
-                    continue;
-                };
-                if !name.ends_with(".md") {
-                    continue;
-                }
-                if let Ok(document) = read_note_file(&entry.path(), &notebook_id) {
-                    let stamp = trash_metadata::read_or_initialize(&entry.path())?;
-                    trashed_notes.push(TrashNoteExport {
-                        note: document,
-                        deleted_at: stamp.deleted_at,
-                        deletion_time_known: stamp.deletion_time_known,
-                    });
-                }
-            }
+        for (path, document) in backup_note_files::read(&vault.join(".trash"), &notebook_id, true)?
+        {
+            let stamp = trash_metadata::read_or_initialize(&path)?;
+            trashed_notes.push(TrashNoteExport {
+                note: document,
+                deleted_at: stamp.deleted_at,
+                deletion_time_known: stamp.deletion_time_known,
+            });
+        }
+        if notes.len().saturating_add(trashed_notes.len()) > MAX_NOTES {
+            return Err(NotesError::new(
+                "quota_exceeded",
+                "Notes backup contains too many notes",
+            ));
         }
         let mut attachments = Vec::new();
         let mut total_attachment_bytes = 0usize;
@@ -1273,26 +1261,46 @@ impl NotesVault {
             .vault_root(&notebook_id)?
             .join("public")
             .join("attachments");
-        if let Ok(note_directories) = fs::read_dir(attachment_root) {
-            for note_directory in note_directories.flatten() {
+        let note_directories = match fs::read_dir(attachment_root) {
+            Ok(entries) => Some(entries),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(_) => {
+                return Err(NotesError::new(
+                    "storage_unavailable",
+                    "Cannot read attachment",
+                ))
+            }
+        };
+        if let Some(note_directories) = note_directories {
+            for note_directory in note_directories {
+                let note_directory = note_directory.map_err(|_| {
+                    NotesError::new("storage_unavailable", "Cannot read attachment")
+                })?;
                 let Some(note_id) = note_directory.file_name().to_str().map(str::to_string) else {
                     continue;
                 };
                 if validate_opaque_id(&note_id).is_err() {
                     continue;
                 }
-                let Ok(files) = fs::read_dir(note_directory.path()) else {
-                    continue;
-                };
-                for file in files.flatten() {
+                let files = fs::read_dir(note_directory.path()).map_err(|_| {
+                    NotesError::new("storage_unavailable", "Cannot read attachment")
+                })?;
+                for file in files {
+                    let file = file.map_err(|_| {
+                        NotesError::new("storage_unavailable", "Cannot read attachment")
+                    })?;
                     let Some(file_name) = file.file_name().to_str().map(str::to_string) else {
                         continue;
                     };
-                    let Ok((bytes, mime_type)) =
-                        self.read_attachment(&notebook_id, &note_id, &file_name)
-                    else {
-                        continue;
-                    };
+                    // An archival export must be restorable, never silently partial.
+                    let (bytes, mime_type) =
+                        self.read_attachment(&notebook_id, &note_id, &file_name)?;
+                    if bytes.is_empty() {
+                        return Err(NotesError::new(
+                            "payload_too_large",
+                            "Backup attachment size is invalid",
+                        ));
+                    }
                     total_attachment_bytes = total_attachment_bytes.saturating_add(bytes.len());
                     if total_attachment_bytes > MAX_EXPORT_ATTACHMENT_BYTES {
                         return Err(NotesError::new(
@@ -1322,11 +1330,29 @@ impl NotesVault {
     /// Export every notebook in this vault as one archival bundle so users can
     /// back up an entire workspace without exporting notebooks one by one.
     pub fn export_all_notebooks(&self) -> Result<Vec<VaultExport>, NotesError> {
-        let notebooks = self.list_notebooks()?;
-        let mut exports = Vec::with_capacity(notebooks.len());
-        for notebook in notebooks {
-            exports.push(self.export_notebook(&notebook.id)?);
+        let vaults = self.vaults_dir();
+        let unavailable = |_| NotesError::new("storage_unavailable", "Cannot enumerate notebooks for backup");
+        fs::create_dir_all(&vaults).map_err(unavailable)?;
+        let mut exports = Vec::new();
+        for entry in fs::read_dir(vaults).map_err(unavailable)? {
+            let entry = entry.map_err(unavailable)?;
+            let name = entry.file_name();
+            let Some(id) = name.to_str().filter(|id| validate_opaque_id(id).is_ok()) else {
+                continue;
+            };
+            let kind = entry.file_type().map_err(unavailable)?;
+            if kind.is_symlink() {
+                return Err(NotesError::new("vault_corrupt", "Notebook backup cannot follow a linked notebook"));
+            }
+            if !kind.is_dir() {
+                continue;
+            }
+            if exports.len() == MAX_NOTEBOOKS {
+                return Err(NotesError::new("quota_exceeded", "Too many notebooks to export"));
+            }
+            exports.push(self.export_notebook(id)?);
         }
+        exports.sort_by_cached_key(|item| item.notebook.title.to_lowercase());
         Ok(exports)
     }
 
@@ -2467,6 +2493,19 @@ mod tests {
         assert!(snippet.ends_with('…'));
         assert_eq!(snippet_for("", "needle"), None);
         assert_eq!(snippet_for("body", ""), None);
+    }
+
+    #[test]
+    fn full_backup_rejects_a_notebook_missing_from_the_tolerant_list() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let bad = vault.create_notebook("Broken", None, None).unwrap();
+        vault.create_notebook("Healthy", None, None).unwrap();
+        let metadata = vault.vaults_dir().join(bad.id).join(".zicode").join("vault.json");
+        fs::write(metadata, b"{broken").unwrap();
+        assert_eq!(vault.list_notebooks().unwrap().len(), 1);
+        assert!(vault.export_all_notebooks().is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
