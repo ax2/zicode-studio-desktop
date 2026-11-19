@@ -7,7 +7,7 @@ if ($env:GITHUB_ACTIONS -ne 'true' -or $env:STUDIO_RUNNER_ENVIRONMENT -ne 'githu
     $env:RUNNER_OS -ne 'Windows') {throw 'A disposable GitHub-hosted Windows runner is required'}
 if ($env:GH_TOKEN -or $env:GITHUB_TOKEN) {throw 'Installer must not inherit a repository token'}
 $report=[ordered]@{ schemaVersion=1; version=$Version; workflow=$env:GITHUB_WORKFLOW_SHA; installerSha256=$null;
-  installerBytes=0; cases=[ordered]@{} }
+  installerBytes=0; canaries=@(); wizard=[ordered]@{}; cases=[ordered]@{} }
 foreach ($id in @('silentGuard','passiveGuard','lateStartInteractive','cleanInstall','baselineInstall','blockedUpgrade','upgradeAndData')) {
   $report.cases[$id]=@{status='notRun';reason='Earlier step did not complete'}
 }
@@ -59,6 +59,13 @@ public static class Issue64Gui {
   [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateProcess(string app,StringBuilder cmd,IntPtr pa,IntPtr ta,bool inherit,uint flags,IntPtr env,string cwd,ref SI si,out PI pi);
   [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr handle);
   [DllImport("kernel32.dll")] public static extern uint WaitForSingleObject(IntPtr handle,uint milliseconds);
+  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]
+  static extern bool QueryFullProcessImageName(IntPtr handle,uint flags,StringBuilder path,ref uint chars);
+  public static string Image(IntPtr handle) {
+    uint chars=32768; var path=new StringBuilder((int)chars);
+    if(!QueryFullProcessImageName(handle,0,path,ref chars)) throw new Win32Exception();
+    return path.ToString();
+  }
   [DllImport("kernel32.dll")] public static extern bool GetExitCodeProcess(IntPtr handle,out uint code);
   public static PI Start(string exe,string args,string cwd,string desktop) { var si=new SI(); si.cb=Marshal.SizeOf(si); si.desktop="WinSta0\\"+desktop; PI pi; if(!CreateProcess(exe,new StringBuilder("\""+exe+"\" "+args),IntPtr.Zero,IntPtr.Zero,false,0,IntPtr.Zero,cwd,ref si,out pi)) throw new Win32Exception(); return pi; }
   public static string Text(IntPtr w) { var b=new StringBuilder(2048); GetWindowText(w,b,b.Capacity); return b.ToString(); }
@@ -77,18 +84,45 @@ $testRoot=Join-Path $env:RUNNER_TEMP ('guard64-'+[guid]::NewGuid().ToString('N')
 $testDir=Join-Path $testRoot 'installed'
 $fixture=Join-Path $testRoot 'zicode-studio-desktop.exe'
 $source=Join-Path $testRoot 'canary.cs'
-[IO.File]::WriteAllText($source,'class Canary { static void Main() { System.Threading.Thread.Sleep(System.Threading.Timeout.Infinite); } }')
+[IO.File]::WriteAllText($source,@"
+using System.Threading;
+class Canary {
+  static void Main(string[] args) {
+    using (var ready = EventWaitHandle.OpenExisting(args[0])) { ready.Set(); }
+    Thread.Sleep(Timeout.Infinite);
+  }
+}
+"@)
 & "$env:WINDIR/Microsoft.NET/Framework64/v4.0.30319/csc.exe" /nologo /target:winexe "/out:$fixture" $source
 if ($LASTEXITCODE -ne 0) {throw 'Canary compilation failed'}
 if (Get-Process -Name zicode-studio-desktop -ErrorAction SilentlyContinue) {throw 'Unexpected existing Studio process'}
-function Canary {
-  $p=Start-Process -FilePath $fixture -PassThru -WindowStyle Hidden
-  if ($p.HasExited -or $p.Path -ne $fixture) {throw 'Canary identity mismatch'}
-  return $p
-}
 function Assert-Alive($p) {
-  $p.Refresh()
-  if ($p.HasExited -or $p.Path -ne $fixture) {throw 'Installer terminated the canary'}
+  if($p.HasExited){throw "Canary pid=$($p.Id) exited with code $($p.ExitCode)"}
+  $image=[Issue64Gui]::Image($p.Handle)
+  if(![StringComparer]::OrdinalIgnoreCase.Equals($image,$fixture)){throw "Unexpected canary image for pid=$($p.Id): expected=$fixture actual=$image"}
+}
+function Canary {
+  # Process.Path enumerates user-mode modules and may be empty during loader startup.
+  # The native image is tied to the original process handle; the named event proves Main ran.
+  $eventName='Local\ZiCodeGuard64-'+[guid]::NewGuid().ToString('N')
+  $ready=[Threading.EventWaitHandle]::new($false,[Threading.EventResetMode]::ManualReset,$eventName)
+  $p=$null
+  try {
+    $p=Start-Process -FilePath $fixture -ArgumentList $eventName -PassThru -WindowStyle Hidden
+    $initial=$p.Path
+    $record=[ordered]@{pid=$p.Id;initialModulePath=$initial;nativeImage=[Issue64Gui]::Image($p.Handle);ready=$false}
+    $report.canaries+=@($record)
+    Assert-Alive $p
+    if(!$ready.WaitOne(10000)){Assert-Alive $p;throw "Canary pid=$($p.Id) did not signal readiness"}
+    $record.ready=$true
+    Assert-Alive $p
+    return $p
+  } catch {
+    if($p -and !$p.HasExited -and [StringComparer]::OrdinalIgnoreCase.Equals([Issue64Gui]::Image($p.Handle),$fixture)){
+      $p.Kill();$p.WaitForExit()
+    }
+    throw
+  } finally { $ready.Dispose() }
 }
 function Run-Installer($file,$mode,$code) {
   $p=Start-Process -FilePath $file -ArgumentList "$mode /NS /D=$testDir" -WindowStyle Hidden -PassThru
@@ -116,22 +150,28 @@ $desk=[Issue64Gui]::CreateDesktop($deskName,[IntPtr]::Zero,[IntPtr]::Zero,0,0x1f
 if ($desk -eq [IntPtr]::Zero) {throw 'Isolated test desktop unavailable'}
 $gui=[Issue64Gui]::Start($setup,"/NS /D=$testDir",$testRoot,$deskName)
 [void][Issue64Gui]::CloseHandle($gui.thread)
+$report.wizard=[ordered]@{pid=$gui.pid;image=[Issue64Gui]::Image($gui.process);firstAction=$null;warningSeen=$false;exitCode=$null}
 $owned=$null; $warning=$false
 try {
   for ($i=0; $i -lt 360; $i++) {
     if ([Issue64Gui]::WaitForSingleObject($gui.process,0) -eq 0) {break}
     if ([Issue64Gui]::Contains($desk,$gui.pid,'is running')) {
-      $warning=$true; $button=[Issue64Gui]::Button($desk,$gui.pid,'OK')
+      $warning=$true; $report.wizard.warningSeen=$true; $button=[Issue64Gui]::Button($desk,$gui.pid,'OK')
     } else {
       $button=[Issue64Gui]::Button($desk,$gui.pid,'Next')
       if ($button -eq [IntPtr]::Zero) {$button=[Issue64Gui]::Button($desk,$gui.pid,'Install')}
-      if (!$owned -and $button -ne [IntPtr]::Zero) {$owned=Canary}
+      if (!$owned -and $button -ne [IntPtr]::Zero) {
+        $report.wizard.firstAction=[Issue64Gui]::Text($button)
+        $owned=Canary
+      }
     }
     if ($button -ne [IntPtr]::Zero) {[void][Issue64Gui]::Activate($button)}
     Start-Sleep -Milliseconds 250
   }
   [uint32]$exitCode=0
-  if (!$owned -or !$warning -or ![Issue64Gui]::GetExitCodeProcess($gui.process,[ref]$exitCode) -or $exitCode -ne 42) {throw "Actual wizard race failed: warning=$warning exit=$exitCode canary=$([bool]$owned)"}
+  $readExit=[Issue64Gui]::GetExitCodeProcess($gui.process,[ref]$exitCode)
+  if($readExit){$report.wizard.exitCode=$exitCode}
+  if (!$owned -or !$warning -or !$readExit -or $exitCode -ne 42) {throw "Actual wizard race failed: warning=$warning exit=$exitCode canary=$([bool]$owned)"}
   Assert-Alive $owned; Assert-Clean
   Write-Output 'PASS actual interactive installer: canary started after wizard was ready; visible warning; exit 42; canary alive; destination and uninstall key absent'
 } finally {
