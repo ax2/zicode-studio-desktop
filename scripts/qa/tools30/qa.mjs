@@ -34,7 +34,7 @@ try{
   await ui.evaluate(async({preview,plugin})=>{
     await window.__TAURI__.core.invoke('install_previewed_developer_plugin',{sourcePath:preview.sourcePath,contentSha256:preview.contentSha256});
     const {PluginHostGateway}=await import('/native/plugins/plugin-host-gateway.js');
-    await new PluginHostGateway().setEnabled('programming',plugin,true);
+    await new PluginHostGateway({fetchImpl:window.__zicodeHostFetch,location:window.location}).setEnabled('programming',plugin,true);
   },{preview,plugin});
   await ui.reload();await ui.waitForFunction(()=>!!window.__picotNative,{},{timeout:65000});
   report('real development package preview, installation and activation',plugin);
