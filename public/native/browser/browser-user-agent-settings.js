@@ -5,7 +5,7 @@ export function createBrowserUserAgentSettings(control) {
   details.className = "browser-user-agent";
   const title = document.createElement("summary");
   title.textContent = t("User-Agent for new tabs");
-  const form = document.createElement("form");
+  const fields = document.createElement("div"); fields.className = "browser-user-agent-fields";
   const input = document.createElement("input");
   input.className = "ui-input"; input.maxLength = 512; input.spellcheck = false;
   input.setAttribute("aria-label", title.textContent);
@@ -13,7 +13,7 @@ export function createBrowserUserAgentSettings(control) {
   hint.textContent = t("Uses the engine default when empty. Reopen existing tabs to use the new setting.");
   const status = document.createElement("span"); status.setAttribute("role", "status");
   const save = document.createElement("button"), reset = document.createElement("button");
-  save.type = "submit"; reset.type = "button";
+  save.type = reset.type = "button";
   for (const button of [save, reset]) button.className = "ui-button ui-button--secondary";
   save.textContent = t("Save"); reset.textContent = t("Restore default User-Agent");
   let generation = 0;
@@ -33,11 +33,13 @@ export function createBrowserUserAgentSettings(control) {
     }
   }
   details.addEventListener("toggle", () => { if (details.open) void request({ kind: "getUserAgent" }); });
-  form.addEventListener("submit", event => {
-    event.preventDefault();
-    if (!save.disabled) void request({ kind: "setUserAgent", value: input.value || null });
+  input.addEventListener("keydown", event => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault(); event.stopPropagation();
+    if (!save.disabled) save.click();
   });
+  save.addEventListener("click", () => void request({ kind: "setUserAgent", value: input.value || null }));
   reset.addEventListener("click", () => void request({ kind: "setUserAgent", value: null }));
-  form.append(input, hint, save, reset, status); details.append(title, form);
+  fields.append(input, hint, save, reset, status); details.append(title, fields);
   return details;
 }
