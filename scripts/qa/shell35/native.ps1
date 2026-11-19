@@ -51,7 +51,16 @@ if($Mode -eq 'tray'){
   $iconName=$item.Current.Name
   Click $item $true
   $entry=$null;for($i=0;$i -lt 18 -and !$entry;$i++){Start-Sleep -Milliseconds 100;$entry=ShellItem '(Show|显示) ZiCode Studio' $true}
-  if(!$entry){throw 'Native Studio tray menu did not expose Show ZiCode Studio'}
+  if(!$entry){
+    Add-Type -AssemblyName System.Windows.Forms
+    [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+    Start-Sleep -Milliseconds 400
+    $item=ShellItem 'ZiCode Studio Desktop'
+    if(!$item){$arrow=ShellItem 'show hidden icons|notification chevron|显示隐藏|显示.*图标';if($arrow){Click $arrow $false;Start-Sleep -Milliseconds 350};$item=ShellItem 'ZiCode Studio Desktop'}
+    if(!$item){throw 'Lost Studio icon after menu dismissal'}
+    Click $item $false
+    @{tray=$iconName;action='left click'}|ConvertTo-Json -Compress;exit
+  }
   $menuName=$entry.Current.Name
   Click $entry $false
   @{tray=$iconName;menu=$menuName}|ConvertTo-Json -Compress;exit

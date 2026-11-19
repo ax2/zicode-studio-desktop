@@ -11,7 +11,7 @@ assert.equal(process.env.GITHUB_WORKFLOW,'Isolated Windows shell acceptance');
 const exec=promisify(execFile),profile=path.join(process.env.RUNNER_TEMP,'shell35-profile');
 const site='http://shell35.example.org:37035/native-paint';
 const proxy=createServer((req,res)=>{
-  if(req.url!==site){res.writeHead(404).end();return;}
+  if(req.url!=='/native-paint'){res.writeHead(404).end();return;}
   res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}).end('<!doctype html><html style="height:100%;background:linear-gradient(to right,#267ea8 50%,#ce672a 50%)"><title>Native page pixels</title><body><label>Unsaved synthetic form <input id="value"></label></body></html>');
 });
 proxy.on('connect',(_,s)=>s.end('HTTP/1.1 403 Forbidden\r\n\r\n'));
@@ -27,8 +27,8 @@ async function native(action,...args){
 }
 try{
   await mkdir(profile);await writeFile(path.join(profile,'profile.json'),'{"schemaVersion":1,"kind":"zicode-isolated-desktop"}\n');
-  await new Promise(r=>proxy.listen(0,'127.0.0.1',r));
-  const env={...process.env,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port=0 --remote-debugging-address=127.0.0.1 --proxy-server=http://127.0.0.1:'+proxy.address().port};
+  await new Promise(r=>proxy.listen(37035,'127.0.0.1',r));
+  const env={...process.env,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port=0 --remote-debugging-address=127.0.0.1 --host-resolver-rules="MAP shell35.example.org 127.0.0.1"'};
   const processes=await exec('powershell.exe',['-NoProfile','-Command','if(!(Get-Process explorer -ErrorAction SilentlyContinue)){Start-Process explorer.exe;Start-Sleep -Seconds 3};(Get-Process explorer -ErrorAction SilentlyContinue).Count']);
   console.log('Explorer processes on disposable runner:',processes.stdout.trim());
   app=spawn(process.env.STUDIO_Q35_EXE,['--isolated-profile',profile],{env,stdio:'ignore'});
@@ -52,6 +52,10 @@ try{
   const original=await native('info');assert.ok(original.visible && original.dpi>=96 && original.monitors>=1);console.log('Actual virtual display',original);
   let pageFailure,paintAgain;
   try {
+  ui.on('requestfailed',r=>console.error('FAILED',r.url(),r.failure()?.errorText));
+  ui.on('response',r=>{if(r.status()>=400)console.error('HTTP',r.status(),r.url());});
+  await ui.reload({waitUntil:'domcontentloaded'});
+  console.log('Bootstrap',await ui.evaluate(async()=>({visibility:document.visibilityState,body:document.body.className,display:getComputedStyle(document.body).display,modules:await Promise.all([...document.querySelectorAll('script[type=module][src]')].map(async s=>{try{await import(s.src);return [s.src,'ok']}catch(e){return [s.src,String(e)]}}))})));
   await ui.locator('.browser-address').waitFor();
   const input=ui.locator('.browser-address');
   await input.fill(site);await input.press('Enter');
@@ -91,7 +95,7 @@ try{
   else {const r=await exec('powershell.exe',['-NoProfile','-Command','(Get-Process -Id '+app.pid+').CloseMainWindow()']);assert.equal(r.stdout.trim(),'True');}
   await wait('close-to-tray hid native HWND',async()=>!(await native('info')).visible);
   const tray=await native('tray');await wait('Explorer tray menu restored same HWND',async()=>(await native('info')).visible);
-  record('Windows Explorer notification icon and native Show Studio menu restore the same window',tray);
+  record('Explorer notification icon restores the same native window using the recorded action',tray);
   if(paintAgain)await paintAgain('tray restoration preserves unsaved input and both native page colors');
   if(pageFailure)throw pageFailure;
 }finally{await nativeBrowser?.close().catch(()=>{});await browser?.close().catch(()=>{});app?.kill();proxy.closeAllConnections();proxy.close();}
