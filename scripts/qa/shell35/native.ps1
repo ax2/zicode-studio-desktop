@@ -1,4 +1,4 @@
-param([string]$Mode,[long]$Hwnd,[double]$X=0,[double]$Y=0)
+﻿param([string]$Mode,[long]$Hwnd,[double]$X=0,[double]$Y=0)
 $ErrorActionPreference='Stop'
 if($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:GITHUB_WORKFLOW -ne 'Isolated Windows shell acceptance'){throw 'Disposable VM only'}
 Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes,System.Windows.Forms
