@@ -18,10 +18,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download v0.6.6 -p '*x64-setup.exe' -D $env:RUNNER_TEMP
+          gh release download v0.6.2 -p '*x64-setup.exe' -D $env:RUNNER_TEMP
           if ($LASTEXITCODE) {exit $LASTEXITCODE}
-          $pkg=Get-Item "$env:RUNNER_TEMP/ZiCode.Studio.Desktop_0.6.6_x64-setup.exe"
-          if ((Get-FileHash $pkg).Hash -ne '92068D0B8D6A353BBEADF7872E399CCA4988806B2C89D8541F72D11E6AFEFB92') {throw 'Candidate digest mismatch'}
+          $pkg=Get-Item "$env:RUNNER_TEMP/ZiCode.Studio.Desktop_0.6.2_x64-setup.exe"
+          if ((Get-FileHash $pkg).Hash -ne 'E6F18AC3D4DE6DFAB123755FF75CB3CA7CD6486ED4A11619C5269D8760ABDB9C') {throw 'Candidate digest mismatch'}
           $dir=Join-Path $env:RUNNER_TEMP studio56
           $p=Start-Process $pkg -ArgumentList "/S /D=$dir" -PassThru -Wait
           if ($p.ExitCode) {throw "Installer: $($p.ExitCode)"}
