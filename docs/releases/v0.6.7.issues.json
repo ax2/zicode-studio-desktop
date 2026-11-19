@@ -1,0 +1,6 @@
+{
+  "milestones": ["v0.6.3", "v0.6.4", "v0.6.5", "v0.6.6", "v0.6.7"],
+  "extraCompleted": [],
+  "exclude": {"80":"独立提供方仓库的 CI 修复，没有更改 Studio。"},
+  "known": [25, 44, 78]
+}
