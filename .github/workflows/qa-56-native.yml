@@ -27,7 +27,13 @@ jobs:
           if ($p.ExitCode) {throw "Installer: $($p.ExitCode)"}
           $exe=Get-Item "$dir/zicode-studio-desktop.exe"
           "STUDIO_56_EXE=$($exe.FullName)" >> $env:GITHUB_ENV
-      - name: Exercise Windows hotkey, clipboard, popup and handoff
+      - name: Prepare public offline translation packages
+        working-directory: scripts/qa/clipboard-56
+        run: |
+          py -3.11 -m pip install --disable-pip-version-check ctranslate2==4.6.0 sentencepiece==0.2.1
+          if ($LASTEXITCODE) {exit $LASTEXITCODE}
+          py -3.11 offline.py prepare
+      - name: Verify offline translation, overlap and draft protection
         working-directory: scripts/qa/clipboard-56
         run: |
           npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1

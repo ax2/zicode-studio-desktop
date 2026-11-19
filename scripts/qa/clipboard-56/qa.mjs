@@ -12,19 +12,27 @@ assert.equal(process.env.GITHUB_WORKFLOW,'Isolated Windows clipboard translation
 const profile=path.join(process.env.RUNNER_TEMP,'clipboard-synthetic-56');
 const en='Please translate this sentence from the clipboard into Chinese.';
 const zh='请把剪贴板中的这句话翻译成英文。';
-const translations=new Map([[en,'请将剪贴板中的这句话翻译成中文。'],[zh,'Please translate this sentence from the clipboard into English.']]);
+const translations=new Map();
 const requests=[];
-let failNext=false, app, browser;
+let holdNext=false, finishedHeld=false, releaseHeld, app, browser;
 const server=createServer(async(req,res)=>{
  let raw=''; for await(const chunk of req) raw+=chunk;
  try {
   assert.equal(req.url,'/v1/chat/completions');
   const obj=JSON.parse(raw),prompt=obj.messages.at(-1).content;
-  const text=prompt.split('\n\n').at(-1); assert.ok(translations.has(text));
+  const text=prompt.split('\n\n').at(-1); assert.ok([en,zh].includes(text));
   assert.ok(prompt.includes(text===zh?'from Chinese into English':'from English into Chinese'));
   requests.push(text);
-  if(failNext){failNext=false;res.writeHead(403).end();return;}
+  const held=holdNext;
+  if(held){holdNext=false;await new Promise(r=>{releaseHeld=r;});}
+  const result=await exec('py',['-3.11','offline.py',text===en?'en_zh':'zh_en',Buffer.from(text).toString('base64')],{timeout:45000});
+  const translation=Buffer.from(result.stdout.trim(),'base64').toString('utf8');
+  if(text===en) {assert.match(translation,/翻译|译成/);assert.match(translation,/中文|汉语|中国/);}
+  else {assert.match(translation,/translat/i);assert.match(translation,/English/i);}
+  console.log('Argos CPU '+(text===en?'en→zh':'zh→en')+': '+translation);
+  translations.set(text,translation);
   res.writeHead(200,{'Content-Type':'application/json'}).end(JSON.stringify({choices:[{message:{role:'assistant',content:translations.get(text)}}]}));
+  if(held)finishedHeld=true;
  }catch(e){console.error(String(e));res.writeHead(400).end();}
 });
 const exec=promisify(execFile);
@@ -61,21 +69,38 @@ try {
  await clipboard('copy',en);
  const popup=await wait('OS hotkey opened Studio popup',()=>pages().find(p=>p.url().includes('translation-popup')));
  async function translated(text){
-  await wait('translated popup for '+text,async()=>(await popup.locator('#result').inputValue())===translations.get(text));
+  await wait('translated popup for '+text,async()=>translations.has(text) && (await popup.locator('#result').inputValue())===translations.get(text));
   assert.equal(await popup.locator('#source-text').inputValue(),text);
   assert.equal(await popup.locator('#target-language').inputValue(),text===zh?'English':'Chinese');
   assert.equal(await visible(),false);
  }
- await translated(en);console.log('PASS external app copy -> native shortcut -> popup (English to Chinese), main stays hidden.');
- await clipboard('empty');await wait('empty clipboard state',async()=>await popup.locator('#source-text').inputValue()==='' && !!(await popup.locator('#status').innerText()));
- assert.equal(requests.length,1);console.log('PASS empty clipboard issues no request');
- failNext=true;await clipboard('copy',zh);await wait('service rejection state',async()=>requests.length===2 && await popup.locator('#retry').isVisible() && await popup.locator('#result').inputValue()==='');
- await popup.locator('#retry').click();await translated(zh);
- console.log('PASS error recovery and Chinese to English');
- await popup.bringToFront();await popup.locator('#copy').click();
- assert.equal(await clipboard('read'),translations.get(zh));console.log('PASS copying popup result');
+ await translated(en);console.log('PASS real offline English to Chinese');
  await popup.locator('#workbench').click();
- await wait('workbench restored with original',async()=>await visible() && await main.locator('.translate-textarea').inputValue()===zh);
- await wait('translated output present in workbench',()=>main.evaluate(text=>[...document.querySelectorAll('textarea')].some(el=>el.value===text)||document.body.innerText.includes(text),translations.get(zh)));
- assert.deepEqual(requests,[en,zh,zh]);console.log('PASS handoff restores Studio with source and translation without another request');
-} finally {await browser?.close().catch(()=>{});app?.kill();server.closeAllConnections();server.close();}
+ const input=main.locator('.translate-textarea');
+ await wait('first real result handed off',async()=>await input.inputValue()===en);
+ await input.fill('My existing synthetic workbench draft');
+ assert.equal(await control('(Get-Process -Id '+app.pid+').CloseMainWindow()'),'True');
+ await wait('back in tray',async()=>!await visible());
+ holdNext=true;
+ await clipboard('copy',en);await wait('first overlapping request in flight',()=>releaseHeld);
+ await clipboard('copy',zh);
+ const currentPopup=()=>pages().find(p=>p.url().includes('translation-popup'));
+ const latest=await wait('new popup',currentPopup);
+ await wait('latest real result',async()=>translations.has(zh)&&await latest.locator('#result').inputValue()===translations.get(zh));
+ assert.equal(await latest.locator('#target-language').inputValue(),'English');
+ releaseHeld();await wait('old request exited',()=>finishedHeld);
+ assert.equal(await latest.locator('#source-text').inputValue(),zh);
+ assert.equal(await latest.locator('#result').inputValue(),translations.get(zh));
+ console.log('PASS real offline Chinese to English; older in-flight result does not overwrite latest');
+ await latest.locator('#workbench').click();
+ const incoming=main.locator('.translate-incoming');
+ await incoming.waitFor();assert.equal(await input.inputValue(),'My existing synthetic workbench draft');
+ await incoming.locator('button').nth(1).click();assert.equal(await input.inputValue(),'My existing synthetic workbench draft');
+ assert.equal(await incoming.count(),0);
+ await clipboard('copy',zh);
+ const again=await wait('last popup',currentPopup);
+ await wait('fresh completed result',async()=>requests.length===4&&await again.locator('#copy').isVisible());
+ await again.locator('#workbench').click();await incoming.waitFor();await incoming.locator('button').first().click();
+ assert.equal(await input.inputValue(),zh);assert.equal(await main.locator('.translate-result-text').inputValue(),translations.get(zh));
+ assert.deepEqual(requests,[en,en,zh,zh]);console.log('PASS workbench keep draft and explicitly replace without additional model request');
+} finally {releaseHeld?.();await browser?.close().catch(()=>{});app?.kill();server.closeAllConnections();server.close();}
