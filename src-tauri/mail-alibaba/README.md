@@ -9,6 +9,7 @@
 | credentialStatus / setPassword / forgetPassword | setPassword 需要 password | configured；查询还返回 enabled |
 | sync / cachedPage | limit (1–40), cursor 可空 | {uidValidity,messages,next}，next 是 {uidValidity,before}；cachedPage 只读本机 |
 | read / cachedBody | uidValidity、uid | {summary,text}；read 只请求已列出邮件，使用 BODY.PEEK，不设置已读；cachedBody 不联网 |
+| replyDraft | uidValidity、uid | 创建并返回本地回复草稿；原邮件标识在同一数据库事务中保存，重新打开或编辑后仍保留回复关系 |
 | send | draftId、revision、confirmed:true；可选 reply:{uidValidity,uid} | {status}；收件人、标题、正文按已保存草稿读取，回复标头取自本账号已有消息 |
 | delivery | draftId、revision | {status}；未尝试为 null |
 

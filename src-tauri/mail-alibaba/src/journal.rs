@@ -38,6 +38,8 @@ impl<'a> Mailbox<'a> {
             .ok_or("mail_account_not_found")?;
         db.execute_batch("CREATE TABLE IF NOT EXISTS alibaba_inbox(scope TEXT,account TEXT,epoch INTEGER,uid INTEGER,meta TEXT NOT NULL,body TEXT,PRIMARY KEY(scope,account,epoch,uid));
           CREATE TABLE IF NOT EXISTS alibaba_epoch(scope TEXT,account TEXT,epoch INTEGER NOT NULL,PRIMARY KEY(scope,account));
+          CREATE TABLE IF NOT EXISTS alibaba_reply(scope TEXT,account TEXT,draft TEXT,parent TEXT,PRIMARY KEY(scope,account,draft));
+          CREATE TRIGGER IF NOT EXISTS alibaba_delete_reply AFTER DELETE ON drafts BEGIN DELETE FROM alibaba_reply WHERE scope=OLD.scope AND account=OLD.account AND draft=OLD.id; END;
           CREATE TABLE IF NOT EXISTS alibaba_send(scope TEXT,account TEXT,draft TEXT,revision INTEGER,status TEXT NOT NULL,PRIMARY KEY(scope,account,draft,revision));").map_err(db_err)?;
         Ok(Self {
             db,
@@ -178,6 +180,36 @@ impl<'a> Mailbox<'a> {
             .ok_or("mail_cache_empty")?;
         serde_json::from_str(&meta).map_err(|_| "mail_storage")
     }
+    pub fn reply_draft(&mut self, id: &str, epoch: u32, uid: u32) -> Result<serde_json::Value> {
+        let original = self.meta(epoch, uid)?;
+        let recipient = original.reply_to;
+        if recipient.contains(['\r', '\n', '\0'])
+            || recipient.parse::<lettre::message::Mailbox>().is_err()
+        {
+            return Err("mail_invalid_reply");
+        }
+        let mut subject = original.subject.replace(['\r', '\n', '\0'], " ");
+        if !subject.to_ascii_lowercase().starts_with("re:") {
+            subject = format!("Re: {subject}")
+        }
+        while subject.len() > 998 {
+            subject.pop();
+        }
+        let tx = self
+            .db
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_err)?;
+        tx.execute("INSERT INTO drafts(scope,account,id,revision,recipient,subject,body) VALUES(?,?,?,1,?,?,'')",params![self.scope,self.account.id,id,recipient,subject]).map_err(db_err)?;
+        tx.execute(
+            "INSERT INTO alibaba_reply VALUES(?,?,?,?)",
+            params![self.scope, self.account.id, id, original.message_id],
+        )
+        .map_err(db_err)?;
+        tx.commit().map_err(db_err)?;
+        Ok(
+            serde_json::json!({"id":id,"revision":1,"recipient":recipient,"subject":subject,"body":""}),
+        )
+    }
     pub fn delivery(&self, draft: &str, revision: u64) -> Result<Option<String>> {
         self.db.query_row("SELECT status FROM alibaba_send WHERE scope=? AND account=? AND draft=? AND revision=?",params![self.scope,self.account.id,draft,revision],|r|r.get(0)).optional().map_err(db_err)
     }
@@ -203,6 +235,15 @@ impl<'a> Mailbox<'a> {
             .map_err(db_err)?;
         let saved=tx.query_row("SELECT recipient,subject,body FROM drafts WHERE scope=? AND account=? AND id=? AND revision=?",params![self.scope,self.account.id,draft,revision],
           |r|Ok(StoredDraft{recipient:r.get(0)?,subject:r.get(1)?,body:r.get(2)?})).optional().map_err(db_err)?.ok_or("mail_draft_changed")?;
+        let stored_parent: Option<Option<String>> = tx
+            .query_row(
+                "SELECT parent FROM alibaba_reply WHERE scope=? AND account=? AND draft=?",
+                params![self.scope, self.account.id, draft],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(db_err)?;
+        let parent = stored_parent.unwrap_or(parent);
         let msg = adapter.compose(&self.account.address, &saved, parent.as_deref())?;
         // Unknown is committed *before* any network write. Crashes or lost final replies never cause replay.
         if tx
