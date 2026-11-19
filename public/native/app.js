@@ -1575,6 +1575,18 @@ try {
   }
 
   await hydrateSnapshot();
+  if (target.runtimeMode === "tools" && globalThis.__TAURI__?.core?.invoke) {
+    const openWidgetNote = async () => {
+      const action = await globalThis.__TAURI__.core.invoke("take_notes_widget_action");
+      if (!action) return;
+      await pluginShell.activate("com.zicode.notes", { focus: false });
+      if (pluginShell.getActivePluginId() !== "com.zicode.notes") return;
+      if (action === "new") await notesApp.newNote();
+      else await notesApp.openWidgetShortcut(action);
+    };
+    window.addEventListener("zicode:entry-changed", () => { void openWidgetNote().catch(showError); });
+    await openWidgetNote();
+  }
   await Promise.all([
     loadCommands()
       .then(() => slashMenu.update())

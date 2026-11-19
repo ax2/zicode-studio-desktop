@@ -192,6 +192,9 @@ fn dispatch(app: &AppHandle, args: &[String]) -> Result<(), String> {
             &crate::app_paths::global_workspace_root()?,
             EntryIntent::Drive,
         ),
+        Some(EntryIntent::NotesWidget(action)) => desktop_tools::open_from_explorer(
+            app, &crate::app_paths::global_workspace_root()?, EntryIntent::NotesWidget(action),
+        ),
         Some(EntryIntent::Tools) => desktop_tools::open_from_explorer(
             app,
             &crate::app_paths::global_workspace_root()?,

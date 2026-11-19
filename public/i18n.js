@@ -9,6 +9,8 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "No pinned notes yet.": "还没有置顶笔记。",
+  "No recent notes yet.": "还没有最近打开的笔记。",
   "Resolve sync conflicts": "处理同步冲突",
   "Compare each version and choose explicitly. Keep both saves the other version in a separate conflict notebook with its attachments, preserving the current notes.": "逐项比较并选择版本。选择“保留双方”后，另一版本及其附件会存入单独的冲突笔记本，当前笔记保留。",
   "These versions were captured by this sync conflict. Reviewing and saving choices do not connect to the cloud; the next manual sync checks any newer cloud changes again.": "这里显示发生冲突时的版本。比较和保存均在本机完成；下次手动同步时会再次检查云端变化。",
