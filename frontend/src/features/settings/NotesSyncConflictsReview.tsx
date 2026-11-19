@@ -48,7 +48,7 @@ export function NotesSyncConflictsReview({ scope, enabled, current, invoke, libr
         {review.failure && !review.failure.blocked && <button type="button" className="ui-button ui-button--secondary" disabled={!review.canUse} onClick={() => void review.retry()}>{t("Retry loading conflicts")}</button>}
         <button type="button" className="ui-button ui-button--primary" disabled={!review.canUse || !review.complete} onClick={review.review}>{t("Review choices")}</button>
       </div>
-      {review.confirming && enabled && <div className="ui-panel" aria-label={t("Confirm local conflict choices")}>
+      {review.confirming && enabled && <section className="ui-panel" aria-label={t("Confirm local conflict choices")}>
         <p>{t("Save these conflict choices on this device?")}</p>
         <p>{t("Sync library ID")}: <span translate="no">{libraryId}</span></p>
         <ul>{(["local", "remote", "both"] as const).map(choice => <li key={choice}>{t(conflictChoiceLabels[choice])}: {selectedCounts[choice]}</li>)}</ul>
@@ -57,7 +57,7 @@ export function NotesSyncConflictsReview({ scope, enabled, current, invoke, libr
           <button type="button" className="ui-button ui-button--primary" disabled={!review.canUse || !review.complete} onClick={() => void review.apply()}>{t("Confirm and save locally")}</button>
           <button type="button" className="ui-button ui-button--secondary" disabled={review.busy} onClick={review.cancelConfirmation}>{t("Cancel")}</button>
         </div>
-      </div>}
+      </section>}
     </>}
     <button type="button" className="ui-button ui-button--secondary" onClick={onClose}>{t("Close conflict review")}</button>
   </section>;
