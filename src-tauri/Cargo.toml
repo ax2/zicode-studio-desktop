@@ -18,6 +18,7 @@ path = "src/bin/relay.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+studio-alibaba-mail = { path = "mail-alibaba" }
 fs2 = "=0.4.3"
 tauri = { version = "2", features = ["image-png", "devtools", "macos-private-api", "tray-icon"] }
 tauri-plugin-dialog = "2"
