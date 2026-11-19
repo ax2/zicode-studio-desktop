@@ -16,6 +16,9 @@ use webview2_com::{
 use windows::core::{Interface, BOOL, PWSTR};
 use wry::WebViewExtWindows;
 
+#[path = "link_disposition.rs"]
+mod link_disposition;
+
 pub const EXPIRY: Duration = Duration::from_secs(8);
 
 #[derive(Default)]
@@ -136,6 +139,7 @@ pub(super) fn install(
     emit: Arc<dyn Fn(EngineEvent) + Send + Sync>,
 ) -> windows::core::Result<()> {
     let controller = view.controller();
+    let link_gesture = link_disposition::observe(view, revision.clone());
     unsafe {
         view.webview().add_NewWindowRequested(
             &NewWindowRequestedEventHandler::create(Box::new(move |sender, args| {
@@ -150,10 +154,22 @@ pub(super) fn install(
                 let mut uri = PWSTR::null();
                 args.Uri(&mut uri)?;
                 let url = take_pwstr(uri);
+                let evidence = link_gesture.take();
                 let gesture = initiated.as_bool() && visible.as_bool();
                 let mut allowed =
                     allowed_link(&policy, &url, initiated.as_bool(), visible.as_bool());
                 let mut request = None;
+                let background = allowed && evidence.is_some_and(|hit| {
+                    let mut raw = PWSTR::null();
+                    let frame_source = args.cast::<ICoreWebView2NewWindowRequestedEventArgs3>()
+                        .and_then(|args| args.OriginalSourceFrameInfo())
+                        .and_then(|frame| frame.Source(&mut raw));
+                    if frame_source.is_err() {
+                        let Some(sender) = sender.as_ref() else {return false};
+                        if sender.Source(&mut raw).is_err() {return false}
+                    }
+                    hit.matches(&take_pwstr(raw), &url, revision.load(Ordering::SeqCst))
+                });
                 if gesture && (allowed || url == "about:blank") && auxiliary(&args, &url)? {
                     let Some(sender) = sender else {
                         return Ok(());
@@ -186,7 +202,7 @@ pub(super) fn install(
                     url: if allowed { url } else { String::new() },
                     user_initiated: initiated.as_bool(),
                     allowed,
-                    background: false,
+                    background: background && request.is_none(),
                     request,
                 });
                 Ok(())

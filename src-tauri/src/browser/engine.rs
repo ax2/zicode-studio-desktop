@@ -1,6 +1,7 @@
 //! Native browser adapter. Must stay on the native UI thread.
 //! Wry children are intentionally NOT registered as Tauri webviews. No IPC,
-//! initialization scripts, local protocols or Studio token are installed.
+//! Studio credentials or local protocols are installed. Link disposition uses a
+//! private Chromium world; the webpage receives no Studio bindings.
 #[cfg(test)]
 #[path = "native_privacy_tests.rs"]
 pub(crate) mod native_privacy_tests;
