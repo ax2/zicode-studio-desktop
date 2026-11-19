@@ -143,6 +143,7 @@ pub(crate) async fn browser_control(
             let owner = window.label().to_owned();
             Some(
                 tauri::async_runtime::spawn_blocking(move || {
+                    if crate::browser_windows::private(&owner){return crate::browser_private::engine(&owner)}
                     let state = crate::browser_store::Store::open(&root)?.state(&owner)?;
                     Ok::<_, String>(root.join("profiles").join(state.profile_id).join("engine"))
                 })
@@ -188,6 +189,7 @@ pub(crate) fn shutdown_downloads() {
 pub(crate) fn forget_window(label: &str) {
     #[cfg(windows)]
     runtime::forget(label);
+    if crate::browser_windows::private(label){crate::browser_private::finish(label);}
     #[cfg(not(windows))]
     let _ = label;
 }
