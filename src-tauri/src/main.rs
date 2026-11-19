@@ -51,6 +51,8 @@ mod e2ee;
 mod explorer_entry;
 mod explorer_launch_state;
 mod explorer_menu;
+mod gmail;
+use gmail::mail_gmail;
 mod habit_tracker;
 mod host_data;
 mod host_router;
@@ -2119,6 +2121,7 @@ fn main() {
             open_desktop_tool_center,
             set_desktop_tray_locale,
             set_desktop_tool_shortcuts,
+            mail_gmail,
             clipboard_translation,
             desktop_explorer_menu,
             select_project_resource_file,
