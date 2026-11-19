@@ -98,7 +98,7 @@ try{
     const m=p.locator('.browser-options');if(!await m.evaluate(e=>e.open))await m.locator('summary').click();
     const d=m.locator('.browser-user-agent');if(!await d.evaluate(e=>e.open))await d.locator('summary').click();
     const input=d.locator('input');await wait('preference initialized',()=>input.isEnabled());
-    if(ua!==null){await input.fill(ua);await d.locator('[type=submit]').click()}else await d.locator('[type=button]').click();
+    if(ua!==null){await input.fill(ua);await input.press('Enter')}else await d.locator('button').last().click();
     await wait('saved configuration',async()=>await pref(p)===ua);
     await m.locator('summary').click();
   }

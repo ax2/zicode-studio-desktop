@@ -24,6 +24,17 @@ jobs:
           merge-multiple: true
       - name: Prepare the already accepted production shell with its test version label
         run: ./scripts/qa/shell35/prepare.ps1
+      - uses: actions/checkout@v4
+        with:
+          ref: 624d307d6a8a2301eb1fc98dee90895a244ae46f
+          persist-credentials: false
+          path: candidate-ui
+          sparse-checkout: public/native/browser
+      - name: Install final matched UI-only input correction
+        run: |
+          $dest=(Get-Item -LiteralPath $env:STUDIO_Q35_EXE).DirectoryName
+          Copy-Item candidate-ui/public/native/browser/browser-user-agent-settings.js "$dest/public/native/browser/browser-user-agent-settings.js"
+          Copy-Item candidate-ui/public/style.bundle.css "$dest/public/style.bundle.css"
       - name: Read the request headers at an owned HTTPS server in two browser profiles
         working-directory: scripts/qa/shell35
         run: |
