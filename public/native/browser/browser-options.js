@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, bookmarks, history, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf } = {}) {
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, history, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -22,6 +22,24 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
   restore.title = `${t("Restore the latest closed tab. The last 50 are kept after restart.")} (Ctrl+Shift+T)`; restore.setAttribute("aria-keyshortcuts", "Control+Shift+t");
   restore.addEventListener("click", () => { menu.open = false; reopen(); });
   menu.addEventListener("toggle", () => { restore.disabled = !canReopen(); });
+  if (windows) {
+    const addWindowButton = (label, action) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ui-button ui-button--secondary";
+      button.dataset.i18nText = label;
+      button.textContent = t(label);
+      button.addEventListener("click", () => { menu.open = false; windows(action); });
+      panel.append(button);
+      return button;
+    };
+    addWindowButton("New browser window", "new");
+    const reopenWindow = addWindowButton("Reopen closed window", "reopen");
+    reopenWindow.disabled = true;
+    menu.addEventListener("toggle", async () => {
+      if (menu.open) reopenWindow.disabled = !await windows("canReopen");
+    });
+  }
   if (pageControls) { panel.append(pageControls.element); menu.addEventListener("toggle", () => { if (menu.open) void pageControls.refresh(); }); }
   if (find) {
     const search = document.createElement("button"); search.type = "button"; search.className = "ui-button ui-button--secondary browser-find-open"; search.textContent = t("Find in page"); search.setAttribute("aria-keyshortcuts", "Control+f");

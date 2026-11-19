@@ -758,7 +758,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const options = createBrowserOptions(startup, () => act(async () => {
       await syncSurface();
       if (active && pageAvailable(active)) await control({ kind: "action", tab: active, action: "selectAll" });
-    }), { reopen: () => act(reopen), canReopen: () => closedTabs.length > 0, bookmarks: () => act(() => openBookmarks(false)), history: () => act(() => openHistory()), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
+    }), { reopen: () => act(reopen), canReopen: () => closedTabs.length > 0,
+      windows: action => action === "canReopen" ? invoke("browser_window_command", { action }).catch(() => false) : act(() => invoke("browser_window_command", { action })),
+      bookmarks: () => act(() => openBookmarks(false)), history: () => act(() => openHistory()), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
       reader: () => act(openReader),
       translateSelection: onTranslateSelection && (() => {
         const source = active;
@@ -1047,6 +1049,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     selected().url = url; setStatus(""); paint(); await save();
   }
   return {
+    async finishWindowWrites() { await actionTail; await saveTail; },
     renderContent(container) {
       if (!root) mount(); container.replaceChildren(root); visible = true;
       placeTabStrip();

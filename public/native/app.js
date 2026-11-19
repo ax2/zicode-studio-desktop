@@ -1,5 +1,6 @@
 import { setupVisualAssetsApp } from "./visual-assets/visual-assets-loader.js";
 import { setupWindowChrome } from "./workspace/window-chrome.js";
+import { setupBrowserWindowClose } from "./browser/browser-window-close.js";
 import { setupCompactHeader } from "./workspace/compact-header.js";
 import { setupBrowserApp } from "./browser/browser-app.js";
 import { setupSystemInformationShortcut } from "./features/system-information-shortcuts.js";
@@ -1305,6 +1306,7 @@ pluginShell = setupPluginShell({
     : null,
   notify: notifications.notify,
 });
+setupBrowserWindowClose({ shell: pluginShell, browser: browserApp, invoke: globalThis.__TAURI__?.core?.invoke, report: showError });
 setupSystemInformationShortcut({ listen: globalThis.__TAURI__?.event?.listen, openSettings: tab => settingsPanel.openSettings(tab), onError: showError });
 const translationNavigation = setupTranslationShortcuts({
   activate: (id, options) => pluginShell.activate(id, options),

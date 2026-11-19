@@ -421,6 +421,7 @@ permissions = [
   "allow-browser-set-startup-mode",
   "allow-browser-set-search-engine",
   "allow-browser-set-vertical-tabs",
+  "allow-browser-window-command",
   "allow-browser-save-session",
   "allow-browser-bookmarks",
   "allow-browser-bookmark-file",
@@ -549,6 +550,11 @@ commands.allow = ["browser_set_search_engine"]
 identifier = "allow-browser-set-vertical-tabs"
 description = "Change the browser chrome tab layout in this Studio profile."
 commands.allow = ["browser_set_vertical_tabs"]
+
+[[permission]]
+identifier = "allow-browser-window-command"
+description = "Open or restore a browser window within the calling Studio window family."
+commands.allow = ["browser_window_command"]
 
 [[permission]]
 identifier = "allow-browser-save-session"

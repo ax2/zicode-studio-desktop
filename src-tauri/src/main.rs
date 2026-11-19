@@ -12,6 +12,8 @@ use browser::{capture::browser_capture_page, reader::browser_read_article, selec
 mod browser_store;
 #[path = "browser/state_commands.rs"]
 mod browser_state_commands;
+mod browser_windows;
+use browser_windows::browser_window_command;
 use browser_state_commands::{browser_set_search_engine, browser_get_state, browser_set_startup_mode, browser_set_vertical_tabs, browser_save_session, browser_bookmarks, browser_history};
 mod application_context;
 mod article_markdown;
@@ -1470,6 +1472,11 @@ fn open_native_workspace_window_named(
         apply_window_state(&window, app, &state);
     }
     set_window_workspace(app, window.label(), &target.workspace_id);
+    if !browser_windows::secondary(label) {
+        if let Err(error) = browser_windows::restore(app, host, target, label) {
+            log::warn!("Cannot restore additional browser windows: {error}");
+        }
+    }
     Ok(())
 }
 
@@ -2206,6 +2213,7 @@ fn main() {
             browser_read_article,
             browser_read_selection,
             browser_get_state,
+            browser_window_command,
             browser_set_startup_mode,
             browser_set_search_engine,
             browser_set_vertical_tabs,
@@ -2296,6 +2304,16 @@ fn main() {
         .on_window_event(|window, event| {
             let label = window.label();
             match event {
+                tauri::WindowEvent::CloseRequested { api, .. } if browser_windows::secondary(label) => {
+                    if let Some(shell) = window.app_handle().get_webview_window(label) {
+                        if require_workspace_window(&shell).is_ok() {
+                            // Let the active Studio application finish or cancel its edits before
+                            // retiring this particular window. Browser windows never close siblings.
+                            let request = "if (dispatchEvent(new Event('zicode:browser-window-close',{cancelable:true}))) window.__TAURI__.core.invoke('browser_window_command',{action:'close'});";
+                            if shell.eval(request).is_ok() { api.prevent_close(); }
+                        }
+                    }
+                }
                 tauri::WindowEvent::CloseRequested { api, .. }
                     if label.starts_with("native-workspace-") =>
                 {
@@ -2370,6 +2388,13 @@ fn main() {
                         })
                         .or_else(|| label.strip_prefix("native-workspace-").map(str::to_string));
                     if let Some(workspace_id) = workspace_id {
+                        // Additional windows reuse the trusted workspace runtime. Only the final
+                        // owner may retire its write gate and stop Pi.
+                        if window.try_state::<WindowWorkspaceState>().is_some_and(|state| {
+                            state.0.lock().map_or(true, |owners| owners.values().any(|id| id == &workspace_id))
+                        }) {
+                            return;
+                        }
                         if let Some(state) = window.try_state::<FocusedWorkspaceState>() {
                             if let Ok(mut focused_workspace) = state.0.lock() {
                                 if focused_workspace.as_deref() == Some(workspace_id.as_str()) {

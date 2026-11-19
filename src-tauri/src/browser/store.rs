@@ -50,6 +50,8 @@ pub use closed::ClosedTab;
 mod pins;
 #[path = "store_groups.rs"]
 mod groups;
+#[path = "store_windows.rs"]
+mod windows;
 #[path = "bookmarks.rs"]
 pub mod bookmarks;
 #[path = "history.rs"]
@@ -109,6 +111,7 @@ impl Store {
             id INTEGER PRIMARY KEY CHECK(id=1), vertical INTEGER NOT NULL CHECK(vertical IN (0,1))
         );").map_err(|err| err.to_string())?;
         groups::create(&tx)?;
+        windows::create(&tx)?;
         tx.commit().map_err(|e| e.to_string())?;
         Ok(Self(db))
     }
