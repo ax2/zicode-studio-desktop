@@ -14,7 +14,8 @@ export function render(notes, plan, issues) {
   const completed = [...byId.values()].filter(i => done(i) && !Object.hasOwn(plan.exclude,i.number)
     && (plan.milestones.includes(i.milestone?.title) || plan.extraCompleted.includes(i.number)));
   const known = new Set([...plan.known,...[...byId.values()].filter(i=>i.state==="open" && i.milestone?.title==="v0.0.0").map(i=>i.number)]);
-  const open = [...known].map(id=>{const i=byId.get(id);if(i?.state!=="open")throw Error("Review stale known issue: "+id);return i;});
+  for (const id of Object.keys(plan.knownNotes ?? {})) if (!known.has(Number(id))) throw Error("Unlisted known issue: "+id);
+  const open = [...known].map(id=>{const i=byId.get(id);if(i?.state!=="open")throw Error("Review stale known issue: "+id);return {...i,title:plan.knownNotes?.[id] || i.title};});
   const lines = rows => rows.sort((a,b)=>a.number-b.number).map(i=>"- [#"+i.number+"](https://github.com/ax2/zicode-studio-desktop/issues/"+i.number+") "+i.title.replace(/[\r\n]/g," ")).join("\n");
   return notes.trimEnd()+"\n\n## 已完成 Issue\n\n"+(lines(completed)||"本次无。")+"\n\n## 已知问题\n\n"+(lines(open)||"本次未登记已知问题。")+"\n";
 }
