@@ -2469,7 +2469,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         ),
         (json!({
             "schemaVersion":1, "id":"com.zicode.mail", "name":"Mail",
-            "description":"Write local drafts for Gmail and Alibaba Mail","version":"0.1.0","publisher":"zicode",
+            "description":"Mail for Gmail and Alibaba Mail","version":"0.1.0","publisher":"zicode",
             "engines":{"pluginApi":"^1.0.0"},"activationEvents":["onView:mail.dashboard"],
             "contributes":{"activities":[{"id":"mail","title":"Mail","order":126}],
               "views":[{"id":"mail.dashboard","activity":"mail","location":"main","title":"Mail"}],

@@ -20,6 +20,11 @@ description = "Allow a trusted, workspace-bound desktop window to explicitly sta
 commands.allow = ["notes_sync_task"]
 
 [[permission]]
+identifier = "allow-mail-gmail"
+description = "Permit Gmail requests from the verified local workspace for an explicitly selected account."
+commands.allow = ["mail_gmail"]
+
+[[permission]]
 identifier = "allow-clipboard-translation"
 description = "Allow verified workspace and clipboard popup windows to configure, display, or transfer an explicitly triggered translation."
 commands.allow = ["clipboard_translation"]
@@ -377,6 +382,7 @@ permissions = [
   "allow-open-desktop-tool-center",
   "allow-set-desktop-tray-locale",
   "allow-set-desktop-tool-shortcuts",
+  "allow-mail-gmail",
   "allow-clipboard-translation",
   "allow-get-project-resource-entry",
   "allow-get-project-resource-entries",
