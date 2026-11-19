@@ -257,7 +257,9 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       } catch (error) {
         get().logger.warn?.("[Updater] Update failed:", error);
         cancelled ||= String(error).includes("UPDATE_CANCELLED");
-        const failureStatus = state.installerReady ? t("Install failed") : t("Download failed");
+        let failureStatus = state.installerReady ? t("Install failed") : t("Download failed");
+        if (String(error).includes("Close other Studio instances")) failureStatus = t("Close other Studio instances and try again.");
+        if (String(error).includes("Start the installed copy")) failureStatus = t("Open the installed copy of Studio to update it.");
         set({ status: cancelled ? t("Download cancelled") : failureStatus,
           button: state.installerReady ? t("Install and exit") : t("Download update"),
           disabled: false, canInstall: true, sidebarVisible: true });
