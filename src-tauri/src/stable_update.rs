@@ -73,7 +73,8 @@ struct Progress {
     total: u64,
 }
 fn progress(window: &WebviewWindow, phase: &'static str, downloaded: u64, total: u64) {
-    let _ = window.emit(
+    let _ = window.emit_to(
+        window.label(),
         "desktop-update-progress",
         Progress {
             phase,
@@ -402,7 +403,9 @@ struct Receipt {
     message: String,
 }
 pub(super) fn take_result() -> Result<Option<ResultNotice>, String> {
-    let dir = directory()?;
+    take_result_at(&directory()?)
+}
+fn take_result_at(dir: &std::path::Path) -> Result<Option<ResultNotice>, String> {
     let source = dir.join("result.json");
     let taking = dir.join(format!("result-{}.json", uuid::Uuid::new_v4()));
     match std::fs::rename(&source, &taking) {
@@ -433,6 +436,29 @@ pub(super) fn take_result() -> Result<Option<ResultNotice>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_terminal_installer_receipts_are_consumed_once() {
+        let dir =
+            std::env::temp_dir().join(format!("studio-update-result-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&dir).unwrap();
+        for (status, expected) in [
+            ("ready", None),
+            ("installed", Some(true)),
+            ("failed", Some(false)),
+        ] {
+            std::fs::write(
+                dir.join("result.json"),
+                serde_json::json!({"version":"1.0.0","status":status,"message":""}).to_string(),
+            )
+            .unwrap();
+            assert_eq!(
+                take_result_at(&dir).ok().flatten().map(|r| r.success),
+                expected
+            );
+            assert!(take_result_at(&dir).unwrap().is_none());
+        }
+        std::fs::remove_dir(dir).unwrap();
+    }
     #[tokio::test]
     async fn installer_bytes_must_match_both_announced_size_and_digest() {
         let bytes = bytes::Bytes::from_static(b"installer data");
