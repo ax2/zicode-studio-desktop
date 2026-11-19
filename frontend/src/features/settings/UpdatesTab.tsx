@@ -64,8 +64,10 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
             >
               {updater.button || t("Check now")}
             </button>
-            {updater.canCancel && <button type="button" className="ui-button ui-button--secondary"
-              onClick={() => void updater.cancelDownload()}>{t("Cancel download")}</button>}
+            {(updater.canCancel || (updater.installerReady && !updater.installing)) &&
+              <button type="button" className="ui-button ui-button--secondary" onClick={() => void updater.cancelDownload()}>
+                {t(updater.installerReady ? "Discard update" : "Cancel download")}
+              </button>}
           </span>
         </div>
         <div className={`settings-row${updater.enabled ? "" : " hidden"}`}>

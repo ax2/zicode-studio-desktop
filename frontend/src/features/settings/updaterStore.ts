@@ -200,11 +200,22 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     }
   },
   async cancelDownload() {
-    if (!get().canCancel) return;
+    const { installerReady, canCancel, installing, update } = get();
+    if (!canCancel && !(installerReady && !installing)) return;
+    if (installerReady) set({ disabled: true, installing: true });
     try {
-      await (globalThis as unknown as TauriGlobal).__TAURI__?.core?.invoke?.("cancel_desktop_update");
+      const invoke = (globalThis as unknown as TauriGlobal).__TAURI__?.core?.invoke;
+      if (!invoke) throw new Error("Desktop updater is unavailable");
+      await invoke("cancel_desktop_update");
+      if (installerReady) {
+        set({ installerReady: false });
+        get().showAvailable(update);
+      }
     } catch (error) {
       get().logger.warn?.("[Updater] Cancel failed:", error);
+      if (installerReady) set({ status: t("Could not discard the downloaded installer.") });
+    } finally {
+      if (installerReady) set({ disabled: false, installing: false });
     }
   },
   async installUpdate() {
@@ -257,7 +268,9 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       } catch (error) {
         get().logger.warn?.("[Updater] Update failed:", error);
         cancelled ||= String(error).includes("UPDATE_CANCELLED");
-        const failureStatus = state.installerReady ? t("Install failed") : t("Download failed");
+        let failureStatus = state.installerReady ? t("Install failed") : t("Download failed");
+        if (String(error).includes("Close other Studio instances")) failureStatus = t("Close other Studio instances and try again.");
+        if (String(error).includes("Start the installed copy")) failureStatus = t("Open the installed copy of Studio to update it.");
         set({ status: cancelled ? t("Download cancelled") : failureStatus,
           button: state.installerReady ? t("Install and exit") : t("Download update"),
           disabled: false, canInstall: true, sidebarVisible: true });
