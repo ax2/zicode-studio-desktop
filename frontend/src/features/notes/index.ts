@@ -1,3 +1,4 @@
+import { t } from "../../shared/i18n";
 import { watchNotesSyncLocalChanges } from "../../shared/notes-sync-refresh";
 import { createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -15,6 +16,7 @@ export interface NotesAppHandle {
   setProject(project: ProjectInfo | null): void;
   openNote(notebookId: string, noteId: string): Promise<void>;
   newNote(): Promise<void>;
+  openWidgetShortcut(kind: "new" | "pinned" | "recent"): Promise<void>;
   startCapture(): Promise<void>;
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<unknown>;
   receiveIncomingDraft(input: { title: string; content: string }, isCurrent: () => boolean, verify?: () => Promise<void>): Promise<void>;
@@ -151,6 +153,19 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
     },
     openNote(notebookId, noteId) {
       return store.getState().openNote(notebookId, noteId);
+    },
+    async openWidgetShortcut(kind) {
+      await store.getState().load();
+      if (store.getState().error) return;
+      if (kind === "new") return store.getState().newNote();
+      await store.getState().refreshShortcuts(true);
+      const state = store.getState();
+      const shortcut = (kind === "pinned" ? state.pinnedNotes : state.recentNotes)[0];
+      if (!shortcut) {
+        options.notify?.(t(kind === "pinned" ? "No pinned notes yet." : "No recent notes yet."));
+        return;
+      }
+      await state.openNote(shortcut.notebookId, shortcut.id);
     },
     newNote() {
       return store.getState().newNote();

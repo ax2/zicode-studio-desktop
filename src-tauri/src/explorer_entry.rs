@@ -4,9 +4,10 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tauri::Manager;
 
-use crate::explorer_launch_state::{EntryIntent, ExplorerLaunchState};
+use crate::explorer_launch_state::{EntryIntent, ExplorerLaunchState, WidgetAction};
 
 static FOLDER: OnceLock<PathBuf> = OnceLock::new();
+static WIDGET: OnceLock<WidgetAction> = OnceLock::new();
 static TOOLS_ONLY: OnceLock<bool> = OnceLock::new();
 static FILE: OnceLock<PathBuf> = OnceLock::new();
 static SELECTION: OnceLock<Vec<PathBuf>> = OnceLock::new();
@@ -21,6 +22,7 @@ pub enum MenuAction {
 }
 
 struct ParsedEntry {
+    widget: Option<WidgetAction>,
     folder: Option<PathBuf>,
     action: Option<MenuAction>,
     tools: bool,
@@ -64,6 +66,9 @@ pub fn selection() -> Option<&'static [PathBuf]> {
 }
 
 pub fn initial_intent() -> Option<EntryIntent> {
+    if let Some(action) = WIDGET.get() {
+        return Some(EntryIntent::NotesWidget(*action));
+    }
     if let Some(paths) = selection() {
         Some(EntryIntent::Selection(paths.to_vec()))
     } else if let Some(path) = file() {
@@ -135,6 +140,9 @@ pub fn forwarded_intent(args: &[String]) -> Result<Option<EntryIntent>, String> 
     }
     match entry_args.as_slice() {
         [] => Ok(None),
+        [flag, action] if *flag == "--notes-widget" => {
+            Ok(Some(EntryIntent::NotesWidget(WidgetAction::parse(action)?)))
+        }
         [flag] if *flag == "--tools-only" => Ok(Some(EntryIntent::Tools)),
         [flag, path] if *flag == "--open-file" => {
             Ok(Some(EntryIntent::File(local_file(PathBuf::from(*path))?)))
@@ -167,8 +175,20 @@ pub fn desktop_entry_mode(window: tauri::WebviewWindow) -> Result<&'static str, 
         .map_or("regular", EntryIntent::mode))
 }
 
+#[tauri::command]
+pub fn take_notes_widget_action(
+    window: tauri::WebviewWindow,
+) -> Result<Option<WidgetAction>, String> {
+    crate::require_workspace_window(&window)?;
+    let route = window.url().map_err(|e| e.to_string())?;
+    window
+        .state::<ExplorerLaunchState>()
+        .take_widget(window.label(), route.path())
+}
+
 pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<MenuAction>, String> {
     let ParsedEntry {
+        widget,
         folder: path,
         action,
         tools,
@@ -176,8 +196,13 @@ pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<Menu
         selection,
     } = parse(args)?;
     TOOLS_ONLY
-        .set(tools)
+        .set(tools || widget.is_some())
         .map_err(|_| "Desktop entry already configured")?;
+    if let Some(action) = widget {
+        WIDGET
+            .set(action)
+            .map_err(|_| "Widget already configured")?;
+    }
     if let Some(path) = path {
         FOLDER
             .set(path)
@@ -203,8 +228,18 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
     let mut file = None;
     let mut selection = None;
     let mut unknown = false;
+    let mut widget = None;
     while let Some(arg) = args.next() {
         match arg.to_str() {
+            Some("--notes-widget") => {
+                if widget.is_some() {
+                    return Err("Repeated widget action".into());
+                }
+                let action = args.next().ok_or("Missing widget action")?;
+                widget = Some(WidgetAction::parse(
+                    action.to_str().ok_or("Invalid widget action")?,
+                )?);
+            }
             Some("--open-file") => {
                 if file.is_some() {
                     return Err("Only one file may be opened".into());
@@ -282,7 +317,18 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
     if selection.is_some() && unknown {
         return Err("Unexpected selection launch argument".into());
     }
+    if widget.is_some()
+        && (unknown
+            || tools
+            || folder.is_some()
+            || action.is_some()
+            || file.is_some()
+            || selection.is_some())
+    {
+        return Err("Widget launch must be separate from other operations".into());
+    }
     Ok(ParsedEntry {
+        widget,
         folder,
         action,
         tools,
@@ -371,6 +417,22 @@ fn local_file(path: PathBuf) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn widget_only_accepts_explicit_notes_actions() {
+        for (name, action) in [
+            ("new", WidgetAction::New),
+            ("recent", WidgetAction::Recent),
+            ("pinned", WidgetAction::Pinned),
+        ] {
+            assert_eq!(
+                parse(args(&["--notes-widget", name])).unwrap().widget,
+                Some(action)
+            );
+        }
+        assert!(parse(args(&["--notes-widget", "file:///private"])).is_err());
+        assert!(parse(args(&["--notes-widget", "new", "--tools-only"])).is_err());
+        assert!(parse(args(&["--notes-widget", "new", "--other"])).is_err());
+    }
     #[test]
     fn forwarded_launch_revalidates_executable_and_selected_file() {
         let executable = std::env::current_exe()

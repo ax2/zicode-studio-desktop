@@ -388,6 +388,7 @@ permissions = [
   "allow-get-project-resource-entries",
   "allow-get-project-directory-entry",
   "allow-desktop-entry-mode",
+  "allow-take-notes-widget-action",
   "allow-select-project-resource-file",
   "allow-select-project-resource-directory",
   "allow-select-checksum-folder",
@@ -628,3 +629,9 @@ commands.allow = ["cancel_desktop_update"]
 identifier = "allow-take-desktop-update-result"
 description = "Consume the last completed Windows installer result."
 commands.allow = ["take_desktop_update_result"]
+
+
+[[permission]]
+identifier = "allow-take-notes-widget-action"
+description = "Consume a native notes widget action bound to this Studio window and session."
+commands.allow = ["take_notes_widget_action"]
