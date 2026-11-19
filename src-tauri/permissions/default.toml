@@ -5,11 +5,6 @@
 # the [default] set, which the capability references.
 
 [[permission]]
-identifier = "allow-mail-alibaba"
-description = "Allow the trusted workspace to explicitly read or send using its registered Alibaba mail account."
-commands.allow = ["mail_alibaba"]
-
-[[permission]]
 identifier = "allow-notes-sync-task"
 description = "Allow a trusted, workspace-bound desktop window to explicitly start, inspect or cancel saved-note sync."
 commands.allow = ["notes_sync_task"]
@@ -349,9 +344,15 @@ identifier = "allow-notes-sync-settings"
 description = "Allow a trusted current workspace window to manage local Notes cloud configuration and its separate system credentials without network or note access."
 commands.allow = ["notes_sync_settings"]
 
+[[permission]]
+identifier = "allow-mail-alibaba"
+description = "Allow the trusted workspace to explicitly read or send using its registered Alibaba mail account."
+commands.allow = ["mail_alibaba"]
+
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
+  "allow-mail-alibaba",
     "allow-visual-assets-control",
     "allow-desktop-window-control",
   "allow-select-result-text-export",
@@ -433,7 +434,6 @@ permissions = [
   "allow-delete-scene-credential",
   "allow-scene-credential-status",
   "allow-notes-sync-settings",
-  "allow-mail-alibaba",
   "allow-notes-sync-task",
   "allow-send-desktop-notification",
   "allow-publish-notes-notebook",
