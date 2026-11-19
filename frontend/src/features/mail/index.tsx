@@ -44,11 +44,11 @@ export function Mail({invoke}:{invoke:Invoke}) {
   return <section className="mail-local"><h2>{t("Mail")}</h2>
     <p>{t("Local drafts only. No mailbox is connected.")}</p>
     <fieldset disabled={busy}><legend>{t("Mail accounts")}</legend>
-    {accounts.length>0&&<label>{t("Mail account")}<select value={account} onChange={e=>{const id=e.target.value;if(discard())void run(()=>load(id))}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?"Gmail":t("Alibaba Mail")}</option>)}</select></label>}
+    {accounts.length>0&&<label>{t("Mail account")}<select value={account} onChange={e=>{const id=e.target.value;if(discard())void run(()=>load(id))}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}</select></label>}
     <form onSubmit={e=>{e.preventDefault();if(!discard())return;void run(async()=>{
       const added=await invoke<{id:string}>({kind:"add",provider,address});
       setAccounts(await invoke<Account[]>({kind:"accounts"}));setAddress("");await load(added.id);
-    })}}><label>{t("Mail provider")}<select value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">Gmail</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
+    })}}><label>{t("Mail provider")}<select value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
     <label>{t("Email address")}<input required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button type="submit">{t("Add local account")}</button></form></fieldset>
     {account&&<fieldset disabled={busy}><legend>{t("Mail drafts")}</legend>

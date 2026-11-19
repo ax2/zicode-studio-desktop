@@ -2471,7 +2471,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
             "schemaVersion":1, "id":"com.zicode.mail", "name":"Mail",
             "description":"Write local drafts for Gmail and Alibaba Mail","version":"0.1.0","publisher":"zicode",
             "engines":{"pluginApi":"^1.0.0"},"activationEvents":["onView:mail.dashboard"],
-            "contributes":{"activities":[{"id":"mail","title":"Mail","order":104}],
+            "contributes":{"activities":[{"id":"mail","title":"Mail","order":126}],
               "views":[{"id":"mail.dashboard","activity":"mail","location":"main","title":"Mail"}],
               "commands":[{"id":"mail.open","title":"Open Mail"}]},
             "permissions":{"required":[{"name":"storage.plugin","reason":"Keep mailbox accounts and drafts on this device"}]}

@@ -3365,6 +3365,7 @@ const zhCN = {
   "Duplicate title": "标题重复",
   "Create links between notes by writing backlinks or sharing tags.":
     "通过反向链接或共享标签在笔记之间建立关联。",
+  "Gmail": "Gmail 邮箱",
   "Mail": "邮箱",
   "Open Mail": "打开邮箱",
   "Write local drafts for Gmail and Alibaba Mail": "为 Gmail 和阿里邮箱撰写本地草稿",
