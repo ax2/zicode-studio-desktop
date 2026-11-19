@@ -1,0 +1,65 @@
+name: Disposable Windows updater test host
+on:
+  push:
+    branches: [codex/qa32-app]
+    paths: ['.github/workflows/qa32-app.yml', 'src-tauri/src/desktop_update*']
+permissions:
+  contents: read
+jobs:
+  app:
+    runs-on: windows-2022
+    timeout-minutes: 110
+    steps:
+      - run: git config --global core.longpaths true
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> ../target
+          shared-key: developer-platform-windows-2022-platform
+          save-if: false
+      - name: Prepare version-only test checkout and genuine runtime resources
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $archive=Join-Path $env:RUNNER_TEMP stable.exe
+          curl.exe -fLs --max-time 240 -o $archive https://github.com/ax2/zicode-studio-desktop/releases/download/v0.6.2/ZiCode.Studio.Desktop_0.6.2_x64-setup.exe
+          if($LASTEXITCODE -or (Get-FileHash $archive).Hash.ToLowerInvariant() -cne 'e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c'){throw 'Unexpected public installer'}
+          $unpack=Join-Path $env:RUNNER_TEMP previous
+          7z.exe x $archive "-o$unpack" -y|Out-Null
+          if($LASTEXITCODE){throw 'Cannot unpack verified Windows distribution'}
+          $baseline=@(Get-ChildItem $unpack -Recurse -File -Filter zicode-studio-desktop.exe)
+          if($baseline.Count -ne 1){throw 'Unexpected public distribution'}
+          foreach($r in @('pi','portable-git','webview2','bun')){
+            $dest="src-tauri/resources/$r"
+            [void][IO.Directory]::CreateDirectory((Join-Path $PWD $dest))
+            robocopy (Join-Path $baseline[0].DirectoryName $r) $dest /E /NFL /NDL /NJH /NJS /NP | Out-Null
+            if($LASTEXITCODE -ge 8){throw "Runtime copy failed: $r"}
+          }
+          $conf='src-tauri/tauri.conf.json'
+          $c=Get-Content -Raw $conf|ConvertFrom-Json
+          if($c.version -ne '0.6.7'){throw 'Wrong starting version'}
+          $c.version='0.6.1'
+          [IO.File]::WriteAllText((Join-Path $PWD $conf),($c|ConvertTo-Json -Depth 100))
+          exit 0
+      - name: Prepare production UI and archived tools
+        run: |
+          bun install --frozen-lockfile
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          bun run build:extensions
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          bun run build:react
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          bun run bundle-css
+      - name: Compile the actual application with original production Host and update source
+        run: cargo build --manifest-path src-tauri/Cargo.toml --bin zicode-studio-desktop --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: updater32-test-app
+          path: |
+            target/debug/zicode-studio-desktop.exe
+            public/
+          retention-days: 2
+          if-no-files-found: error
