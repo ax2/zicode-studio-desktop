@@ -47,7 +47,7 @@ export function showSiteSettings({ origin, request, onClose }) {
     if (!saved.length) list.append(el("p", t("No saved permissions for this site")));
     for (const { permission, allowed } of saved) {
       const row = el("p");
-      row.append(el("span", t(kinds[permission] ?? "Other permission") + " · " + t(allowed ? "Allowed" : "Blocked")));
+      row.append(el("span", t(kinds[permission] ?? "Other permission") + " · " + t(allowed ? "Allowed" : "Permission denied")));
       if (allowed) {
         const revoke = button("Revoke permission", () => prompt("Revoke this permission for the displayed site?", { type: "revoke", permission }, revoke));
         row.append(revoke);
