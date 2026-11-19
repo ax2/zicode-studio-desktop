@@ -1263,7 +1263,10 @@ pluginShell = setupPluginShell({
     "com.zicode.documents": documentsApp,
     "com.zicode.clipboard": clipboardApp,
     "com.zicode.graph": graphApp,
-    "com.zicode.mail": setupMailApp(request => globalThis.__TAURI__.core.invoke("mail_local", { request })),
+    "com.zicode.mail": setupMailApp(
+      request => globalThis.__TAURI__.core.invoke("mail_local", { request }),
+      request => globalThis.__TAURI__.core.invoke("mail_alibaba", { workspaceId: target.workspaceId, request }),
+    ),
     "com.zicode.habits": habitsApp,
     "com.zicode.translate": translationApp,
     "com.zicode.watch": watchApp,
