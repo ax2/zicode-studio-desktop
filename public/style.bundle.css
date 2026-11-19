@@ -183,6 +183,10 @@
 .browser-tabs-frame { display: flex; align-items: center; flex: 1; min-width: 0; gap: var(--space-0-5); overflow: hidden; }
 .browser-tabs { display: flex; flex: 1; min-width: 0; gap: var(--space-0-5); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .browser-tabs::-webkit-scrollbar { display: none; }
+.browser-tab-group-name { display: inline-block; max-inline-size: 40%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; color: var(--text-secondary); margin-inline-end: var(--space-1); font-size: var(--font-size-sm); }
+.browser-tab[data-tab-group] .browser-tab-title { border-inline-start-color: var(--accent); }
+.browser-tab-group-form { display: grid; gap: var(--space-2); }
+.browser-tab-group-form > div { display: flex; justify-content: flex-end; gap: var(--space-2); }
 .browser-tab { position: relative; display: flex; flex: 1 1 calc(var(--space-12) * 3); min-width: calc(var(--space-12) + var(--space-6)); max-width: calc(var(--space-12) * 4); }
 .browser-tab-title { display: block; text-align: start; flex: 1; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .browser-tab-title[aria-selected="true"] { background: var(--bg-glass-active); color: var(--text-primary); border-color: var(--accent); box-shadow: inset 0 calc(-1 * var(--space-0-5)) 0 var(--accent); font-weight: 600; }

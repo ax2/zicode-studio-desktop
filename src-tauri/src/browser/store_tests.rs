@@ -9,7 +9,36 @@ fn tab() -> SavedTab {
         title: "资料".into(),
         zoom: 1.0, muted: false,
         pinned: false,
+        group: None,
     }
+}
+#[test]
+fn named_groups_survive_close_rename_restart_and_legacy_sessions() {
+    let temp=root();
+    let mut store=Store::open(&temp).unwrap();
+    let mut first=tab();
+    let mut second=tab();
+    let id=uuid::Uuid::new_v4().to_string();
+    let group=groups::TabGroup{id:id.clone(),name:"阅读".into()};
+    store.save("main",0,vec![first.clone(),second.clone()],Some(first.id.clone())).unwrap();
+    assert!(store.state("main").unwrap().session.tabs.iter().all(|tab|tab.group.is_none()));
+    first.group=Some(group.clone()); second.group=Some(group);
+    store.save("main",1,vec![second.clone(),first.clone()],Some(first.id.clone())).unwrap();
+    first.group.as_mut().unwrap().name="参考资料".into();
+    store.save("main",2,vec![first.clone()],Some(first.id.clone())).unwrap();
+    drop(store);
+    let mut store=Store::open(&temp).unwrap();
+    let state=store.state("main").unwrap().session;
+    assert_eq!(state.tabs[0].group,first.group);
+    assert_eq!(state.closed_tabs[0].tab.group,first.group);
+    second=state.closed_tabs[0].tab.clone();
+    store.save("main",3,vec![second.clone(),first.clone()],Some(first.id.clone())).unwrap();
+    let raw:String=store.0.query_row("SELECT payload FROM browser_sessions WHERE owner='main'",[],|r|r.get(0)).unwrap();
+    assert!(!raw.contains("\"group\""));
+    assert_eq!(store.state("main").unwrap().session.tabs,vec![second,first.clone()]);
+    assert!(store.state("other").unwrap().session.tabs.is_empty());
+    first.pinned=true;
+    assert!(store.save("main",4,vec![first.clone()],Some(first.id)).is_err());
 }
 #[test]
 fn restart_preserves_preference_profile_order_active_and_unicode() {

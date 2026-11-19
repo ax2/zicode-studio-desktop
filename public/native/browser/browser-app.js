@@ -16,7 +16,8 @@ import { createHiddenBrowserView, isBrowserViewportMismatch, withBrowserViewport
 import { browserTabNumber, setupBrowserShortcuts } from "./browser-shortcuts.js";
 import { createBrowserFind } from "./browser-find.js";
 import { createBrowserPageControls, applyBrowserPageSetting, nextPageZoom, persistBrowserPageSetting } from "./browser-page-controls.js";
-import { browserPinLimit, groupBrowserTabs, moveBrowserTab, setupBrowserTabOrdering, toggleBrowserTabPin } from "./browser-tab-order.js";
+import { browserPinLimit, groupBrowserTabs, moveBrowserTab, setBrowserTabGroup, setupBrowserTabOrdering, toggleBrowserTabPin } from "./browser-tab-order.js";
+import { showBrowserTabGroup } from "./browser-tab-group-dialog.js";
 import { showBrowserDownloads } from "./browser-downloads.js";
 import { showBrowserHistory } from "./browser-history.js";
 import { showBrowserBookmarks } from "./browser-bookmarks.js";
@@ -144,8 +145,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     }
   }
   function persist(nextTabs, nextActive) {
-    const snapshot = nextTabs.filter(tab => !tab.popupOpener).map(({ id, url, title, zoom = 1, muted = false, pinned }) => ({
-      id, url, title, zoom, muted, ...(pinned ? { pinned: true } : {}),
+    const snapshot = nextTabs.filter(tab => !tab.popupOpener).map(({ id, url, title, zoom = 1, muted = false, pinned, group }) => ({
+      id, url, title, zoom, muted, ...(pinned ? { pinned: true } : {}), ...(group ? { group } : {}),
     }));
     const opener = nextTabs.find(tab => tab.id === nextActive)?.popupOpener;
     const activeTab = opener ? snapshot.find(tab => tab.id === opener)?.id ?? snapshot[0]?.id ?? null : nextActive;
@@ -426,6 +427,15 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       }
       const label = document.createElement("span"); label.className = "browser-tab-label"; label.textContent = tab.title || tab.url;
       button.replaceChildren(createBrowserTabIcon(tab.url, favicons.get(tab.id)), label);
+      if (tab.group) {
+        item.dataset.tabGroup = tab.group.id;
+        const prefix = document.createElement("span");
+        prefix.className = "browser-tab-group-name";
+        prefix.textContent = tab.group.name;
+        label.prepend(prefix);
+        button.title = `${tab.group.name} · ${tab.title || tab.url}`;
+        button.setAttribute("aria-label", button.title);
+      }
       const exit = makeButton("×", () => close(tab.id)); exit.className = "ui-icon-button ui-icon-button--xs ui-icon-button--ghost browser-tab-close"; exit.setAttribute("aria-label", `${t("Close tab")}: ${tab.title || tab.url}`); exit.title = `${t("Close tab")} (Ctrl+W)`; exit.setAttribute("aria-keyshortcuts", "Control+w");
       ordering.decorate(item, button, tab.id);
       button.setAttribute("aria-haspopup", "menu");
@@ -636,6 +646,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           disabled: !enabled,
           hint: !enabled && "Pin up to four tabs",
         }] : [];
+        if (available && !pinned) actions.push({ label: "Tab group", action: () => act(() => editTabGroup(id)) });
         if (pageAvailable(id)) actions.push({
           label: tab.muted ? "Unmute tab" : "Mute tab",
           action: () => act(() => changePageSettings(id, { kind: "muted", value: !tab.muted })),
@@ -814,6 +825,26 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     new ResizeObserver(() => void run(syncSurface)).observe(viewport);
     document.addEventListener("visibilitychange", () => void run(syncSurface));
     new MutationObserver(() => void run(syncSurface)).observe(document.body, { attributes: true, subtree: true, attributeFilter: ["class", "hidden", "open", "inert", "aria-modal", "style"] });
+  }
+  async function editTabGroup(id) {
+    const tab = tabs.find(item => item.id === id);
+    if (!visible || tabSearch || !tab || tab.pinned || tab.popupOpener) return;
+    await hide(true);
+    if (!visible) return;
+    tabSearch = showBrowserTabGroup({
+      tab, tabs,
+      onSave: group => enqueue(async () => {
+        const next = setBrowserTabGroup(tabs, id, group);
+        if (next === tabs) throw new Error(t("Browser tab is no longer available"));
+        await persist(next, active);
+        tabs = next;
+        paint();
+      }),
+      onClose: () => {
+        tabSearch = null;
+        if (visible) { tabStripControls.focusTab(id); void run(syncSurface); }
+      },
+    });
   }
   async function openTabSearch(options, fromPage = false) {
     if (!visible || tabSearch) return;
