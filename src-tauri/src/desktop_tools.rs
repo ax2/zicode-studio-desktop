@@ -16,12 +16,13 @@ const LABEL: &str = "native-workspace-tools-center";
 pub(crate) fn can_replace_window(label: &str) -> bool {
     label.starts_with("native-workspace-")
         && label != LABEL
+        && !crate::browser_windows::secondary(label)
         && !label.starts_with("native-workspace-tools-center-")
 }
 
 /// A project tool center retains its trusted project identity even when focused.
 pub(crate) fn project_context_window(label: &str) -> bool {
-    label.starts_with("native-workspace-") && label != LABEL
+    label.starts_with("native-workspace-") && label != LABEL && !crate::browser_windows::secondary(label)
 }
 
 #[derive(Default)]

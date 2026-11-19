@@ -13,6 +13,29 @@ fn tab() -> SavedTab {
     }
 }
 #[test]
+fn additional_windows_keep_sessions_and_closed_order_within_their_parent() {
+    let temp=root();
+    let mut store=Store::open(&temp).unwrap();
+    store.insert_browser_window("main","one").unwrap();
+    store.insert_browser_window("main","two").unwrap();
+    store.insert_browser_window("different","other").unwrap();
+    let a=tab();let b=tab();
+    store.save("one",0,vec![a.clone()],Some(a.id.clone())).unwrap();
+    store.save("two",0,vec![b.clone()],Some(b.id.clone())).unwrap();
+    store.mark_browser_window("two",false).unwrap();
+    store.mark_browser_window("other",false).unwrap();
+    drop(store);
+    let store=Store::open(&temp).unwrap();
+    assert_eq!(store.open_browser_windows("main").unwrap(),vec!["one"]);
+    assert_eq!(store.last_closed_window("main").unwrap().as_deref(),Some("two"));
+    assert_eq!(store.last_closed_window("different").unwrap().as_deref(),Some("other"));
+    assert_eq!(store.browser_parent("one").unwrap(),"main");
+    assert_eq!(store.state("one").unwrap().session.tabs,vec![a]);
+    assert_eq!(store.state("two").unwrap().session.tabs,vec![b]);
+    store.mark_browser_window("two",true).unwrap();
+    assert_eq!(store.open_browser_windows("main").unwrap(),vec!["one","two"]);
+}
+#[test]
 fn named_groups_survive_close_rename_restart_and_legacy_sessions() {
     let temp=root();
     let mut store=Store::open(&temp).unwrap();

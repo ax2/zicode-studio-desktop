@@ -1,0 +1,127 @@
+use crate::{browser_store::Store, HostServer, NativePiManagerState, RuntimeTarget};
+use serde::Deserialize;
+use tauri::{AppHandle, Manager, WebviewWindow};
+
+const PREFIX: &str = "native-workspace-browser-window-";
+
+pub(crate) fn secondary(label: &str) -> bool {
+    label
+        .strip_prefix(PREFIX)
+        .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok_and(|uuid| uuid.to_string() == id))
+}
+fn catalog() -> Result<Store, String> {
+    Store::open(&crate::app_paths::data_root()?.join("browser"))
+}
+
+fn open(
+    app: &AppHandle,
+    host: &HostServer,
+    target: &RuntimeTarget,
+    label: &str,
+) -> Result<(), String> {
+    if !secondary(label) {
+        return Err("Invalid browser window identity".into());
+    }
+    if app.get_webview_window(label).is_some() {
+        return Ok(());
+    }
+    crate::open_native_workspace_window_named(app, host, target, Some("com.zicode.browser"), label)
+}
+
+pub(crate) fn restore(
+    app: &AppHandle,
+    host: &HostServer,
+    target: &RuntimeTarget,
+    parent: &str,
+) -> Result<(), String> {
+    for label in catalog()?.open_browser_windows(parent)? {
+        if let Err(e) = open(app, host, target, &label) {
+            log::warn!("Cannot restore browser window {label}: {e}");
+        }
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum Action {
+    New,
+    Reopen,
+    CanReopen,
+    Close,
+}
+
+#[tauri::command]
+pub(crate) async fn browser_window_command(
+    window: WebviewWindow,
+    action: Action,
+) -> Result<bool, String> {
+    crate::require_workspace_window(&window)?;
+    let app = window.app_handle().clone();
+    let (send, receive) = tokio::sync::oneshot::channel();
+    let handle = app.clone();
+    app.run_on_main_thread(move || {
+        let _ = send.send(execute(&handle, &window, action));
+    })
+    .map_err(|e| e.to_string())?;
+    receive
+        .await
+        .map_err(|_| "Browser window request interrupted".to_owned())?
+}
+
+fn execute(app: &AppHandle, window: &WebviewWindow, action: Action) -> Result<bool, String> {
+    // Both the owner and the workspace route come from the authenticated caller.
+    crate::require_workspace_window(window)?;
+    let store = catalog()?;
+    let caller = window.label();
+    let parent = if secondary(caller) {
+        store.browser_parent(caller)?
+    } else {
+        caller.to_owned()
+    };
+    match action {
+        Action::CanReopen => return Ok(store.last_closed_window(&parent)?.is_some()),
+        Action::Close => {
+            if !secondary(caller) {
+                return Err("Only additional browser windows can be closed here".into());
+            }
+            store.mark_browser_window(caller, false)?;
+            if let Err(e) = window.destroy() {
+                store.mark_browser_window(caller, true)?;
+                return Err(e.to_string());
+            }
+            return Ok(true);
+        }
+        _ => {}
+    }
+    let url = window.url().map_err(|e| e.to_string())?;
+    let (workspace, session) = crate::desktop_tools::route_identity(url.path())?;
+    let target = app
+        .state::<NativePiManagerState>()
+        .statuses()?
+        .into_iter()
+        .find(|s| s.target.workspace_id == workspace && s.target.session_id == session)
+        .ok_or("Browser workspace is unavailable")?
+        .target;
+    let host = app.state::<HostServer>();
+    let label = match action {
+        Action::New => {
+            let label = format!("{PREFIX}{}", uuid::Uuid::new_v4());
+            store.insert_browser_window(&parent, &label)?;
+            label
+        }
+        Action::Reopen => {
+            let Some(label) = store.last_closed_window(&parent)? else {
+                return Ok(false);
+            };
+            store.mark_browser_window(&label, true)?;
+            label
+        }
+        _ => unreachable!(),
+    };
+    if let Err(e) = open(app, &host, &target, &label) {
+        store.mark_browser_window(&label, false)?;
+        return Err(e);
+    }
+    Ok(true)
+}

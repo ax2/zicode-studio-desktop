@@ -1001,6 +1001,8 @@ const zhCN = {
   "No matching tabs": "没有匹配的标签页",
   "Tab actions": "标签页操作",
   "Tab group": "标签组",
+  "New browser window": "新建浏览器窗口",
+  "Reopen closed window": "恢复关闭的窗口",
   "No tab group": "不分组",
   "Create tab group": "新建标签组",
   "Tab group name": "标签组名称",
