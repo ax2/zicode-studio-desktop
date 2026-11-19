@@ -1,4 +1,4 @@
-import {cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {afterEach,expect,it,vi} from "vitest";
 import {Mail,type Invoke} from "./index";
 import {setLocale} from "../../shared/i18n";
@@ -44,7 +44,10 @@ it("reads cached headers without network, paginates only on demand, and creates 
   fireEvent.click(button("Load older messages"));await screen.findByRole("button",{name:/Older fixture/});
   fireEvent.click(screen.getByRole("button",{name:/Inbox fixture/}));await screen.findByText("<img src='https://invalid.test/x'>");expect(document.querySelector("article img")).toBeNull();
   expect(a.kinds().filter(k=>k==="read")).toHaveLength(2);
-  fireEvent.click(button("Create reply draft"));await waitFor(()=>expect((screen.getByLabelText("Recipient") as HTMLInputElement).value).toBe("reply@example.test"));
+  fireEvent.change(screen.getByLabelText("Message body"),{target:{value:"Keep editing"}});
+  const confirm=vi.spyOn(window,"confirm").mockReturnValue(Promise.resolve(false) as unknown as boolean);
+  await act(async()=>fireEvent.click(button("Create reply draft")));expect(a.kinds()).not.toContain("replyDraft");
+  confirm.mockReturnValue(true);fireEvent.click(button("Create reply draft"));await waitFor(()=>expect((screen.getByLabelText("Recipient") as HTMLInputElement).value).toBe("reply@example.test"));
   expect(a.kinds()).not.toContain("send");
 });
 it("reviews the saved recipient and blocks resubmission after an unknown delivery outcome",async()=>{
@@ -66,7 +69,9 @@ it("saves client credentials explicitly and hides provider actions for a Gmail d
   const secret=screen.getByLabelText("Client password") as HTMLInputElement;
   fireEvent.change(secret,{target:{value:"synthetic-only"}});expect(a.kinds()).not.toContain("setPassword");
   fireEvent.click(button("Save client password"));await screen.findByText(/Client password saved/);expect(secret.value).toBe("");
-  vi.spyOn(window,"confirm").mockReturnValue(true);fireEvent.click(button("Remove client password"));await waitFor(()=>expect(button("Refresh from server").matches(":disabled")).toBe(true));
+  const confirm=vi.spyOn(window,"confirm").mockReturnValue(Promise.resolve(false) as unknown as boolean);
+  await act(async()=>fireEvent.click(button("Remove client password")));expect(a.kinds()).not.toContain("forgetPassword");
+  confirm.mockReturnValue(true);fireEvent.click(button("Remove client password"));await waitFor(()=>expect(button("Refresh from server").matches(":disabled")).toBe(true));
   a.view.unmount();const gmail=setup("gmail");await screen.findByRole("button",{name:"Prepared"});
   expect(gmail.kinds()).toHaveLength(0);expect(screen.queryByRole("button",{name:"Refresh from server"})).toBeNull();
 });
