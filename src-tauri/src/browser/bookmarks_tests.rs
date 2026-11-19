@@ -15,6 +15,7 @@ fn bookmark(folder_id: Option<String>) -> Bookmark {
         title: "开发资料".into(),
         url: "https://example.org/".into(),
         folder_id,
+        shortcut: false,
     }
 }
 fn save(rev: i64, folders: Vec<Folder>, bookmarks: Vec<Bookmark>) -> Request {
@@ -38,6 +39,7 @@ fn nested_folders_edits_and_moves_survive_reopen_without_crossing_owners() {
         )
         .unwrap();
     b.title = "New title".into();
+    b.shortcut = true;
     b.folder_id = Some(parent.id.clone());
     let saved = store
         .bookmarks("a", save(1, vec![parent, child], vec![b]))

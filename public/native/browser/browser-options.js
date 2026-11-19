@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print } = {}) {
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print, websiteShortcuts } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -8,6 +8,35 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
   trigger.setAttribute("data-i18n-aria-label", "Browser options");
   trigger.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
   const panel = document.createElement("div"); panel.className = "browser-options-panel ui-panel";
+  if (websiteShortcuts) {
+    const shortcuts = document.createElement("div");
+    shortcuts.hidden = true;
+    shortcuts.setAttribute("role", "group");
+    shortcuts.setAttribute("aria-label", t("Website shortcuts"));
+    panel.append(shortcuts);
+    let revision = 0;
+    menu.addEventListener("toggle", async () => {
+      const request = ++revision;
+      shortcuts.replaceChildren(); shortcuts.hidden = true;
+      if (!menu.open) return;
+      try {
+        const items = await websiteShortcuts.list();
+        if (!menu.open || revision !== request || !items.length) return;
+        const label = document.createElement("strong"); label.textContent = t("Website shortcuts");
+        shortcuts.append(label);
+        for (const item of items) {
+          const button = document.createElement("button");
+          button.type = "button"; button.className = "ui-button ui-button--secondary browser-site-shortcut";
+          button.textContent = item.title; button.title = item.url;
+          button.addEventListener("click", () => { menu.open = false; websiteShortcuts.open(item); });
+          shortcuts.append(button);
+        }
+        shortcuts.hidden = false;
+      } catch (error) {
+        if (menu.open && request === revision) websiteShortcuts.report(error);
+      }
+    });
+  }
   const select = document.createElement("button"); select.type = "button"; select.className = "ui-button ui-button--secondary"; select.textContent = t("Select all page text");
   select.dataset.i18nText = "Select all page text";
   select.addEventListener("click", () => { menu.open = false; selectAll(); });
