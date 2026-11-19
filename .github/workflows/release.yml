@@ -345,6 +345,16 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Keep failed Windows installer for diagnosis
+        if: failure() && runner.os == 'Windows' && steps.installer-acceptance.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-installer-${{ env.RELEASE_TAG }}
+          path: target/release/bundle/nsis/*_x64-setup.exe
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
       - name: Extract Windows candidate for local acceptance
         if: runner.os == 'Windows'
         shell: pwsh
