@@ -14,5 +14,5 @@ Copy-Item -LiteralPath $hosts[0].FullName -Destination $exe -Force
 robocopy "$source/public" "$runtime/public" /E /NFL /NDL /NJH /NJS /NP|Out-Null
 if($LASTEXITCODE -ge 8){throw 'Could not stage accepted frontend'}
 "STUDIO_Q35_EXE=$exe" >> $env:GITHUB_ENV
-'PASS using full Windows shell artifact 14494219496 from run 44448986884 (version-only 0.6.1 fixture on v0.6.7 production source)'
+'PASS staged matching native shortcut candidate and its browser assets'
 exit 0

@@ -87,28 +87,35 @@ try{
   const child=await wait('native remote page',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===site));
   await child.waitForFunction(()=>document.readyState==='complete'&&document.title==='Example Domain');
   console.log('Live remote document',await child.evaluate(()=>({title:document.title,url:location.href,viewport:[innerWidth,innerHeight],visibility:document.visibilityState,heading:document.querySelector('h1')?.textContent})));
-  const pageHref=site+'doc.pdf';await child.locator('a').click();
-  await wait('address shows PDF',async()=>(await input.inputValue()).startsWith(pageHref));
-  await native('size',970,700);
-  const colorPoint=()=>ui.locator('.browser-viewport').evaluate(el=>{let r=el.getBoundingClientRect();return [(r.left+r.width*.55)/innerWidth,(r.top+r.height*.54)/innerHeight]});
-  const pt=await colorPoint(),color=async()=>(await native('pixel',...pt)).color;
-  let sampled=[];const dominant=(s,idx)=>{let rgb=s.match(/../g).map(v=>parseInt(v,16));return rgb[idx]>125&&rgb.every((v,i)=>i===idx||rgb[idx]-v>60)};
-  await wait('native inline PDF green first page',async()=>{const c=await color();sampled.push(c);return dominant(c,1)},20000).catch(e=>{throw Error(e.message+' pixels='+sampled+' native targets='+JSON.stringify(nativeBrowser.contexts().flatMap(c=>c.pages()).map(p=>p.url())))});
-  record('inline synthetic PDF first page rendered by the actual native viewer',{color:sampled.at(-1)});
-  await native('pdfend',...pt);
-  await wait('last physical page',async()=>dominant(await color(),2),16000);
-  await native('pdfhome',...pt);
-  await wait('first physical page restored',async()=>dominant(await color(),1),16000);
-  record('real document End and Home traverse a three-page PDF without leaving the active browser tab');
-  if(process.env.QA13_PRINT==='1'){
-    const menus=ui.locator('.browser-options');await menus.locator('summary').click();
-    const entry=menus.getByRole('button',{name:/Print page|打印页面/});await entry.click();
-    const info=await native('printcancel');console.log('System print dialog result',info);assert.ok(info.cancelled);
-    await wait('same PDF after print cancellation',async()=>dominant(await color(),1),12000);
-    const refused=await ui.evaluate(async()=>{try{await __TAURI__.core.invoke('browser_control',{request:{kind:'printPage',tab:(await __TAURI__.core.invoke('browser_get_state')).session.activeTab,expectedUrl:'https://example.org/stale-document'}});return false}catch{return true}});assert.ok(refused);
-    await input.fill(site);await input.press('Enter');await wait('HTML active again',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===site));await native('ctrlprint',...pt);const html=await native('printcancel');assert.ok(html.cancelled);
-    record('PDF menu and HTML Ctrl+P each opened the genuine Windows printer dialog, cancel restored page and stale URL was rejected',{pdf:info.title,html:html.title});
+  const labels=Object.fromEntries(await ui.evaluate(async()=>{const {t}=await import('/i18n.js');return ['New bookmark','Bookmark name','Bookmark URL','Show in website shortcuts','Save','Close','Edit bookmark'].map(x=>[x,t(x)])}));
+  const bookmarks=(p,request={kind:'list'})=>p.evaluate(request=>__TAURI__.core.invoke('browser_bookmarks',{request}),request);
+  const session=p=>p.evaluate(async()=>(await __TAURI__.core.invoke('browser_get_state')).session);
+  const legacy={id:'8f471ee5-9437-4321-8feb-d89874cf4154',title:'Existing ordinary bookmark',url:site+'?legacy',folderId:null};
+  await bookmarks(ui,{kind:'save',expectedRevision:0,folders:[],bookmarks:[legacy]});
+  async function manage(p){
+    const input=p.locator('.browser-address');await input.focus();await input.press('Control+d');const d=p.locator('.browser-bookmarks-dialog');await d.waitFor();return d;
   }
+  const d=await manage(ui);await d.getByRole('button',{name:labels['New bookmark'],exact:true}).click();
+  const form=d.locator('form.browser-bookmark-editor');await form.getByLabel(labels['Bookmark name'],{exact:true}).fill('QA13 quick website');
+  await form.getByLabel(labels['Bookmark URL'],{exact:true}).fill(site+'?shortcut');
+  await form.getByRole('checkbox',{name:labels['Show in website shortcuts']}).check();
+  await form.getByRole('button',{name:labels.Save,exact:true}).click();
+  await wait('real SQLite quick mark',async()=> (await bookmarks(ui)).bookmarks.some(b=>b.shortcut&&b.title==='QA13 quick website'));
+  await d.getByRole('button',{name:labels.Close,exact:true}).click();
+  const opt=ui.locator('.browser-options');await opt.locator('summary').click();const q=opt.locator('.browser-site-shortcut');await q.waitFor();assert.equal(await q.count(),1);
+  const before=await session(ui);await q.focus();await q.press('Enter');await wait('target opened without library',async()=>{const s=await session(ui);return s.activeTab!==before.activeTab&&s.tabs.length===before.tabs.length+1&&s.tabs.find(t=>t.id===s.activeTab)?.url===site+'?shortcut'});
+  assert.ok(await wait('real destination page',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===site+'?shortcut')));
+  record('marked bookmark opens its native target once using the options shortcut and Enter; unmarked bookmark is omitted');
+  const old=app.pid,stopped=new Promise(resolve=>app.once('exit',resolve));app.kill();await stopped;app=spawn(process.env.STUDIO_Q35_EXE,['--isolated-profile',profile],{env,stdio:'ignore'});assert.notEqual(old,app.pid);
+  const again=await wait('new workspace',async()=>{try{const conn=await chromium.connectOverCDP(await endpoint('webview'),{timeout:2500});const p=conn.contexts().flatMap(c=>c.pages()).find(p=>p.url().includes('/app/workspaces/'));if(p)return {conn,p}}catch{}});
+  browser=again.conn;const p=again.p;await p.locator('.studio-browser[aria-busy=false]').waitFor();
+  const o=p.locator('.browser-options');await o.locator('summary').click();await o.locator('.browser-site-shortcut').waitFor();assert.equal(await o.locator('.browser-site-shortcut').textContent(),'QA13 quick website');await o.locator('summary').click();
+  const d2=await manage(p);await d2.getByRole('button',{name:labels['Edit bookmark']+': QA13 quick website',exact:true}).click();
+  const f2=d2.locator('form.browser-bookmark-editor');await f2.getByRole('checkbox',{name:labels['Show in website shortcuts']}).uncheck();await f2.getByRole('button',{name:labels.Save,exact:true}).click();
+  await wait('unmark preserved both URLs',async()=>{const b=(await bookmarks(p)).bookmarks;return b.length===2&&!b.some(i=>i.shortcut)&&b.some(i=>i.id===legacy.id&&i.title===legacy.title&&i.url===legacy.url)});
+  await d2.getByRole('button',{name:labels.Close,exact:true}).click();await o.locator('summary').click();await sleep(500);assert.equal(await o.locator('.browser-site-shortcut').count(),0);
+  record('real process restart preserves shortcuts; removing a shortcut preserves both bookmarks and the original ID');
+
   }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message,JSON.stringify(await describe()));}
   if(pageFailure)throw pageFailure;
 }finally{await nativeBrowser?.close().catch(()=>{});await browser?.close().catch(()=>{});app?.kill();served.server.closeAllConnections();served.server.close();}
