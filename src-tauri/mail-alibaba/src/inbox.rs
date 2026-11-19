@@ -61,7 +61,7 @@ impl Write for Bounded {
     }
 }
 impl Alibaba {
-    fn inbox(&self, address: &str, password: &str) -> Result<(imap::Session<Bounded>, u32)> {
+    fn inbox(&self, address: &str, password: &str) -> Result<(imap::Session<Bounded>, u32, u32)> {
         let mut tls = TlsConnector::builder();
         tls.min_protocol_version(Some(native_tls::Protocol::Tlsv12));
         if let Some(der) = &self.extra_root {
@@ -98,13 +98,14 @@ impl Alibaba {
                 imap::error::Error::No(_) => "mail_client_password_or_admin_policy",
                 _ => "mail_connect",
             })?;
-        let validity = session
+        let book = session
             .examine("INBOX")
-            .map_err(|_| "mail_inbox_unavailable")?
+            .map_err(|_| "mail_inbox_unavailable")?;
+        let validity = book
             .uid_validity
             .filter(|n| *n > 0)
             .ok_or("mail_uid_validity")?;
-        Ok((session, validity))
+        Ok((session, validity, book.exists))
     }
     pub(crate) fn list(
         &self,
@@ -116,50 +117,47 @@ impl Alibaba {
         if !(1..=40).contains(&limit) || cursor.is_some_and(|c| c.before == 0) {
             return Err("mail_invalid_page");
         }
-        let (mut session, validity) = self.inbox(address, password)?;
+        let (mut session, validity, exists) = self.inbox(address, password)?;
         if cursor.is_some_and(|c| c.uid_validity != validity) {
             return Err("mail_inbox_changed");
         }
-        let upper = cursor.map_or(u32::MAX, |c| c.before - 1);
-        let mut uids = if upper == 0 {
-            Vec::new()
-        } else {
-            session
-                .uid_search(format!("UID 1:{upper}"))
-                .map_err(|_| "mail_list_failed")?
-                .into_iter()
-                .filter(|uid| *uid > 0 && *uid <= upper)
-                .collect::<Vec<_>>()
+        // Sequence positions are contiguous even when UIDs span billions. The exact UID cursor
+        // normally costs one small lookup; if it was expunged, find its predecessor in <=32 probes.
+        let end = match cursor {
+            None => exists,
+            Some(c) => older_end(&mut session, exists, c.before)?,
         };
-        uids.sort_unstable_by(|a, b| b.cmp(a));
-        let more = uids.len() > limit as usize;
-        uids.truncate(limit as usize);
+        let start = end.saturating_sub(u32::from(limit) - 1).max(1);
         let mut messages = Vec::new();
-        if !uids.is_empty() {
-            let ids = uids
-                .iter()
-                .map(u32::to_string)
-                .collect::<Vec<_>>()
-                .join(",");
+        if end > 0 {
             let rows = session
-                .uid_fetch(ids, "(UID RFC822.SIZE BODY.PEEK[HEADER]<0.65536>)")
+                .fetch(
+                    format!("{start}:{end}"),
+                    "(UID RFC822.SIZE BODY.PEEK[HEADER]<0.65536>)",
+                )
                 .map_err(|_| "mail_list_failed")?;
             for r in rows.iter() {
-                let Some(uid) = r.uid.filter(|uid| uids.contains(uid)) else {
-                    continue;
-                };
                 // Servers can deliver unsolicited flag-only FETCH responses.
                 let Some(header) = r.header() else { continue };
+                let uid = r.uid.filter(|u| *u > 0).ok_or("mail_protocol")?;
+                if !(start..=end).contains(&r.message) || cursor.is_some_and(|c| uid >= c.before) {
+                    return Err("mail_inbox_changed");
+                }
                 if header.len() >= MAX_HEADER {
                     return Err("mail_header_too_large");
                 }
                 messages.push(summary(header, uid, r.size.ok_or("mail_protocol")?)?);
             }
             messages.sort_unstable_by_key(|m| std::cmp::Reverse(m.uid));
+            if messages.len() != (end - start + 1) as usize
+                || messages.windows(2).any(|pair| pair[0].uid == pair[1].uid)
+            {
+                return Err("mail_inbox_changed");
+            }
         }
-        let next = if more {
-            uids.last().map(|uid| Cursor {
-                before: *uid,
+        let next = if start > 1 {
+            messages.last().map(|m| Cursor {
+                before: m.uid,
                 uid_validity: validity,
             })
         } else {
@@ -181,7 +179,7 @@ impl Alibaba {
         if uid == 0 || validity == 0 {
             return Err("mail_invalid_uid");
         }
-        let (mut session, current) = self.inbox(address, password)?;
+        let (mut session, current, _) = self.inbox(address, password)?;
         if current != validity {
             return Err("mail_inbox_changed");
         }
@@ -211,6 +209,44 @@ impl Alibaba {
             text: m.body_text(0).unwrap_or_default().into_owned(),
         })
     }
+}
+fn older_end(session: &mut imap::Session<Bounded>, exists: u32, before: u32) -> Result<u32> {
+    if before <= 1 || exists == 0 {
+        return Ok(0);
+    }
+    let exact = session
+        .uid_fetch(before.to_string(), "(UID)")
+        .map_err(|_| "mail_list_failed")?;
+    if let Some(seq) = exact
+        .iter()
+        .find(|row| row.uid == Some(before))
+        .map(|r| r.message)
+    {
+        return if seq > 0 && seq <= exists {
+            Ok(seq - 1)
+        } else {
+            Err("mail_inbox_changed")
+        };
+    }
+    let (mut lo, mut hi) = (1u64, u64::from(exists) + 1);
+    while lo < hi {
+        let mid = (lo + hi) / 2;
+        let rows = session
+            .fetch(mid.to_string(), "(UID)")
+            .map_err(|_| "mail_list_failed")?;
+        let uid = rows
+            .iter()
+            .find(|r| u64::from(r.message) == mid)
+            .and_then(|r| r.uid)
+            .filter(|u| *u > 0)
+            .ok_or("mail_inbox_changed")?;
+        if uid < before {
+            lo = mid + 1
+        } else {
+            hi = mid
+        }
+    }
+    Ok((lo - 1) as u32)
 }
 fn summary(bytes: &[u8], uid: u32, size: u32) -> Result<Summary> {
     let m = MessageParser::new()

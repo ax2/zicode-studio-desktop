@@ -15,6 +15,9 @@ struct Fixture {
     rx: std::sync::mpsc::Receiver<String>,
 }
 fn fixture(smtp: bool, drop_final: bool) -> Fixture {
+    sized_fixture(smtp, drop_final, 3, 10)
+}
+fn sized_fixture(smtp: bool, drop_final: bool, count: u32, stride: u32) -> Fixture {
     let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
     ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
@@ -65,7 +68,7 @@ fn fixture(smtp: bool, drop_final: bool) -> Fixture {
         if smtp {
             serve_smtp(&mut s, drop_final, tx)
         } else {
-            serve_imap(&mut s)
+            serve_imap(&mut s, count, stride, tx)
         }
     });
     Fixture {
@@ -86,7 +89,7 @@ fn emit(s: &mut Server, text: &str) {
     stream.write_all(text.as_bytes()).unwrap();
     stream.flush().unwrap();
 }
-fn serve_imap(s: &mut Server) {
+fn serve_imap(s: &mut Server, count: u32, stride: u32, trace: std::sync::mpsc::Sender<String>) {
     emit(s, "* OK local synthetic IMAP\r\n");
     loop {
         let command = line(s);
@@ -99,11 +102,18 @@ fn serve_imap(s: &mut Server) {
             assert!(cmd.contains("synthetic"));
             emit(s, &format!("{tag} OK authenticated\r\n"));
         } else if upper.starts_with("EXAMINE ") {
-            emit(s,&format!("* 3 EXISTS\r\n* OK [UIDVALIDITY 7] stable\r\n{tag} OK [READ-ONLY] examined\r\n"));
-        } else if upper.starts_with("UID SEARCH ") {
-            emit(s, &format!("* SEARCH 10 20 30\r\n{tag} OK search\r\n"));
-        } else if upper.starts_with("UID FETCH ") {
-            let ids = cmd.split_whitespace().nth(2).unwrap();
+            emit(s,&format!("* {count} EXISTS\r\n* OK [UIDVALIDITY 7] stable\r\n{tag} OK [READ-ONLY] examined\r\n"));
+        } else if upper.starts_with("FETCH ") || upper.starts_with("UID FETCH ") {
+            trace.send(upper.clone()).unwrap();
+            let is_uid = upper.starts_with("UID ");
+            let range = cmd
+                .split_whitespace()
+                .nth(if is_uid { 2 } else { 1 })
+                .unwrap();
+            let (a, b) = range.split_once(':').unwrap_or((range, range));
+            let a = a.parse::<u32>().unwrap();
+            let b = b.parse::<u32>().unwrap();
+            assert!(b >= a && b - a < 40, "page must be bounded");
             let header = upper.contains("[HEADER]");
             let bytes = if header {
                 &MSG[..MSG.find("\r\n\r\n").unwrap() + 4]
@@ -111,14 +121,61 @@ fn serve_imap(s: &mut Server) {
                 MSG
             };
             let part = if header { "HEADER" } else { "" };
-            for uid in ids.split(',') {
-                emit(s,&format!("* 1 FETCH (UID {uid} RFC822.SIZE {} BODY[{part}]<0> {{{}}}\r\n{bytes})\r\n",MSG.len(),bytes.len()));
+            for pos in a..=b {
+                if is_uid && !pos.is_multiple_of(stride) {
+                    continue;
+                }
+                let seq = if is_uid { pos / stride } else { pos };
+                if seq == 0 || seq > count {
+                    continue;
+                }
+                let uid = seq * stride;
+                if upper.ends_with("(UID)") {
+                    emit(s, &format!("* {seq} FETCH (UID {uid})\r\n"));
+                } else {
+                    emit(s,&format!("* {seq} FETCH (UID {uid} RFC822.SIZE {} BODY[{part}]<0> {{{}}}\r\n{bytes})\r\n",MSG.len(),bytes.len()));
+                }
             }
             emit(s, &format!("{tag} OK fetched\r\n"));
         } else {
             panic!("Unexpected synthetic IMAP command")
         }
     }
+}
+#[test]
+fn million_sparse_uids_use_one_header_window_and_bounded_cursor_probes() {
+    let mut db = database();
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let f = sized_fixture(false, false, 1_000_000, 4000);
+    let first = mail.sync(&f.adapter, "synthetic", None, 3).unwrap();
+    f.thread.join().unwrap();
+    assert_eq!(
+        first.messages.iter().map(|m| m.uid).collect::<Vec<_>>(),
+        [4_000_000_000, 3_999_996_000, 3_999_992_000]
+    );
+    assert_eq!(f.rx.try_iter().count(), 1);
+    let f = sized_fixture(false, false, 1_000_000, 4000);
+    let second = mail.sync(&f.adapter, "synthetic", first.next, 3).unwrap();
+    f.thread.join().unwrap();
+    assert_eq!(second.messages[0].uid, 3_999_988_000);
+    assert_eq!(f.rx.try_iter().count(), 2);
+    let f = sized_fixture(false, false, 1_000_000, 4000);
+    let removed = mail
+        .sync(
+            &f.adapter,
+            "synthetic",
+            Some(Cursor {
+                uid_validity: 7,
+                before: 2_000_000_001,
+            }),
+            3,
+        )
+        .unwrap();
+    f.thread.join().unwrap();
+    assert_eq!(removed.messages[0].uid, 2_000_000_000);
+    let log: Vec<_> = f.rx.try_iter().collect();
+    assert!(log.len() <= 22);
+    assert_eq!(log.iter().filter(|op| op.contains("HEADER")).count(), 1);
 }
 fn serve_smtp(s: &mut Server, drop_final: bool, tx: std::sync::mpsc::Sender<String>) {
     emit(s, "220 localhost ESMTP fixture\r\n");
