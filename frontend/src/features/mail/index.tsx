@@ -13,8 +13,8 @@ export function Mail({invoke}:{invoke:Invoke}) {
   const [accounts,setAccounts]=useState<Account[]>([]), [account,setAccount]=useState("");
   const [provider,setProvider]=useState("gmail"), [address,setAddress]=useState("");
   const [drafts,setDrafts]=useState<Draft[]>([]), [edit,setEdit]=useState<Draft>(blank);
-  const [dirty,setDirty]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
-  const lock=useRef(false);
+  const [dirty,setDirty]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState("");
+  const lock=useRef(true);
   async function run(fn:()=>Promise<void>) {
     if(lock.current)return;
     lock.current=true;setBusy(true);setError("");
@@ -27,12 +27,18 @@ export function Mail({invoke}:{invoke:Invoke}) {
     const rows=id?await invoke<Draft[]>({kind:"drafts",account:id}):[];
     setAccount(id);setDrafts(rows);setEdit(blank());setDirty(false);
   }
-  useEffect(()=>{let live=true;void (async()=>{
+  useEffect(()=>{let live=true;lock.current=true;setBusy(true);void (async()=>{
     try{const rows=await invoke<Account[]>({kind:"accounts"});const id=rows[0]?.id??"";
       const list=id?await invoke<Draft[]>({kind:"drafts",account:id}):[];
       if(live){setAccounts(rows);setAccount(id);setDrafts(list)}
-    }catch{if(live)setError(t("Could not access local mail data."))}
+    }catch{if(live)setError(t("Could not access local mail data."))}finally{if(live){lock.current=false;setBusy(false)}}
   })();return()=>{live=false}},[invoke]);
+  useEffect(()=>{
+    if(!dirty)return;
+    const warn=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue=""};
+    window.addEventListener("beforeunload",warn);
+    return()=>window.removeEventListener("beforeunload",warn);
+  },[dirty]);
   const discard=()=>!dirty||window.confirm(t("Discard unsaved draft changes?"));
   function change(key:"recipient"|"subject"|"body",value:string){setEdit({...edit,[key]:value});setDirty(true)}
   return <section className="mail-local"><h2>{t("Mail")}</h2>

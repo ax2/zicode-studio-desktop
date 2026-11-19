@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {afterEach,expect,it,vi} from "vitest";
-import {Mail} from "./index";
+import {Mail,setupMailApp} from "./index";
 import {setLocale} from "../../shared/i18n";
 afterEach(()=>{cleanup();vi.restoreAllMocks()});
 it("keeps composing local, saves explicitly, reopens and deletes without sending",async()=>{
@@ -30,4 +30,37 @@ it("keeps composing local, saves explicitly, reopens and deletes without sending
   vi.spyOn(window,"confirm").mockReturnValue(true);fireEvent.click(screen.getByRole("button",{name:"Delete draft"}));
   await waitFor(()=>expect(screen.queryByRole("button",{name:"New idea"})).toBe(null));
   expect(calls).toEqual(["accounts","drafts","save","accounts","drafts","delete"]);
+});
+
+it("locks account creation until the initial mailbox and drafts have both loaded",async()=>{
+  setLocale("en");
+  let finishAccounts:(v:unknown)=>void=()=>{},finishDrafts:(v:unknown)=>void=()=>{};
+  const invoke=vi.fn((req:Record<string,unknown>)=> new Promise(resolve=>{
+    if(req.kind==="accounts")finishAccounts=resolve;
+    else if(req.kind==="drafts")finishDrafts=resolve;
+    else throw Error("unexpected mutation during initialization");
+  }));
+  render(<Mail invoke={invoke as Parameters<typeof Mail>[0]["invoke"]}/>);
+  const add=screen.getByRole("button",{name:"Add local account"});
+  expect(add.matches(":disabled")).toBe(true);
+  await act(async()=>finishAccounts([{id:"old",address:"old@example.test",provider:"gmail"}]));
+  expect(add.matches(":disabled")).toBe(true);fireEvent.click(add);
+  await act(async()=>finishDrafts([]));
+  expect(add.matches(":disabled")).toBe(false);
+  expect(invoke.mock.calls.map(([r])=>r.kind)).toEqual(["accounts","drafts"]);
+});
+
+it("retains unsaved mail when its tool tab closes and the surface is reattached",async()=>{
+  setLocale("en");
+  const invoke=async<T,>(r:Record<string,unknown>)=>(r.kind==="accounts"?[{id:"a",provider:"alibaba",address:"a@example.test"}]:[]) as T;
+  const app=setupMailApp(invoke),one=document.createElement("div"),two=document.createElement("div");
+  document.body.append(one,two);
+  try{
+    await act(async()=>app.renderContent(one));
+    fireEvent.change(await screen.findByLabelText("Message body"),{target:{value:"unsaved text"}});
+    app.deactivate();one.replaceChildren();
+    await act(async()=>app.renderContent(two));
+    expect((screen.getByLabelText("Message body") as HTMLTextAreaElement).value).toBe("unsaved text");
+    expect(screen.getByRole("button",{name:"Save draft"}).matches(":disabled")).toBe(false);
+  }finally{await act(async()=>app.destroy());one.remove();two.remove()}
 });
