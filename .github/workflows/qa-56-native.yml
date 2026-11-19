@@ -27,13 +27,9 @@ jobs:
           if ($p.ExitCode) {throw "Installer: $($p.ExitCode)"}
           $exe=Get-Item "$dir/zicode-studio-desktop.exe"
           "STUDIO_56_EXE=$($exe.FullName)" >> $env:GITHUB_ENV
-      - name: Prepare public offline translation packages
+      - name: Exercise missing models, registration conflicts, manual imports and invalid clipboard input
         working-directory: scripts/qa/clipboard-56
         run: |
-          npm install --no-fund --no-audit --no-save @huggingface/transformers@3.7.6 playwright-core@1.56.1
+          npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
           if ($LASTEXITCODE) {exit $LASTEXITCODE}
-          node offline.mjs prepare
-      - name: Verify offline translation, overlap and draft protection
-        working-directory: scripts/qa/clipboard-56
-        run: |
-          node qa.mjs
+          node edges.mjs
