@@ -6,6 +6,7 @@ Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 public static class Q35 {
+  [DllImport("user32.dll")] public static extern IntPtr GetSubMenu(IntPtr menu,int i);
   [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr dialog,int id);
   [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr parent,IntPtr after,string cls,string title);
   [DllImport("user32.dll")] public static extern IntPtr SendMessageTimeout(IntPtr hwnd,uint msg,IntPtr wp,IntPtr lp,uint flags,uint timeout,out IntPtr result);
@@ -82,20 +83,41 @@ if($Mode -eq 'quick'){
   if(!$item){$arrow=ShellItem 'show hidden icons|notification chevron|显示隐藏|显示.*图标';if($arrow){Click $arrow $false;Start-Sleep -Milliseconds 340};$item=ShellItem 'ZiCode Studio Desktop'}
   if(!$item){throw 'No Studio notification icon'}
   Click $item $true
-  function MenuEntry([string]$pattern){
-    for($i=0;$i -lt 25;$i++){
-      $item=ShellItem $pattern $true
-      if($item){return $item}
-      Start-Sleep -Milliseconds 100
+  function Get-MenuLabels([IntPtr]$menu){
+    for($i=0;$i -lt [Q35]::GetMenuItemCount($menu);$i++){
+      $caption=[Text.StringBuilder]::new(300);[void][Q35]::GetMenuString($menu,$i,$caption,300,0x400)
+      [pscustomobject]@{index=$i;text=$caption.ToString().Replace('&','');child=[Q35]::GetSubMenu($menu,$i)}
     }
-    throw "Missing menu entry: $pattern"
   }
-  $quick=MenuEntry '^(Quick tools|快捷工具)$'
-  $r=$quick.Current.BoundingRectangle
-  [void][Q35]::SetCursorPos([int]($r.X+$r.Width/2),[int]($r.Y+$r.Height/2))
-  Start-Sleep -Milliseconds 750
-  $tool=MenuEntry 'Base64.*(encode|编码)'
-  $name=$tool.Current.Name
-  Click $tool $false
-  Write-Output $name;exit
+  function Select-Index([IntPtr]$menu,[int]$index,[string]$key){
+    [System.Windows.Forms.SendKeys]::SendWait('{HOME}')
+    for($step=0;$step -le [Q35]::GetMenuItemCount($menu);$step++){
+      if(([Q35]::GetMenuState($menu,$index,0x400) -band 0x80) -ne 0){
+        [System.Windows.Forms.SendKeys]::SendWait($key);return
+      }
+      [System.Windows.Forms.SendKeys]::SendWait('{DOWN}');Start-Sleep -Milliseconds 75
+    }
+    throw "Could not highlight native menu item $index"
+  }
+  $labels=@();$quick=$null
+  for($n=0;$n -lt 25 -and !$quick;$n++){
+    $popup=[IntPtr]::Zero
+    while(($popup=[Q35]::FindWindowEx([IntPtr]::Zero,$popup,'#32768',$null)) -ne [IntPtr]::Zero){
+      $menu=[IntPtr]::Zero
+      [void][Q35]::SendMessageTimeout($popup,0x1e1,[IntPtr]::Zero,[IntPtr]::Zero,2,400,[ref]$menu)
+      if($menu -eq [IntPtr]::Zero){continue}
+      $labels=@(Get-MenuLabels $menu)
+      $quick=$labels|Where-Object {$_.text -match 'Quick tools|快捷工具'}|Select-Object -First 1
+      if($quick){break}
+    }
+    if(!$quick){Start-Sleep -Milliseconds 100}
+  }
+  if(!$quick -or $quick.child -eq [IntPtr]::Zero){throw "Missing native Quick tools submenu: $($labels.text -join '|')"}
+  $children=@(Get-MenuLabels $quick.child)
+  $tool=$children|Where-Object {$_.text -match 'Base64.*(encode|编码)'}|Select-Object -First 1
+  if(!$tool){throw "Missing pinned encoder in real tray: $($children.text -join '|')"}
+  Select-Index $menu $quick.index '{RIGHT}'
+  Start-Sleep -Milliseconds 330
+  Select-Index $quick.child $tool.index '{ENTER}'
+  Write-Output "Explorer native menu $($quick.text) > $($tool.text)";exit
 }

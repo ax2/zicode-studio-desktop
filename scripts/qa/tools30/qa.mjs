@@ -55,6 +55,7 @@ try{
   report('main window opens the exact selected package and Base64 encoder while preserving its decoder tab',encode);
   await close(encode);await active(decode).waitFor();assert.equal(await ui.locator(opened(encode)).count(),0);
   await close(decode);await active('').waitFor();report('closing the active tool returns to the still-open decoder, then the directory when no tools remain');
+  await ui.locator('[data-window-action="close"]').click();
   const menu=await native('quick');
   await active(encode).waitFor();assert.equal(await ui.locator(opened(encode)).count(),1);
   report('Explorer tray Quick tools opens exactly the same pinned encoder and no duplicate tab',{id:encode,menu});
