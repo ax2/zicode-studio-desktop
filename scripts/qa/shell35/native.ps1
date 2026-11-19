@@ -1,4 +1,4 @@
-﻿param([string]$Mode,[long]$Hwnd,[double]$X=0,[double]$Y=0)
+param([string]$Mode,[long]$Hwnd,[double]$X=0,[double]$Y=0)
 $ErrorActionPreference='Stop'
 if($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:GITHUB_WORKFLOW -ne 'Isolated Windows shell acceptance'){throw 'Disposable VM only'}
 Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes,System.Windows.Forms
@@ -133,6 +133,29 @@ if($Mode -eq 'menu'){
   $target=$root.FindAll([Windows.Automation.TreeScope]::Descendants,$c)|Where-Object {!$_.Current.IsOffscreen -and $_.Current.Name -match '^Zoom in|^放大'}|Select-Object -First 1
   if($target){$result.activated=$target.Current.Name;Click $target $false}
  }
+}
+
+if($Mode -in @('pdfend','pdfhome','ctrlprint')){
+ [void][Q35]::SetCursorPos(($pt.x+[int]($X*$rect.right)),($pt.y+[int]($Y*$rect.bottom)))
+ [Q35]::mouse_event(2,0,0,0,[UIntPtr]::Zero);[Q35]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+ $key=if($Mode -eq 'pdfend'){35}elseif($Mode -eq 'pdfhome'){36}else{80}
+ [Q35]::keybd_event(17,0,0,[UIntPtr]::Zero);Start-Sleep -Milliseconds 50
+ [Q35]::keybd_event($key,0,0,[UIntPtr]::Zero);[Q35]::keybd_event($key,0,2,[UIntPtr]::Zero);[Q35]::keybd_event(17,0,2,[UIntPtr]::Zero)
+}
+if($Mode -eq 'printcancel'){
+ $r=[Windows.Automation.AutomationElement]::RootElement
+ for($i=0;$i -lt 30;$i++){
+  $titles=@()
+  foreach($dlg in $r.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.Condition]::TrueCondition)){
+   $titles+=($dlg.Current.ClassName+' '+$dlg.Current.Name)
+   if($dlg.Current.Name -notmatch '^Print$|^打印$|Print dialog'){continue}
+   $list=@($dlg.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition))
+   $cancel=$list|Where-Object {$_.Current.ControlType -eq [Windows.Automation.ControlType]::Button -and $_.Current.Name -match '^Cancel$|^取消$'}|Select-Object -First 1
+   if($cancel){$result.title=$dlg.Current.Name;$result.printerControls=@($list|Where-Object {$_.Current.Name -match '(Printer|Microsoft Print|打印机)'}|ForEach-Object {$_.Current.Name}|Select-Object -First 8);$cancel.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke();$result.cancelled=$true;break}
+  }
+  if($result.cancelled){break};Start-Sleep -Milliseconds 200
+ }
+ if(!$result.cancelled){throw "No cancellable system print dialog: $($titles -join ', ')"}
 }
 
 $result|ConvertTo-Json -Compress
