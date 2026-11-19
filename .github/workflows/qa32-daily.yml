@@ -2,7 +2,7 @@ name: Windows daily profile update acceptance
 on:
   push:
     branches: [codex/qa32-daily]
-    paths: ['.github/workflows/qa32-daily.yml', 'scripts/qa32/**']
+    paths: ['.github/workflows/qa32-daily.yml', 'scripts/qa32/**', 'src-tauri/src/desktop_update_handoff.ps1']
 permissions:
   contents: read
 jobs:
