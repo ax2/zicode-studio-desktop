@@ -300,3 +300,22 @@ async fn exchange_uses_verifier_and_redirect_and_send_maps_definitive_outcomes()
     );
     service.abort();
 }
+
+#[test]
+fn narrower_refresh_grant_is_persisted_even_without_token_rotation() {
+    assert_eq!(
+        super::consent_scope(oauth::READ, &format!("{} {}", oauth::SEND, oauth::READ)),
+        oauth::READ
+    );
+    let prev = super::Saved {
+        refresh: "old".into(),
+        scope: format!("{} {}", oauth::READ, oauth::SEND),
+        client_id: "fixture".into(),
+    };
+    let narrowed = super::updated_grant(&prev, None, oauth::READ).unwrap();
+    assert_eq!(narrowed.refresh, "old");
+    assert_eq!(super::perms(&narrowed.scope)["send"], false);
+    assert!(super::updated_grant(&narrowed, None, oauth::READ).is_none());
+    let rotated = super::updated_grant(&narrowed, Some("new".into()), oauth::READ).unwrap();
+    assert_eq!(rotated.refresh, "new");
+}

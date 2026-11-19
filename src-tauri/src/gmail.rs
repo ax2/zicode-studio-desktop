@@ -30,6 +30,17 @@ impl Drop for Saved {
         self.refresh.zeroize();
     }
 }
+fn updated_grant(old: &Saved, refresh: Option<String>, scope: &str) -> Option<Saved> {
+    let refresh = refresh.filter(|s| !s.is_empty());
+    if refresh.is_none() && old.scope == scope {
+        return None;
+    }
+    Some(Saved {
+        refresh: refresh.unwrap_or_else(|| old.refresh.clone()),
+        scope: scope.into(),
+        client_id: old.client_id.clone(),
+    })
+}
 fn read_secret(key: &str) -> Result<Option<Saved>> {
     let entry = keyring::Entry::new(SERVICE, key).map_err(|_| "gmail_credentials_unavailable")?;
     match entry.get_password() {
@@ -74,6 +85,13 @@ type Gates = Mutex<HashMap<String, Arc<AccountGate>>>;
 static GATES: OnceLock<Gates> = OnceLock::new();
 fn allowed(scope: &str, s: &str) -> bool {
     scope.split_ascii_whitespace().any(|x| x == s)
+}
+fn consent_scope(requested: &str, granted: &str) -> String {
+    [READ, SEND]
+        .into_iter()
+        .filter(|s| allowed(requested, s) && allowed(granted, s))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 fn perms(scopes: &str) -> Value {
     json!({"connected":true,"read":allowed(scopes,READ),"send":allowed(scopes,SEND)})
@@ -264,7 +282,15 @@ pub(crate) async fn mail_gmail(
         )
         .await?;
         let access = Zeroizing::new(std::mem::take(&mut tok.access_token));
-        let scope = tok.scope.ok_or("gmail_permission_denied")?;
+        let requested = if send {
+            format!("{READ} {SEND}")
+        } else {
+            READ.into()
+        };
+        let scope = consent_scope(
+            &requested,
+            tok.scope.as_deref().ok_or("gmail_permission_denied")?,
+        );
         if !allowed(&scope, READ) {
             return Err("gmail_permission_denied".into());
         }
@@ -330,23 +356,18 @@ pub(crate) async fn mail_gmail(
         }
         Err(e) => return Err(e.into()),
     };
-    let token_scope = token.scope.as_deref().unwrap_or(&saved.scope);
-    if !allowed(token_scope, need) {
-        return Err("gmail_permission_denied".into());
-    }
+    let token_scope = consent_scope(&saved.scope, token.scope.as_deref().unwrap_or(&saved.scope));
     let access = Zeroizing::new(std::mem::take(&mut token.access_token));
     {
         let _g = current()?;
-        if let Some(refresh) = token.refresh_token {
-            save_secret(
-                &key,
-                &Saved {
-                    refresh,
-                    scope: token_scope.into(),
-                    client_id: cfg.id.clone(),
-                },
-            )?
+        if let Some(updated) = updated_grant(&saved, token.refresh_token.take(), &token_scope) {
+            save_secret(&key, &updated)?;
         }
+    }
+    // Record a reduced grant before reporting it, including when Google
+    // keeps the refresh token unchanged. Status must not advertise lost rights.
+    if !allowed(&token_scope, need) {
+        return Err("gmail_permission_denied".into());
     }
     let response = match request {
         Request::List { cursor, limit } => {
