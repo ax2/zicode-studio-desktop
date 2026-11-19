@@ -21,13 +21,7 @@ struct Handoff<'a> {
     arguments: Vec<String>,
 }
 
-pub(crate) fn start(
-    installer: &Path,
-    expected_sha256: &str,
-    expected_version: &str,
-    updates_dir: &Path,
-) -> Result<(), String> {
-    let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+pub(crate) fn restart_arguments(tools_only: bool) -> Result<Vec<String>, String> {
     let mut arguments = Vec::new();
     if crate::desktop_profile::requires_explicit_argument() {
         let root = crate::desktop_profile::root().ok_or("Missing active isolated profile")?;
@@ -36,9 +30,20 @@ pub(crate) fn start(
             arguments.extend(["--test-profile".to_owned(), name.to_owned()]);
         }
     }
-    if std::env::args_os().any(|arg| arg == "--tools-only") {
+    if tools_only {
         arguments.push("--tools-only".to_owned());
     }
+    Ok(arguments)
+}
+
+pub(crate) fn start(
+    installer: &Path,
+    expected_sha256: &str,
+    expected_version: &str,
+    updates_dir: &Path,
+) -> Result<(), String> {
+    let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+    let arguments = restart_arguments(std::env::args_os().any(|arg| arg == "--tools-only"))?;
     let data = Handoff {
         pid: std::process::id(),
         executable: &executable,
