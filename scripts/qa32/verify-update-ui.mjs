@@ -54,6 +54,8 @@ async function noteAndBookmark(ui,seed,prior=null){
     const attachmentId=seed?(await gateway.uploadAttachment(scene,ws,full,{fileName:'retained-32.txt',mimeType:'text/plain',dataBase64:btoa('Q32 synthetic attachment bytes')})).attachment.id:prior.attachmentId;
     const attachment=await fetch(gateway.attachmentUrl(scene,ws,full,attachmentId));
     if(!attachment.ok||await attachment.text()!=='Q32 synthetic attachment bytes')throw Error('Original real attachment is missing or changed');
+    if(seed)await invoke('browser_set_search_engine',{engine:'google'});
+    if((await invoke('browser_get_state')).searchEngine!=='google')throw Error('Browser user preference changed');
     const gallery=request=>invoke('visual_assets_control',{workspaceId:ws,request});
     let library=await gallery({kind:'list'});
     if(seed){
@@ -126,6 +128,6 @@ try{
   for(const name of ['check_desktop_update','install_desktop_update','cancel_desktop_update','restart_desktop_after_update'])assert.ok(seen.includes(name),'missing observed production IPC: '+name);
   ({b,ui}=await attach(endpoint));
   assert.deepEqual(await noteAndBookmark(ui,false,committed),committed);
-  pass('actual app check/install/cancel/restart IPC, an installed receipt, relaunch and the same note content, exact attachment bytes, bookmark and gallery collection IDs');
+  pass('actual app check/install/cancel/restart IPC, an installed receipt, relaunch and the same note content, exact attachment bytes, bookmark, search preference and gallery collection IDs');
 } catch(e){if(ui&&!ui.isClosed())console.error('visible diagnostic',String(await ui.locator('body').innerText()).slice(-1700));throw e;}
 finally{await b?.close().catch(()=>{});}
