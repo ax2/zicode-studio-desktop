@@ -38,6 +38,8 @@ gh api repos/ax2/zicode-studio-desktop/issues/<number>/dependencies/blocked_by
 
 ## Issue 层级与模块基本完成版本
 
+运行 `bun scripts/project-status.mjs` 可查看 `hierarchy`。报告覆盖全仓开放与已关闭 Issue，`roots` 列出顶层路线图候选及目标版本，`rootsWithoutEpic` 列出没有原生父级且未标记为路线图的事项，`rootsWithoutVersionMilestone` 列出目标版本缺失或未编号的根项。无法读取的关系、仓外父项和循环单独列出，供人工核对。此报告只读，不改变发布检查的退出条件。
+
 - 一级路线图使用 `type:epic`。正文写明核心流程及基本完成标准，用编号 Milestone 表示期望达到该标准的版本。
 - 每个普通 issue 在创建时设置 GitHub 原生 Parent issue，加入 Project，并选择自身实际交付的编号 Milestone。归属通过 Parent issue 和 Sub-issues progress 查看，关闭后保留父子关系。
 - 模块基本完成后，新发现的体验改进归入[产品优化](https://github.com/ax2/zicode-studio-desktop/issues/139)，回归和缺陷归入[缺陷修复](https://github.com/ax2/zicode-studio-desktop/issues/140)。正文引用原模块，便于追溯。两条路线图按阶段设定目标版本，后续批次可在新版本建立接续路线图。
