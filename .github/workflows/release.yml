@@ -153,7 +153,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/studio-release-verifier"
           cp scripts/verify-release-artifacts.mjs scripts/release-draft-assets.mjs \
             scripts/release-artifact-policy.mjs scripts/executable-architecture.mjs \
-            scripts/macos-bundle-signing.mjs scripts/verify-macos-dmg.mjs \
+            scripts/macos-bundle-signing.mjs scripts/verify-macos-dmg.mjs scripts/verify-windows-installer-runtime.ps1 \
             "$RUNNER_TEMP/studio-release-verifier/"
           echo "Verification workflow source: ${{ github.workflow_sha }}"
 
@@ -346,6 +346,38 @@ jobs:
           releaseDraft: true
           prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           args: --bundles ${{ matrix.bundles }} ${{ runner.os == 'Windows' && '--config src-tauri/tauri.shell.windows.conf.json' || '' }} ${{ steps.macos-bundle-config.outputs.args }}
+
+      - name: Verify actual Windows installer process guards and installation
+        id: installer-acceptance
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          STUDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: |
+          $files = @(Get-ChildItem -LiteralPath target/release/bundle/nsis -Filter '*_x64-setup.exe' -File)
+          if ($files.Count -ne 1) { throw 'Expected exactly one candidate installer' }
+          # An older public version is used only to set up the upgrade. No credentials or draft release access.
+          $baseline = Join-Path $env:RUNNER_TEMP 'studio-upgrade-baseline-0.6.2.exe'
+          $argsForBaseline = @{}
+          if ([version]($env:RELEASE_TAG.Substring(1).Split('-')[0]) -gt [version]'0.6.2') {
+            curl.exe --fail --location --silent --show-error --max-time 120 --output $baseline 'https://github.com/ax2/zicode-studio-desktop/releases/download/v0.6.2/ZiCode.Studio.Desktop_0.6.2_x64-setup.exe'
+            if ($LASTEXITCODE -eq 0) {
+              $argsForBaseline = @{ PreviousInstaller=$baseline; PreviousSha256='e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c' }
+            } else {
+              Write-Warning 'Public upgrade baseline unavailable; upgrade cases will be recorded as skipped.'
+              $global:LASTEXITCODE = 0
+            }
+          }
+          & "$env:RUNNER_TEMP/studio-release-verifier/verify-windows-installer-runtime.ps1" -Installer $files[0].FullName -Version ($env:RELEASE_TAG.Substring(1)) -Receipt "$env:RUNNER_TEMP/studio-installer-acceptance.json" @argsForBaseline
+
+      - name: Retain Windows installer acceptance receipt
+        if: always() && runner.os == 'Windows' && steps.installer-acceptance.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-acceptance-${{ env.RELEASE_TAG }}
+          path: ${{ runner.temp }}/studio-installer-acceptance.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Extract Windows candidate for local acceptance
         if: runner.os == 'Windows'
