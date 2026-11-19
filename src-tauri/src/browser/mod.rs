@@ -69,6 +69,8 @@ pub enum Request {
     SaveScreenshot { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
     PrintPage { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
     SavePdf { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
+    GetUserAgent,
+    SetUserAgent { value: Option<String> },
     MenuLanguage { chinese: bool },
     CancelPopup { request: String },
     Suspend { tab: String },
@@ -137,6 +139,17 @@ pub(crate) async fn browser_control(
     #[cfg(windows)]
     {
         let request = match request {
+            action @ (Request::GetUserAgent | Request::SetUserAgent { .. }) => {
+                let owner = window.label().to_owned();
+                let root = crate::app_paths::data_root()?.join("browser");
+                return tauri::async_runtime::spawn_blocking(move || crate::browser_private::store(&root, &owner, |store| {
+                    let profile = store.state(&owner)?.profile_id;
+                    if let Request::SetUserAgent { value } = action {
+                        store.set_user_agent(&profile, value.as_deref())?;
+                    }
+                    Ok(serde_json::json!(store.user_agent(&profile)?))
+                })).await.map_err(|_| "Browser metadata worker stopped")?;
+            }
             Request::Downloads { before, query } => return download_commands::list(window, before, query).await,
             Request::DownloadChoose { id } => return download_commands::choose(window, id).await,
             Request::DownloadRemove { id } => return download_commands::remove(window, id).await,
@@ -157,9 +170,17 @@ pub(crate) async fn browser_control(
             let owner = window.label().to_owned();
             Some(
                 tauri::async_runtime::spawn_blocking(move || {
-                    if crate::browser_windows::private(&owner){return crate::browser_private::engine(&owner)}
-                    let state = crate::browser_store::Store::open(&root)?.state(&owner)?;
-                    Ok::<_, String>(root.join("profiles").join(state.profile_id).join("engine"))
+                    let (id, user_agent) = crate::browser_private::store(&root, &owner, |store| {
+                        let id = store.state(&owner)?.profile_id;
+                        let user_agent = store.user_agent(&id)?;
+                        Ok((id, user_agent))
+                    })?;
+                    let directory = if crate::browser_windows::private(&owner) {
+                        crate::browser_private::engine(&owner)?
+                    } else {
+                        root.join("profiles").join(id).join("engine")
+                    };
+                    Ok::<_, String>((directory, user_agent))
                 })
                 .await
                 .map_err(|_| "Browser profile worker stopped")??,

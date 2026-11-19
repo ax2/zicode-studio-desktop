@@ -60,7 +60,7 @@ fn focus(window: &WebviewWindow, engine: &NativeBrowserEngine, tab: &str, page: 
 }
 pub(super) fn execute(
     window: &WebviewWindow,
-    profile: Option<PathBuf>,
+    profile: Option<(PathBuf, Option<String>)>,
     request: Request,
 ) -> Result<Value, String> {
     if let Request::Fullscreen { enabled } = request { return super::window_controls::fullscreen(window, enabled); }
@@ -97,6 +97,7 @@ pub(super) fn execute(
             tab_id, zoom, muted, popup_request,
         } = request
         {
+            let (directory, user_agent) = profile.ok_or("Browser profile unavailable")?;
             let rect = bounds(window, viewport)?;
             if !BrowserPolicy::public_web().permits(&url) {
                 return Err("Browser navigation blocked".into());
@@ -108,7 +109,7 @@ pub(super) fn execute(
                 let app = window.app_handle().clone();
                 let owner = window.label().to_owned();
                 let mut engine = NativeBrowserEngine::new(
-                    profile.ok_or("Browser profile unavailable")?,
+                    directory,
                     BrowserPolicy::public_web(),
                     Arc::new(move |event| {
                         if let super::engine::EngineEvent::Popup { request: Some(request), .. } = &event {
@@ -159,6 +160,7 @@ pub(super) fn execute(
             let browser = windows
                 .get_mut(window.label())
                 .ok_or("Browser unavailable")?;
+            browser.engine.user_agent = user_agent;
             if let Some(request) = popup_request {
                 browser.engine.create_popup(window, &tab, &url, rect, (zoom, muted), &request)?;
             } else {
@@ -241,7 +243,7 @@ pub(super) fn execute(
                     json!({"url":browser.engine.view(&tab)?.url().map_err(|e|e.to_string())?}),
                 )
             }
-            Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Suspend { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } | Request::SiteSettings { .. } => unreachable!(),
+            Request::GetUserAgent | Request::SetUserAgent { .. } | Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Suspend { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } | Request::SiteSettings { .. } => unreachable!(),
         }
         Ok(Value::Null)
     }))

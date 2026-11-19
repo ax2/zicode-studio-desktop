@@ -140,6 +140,7 @@ enum ViewStart<'a> {
 }
 
 pub struct NativeBrowserEngine {
+    pub(super) user_agent: Option<String>,
     pub(super) private:bool,
     // Drop native views before their shared browser context.
     pub menu_chinese: Arc<std::sync::atomic::AtomicBool>,
@@ -161,6 +162,7 @@ impl NativeBrowserEngine {
     ) -> Result<Self, String> {
         std::fs::create_dir_all(&profile).map_err(|error| error.to_string())?;
         Ok(Self {
+            user_agent: None,
             private:false,
             menu_chinese: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             downloads: native_downloads::Downloads::new(emit.clone()),
@@ -248,6 +250,10 @@ impl NativeBrowserEngine {
         initial_bounds.position = LogicalPosition::new(0.0, 0.0).into();
         let environment = opener.as_ref().map(|source| self.view(source).map(WebViewExtWindows::environment)).transpose()?;
         let builder = WebViewBuilder::new_with_web_context(&mut self.context);
+        let builder = match self.user_agent.as_deref() {
+            Some(value) => builder.with_user_agent(value),
+            None => builder,
+        };
         let builder = if let Some(environment) = environment { builder.with_environment(environment) } else { builder };
         let view = builder
             .with_incognito(self.private)
