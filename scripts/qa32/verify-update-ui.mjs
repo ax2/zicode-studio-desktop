@@ -34,8 +34,8 @@ async function attach(previous=''){
   await ui.waitForFunction(()=>!!window.__picotNative,{},{timeout:55000});
   return {b,ui,endpoint};
 }
-async function noteAndBookmark(ui,seed){
-  return ui.evaluate(async seed=>{
+async function noteAndBookmark(ui,seed,prior=null){
+  return ui.evaluate(async ({seed,prior})=>{
     const {NotesGateway}=await import('/native/plugins/notes-gateway.js');
     const gateway=new NotesGateway(),ws=location.pathname.match(/\/workspaces\/([^/]+)/)[1],scene='programming';
     const invoke=(command,args)=>window.__TAURI__.core.invoke(command,args);
@@ -51,8 +51,19 @@ async function noteAndBookmark(ui,seed){
     const full=(await gateway.get(scene,ws,note.notebookId,note.id)).note;
     const bookmark=(await invoke('browser_bookmarks',{request:{kind:'list'}})).bookmarks.find(v=>v.id==='0c4908f1-f40f-405a-aed1-0fa8e317b22f');
     if(!bookmark)throw Error('Retained bookmark missing');
-    return {note:[full.id,full.title,full.content],bookmark};
-  },seed);
+    const attachmentId=seed?(await gateway.uploadAttachment(scene,ws,full,{fileName:'retained-32.txt',mimeType:'text/plain',dataBase64:btoa('Q32 synthetic attachment bytes')})).attachment.id:prior.attachmentId;
+    const attachment=await fetch(gateway.attachmentUrl(scene,ws,full,attachmentId));
+    if(!attachment.ok||await attachment.text()!=='Q32 synthetic attachment bytes')throw Error('Original real attachment is missing or changed');
+    const gallery=request=>invoke('visual_assets_control',{workspaceId:ws,request});
+    let library=await gallery({kind:'list'});
+    if(seed){
+      await gallery({kind:'changeCollections',libraryId:library.libraryId,edit:{kind:'create',name:'Q32 retained collection'}});
+      library=await gallery({kind:'list'});
+    }
+    const collection=library.collections?.find(c=>c.name==='Q32 retained collection');
+    if(!collection)throw Error('Original gallery collection is missing or changed');
+    return {note:[full.id,full.title,full.content],bookmark,attachmentId,libraryId:library.libraryId,collection};
+  },{seed,prior});
 }
 let app,b,ui;
 try{
@@ -114,7 +125,7 @@ try{
   assert.equal(r.status,'installed',r.message);assert.equal(r.version,'0.6.2');
   for(const name of ['check_desktop_update','install_desktop_update','cancel_desktop_update','restart_desktop_after_update'])assert.ok(seen.includes(name),'missing observed production IPC: '+name);
   ({b,ui}=await attach(endpoint));
-  assert.deepEqual(await noteAndBookmark(ui,false),committed);
-  pass('actual app check/install/cancel/restart IPC, an installed receipt, relaunch and the very same note content and bookmark');
+  assert.deepEqual(await noteAndBookmark(ui,false,committed),committed);
+  pass('actual app check/install/cancel/restart IPC, an installed receipt, relaunch and the same note content, exact attachment bytes, bookmark and gallery collection IDs');
 } catch(e){if(ui&&!ui.isClosed())console.error('visible diagnostic',String(await ui.locator('body').innerText()).slice(-1700));throw e;}
 finally{await b?.close().catch(()=>{});}
