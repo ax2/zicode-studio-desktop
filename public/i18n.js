@@ -1023,7 +1023,7 @@ const zhCN = {
   "Browser is available in the Windows desktop app": "请在 Windows 桌面版中使用浏览器",
   "This browser action is not available yet": "此浏览器操作暂未开放",
   "Page could not be loaded": "网页加载失败",
-  "The page process stopped. Reload the tab to reopen its address.": "网页进程已停止。请重新加载标签页以打开原地址。",
+  "The page process stopped. Unsaved page input may be lost. Reload to reopen the address.": "网页进程已停止，未保存的网页输入可能已丢失。重新加载可打开原地址。",
   "Suspend background tab": "挂起后台标签页",
   "Timers pause until you select this tab again": "重新选择该标签页前，网页计时器会暂停",
   "Background tab suspended": "已挂起后台标签页",
