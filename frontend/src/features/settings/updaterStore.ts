@@ -9,6 +9,7 @@ export interface UpdateInfo {
   date?: string;
   body?: string;
   nativeManaged?: boolean;
+  fullInstaller?: boolean;
   downloadAndInstall?: (
     handler?: (event: unknown) => void,
   ) => Promise<unknown>;
@@ -20,6 +21,7 @@ export interface UpdateProgressEvent {
 }
 
 type TauriUpdater = {
+  event?: { listen: (name: string, callback: (event: { payload: { phase: string; downloaded: number; total: number } }) => void) => Promise<() => void> };
   process?: { relaunch?: () => Promise<unknown> };
   updater?: { check?: () => Promise<unknown> };
   core?: { invoke?: (..._args: unknown[]) => Promise<unknown> };
@@ -39,6 +41,9 @@ export interface AppUpdaterState {
   sidebarVisible: boolean;
   checking: boolean;
   installing: boolean;
+  installerReady: boolean;
+  canCancel: boolean;
+  lastInstallResult: string;
   totalBytes: number;
   downloadedBytes: number;
   lastCheckMs: number;
@@ -51,6 +56,7 @@ export interface AppUpdaterState {
   showAvailable(nextUpdate: UpdateInfo | null | undefined): void;
   checkNow(options?: { silent?: boolean }): Promise<unknown>;
   installUpdate(): Promise<void>;
+  cancelDownload(): Promise<void>;
 }
 
 function formatProgress(downloadedBytes: number, totalBytes: number): string {
@@ -79,6 +85,9 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   sidebarVisible: false,
   checking: false,
   installing: false,
+  installerReady: false,
+  canCancel: false,
+  lastInstallResult: "",
   totalBytes: 0,
   downloadedBytes: 0,
   lastCheckMs: 0,
@@ -91,6 +100,8 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       update: null,
       checking: false,
       installing: false,
+      installerReady: false,
+      canCancel: false,
       totalBytes: 0,
       downloadedBytes: 0,
     });
@@ -125,7 +136,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       status: version
         ? t("Version {version} available").replace("{version}", version)
         : t("Update available"),
-      button: t("Download & install"),
+      button: nextUpdate?.fullInstaller ? t("Download update") : t("Download & install"),
       disabled: false,
       canInstall: true,
       sidebarVisible: true,
@@ -134,7 +145,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   async checkNow({ silent = false } = {}) {
     const state = get();
     if (!state.enabled) return null;
-    if (state.checking || state.installing) return state.update;
+    if (state.checking || state.installing || state.installerReady) return state.update;
     const generation = ++checkGeneration;
     const beta = betaUpdatesEnabled();
     const current = () => generation === checkGeneration && get().enabled && beta === betaUpdatesEnabled();
@@ -188,6 +199,25 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       if (generation === checkGeneration) set({ checking: false });
     }
   },
+  async cancelDownload() {
+    const { installerReady, canCancel, installing, update } = get();
+    if (!canCancel && !(installerReady && !installing)) return;
+    if (installerReady) set({ disabled: true, installing: true });
+    try {
+      const invoke = (globalThis as unknown as TauriGlobal).__TAURI__?.core?.invoke;
+      if (!invoke) throw new Error("Desktop updater is unavailable");
+      await invoke("cancel_desktop_update");
+      if (installerReady) {
+        set({ installerReady: false });
+        get().showAvailable(update);
+      }
+    } catch (error) {
+      get().logger.warn?.("[Updater] Cancel failed:", error);
+      if (installerReady) set({ status: t("Could not discard the downloaded installer.") });
+    } finally {
+      if (installerReady) set({ disabled: false, installing: false });
+    }
+  },
   async installUpdate() {
     const state = get();
     if (!state.enabled || state.checking || state.installing) return;
@@ -195,6 +225,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       await get().checkNow();
       if (!get().update) return;
     }
+    const selectedUpdate = get().update;
 
     set({
       installing: true,
@@ -207,6 +238,48 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     });
 
     const tauri = (globalThis as unknown as TauriGlobal).__TAURI__;
+    if (selectedUpdate?.fullInstaller) {
+      let unlisten: (() => void) | undefined;
+      let cancelled = false;
+      try {
+        if (!tauri?.core?.invoke) throw new Error("Desktop updater is unavailable");
+        if (state.installerReady) {
+          set({ status: t("Closing Studio to install…") });
+          await tauri.core.invoke("restart_desktop_after_update");
+          return;
+        }
+        if (tauri.event) {
+          unlisten = await tauri.event.listen("desktop-update-progress", ({ payload }) => {
+            if (payload.phase === "downloading") {
+              set({ canCancel: true, downloadedBytes: payload.downloaded, totalBytes: payload.total,
+                status: formatProgress(payload.downloaded, payload.total) });
+            } else if (payload.phase === "verifying") {
+              set({ canCancel: false, status: t("Verifying installer…") });
+            } else if (payload.phase === "cancelled") {
+              cancelled = true;
+            }
+          });
+        }
+        const download = selectedUpdate.downloadAndInstall;
+        if (!download) throw new Error("Desktop update download is unavailable");
+        await download();
+        set({ installerReady: true, status: t("Installer verified"), button: t("Install and exit"),
+          disabled: false, canInstall: true, sidebarVisible: true });
+      } catch (error) {
+        get().logger.warn?.("[Updater] Update failed:", error);
+        cancelled ||= String(error).includes("UPDATE_CANCELLED");
+        let failureStatus = state.installerReady ? t("Install failed") : t("Download failed");
+        if (String(error).includes("Close other Studio instances")) failureStatus = t("Close other Studio instances and try again.");
+        if (String(error).includes("Start the installed copy")) failureStatus = t("Open the installed copy of Studio to update it.");
+        set({ status: cancelled ? t("Download cancelled") : failureStatus,
+          button: state.installerReady ? t("Install and exit") : t("Download update"),
+          disabled: false, canInstall: true, sidebarVisible: true });
+      } finally {
+        unlisten?.();
+        set({ canCancel: false, installing: false });
+      }
+      return;
+    }
     let updateLeaseHeld = false;
     let restartOnFailure = true;
     try {
