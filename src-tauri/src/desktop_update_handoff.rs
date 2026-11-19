@@ -29,7 +29,7 @@ pub(crate) fn start(
 ) -> Result<(), String> {
     let executable = std::env::current_exe().map_err(|e| e.to_string())?;
     let mut arguments = Vec::new();
-    if crate::desktop_profile::is_isolated() {
+    if crate::desktop_profile::requires_explicit_argument() {
         let root = crate::desktop_profile::root().ok_or("Missing active isolated profile")?;
         arguments.extend(["--isolated-profile".to_owned(), root.display().to_string()]);
         if let Some(name) = crate::desktop_profile::test_profile_name() {
