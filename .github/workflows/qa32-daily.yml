@@ -1,0 +1,75 @@
+name: Windows daily profile update acceptance
+on:
+  push:
+    branches: [codex/qa32-daily]
+    paths: ['.github/workflows/qa32-daily.yml', 'scripts/qa32/**']
+permissions:
+  contents: read
+jobs:
+  daily:
+    runs-on: windows-2022
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            src-tauri/src
+            scripts/qa32
+          persist-credentials: false
+      - name: Compile exact production profile parser and updater handoff in a focused test parent
+        shell: pwsh
+        run: |
+          $dir=Join-Path $env:RUNNER_TEMP fixture
+          cargo new $dir --bin --name zicode-studio-desktop
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          foreach($f in @('desktop_profile','desktop_profile.rs','process_command.rs','desktop_update_handoff.rs','desktop_update_handoff.ps1')){Copy-Item -LiteralPath "src-tauri/src/$f" -Destination "$dir/src/" -Recurse}
+          Copy-Item scripts/qa32/daily-main.rs "$dir/src/main.rs" -Force
+          Add-Content "$dir/Cargo.toml" @'
+          fs2 = "0.4.3"
+          dirs = "6"
+          serde = { version = "1", features = ["derive"] }
+          serde_json = "1"
+          base64 = "0.22"
+          '@
+          Push-Location $dir
+          cargo build --quiet
+          exit $LASTEXITCODE
+      - name: Install actual Studio with disposable daily selection, store credential, update and reopen it
+        shell: pwsh
+        working-directory: scripts/qa32
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:Q32_PROFILE=Join-Path $env:RUNNER_TEMP 'Daily profile'
+          $dir=Join-Path $env:RUNNER_TEMP 'Daily installed Studio'
+          $env:Q32_EXE=Join-Path $dir 'zicode-studio-desktop.exe'
+          $updates=Join-Path $env:Q32_PROFILE 'data/desktop-updates'
+          $creds=Join-Path $env:Q32_PROFILE 'system/credentials'
+          [void][IO.Directory]::CreateDirectory($updates)
+          [void][IO.Directory]::CreateDirectory($creds)
+          [IO.File]::WriteAllText("$env:Q32_PROFILE/profile.json",'{"schemaVersion":1,"kind":"zicode-isolated-desktop"}'+[char]10)
+          [IO.File]::WriteAllText("$creds/profile-permission.json",'{"schemaVersion":1,"systemCredentials":true}')
+          $cfg=Join-Path $env:LOCALAPPDATA zicode
+          [void][IO.Directory]::CreateDirectory($cfg)
+          $config=Join-Path $cfg desktop-profile.json
+          if(Test-Path $config){throw 'Expected a clean Windows account'}
+          [IO.File]::WriteAllText($config,(@{schemaVersion=1;profileRoot=$env:Q32_PROFILE}|ConvertTo-Json -Compress))
+          $before=(Get-FileHash $config).Hash
+          $env:Q32_CANDIDATE=Join-Path $updates ("candidate-"+[guid]::NewGuid()+".exe")
+          curl.exe -fsSL --max-time 240 -o $env:Q32_CANDIDATE https://github.com/ax2/zicode-studio-desktop/releases/download/v0.6.2/ZiCode.Studio.Desktop_0.6.2_x64-setup.exe
+          if($LASTEXITCODE -or (Get-FileHash $env:Q32_CANDIDATE).Hash.ToLowerInvariant() -cne 'e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c'){throw 'Unexpected public Windows installer'}
+          $p=Start-Process $env:Q32_CANDIDATE -ArgumentList "/S /NS /D=$dir" -WindowStyle Hidden -PassThru
+          if(!$p.WaitForExit(180000) -or $p.ExitCode){throw 'Initial real install failed'}
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=0 --remote-debugging-address=127.0.0.1'
+          npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          node daily-vault.mjs seed
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          Copy-Item -LiteralPath "$env:RUNNER_TEMP/fixture/target/debug/zicode-studio-desktop.exe" -Destination $env:Q32_EXE -Force
+          & $env:Q32_EXE --tools-only
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          $deadline=[DateTime]::UtcNow.AddSeconds(200)
+          do{$apps=@(Get-CimInstance Win32_Process -Filter "Name='zicode-studio-desktop.exe'" | Where-Object {$_.ExecutablePath -eq $env:Q32_EXE});if(!$apps){Start-Sleep -Milliseconds 300}}while(!$apps -and [DateTime]::UtcNow -lt $deadline)
+          if($apps.Count -ne 1 -or $apps[0].CommandLine -match 'isolated-profile|test-profile' -or $apps[0].CommandLine -notmatch '--tools-only'){throw 'New process switched daily mode or lost tools mode'}
+          if((Get-Content -Raw "$updates/result.json"|ConvertFrom-Json).status -ne 'installed' -or (Get-FileHash $config).Hash -ne $before){throw 'Update receipt or saved daily choice changed'}
+          node daily-vault.mjs verify
+          exit $LASTEXITCODE
