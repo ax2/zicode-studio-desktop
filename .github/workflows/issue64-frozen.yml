@@ -1,0 +1,31 @@
+name: Issue 64 frozen Windows installer acceptance
+on:
+  push:
+    branches: [codex/issue64-real-installer]
+permissions:
+  contents: read
+jobs:
+  frozen-installer:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fetch and verify exact frozen installers
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($v in @(
+            @('065','762164562','8186e19da3b9e29e49cd960684999240c1d67c3f4cc7aaaef10e395409fd9238'),
+            @('066','762689027','92068d0b8d6a353bbeadf7872e399cca4988806b2c89d8541f72d11e6afefb92')
+          )) {
+            $file=Join-Path $env:RUNNER_TEMP "studio-$($v[0]).exe"
+            curl.exe -fsSL -H "Authorization: Bearer $env:GH_TOKEN" -H 'Accept: application/octet-stream' -o $file "https://api.github.com/repos/ax2/zicode-studio-desktop/releases/assets/$($v[1])"
+            if ($LASTEXITCODE -ne 0 -or (Get-FileHash $file).Hash -ne $v[2]) {throw "Invalid frozen installer: $($v[0])"}
+          }
+      - name: Exercise real install, process guards and upgrade
+        shell: pwsh
+        run: ./scripts/issue64-frozen.ps1
