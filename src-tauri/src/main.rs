@@ -133,6 +133,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::image::Image;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+mod alibaba_mail;
+use alibaba_mail::mail_alibaba;
 mod checksum_folder_picker;
 mod project_file_picker;
 mod resource_export_picker;
@@ -2188,6 +2190,7 @@ fn main() {
             send_desktop_notification,
             publish_notes_notebook,
             notes_sync_settings,
+            mail_alibaba,
             notes_sync_task,
             get_system_information,
             browser_control,

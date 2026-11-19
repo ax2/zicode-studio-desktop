@@ -5,6 +5,11 @@
 # the [default] set, which the capability references.
 
 [[permission]]
+identifier = "allow-mail-alibaba"
+description = "Allow the trusted workspace to explicitly read or send using its registered Alibaba mail account."
+commands.allow = ["mail_alibaba"]
+
+[[permission]]
 identifier = "allow-notes-sync-task"
 description = "Allow a trusted, workspace-bound desktop window to explicitly start, inspect or cancel saved-note sync."
 commands.allow = ["notes_sync_task"]
@@ -428,6 +433,7 @@ permissions = [
   "allow-delete-scene-credential",
   "allow-scene-credential-status",
   "allow-notes-sync-settings",
+  "allow-mail-alibaba",
   "allow-notes-sync-task",
   "allow-send-desktop-notification",
   "allow-publish-notes-notebook",
