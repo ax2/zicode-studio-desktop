@@ -6520,7 +6520,7 @@ fn notes_api_error(error: NotesError) -> (StatusCode, Json<Value>) {
     let status = match error.code {
         "invalid_parameters" => StatusCode::BAD_REQUEST,
         "notebook_not_found" | "note_not_found" | "attachment_not_found" => StatusCode::NOT_FOUND,
-        "version_conflict" | "conflict" | "notes_storage_busy" => StatusCode::CONFLICT,
+        "version_conflict" | "conflict" | "notes_storage_busy" | "notebook_order_changed" => StatusCode::CONFLICT,
         "payload_too_large" | "quota_exceeded" => StatusCode::PAYLOAD_TOO_LARGE,
         "permission_denied" => StatusCode::FORBIDDEN,
         "capture_blocked" => StatusCode::FORBIDDEN,
