@@ -171,6 +171,8 @@ jobs:
           # Match the existing platform job's key + GITHUB_JOB suffix so the
           # release can restore its checked dependencies without a new cache tree.
           shared-key: developer-platform-${{ matrix.os }}-platform
+          # Other tags cannot restore a cache written by this release tag.
+          save-if: ${{ runner.os != 'Windows' || github.event_name != 'push' || github.ref_type != 'tag' }}
           cache-on-failure: true
 
       - name: Cache embedded runtimes
