@@ -341,3 +341,38 @@ fn smtp_confirm_revision_reply_and_no_retry_after_ambiguous_delivery() {
         assert_eq!(count, 1);
     }
 }
+
+#[test]
+fn saved_reply_keeps_original_message_id_after_database_reopen() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    let mut db = Connection::open(&path).unwrap();
+    seed(&db);
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let f = fixture(false, false);
+    mail.sync(&f.adapter, "synthetic", None, 2).unwrap();
+    f.thread.join().unwrap();
+    let draft = mail.reply_draft("reply-draft", 7, 30).unwrap();
+    assert_eq!(draft["recipient"], "reply@example.test");
+    assert_eq!(draft["subject"], "Re: 测试");
+    drop(mail);
+    db.execute("UPDATE drafts SET body='written after reopening',revision=2 WHERE scope='one' AND account='a' AND id='reply-draft'",[]).unwrap();
+    drop(db);
+    let mut db = Connection::open(&path).unwrap();
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let f = fixture(true, false);
+    assert_eq!(
+        mail.send(&f.adapter, "synthetic", "reply-draft", 2, true, None)
+            .unwrap(),
+        "accepted"
+    );
+    f.thread.join().unwrap();
+    let body = f.rx.recv().unwrap();
+    assert!(body.contains("In-Reply-To: <original@example.test>"));
+    db.execute("DELETE FROM drafts WHERE id='reply-draft'", [])
+        .unwrap();
+    let links: i32 = db
+        .query_row("SELECT COUNT(*) FROM alibaba_reply", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(links, 0);
+}

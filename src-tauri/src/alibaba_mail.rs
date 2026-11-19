@@ -15,6 +15,11 @@ use zeroize::Zeroizing;
     deny_unknown_fields
 )]
 pub(crate) enum Request {
+    ReplyDraft {
+        account_id: String,
+        uid_validity: u32,
+        uid: u32,
+    },
     CredentialStatus {
         account_id: String,
     },
@@ -67,7 +72,8 @@ pub(crate) struct MessageRef {
 impl Request {
     fn account(&self) -> &str {
         match self {
-            Self::CredentialStatus { account_id }
+            Self::ReplyDraft { account_id, .. }
+            | Self::CredentialStatus { account_id }
             | Self::SetPassword { account_id, .. }
             | Self::ForgetPassword { account_id }
             | Self::Sync { account_id, .. }
@@ -129,6 +135,7 @@ pub(crate) async fn mail_alibaba(
         let vault=||credential(&workspace_id,&id);
         let pwd=||password(&workspace_id,&id);
         match request {
+          Request::ReplyDraft{uid_validity,uid,..}=>Ok(mailbox.reply_draft(&uuid::Uuid::new_v4().to_string(),uid_validity,uid)?),
           Request::CredentialStatus{..}=>{
             if !crate::desktop_profile::system_credentials_enabled(){return Ok(json!({"configured":false,"enabled":false}))}
             let configured=match vault()?.get_password(){Ok(secret)=>!Zeroizing::new(secret).is_empty(),Err(keyring::Error::NoEntry)=>false,Err(_)=>return Err("mail_vault_unavailable".into())};
