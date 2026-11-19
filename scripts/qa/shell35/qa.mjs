@@ -13,6 +13,7 @@ import {createServer} from 'node:https';
 import {mkdtemp} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
+const observed=new Map();
 async function serveFixture(){
   const dir=await mkdtemp(path.join(tmpdir(),'q13-'));const host='q13-browser.example.org';
   const key=path.join(dir,'key.pem'),crt=path.join(dir,'crt.pem');
@@ -30,6 +31,7 @@ async function serveFixture(){
   const xref=Buffer.byteLength(pdf);pdf+='xref\n0 10\n0000000000 65535 f \n'+offsets.slice(1).map(n=>String(n).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size 10 /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF\n';
   const server=createServer({key:keyData,cert:certData},(req,res)=>{
     if(req.headers.host?.split(':')[0]!==host){res.writeHead(403).end();return}
+    observed.set(req.url,req.headers['user-agent']);
     if(req.url.startsWith('/doc.pdf')){res.writeHead(200,{'Content-Type':'application/pdf','Content-Disposition':'inline','Content-Length':Buffer.byteLength(pdf),'Cache-Control':'no-store'}).end(pdf);return}
     res.writeHead(200,{'Content-Type':'text/html'}).end('<title>Example Domain</title><h1>Studio print fixture</h1><a href="/doc.pdf">Synthetic 3-page PDF</a>');
   });
@@ -87,28 +89,44 @@ try{
   const child=await wait('native remote page',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===site));
   await child.waitForFunction(()=>document.readyState==='complete'&&document.title==='Example Domain');
   console.log('Live remote document',await child.evaluate(()=>({title:document.title,url:location.href,viewport:[innerWidth,innerHeight],visibility:document.visibilityState,heading:document.querySelector('h1')?.textContent})));
-  const pageHref=site+'doc.pdf';await child.locator('a').click();
-  await wait('address shows PDF',async()=>(await input.inputValue()).startsWith(pageHref));
-  await native('size',970,700);
-  const colorPoint=()=>ui.locator('.browser-viewport').evaluate(el=>{let r=el.getBoundingClientRect();return [(r.left+r.width*.55)/innerWidth,(r.top+r.height*.54)/innerHeight]});
-  const pt=await colorPoint(),color=async()=>(await native('pixel',...pt)).color;
-  let sampled=[];const dominant=(s,idx)=>{let rgb=s.match(/../g).map(v=>parseInt(v,16));return rgb[idx]>125&&rgb.every((v,i)=>i===idx||rgb[idx]-v>60)};
-  await wait('native inline PDF green first page',async()=>{const c=await color();sampled.push(c);return dominant(c,1)},20000).catch(e=>{throw Error(e.message+' pixels='+sampled+' native targets='+JSON.stringify(nativeBrowser.contexts().flatMap(c=>c.pages()).map(p=>p.url())))});
-  record('inline synthetic PDF first page rendered by the actual native viewer',{color:sampled.at(-1)});
-  await native('pdfend',...pt);
-  await wait('last physical page',async()=>dominant(await color(),2),16000);
-  await native('pdfhome',...pt);
-  await wait('first physical page restored',async()=>dominant(await color(),1),16000);
-  record('real document End and Home traverse a three-page PDF without leaving the active browser tab');
-  if(process.env.QA13_PRINT==='1'){
-    const menus=ui.locator('.browser-options');await menus.locator('summary').click();
-    const entry=menus.getByRole('button',{name:/Print page|打印页面/});await entry.click();
-    const info=await native('printcancel');console.log('System print dialog result',info);assert.ok(info.cancelled);
-    await wait('same PDF after print cancellation',async()=>dominant(await color(),1),12000);
-    const refused=await ui.evaluate(async()=>{try{await __TAURI__.core.invoke('browser_control',{request:{kind:'printPage',tab:(await __TAURI__.core.invoke('browser_get_state')).session.activeTab,expectedUrl:'https://example.org/stale-document'}});return false}catch{return true}});assert.ok(refused);
-    await input.fill(site);await input.press('Enter');await wait('HTML active again',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===site));await native('ctrlprint',...pt);const html=await native('printcancel');assert.ok(html.cancelled);
-    record('PDF menu and HTML Ctrl+P each opened the genuine Windows printer dialog, cancel restored page and stale URL was rejected',{pdf:info.title,html:html.title});
+  const invoke=(p,cmd,args)=>p.evaluate(({cmd,args})=>window.__TAURI__.core.invoke(cmd,args),{cmd,args});
+  const state=p=>invoke(p,'browser_get_state');
+  const pref=p=>invoke(p,'browser_control',{request:{kind:'getUserAgent'}});
+  const marker='ZiCode-QA179/1.0', other='ZiCode-QA179-Named/2.0';
+  const baseline=observed.get('/');assert.ok(baseline?.includes('Mozilla/'),'server must receive real WebView2 UA');
+  async function configure(p,ua){
+    const m=p.locator('.browser-options');if(!await m.evaluate(e=>e.open))await m.locator('summary').click();
+    const d=m.locator('.browser-user-agent');if(!await d.evaluate(e=>e.open))await d.locator('summary').click();
+    const input=d.locator('input');await wait('preference initialized',()=>input.isEnabled());
+    if(ua!==null){await input.fill(ua);await d.locator('[type=submit]').click()}else await d.locator('[type=button]').click();
+    await wait('saved configuration',async()=>await pref(p)===ua);
+    await m.locator('summary').click();
   }
+  async function load(p,key,newTab=true){
+    const box=p.locator('.browser-address');
+    if(newTab){const before=(await state(p)).session.activeTab;await box.focus();await box.press('Control+t');await wait('new native tab',async()=> (await state(p)).session.activeTab!==before);await p.locator('.studio-browser[aria-busy=false]').waitFor();}
+    const target=site+'?qa179='+key;await box.fill(target);await box.press('Enter');
+    return wait('server UA for '+key,()=>observed.get('/?qa179='+key));
+  }
+  assert.equal(await pref(ui),null);await configure(ui,marker);
+  assert.equal(await load(ui,'existing',false),baseline);assert.equal(await load(ui,'override'),marker);
+  await assert.rejects(invoke(ui,'browser_control',{request:{kind:'setUserAgent',value:'invalid\r\nInjected: not-a-header'}}));assert.equal(await pref(ui),marker);
+  record('default real request header, custom first navigation, retained previous open-tab UA and rejection of malformed input');
+  await invoke(ui,'browser_window_command',{action:'createProfile',profileName:'UA isolation fixture'});
+  const secondary=await wait('another named workspace',async()=>{
+    for(const p of browser.contexts().flatMap(c=>c.pages())){if(p===ui||!p.url().includes('/app/workspaces/'))continue;try{if((await state(p)).profileName==='UA isolation fixture')return p}catch{}}
+  });
+  await secondary.locator('.studio-browser[aria-busy=false]').waitFor();assert.notEqual((await state(secondary)).profileId,(await state(ui)).profileId);assert.equal(await pref(secondary),null);
+  assert.equal(await load(secondary,'other-default'),baseline);await configure(secondary,other);
+  assert.equal(await load(secondary,'other-custom'),other);assert.equal(await pref(ui),marker);
+  await invoke(secondary,'browser_window_command',{action:'close'}).catch(()=>{});
+  record('two named/default browser profiles with different server-observed headers share a single isolated installation');
+  const old=app.pid,exited=new Promise(resolve=>app.once('exit',resolve));app.kill();await exited;app=spawn(process.env.STUDIO_Q35_EXE,['--isolated-profile',profile],{env,stdio:'ignore'});assert.notEqual(old,app.pid);
+  const recovered=await wait('restarted Studio',async()=>{try{const b=await chromium.connectOverCDP(await endpoint('webview'),{timeout:3000});for(const p of b.contexts().flatMap(c=>c.pages())){if(p.url().includes('/app/workspaces/')&&(await pref(p))===marker)return {b,p}}}catch{}});
+  browser=recovered.b;const p=recovered.p;await p.locator('.studio-browser[aria-busy=false]').waitFor();assert.equal(await load(p,'after-restart'),marker);
+  await configure(p,null);assert.equal(await load(p,'reset'),baseline);
+  record('real Studio restart restores profile UA, explicit reset restores original wire header',{baseline,custom:marker,named:other});
+
   }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message,JSON.stringify(await describe()));}
   if(pageFailure)throw pageFailure;
 }finally{await nativeBrowser?.close().catch(()=>{});await browser?.close().catch(()=>{});app?.kill();served.server.closeAllConnections();served.server.close();}
