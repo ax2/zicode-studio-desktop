@@ -56,7 +56,8 @@ try{
   ui.on('response',r=>{if(r.status()>=400)console.error('HTTP',r.status(),r.url());});
   await ui.reload({waitUntil:'domcontentloaded'});
   console.log('Bootstrap',await ui.evaluate(async()=>({visibility:document.visibilityState,body:document.body.className,display:getComputedStyle(document.body).display,modules:await Promise.all([...document.querySelectorAll('script[type=module][src]')].map(async s=>{try{await import(s.src);return [s.src,'ok']}catch(e){return [s.src,String(e)]}}))})));
-  await ui.locator('.browser-address').waitFor();
+  const stage=setInterval(()=>ui.evaluate(()=>({ready:document.readyState,app:!!window.__picotNative,body:document.body.className,tags:document.querySelectorAll('[data-plugin-id]').length,assets:performance.getEntriesByType('resource').length,tail:performance.getEntriesByType('resource').slice(-4).map(e=>new URL(e.name).pathname),text:document.body.innerText.slice(0,90),nodes:[...document.body.children].filter(n=>n.tagName!=='SCRIPT').slice(0,5).map(e=>[e.id,e.className,getComputedStyle(e).visibility,getComputedStyle(e).display])})).then(v=>console.log('Startup progress',JSON.stringify(v))).catch(()=>{}),15000);
+  try{await ui.locator('.browser-address').waitFor({timeout:105000});}finally{clearInterval(stage);}
   const input=ui.locator('.browser-address');
   await input.fill(site);await input.press('Enter');
   nativeBrowser=await chromium.connectOverCDP(await wait('isolated child profile endpoint',()=>endpoint('browser/profiles')));
@@ -96,6 +97,7 @@ try{
   await wait('close-to-tray hid native HWND',async()=>!(await native('info')).visible);
   const tray=await native('tray');await wait('Explorer tray menu restored same HWND',async()=>(await native('info')).visible);
   record('Explorer notification icon restores the same native window using the recorded action',tray);
+  if(!paintAgain)console.log('Initialization terminal', await ui.evaluate(async()=>Promise.race([import('/native/app.js').then(()=>['loaded',!!window.__picotNative],e=>['error',String(e)]),new Promise(r=>setTimeout(()=>r('pending after 5s'),5000))])));
   if(paintAgain)await paintAgain('tray restoration preserves unsaved input and both native page colors');
   if(pageFailure)throw pageFailure;
 }finally{await nativeBrowser?.close().catch(()=>{});await browser?.close().catch(()=>{});app?.kill();proxy.closeAllConnections();proxy.close();}
