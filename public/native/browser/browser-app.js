@@ -61,7 +61,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const surface = createBrowserSurface(control);
   const paintStatus = () => {
     if (!status) return;
-    const failure = crashedTabs.has(active) ? t("The page process stopped. Reload the tab to reopen its address.")
+    const failure = crashedTabs.has(active) ? t("The page process stopped. Unsaved page input may be lost. Reload to reopen the address.")
       : navigationStates.get(active) === "failed" ? t("Page could not be loaded") : "";
     const text = [statusMessage, failure].filter(Boolean).join(" ");
     if (status.textContent !== text) status.textContent = text;

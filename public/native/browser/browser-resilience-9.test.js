@@ -17,7 +17,7 @@ const peer = {
   zoom: 1,
   muted: false,
 };
-const failure = () => t("The page process stopped. Reload the tab to reopen its address.");
+const failure = () => t("The page process stopped. Unsaved page input may be lost. Reload to reopen the address.");
 let app;
 afterEach(async () => {
   await app?.canDeactivate();
