@@ -1,3 +1,6 @@
+import { notifyNotesSyncLocalChange } from "../../shared/notes-sync-refresh";
+import { NotesSyncConflictsReview } from "./NotesSyncConflictsReview";
+import type { ConflictApplied } from "./notes-sync-conflict-state";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { type NotesSyncRunStatus, notesSyncMessage, parseNotesSyncRunStatus } from "./notes-sync-task-state";
@@ -17,6 +20,7 @@ export function NotesSyncRunControl({ workspaceId, revision, connection, ready, 
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [busy, setBusy] = useState<"status" | "start" | "cancel" | null>(null);
   const [error, setError] = useState("");
+  const [reviewOpen, setReviewOpen] = useState(false), [localProof, setLocalProof] = useState<ConflictApplied | null>(null);
   const generation = useRef(0), requestVersion = useRef(0);
   const current = useCallback(() => Boolean(workspaceId && (getWorkspaceId ? getWorkspaceId() : workspaceId) === workspaceId
     && (getSceneId?.() || "programming") === sceneId), [getWorkspaceId, getSceneId, workspaceId, sceneId]);
@@ -39,7 +43,7 @@ export function NotesSyncRunControl({ workspaceId, revision, connection, ready, 
 
   useEffect(() => {
     generation.current++; requestVersion.current++;
-    setStatus(null); setConfirmation(null); setError(""); setBusy(null);
+    setStatus(null); setConfirmation(null); setError(""); setBusy(null); setReviewOpen(false); setLocalProof(null);
     void readStatus();
     return () => { generation.current++; requestVersion.current++; };
   }, [readStatus]);
@@ -63,7 +67,7 @@ export function NotesSyncRunControl({ workspaceId, revision, connection, ready, 
     if (kind === "start" && (!startAllowed || !matchesConfirmation())) return;
     if (kind === "cancel" && (!status?.running || !status.runId)) return;
     const epoch = generation.current, version = ++requestVersion.current;
-    setBusy(kind); setError(""); setConfirmation(null);
+    setBusy(kind); setError(""); setConfirmation(null); setReviewOpen(false); setLocalProof(null);
     try {
       const value = parseNotesSyncRunStatus(await native("notes_sync_task", { request: {
         kind, workspaceId, sceneId, ...(kind === "start" ? { revision, confirmed: true } : { runId: status?.runId }),
@@ -81,9 +85,10 @@ export function NotesSyncRunControl({ workspaceId, revision, connection, ready, 
     if (!current() && onRefreshSettings) { try { await onRefreshSettings(); } catch { setError(t("Could not read sync status. Refresh sync status to try again.")); } return; }
     await readStatus();
   }
+  const proofIsCurrent = Boolean(localProof && localProof.runId === status?.runId && localProof.revision === revision && current());
   return <section className="settings-section" aria-label={t("Manual notes sync")}>
     {status && !status.running && status.state !== "idle" && <h3 className="settings-section-title">{t("Last sync result")}</h3>}
-    <p role="status">{error ? t("Sync status is unavailable.") : status ? t(notesSyncMessage(status.state)) : t("Loading...")}</p>
+    <p role="status">{error ? t("Sync status is unavailable.") : status ? t(status.state === "conflicts" && status.conflictsAvailable ? "Conflicting changes are kept. Review each version to choose what to save." : notesSyncMessage(status.state)) : t("Loading...")}</p>
     {status?.state === "rateLimited" && status.retryAfterSeconds !== null && <p>{t("Server requested a wait of {seconds} seconds. Retry manually after the wait.").replace("{seconds}", String(status.retryAfterSeconds))}</p>}
     {status?.state === "conflicts" && <p>{t("Conflicting records: {count}").replace("{count}", String(status.conflictCount))}</p>}
     {error && <p role="alert">{error}</p>}
@@ -94,6 +99,18 @@ export function NotesSyncRunControl({ workspaceId, revision, connection, ready, 
         if (startAllowed && workspaceId && revision) setConfirmation({ workspaceId, sceneId, revision, ...connection });
       }}>{t("Sync now")}</button>}
     <button type="button" className="ui-button ui-button--secondary" disabled={Boolean(busy)} onClick={() => void refresh()}>{t("Refresh sync status")}</button>
+    {localProof && proofIsCurrent && <div role="status">
+      {status?.state !== "resolvedLocally" && <p>{t("Conflict choices are saved on this device and are waiting to upload. Use Sync now to upload them.")}</p>}
+      <p>{t("Conflict copies: {notes} notes in {notebooks} notebooks.").replace("{notes}", String(localProof.copiedNotes)).replace("{notebooks}", String(localProof.copiedNotebooks))}</p>
+
+    </div>}
+    {(proofIsCurrent || status?.state === "resolvedLocally") && <button type="button" className="ui-button ui-button--secondary" disabled={!current()} onClick={() => { if (workspaceId && current()) notifyNotesSyncLocalChange(workspaceId); }}>{t("Refresh notes list")}</button>}
+    {status?.state === "conflicts" && status.conflictsAvailable && status.runId && revision && workspaceId && native && !proofIsCurrent && <>
+      <button type="button" className="ui-button ui-button--secondary" disabled={!ready || Boolean(busy) || !current()} onClick={() => setReviewOpen(true)}>{t("Resolve sync conflicts")}</button>
+      {reviewOpen && <NotesSyncConflictsReview key={JSON.stringify([workspaceId, sceneId, status.runId, revision])}
+        scope={{ workspaceId, sceneId, runId: status.runId, revision }} enabled={ready && !busy} current={current} invoke={native} libraryId={connection.vaultId}
+        onClose={() => setReviewOpen(false)} onApplied={result => { setLocalProof(result); notifyNotesSyncLocalChange(workspaceId); void readStatus(); }} />}
+    </>}
     {confirmation && ready && matchesConfirmation() && !status?.running && <div className="ui-panel">
       <p>{t("Sync saved notes with this WebDAV destination?")}</p>
       <dl><dt>{t("WebDAV address")}</dt><dd translate="no">{connection.endpoint}</dd>

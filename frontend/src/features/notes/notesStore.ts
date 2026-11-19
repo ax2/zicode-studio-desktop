@@ -30,7 +30,7 @@ import {
 } from "./notesLogic";
 import type { NotesOperationScope } from "./operation-scope";
 import { createNotesOperationScope } from "./operation-scope";
-import { createShortcutRepository, type ShortcutRepository } from "./shortcut-repository";
+import { createShortcutRepository, referenceKey, type NoteReference, type ShortcutRepository } from "./shortcut-repository";
 import { defaultChooseFile, defaultDownloadFile, defaultFileToBase64 } from "./transfer-files";
 import { createTrashActions, type TrashExpectation } from "./trash-actions";
 import { type CapturePreview, createWebCapture } from "./web-capture";
@@ -240,7 +240,7 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   closeMovePopover(): void;
   moveNoteTo(sourceNotebookId: string, noteId: string, targetNotebookId: string): Promise<void>;
   toggleSelectMode(): void;
-  toggleNoteSelected(noteId: string): void;
+  toggleNoteSelected(note: NoteReference): void;
   clearNoteSelection(): void;
   moveSelectedNotes(targetNotebookId: string): Promise<void>;
   deleteSelectedNotes(): Promise<void>;
@@ -601,8 +601,9 @@ export function createNotesStore(options: NotesStoreOptions) {
       set({ selectMode, selectedNoteIds: selectMode ? get().selectedNoteIds : [] });
     },
 
-    toggleNoteSelected(noteId) {
+    toggleNoteSelected(note) {
       if (get().editorLocked) return;
+      const noteId = referenceKey(note);
       const selected = new Set(get().selectedNoteIds);
       if (selected.has(noteId)) selected.delete(noteId);
       else selected.add(noteId);

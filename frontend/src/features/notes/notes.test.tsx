@@ -1,3 +1,4 @@
+import { referenceKey } from "./shortcut-repository";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
@@ -3398,8 +3399,8 @@ describe("notes React components", () => {
     });
     await store.getState().load();
     store.getState().toggleSelectMode();
-    store.getState().toggleNoteSelected("note-1");
-    store.getState().toggleNoteSelected("note-2");
+    store.getState().toggleNoteSelected({ id: "note-1", notebookId: "book-1" });
+    store.getState().toggleNoteSelected({ id: "note-2", notebookId: "book-1" });
     await store.getState().moveSelectedNotes("book-2");
     expect(moveNote).toHaveBeenCalledTimes(2);
     expect(moveNote.mock.calls[0][2]).toMatchObject({
@@ -3450,12 +3451,12 @@ describe("notes React components", () => {
     });
     await store.getState().load();
     store.getState().toggleSelectMode();
-    store.getState().toggleNoteSelected("note-1");
-    store.getState().toggleNoteSelected("note-2");
+    store.getState().toggleNoteSelected({ id: "note-1", notebookId: "book-1" });
+    store.getState().toggleNoteSelected({ id: "note-2", notebookId: "book-1" });
     await store.getState().moveSelectedNotes("book-2");
     expect(moveNote).toHaveBeenCalledTimes(2);
     expect(store.getState().selectMode).toBe(true);
-    expect(store.getState().selectedNoteIds).toEqual(["note-2"]);
+    expect(store.getState().selectedNoteIds).toEqual([referenceKey({ id: "note-2", notebookId: "book-1" })]);
     expect(notify).toHaveBeenCalled();
     expect(store.getState().error?.message).toBe("move failed");
   });
@@ -3494,8 +3495,8 @@ describe("notes React components", () => {
     });
     await store.getState().load();
     store.getState().toggleSelectMode();
-    store.getState().toggleNoteSelected("note-1");
-    store.getState().toggleNoteSelected("note-2");
+    store.getState().toggleNoteSelected({ id: "note-1", notebookId: "book-1" });
+    store.getState().toggleNoteSelected({ id: "note-2", notebookId: "book-1" });
     await store.getState().deleteSelectedNotes();
     expect(del).toHaveBeenCalledTimes(2);
     expect(del.mock.calls[0][2]).toMatchObject({ id: "note-1" });
@@ -3543,12 +3544,12 @@ describe("notes React components", () => {
     });
     await store.getState().load();
     store.getState().toggleSelectMode();
-    store.getState().toggleNoteSelected("note-1");
-    store.getState().toggleNoteSelected("note-2");
+    store.getState().toggleNoteSelected({ id: "note-1", notebookId: "book-1" });
+    store.getState().toggleNoteSelected({ id: "note-2", notebookId: "book-1" });
     await store.getState().deleteSelectedNotes();
     expect(del).toHaveBeenCalledTimes(2);
     expect(store.getState().selectMode).toBe(true);
-    expect(store.getState().selectedNoteIds).toEqual(["note-2"]);
+    expect(store.getState().selectedNoteIds).toEqual([referenceKey({ id: "note-2", notebookId: "book-1" })]);
     expect(notify).toHaveBeenCalled();
     expect(store.getState().error?.message).toBe("delete failed");
   });
@@ -3843,7 +3844,7 @@ describe("notes React components", () => {
       }),
     );
     expect(selectSpy).not.toHaveBeenCalled();
-    expect(store.getState().selectedNoteIds).toContain("note-1");
+    expect(store.getState().selectedNoteIds).toContain(referenceKey({ id: "note-1", notebookId: "book-1" }));
     selectSpy.mockRestore();
   });
 

@@ -1,3 +1,4 @@
+import { watchNotesSyncLocalChanges } from "../../shared/notes-sync-refresh";
 import { createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { NotesContent, NotesNav } from "./NotesApp";
@@ -24,6 +25,7 @@ export interface NotesAppHandle {
 export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null {
   if (!options.gateway) return null;
   const store = createNotesStore(options);
+  const stopSyncRefresh = watchNotesSyncLocalChanges(() => options.getTarget?.()?.workspaceId, () => store.getState().load({ preserveSelection: true }));
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
 
@@ -166,6 +168,7 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
       return store.getState().canDeactivate();
     },
     destroy() {
+      stopSyncRefresh();
       document.removeEventListener("keydown", handleKeydown);
       store.getState().destroy();
       navRoot?.unmount();
