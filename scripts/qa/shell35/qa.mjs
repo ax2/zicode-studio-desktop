@@ -42,6 +42,11 @@ try{
   const pages=()=>browser.contexts().flatMap(c=>c.pages());
   const ui=await wait('workspace',()=>pages().find(p=>/^http:\/\/127\.0\.0\.1:\d+\/app\/workspaces\//.test(p.url())));
   ui.setDefaultTimeout(12000);
+  ui.on('pageerror',e=>console.error('Workspace error',String(e)));
+  ui.on('console',m=>{if(m.type()==='error')console.error('Workspace console',m.text().slice(0,300));});
+  const describe=()=>ui.evaluate(()=>({url:location.href,title:document.title,lang:document.documentElement.lang,body:document.body.innerText.slice(0,900),
+    active:document.body.dataset.activePlugin,viewport:[innerWidth,innerHeight],plugins:[...document.querySelectorAll('[data-plugin-id]')].map(e=>e.dataset.pluginId).slice(0,30),
+    tauri:!!window.__TAURI__,chrome:[...document.querySelectorAll('[data-window-action]')].map(e=>[e.dataset.windowAction,e.getBoundingClientRect().width,e.closest('[hidden]')?.className])}));
   const fromPid=await exec('powershell.exe',['-NoProfile','-Command','(Get-Process -Id '+app.pid+').MainWindowHandle.ToInt64()']);
   hwnd=Number(fromPid.stdout.trim());assert.ok(hwnd>0);
   const original=await native('info');assert.ok(original.visible && original.dpi>=96 && original.monitors>=1);console.log('Actual virtual display',original);
@@ -76,13 +81,14 @@ try{
   await ui.locator('#command-palette').waitFor({state:'hidden'});
   assert.ok(await ui.evaluate(()=>document.activeElement?.matches('[data-mobile-activity-more],[data-mobile-plugin-id="core.commands"],[data-plugin-id="core.commands"]')));
   await restored('narrow command Escape returns keyboard focus and rendered native page');
-  }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message);}
+  }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message,JSON.stringify(await describe()));}
   const close=ui.locator('[data-window-action="close"]');
   try{await ui.mouse.move(350,260);await ui.keyboard.press('Tab');await close.focus();await ui.keyboard.press('Shift+Tab');
     assert.equal(await ui.evaluate(()=>document.activeElement?.dataset.windowAction),'toggleMaximize');
     record('actual WebView2 window controls retain keyboard focus across Shift+Tab');
   }catch(e){console.error('KEYBOARD CHECK:',e.message);pageFailure??=e;}
-  await close.click();
+  if(await close.isVisible())await close.click();
+  else {const r=await exec('powershell.exe',['-NoProfile','-Command','(Get-Process -Id '+app.pid+').CloseMainWindow()']);assert.equal(r.stdout.trim(),'True');}
   await wait('close-to-tray hid native HWND',async()=>!(await native('info')).visible);
   const tray=await native('tray');await wait('Explorer tray menu restored same HWND',async()=>(await native('info')).visible);
   record('Windows Explorer notification icon and native Show Studio menu restore the same window',tray);
