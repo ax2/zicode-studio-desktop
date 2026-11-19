@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Read only. Never re-add removed items or overwrite user planning changes.
 import { execFileSync } from "node:child_process";
+import { loadMissingParents, summarizeHierarchy } from "./project-hierarchy.mjs";
 
 function gh(args, payload) {
   const output = execFileSync("gh", args, {
@@ -22,7 +23,8 @@ const query = `query($cursor:String){user(login:"ax2"){projectV2(number:4){
   views(first:100){nodes{name number filter}}
   items(first:100,after:$cursor){pageInfo{hasNextPage endCursor}nodes{
     id isArchived updatedAt
-    content{__typename ... on Issue{number title url state updatedAt milestone{title} repository{nameWithOwner}}
+    content{__typename ... on Issue{id number title url state updatedAt milestone{title} repository{nameWithOwner}
+      parent{id number url repository{nameWithOwner}}}
       ... on PullRequest{number title url state updatedAt milestone{title} repository{nameWithOwner}}
       ... on DraftIssue{title body}}
     fieldValues(first:30){nodes{
@@ -35,11 +37,13 @@ const query = `query($cursor:String){user(login:"ax2"){projectV2(number:4){
 let cursor = null;
 let project;
 const items = [];
+const parents = new Map();
 do {
   const data = graphql(query, { cursor }).user.projectV2;
   if (!data || data.closed) throw new Error("Project unavailable or closed; do not start new work.");
   project = { title: data.title, url: data.url, updatedAt: data.updatedAt, views: data.views.nodes };
   for (const item of data.items.nodes) {
+    if (item.content?.__typename === "Issue") parents.set(item.content.id, item.content.parent);
     const fields = Object.fromEntries(item.fieldValues.nodes.filter(v => v.field).map(v => [v.field.name, v.name ?? v.text ?? v.date]));
     items.push({ ...item.content, id: item.id, archived: item.isArchived, projectItemUpdatedAt: item.updatedAt, fields });
   }
@@ -56,6 +60,11 @@ function allPages(endpoint) {
 }
 const repo = "ax2/zicode-studio-desktop";
 const repositoryIssues = allPages(`repos/${repo}/issues?state=all`).filter(issue => !issue.pull_request);
+// Project items supply most parents. Include archived/removed/untracked repository
+// issues in the audit without restoring them to the Project or querying one by one.
+loadMissingParents(repositoryIssues, parents, ids => graphql(`query($ids:[ID!]!){nodes(ids:$ids){
+    ... on Issue{id parent{id number url repository{nameWithOwner}}}
+  }}`, { ids }).nodes);
 const repositoryMilestones = allPages(`repos/${repo}/milestones?state=all`);
 const milestones = repositoryMilestones.filter(m => m.state === "open").map(m => ({ title: m.title, url: m.html_url, dueOn: m.due_on, openIssues: m.open_issues, closedIssues: m.closed_issues }));
 function issueSummary({ number, title, state, html_url }) {
@@ -65,6 +74,7 @@ const issuesWithoutMilestone = repositoryIssues
   .filter(issue => !issue.milestone)
   .map(issueSummary);
 const versionMilestone = /^v\d+\.\d+\.\d+(?:-[\w.-]+)?$/;
+const hierarchy = summarizeHierarchy(repositoryIssues, parents, repo, versionMilestone);
 const issuesWithoutVersionMilestone = repositoryIssues
   .filter(issue => !versionMilestone.test(issue.milestone?.title ?? ""))
   .map(issue => ({ ...issueSummary(issue), milestone: issue.milestone?.title ?? null }));
@@ -82,7 +92,7 @@ const known = new Set(items.map(i => i.url));
 const untracked = repositoryIssues
   .filter(issue => issue.state === "open" && !known.has(issue.html_url))
   .map(issueSummary);
-console.log(JSON.stringify({ checkedAt: new Date().toISOString(), ...project, items, milestones, untracked, issuesWithoutMilestone, issuesWithoutVersionMilestone, releaseMilestonesWithoutView, activeReleaseMilestonesWithoutView,
+console.log(JSON.stringify({ checkedAt: new Date().toISOString(), ...project, items, milestones, untracked, issuesWithoutMilestone, issuesWithoutVersionMilestone, releaseMilestonesWithoutView, activeReleaseMilestonesWithoutView, hierarchy,
   instruction: "Read selected issue body, all comments and dependencies before work. Untracked items are for review only; do not automatically re-add removed work." }, null, 2));
 
 if (process.argv.includes("--check-milestones") && (issuesWithoutVersionMilestone.length || activeReleaseMilestonesWithoutView.length)) {
