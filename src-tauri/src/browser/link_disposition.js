@@ -12,10 +12,11 @@
     if (!event.isTrusted) return;
     const modified = !event.shiftKey && !event.altKey && !event.metaKey &&
       ((event.button === 0 && event.ctrlKey) || event.button === 1);
-    const link = modified && event.composedPath().find(
+    if (!modified) { clear(); return; }
+    const link = event.composedPath().find(
       node => node instanceof HTMLAnchorElement || node instanceof HTMLAreaElement
     );
-    if (link && link.hasAttribute("href")) {
+    if (link?.hasAttribute("href")) {
       signal(JSON.stringify([location.href, link.href]));
       lastReported = performance.now();
     } else {
