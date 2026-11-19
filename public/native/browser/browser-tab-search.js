@@ -40,7 +40,7 @@ export function showBrowserTabSearch({ tabs, active, getIcon, onSelect, onClose 
   function render() {
     const words = input.value.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
     matches = tabs.filter(tab => {
-      const text = `${tab.title ?? ""} ${tab.url}`.toLocaleLowerCase();
+      const text = `${tab.group?.name ?? ""} ${tab.title ?? ""} ${tab.url}`.toLocaleLowerCase();
       return words.every(word => text.includes(word));
     });
     results.replaceChildren();

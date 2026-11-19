@@ -3,14 +3,39 @@ import { t } from "../../i18n.js";
 export const browserPinLimit = 4;
 
 export function groupBrowserTabs(tabs) {
-  return [...tabs.filter(tab => tab.pinned), ...tabs.filter(tab => !tab.pinned)];
+  const grouped = new Map();
+  const blocks = [];
+  for (const tab of tabs.filter(item => !item.pinned)) {
+    if (!tab.group) { blocks.push([tab]); continue; }
+    if (!grouped.has(tab.group.id)) {
+      const block = [];
+      grouped.set(tab.group.id, block);
+      blocks.push(block);
+    }
+    grouped.get(tab.group.id).push(tab);
+  }
+  return [...tabs.filter(tab => tab.pinned), ...blocks.flat()];
+}
+
+export function setBrowserTabGroup(tabs, id, group) {
+  const tab = tabs.find(item => item.id === id);
+  if (!tab || tab.pinned || tab.popupOpener) return tabs;
+  if (group && group.id === tab.group?.id) {
+    return tabs.map(item => item.group?.id === group.id ? { ...item, group } : item);
+  }
+  const next = tabs.filter(item => item !== tab);
+  const last = group ? next.findLastIndex(item => item.group?.id === group.id) : -1;
+  next.splice(last < 0 ? tabs.indexOf(tab) : last + 1, 0, { ...tab, group });
+  return groupBrowserTabs(next);
 }
 
 export function toggleBrowserTabPin(tabs, id) {
   const tab = tabs.find(item => item.id === id);
   if (!tab || (!tab.pinned && tabs.filter(item => item.pinned).length >= browserPinLimit)) return tabs;
   const next = tabs.filter(item => item.id !== id);
-  next.splice(next.filter(item => item.pinned).length, 0, { ...tab, pinned: !tab.pinned });
+  const changed = { ...tab, pinned: !tab.pinned };
+  delete changed.group;
+  next.splice(next.filter(item => item.pinned).length, 0, changed);
   return next;
 }
 
@@ -25,8 +50,11 @@ export function moveBrowserTab(tabs, { id, target, after = false, step }) {
   if (target === id || !peer || Boolean(peer.pinned) !== Boolean(tabs[from].pinned)) return tabs;
   const next = tabs.filter(tab => tab.id !== id);
   const index = next.findIndex(tab => tab.id === target) + Number(after);
-  next.splice(index, 0, tabs[from]);
-  return next.every((tab, i) => tab === tabs[i]) ? tabs : next;
+  const source = tabs[from];
+  const moved = !peer.popupOpener && !source.popupOpener && source.group?.id !== peer.group?.id
+    ? { ...source, group: peer.group } : source;
+  next.splice(index, 0, moved);
+  return next.every((tab, i) => tab === tabs[i]) ? tabs : groupBrowserTabs(next);
 }
 
 // Only drags started on this chrome tablist can reorder. External/page drops are ignored.

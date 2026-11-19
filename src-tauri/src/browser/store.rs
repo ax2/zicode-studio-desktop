@@ -22,6 +22,8 @@ pub struct SavedTab {
     pub muted: bool,
     #[serde(default, skip_serializing_if = "pins::is_unpinned")]
     pub pinned: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<groups::TabGroup>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -46,6 +48,8 @@ mod closed;
 pub use closed::ClosedTab;
 #[path = "store_pins.rs"]
 mod pins;
+#[path = "store_groups.rs"]
+mod groups;
 #[path = "bookmarks.rs"]
 pub mod bookmarks;
 #[path = "history.rs"]
@@ -104,6 +108,7 @@ impl Store {
         tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_tab_layout (
             id INTEGER PRIMARY KEY CHECK(id=1), vertical INTEGER NOT NULL CHECK(vertical IN (0,1))
         );").map_err(|err| err.to_string())?;
+        groups::create(&tx)?;
         tx.commit().map_err(|e| e.to_string())?;
         Ok(Self(db))
     }
@@ -137,6 +142,7 @@ impl Store {
             Session::default()
         };
         pins::restore(&read, owner, &mut session)?;
+        groups::restore(&read, owner, &mut session)?;
         read.commit().map_err(|err| err.to_string())?;
         Ok(State {
             vertical_tabs: self.0.query_row("SELECT COALESCE((SELECT vertical FROM browser_tab_layout WHERE id=1),0)", [], |row| row.get(0))
@@ -177,6 +183,7 @@ impl Store {
     ) -> Result<Session, String> {
         validate(&tabs, active_tab.as_deref())?;
         pins::validate(&tabs)?;
+        groups::validate(&tabs)?;
         let revision = expected
             .checked_add(1)
             .filter(|_| expected >= 0)
@@ -201,15 +208,17 @@ impl Store {
             .transpose()?
             .unwrap_or_default();
         let previous_pins = pins::restore(&tx, owner, &mut previous)?;
+        let previous_groups = groups::restore(&tx, owner, &mut previous)?;
         let closed_tabs = closed::transition(previous, &tabs);
-        let next = Session {
+        let mut next = Session {
             revision,
             tabs,
             active_tab,
             closed_tabs,
         };
         closed::validate(&next)?;
-        let payload = pins::persist(&tx, owner, &next, &previous_pins)?;
+        let legacy = groups::persist(&tx, owner, &mut next, previous_groups)?;
+        let payload = pins::persist(&tx, owner, &legacy, &previous_pins)?;
         if payload.len() > 4 * 1024 * 1024 {
             return Err("Browser session exceeds storage limit".into());
         }

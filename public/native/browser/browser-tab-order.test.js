@@ -1,9 +1,25 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { setupBrowserApp } from "./browser-app.js";
-import { groupBrowserTabs, moveBrowserTab, setupBrowserTabOrdering, toggleBrowserTabPin } from "./browser-tab-order.js";
+import { groupBrowserTabs, moveBrowserTab, setBrowserTabGroup, setupBrowserTabOrdering, toggleBrowserTabPin } from "./browser-tab-order.js";
 const tab = n => ({ id: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`, url: `https://example.org/${n}`, title: `Page ${n}`, zoom: 1, muted: false });
 let app;
+it("preserves group blocks when assigning, moving, pinning and removing tabs", () => {
+  const group = { id: crypto.randomUUID(), name: "阅读" };
+  const [a,b,c,d] = [1,2,3,4].map(tab);
+  let items = setBrowserTabGroup([a,b,c,d], c.id, group);
+  items = setBrowserTabGroup(items, a.id, group);
+  expect(items.map(item => item.id)).toEqual([b.id,c.id,a.id,d.id]);
+  items = setBrowserTabGroup(items, c.id, { ...group, name: "资料" });
+  expect(items.filter(item => item.group).map(item => item.group.name)).toEqual(["资料","资料"]);
+  items = moveBrowserTab(items,{id:b.id,target:c.id,after:true});
+  expect(items.find(item => item.id===b.id).group.name).toBe("资料");
+  items = setBrowserTabGroup(items, b.id, null);
+  items = toggleBrowserTabPin(items, a.id);
+  expect(items[0].pinned).toBe(true);
+  expect(items[0].group).toBeUndefined();
+  expect(items.filter(item => item.group).map(item => item.id)).toEqual([c.id]);
+});
 beforeEach(() => { vi.stubGlobal("ResizeObserver", class { observe() {} }); vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ left: 0, right: 100, width: 100, height: 32, top: 0, bottom: 32 }); Element.prototype.scrollIntoView = vi.fn(); });
 afterEach(async () => { await app?.canDeactivate(); app = null; document.body.replaceChildren(); vi.unstubAllGlobals(); vi.restoreAllMocks(); delete Element.prototype.scrollIntoView; });
 const dataTransfer = () => ({ setData: vi.fn(), effectAllowed: "", dropEffect: "" });
