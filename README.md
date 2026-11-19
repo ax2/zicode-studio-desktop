@@ -6,7 +6,7 @@ ZiCode Studio Desktop 是一款以 Windows 为首要交付平台的本地优先�
 
 在 [GitHub Releases](https://github.com/ax2/zicode-studio-desktop/releases/latest) 下载 Windows 10/11 x64 的 NSIS `.exe` 安装包。默认只构建和发布 Windows；只有明确要求时才构建其它平台。历史 macOS/Linux 包可从 [全部 Releases](https://github.com/ax2/zicode-studio-desktop/releases) 查找，不代表具备当前源码的全部功能。
 
-Windows 安装包内置 Pi、Bun、PortableGit（Git 与 Bash）和 WebView2 离线安装器。无需另行安装 Pi。下文说明以当前源码为准，已发布功能及限制请查看所安装版本的发布说明；草稿 Release 不代表已经发布。
+Windows 安装包内置 Pi、Bun、PortableGit（Git 与 Bash）和 WebView2 离线安装器。无需另行安装 Pi。下文说明以当前源码为准，已发布功能及限制请查看所安装版本的发布说明；日常安装请使用公开 Release。测试候选仅保存在 [Desktop release 的 Actions 构建产物](https://github.com/ax2/zicode-studio-desktop/actions/workflows/release.yml)，不列入正式发行。
 
 通过 GitHub 安装包升级，保留原资料目录。签名自动更新尚未启用；「设置 → 软件更新」提供手动获取新版的入口。
 
