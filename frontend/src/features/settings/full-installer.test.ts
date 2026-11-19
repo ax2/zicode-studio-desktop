@@ -28,6 +28,16 @@ it("downloads the reviewed release and waits for an explicit second click before
   expect(state().status).toBe("Closing Studio to install…");
 });
 
+it("can discard a verified installer and download again without exiting Studio", async () => {
+  const invoke = vi.fn(async (command: string) => command === "check_desktop_update" ? release : undefined);
+  vi.stubGlobal("__TAURI__", { core: { invoke } });
+  await state().installUpdate();
+  await state().cancelDownload();
+  expect(state()).toMatchObject({ installerReady: false, installing: false, disabled: false, button: "Download update" });
+  await state().installUpdate();
+  expect(invoke.mock.calls.map(([name]) => name)).toEqual(["check_desktop_update", "install_desktop_update", "cancel_desktop_update", "install_desktop_update"]);
+});
+
 it("reports progress, allows cancellation and retries the same reviewed release", async () => {
   let abort!: (error: Error) => void;
   let progress!: (event: {payload: {phase: string; downloaded: number; total: number}}) => void;

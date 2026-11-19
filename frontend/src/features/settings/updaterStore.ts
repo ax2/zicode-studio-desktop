@@ -200,11 +200,22 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     }
   },
   async cancelDownload() {
-    if (!get().canCancel) return;
+    const { installerReady, canCancel, installing, update } = get();
+    if (!canCancel && !(installerReady && !installing)) return;
+    if (installerReady) set({ disabled: true, installing: true });
     try {
-      await (globalThis as unknown as TauriGlobal).__TAURI__?.core?.invoke?.("cancel_desktop_update");
+      const invoke = (globalThis as unknown as TauriGlobal).__TAURI__?.core?.invoke;
+      if (!invoke) throw new Error("Desktop updater is unavailable");
+      await invoke("cancel_desktop_update");
+      if (installerReady) {
+        set({ installerReady: false });
+        get().showAvailable(update);
+      }
     } catch (error) {
       get().logger.warn?.("[Updater] Cancel failed:", error);
+      if (installerReady) set({ status: t("Could not discard the downloaded installer.") });
+    } finally {
+      if (installerReady) set({ disabled: false, installing: false });
     }
   },
   async installUpdate() {
