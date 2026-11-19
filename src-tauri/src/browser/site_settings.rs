@@ -1,4 +1,7 @@
 use super::SiteAction;
+#[cfg(all(test,debug_assertions))]
+#[path="native_site_permissions_test.rs"]
+mod native_site_permissions_test;
 use serde_json::{json, Value};
 use webview2_com::{
     take_pwstr, CallDevToolsProtocolMethodCompletedHandler, GetCookiesCompletedHandler, GetNonDefaultPermissionSettingsCompletedHandler,

@@ -19,9 +19,9 @@ use windows::{
     core::{Interface, w},
 };
 
-struct HiddenOwner(HWND);
+pub(crate) struct HiddenOwner(HWND);
 impl HiddenOwner {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let window = unsafe {
             CreateWindowExW(
                 WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
