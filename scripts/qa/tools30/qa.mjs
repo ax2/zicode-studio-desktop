@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {spawn,execFile} from 'node:child_process';
 import {readdir,readFile,mkdir,writeFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -9,7 +10,9 @@ assert.equal(process.env.RUNNER_ENVIRONMENT,'github-hosted');
 assert.equal(process.env.GITHUB_WORKFLOW,'Windows tool entry acceptance');
 const exec=promisify(execFile),profile=path.join(process.env.RUNNER_TEMP,'q30-profile');
 const plugin='com.zicode.devtools.text';
-const encode=plugin+':devtools.text.base64.encode',decode=plugin+':devtools.text.base64.decode';
+const encode=JSON.stringify([plugin,'devtools.text.base64.encode']),decode=JSON.stringify([plugin,'devtools.text.base64.decode']);
+const access=id=>'manual.tool:'+createHash('sha256').update(id).digest('hex');
+const opened=id=>"[data-open-tool-id='"+id+"']";
 let app,b,ui,hwnd;
 const report=(text,obj='')=>console.log('PASS',text,JSON.stringify(obj));
 async function wait(label,read,ms=50000){const end=Date.now()+ms;let last;while(Date.now()<end){try{const v=await read();if(v)return v;}catch(e){last=e;}await sleep(150);}throw Error(label+': '+(last?.message||'timed out'));}
@@ -37,22 +40,22 @@ try{
   const favorite=async(id,pin=false)=>{
     const menu=ui.locator('.quick-tools-menu summary:visible').first();await menu.click();
     const field=ui.locator('.tool-launcher-search');await field.fill('Base64');
-    const open=ui.locator('[data-tool-launcher-open="'+id+'"]');
+    const open=ui.locator('[data-tool-launcher-open="'+access(id)+'"]');
     await open.waitFor();
     if(pin){const star=open.locator('..').locator('button[aria-pressed]');if(await star.getAttribute('aria-pressed')!=='true')await star.click();}
     const title=await open.locator('strong').count()?await open.locator('strong').innerText():await open.getAttribute('title');
     await open.click();return title;
   };
-  const active=id=>ui.locator('[data-open-tool-id="'+id+'"][aria-pressed=true]');
-  const close=async id=>{const tab=active(id);await tab.waitFor();await tab.locator('..').hover();await tab.locator('..').locator('.tool-tab-close').click();};
+  const active=id=>ui.locator(opened(id)+'[aria-pressed=true]');
+  const close=async id=>{const tab=active(id);await tab.waitFor();await tab.locator('..').hover();await tab.locator('..').locator('.tool-tab-close').click();await ui.locator('dialog[open] .ui-button--danger').click();};
   await favorite(decode);await active(decode).waitFor();
   await favorite(encode,true);await active(encode).waitFor();
-  assert.equal(await ui.locator('[data-open-tool-id="'+encode+'"]').count(),1);
+  assert.equal(await ui.locator(opened(encode)).count(),1);
   report('main window opens the exact selected package and Base64 encoder while preserving its decoder tab',encode);
-  await close(encode);await active(decode).waitFor();assert.equal(await ui.locator('[data-open-tool-id="'+encode+'"]').count(),0);
+  await close(encode);await active(decode).waitFor();assert.equal(await ui.locator(opened(encode)).count(),0);
   await close(decode);await active('').waitFor();report('closing the active tool returns to the still-open decoder, then the directory when no tools remain');
   const menu=await native('quick');
-  await active(encode).waitFor();assert.equal(await ui.locator('[data-open-tool-id="'+encode+'"]').count(),1);
+  await active(encode).waitFor();assert.equal(await ui.locator(opened(encode)).count(),1);
   report('Explorer tray Quick tools opens exactly the same pinned encoder and no duplicate tab',{id:encode,menu});
   await close(encode);await active('').waitFor();report('closing the tray-origin tool returns to the directory');
 }catch(e){if(ui&&!ui.isClosed())console.error('UI diagnostic',String(await ui.locator('body').innerText()).slice(-2300),await ui.locator('[data-open-tool-id]').evaluateAll(a=>a.map(i=>[i.getAttribute('data-open-tool-id'),i.getAttribute('aria-pressed')])));throw e;}
