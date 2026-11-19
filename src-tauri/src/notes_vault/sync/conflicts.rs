@@ -50,6 +50,13 @@ struct Key<'a> {
     note: Option<&'a str>,
 }
 fn key(id: &str) -> Result<Key<'_>, SyncError> {
+    if id == order::KEY {
+        return Ok(Key {
+            kind: "order",
+            book: "",
+            note: None,
+        });
+    }
     let parts = id.split('/').collect::<Vec<_>>();
     if parts.len() < 2 {
         return Err(SyncError::InvalidData);
@@ -91,12 +98,15 @@ fn deleted(kind: &str, bytes: Option<&[u8]>) -> Result<bool, SyncError> {
             .map_err(failure)?
             .deleted_at
             .is_some()),
-        "attachment" => Ok(false),
+        "attachment" | "order" => Ok(false),
         _ => Err(SyncError::InvalidData),
     }
 }
 
 fn allowed_choices(pending: &PendingMerge, id: &str) -> Result<Vec<Choice>, SyncError> {
+    if id == order::KEY {
+        return Ok(vec![Choice::Local, Choice::Remote]);
+    }
     let parsed = key(id)?;
     let lifecycle = pending.conflicts.iter().any(|conflict| {
         let Ok(parent) = key(&conflict.id) else {

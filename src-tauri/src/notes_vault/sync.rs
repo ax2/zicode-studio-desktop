@@ -2,6 +2,7 @@
 //! network transport. Only a workspace-scoped, locked vault can use it.
 pub(crate) mod conflicts;
 mod records;
+mod order;
 mod snapshot;
 mod storage;
 #[cfg(test)]

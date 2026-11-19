@@ -131,6 +131,8 @@ pub struct TrashEntry {
 #[serde(rename_all = "camelCase")]
 pub struct NotesSnapshot {
     pub notebooks: Vec<NotebookDescriptor>,
+    #[serde(default)]
+    pub notebook_order: Option<Vec<String>>,
     pub notes: Vec<NoteSummary>,
     pub tags: Vec<String>,
 }
@@ -581,6 +583,7 @@ impl NotesVault {
         }
         notes.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
         Ok(NotesSnapshot {
+            notebook_order: self.stored_notebook_order()?,
             notebooks,
             notes,
             tags: tags.into_iter().collect(),

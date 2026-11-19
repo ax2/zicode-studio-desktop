@@ -116,6 +116,10 @@ pub(super) fn prepare(
         {
             return Err(invalid());
         }
+        if key == order::KEY {
+            order::parse(bytes)?;
+            continue;
+        }
         let parts: Vec<&str> = key.split('/').collect();
         if parts.first() == Some(&"book") && parts.len() == 2 {
             continue;
