@@ -12,6 +12,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          sparse-checkout: scripts/issue64-frozen.ps1
+          sparse-checkout-cone-mode: false
       - name: Fetch and verify exact frozen installers
         shell: pwsh
         env:
