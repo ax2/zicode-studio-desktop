@@ -5,7 +5,7 @@ ZiCode Studio Desktop 当前通过 GitHub Release 的 Windows NSIS 安装包手�
 ## 当前可用入口
 
 - 「设置 → 软件更新 → 使用 GitHub Releases」打开[最新稳定发行](https://github.com/ax2/zicode-studio-desktop/releases/latest)，可查看该版本号、发行说明及 Windows 安装包。草稿和预发行不作为这个手动稳定入口的目标。
-- 手动入口不会调用自动更新清单、下载安装或重启 Studio。用户核对版本后自行下载安装包；升级继续使用原来的固定资料目录，见[数据保留说明](desktop-persistent-data.md)。
+- 手动入口不会调用自动更新清单、下载安装或重启 Studio。用户核对版本后自行下载安装包；升级继续使用原来的固定资料目录，见[数据保留说明](https://github.com/ax2/zicode-studio-desktop/blob/64bbc84c58c6a047a24c74e949c0066311fbe172/docs/desktop-persistent-data.md)。
 - Tauri v2 updater 插件已集成，但 `bundle.createUpdaterArtifacts` 仍为 `false`。尚未交付可用的签名自动更新清单，当前不能把自动更新的下载、验证、安装或失败恢复流程标为已验收。
 - 稳定清单预留地址为 `https://github.com/ax2/zicode-studio-desktop/releases/latest/download/latest.json`；Beta 预留地址为 `https://github.com/ax2/zicode-studio-desktop/releases/download/beta/latest.json`。这些是未来协议地址，不是当前手动安装包入口或可用性承诺。
 
