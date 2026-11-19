@@ -116,6 +116,20 @@ export const CHECKS = [
     command: "cargo",
     args: ["check", "--manifest-path", MANIFEST, "--locked", "--all-targets"],
   },
+  {
+    id: "clippy",
+    command: "cargo",
+    args: [
+      "clippy",
+      "--manifest-path",
+      MANIFEST,
+      "--locked",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings",
+    ],
+  },
   { id: "rust-tests", command: "cargo", args: ["test", "--manifest-path", MANIFEST, "--locked"] },
   {
     id: "worker-debug-binary",
@@ -354,20 +368,6 @@ export const CHECKS = [
     ],
   },
   {
-    id: "clippy",
-    command: "cargo",
-    args: [
-      "clippy",
-      "--manifest-path",
-      MANIFEST,
-      "--locked",
-      "--all-targets",
-      "--",
-      "-D",
-      "warnings",
-    ],
-  },
-  {
     id: "python-venv-lifecycle",
     command: "cargo",
     args: [
@@ -437,10 +437,14 @@ export function runStep(step, { cwd, directory, env, spawn = spawnSync }) {
       receiptError = error?.code === "ENOENT" ? "receipt_missing" : "receipt_invalid";
     }
   }
+  const status = receiptError ? "failed" : outcome(result, step.advisory);
+  if (status === "failed") {
+    console.error(`Platform check failed: ${step.id}. See ${log} in the platform report.`);
+  }
   return {
     id: step.id,
     command: [step.command, ...step.args],
-    status: receiptError ? "failed" : outcome(result, step.advisory),
+    status,
     advisory: Boolean(step.advisory),
     exitCode: result.status ?? null,
     signal: result.signal ?? null,
