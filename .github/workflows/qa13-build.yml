@@ -54,6 +54,8 @@ jobs:
           bun run build:react
           if($LASTEXITCODE){exit $LASTEXITCODE}
           bun run bundle-css
+      - name: Use the official registry on the disposable builder
+        run: Set-Content -LiteralPath .cargo/config.toml -Value @('[build]', 'target-dir = "target"')
       - name: Compile the actual application with original production Host and update source
         run: cargo build --manifest-path src-tauri/Cargo.toml --bin zicode-studio-desktop --locked
       - uses: actions/upload-artifact@v4
