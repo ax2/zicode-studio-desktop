@@ -408,6 +408,9 @@ jobs:
     if: github.event_name == 'push' || (inputs.publish == true && (inputs.platform == 'windows' || inputs.platform == 'all'))
     needs: [prepare-release, verify-inventory]
     runs-on: ubuntu-22.04
+    concurrency:
+      group: studio-public-release
+      cancel-in-progress: false
     permissions:
       contents: write
       issues: read
@@ -429,7 +432,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          node scripts/release-candidate-files.mjs "$RUNNER_TEMP/bundles" "$RUNNER_TEMP/publish"
+          node scripts/release-candidate-files.mjs "$RUNNER_TEMP/bundles" "$RUNNER_TEMP/publish" > "$RUNNER_TEMP/verified-inventory.json"
           git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
           [[ "$(git rev-parse 'FETCH_HEAD^{commit}')" == "$RELEASE_SHA" ]] || { echo "::error::Release tag moved"; exit 1; }
           base="$RELEASE_SHA:docs/releases/$RELEASE_TAG.md"
@@ -441,7 +444,4 @@ jobs:
           mkdir -p docs/releases
           git show "$RELEASE_SHA:$snapshot" > "$snapshot"
           node scripts/render-release-issues.mjs "$RELEASE_TAG" "$RUNNER_TEMP/base-notes.md" "$RUNNER_TEMP/release-notes.md"
-          flags=()
-          if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--prerelease); fi
-          gh release create "$RELEASE_TAG" "$RUNNER_TEMP/publish/"* "${flags[@]}" --verify-tag \
-            --repo "$GITHUB_REPOSITORY" --title "ZiCode Studio Desktop $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
+          node scripts/publish-verified-release.mjs "$RUNNER_TEMP/publish" "$RUNNER_TEMP/verified-inventory.json" "$RUNNER_TEMP/release-notes.md"

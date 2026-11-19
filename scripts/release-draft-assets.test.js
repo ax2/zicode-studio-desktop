@@ -98,6 +98,6 @@ it("never publishes from a build or candidate-only dispatch", () => {
   expect(publish).toContain("needs: [prepare-release, verify-inventory]");
   expect(publish).toContain("inputs.publish == true");
   expect(publish).toContain("github.event_name == 'push'");
-  expect(publish).toContain("gh release create");
+  expect(publish).toContain("node scripts/publish-verified-release.mjs");
   expect(publish).not.toMatch(/--draft|--clobber/);
 });
