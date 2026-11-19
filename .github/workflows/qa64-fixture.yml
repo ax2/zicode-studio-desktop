@@ -1,0 +1,43 @@
+name: Windows installer verification fixture
+on:
+  push:
+    branches: [codex/qa64-fixture-067]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  fixture:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - run: git config --global core.longpaths true
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: 14413481731
+          run-id: 44265030277
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/from066
+          merge-multiple: true
+      - name: Rebundle actual immutable Windows files using production NSIS template
+        run: ./scripts/qa64-rebuild.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qa64-installer-fixture
+          path: ${{ runner.temp }}/qa64-bundle
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
+      - name: Run original acceptance to retain unmodified baseline evidence
+        env:
+          STUDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: |
+          ./scripts/verify-windows-installer-runtime.ps1 -Installer "$env:RUNNER_TEMP/qa64-bundle/fixture.exe" -PreviousInstaller "$env:RUNNER_TEMP/qa64-bundle/previous.exe" -PreviousSha256 'e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c' -Version '0.6.6' -Receipt "$env:RUNNER_TEMP/fixture-original.json"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-verifier-receipt
+          path: ${{ runner.temp }}/fixture-original.json
+          if-no-files-found: ignore
