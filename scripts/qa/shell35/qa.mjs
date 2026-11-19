@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {execFile,spawn} from 'node:child_process';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile,readdir} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import path from 'node:path';
 import {promisify} from 'node:util';
@@ -15,7 +15,7 @@ const proxy=createServer((req,res)=>{
   res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}).end('<!doctype html><html style="height:100%;background:linear-gradient(to right,#267ea8 50%,#ce672a 50%)"><title>Native page pixels</title><body><label>Unsaved synthetic form <input id="value"></label></body></html>');
 });
 proxy.on('connect',(_,s)=>s.end('HTTP/1.1 403 Forbidden\r\n\r\n'));
-let app,browser,hwnd;
+let app,browser,nativeBrowser,hwnd;
 const checks=[],record=(message,data='')=>{checks.push(message);console.log('PASS',message,JSON.stringify(data));};
 async function wait(label,read,timeout=45000){
   let last;const end=Date.now()+timeout;while(Date.now()<end){try{const v=await read();if(v)return v;}catch(e){last=e;}await sleep(220);}
@@ -28,12 +28,17 @@ async function native(action,...args){
 try{
   await mkdir(profile);await writeFile(path.join(profile,'profile.json'),'{"schemaVersion":1,"kind":"zicode-isolated-desktop"}\n');
   await new Promise(r=>proxy.listen(0,'127.0.0.1',r));
-  const env={...process.env,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port=18935 --remote-debugging-address=127.0.0.1 --proxy-server=http://127.0.0.1:'+proxy.address().port,WEBVIEW2_USER_DATA_FOLDER:path.join(profile,'webview')};
+  const env={...process.env,WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port=0 --remote-debugging-address=127.0.0.1 --proxy-server=http://127.0.0.1:'+proxy.address().port};
   const processes=await exec('powershell.exe',['-NoProfile','-Command','if(!(Get-Process explorer -ErrorAction SilentlyContinue)){Start-Process explorer.exe;Start-Sleep -Seconds 3};(Get-Process explorer -ErrorAction SilentlyContinue).Count']);
   console.log('Explorer processes on disposable runner:',processes.stdout.trim());
-  app=spawn(process.env.STUDIO_Q35_EXE,['--tools-only','--isolated-profile',profile],{env,stdio:'ignore'});
-  await wait('Studio WebView2 started',async()=>(await fetch('http://127.0.0.1:18935/json/version')).ok);
-  browser=await chromium.connectOverCDP('http://127.0.0.1:18935');
+  app=spawn(process.env.STUDIO_Q35_EXE,['--isolated-profile',profile],{env,stdio:'ignore'});
+  async function endpoint(folder){
+    const root=path.join(profile,'data',folder);
+    const file=(await readdir(root,{recursive:true})).find(s=>path.basename(s)==='DevToolsActivePort');
+    if(!file)return;const [port,p]=String(await readFile(path.join(root,file))).trim().split(/\r?\n/);
+    return /^\d+$/.test(port)&&p?.startsWith('/devtools/browser/')?'ws://127.0.0.1:'+port+p:null;
+  }
+  browser=await chromium.connectOverCDP(await wait('workspace profile endpoint',()=>endpoint('webview')));
   const pages=()=>browser.contexts().flatMap(c=>c.pages());
   const ui=await wait('workspace',()=>pages().find(p=>/^http:\/\/127\.0\.0\.1:\d+\/app\/workspaces\//.test(p.url())));
   ui.setDefaultTimeout(12000);
@@ -42,10 +47,11 @@ try{
   const original=await native('info');assert.ok(original.visible && original.dpi>=96 && original.monitors>=1);console.log('Actual virtual display',original);
   let pageFailure,paintAgain;
   try {
-  if(!await ui.locator('.browser-address:visible').count())await ui.locator('[data-plugin-id="com.zicode.browser"]').first().click();
+  await ui.locator('.browser-address').waitFor();
   const input=ui.locator('.browser-address');
   await input.fill(site);await input.press('Enter');
-  const child=await wait('native remote page',()=>pages().find(p=>p.url()===site));
+  nativeBrowser=await chromium.connectOverCDP(await wait('isolated child profile endpoint',()=>endpoint('browser/profiles')));
+  const child=await wait('native remote page',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===site));
   await child.locator('#value').fill('survives overlay and tray');
   const dimensions=await native('size',725,620);
   assert.ok(await ui.evaluate(()=>innerWidth<=768),'OS resize did not reach narrow shell breakpoint');
@@ -71,13 +77,15 @@ try{
   assert.ok(await ui.evaluate(()=>document.activeElement?.matches('[data-mobile-activity-more],[data-mobile-plugin-id="core.commands"],[data-plugin-id="core.commands"]')));
   await restored('narrow command Escape returns keyboard focus and rendered native page');
   }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message);}
-  const close=ui.locator('[data-window-action="close"]');await close.focus();await ui.keyboard.press('Shift+Tab');
-  assert.equal(await ui.evaluate(()=>document.activeElement?.dataset.windowAction),'toggleMaximize');
-  record('actual WebView2 window controls retain keyboard focus across Shift+Tab');
+  const close=ui.locator('[data-window-action="close"]');
+  try{await ui.mouse.move(350,260);await ui.keyboard.press('Tab');await close.focus();await ui.keyboard.press('Shift+Tab');
+    assert.equal(await ui.evaluate(()=>document.activeElement?.dataset.windowAction),'toggleMaximize');
+    record('actual WebView2 window controls retain keyboard focus across Shift+Tab');
+  }catch(e){console.error('KEYBOARD CHECK:',e.message);pageFailure??=e;}
   await close.click();
   await wait('close-to-tray hid native HWND',async()=>!(await native('info')).visible);
   const tray=await native('tray');await wait('Explorer tray menu restored same HWND',async()=>(await native('info')).visible);
   record('Windows Explorer notification icon and native Show Studio menu restore the same window',tray);
   if(paintAgain)await paintAgain('tray restoration preserves unsaved input and both native page colors');
   if(pageFailure)throw pageFailure;
-}finally{await browser?.close().catch(()=>{});app?.kill();proxy.closeAllConnections();proxy.close();}
+}finally{await nativeBrowser?.close().catch(()=>{});await browser?.close().catch(()=>{});app?.kill();proxy.closeAllConnections();proxy.close();}
