@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, history, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf } = {}) {
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -67,7 +67,7 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     menu.addEventListener("toggle", () => { if (menu.open) refresh(); });
     refresh(); panel.append(button);
   }
-  for (const [name, open] of [["Search tabs", searchTabs], ["Bookmarks", bookmarks], ["Browsing history", history]]) {
+  for (const [name, open] of [["Search tabs", searchTabs], ["Bookmarks", bookmarks], ["Browsing history", history], ["Site permissions and storage", siteSettings]]) {
     if (!open) continue;
     const button = document.createElement("button");
     button.type = "button";

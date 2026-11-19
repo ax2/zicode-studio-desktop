@@ -3,7 +3,7 @@
 //! initialization scripts, local protocols or Studio token are installed.
 #[cfg(test)]
 #[path = "native_privacy_tests.rs"]
-mod native_privacy_tests;
+pub(crate) mod native_privacy_tests;
 use super::policy::BrowserPolicy;
 #[path = "event_lifetime.rs"]
 mod event_lifetime;

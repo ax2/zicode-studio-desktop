@@ -21,6 +21,7 @@ import { showBrowserTabGroup } from "./browser-tab-group-dialog.js";
 import { showBrowserProfiles } from "./browser-profiles.js";
 import { showBrowserDownloads } from "./browser-downloads.js";
 import { showBrowserHistory } from "./browser-history.js";
+import { showSiteSettings } from "./browser-site-settings.js";
 import { showBrowserBookmarks } from "./browser-bookmarks.js";
 import { createBrowserSurface } from "./browser-surface.js";
 import { createBrowserOptions } from "./browser-options.js";
@@ -771,7 +772,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           const profiles=await invoke("browser_list_profiles");await hide(true);
           if(visible)tabSearch=showBrowserProfiles(profiles,params=>invoke("browser_window_command",params),()=>{tabSearch=null;void run(syncSurface)});
         }) : act(() => invoke("browser_window_command", { action })),
-      bookmarks: () => act(() => openBookmarks(false)), history: () => act(() => openHistory()), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
+      bookmarks: () => act(() => openBookmarks(false)), history: () => act(() => openHistory()), siteSettings: () => act(openSiteSettings), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
       reader: () => act(openReader),
       translateSelection: onTranslateSelection && (() => {
         const source = active;
@@ -918,6 +919,15 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function openHistory(returnToPage) {
     await hide(true);
     showBrowserHistory({ invoke, onOpen: openSavedPage, onClose: () => restorePanelPage(returnToPage) });
+  }
+  async function openSiteSettings() {
+    const tab = active;
+    const origin = new URL((await tabPage(tab)).url).origin;
+    await hide(true);
+    showSiteSettings({
+      origin, request: action => control({ kind: "siteSettings", tab, expectedOrigin: origin, action }),
+      onClose: () => restorePanelPage(tab),
+    });
   }
   async function tabPage(id) {
     const tab = tabs.find(item => item.id === id);
