@@ -62,7 +62,10 @@ if($Mode -eq 'choose'){
   [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
   Start-Sleep -Milliseconds 570
   $button=$dialog.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)|Where-Object {$_.Current.ControlType -eq [Windows.Automation.ControlType]::Button -and $_.Current.Name -match '^(Select Folder|选择文件夹|选择文件夹\(.*\)|Open|打开)$'}|Select-Object -First 1
-  if(!$button){throw 'Native folder picker Select Folder button not found'}
+  if(!$button){
+    $labels=@($dialog.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)|Where-Object {$_.Current.ControlType -eq [Windows.Automation.ControlType]::Button}|ForEach-Object {$_.Current.Name})
+    throw "Native folder picker select button not found: $($labels -join '|')"
+  }
   Click $button $false
   Write-Output 'Genuine Studio folder picker confirmed public fixture';exit
 }

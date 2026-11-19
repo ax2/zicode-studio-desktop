@@ -27,7 +27,8 @@ try{
   ui.setDefaultTimeout(16000);await ui.waitForFunction(()=>!!window.__picotNative,{},{timeout:65000});
   hwnd=Number((await exec('powershell.exe',['-NoProfile','-Command','(Get-Process -Id '+app.pid+').MainWindowHandle.ToInt64()'])).stdout.trim());assert.ok(hwnd);
   const pending=ui.evaluate(()=>window.__TAURI__.core.invoke('select_developer_plugin_package'));
-  await native('choose');
+  pending.catch(()=>{});
+  console.log(await native('choose'));
   const preview=await pending;
   assert.equal(preview.pluginId,plugin);
   await ui.evaluate(async({preview,plugin})=>{
@@ -58,5 +59,5 @@ try{
   await active(encode).waitFor();assert.equal(await ui.locator(opened(encode)).count(),1);
   report('Explorer tray Quick tools opens exactly the same pinned encoder and no duplicate tab',{id:encode,menu});
   await close(encode);await active('').waitFor();report('closing the tray-origin tool returns to the directory');
-}catch(e){if(ui&&!ui.isClosed())console.error('UI diagnostic',String(await ui.locator('body').innerText()).slice(-2300),await ui.locator('[data-open-tool-id]').evaluateAll(a=>a.map(i=>[i.getAttribute('data-open-tool-id'),i.getAttribute('aria-pressed')])));throw e;}
+}catch(e){console.error('Actual failed step',e.message);if(ui&&!ui.isClosed())console.error('UI diagnostic',String(await ui.locator('body').innerText()).slice(-2300),await ui.locator('[data-open-tool-id]').evaluateAll(a=>a.map(i=>[i.getAttribute('data-open-tool-id'),i.getAttribute('aria-pressed')])));throw e;}
 finally{await b?.close().catch(()=>{});app?.kill();}
