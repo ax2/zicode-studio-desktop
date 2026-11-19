@@ -2346,6 +2346,8 @@ fn main() {
                     }
                 }
                 tauri::WindowEvent::Destroyed if label.starts_with("native-workspace-") => {
+                    #[cfg(all(windows, target_arch = "x86_64"))]
+                    stable_update::forget_window(label);
                     browser::forget_window(label);
                     desktop_tray::forget_window(window.app_handle(), label);
                     if let Some(entries) =

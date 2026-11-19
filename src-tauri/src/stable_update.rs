@@ -354,6 +354,19 @@ pub(super) fn cancel(window: &WebviewWindow) -> Result<(), String> {
         _ => Err("Update handoff cannot be cancelled from this window".into()),
     }
 }
+pub(super) fn forget_window(label: &str) {
+    if let Ok(mut state) = state() {
+        state.checked.remove(label);
+        match &state.stage {
+            Stage::Download(owner, token) if owner == label => token.cancel(),
+            Stage::Ready(owner, ready) if owner == label => {
+                let _ = std::fs::remove_file(&ready.path);
+                state.stage = Stage::Idle;
+            }
+            _ => {}
+        }
+    }
+}
 pub(super) async fn handoff(
     app: &tauri::AppHandle,
     window: &WebviewWindow,
