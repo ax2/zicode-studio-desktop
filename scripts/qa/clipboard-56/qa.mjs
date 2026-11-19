@@ -25,11 +25,11 @@ const server=createServer(async(req,res)=>{
   requests.push(text);
   const held=holdNext;
   if(held){holdNext=false;await new Promise(r=>{releaseHeld=r;});}
-  const result=await exec('py',['-3.11','offline.py',text===en?'en_zh':'zh_en',Buffer.from(text).toString('base64')],{timeout:45000});
+  const result=await exec(process.execPath,['offline.mjs',text===en?'en_zh':'zh_en',Buffer.from(text).toString('base64')],{timeout:45000});
   const translation=Buffer.from(result.stdout.trim(),'base64').toString('utf8');
   if(text===en) {assert.match(translation,/翻译|译成/);assert.match(translation,/中文|汉语|中国/);}
   else {assert.match(translation,/translat/i);assert.match(translation,/English/i);}
-  console.log('Argos CPU '+(text===en?'en→zh':'zh→en')+': '+translation);
+  console.log('OPUS-MT CPU '+(text===en?'en→zh':'zh→en')+': '+translation);
   translations.set(text,translation);
   res.writeHead(200,{'Content-Type':'application/json'}).end(JSON.stringify({choices:[{message:{role:'assistant',content:translations.get(text)}}]}));
   if(held)finishedHeld=true;
