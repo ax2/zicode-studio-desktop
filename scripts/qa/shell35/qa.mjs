@@ -59,37 +59,33 @@ try{
   const child=await wait('native remote page',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===site));
   await child.waitForFunction(()=>document.readyState==='complete'&&document.title==='Example Domain');
   console.log('Live remote document',await child.evaluate(()=>({title:document.title,url:location.href,viewport:[innerWidth,innerHeight],visibility:document.visibilityState,heading:document.querySelector('h1')?.textContent})));
-  await native('size',950,670);
-  const state=()=>ui.evaluate(async()=> (await window.__TAURI__.core.invoke('browser_get_state')).session);
-  const snap=async()=>{const s=await state();return {tabs:s.tabs.map(t=>({id:t.id,url:t.url,zoom:t.zoom,muted:t.muted})),active:s.activeTab};};
-  const current=(s,id)=>s.tabs.find(t=>t.id===id);
-  const id=(await snap()).active;
-  await child.evaluate(()=>{document.documentElement.style.height='5000px';window.scrollTo(0,500);});
-  const point=()=>ui.locator('.browser-viewport').evaluate(el=>{let r=el.getBoundingClientRect();return [(r.left+r.width*.48)/innerWidth,(r.top+r.height*.4)/innerHeight]});
-  let pt=await point();console.log('Starting state',await snap());
-  const results=[];async function check(label,fn){try{await fn();record(label);}catch(e){results.push(label+': '+String(e));console.log('FAIL',results.at(-1));}}
-  await check('positive ordinary physical wheel scrolls the real document without zoom',async()=>{
-    let original=(await snap());await native('wheel',...pt);await wait('scroll',()=>child.evaluate(()=>scrollY<500),6500);assert.equal(current(await snap(),id).zoom,current(original,id).zoom);
-  });
-  await check('native Ctrl+wheel changes and persists zoom on selected tab',async()=>{
-    let original=current(await snap(),id).zoom||1;await native('ctrlwheel',...pt);let t=await wait('new zoom',async()=>{let t=current(await snap(),id);return t.zoom>original&&t},7000);console.log('Host persisted zoom',t.zoom);
-  });
-  await check('physical F11 goes fullscreen and restores window',async()=>{
-    await child.locator('body').click({position:{x:4,y:4}});let before=await native('info');await native('f11',...pt);
-    let full=await wait('fullscreen HWND',async()=>{let u=await native('info');return u.width>before.width&&u},7000);await native('f11',...pt);await wait('restore size',async()=>(await native('info')).width===before.width,9000);console.log('Window sizes',before.width,full.width);
-  });
-  await check('physical right click activates WebView2 Browser tools / Zoom in',async()=>{
-    pt=await point();let prev=current(await snap(),id).zoom||1;await native('right',...pt);let m=await native('menu');console.log('Native menu',m);if(!m.activated){await native('escape');throw Error('No custom native menu command activated');}await wait('menu zoom change',async()=>current(await snap(),id).zoom>prev,6500);
-  });
-  for(const action of ['ctrlclick','middle','shiftclick'])await check('physical '+action+' opens real link exactly once',async()=>{
-    await ui.locator('[role=tab]').filter({hasText:'Example Domain'}).first().click();
-    const sourceTab=await snap();const source=sourceTab.active;
-    let url=site+'?q10='+action;
-    await child.evaluate(url=>{let a=document.querySelector('#q10link')||document.createElement('a');a.id='q10link';a.href=url;a.textContent='Open test link';a.style.cssText='position:fixed;inset:0;display:block;z-index:10000;background:white';document.documentElement.append(a)},url);
-    await native(action,...await point());const after=await wait('link destination '+action,async()=>{let s=await snap();return s.tabs.some(t=>t.url===url)&&s},8000);
-    assert.equal(after.tabs.length,sourceTab.tabs.length+1);assert.equal(current(after,source).url,site);console.log('Link disposition',action,after.active===source?'background':'foreground');
-  });
-  console.log('Results',JSON.stringify({checks,results,final:await snap()}));if(results.length)throw Error(results.join('; '));
+  const call=(name,args)=>ui.evaluate(({name,args})=>window.__TAURI__.core.invoke(name,args),{name,args});
+  const state=async()=>(await call('browser_get_state')).session;
+  const initial=await state(), first=initial.activeTab;
+  await ui.locator('.browser-address').press('Control+t');
+  await wait('second tab',async()=>(await state()).tabs.length===2);
+  const source=ui.locator('.browser-address');const other=site+'?tone=880';
+  await source.fill(other);await source.press('Enter');
+  const peer=await wait('second native document',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===other));
+  const second=(await state()).activeTab;
+  const target=(url)=>ui.locator('[role=tab]').evaluateAll((tabs,url)=>{let t=tabs.find(t=>t.title===url);if(!t)throw Error('missing tab '+url);t.click();},url);
+  async function tone(p,f){
+    await p.evaluate(f=>{let b=document.createElement('button');b.id='tone';b.style.cssText='position:fixed;inset:16px;z-index:100';b.textContent='play';b.onclick=async()=>{let ctx=new AudioContext();window.qctx=ctx;await ctx.resume();let o=ctx.createOscillator();o.frequency.value=f;let g=ctx.createGain();g.gain.value=.35;let a=ctx.createAnalyser();o.connect(g);g.connect(a);a.connect(ctx.destination);o.start();window.qaAnalyser=a;};document.documentElement.append(b);},f);
+    await p.locator('#tone').click();await wait('Web Audio real samples',()=>p.evaluate(()=>{if(!window.qaAnalyser)return false;let a=new Float32Array(1024);window.qaAnalyser.getFloatTimeDomainData(a);return window.qctx.state==='running'&&Math.max(...a)>.1;}));
+  }
+  await tone(peer,880);await target(site);await tone(child,440);
+  async function setting(id){return call('browser_control',{request:{kind:'pageSettings',tab:id}})}
+  async function mute(url,re){
+    const tab=ui.locator('[role=tab]').filter({hasText:'Example Domain'});
+    const n=await tab.evaluateAll((els,url)=>els.findIndex(e=>e.title===url),url);assert.ok(n>=0);
+    await tab.nth(n).click({button:'right'});await ui.getByRole('menuitem',{name:re}).click();
+  }
+  await mute(other,/^(Mute tab|标签页静音|静音标签页|静音标签)$/i);
+  await wait('muted peer',async()=>(await setting(second)).muted);
+  assert.equal((await setting(first)).muted,false);assert.equal((await state()).activeTab,first);
+  await mute(other,/^(Unmute tab|取消标签页静音|取消静音|取消静音标签页)$/i);
+  await wait('unmuted peer',async()=>!(await setting(second)).muted);
+  record('two real pages generate distinct audio samples while genuine tab-menu mute and unmute affects only the selected source identity', {first,second,deviceCount:process.env.QA10_RENDER_DEVICES});
   }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message,JSON.stringify(await describe()));}
   if(pageFailure)throw pageFailure;
 }finally{await nativeBrowser?.close().catch(()=>{});await browser?.close().catch(()=>{});app?.kill();}

@@ -1,7 +1,7 @@
 name: Isolated Windows shell acceptance
 on:
   push:
-    branches: [codex/qa10-windows]
+    branches: [codex/qa10-audio]
     paths: ['.github/workflows/qa10.yml', 'scripts/qa/shell35/**']
 permissions:
   contents: read
@@ -24,7 +24,9 @@ jobs:
           merge-multiple: true
       - name: Prepare the already accepted production shell with its test version label
         run: ./scripts/qa/shell35/prepare.ps1
-      - name: Verify composed browser pixels and native window restoration
+      - name: Inspect disposable audio render devices
+        run: ./scripts/qa/shell35/audio-devices.ps1
+      - name: Verify independent WebView2 audio
         working-directory: scripts/qa/shell35
         run: |
           $driver=Join-Path $env:RUNNER_TEMP 'shell-driver'
