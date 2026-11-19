@@ -16,7 +16,7 @@ export interface NotesAppHandle {
   setProject(project: ProjectInfo | null): void;
   openNote(notebookId: string, noteId: string): Promise<void>;
   newNote(): Promise<void>;
-  openWidgetShortcut(kind: "pinned" | "recent"): Promise<void>;
+  openWidgetShortcut(kind: "new" | "pinned" | "recent"): Promise<void>;
   startCapture(): Promise<void>;
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<unknown>;
   receiveIncomingDraft(input: { title: string; content: string }, isCurrent: () => boolean, verify?: () => Promise<void>): Promise<void>;
@@ -155,6 +155,9 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
       return store.getState().openNote(notebookId, noteId);
     },
     async openWidgetShortcut(kind) {
+      await store.getState().load();
+      if (store.getState().error) return;
+      if (kind === "new") return store.getState().newNote();
       await store.getState().refreshShortcuts(true);
       const state = store.getState();
       const shortcut = (kind === "pinned" ? state.pinnedNotes : state.recentNotes)[0];

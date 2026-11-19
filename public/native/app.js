@@ -1581,8 +1581,7 @@ try {
       if (!action) return;
       await pluginShell.activate("com.zicode.notes", { focus: false });
       if (pluginShell.getActivePluginId() !== "com.zicode.notes") return;
-      if (action === "new") await notesApp.newNote();
-      else await notesApp.openWidgetShortcut(action);
+      await notesApp.openWidgetShortcut(action);
     };
     window.addEventListener("zicode:entry-changed", () => { void openWidgetNote().catch(showError); });
     await openWidgetNote();
