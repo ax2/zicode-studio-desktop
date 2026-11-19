@@ -275,6 +275,14 @@ mod tests {
         .unwrap();
         assert!(!system_credentials_enabled());
         assert!(requires_explicit_argument());
+        #[cfg(all(windows, target_arch = "x86_64"))]
+        assert_eq!(
+            crate::desktop_update_handoff::restart_arguments(false).unwrap(),
+            vec![
+                "--isolated-profile".to_owned(),
+                root().unwrap().display().to_string()
+            ]
+        );
         let expected = path.canonicalize().unwrap();
         let executable = std::env::current_exe()
             .unwrap()
@@ -387,6 +395,16 @@ mod tests {
         initialize_with_selection([], || Ok(Some((path.clone(), true)))).unwrap();
         assert!(system_credentials_enabled());
         assert!(!requires_explicit_argument());
+        #[cfg(all(windows, target_arch = "x86_64"))]
+        {
+            assert!(crate::desktop_update_handoff::restart_arguments(false)
+                .unwrap()
+                .is_empty());
+            assert_eq!(
+                crate::desktop_update_handoff::restart_arguments(true).unwrap(),
+                ["--tools-only"]
+            );
+        }
         assert!(is_isolated());
         assert!(!pi_discovery_flags().is_empty());
         assert_eq!(root().unwrap(), path.canonicalize().unwrap());

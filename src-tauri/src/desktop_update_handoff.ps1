@@ -6,8 +6,8 @@ $stream = $null
 $parent = $null
 
 function Write-Result([string]$status, [string]$message) {
-    $destination = Join-Path $handoff.updatesDir 'result.json'
-    $temp = Join-Path $handoff.updatesDir ("result-" + [guid]::NewGuid() + ".tmp")
+    $destination = [IO.Path]::Combine($handoff.updatesDir, 'result.json')
+    $temp = [IO.Path]::Combine($handoff.updatesDir, ("result-" + [guid]::NewGuid() + ".tmp"))
     $json = @{ version=$handoff.version; status=$status; message=$message } | ConvertTo-Json -Compress
     [IO.File]::WriteAllText($temp, $json, [Text.UTF8Encoding]::new($false))
     if ([IO.File]::Exists($destination)) { [IO.File]::Replace($temp, $destination, $null) }
