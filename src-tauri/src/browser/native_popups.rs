@@ -16,6 +16,9 @@ use webview2_com::{
 use windows::core::{Interface, BOOL, PWSTR};
 use wry::WebViewExtWindows;
 
+#[path = "link_disposition.rs"]
+mod link_disposition;
+
 pub const EXPIRY: Duration = Duration::from_secs(8);
 
 #[derive(Default)]
@@ -136,6 +139,7 @@ pub(super) fn install(
     emit: Arc<dyn Fn(EngineEvent) + Send + Sync>,
 ) -> windows::core::Result<()> {
     let controller = view.controller();
+    let link_gesture = link_disposition::observe(view);
     unsafe {
         view.webview().add_NewWindowRequested(
             &NewWindowRequestedEventHandler::create(Box::new(move |sender, args| {
@@ -150,10 +154,17 @@ pub(super) fn install(
                 let mut uri = PWSTR::null();
                 args.Uri(&mut uri)?;
                 let url = take_pwstr(uri);
+                let evidence = link_gesture.take();
                 let gesture = initiated.as_bool() && visible.as_bool();
                 let mut allowed =
                     allowed_link(&policy, &url, initiated.as_bool(), visible.as_bool());
                 let mut request = None;
+                let source = sender.as_ref().and_then(|source| {
+                    let mut raw = PWSTR::null();
+                    source.Source(&mut raw).ok()?;
+                    Some(take_pwstr(raw))
+                });
+                let background = allowed && evidence.is_some_and(|hit| hit.matches(source.as_deref(), &url));
                 if gesture && (allowed || url == "about:blank") && auxiliary(&args, &url)? {
                     let Some(sender) = sender else {
                         return Ok(());
@@ -186,7 +197,7 @@ pub(super) fn install(
                     url: if allowed { url } else { String::new() },
                     user_initiated: initiated.as_bool(),
                     allowed,
-                    background: false,
+                    background: background && request.is_none(),
                     request,
                 });
                 Ok(())
