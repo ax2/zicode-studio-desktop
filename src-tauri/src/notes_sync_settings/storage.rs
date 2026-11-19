@@ -71,6 +71,57 @@ impl Storage {
     pub(super) fn read_current(&self) -> Result<Option<Vec<u8>>> {
         self.read("current.json")
     }
+    pub(super) fn historical(&self, revision: &str, workspace: &str) -> Result<Config> {
+        if !super::valid_id(revision) {
+            return Err("notes_sync_settings_invalid");
+        }
+        let bytes = self
+            .read(&format!("{revision}.json"))?
+            .ok_or("notes_sync_settings_changed")?;
+        let config: Config =
+            serde_json::from_slice(&bytes).map_err(|_| "notes_sync_settings_invalid")?;
+        super::validate_config(&config, workspace)?;
+        if config.revision != revision {
+            return Err("notes_sync_settings_invalid");
+        }
+        Ok(config)
+    }
+    pub(super) fn history(&self, workspace: &str) -> Result<Vec<super::HistoryEntry>> {
+        let mut entries = Vec::new();
+        for item in self.0.entries().map_err(failure)? {
+            let item = item.map_err(failure)?;
+            let name = item.file_name();
+            let Some(id) = name
+                .to_str()
+                .and_then(|name| name.strip_suffix(".json"))
+                .filter(|id| super::valid_id(id))
+            else {
+                continue;
+            };
+            let config = self.historical(id, workspace)?;
+            let time = item
+                .metadata()
+                .map_err(failure)?
+                .modified()
+                .map_err(failure)?
+                .into_std();
+            let archived_at = time
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(failure)?
+                .as_millis() as u64;
+            entries.push(super::HistoryEntry {
+                revision: config.revision,
+                connection: config.connection,
+                archived_at,
+            });
+        }
+        entries.sort_unstable_by(|a, b| {
+            b.archived_at
+                .cmp(&a.archived_at)
+                .then_with(|| a.revision.cmp(&b.revision))
+        });
+        Ok(entries)
+    }
     pub(super) fn lock(&self) -> Result<fs::File> {
         if self
             .0

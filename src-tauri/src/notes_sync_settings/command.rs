@@ -9,6 +9,14 @@ pub(crate) enum Request {
     #[serde(rename_all = "camelCase")]
     Status { workspace_id: String },
     #[serde(rename_all = "camelCase")]
+    History { workspace_id: String },
+    #[serde(rename_all = "camelCase")]
+    Restore {
+        workspace_id: String,
+        expected_revision: String,
+        revision: String,
+    },
+    #[serde(rename_all = "camelCase")]
     Save {
         workspace_id: String,
         settings: Save,
@@ -25,6 +33,8 @@ pub(crate) async fn notes_sync_settings(
     crate::require_workspace_window(&window)?;
     let workspace = match &request {
         Request::Status { workspace_id }
+        | Request::History { workspace_id }
+        | Request::Restore { workspace_id, .. }
         | Request::Save { workspace_id, .. }
         | Request::NewRecoveryCode { workspace_id } => workspace_id,
     };
@@ -48,6 +58,36 @@ pub(crate) async fn notes_sync_settings(
     let test_name = crate::desktop_profile::test_profile_name().map(str::to_owned);
     tauri::async_runtime::spawn_blocking(move || {
         let status: Status = match request {
+            Request::History { workspace_id } => {
+                let entries = super::history(&root, test_name.as_deref(), &workspace_id)
+                    .map_err(str::to_owned)?;
+                return serde_json::to_value(entries)
+                    .map_err(|_| "notes_sync_settings_unavailable".to_owned());
+            }
+            Request::Restore {
+                workspace_id,
+                expected_revision,
+                revision,
+            } => {
+                if !enabled {
+                    return Err("notes_sync_credentials_disabled".to_owned());
+                }
+                super::restore(
+                    &root,
+                    test_name.as_deref(),
+                    &workspace_id,
+                    &expected_revision,
+                    &revision,
+                )
+                .map_err(str::to_owned)?;
+                super::status(
+                    &root,
+                    test_name.as_deref(),
+                    &workspace_id,
+                    enabled,
+                    &SystemSecrets,
+                )
+            }
             Request::Status { workspace_id } => super::status(
                 &root,
                 test_name.as_deref(),
