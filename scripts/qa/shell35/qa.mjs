@@ -95,12 +95,12 @@ try{
   const marker='ZiCode-QA179/1.0', other='ZiCode-QA179-Named/2.0';
   const baseline=observed.get('/');assert.ok(baseline?.includes('Mozilla/'),'server must receive real WebView2 UA');
   async function configure(p,ua){
-    const m=p.locator('.browser-options');if(!await m.evaluate(e=>e.open))await m.locator('summary').click();
+    const m=p.locator('.browser-options');if(!await m.evaluate(e=>e.open))await m.locator(':scope > summary').click();
     const d=m.locator('.browser-user-agent');if(!await d.evaluate(e=>e.open))await d.locator('summary').click();
     const input=d.locator('input');await wait('preference initialized',()=>input.isEnabled());
     if(ua!==null){await input.fill(ua);await input.press('Enter')}else await d.locator('button').last().click();
     await wait('saved configuration',async()=>await pref(p)===ua);
-    await m.locator('summary').click();
+    await m.locator(':scope > summary').click();
   }
   async function load(p,key,newTab=true){
     const box=p.locator('.browser-address');
