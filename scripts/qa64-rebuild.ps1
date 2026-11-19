@@ -38,6 +38,13 @@ $cfg.version='0.6.6'
 [IO.File]::WriteAllText($cfgPath,($cfg|ConvertTo-Json -Depth 95))
 [void][IO.Directory]::CreateDirectory("$project/target/release")
 Copy-Item -LiteralPath $exe.FullName -Destination "$project/target/release/zicode-studio-desktop.exe"
+# The frozen acceptance inventory contains the Studio executable and runtime resources.
+# Package only that verified binary; untracked Cargo utility binaries are outside this fixture.
+$manifest=Join-Path $project 'src-tauri/Cargo.toml'
+$metadata=[IO.File]::ReadAllText($manifest)
+$metadata=$metadata.Replace('[package]',"[package]`nautobins = false")
+$metadata=[regex]::Replace($metadata,'(?ms)^\[\[bin\]\]\s*name\s*=\s*"zicode-relay".*?(?=^\[|\z)','')
+[IO.File]::WriteAllText($manifest,$metadata)
 $lockedTools=Join-Path $env:RUNNER_TEMP 'tauri-cli'
 [void][IO.Directory]::CreateDirectory($lockedTools)
 Push-Location $lockedTools
