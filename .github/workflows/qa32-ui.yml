@@ -1,0 +1,48 @@
+name: Windows updater settings acceptance
+on:
+  push:
+    branches: [codex/qa32-ui-e2e]
+    paths: ['.github/workflows/qa32-ui.yml', 'scripts/qa32/verify-update-ui.mjs']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  settings:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/qa32
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: updater32-test-app
+          run-id: 44443966212
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/testapp
+      - name: Prepare installed product and observe its actual Windows upgrade
+        working-directory: scripts/qa32
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $archive=Join-Path $env:RUNNER_TEMP stable.exe
+          curl.exe -fsSL --max-time 240 -o $archive https://github.com/ax2/zicode-studio-desktop/releases/download/v0.6.2/ZiCode.Studio.Desktop_0.6.2_x64-setup.exe
+          if($LASTEXITCODE -or (Get-FileHash $archive).Hash.ToLowerInvariant() -cne 'e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c'){throw 'Unexpected public installer'}
+          $dir=Join-Path $env:RUNNER_TEMP 'Installed Studio'
+          $p=Start-Process $archive -ArgumentList "/S /NS /D=$dir" -WindowStyle Hidden -PassThru
+          if(!$p.WaitForExit(180000) -or $p.ExitCode){throw 'Real initial install failed'}
+          $env:Q32_EXE=Join-Path $dir zicode-studio-desktop.exe
+          $env:Q32_PROFILE=Join-Path $env:RUNNER_TEMP 'Private QA profile'
+          $new=Join-Path $env:RUNNER_TEMP 'testapp'
+          $exe=Get-ChildItem -LiteralPath $new -Recurse -File -Filter 'zicode-studio-desktop.exe'
+          if(@($exe).Count -ne 1){throw 'Ambiguous test binary'}
+          Copy-Item -LiteralPath $exe.FullName -Destination $env:Q32_EXE -Force
+          robocopy "$new/public" "$dir/public" /E /NFL /NDL /NJH /NJS /NP|Out-Null
+          if($LASTEXITCODE -ge 8){throw 'Could not install production UI under test'}
+          npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          node verify-update-ui.mjs
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          if((Get-Item $env:Q32_EXE).VersionInfo.ProductVersion -ne '0.6.2'){throw 'Installed application version did not match real target'}
+          Write-Output 'PASS new installed PE version 0.6.2'
