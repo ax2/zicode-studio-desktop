@@ -6,6 +6,11 @@ Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 public static class Q35 {
+  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr parent,IntPtr after,string cls,string title);
+  [DllImport("user32.dll")] public static extern IntPtr SendMessageTimeout(IntPtr hwnd,uint msg,IntPtr wp,IntPtr lp,uint flags,uint timeout,out IntPtr result);
+  [DllImport("user32.dll")] public static extern int GetMenuItemCount(IntPtr menu);
+  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetMenuString(IntPtr menu,uint item,System.Text.StringBuilder text,int max,uint flags);
+  [DllImport("user32.dll")] public static extern bool GetMenuItemRect(IntPtr owner,IntPtr menu,uint item,out Rect rect);
   [StructLayout(LayoutKind.Sequential)]public struct Pt {public int x,y;}
   [StructLayout(LayoutKind.Sequential)]public struct Rect {public int left,top,right,bottom;}
   [DllImport("user32.dll")]public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr c);
@@ -52,14 +57,25 @@ if($Mode -eq 'tray'){
   Click $item $true
   $entry=$null;for($i=0;$i -lt 18 -and !$entry;$i++){Start-Sleep -Milliseconds 100;$entry=ShellItem '(Show|显示) ZiCode Studio' $true}
   if(!$entry){
-    Add-Type -AssemblyName System.Windows.Forms
-    [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
-    Start-Sleep -Milliseconds 400
-    $item=ShellItem 'ZiCode Studio Desktop'
-    if(!$item){$arrow=ShellItem 'show hidden icons|notification chevron|显示隐藏|显示.*图标';if($arrow){Click $arrow $false;Start-Sleep -Milliseconds 350};$item=ShellItem 'ZiCode Studio Desktop'}
-    if(!$item){throw 'Lost Studio icon after menu dismissal'}
-    Click $item $false
-    @{tray=$iconName;action='left click'}|ConvertTo-Json -Compress;exit
+    $popup=[IntPtr]::Zero
+    $labels=@()
+    while(($popup=[Q35]::FindWindowEx([IntPtr]::Zero,$popup,'#32768',$null)) -ne [IntPtr]::Zero){
+      $menu=[IntPtr]::Zero
+      [void][Q35]::SendMessageTimeout($popup,0x1e1,[IntPtr]::Zero,[IntPtr]::Zero,2,300,[ref]$menu)
+      if($menu -eq [IntPtr]::Zero){continue}
+      for($i=0;$i -lt [Q35]::GetMenuItemCount($menu);$i++){
+        $label=[Text.StringBuilder]::new(250)
+        [void][Q35]::GetMenuString($menu,$i,$label,250,0x400)
+        $labels+=$label.ToString()
+        if($label.ToString().Replace('&','') -notmatch '(Show|显示) ZiCode Studio'){continue}
+        $r=New-Object Q35+Rect
+        if(![Q35]::GetMenuItemRect([IntPtr]::Zero,$menu,$i,[ref]$r)){continue}
+        [void][Q35]::SetCursorPos([int](($r.left+$r.right)/2),[int](($r.top+$r.bottom)/2))
+        [Q35]::mouse_event(2,0,0,0,[UIntPtr]::Zero);[Q35]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+        @{tray=$iconName;action='right click, native menu item';menu=$label.ToString()}|ConvertTo-Json -Compress;exit
+      }
+    }
+    throw "No accessible or Win32 show command after right click; menu items $($labels -join ', ')"
   }
   $menuName=$entry.Current.Name
   Click $entry $false
