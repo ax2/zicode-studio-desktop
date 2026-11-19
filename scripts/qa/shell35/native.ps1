@@ -146,16 +146,20 @@ if($Mode -eq 'printcancel'){
  $r=[Windows.Automation.AutomationElement]::RootElement
  for($i=0;$i -lt 30;$i++){
   $titles=@()
-  foreach($dlg in $r.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.Condition]::TrueCondition)){
+  $windows=New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Window)
+  foreach($dlg in $r.FindAll([Windows.Automation.TreeScope]::Descendants,$windows)){
    $titles+=($dlg.Current.ClassName+' '+$dlg.Current.Name)
-   if($dlg.Current.Name -notmatch '^Print$|^打印$|Print dialog'){continue}
+   if($dlg.Current.Name -notmatch 'print|打印'){continue}
    $list=@($dlg.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition))
    $cancel=$list|Where-Object {$_.Current.ControlType -eq [Windows.Automation.ControlType]::Button -and $_.Current.Name -match '^Cancel$|^取消$'}|Select-Object -First 1
    if($cancel){$result.title=$dlg.Current.Name;$result.printerControls=@($list|Where-Object {$_.Current.Name -match '(Printer|Microsoft Print|打印机)'}|ForEach-Object {$_.Current.Name}|Select-Object -First 8);$cancel.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke();$result.cancelled=$true;break}
   }
   if($result.cancelled){break};Start-Sleep -Milliseconds 200
  }
- if(!$result.cancelled){throw "No cancellable system print dialog: $($titles -join ', ')"}
+ if(!$result.cancelled){
+  $labels=@($r.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)|Where-Object {!$_.Current.IsOffscreen -and $_.Current.Name -match 'print|printer|cancel|打印|取消'}|ForEach-Object {$_.Current.ClassName+' '+$_.Current.Name}|Select-Object -First 35)
+  throw "No cancellable dialog. Windows: $titles . Visible print controls: $labels"
+ }
 }
 
 $result|ConvertTo-Json -Compress

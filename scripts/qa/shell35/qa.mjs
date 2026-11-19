@@ -101,9 +101,12 @@ try{
   await wait('first physical page restored',async()=>dominant(await color(),1),16000);
   record('real document End and Home traverse a three-page PDF without leaving the active browser tab');
   if(process.env.QA13_PRINT==='1'){
+    await ui.evaluate(()=>{
+      const core=window.__TAURI_INTERNALS__;const orig=core.invoke;try {core.invoke=async (...args)=>{const req=args[1]?.request;const print=req?.kind==="printPage";if(print)console.error("QA13 print request",JSON.stringify(req));try{let result=await orig.apply(core,args);if(print)console.error("QA13 Print UI returned",result);return result}catch(e){if(print)console.error("QA13 Print UI error",String(e));throw e}}} catch(e){console.error("QA13 unable to add IPC diagnostics",String(e))}
+    });
     const menus=ui.locator('.browser-options');await menus.locator('summary').click();
     const entry=menus.getByRole('button',{name:/Print page|打印页面/});await entry.click();
-    const info=await native('printcancel');console.log('System print dialog result',info);assert.ok(info.cancelled);
+    await sleep(550);console.log('After Print request',await ui.evaluate(async()=>({status:document.querySelector('.browser-footer [role=status]')?.textContent,open:document.querySelector('.browser-options').open,active:(await __TAURI__.core.invoke('browser_get_state')).session.activeTab})));const info=await native('printcancel');console.log('System print dialog result',info);assert.ok(info.cancelled);
     await wait('same PDF after print cancellation',async()=>dominant(await color(),1),12000);
     const refused=await ui.evaluate(async()=>{try{await __TAURI__.core.invoke('browser_control',{request:{kind:'printPage',tab:(await __TAURI__.core.invoke('browser_get_state')).session.activeTab,expectedUrl:'https://example.org/stale-document'}});return false}catch{return true}});assert.ok(refused);
     await input.fill(site);await input.press('Enter');await wait('HTML active again',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===site));await native('ctrlprint',...pt);const html=await native('printcancel');assert.ok(html.cancelled);
