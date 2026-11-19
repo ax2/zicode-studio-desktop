@@ -6,7 +6,7 @@ $installed=Join-Path $root 'Installed Studio'
 $profile=Join-Path $root 'Disposable profile'
 $updates=Join-Path $profile 'data/desktop-updates'
 [void][IO.Directory]::CreateDirectory($updates)
-[IO.File]::WriteAllText("$profile/profile.json",'{"schemaVersion":1,"kind":"zicode-isolated-desktop"}')
+[IO.File]::WriteAllText("$profile/profile.json",'{"schemaVersion":1,"kind":"zicode-isolated-desktop"}'+[char]10)
 $setup=Join-Path $root stable.exe
 curl.exe -fsSL --max-time 240 -o $setup https://github.com/ax2/zicode-studio-desktop/releases/download/v0.6.2/ZiCode.Studio.Desktop_0.6.2_x64-setup.exe
 $sha=(Get-FileHash -LiteralPath $setup).Hash.ToLowerInvariant()
