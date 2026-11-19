@@ -6,6 +6,7 @@ Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 public static class Q35 {
+  [DllImport("user32.dll")]public static extern void keybd_event(byte vk,byte scan,uint flags,UIntPtr extra);
   [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr parent,IntPtr after,string cls,string title);
   [DllImport("user32.dll")] public static extern IntPtr SendMessageTimeout(IntPtr hwnd,uint msg,IntPtr wp,IntPtr lp,uint flags,uint timeout,out IntPtr result);
     [DllImport("user32.dll")] public static extern int GetMenuItemCount(IntPtr menu);
@@ -102,4 +103,36 @@ if($Mode -eq 'pixel'){
   try{$v=[Q35]::GetPixel($dc,($pt.x+[int]($X*$rect.right)),($pt.y+[int]($Y*$rect.bottom)));$result.color=('{0:x2}{1:x2}{2:x2}' -f ($v -band 255),(($v -shr 8) -band 255),(($v -shr 16) -band 255))}
   finally{[Q35]::ReleaseDC([IntPtr]::Zero,$dc)|Out-Null}
 }
+if($Mode -in @('wheel','ctrlwheel','ctrlclick','shiftclick','middle','right','f11','escape')){
+  $px=$pt.x+[int]($X*$rect.right);$py=$pt.y+[int]($Y*$rect.bottom)
+  [void][Q35]::SetCursorPos($px,$py)
+  $key=0
+  switch($Mode){'ctrlwheel'{$key=17};'ctrlclick'{$key=17};'shiftclick'{$key=16};'f11'{$key=122};'escape'{$key=27}}
+  if($key){[Q35]::keybd_event($key,0,0,[UIntPtr]::Zero)}
+  Start-Sleep -Milliseconds 100
+  switch($Mode){
+    {$_ -in @('ctrlwheel','wheel')}{[Q35]::mouse_event(2048,0,0,120,[UIntPtr]::Zero)}
+    {$_ -in @('ctrlclick','shiftclick')}{[Q35]::mouse_event(2,0,0,0,[UIntPtr]::Zero);[Q35]::mouse_event(4,0,0,0,[UIntPtr]::Zero)}
+    'middle'{[Q35]::mouse_event(32,0,0,0,[UIntPtr]::Zero);[Q35]::mouse_event(64,0,0,0,[UIntPtr]::Zero)}
+    'right'{[Q35]::mouse_event(8,0,0,0,[UIntPtr]::Zero);[Q35]::mouse_event(16,0,0,0,[UIntPtr]::Zero)}
+  }
+  Start-Sleep -Milliseconds 120
+  if($key){[Q35]::keybd_event($key,0,2,[UIntPtr]::Zero)}
+}
+if($Mode -eq 'menu'){
+ $root=[Windows.Automation.AutomationElement]::RootElement
+ $type=[Windows.Automation.ControlType]::MenuItem
+ $c=New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ControlTypeProperty,$type)
+ $menu=@($root.FindAll([Windows.Automation.TreeScope]::Descendants,$c)|Where-Object {!$_.Current.IsOffscreen})
+ $names=@($menu|ForEach-Object {$_.Current.Name});$result.names=$names
+ $item=$menu|Where-Object {$_.Current.Name -match 'Browser tools|浏览器工具'}|Select-Object -First 1
+ if($item){
+  $pattern=$null
+  if($item.TryGetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern,[ref]$pattern)){$pattern.Expand()}else{Click $item $false}
+  Start-Sleep -Milliseconds 350
+  $target=$root.FindAll([Windows.Automation.TreeScope]::Descendants,$c)|Where-Object {!$_.Current.IsOffscreen -and $_.Current.Name -match '^Zoom in|^放大'}|Select-Object -First 1
+  if($target){$result.activated=$target.Current.Name;Click $target $false}
+ }
+}
+
 $result|ConvertTo-Json -Compress

@@ -1,0 +1,36 @@
+name: Isolated Windows shell acceptance
+on:
+  push:
+    branches: [codex/qa10-windows]
+    paths: ['.github/workflows/qa10.yml', 'scripts/qa/shell35/**']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  shell:
+    runs-on: windows-2022
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/qa/shell35
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: 14494219496
+          run-id: 44448986884
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/from067
+          merge-multiple: true
+      - name: Prepare the already accepted production shell with its test version label
+        run: ./scripts/qa/shell35/prepare.ps1
+      - name: Verify composed browser pixels and native window restoration
+        working-directory: scripts/qa/shell35
+        run: |
+          $driver=Join-Path $env:RUNNER_TEMP 'shell-driver'
+          [void][IO.Directory]::CreateDirectory($driver)
+          Copy-Item -LiteralPath qa.mjs,native.ps1 -Destination $driver
+          Set-Location $driver
+          npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          node qa.mjs
