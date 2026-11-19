@@ -36,6 +36,13 @@ gh api repos/ax2/zicode-studio-desktop/issues/<number>/dependencies/blocked_by
 - 主会话负责版本、共享构建和发布协调，不跟进发布后复验，不安排例行验收活动。需要原生界面或用户协作的验证，由对应负责人在发版前确定本次改动实际需要的最少操作和通过标准，必要时一次汇总。使用 Computer Use 时遵守用户的桌面与浏览器规则。
 - 历史 Issue 按原范围和已有证据关闭，证据尚未覆盖的实际缺口如实保留，并按当前优先级和编号版本推进。关闭历史事项不追加新的验收流程。历史版本、评论和原验证证据保留供追溯。
 
+## Issue 层级与模块基本完成版本
+
+- 一级路线图使用 `type:epic`。正文写明核心流程及基本完成标准，用编号 Milestone 表示期望达到该标准的版本。
+- 每个普通 issue 在创建时设置 GitHub 原生 Parent issue，加入 Project，并选择自身实际交付的编号 Milestone。归属通过 Parent issue 和 Sub-issues progress 查看，关闭后保留父子关系。
+- 模块基本完成后，新发现的体验改进归入[产品优化](https://github.com/ax2/zicode-studio-desktop/issues/139)，回归和缺陷归入[缺陷修复](https://github.com/ax2/zicode-studio-desktop/issues/140)。正文引用原模块，便于追溯。两条路线图按阶段设定目标版本，后续批次可在新版本建立接续路线图。
+- 调整范围和发版前，核对开放与已关闭的普通 issue 是否有父项、一级路线图是否有基本完成目标和版本。优先级、负责会话及实际交付状态继续以 Project 为准。
+
 ## 版本视图与里程碑
 
 - 新定版本时立刻在仓库创建同名 Milestone，并在 Project 建立同名表格视图，使用 `milestone:<版本>` 精确筛选。直接从该版本视图维护范围。已发布版本的视图保留供追溯，全版本可在「版本计划」汇总查看。
