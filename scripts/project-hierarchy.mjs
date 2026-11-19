@@ -26,7 +26,9 @@ export function summarizeHierarchy(issues, parents, repository, versionMilestone
     } else if (parent === null) {
       roots.push(entry);
       if (!issue.labels.some(label => label.name === "type:epic")) rootsWithoutEpic.push(entry);
-      if (!versionMilestone.test(entry.milestone ?? "")) rootsWithoutVersionMilestone.push(entry);
+      if (entry.milestone === "v0.0.0" || !versionMilestone.test(entry.milestone ?? "")) {
+        rootsWithoutVersionMilestone.push(entry);
+      }
     } else {
       withParent++;
       if (byId.has(parent.id)) {

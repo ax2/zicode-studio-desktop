@@ -16,6 +16,13 @@ function parent(number, repo = repository) {
 const report = (issues, parents) => summarizeHierarchy(issues, parents, repository, /^v\d+\.\d+\.\d+$/);
 const numbers = entries => entries.map(entry => entry.number);
 
+it("reserves the deferred milestone for known issues below a roadmap", () => {
+  const issues = [issue(1, { epic: true, version: "v0.0.0" }), issue(2, { version: "v0.0.0" })];
+  const result = report(issues, new Map([["1", null], ["2", parent(1)]]));
+  expect(numbers(result.rootsWithoutVersionMilestone)).toEqual([1]);
+  expect(result.withParent).toBe(1);
+});
+
 it("retains closed descendants, manual targets and nested parents", () => {
   const issues = [issue(1,{epic:true}), issue(2,{version:"v2.0.0"}), issue(3,{state:"closed",version:"v0.9.0"}),
     issue(4,{state:"closed",version:null}), issue(5,{epic:true,version:"later"})];
