@@ -29,7 +29,7 @@ export function mailError(error:unknown) {
   };
   return t(messages[code.replace(/^Error:\s*/,"")]??"Mail operation failed. Check the account and try again.");
 }
-export function AlibabaInbox({id,invoke,discard,onReply,onConfigured,onBusy}:{id:string,invoke:Invoke,discard:()=>boolean,
+export function AlibabaInbox({id,invoke,discard,onReply,onConfigured,onBusy}:{id:string,invoke:Invoke,discard:()=>boolean|Promise<boolean>,
   onReply:(draft:Draft)=>void,onConfigured:(value:boolean)=>void,onBusy:(value:boolean)=>void}) {
   const [configured,setConfigured]=useState(false),[enabled,setEnabled]=useState(false),[secret,setSecret]=useState("");
   const [page,setPage]=useState<Page|null>(null),[body,setBody]=useState<Body|null>(null),[selected,setSelected]=useState<MessageRef|null>(null);
@@ -79,7 +79,7 @@ export function AlibabaInbox({id,invoke,discard,onReply,onConfigured,onBusy}:{id
       <form onSubmit={e=>{e.preventDefault();const value=secret;setSecret("");void run(()=>req<{configured:boolean}>("setPassword",{password:value}),v=>{setConfigured(v.configured);onConfig.current(v.configured)})}}>
         <label>{t("Client password")}<input type="password" autoComplete="new-password" maxLength={1024} disabled={!enabled} value={secret} onChange={e=>setSecret(e.target.value)}/></label>
         <button disabled={!enabled||!secret}>{t("Save client password")}</button>
-        {configured&&<button type="button" onClick={()=>{if(window.confirm(t("Remove this account’s saved client password?")))void run(()=>req("forgetPassword"),()=>{setSecret("");setConfigured(false);onConfig.current(false)})}}>{t("Remove client password")}</button>}
+        {configured&&<button type="button" onClick={()=>{void (async()=>{if(await window.confirm(t("Remove this account’s saved client password?")))await run(()=>req("forgetPassword"),()=>{setSecret("");setConfigured(false);onConfig.current(false)})})()}}>{t("Remove client password")}</button>}
       </form>
     </fieldset>
     <fieldset disabled={busy}><legend>{t("Inbox")}</legend>
@@ -92,7 +92,7 @@ export function AlibabaInbox({id,invoke,discard,onReply,onConfigured,onBusy}:{id
       {selected&&chosen&&<article aria-label={t("Selected message")}><h3 translate="no">{chosen.subject||t("No subject")}</h3><p translate="no">{chosen.sender}</p>
         {body?<pre className="mail-read-body" translate="no">{body.text||t("Empty message")}</pre>:!online&&!busy&&<p role="status">{t("This message is not available offline. Download it explicitly to read it.")}</p>}
         {!body&&<button type="button" disabled={!configured} onClick={()=>void run(()=>req<Body>("read",selected),setBody)}>{t("Download message body")}</button>}
-        <button type="button" disabled={!chosen.replyTo} onClick={()=>{if(discard())void run(()=>req<Draft>("replyDraft",selected),onReply)}}>{t("Create reply draft")}</button>
+        <button type="button" disabled={!chosen.replyTo} onClick={()=>{void run(async()=>await discard()?await req<Draft>("replyDraft",selected):null,d=>{if(d)onReply(d)})}}>{t("Create reply draft")}</button>
       </article>}
     </fieldset>{error&&<p role="alert">{error}</p>}
   </section>;

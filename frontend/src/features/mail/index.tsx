@@ -46,13 +46,13 @@ export function Mail({invoke,transport}:{invoke:Invoke,transport?:Invoke}) {
     window.addEventListener("beforeunload",warn);
     return()=>window.removeEventListener("beforeunload",warn);
   },[dirty]);
-  const discard=()=>!dirty||window.confirm(t("Discard unsaved draft changes?"));
+  const discard=async()=>!dirty||await window.confirm(t("Discard unsaved draft changes?"));
   function change(key:"recipient"|"subject"|"body",value:string){setEdit({...edit,[key]:value});setDirty(true)}
   return <section className="mail-local"><h2>{t("Mail")}</h2>
     {!alibaba&&<p>{t("Local drafts only. No mailbox is connected.")}</p>}
     <fieldset disabled={busy||mailBusy}><legend>{t("Mail accounts")}</legend>
-    {accounts.length>0&&<label>{t("Mail account")}<select value={account} onChange={e=>{const id=e.target.value;if(discard())void run(()=>load(id))}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}</select></label>}
-    <form onSubmit={e=>{e.preventDefault();if(!discard())return;void run(async()=>{
+    {accounts.length>0&&<label>{t("Mail account")}<select value={account} onChange={e=>{const id=e.target.value;void run(async()=>{if(await discard())await load(id)})}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}</select></label>}
+    <form onSubmit={e=>{e.preventDefault();void run(async()=>{if(!await discard())return;
       const added=await invoke<{id:string}>({kind:"add",provider,address});
       setAccounts(await invoke<Account[]>({kind:"accounts"}));setAddress("");await load(added.id);
     })}}><label>{t("Mail provider")}<select value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
@@ -61,9 +61,9 @@ export function Mail({invoke,transport}:{invoke:Invoke,transport?:Invoke}) {
     {alibaba&&<AlibabaInbox key={account} id={account} invoke={alibaba} discard={discard} onBusy={setMailBusy}
       onConfigured={v=>setPasswordOwner(v?account:"")} onReply={d=>{setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);setEdit(d);setDirty(false);requestAnimationFrame(()=>document.getElementById("studio-mail-compose-body")?.focus())}}/>}
     {account&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
-    <div className="mail-list"><button type="button" onClick={()=>{if(discard()){setEdit(blank());setDirty(false)}}}>{t("New draft")}</button>
-    <button type="button" onClick={()=>{if(discard())void run(()=>load(account))}}>{t("Reload drafts")}</button>
-    {drafts.map(d=><button key={d.id} type="button" aria-pressed={edit.id===d.id} onClick={()=>{if(discard()){setEdit(d);setDirty(false)}}}>{d.subject||d.recipient||t("Untitled draft")}</button>)}</div>
+    <div className="mail-list"><button type="button" onClick={()=>void run(async()=>{if(await discard()){setEdit(blank());setDirty(false)}})}>{t("New draft")}</button>
+    <button type="button" onClick={()=>void run(async()=>{if(await discard())await load(account)})}>{t("Reload drafts")}</button>
+    {drafts.map(d=><button key={d.id} type="button" aria-pressed={edit.id===d.id} onClick={()=>void run(async()=>{if(await discard()){setEdit(d);setDirty(false)}})}>{d.subject||d.recipient||t("Untitled draft")}</button>)}</div>
     <label>{t("Recipient")}<input value={edit.recipient} onChange={e=>change("recipient",e.target.value)} /></label>
     <label>{t("Mail subject")}<input value={edit.subject} onChange={e=>change("subject",e.target.value)} /></label>
     <label>{t("Message body")}<textarea id="studio-mail-compose-body" rows={8} value={edit.body} onChange={e=>change("body",e.target.value)} /></label>
@@ -71,7 +71,7 @@ export function Mail({invoke,transport}:{invoke:Invoke,transport?:Invoke}) {
       const saved=await invoke<{id:string,revision:number}>({kind:"save",account,...edit});const d={...edit,...saved};setEdit(d);setDirty(false);setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);
     })}>{t("Save draft")}</button>
     {alibaba&&owner&&edit.id&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} invoke={alibaba} id={account} address={owner.address} draft={edit} configured={passwordOwner===account}/>}
-    {edit.id&&<button type="button" onClick={()=>{if(window.confirm(t("Delete this local draft?")))void run(async()=>{
+    {edit.id&&<button type="button" onClick={()=>{void run(async()=>{if(!await window.confirm(t("Delete this local draft?")))return;
       await invoke({kind:"delete",account,id:edit.id,revision:edit.revision});setDrafts(old=>old.filter(item=>item.id!==edit.id));setEdit(blank());setDirty(false);
     })}}>{t("Delete draft")}</button>}</fieldset>}
     {error&&<p role="alert">{error}</p>}</section>;

@@ -25,9 +25,11 @@ it("keeps composing local, saves explicitly, reopens and deletes without sending
   fireEvent.click(screen.getByRole("button",{name:"Save draft"}));
   await screen.findByRole("button",{name:"New idea"});
   view.unmount();render(<Mail invoke={invoke}/>);
-  fireEvent.click(await screen.findByRole("button",{name:"New idea"}));
+  const reopened=await screen.findByRole("button",{name:"New idea"});await act(async()=>fireEvent.click(reopened));
   expect((screen.getByLabelText("Message body") as HTMLTextAreaElement).value).toBe("正文");
-  vi.spyOn(window,"confirm").mockReturnValue(true);fireEvent.click(screen.getByRole("button",{name:"Delete draft"}));
+  const confirmation=vi.spyOn(window,"confirm").mockReturnValue(Promise.resolve(false) as unknown as boolean);
+  await act(async()=>fireEvent.click(screen.getByRole("button",{name:"Delete draft"})));expect(calls).not.toContain("delete");
+  confirmation.mockReturnValue(true);fireEvent.click(screen.getByRole("button",{name:"Delete draft"}));
   await waitFor(()=>expect(screen.queryByRole("button",{name:"New idea"})).toBe(null));
   expect(calls).toEqual(["accounts","drafts","save","accounts","drafts","delete"]);
 });
