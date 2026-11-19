@@ -13,6 +13,10 @@ pub struct PageText {
     pub text: String,
     pub selection: String,
     pub truncated: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_truncated: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selection_truncated: Option<bool>,
     pub links: Vec<PageLink>,
     pub links_truncated: bool,
     pub tables: Vec<PageTable>,

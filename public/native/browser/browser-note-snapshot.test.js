@@ -1,3 +1,4 @@
+import { t } from "../../i18n.js";
 import { renderMarkdown } from "../../ui/markdown.js";
 import { expect, it, vi } from "vitest";
 import { browserNoteContent, createBrowserNoteWriter, quotedPageText } from "./browser-note-snapshot.js";
@@ -87,4 +88,11 @@ it("can clip an image-only page without embedding any image or trusting the cano
   expect(html.querySelector("img")).toBeNull();
   expect(html.textContent).toContain("<img src=x>");
   expect(browserNoteContent(source, true, { includeMedia: true })).not.toContain("diagram.png");
+});
+
+it.each([true, false])("reports only the clipped part in a note (body clipped %s)", textTruncated => {
+  const snapshot = { ...capture, page: { ...capture.page, textTruncated, selectionTruncated: !textTruncated } };
+  expect(browserNoteContent(snapshot).includes(t("Page content was shortened"))).toBe(textTruncated);
+  expect(browserNoteContent(snapshot, true).includes(t("Selected text was shortened"))).toBe(!textTruncated);
+  expect(browserNoteContent(snapshot, true)).not.toContain(t("Page content was shortened"));
 });

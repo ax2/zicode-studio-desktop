@@ -45,3 +45,14 @@ test("a shortened selection marks the capture even when the body fits", () => {
   expect(page.selection.length).toBe(8192);
   expect(page.truncated).toBe(true);
 });
+
+test.each([
+  [48001, 8, true, false],
+  [48000, 8, false, false],
+  [9000, 8193, false, true],
+  [48001, 8193, true, true],
+  [9000, 8192, false, false],
+])("reports body %i and selection %i clipping independently", (body, selected, textTruncated, selectionTruncated) => {
+  const page = capture("Page", "x".repeat(body), "x".repeat(selected));
+  expect(page).toMatchObject({ textTruncated, selectionTruncated, truncated: textTruncated || selectionTruncated });
+});

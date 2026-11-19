@@ -55,7 +55,7 @@ export function showBrowserReader(page, onClose) {
     const tag = { h1: "h2", h2: "h2", h3: "h3", h4: "h4", h5: "h5", h6: "h6", code: "pre", quote: "blockquote" }[kind] ?? "p";
     article.append(textElement(tag, text));
   }
-  if (page.truncated) article.append(textElement("p", t("Page content was shortened")));
+  if (page.textTruncated ?? page.truncated) article.append(textElement("p", t("Page content was shortened")));
   scroll.append(article);
   dialog.append(header, scroll);
   dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });

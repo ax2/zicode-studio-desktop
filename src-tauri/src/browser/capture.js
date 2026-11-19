@@ -23,19 +23,20 @@
     } catch { return null; }
   };
   const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
-  let text = '', visited = 0, truncated = false;
+  let text = '', visited = 0, textTruncated = false;
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (++visited > 12000) { truncated = true; break; }
+    if (++visited > 12000) { textTruncated = true; break; }
     if (!allowed(node)) continue;
     const part = (node.nodeValue || '').trim();
     if (!part) continue;
     const remaining = 48000 - text.length;
-    if (part.length + 1 > remaining) { text += clip(part, remaining); truncated = true; break; }
-    text += part + '\n';
+    if (part.length > remaining) { text += clip(part, remaining); textTruncated = true; break; }
+    text += part;
+    if (part.length < remaining) text += '\n';
   }
   const selection = getSelection();
   // A selection intersecting an editable/form region is not shared.
-  let selected = '';
+  let selected = '', selectionTruncated = false;
   if (selection?.rangeCount && !selection.isCollapsed) {
     const range = selection.getRangeAt(0);
     const safe = allowed(range.startContainer) && allowed(range.endContainer) &&
@@ -43,7 +44,7 @@
     if (safe) {
       const value = selection.toString();
       selected = clip(value, 8192);
-      if (selected.length < value.length) truncated = true;
+      selectionTruncated = selected.length < value.length;
     }
   }
   const links = [];
@@ -149,6 +150,7 @@
     if (key) imageKeys.add(key);
     images.push({ alt, width, height, url });
   }
-  return { title: clip(document.title, 512), url: location.href, text, selection: selected, truncated,
+  return { title: clip(document.title, 512), url: location.href, text, selection: selected,
+    truncated: textTruncated || selectionTruncated, textTruncated, selectionTruncated,
     links, linksTruncated, tables, tablesTruncated, metadata, images, imagesTruncated };
 })()

@@ -1066,6 +1066,7 @@ const zhCN = {
   "Page links": "网页链接",
   "Only some page links are shown.": "只显示部分网页链接。",
   "Include links in the page note or chat draft": "将链接一并加入整页笔记或聊天草稿",
+  "Selected text was shortened": "所选文字较长，已截取部分内容。",
   "Page content was shortened": "网页内容较长，已截取部分内容。",
   "Content read locally. Nothing has been sent to AI.": "内容已在本地读取，尚未发送给 AI。",
   "Page changed. Read it again.": "网页已发生变化，请重新读取。",
