@@ -80,6 +80,7 @@ import { setupDocumentsApp } from "./react/documents.js";
 import { NativeFileBrowser } from "./react/file-browser.js";
 import { setupFinanceWorkbench } from "./react/finance-workbench.js";
 import { setupGraphApp } from "./react/graph.js";
+import { setupMailApp } from "./react/mail.js";
 import { HabitsHttpGateway, setupHabitsApp } from "./react/habits.js";
 import { setupHelpCenter } from "./react/help.js";
 import { createHistoryWindow } from "./react/history-window.js";
@@ -1261,6 +1262,7 @@ pluginShell = setupPluginShell({
     "com.zicode.documents": documentsApp,
     "com.zicode.clipboard": clipboardApp,
     "com.zicode.graph": graphApp,
+    "com.zicode.mail": setupMailApp(request => globalThis.__TAURI__.core.invoke("mail_local", { request })),
     "com.zicode.habits": habitsApp,
     "com.zicode.translate": translationApp,
     "com.zicode.watch": watchApp,

@@ -10,6 +10,11 @@ description = "Allow a trusted workspace to inspect captured Notes conflicts and
 commands.allow = ["notes_sync_conflicts"]
 
 [[permission]]
+identifier = "allow-mail-local"
+description = "Manage local account aliases and draft messages from the verified workspace window."
+commands.allow = ["mail_local"]
+
+[[permission]]
 identifier = "allow-notes-sync-task"
 description = "Allow a trusted, workspace-bound desktop window to explicitly start, inspect or cancel saved-note sync."
 commands.allow = ["notes_sync_task"]
@@ -435,6 +440,7 @@ permissions = [
   "allow-delete-scene-credential",
   "allow-scene-credential-status",
   "allow-notes-sync-settings",
+  "allow-mail-local",
   "allow-notes-sync-task",
   "allow-notes-sync-conflicts",
   "allow-send-desktop-notification",
