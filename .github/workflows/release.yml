@@ -49,7 +49,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
       - name: Preserve fixed matrix tool
         shell: bash
-        run: cp scripts/release-build-matrix.mjs "$RUNNER_TEMP/release-build-matrix.mjs"
+        run: cp scripts/release-build-matrix.mjs scripts/check-release-notes-inputs.mjs "$RUNNER_TEMP/"
       - name: Checkout release tag
         uses: actions/checkout@v6
         with:
@@ -64,6 +64,9 @@ jobs:
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid release commit SHA"; exit 1; }
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "version=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Check frozen release notes and issue snapshot before building
+        run: node "$RUNNER_TEMP/check-release-notes-inputs.mjs" "$RELEASE_TAG"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -430,7 +433,7 @@ jobs:
           git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
           [[ "$(git rev-parse 'FETCH_HEAD^{commit}')" == "$RELEASE_SHA" ]] || { echo "::error::Release tag moved"; exit 1; }
           base="$RELEASE_SHA:docs/releases/$RELEASE_TAG.md"
-          if git cat-file -e "$base"; then git show "$base" > "$RUNNER_TEMP/base-notes.md"; else printf 'ZiCode Studio Desktop %s\n' "$RELEASE_TAG" > "$RUNNER_TEMP/base-notes.md"; fi
+          git show "$base" > "$RUNNER_TEMP/base-notes.md"
           # Use the issue snapshot from the exact application commit, even on manual dispatch.
           # The renderer itself stays pinned to the workflow commit.
           snapshot="docs/releases/$RELEASE_TAG.issues.json"
