@@ -1,6 +1,7 @@
 import { createElement, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
+import { t } from "../../shared/i18n";
 import { createBackupStore } from "./backupStore";
 import { type ConfigGatewayLike, createConfigStore } from "./configStore";
 import { type CostDashboardData, createCostDashboardStore } from "./costDashboardStore";
@@ -297,6 +298,17 @@ export function setupAppUpdater({
   syncDom();
 
   if (enabled) {
+    const invoke = (globalThis as { __TAURI__?: { core?: { invoke(name: string): Promise<unknown> } } }).__TAURI__?.core?.invoke;
+    if (invoke) {
+      void invoke("take_desktop_update_result").then((value: unknown) => {
+        const receipt = value as { success?: boolean; version?: string; message?: string } | null;
+        if (!receipt?.version || typeof receipt.success !== "boolean") return;
+        const summary = t(receipt.success ? "Installed version {version}" : "Could not install version {version}")
+          .replace("{version}", receipt.version);
+        useAppUpdaterStore.setState({ lastInstallResult: !receipt.success && receipt.message
+          ? `${summary} — ${receipt.message}` : summary });
+      }).catch(() => {});
+    }
     sidebarBtn?.addEventListener("click", () => {
       settingsPanel?.openSettings?.("updates");
     });

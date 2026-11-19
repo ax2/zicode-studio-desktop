@@ -64,6 +64,8 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
             >
               {updater.button || t("Check now")}
             </button>
+            {updater.canCancel && <button type="button" className="ui-button ui-button--secondary"
+              onClick={() => void updater.cancelDownload()}>{t("Cancel download")}</button>}
           </span>
         </div>
         <div className={`settings-row${updater.enabled ? "" : " hidden"}`}>
@@ -73,15 +75,19 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
           </span>
           <SettingsToggle
             id="toggle-beta-updates"
-            disabled={updater.installing || updater.checking}
+            disabled={updater.installing || updater.checking || updater.installerReady}
             enabled={Boolean(toggles["beta-updates"])}
             ariaLabel={t("Receive prerelease desktop builds")}
             onChange={() => widgets.getState().toggle("beta-updates")}
           />
         </div>
       </div>
-    {updater.update?.body && <details className="ui-card"><summary>{t("Release notes")}</summary><p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }} translate="no">{updater.update.body.slice(0, 16000)}</p></details>}
+    {updater.lastInstallResult && <p role="status">{updater.lastInstallResult}</p>}
+    {updater.update?.body && <details className="ui-card"><summary>{t("Release notes")}</summary><p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }} translate="no">{updater.update.body}</p></details>}
     {!updater.enabled && <p className="ui-muted">{t("Check the latest version, release notes and Windows installer on GitHub.")}</p>}
-    {(updater.canInstall || updater.installing) && <p className="ui-muted">{t("Installing an update will restart Studio. Save your work first.")}</p>}
+    {updater.enabled && <a href="https://github.com/ax2/zicode-studio-desktop/releases/latest" target="_blank" rel="noopener noreferrer">{t("View releases on GitHub")}</a>}
+    {updater.update?.fullInstaller
+      ? updater.installerReady && <p className="ui-muted">{t("Save your work before closing Studio to install.")}</p>
+      : (updater.canInstall || updater.installing) && <p className="ui-muted">{t("Installing an update will restart Studio. Save your work first.")}</p>}
   </>;
 }
