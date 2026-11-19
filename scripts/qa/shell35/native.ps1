@@ -1,0 +1,68 @@
+param([string]$Mode,[long]$Hwnd,[double]$X=0,[double]$Y=0)
+$ErrorActionPreference='Stop'
+if($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:GITHUB_WORKFLOW -ne 'Isolated Windows shell acceptance'){throw 'Disposable VM only'}
+Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes,System.Windows.Forms
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class Q35 {
+  [StructLayout(LayoutKind.Sequential)]public struct Pt {public int x,y;}
+  [StructLayout(LayoutKind.Sequential)]public struct Rect {public int left,top,right,bottom;}
+  [DllImport("user32.dll")]public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr c);
+  [DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int cmd);
+  [DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")]public static extern bool MoveWindow(IntPtr h,int x,int y,int w,int ht,bool redraw);
+  [DllImport("user32.dll")]public static extern bool GetClientRect(IntPtr h,out Rect r);
+  [DllImport("user32.dll")]public static extern bool ClientToScreen(IntPtr h,ref Pt p);
+  [DllImport("user32.dll")]public static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll")]public static extern int GetSystemMetrics(int n);
+  [DllImport("user32.dll")]public static extern uint GetDpiForWindow(IntPtr h);
+  [DllImport("user32.dll",EntryPoint="GetWindowLongW")]public static extern int GetWindowLong(IntPtr h,int n);
+  [DllImport("user32.dll")]public static extern IntPtr GetDC(IntPtr h);
+  [DllImport("user32.dll")]public static extern int ReleaseDC(IntPtr h,IntPtr dc);
+  [DllImport("gdi32.dll")]public static extern uint GetPixel(IntPtr dc,int x,int y);
+  [DllImport("user32.dll")]public static extern bool SetCursorPos(int x,int y);
+  [DllImport("user32.dll")]public static extern void mouse_event(uint flags,uint dx,uint dy,uint data,UIntPtr extra);
+}
+'@
+[Q35]::SetThreadDpiAwarenessContext([IntPtr](-4)) | Out-Null
+$h=[IntPtr]$Hwnd
+function Click($elem,[bool]$Right){
+  $b=$elem.Current.BoundingRectangle
+  if($b.IsEmpty -or $b.Width -lt 1){throw 'UIA item not on screen'}
+  [Q35]::SetCursorPos([int]($b.X+$b.Width/2),[int]($b.Y+$b.Height/2))|Out-Null
+  $down=2;$up=4;if($Right){$down=8;$up=16}
+  [Q35]::mouse_event($down,0,0,0,[UIntPtr]::Zero);[Q35]::mouse_event($up,0,0,0,[UIntPtr]::Zero)
+}
+function ShellItem([string]$pattern,[bool]$menu=$false){
+  $classes=if($menu){@('#32768')}else{@('Shell_TrayWnd','NotifyIconOverflowWindow','TopLevelWindowForOverflowXamlIsland')}
+  $root=[Windows.Automation.AutomationElement]::RootElement
+  foreach($top in $root.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.Condition]::TrueCondition)){
+    if($classes -notcontains $top.Current.ClassName){continue}
+    foreach($item in $top.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)){
+      if(!$item.Current.IsOffscreen -and $item.Current.Name -match $pattern){return $item}
+    }
+  }
+}
+if($Mode -eq 'tray'){
+  $item=ShellItem 'ZiCode Studio Desktop'
+  if(!$item){$arrow=ShellItem 'show hidden icons|notification chevron|显示隐藏|显示.*图标';if($arrow){Click $arrow $false;Start-Sleep -Milliseconds 350};$item=ShellItem 'ZiCode Studio Desktop'}
+  if(!$item){throw 'No accessible Studio icon in the Windows notification area or overflow'}
+  $iconName=$item.Current.Name
+  Click $item $true
+  $entry=$null;for($i=0;$i -lt 18 -and !$entry;$i++){Start-Sleep -Milliseconds 100;$entry=ShellItem '(Show|显示) ZiCode Studio' $true}
+  if(!$entry){throw 'Native Studio tray menu did not expose Show ZiCode Studio'}
+  $menuName=$entry.Current.Name
+  Click $entry $false
+  @{tray=$iconName;menu=$menuName}|ConvertTo-Json -Compress;exit
+}
+if($Mode -eq 'size'){[Q35]::ShowWindow($h,9)|Out-Null;[Q35]::MoveWindow($h,32,38,[int]$X,[int]$Y,$true)|Out-Null;[Q35]::SetForegroundWindow($h)|Out-Null;Start-Sleep -Milliseconds 300}
+$rect=New-Object Q35+Rect;$pt=New-Object Q35+Pt
+[Q35]::GetClientRect($h,[ref]$rect)|Out-Null;[Q35]::ClientToScreen($h,[ref]$pt)|Out-Null
+$result=@{dpi=[Q35]::GetDpiForWindow($h);monitors=[Q35]::GetSystemMetrics(80);visible=[Q35]::IsWindowVisible($h);width=$rect.right;height=$rect.bottom;caption=(([Q35]::GetWindowLong($h,-16) -band 0x00c00000) -eq 0x00c00000)}
+if($Mode -eq 'pixel'){
+  $dc=[Q35]::GetDC([IntPtr]::Zero)
+  try{$v=[Q35]::GetPixel($dc,($pt.x+[int]($X*$rect.right)),($pt.y+[int]($Y*$rect.bottom)));$result.color=('{0:x2}{1:x2}{2:x2}' -f ($v -band 255),(($v -shr 8) -band 255),(($v -shr 16) -band 255))}
+  finally{[Q35]::ReleaseDC([IntPtr]::Zero,$dc)|Out-Null}
+}
+$result|ConvertTo-Json -Compress

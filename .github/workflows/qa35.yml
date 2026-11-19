@@ -1,0 +1,32 @@
+name: Isolated Windows shell acceptance
+on:
+  push:
+    branches: [codex/qa35-windows]
+    paths: ['.github/workflows/qa35.yml', 'scripts/qa/shell35/**']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  shell:
+    runs-on: windows-2022
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/qa/shell35
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: 14413481731
+          run-id: 44265030277
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/from066
+          merge-multiple: true
+      - name: Reconstruct only byte-verified frozen installer payload
+        run: ./scripts/qa/shell35/prepare.ps1
+      - name: Verify composed browser pixels and native window restoration
+        working-directory: scripts/qa/shell35
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          node qa.mjs
