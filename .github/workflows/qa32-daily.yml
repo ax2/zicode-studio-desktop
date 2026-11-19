@@ -71,9 +71,18 @@ jobs:
           Copy-Item -LiteralPath "$env:RUNNER_TEMP/fixture/target/debug/zicode-studio-desktop.exe" -Destination $env:Q32_EXE -Force
           & $env:Q32_EXE --tools-only
           if($LASTEXITCODE){exit $LASTEXITCODE}
-          $deadline=[DateTime]::UtcNow.AddSeconds(200)
-          do{$apps=@(Get-CimInstance Win32_Process -Filter "Name='zicode-studio-desktop.exe'" | Where-Object {$_.ExecutablePath -eq $env:Q32_EXE});if(!$apps){Start-Sleep -Milliseconds 300}}while(!$apps -and [DateTime]::UtcNow -lt $deadline)
-          if($apps.Count -ne 1 -or $apps[0].CommandLine -match 'isolated-profile|test-profile' -or $apps[0].CommandLine -notmatch '--tools-only'){throw 'New process switched daily mode or lost tools mode'}
-          if((Get-Content -Raw "$updates/result.json"|ConvertFrom-Json).status -ne 'installed' -or (Get-FileHash $config).Hash -ne $before){throw 'Update receipt or saved daily choice changed'}
+          $deadline=[DateTime]::UtcNow.AddSeconds(180)
+          $receipt=Join-Path $updates result.json
+          do{
+            $processes=@(Get-CimInstance Win32_Process -Filter "Name='zicode-studio-desktop.exe'")
+            $apps=@($processes|Where-Object {$_.ExecutablePath -eq $env:Q32_EXE})
+            $result=if(Test-Path $receipt){Get-Content -Raw $receipt|ConvertFrom-Json}
+            if(!$apps -and $result.status -ne 'failed'){Start-Sleep -Milliseconds 300}
+          }while(!$apps -and $result.status -ne 'failed' -and [DateTime]::UtcNow -lt $deadline)
+          $report=@{receipt=$result;productVersion=(Get-Item $env:Q32_EXE).VersionInfo.ProductVersion;allCount=$processes.Count;installPathCount=$apps.Count;isolatedFlags=@($apps|Where-Object {$_.CommandLine -match 'isolated-profile|test-profile'}).Count;toolsFlags=@($apps|Where-Object {$_.CommandLine -match '--tools-only'}).Count;selectionUnchanged=((Get-FileHash $config).Hash -eq $before);candidateRemains=(Test-Path $env:Q32_CANDIDATE)}
+          Write-Output ($report|ConvertTo-Json -Depth 4 -Compress)
+          if($result.status -ne 'installed'){throw 'Missing successful install receipt'}
+          if($apps.Count -ne 1){throw 'Expected exactly one relaunched instance from installed executable'}
+          if($report.isolatedFlags -or $report.toolsFlags -ne 1 -or !$report.selectionUnchanged){throw 'Incorrect restart mode or daily profile selection'}
           node daily-vault.mjs verify
           exit $LASTEXITCODE
