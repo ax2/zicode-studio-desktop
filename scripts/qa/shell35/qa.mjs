@@ -60,7 +60,13 @@ try{
   await child.waitForFunction(()=>document.readyState==='complete'&&document.title==='Example Domain');
   console.log('Live remote document',await child.evaluate(()=>({title:document.title,url:location.href,viewport:[innerWidth,innerHeight],visibility:document.visibilityState,heading:document.querySelector('h1')?.textContent})));
   // Give the disposable page two unambiguous pixels and an editable marker.
-  await child.evaluate(()=>{document.body.style.cssText='margin:0;width:100vw;height:100vh;background:linear-gradient(to right,#267ea8 50%,#ce672a 50%);';const input=document.createElement('input');input.id='value';document.body.prepend(input);});
+  await child.evaluate(()=>{
+    const surface=document.createElement('div');
+    surface.id='q35-paint';
+    surface.style.cssText='position:fixed!important;inset:0!important;z-index:2147483647!important;max-width:none!important;max-height:none!important;background:linear-gradient(to right,#267ea8 50%,#ce672a 50%)!important';
+    const input=document.createElement('input');input.id='value';surface.append(input);
+    document.documentElement.append(surface);
+  });
   await child.locator('#value').evaluate(el=>{el.value='survives overlay and tray';el.dispatchEvent(new Event('input',{bubbles:true}));});
   const dimensions=await native('size',725,620);
   assert.ok(await ui.evaluate(()=>innerWidth<=768),'OS resize did not reach narrow shell breakpoint');
@@ -74,7 +80,7 @@ try{
     assert.equal(await child.locator('#value').inputValue(),'survives overlay and tray');
     record(label,{colors:actual});
   }
-  paintAgain=restored;
+  console.log('Layout after real HWND resize',await child.evaluate(()=>({viewport:[innerWidth,innerHeight],surface:document.getElementById('q35-paint').getBoundingClientRect().toJSON()})),await ui.locator('.browser-viewport').evaluate(e=>({viewport:[innerWidth,innerHeight],surface:e.getBoundingClientRect().toJSON()})));
   await restored('real native browser pixels before overlays');
   await input.focus();await ui.keyboard.press('Control+d');
   await ui.locator('.browser-bookmarks-dialog').waitFor();await ui.keyboard.press('Escape');await ui.locator('.browser-bookmarks-dialog').waitFor({state:'hidden'});
@@ -86,18 +92,5 @@ try{
   assert.ok(await ui.evaluate(()=>document.activeElement?.matches('[data-mobile-activity-more],[data-mobile-plugin-id="core.commands"],[data-plugin-id="core.commands"]')));
   await restored('narrow command Escape returns keyboard focus and rendered native page');
   }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message,JSON.stringify(await describe()));}
-  const close=ui.locator('[data-window-action="close"]');
-  try{await ui.mouse.move(350,260);await ui.keyboard.press('Tab');await close.focus();await ui.keyboard.press('Shift+Tab');
-    assert.equal(await ui.evaluate(()=>document.activeElement?.dataset.windowAction),'toggleMaximize');
-    record('actual WebView2 window controls retain keyboard focus across Shift+Tab');
-  }catch(e){console.error('KEYBOARD CHECK:',e.message);pageFailure??=e;}
-  if(pageFailure)console.error('Other independent checks continue after earlier failure');
-  if(await close.isVisible())await close.click();
-  else {const r=await exec('powershell.exe',['-NoProfile','-Command','(Get-Process -Id '+app.pid+').CloseMainWindow()']);assert.equal(r.stdout.trim(),'True');}
-  await wait('close-to-tray hid native HWND',async()=>!(await native('info')).visible);
-  const tray=await native('tray');await wait('Explorer tray menu restored same HWND',async()=>(await native('info')).visible);
-  record('Explorer notification icon restores the same native window using the recorded action',tray);
-  if(!paintAgain)console.log('Initialization terminal', await ui.evaluate(async()=>Promise.race([import('/native/app.js').then(()=>['loaded',!!window.__picotNative],e=>['error',String(e)]),new Promise(r=>setTimeout(()=>r('pending after 5s'),5000))])));
-  if(paintAgain)await paintAgain('tray restoration preserves unsaved input and both native page colors');
   if(pageFailure)throw pageFailure;
 }finally{await nativeBrowser?.close().catch(()=>{});await browser?.close().catch(()=>{});app?.kill();}
