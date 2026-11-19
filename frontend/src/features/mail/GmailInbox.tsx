@@ -79,7 +79,7 @@ export function GmailInbox({id,address,invoke,onGrant}:{id:string;address:string
       {disconnected&&<button type="button" onClick={()=>connect(false)}>{t("Sign in to read Gmail")}</button>}
       {!disconnected&&<button type="button" onClick={()=>connect(grant.send===true)}>{t("Reconnect Gmail")}</button>}
       {!disconnected&&!grant.send&&<button type="button" onClick={()=>connect(true)}>{t("Authorize sending with Gmail")}</button>}
-      {!disconnected&&<button type="button" onClick={()=>{if(window.confirm(t("Disconnect Gmail on this device? Saved drafts will remain.")))void run("disconnect",()=>invoke<{revoked:boolean}>({kind:"disconnect",accountId:id}),r=>{saveGrant(none);setOnline(false);setNotice(t(r.revoked?"Gmail disconnected.":"Disconnected on this device. Review Google account permissions to confirm revocation."))})}}>{t("Disconnect Gmail")}</button>}
+      {!disconnected&&<button type="button" onClick={()=>{void (async()=>{if(await window.confirm(t("Disconnect Gmail on this device? Saved drafts will remain.")))await run("disconnect",()=>invoke<{revoked:boolean}>({kind:"disconnect",accountId:id}),r=>{saveGrant(none);setOnline(false);setNotice(t(r.revoked?"Gmail disconnected.":"Disconnected on this device. Review Google account permissions to confirm revocation."))})})()}}>{t("Disconnect Gmail")}</button>}
     </fieldset>
     {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button type="button" onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
     <fieldset disabled={Boolean(busy)}><legend>{t("Inbox")}</legend>

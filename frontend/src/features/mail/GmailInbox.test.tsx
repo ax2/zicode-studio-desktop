@@ -89,3 +89,11 @@ it("recovers an interrupted send from the local journal without posting it twice
   await screen.findByText("The mail server accepted this message.");
   expect(view.calls.mock.calls.filter(([r])=>r.kind==="send")).toHaveLength(1);
 });
+
+it("keeps the Gmail grant when the desktop confirmation resolves to cancel",async()=>{
+  const v=fixture(async r=>r.kind==="status"?{connected:true,read:true,send:true}:null);
+  const button=await screen.findByRole("button",{name:"Disconnect Gmail"});
+  vi.spyOn(window,"confirm").mockReturnValue(Promise.resolve(false) as unknown as boolean);
+  await act(async()=>fireEvent.click(button));
+  expect(v.calls.mock.calls.some(([r])=>r.kind==="disconnect")).toBe(false);
+});
