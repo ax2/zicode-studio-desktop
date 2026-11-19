@@ -11,6 +11,7 @@ export function showSiteSettings({ origin, request, onClose }) {
   };
   const button = (label, click) => {
     const node = el("button", t(label));
+    node.dataset.i18nText = label;
     node.type = "button"; node.className = "ui-button ui-button--secondary";
     node.addEventListener("click", click);
     return node;
@@ -34,7 +35,7 @@ export function showSiteSettings({ origin, request, onClose }) {
       try {
         await request({ ...action, confirmed: true });
         if (dialog.open) { await load(); status.textContent = t("Site settings updated"); }
-      } catch (error) { status.textContent = String(error?.message ?? error); }
+      } catch (error) { status.textContent = t(String(error?.message ?? error)); }
       finally { actions.disabled = false; }
     });
     confirm.replaceChildren(el("p", origin), el("p", t(message)), cancel, apply);
@@ -58,5 +59,5 @@ export function showSiteSettings({ origin, request, onClose }) {
   document.body.append(dialog);
   dialog.showModal();
   close.focus();
-  load().catch(error => { status.textContent = String(error?.message ?? error); });
+  load().catch(error => { status.textContent = t(String(error?.message ?? error)); });
 }
