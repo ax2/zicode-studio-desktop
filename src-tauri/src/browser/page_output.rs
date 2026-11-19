@@ -18,6 +18,18 @@ use windows::{
 };
 use wry::WebViewExtWindows;
 
+/// The operating system owns printer selection, confirmation and cancellation.
+pub(super) fn show_print_dialog(view: &wry::WebView) -> Result<(), String> {
+    use webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM;
+    let mut visible = BOOL::default();
+    unsafe { view.controller().IsVisible(&mut visible) }.map_err(|e| e.to_string())?;
+    if !visible.as_bool() {
+        return Err("Browser page is not visible".into());
+    }
+    let native: ICoreWebView2_16 = view.webview().cast().map_err(|e| format!("{e}"))?;
+    unsafe { native.ShowPrintUI(COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM) }.map_err(|e| e.to_string())
+}
+
 #[derive(Clone, Copy)]
 pub(super) enum Format {
     Jpeg,

@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf } = {}) {
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -84,13 +84,14 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     button.addEventListener("click", async () => { await open(); menu.open = false; });
     panel.append(button);
   }
-  for (const [name, action] of [["Reading mode", reader], ["Translate selected text", translateSelection], ["Save viewport PNG to Downloads", screenshot], ["Save page PDF to Downloads", savePdf]]) {
+  for (const [name, action] of [["Reading mode", reader], ["Translate selected text", translateSelection], ["Save viewport PNG to Downloads", screenshot], ["Print page…", print], ["Save page PDF to Downloads", savePdf]]) {
     if (!action) continue;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ui-button ui-button--secondary";
     button.textContent = t(name);
     button.dataset.i18nText = name;
+    if (action === print) { button.title = `${t(name)} (Ctrl+P)`; button.setAttribute("aria-keyshortcuts", "Control+p"); }
     button.addEventListener("click", () => { menu.open = false; action(); });
     panel.append(button);
   }
