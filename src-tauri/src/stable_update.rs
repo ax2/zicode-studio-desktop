@@ -73,7 +73,8 @@ struct Progress {
     total: u64,
 }
 fn progress(window: &WebviewWindow, phase: &'static str, downloaded: u64, total: u64) {
-    let _ = window.emit(
+    let _ = window.emit_to(
+        window.label(),
         "desktop-update-progress",
         Progress {
             phase,
@@ -202,7 +203,7 @@ fn directory() -> Result<PathBuf, String> {
 async fn download(
     window: &WebviewWindow,
     c: &Candidate,
-    path: &std::path::Path,
+    file: tokio::fs::File,
 ) -> Result<(), String> {
     let response = client()?
         .get(&c.url)
@@ -214,13 +215,18 @@ async fn download(
     if !accepted_url(response.url()) || response.content_length().is_some_and(|n| n != c.size) {
         return Err("Installer source or length changed".into());
     }
-    let mut file = tokio::fs::OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(path)
-        .await
-        .map_err(|_| "Cannot create installer file")?;
-    let mut stream = response.bytes_stream();
+    write_verified(file, response.bytes_stream(), c, |phase, count| {
+        progress(window, phase, count, c.size)
+    })
+    .await
+}
+async fn write_verified<E>(
+    mut file: tokio::fs::File,
+    stream: impl futures_util::Stream<Item = Result<bytes::Bytes, E>>,
+    c: &Candidate,
+    mut notify: impl FnMut(&'static str, u64),
+) -> Result<(), String> {
+    futures_util::pin_mut!(stream);
     let mut hash = Sha256::new();
     let mut count = 0;
     let mut last = Instant::now();
@@ -235,11 +241,11 @@ async fn download(
             .map_err(|_| "Cannot write installer file")?;
         hash.update(&block);
         if last.elapsed() >= Duration::from_millis(200) {
-            progress(window, "downloading", count, c.size);
+            notify("downloading", count);
             last = Instant::now()
         }
     }
-    progress(window, "verifying", count, c.size);
+    notify("verifying", count);
     if count != c.size || format!("{:x}", hash.finalize()) != c.sha {
         return Err("Installer size or SHA-256 mismatch".into());
     }
@@ -270,6 +276,7 @@ pub(super) async fn install(
         c
     };
     progress(window, "downloading", 0, checked.size);
+    let mut owned_file = false;
     let work = async {
         let (_, candidate) = latest(current).await?;
         if candidate.as_ref() != Some(&checked) {
@@ -278,7 +285,13 @@ pub(super) async fn install(
         tokio::fs::create_dir_all(&dir)
             .await
             .map_err(|_| "Cannot create the update directory")?;
-        download(window, &checked, &path).await
+        let file = std::fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&path)
+            .map_err(|_| "Cannot create installer file")?;
+        owned_file = true;
+        download(window, &checked, tokio::fs::File::from_std(file)).await
     };
     let result = tokio::select! {biased; _=token.cancelled()=>Err(CANCELLED.to_string()), result=work=>result};
     let result = {
@@ -307,7 +320,9 @@ pub(super) async fn install(
             Ok(())
         }
         Err(e) => {
-            let _ = tokio::fs::remove_file(path).await;
+            if owned_file {
+                let _ = tokio::fs::remove_file(path).await;
+            }
             progress(
                 window,
                 if e == CANCELLED {
@@ -337,6 +352,19 @@ pub(super) fn cancel(window: &WebviewWindow) -> Result<(), String> {
         }
         Stage::Idle => Ok(()),
         _ => Err("Update handoff cannot be cancelled from this window".into()),
+    }
+}
+pub(super) fn forget_window(label: &str) {
+    if let Ok(mut state) = state() {
+        state.checked.remove(label);
+        match &state.stage {
+            Stage::Download(owner, token) if owner == label => token.cancel(),
+            Stage::Ready(owner, ready) if owner == label => {
+                let _ = std::fs::remove_file(&ready.path);
+                state.stage = Stage::Idle;
+            }
+            _ => {}
+        }
     }
 }
 pub(super) async fn handoff(
@@ -388,7 +416,9 @@ struct Receipt {
     message: String,
 }
 pub(super) fn take_result() -> Result<Option<ResultNotice>, String> {
-    let dir = directory()?;
+    take_result_at(&directory()?)
+}
+fn take_result_at(dir: &std::path::Path) -> Result<Option<ResultNotice>, String> {
     let source = dir.join("result.json");
     let taking = dir.join(format!("result-{}.json", uuid::Uuid::new_v4()));
     match std::fs::rename(&source, &taking) {
@@ -419,6 +449,58 @@ pub(super) fn take_result() -> Result<Option<ResultNotice>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_terminal_installer_receipts_are_consumed_once() {
+        let dir =
+            std::env::temp_dir().join(format!("studio-update-result-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&dir).unwrap();
+        for (status, expected) in [
+            ("ready", None),
+            ("installed", Some(true)),
+            ("failed", Some(false)),
+        ] {
+            std::fs::write(
+                dir.join("result.json"),
+                serde_json::json!({"version":"1.0.0","status":status,"message":""}).to_string(),
+            )
+            .unwrap();
+            assert_eq!(
+                take_result_at(&dir).ok().flatten().map(|r| r.success),
+                expected
+            );
+            assert!(take_result_at(&dir).unwrap().is_none());
+        }
+        std::fs::remove_dir(dir).unwrap();
+    }
+    #[tokio::test]
+    async fn installer_bytes_must_match_both_announced_size_and_digest() {
+        let bytes = bytes::Bytes::from_static(b"installer data");
+        let hash = format!("{:x}", Sha256::digest(&bytes));
+        for (size, sha, expected) in [
+            (bytes.len() as u64, hash.clone(), true),
+            (2, hash.clone(), false),
+            (100, hash, false),
+            (bytes.len() as u64, "00".repeat(32), false),
+        ] {
+            let c = Candidate {
+                version: "1.0.0".into(),
+                url: "fixture".into(),
+                size,
+                sha,
+            };
+            let path =
+                std::env::temp_dir().join(format!("studio-update-digest-{}", uuid::Uuid::new_v4()));
+            let file = tokio::fs::File::create_new(&path).await.unwrap();
+            let stream =
+                futures_util::stream::iter([Ok::<_, ()>(bytes.slice(..3)), Ok(bytes.slice(3..))]);
+            let result = write_verified(file, stream, &c, |_, _| {}).await;
+            if result.is_ok() {
+                assert_eq!(tokio::fs::read(&path).await.unwrap(), bytes);
+            }
+            tokio::fs::remove_file(path).await.unwrap();
+            assert_eq!(result.is_ok(), expected);
+        }
+    }
     fn release() -> Release {
         let name = "ZiCode.Studio.Desktop_0.6.2_x64-setup.exe".to_string();
         Release {
