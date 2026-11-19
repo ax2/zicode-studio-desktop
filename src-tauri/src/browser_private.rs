@@ -128,34 +128,6 @@ fn remove_owned(root: &Path, dir: &Path) -> bool {
     fs::remove_file(marker).is_ok() && fs::remove_dir(dir).is_ok()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn cleanup_checks_receipt_and_process_lock_before_removing_an_engine() {
-        let root =
-            std::env::temp_dir().join(format!("studio-private-cleanup-{}", uuid::Uuid::new_v4()));
-        let id = uuid::Uuid::new_v4().to_string();
-        let dir = root.join(&id);
-        fs::create_dir_all(dir.join("engine")).unwrap();
-        fs::write(dir.join("engine/canary"), b"synthetic").unwrap();
-        fs::write(dir.join(MARKER), b"not our receipt").unwrap();
-        assert!(!remove_owned(&root, &dir));
-        fs::write(dir.join(MARKER), &id).unwrap();
-        let lock = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(dir.join(MARKER))
-            .unwrap();
-        lock.try_lock_exclusive().unwrap();
-        assert!(!remove_owned(&root, &dir));
-        assert!(dir.join("engine/canary").is_file());
-        drop(lock);
-        assert!(remove_owned(&root, &dir));
-        assert!(!dir.exists());
-        fs::remove_dir(root).unwrap();
-    }
-}
 pub(crate) fn finish(owner: &str) {
     let Some(private) = LIVE.lock().ok().and_then(|mut l| l.remove(owner)) else {
         return;
@@ -189,4 +161,33 @@ pub(crate) fn cleanup_previous() {
             }
         });
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn cleanup_checks_receipt_and_process_lock_before_removing_an_engine() {
+        let root =
+            std::env::temp_dir().join(format!("studio-private-cleanup-{}", uuid::Uuid::new_v4()));
+        let id = uuid::Uuid::new_v4().to_string();
+        let dir = root.join(&id);
+        fs::create_dir_all(dir.join("engine")).unwrap();
+        fs::write(dir.join("engine/canary"), b"synthetic").unwrap();
+        fs::write(dir.join(MARKER), b"not our receipt").unwrap();
+        assert!(!remove_owned(&root, &dir));
+        fs::write(dir.join(MARKER), &id).unwrap();
+        let lock = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(dir.join(MARKER))
+            .unwrap();
+        lock.try_lock_exclusive().unwrap();
+        assert!(!remove_owned(&root, &dir));
+        assert!(dir.join("engine/canary").is_file());
+        drop(lock);
+        assert!(remove_owned(&root, &dir));
+        assert!(!dir.exists());
+        fs::remove_dir(root).unwrap();
+    }
 }
