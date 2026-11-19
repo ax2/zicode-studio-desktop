@@ -4,7 +4,7 @@ export function createPluginSidebarAvailability(sidebar) {
   return {
     sync(plugin) {
       const external = plugin?.origin === "developer" || plugin?.origin === "signed";
-      const fullWidth = plugin?.id === "com.zicode.browser" || plugin?.id === "com.zicode.visual-assets";
+      const fullWidth = ["com.zicode.browser", "com.zicode.visual-assets", "com.zicode.mail"].includes(plugin?.id);
       sidebar.hidden = fullWidth || (external && !(plugin.views ?? []).some(view => view.location === "sidebar"));
       return !sidebar.hidden;
     },

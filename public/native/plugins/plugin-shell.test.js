@@ -1262,6 +1262,7 @@ it("hides an absent external sidebar and restores declared or builtin navigation
       ...(sidebar ? [{ id: `${id}.sidebar`, location: "sidebar", entry: "views/sidebar.html" }] : []),
     ] } }));
   plugins.push({ id: "com.zicode.visual-assets", name: "Visual assets", enabled: true, core: true, origin: "builtIn", contributes: { activities: [{ id: "visual-assets", title: "Visual assets" }], views: [] } });
+  plugins.push({ id: "com.zicode.mail", name: "Mail", enabled: true, core: true, origin: "builtIn", contributes: { activities: [{ id: "mail", title: "Mail" }], views: [{ id: "mail.dashboard", activity: "mail", location: "main", title: "Mail" }] } });
   const testRegistry = new BuiltinPluginRegistry({ storage: { getItem: () => null, setItem: () => {} },
     hostGateway: { list: vi.fn(async () => ({ diagnostics: [], plugins })) } });
   const pluginViewHost = { renderNavigation: vi.fn(), renderContent: vi.fn(), destroy: vi.fn() };
@@ -1278,6 +1279,8 @@ it("hides an absent external sidebar and restores declared or builtin navigation
     await shell.activate("fixture.main-only");
     expect(sidebar.hidden).toBe(true);
     await shell.activate("com.zicode.visual-assets");
+    expect(sidebar.hidden).toBe(true);
+    await shell.activate("com.zicode.mail");
     expect(sidebar.hidden).toBe(true);
     await shell.activate("com.zicode.notes");
     expect(sidebar.hidden).toBe(false);

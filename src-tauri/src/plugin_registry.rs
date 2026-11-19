@@ -2467,6 +2467,15 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
             false,
             true,
         ),
+        (json!({
+            "schemaVersion":1, "id":"com.zicode.mail", "name":"Mail",
+            "description":"Write local drafts for Gmail and Alibaba Mail","version":"0.1.0","publisher":"zicode",
+            "engines":{"pluginApi":"^1.0.0"},"activationEvents":["onView:mail.dashboard"],
+            "contributes":{"activities":[{"id":"mail","title":"Mail","order":126}],
+              "views":[{"id":"mail.dashboard","activity":"mail","location":"main","title":"Mail"}],
+              "commands":[{"id":"mail.open","title":"Open Mail"}]},
+            "permissions":{"required":[{"name":"storage.plugin","reason":"Keep mailbox accounts and drafts on this device"}]}
+        }), true, true),
         (
             json!({
                 "schemaVersion": 2,
@@ -3130,7 +3139,7 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 21);
+        assert_eq!(registry.list("programming").len(), 22);
         let visual = registry.list("programming").into_iter()
             .find(|plugin| plugin.manifest.id == "com.zicode.visual-assets")
             .expect("visual assets registered");

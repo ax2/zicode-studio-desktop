@@ -75,6 +75,7 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     ],
   },
   { id: "com.zicode.visual-assets", name: "Visual assets", description: "Your local visual library", icon: "imagetools", order: 125, core: true, enabledByDefault: true, sidebarViews: [], commands: [] },
+  { id:"com.zicode.mail", name:"Mail", description:"Write local drafts for Gmail and Alibaba Mail", icon:"mail", order:126, core:true, enabledByDefault:true, sidebarViews:[], commands:[{id:"mail.open",label:"Open Mail",icon:"open"}] },
   {
     id: "com.zicode.automation",
     name: "Automation",
