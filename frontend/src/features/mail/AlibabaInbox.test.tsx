@@ -1,4 +1,4 @@
-import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {afterEach,expect,it,vi} from "vitest";
 import {Mail,type Invoke} from "./index";
 import {setLocale} from "../../shared/i18n";
@@ -51,7 +51,7 @@ it("reviews the saved recipient and blocks resubmission after an unknown deliver
   const a=setup();fireEvent.click(await screen.findByRole("button",{name:"Prepared"}));
   const review=await screen.findByRole("button",{name:"Review before sending"});
   await waitFor(()=>expect(review.matches(":disabled")).toBe(false));
-  fireEvent.click(review);expect(screen.getByText("receiver@example.test")).toBeTruthy();
+  fireEvent.click(review);const confirmation=within(screen.getByRole("region",{name:"Confirm sending email"}));expect(confirmation.getByText("receiver@example.test")).toBeTruthy();expect(confirmation.getByText("me@example.test")).toBeTruthy();
   fireEvent.click(button("Cancel"));expect(a.kinds()).not.toContain("send");
   fireEvent.click(review);fireEvent.click(button("Confirm and send email"));
   await screen.findByText(/Delivery is unknown/);

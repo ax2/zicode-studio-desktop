@@ -26,13 +26,13 @@ export function MailDelivery({invoke,id,address,draft,configured}:{invoke:Invoke
   }
   return <section aria-label={t("Send saved draft")}>
     {!outcome&&<button type="button" disabled={!configured||!ready||busy||!draft.recipient.trim()} onClick={()=>setReview(true)}>{t("Review before sending")}</button>}
-    {review&&!outcome&&<div className="mail-send-review" aria-label={t("Confirm sending email")}>
+    {review&&!outcome&&<section className="mail-send-review" aria-label={t("Confirm sending email")}>
       <p>{t("Send this saved draft now?")}</p><dl>
         <dt>{t("Mail account")}</dt><dd translate="no">{address}</dd><dt>{t("Recipient")}</dt><dd translate="no">{draft.recipient}</dd>
         <dt>{t("Mail subject")}</dt><dd translate="no">{draft.subject||t("No subject")}</dd></dl>
       <button type="button" disabled={!configured||busy} onClick={()=>void submit()}>{t("Confirm and send email")}</button>
       <button type="button" onClick={()=>setReview(false)}>{t("Cancel")}</button>
-    </div>}
+    </section>}
     {busy&&<p role="status">{t("Sending saved draft…")}</p>}
     {outcome&&<p role="status">{t(outcome==="accepted"?"The mail server accepted this message.":outcome==="rejected"
       ?"The server rejected this send. Check the account and recipient before saving a revised draft."
