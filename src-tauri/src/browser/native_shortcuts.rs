@@ -32,6 +32,7 @@ fn shortcut(key: u16, control: bool, alt: bool, shift: bool) -> Option<&'static 
         (0x48, false) => Some("history"),
         (0x4a, false) => Some("downloads"),
         (0x4c, false) => Some("address"),
+        (0x50, false) => Some("print"),
         (0x52, false) => Some("reload"),
         (0x54, false) => Some("newTab"),
         (0x54, true) => Some("reopenTab"),

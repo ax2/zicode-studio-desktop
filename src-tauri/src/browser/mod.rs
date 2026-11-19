@@ -64,6 +64,7 @@ pub enum Request {
     DownloadName { id: String },
     Snapshot { tab: String },
     SaveScreenshot { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
+    PrintPage { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
     SavePdf { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
     MenuLanguage { chinese: bool },
     CancelPopup { request: String },

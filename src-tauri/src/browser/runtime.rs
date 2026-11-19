@@ -223,6 +223,15 @@ pub(super) fn execute(
             Request::FindStatus { tab } => return super::native_find::status(browser.engine.view(&tab)?),
             Request::FindStep { tab, backward } => super::native_find::step(browser.engine.view(&tab)?, backward)?,
             Request::FindStop { tab } => super::native_find::stop(browser.engine.view(&tab)?)?,
+            Request::PrintPage { tab, expected_url } => {
+                let view = browser.engine.view(&tab)?;
+                let url = view.url().map_err(|e| e.to_string())?;
+                if !browser.engine.export_ready(&tab) || url != expected_url
+                    || !(url.starts_with("https://") || url.starts_with("http://")) {
+                    return Err("Wait for the current page to finish loading".into());
+                }
+                super::page_output::show_print_dialog(view)?;
+            }
             Request::PageSettings { tab } => return serde_json::to_value(super::engine::page_controls::read(browser.engine.view(&tab)?)?).map_err(|e|e.to_string()),
             Request::SetZoom { tab, zoom } => return serde_json::to_value(super::engine::page_controls::set_zoom(browser.engine.view(&tab)?,zoom)?).map_err(|e|e.to_string()),
             Request::SetMuted { tab, muted } => return serde_json::to_value(super::engine::page_controls::set_muted(browser.engine.view(&tab)?,muted)?).map_err(|e|e.to_string()),

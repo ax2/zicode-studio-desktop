@@ -1042,6 +1042,7 @@ const zhCN = {
   "Browser options": "浏览器选项",
   "Save viewport PNG to Downloads": "将当前网页视口截图保存到下载文件夹",
   "Screenshot saved to Downloads": "截图已保存到下载文件夹",
+  "Print page…": "打印页面…",
   "Save page PDF to Downloads": "将网页 PDF 保存到下载文件夹",
   "Preparing page PDF…": "正在生成网页 PDF…",
   "PDF saved to Downloads": "PDF 已保存到下载文件夹",
