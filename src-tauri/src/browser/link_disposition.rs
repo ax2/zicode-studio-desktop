@@ -101,3 +101,24 @@ pub(super) fn observe(view: &wry::WebView, revision: Arc<AtomicU64>) -> Rc<Cell<
     }
     pending
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_popup_must_match_the_recent_source_target_and_revision() {
+        let mut hit = Gesture {
+            source: "https://example.test/source".into(),
+            target: "https://example.test/destination".into(),
+            received: Instant::now(),
+            revision: 3,
+        };
+        assert!(hit.matches(&hit.source, &hit.target, 3));
+        assert!(!hit.matches("https://other.test/source", &hit.target, 3));
+        assert!(!hit.matches(&hit.source, "https://example.test/elsewhere", 3));
+        assert!(!hit.matches(&hit.source, &hit.target, 4));
+        hit.received -= Duration::from_secs(2);
+        assert!(!hit.matches(&hit.source, &hit.target, 3));
+    }
+}
