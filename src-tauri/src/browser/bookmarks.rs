@@ -18,6 +18,8 @@ pub struct Bookmark {
     pub title: String,
     pub url: String,
     pub folder_id: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shortcut: bool,
 }
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

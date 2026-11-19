@@ -60,12 +60,17 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
     const parent = folderSelect(isFolder ? "Parent folder" : "Bookmark folder", isFolder ? draft.parentId : draft.folderId, isFolder ? draft.id : null);
     const parentLabel = el("label", "", t(isFolder ? "Parent folder" : "Bookmark folder")); parentLabel.append(parent);
     form.append(titleLabel);
-    let url;
+    let url, shortcut;
     if (!isFolder) {
       url = el("input", "ui-input"); url.type = "url"; url.required = true; url.maxLength = 16384; url.value = draft.url;
       const label = el("label", "", t("Bookmark URL")); label.append(url); form.append(label);
     }
     form.append(parentLabel);
+    if (!isFolder) {
+      shortcut = el("input"); shortcut.type = "checkbox"; shortcut.checked = !!draft.shortcut;
+      const label = el("label", "", t("Show in website shortcuts"));
+      label.prepend(shortcut); form.append(label);
+    }
     const actions = el("div", "ui-toolbar");
     const submit = el("button", "ui-button ui-button--primary", t("Save")); submit.type = "submit";
     actions.append(submit, button("Cancel", () => beginEdit(null)));
@@ -83,7 +88,7 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
       event.preventDefault(); if (!form.reportValidity()) return;
       void run(async () => {
         const id = draft.id ?? crypto.randomUUID();
-        const item = isFolder ? { id, title: title.value.trim(), parentId: parent.value || null } : { id, title: title.value.trim(), url: url.value.trim(), folderId: parent.value || null };
+        const item = isFolder ? { id, title: title.value.trim(), parentId: parent.value || null } : { id, title: title.value.trim(), url: url.value.trim(), folderId: parent.value || null, ...(shortcut.checked ? { shortcut: true } : {}) };
         const list = isFolder ? library.folders : library.bookmarks;
         const next = draft.id ? list.map(old => old.id === id ? item : old) : [...list, item];
         await save(isFolder ? next : library.folders, isFolder ? library.bookmarks : next);

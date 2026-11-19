@@ -63,7 +63,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const surface = createBrowserSurface(control);
   const paintStatus = () => {
     if (!status) return;
-    const failure = crashedTabs.has(active) ? t("The page process stopped. Reload the tab to reopen its address.")
+    const failure = crashedTabs.has(active) ? t("The page process stopped. Unsaved page input may be lost. Reload to reopen the address.")
       : navigationStates.get(active) === "failed" ? t("Page could not be loaded") : "";
     const text = [statusMessage, failure].filter(Boolean).join(" ");
     if (status.textContent !== text) status.textContent = text;
@@ -183,6 +183,17 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (tab?.popupOpener) await close(source);
         else if (tab) await reopenCrashedTab(tab);
       }
+      return;
+    }
+    if (action === "print") {
+      const expectedUrl = selected()?.url;
+      if (!nativeTabs.has(source) || !/^https?:/.test(expectedUrl ?? "") || navigationStates.get(source) === "loading") {
+        setStatus(t("Wait for the current page to finish loading"));
+        return;
+      }
+      await syncSurface();
+      await surface.settled();
+      if (active === source && !blocked()) await control({ kind: "printPage", tab: source, expectedUrl });
       return;
     }
     if (action === "zoomIn" || action === "zoomOut" || action === "zoomReset") {
@@ -779,6 +790,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         return act(() => translatePageSelection(source));
       }),
       screenshot: () => exportPage("saveScreenshot", "Screenshot saved to Downloads"),
+      websiteShortcuts: {
+        list: async () => (await invoke("browser_bookmarks", { request: { kind: "list" } })).bookmarks.filter(item => item.shortcut),
+        open: item => void openSavedPage(item).catch(report),
+        report,
+      },
+      print: () => { const source = active; return act(() => runPageAction("print", source)); },
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),
       pin: { state: pinState, toggle: () => act(togglePin) } });
     const layoutLabel = document.createElement("label");

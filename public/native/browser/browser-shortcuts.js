@@ -1,6 +1,6 @@
 // Native events identify their source tab. Re-check after the native focus
 // handoff so queued input cannot change a different tab or an open dialog.
-const pageActions = new Set(["reload", "back", "forward", "zoomIn", "zoomOut", "zoomReset"]);
+const pageActions = new Set(["reload", "back", "forward", "print", "zoomIn", "zoomOut", "zoomReset"]);
 const panelKeys = new Map([["d", "bookmark"], ["h", "history"], ["j", "downloads"]]);
 const panelActions = new Set(panelKeys.values());
 const numberActions = ["tab1", "tab2", "tab3", "tab4", "tab5", "tab6", "tab7", "tab8", "tab9"];
@@ -24,6 +24,7 @@ export function browserShortcut(event) {
   if (key === "tab" && event.ctrlKey) return event.shiftKey ? "previousTab" : "nextTab";
   if (key === "+") return "zoomIn";
   if (event.shiftKey) return null;
+  if (key === "p") return "print";
   if (key === "=") return "zoomIn";
   if (key === "-") return "zoomOut";
   if (key === "0") return "zoomReset";
