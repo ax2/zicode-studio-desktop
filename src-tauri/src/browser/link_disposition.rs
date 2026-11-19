@@ -5,6 +5,10 @@ use serde_json::json;
 use std::{
     cell::Cell,
     rc::Rc,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
     time::{Duration, Instant},
 };
 use webview2_com::{
@@ -18,11 +22,13 @@ pub(super) struct Gesture {
     source: String,
     target: String,
     received: Instant,
+    revision: u64,
 }
 impl Gesture {
-    pub(super) fn matches(&self, source: Option<&str>, target: &str) -> bool {
+    pub(super) fn matches(&self, source: &str, target: &str, revision: u64) -> bool {
         self.received.elapsed() < Duration::from_secs(1)
-            && source == Some(self.source.as_str())
+            && source == self.source
+            && revision == self.revision
             && target == self.target
     }
 }
@@ -32,7 +38,7 @@ struct BindingEvent {
     payload: String,
 }
 
-pub(super) fn observe(view: &wry::WebView) -> Rc<Cell<Option<Gesture>>> {
+pub(super) fn observe(view: &wry::WebView, revision: Arc<AtomicU64>) -> Rc<Cell<Option<Gesture>>> {
     let pending = Rc::new(Cell::new(None));
     let sink = pending.clone();
     let native = view.webview();
@@ -60,6 +66,7 @@ pub(super) fn observe(view: &wry::WebView) -> Rc<Cell<Option<Gesture>>> {
                                         source,
                                         target,
                                         received: Instant::now(),
+                                        revision: revision.load(Ordering::SeqCst),
                                     }),
                             );
                         }

@@ -139,7 +139,7 @@ pub(super) fn install(
     emit: Arc<dyn Fn(EngineEvent) + Send + Sync>,
 ) -> windows::core::Result<()> {
     let controller = view.controller();
-    let link_gesture = link_disposition::observe(view);
+    let link_gesture = link_disposition::observe(view, revision.clone());
     unsafe {
         view.webview().add_NewWindowRequested(
             &NewWindowRequestedEventHandler::create(Box::new(move |sender, args| {
@@ -159,12 +159,17 @@ pub(super) fn install(
                 let mut allowed =
                     allowed_link(&policy, &url, initiated.as_bool(), visible.as_bool());
                 let mut request = None;
-                let source = sender.as_ref().and_then(|source| {
+                let background = allowed && evidence.is_some_and(|hit| {
                     let mut raw = PWSTR::null();
-                    source.Source(&mut raw).ok()?;
-                    Some(take_pwstr(raw))
+                    let frame_source = args.cast::<ICoreWebView2NewWindowRequestedEventArgs3>()
+                        .and_then(|args| args.OriginalSourceFrameInfo())
+                        .and_then(|frame| frame.Source(&mut raw));
+                    if frame_source.is_err() {
+                        let Some(sender) = sender.as_ref() else {return false};
+                        if sender.Source(&mut raw).is_err() {return false}
+                    }
+                    hit.matches(&take_pwstr(raw), &url, revision.load(Ordering::SeqCst))
                 });
-                let background = allowed && evidence.is_some_and(|hit| hit.matches(source.as_deref(), &url));
                 if gesture && (allowed || url == "about:blank") && auxiliary(&args, &url)? {
                     let Some(sender) = sender else {
                         return Ok(());
