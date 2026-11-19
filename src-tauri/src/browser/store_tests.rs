@@ -288,3 +288,22 @@ fn pins_round_trip_without_changing_legacy_session_payloads() {
     store.save("one", 2, vec![pinned], Some(id)).unwrap();
     assert!(store.state("one").unwrap().session.closed_tabs.is_empty());
 }
+
+#[test]
+fn custom_user_agent_is_validated_persistent_and_profile_scoped() {
+    let path = root();
+    let db = Store::open(&path).unwrap();
+    let regular = db.state("main").unwrap().profile_id;
+    let other = db.add_profile("Other").unwrap();
+    let valid = "UA Fixture/1.0";
+    db.set_user_agent(&regular, Some(valid)).unwrap();
+    for invalid in ["", " leading", "trailing ", "a\tb", "a\r\nb", "☃", &"x".repeat(513)] {
+        assert!(db.set_user_agent(&regular, Some(invalid)).is_err());
+    }
+    assert_eq!(db.user_agent(&other).unwrap(), None);
+    drop(db);
+    let reopened = Store::open(&path).unwrap();
+    assert_eq!(reopened.user_agent(&regular).unwrap().as_deref(), Some(valid));
+    reopened.set_user_agent(&regular, None).unwrap();
+    assert_eq!(reopened.user_agent(&regular).unwrap(), None);
+}
