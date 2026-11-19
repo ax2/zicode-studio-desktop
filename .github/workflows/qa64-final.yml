@@ -1,0 +1,35 @@
+name: Windows installer actual wizard acceptance
+on:
+  push:
+    branches: [codex/qa64-verify-067]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa64-installer-fixture
+          run-id: 44458395910
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/bundle
+      - name: Exercise actual installer on disposable Windows
+        env:
+          STUDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: |
+          ./scripts/verify-windows-installer-runtime.ps1 -Installer "$env:RUNNER_TEMP/bundle/fixture.exe" -Version '0.6.6' -PreviousInstaller "$env:RUNNER_TEMP/bundle/previous.exe" -PreviousSha256 'e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c' -Receipt "$env:RUNNER_TEMP/qa64-fixed.json"
+      - if: always()
+        run: Get-Content "$env:RUNNER_TEMP/qa64-fixed.json" -Raw
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa64-fixed-receipt
+          path: ${{ runner.temp }}/qa64-fixed.json
+          if-no-files-found: error
