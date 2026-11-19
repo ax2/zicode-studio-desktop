@@ -8,7 +8,8 @@ using System.Runtime.InteropServices;
 public static class Q35 {
   [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr parent,IntPtr after,string cls,string title);
   [DllImport("user32.dll")] public static extern IntPtr SendMessageTimeout(IntPtr hwnd,uint msg,IntPtr wp,IntPtr lp,uint flags,uint timeout,out IntPtr result);
-  [DllImport("user32.dll")] public static extern int GetMenuItemCount(IntPtr menu);
+    [DllImport("user32.dll")] public static extern int GetMenuItemCount(IntPtr menu);
+  [DllImport("user32.dll")] public static extern uint GetMenuState(IntPtr menu,uint pos,uint flags);
   [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetMenuString(IntPtr menu,uint item,System.Text.StringBuilder text,int max,uint flags);
   [DllImport("user32.dll")] public static extern bool GetMenuItemRect(IntPtr owner,IntPtr menu,uint item,out Rect rect);
   [StructLayout(LayoutKind.Sequential)]public struct Pt {public int x,y;}
@@ -69,7 +70,18 @@ if($Mode -eq 'tray'){
         $labels+=$label.ToString()
         if($label.ToString().Replace('&','') -notmatch '(Show|显示) ZiCode Studio'){continue}
         $r=New-Object Q35+Rect
-        if(![Q35]::GetMenuItemRect([IntPtr]::Zero,$menu,$i,[ref]$r)){continue}
+        if(![Q35]::GetMenuItemRect($popup,$menu,$i,[ref]$r) -and ![Q35]::GetMenuItemRect([IntPtr]::Zero,$menu,$i,[ref]$r)){
+          [System.Windows.Forms.SendKeys]::SendWait('{HOME}')
+          for($step=0;$step -le [Q35]::GetMenuItemCount($menu);$step++){
+            if(([Q35]::GetMenuState($menu,$i,0x400) -band 0x80) -ne 0){
+              [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+              @{tray=$iconName;action='right-click menu and keyboard activation';menu=$label.ToString()}|ConvertTo-Json -Compress;exit
+            }
+            [System.Windows.Forms.SendKeys]::SendWait('{DOWN}')
+            Start-Sleep -Milliseconds 100
+          }
+          continue
+        }
         [void][Q35]::SetCursorPos([int](($r.left+$r.right)/2),[int](($r.top+$r.bottom)/2))
         [Q35]::mouse_event(2,0,0,0,[UIntPtr]::Zero);[Q35]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
         @{tray=$iconName;action='right click, native menu item';menu=$label.ToString()}|ConvertTo-Json -Compress;exit

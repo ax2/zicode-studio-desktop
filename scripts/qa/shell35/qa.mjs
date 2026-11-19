@@ -57,10 +57,11 @@ try{
   await input.fill(site);await input.press('Enter');
   nativeBrowser=await chromium.connectOverCDP(await wait('isolated child profile endpoint',()=>endpoint('browser/profiles')));
   const child=await wait('native remote page',()=>nativeBrowser.contexts().flatMap(c=>c.pages()).find(p=>p.url()===site));
-  await child.getByRole('heading',{name:'Example Domain'}).waitFor();
+  await child.waitForFunction(()=>document.readyState==='complete'&&document.title==='Example Domain');
+  console.log('Live remote document',await child.evaluate(()=>({title:document.title,url:location.href,viewport:[innerWidth,innerHeight],visibility:document.visibilityState,heading:document.querySelector('h1')?.textContent})));
   // Give the disposable page two unambiguous pixels and an editable marker.
   await child.evaluate(()=>{document.body.style.cssText='margin:0;width:100vw;height:100vh;background:linear-gradient(to right,#267ea8 50%,#ce672a 50%);';const input=document.createElement('input');input.id='value';document.body.prepend(input);});
-  await child.locator('#value').fill('survives overlay and tray');
+  await child.locator('#value').evaluate(el=>{el.value='survives overlay and tray';el.dispatchEvent(new Event('input',{bubbles:true}));});
   const dimensions=await native('size',725,620);
   assert.ok(await ui.evaluate(()=>innerWidth<=768),'OS resize did not reach narrow shell breakpoint');
   record('native HWND moved to narrow size at the runner’s observed Windows DPI',dimensions);
