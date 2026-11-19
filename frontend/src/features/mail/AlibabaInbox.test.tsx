@@ -6,7 +6,7 @@ afterEach(()=>{cleanup();vi.restoreAllMocks()});
 const summary={uid:30,subject:"Inbox fixture",sender:"from@example.test",replyTo:"reply@example.test"};
 function setup(provider="alibaba",initiallyConfigured=true){
   setLocale("en");let configured=initiallyConfigured,delivery:string|null=null;
-  let draft={id:"draft",revision:2,subject:"Prepared",recipient:"receiver@example.test",body:"Draft body"};
+  let draft={id:"draft",revision:2,subject:"Prepared",recipient:"receiver@example.test",body:"Draft body "+"x".repeat(480)+"<img src=fixture>"};
   const local=vi.fn(async (r:Record<string,unknown>)=>{
     if(r.kind==="accounts")return [{id:"a",address:"me@example.test",provider}];
     if(r.kind==="drafts")return [draft];throw Error("unexpected local write");
@@ -52,6 +52,8 @@ it("reviews the saved recipient and blocks resubmission after an unknown deliver
   const review=await screen.findByRole("button",{name:"Review before sending"});
   await waitFor(()=>expect(review.matches(":disabled")).toBe(false));
   fireEvent.click(review);const confirmation=within(screen.getByRole("region",{name:"Confirm sending email"}));expect(confirmation.getByText("receiver@example.test")).toBeTruthy();expect(confirmation.getByText("me@example.test")).toBeTruthy();
+  const preview=within(confirmation.getByRole("region",{name:"Message body preview"}));expect(preview.getByText(/^Draft body/).textContent?.endsWith("…")).toBe(true);
+  fireEvent.click(preview.getByRole("button",{name:"Show full message body"}));expect(preview.getByText(/^Draft body/).textContent).toBe("Draft body "+"x".repeat(480)+"<img src=fixture>");expect(document.querySelector(".mail-send-review img")).toBeNull();
   fireEvent.click(button("Cancel"));expect(a.kinds()).not.toContain("send");
   fireEvent.click(review);fireEvent.click(button("Confirm and send email"));
   await screen.findByText(/Delivery is unknown/);

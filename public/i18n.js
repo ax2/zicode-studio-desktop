@@ -9,6 +9,8 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Show full message body": "展开完整正文",
+  "Message body preview": "邮件正文预览",
   "Alibaba Mail inbox": "阿里邮箱收件箱",
   "Mail connection": "邮箱连接",
   "Client password saved on this device.": "已在本机保存客户端安全密码。",

@@ -1,8 +1,23 @@
-import {useEffect,useRef,useState} from "react";
+import {useEffect,useId,useRef,useState} from "react";
 import {t} from "../../shared/i18n";
 import {mailError} from "./AlibabaInbox";
 import type {Draft,Invoke} from "./index";
 type Outcome="accepted"|"rejected"|"unknown"|null;
+function DraftPreview({text}:{text:string}){
+  const [expanded,setExpanded]=useState(false);
+  const id=useId();
+  // Avoid splitting a surrogate pair at the preview boundary. Sending uses the saved draft unchanged.
+  const cut=/[\uD800-\uDBFF]/.test(text.charAt(419))?419:420;
+  const long=text.length>cut;
+  return <section aria-label={t("Message body preview")}>
+    <p>{t("Message body")}</p>
+    <pre id={id} className="mail-read-body" translate="no">{!long||expanded?text||t("Empty message"):text.slice(0,cut)+"…"}</pre>
+    {long&&<button type="button" aria-controls={id} aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>
+      {t(expanded?"Show less":"Show full message body")}
+    </button>}
+  </section>;
+}
+
 export function MailDelivery({invoke,id,address,draft,configured}:{invoke:Invoke,id:string,address:string,draft:Draft,configured:boolean}){
   const [outcome,setOutcome]=useState<Outcome>(null),[ready,setReady]=useState(false),[review,setReview]=useState(false),
     [busy,setBusy]=useState(false),[error,setError]=useState("");
@@ -30,6 +45,7 @@ export function MailDelivery({invoke,id,address,draft,configured}:{invoke:Invoke
       <p>{t("Send this saved draft now?")}</p><dl>
         <dt>{t("Mail account")}</dt><dd translate="no">{address}</dd><dt>{t("Recipient")}</dt><dd translate="no">{draft.recipient}</dd>
         <dt>{t("Mail subject")}</dt><dd translate="no">{draft.subject||t("No subject")}</dd></dl>
+      <DraftPreview text={draft.body}/>
       <button type="button" disabled={!configured||busy} onClick={()=>void submit()}>{t("Confirm and send email")}</button>
       <button type="button" onClick={()=>setReview(false)}>{t("Cancel")}</button>
     </section>}
