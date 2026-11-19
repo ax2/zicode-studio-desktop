@@ -10,6 +10,11 @@ on:
         description: Existing v-prefixed tag to build and publish
         required: true
         type: string
+      publish:
+        description: Publish once the selected build and installer acceptance gates pass
+        required: true
+        type: boolean
+        default: false
       platform:
         description: Windows by default; all requires explicit user request; Intel-only repair never publishes
         required: true
@@ -21,7 +26,11 @@ on:
           - macos-intel
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -31,6 +40,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       release_sha: ${{ steps.release-source.outputs.sha }}
+      app_version: ${{ steps.release-source.outputs.version }}
       build_matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
       - name: Checkout workflow matrix source
@@ -39,11 +49,16 @@ jobs:
           ref: ${{ github.workflow_sha }}
       - name: Preserve fixed matrix tool
         shell: bash
-        run: cp scripts/release-build-matrix.mjs "$RUNNER_TEMP/release-build-matrix.mjs"
+        run: |
+          cp scripts/release-build-matrix.mjs scripts/check-release-notes-inputs.mjs scripts/check-release-source-workflow.mjs "$RUNNER_TEMP/"
+          cp .github/workflows/release.yml "$RUNNER_TEMP/dispatch-workflow.yml"
       - name: Checkout release tag
         uses: actions/checkout@v6
         with:
           ref: refs/tags/${{ env.RELEASE_TAG }}
+
+      - name: Reject tags without the reviewed release pipeline
+        run: node "$RUNNER_TEMP/check-release-source-workflow.mjs" "$RUNNER_TEMP/dispatch-workflow.yml"
 
       - name: Record release source commit
         id: release-source
@@ -53,6 +68,10 @@ jobs:
           SHA="$(git rev-parse --verify HEAD)"
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid release commit SHA"; exit 1; }
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Check frozen release notes and issue snapshot before building
+        run: node "$RUNNER_TEMP/check-release-notes-inputs.mjs" "$RELEASE_TAG"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -81,41 +100,6 @@ jobs:
             }
           '
 
-      - name: Create draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            IS_DRAFT="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
-            if [[ "$IS_DRAFT" != "true" ]]; then
-              echo "::error::Release $RELEASE_TAG is already public. Do not create releases manually; use bun run release <version>."
-              exit 1
-            fi
-            echo "Reusing existing draft release $RELEASE_TAG."
-            exit 0
-          fi
-
-          cat > "$RUNNER_TEMP/release-notes.md" <<'EOF'
-          Automated ZiCode Studio Desktop release.
-
-          Artifacts:
-          - Windows x64 NSIS installer: embeds Pi, PortableGit (Git + Bash), and the WebView2 offline installer.
-          Optional platforms are built only when explicitly requested.
-          - macOS Apple Silicon DMG: embeds Pi; uses the operating system's shell and Git tooling.
-          - macOS Intel DMG: embeds Pi; uses the operating system's shell and Git tooling.
-          - Linux x64 AppImage and Debian package: embed Pi; use the operating system's shell and Git tooling.
-          EOF
-          if [[ -f "docs/releases/$RELEASE_TAG.md" ]]; then
-            cp "docs/releases/$RELEASE_TAG.md" "$RUNNER_TEMP/release-notes.md"
-          fi
-          gh release create "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --draft \
-            --title "ZiCode Studio Desktop $RELEASE_TAG" \
-            --notes-file "$RUNNER_TEMP/release-notes.md" \
-            --verify-tag
-
   build:
     needs: prepare-release
     strategy:
@@ -125,11 +109,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       PI_TARGET_PLATFORM: ${{ matrix.pi_target }}
-      UPDATER_SIGNING_CONFIGURED: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
 
     steps:
       # Verification infrastructure is pinned independently of the immutable
-      # application tag, allowing a draft's API checks to be repaired without
+      # application tag, allowing packaging checks to be maintained without
       # changing the application source or creating another application version.
       - name: Enable long paths for Windows checkout
         if: runner.os == 'Windows'
@@ -147,8 +130,8 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/studio-release-verifier"
           cp scripts/verify-release-artifacts.mjs scripts/release-draft-assets.mjs \
-            scripts/release-artifact-policy.mjs scripts/executable-architecture.mjs \
-            scripts/macos-bundle-signing.mjs scripts/verify-macos-dmg.mjs \
+            scripts/release-artifact-policy.mjs scripts/release-candidate-files.mjs scripts/release-build-matrix.mjs scripts/verify-release-inventory.mjs scripts/executable-architecture.mjs \
+            scripts/macos-bundle-signing.mjs scripts/verify-macos-dmg.mjs scripts/verify-windows-installer-runtime.ps1 \
             "$RUNNER_TEMP/studio-release-verifier/"
           echo "Verification workflow source: ${{ github.workflow_sha }}"
 
@@ -308,6 +291,13 @@ jobs:
           CARGO_NET_RETRY: "10"
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked --bin zicode-studio-desktop host_server::plugin_broker_tests::embedded_pi_invokes_the_real_host_plugin_broker -- --ignored --exact
 
+      - name: Prepare Windows Explorer selection bridge
+        if: runner.os == 'Windows'
+        env:
+          CARGO_HTTP_MULTIPLEXING: "false"
+          CARGO_NET_RETRY: "10"
+        run: bun scripts/build-desktop.js --shell-only
+
       - name: Prepare macOS packaging hook
         if: runner.os == 'macOS'
         id: macos-bundle-config
@@ -317,40 +307,61 @@ jobs:
           bun "$RUNNER_TEMP/studio-release-verifier/macos-bundle-signing.mjs" --prepare
           echo "args=--config \"$RUNNER_TEMP/studio-release-verifier/macos-bundle.json\"" >> "$GITHUB_OUTPUT"
 
-      - name: Build bundles and upload to draft release
-        uses: tauri-apps/tauri-action@v1
+      - name: Build local platform bundles
+        shell: bash
         env:
           CARGO_HTTP_MULTIPLEXING: "false"
           CARGO_NET_RETRY: "10"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Auto-update signing: when the private key secrets are configured
-          # and bundle.createUpdaterArtifacts is true, tauri emits latest.json
-          # plus per-bundle .sig files which the next step uploads. Empty
-          # secrets are inert while createUpdaterArtifacts stays false.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: ${{ env.RELEASE_TAG }}
-          releaseDraft: true
-          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
-          args: --bundles ${{ matrix.bundles }} ${{ steps.macos-bundle-config.outputs.args }}
+        run: bun run tauri build --bundles ${{ matrix.bundles }} ${{ runner.os == 'Windows' && '--config src-tauri/tauri.shell.windows.conf.json' || '' }} ${{ steps.macos-bundle-config.outputs.args }}
 
-      - name: Upload updater artifacts when signing is enabled
-        if: env.UPDATER_SIGNING_CONFIGURED == 'true'
-        shell: bash
+      - name: Verify actual Windows installer process guards and installation
+        id: installer-acceptance
+        if: runner.os == 'Windows'
+        shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STUDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
         run: |
-          set -euo pipefail
-          shopt -s nullglob
-          found=0
-          for f in target/release/bundle/*/*.sig target/release/bundle/*/latest.json; do
-            found=1
-            gh release upload "$RELEASE_TAG" "$f" --repo "$GITHUB_REPOSITORY" --clobber
-          done
-          if [[ "$found" == "0" ]]; then
-            echo "No updater artifacts found (createUpdaterArtifacts is likely still false); nothing to upload."
-          fi
+          $files = @(Get-ChildItem -LiteralPath target/release/bundle/nsis -Filter '*_x64-setup.exe' -File)
+          if ($files.Count -ne 1) { throw 'Expected exactly one candidate installer' }
+          # An older public version is used only to set up the upgrade. No credentials or draft release access.
+          $baseline = Join-Path $env:RUNNER_TEMP 'studio-upgrade-baseline-0.6.2.exe'
+          $argsForBaseline = @{}
+          if ([version]($env:RELEASE_TAG.Substring(1).Split('-')[0]) -gt [version]'0.6.2') {
+            curl.exe --fail --location --silent --show-error --max-time 120 --output $baseline 'https://github.com/ax2/zicode-studio-desktop/releases/download/v0.6.2/ZiCode.Studio.Desktop_0.6.2_x64-setup.exe'
+            if ($LASTEXITCODE -eq 0) {
+              $argsForBaseline = @{ PreviousInstaller=$baseline; PreviousSha256='e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c' }
+            } else {
+              Write-Warning 'Public upgrade baseline unavailable; upgrade cases will be recorded as skipped.'
+              $global:LASTEXITCODE = 0
+            }
+          }
+          & "$env:RUNNER_TEMP/studio-release-verifier/verify-windows-installer-runtime.ps1" -Installer $files[0].FullName -Version ($env:RELEASE_TAG.Substring(1)) -Receipt "$env:RUNNER_TEMP/studio-installer-acceptance.json" @argsForBaseline
+
+      - name: Retain Windows installer acceptance receipt
+        if: always() && runner.os == 'Windows' && steps.installer-acceptance.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-acceptance-${{ env.RELEASE_TAG }}
+          path: ${{ runner.temp }}/studio-installer-acceptance.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Extract Windows candidate for local acceptance
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/export-windows-candidate.ps1
+
+      - name: Retain Windows acceptance candidate
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-candidate-${{ env.RELEASE_TAG }}
+          path: ${{ runner.temp }}/studio-windows-candidate/
+          retention-days: 14
+          if-no-files-found: error
+          include-hidden-files: true
 
       - name: Verify macOS application signatures and embedded runtimes
         if: runner.os == 'macOS'
@@ -364,70 +375,78 @@ jobs:
           bun "$RUNNER_TEMP/studio-release-verifier/verify-macos-dmg.mjs" \
             "${DMGS[0]}" "$PI_TARGET_PLATFORM" "${RELEASE_TAG#v}" "$PI_VERSION"
 
-      - name: Verify uploaded platform bundles
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun "$RUNNER_TEMP/studio-release-verifier/verify-release-artifacts.mjs" "${{ matrix.bundles }}"
-
-  publish-release:
-    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'windows' || inputs.platform == 'all'
-    needs: [prepare-release, build]
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout publishing verifier source
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.workflow_sha }}
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-
-      - name: Preserve fixed publishing verifier
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/studio-release-inventory"
-          cp scripts/verify-release-inventory.mjs scripts/release-draft-assets.mjs "$RUNNER_TEMP/studio-release-inventory/"
-
-      - name: Checkout release tag
-        uses: actions/checkout@v6
-        with:
-          ref: refs/tags/${{ env.RELEASE_TAG }}
-
-      - name: Verify tag still points to built commit
+      - name: Verify and stage platform bundles
         shell: bash
         env:
           RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+        run: bun "$RUNNER_TEMP/studio-release-verifier/verify-release-artifacts.mjs" "${{ matrix.bundles }}"
+
+      - name: Retain verified platform bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-bundles-${{ matrix.pi_target }}
+          path: ${{ runner.temp }}/studio-verified-bundles/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  verify-inventory:
+    needs: [prepare-release, build]
+    runs-on: ubuntu-22.04
+    env:
+      APP_VERSION: ${{ needs.prepare-release.outputs.app_version }}
+      RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+      RELEASE_PLATFORM: ${{ inputs.platform || 'windows' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: verified-bundles-*
+          path: ${{ runner.temp }}/bundles
+      - name: Check complete candidate inventory and digests
+        run: node scripts/release-candidate-files.mjs "$RUNNER_TEMP/bundles" "$RUNNER_TEMP/verified"
+
+  publish-release:
+    if: github.event_name == 'push' || (inputs.publish == true && (inputs.platform == 'windows' || inputs.platform == 'all'))
+    needs: [prepare-release, verify-inventory]
+    runs-on: ubuntu-22.04
+    concurrency:
+      group: studio-public-release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      issues: read
+    env:
+      APP_VERSION: ${{ needs.prepare-release.outputs.app_version }}
+      RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+      RELEASE_PLATFORM: ${{ inputs.platform || 'windows' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: verified-bundles-*
+          path: ${{ runner.temp }}/bundles
+      - name: Publish verified installers and issue notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          ACTUAL_SHA="$(git rev-parse --verify HEAD)"
-          if [[ "$ACTUAL_SHA" != "$RELEASE_SHA" ]]; then
-            echo "::error::Release tag moved during the build; expected $RELEASE_SHA, found $ACTUAL_SHA."
-            exit 1
-          fi
-
-      - name: Verify draft contains only the expected platform bundles
-        env:
-          RELEASE_PLATFORM: ${{ inputs.platform || 'windows' }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: bun "$RUNNER_TEMP/studio-release-inventory/verify-release-inventory.mjs"
-
-      - name: Publish completed release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          if [[ "$RELEASE_TAG" == *-* ]]; then
-            gh release edit "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --draft=false \
-              --prerelease
-          else
-            gh release edit "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --draft=false \
-              --prerelease=false
-          fi
+          node scripts/release-candidate-files.mjs "$RUNNER_TEMP/bundles" "$RUNNER_TEMP/publish" > "$RUNNER_TEMP/verified-inventory.json"
+          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
+          [[ "$(git rev-parse 'FETCH_HEAD^{commit}')" == "$RELEASE_SHA" ]] || { echo "::error::Release tag moved"; exit 1; }
+          base="$RELEASE_SHA:docs/releases/$RELEASE_TAG.md"
+          git show "$base" > "$RUNNER_TEMP/base-notes.md"
+          # Use the issue snapshot from the exact application commit, even on manual dispatch.
+          # The renderer itself stays pinned to the workflow commit.
+          snapshot="docs/releases/$RELEASE_TAG.issues.json"
+          git cat-file -e "$RELEASE_SHA:$snapshot" || { echo "::error::Frozen release issue snapshot is missing: $snapshot"; exit 1; }
+          mkdir -p docs/releases
+          git show "$RELEASE_SHA:$snapshot" > "$snapshot"
+          node scripts/render-release-issues.mjs "$RELEASE_TAG" "$RUNNER_TEMP/base-notes.md" "$RUNNER_TEMP/release-notes.md"
+          node scripts/publish-verified-release.mjs "$RUNNER_TEMP/publish" "$RUNNER_TEMP/verified-inventory.json" "$RUNNER_TEMP/release-notes.md"

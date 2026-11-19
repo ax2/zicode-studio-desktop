@@ -89,3 +89,15 @@ it("pins verifier infrastructure separately and preserves it before checking out
     'run: bun "$RUNNER_TEMP/studio-release-verifier/verify-release-artifacts.mjs" "${{ matrix.bundles }}"',
   );
 });
+
+it("never publishes from a build or candidate-only dispatch", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const [before, publish] = workflow.split("  publish-release:");
+  expect(before).not.toMatch(/gh release (create|edit|upload)|releaseDraft:|tagName:/);
+  expect(before).toContain("permissions:\n  contents: read");
+  expect(publish).toContain("needs: [prepare-release, verify-inventory]");
+  expect(publish).toContain("inputs.publish == true");
+  expect(publish).toContain("github.event_name == 'push'");
+  expect(publish).toContain("node scripts/publish-verified-release.mjs");
+  expect(publish).not.toMatch(/--draft|--clobber/);
+});

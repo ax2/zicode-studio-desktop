@@ -37,16 +37,14 @@ describe("strict optional file-tools release inventory", () => {
     expect(() => verify(all, "v0.6.5", "windows")).toThrow("installer set");
     expect(() => verify([exe], "v0.6.5", "macos-intel")).toThrow("Unsupported");
   });
-  it("preserves the workflow-source verifier before checkout of the frozen application tag", () => {
-    const workflow = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
-    const publish = workflow.slice(workflow.indexOf("  publish-release:"));
-    const preserve = publish.indexOf("- name: Preserve fixed publishing verifier");
-    const application = publish.indexOf("- name: Checkout release tag");
-    expect(preserve).toBeGreaterThan(-1);
-    expect(application).toBeGreaterThan(preserve);
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: literal GitHub workflow expression.
-    expect(publish.slice(0, preserve)).toContain("ref: ${{ github.workflow_sha }}");
-    expect(publish).toContain('run: bun "$RUNNER_TEMP/studio-release-inventory/verify-release-inventory.mjs"');
-    expect(publish.indexOf("Verify tag still points to built commit")).toBeLessThan(publish.indexOf("Verify draft contains"));
+  it("checks downloaded contents before publication using the pinned verifier", () => {
+    const workflow=readFileSync(new URL("../.github/workflows/release.yml", import.meta.url),"utf8");
+    const publish=workflow.slice(workflow.indexOf("  publish-release:"));
+    expect(publish).toContain("github.workflow_sha");
+    expect(publish.indexOf("node scripts/release-candidate-files.mjs")).toBeGreaterThan(0);
+    expect(publish.indexOf("node scripts/render-release-issues.mjs")).toBeLessThan(publish.indexOf("node scripts/publish-verified-release.mjs"));
+    expect(publish).toContain('git show "$RELEASE_SHA:$snapshot" > "$snapshot"');
+    expect(publish.indexOf('git show "$RELEASE_SHA:$snapshot"')).toBeLessThan(publish.indexOf("node scripts/render-release-issues.mjs"));
+    expect(publish.indexOf("Release tag moved")).toBeLessThan(publish.indexOf("node scripts/publish-verified-release.mjs"));
   });
 });
