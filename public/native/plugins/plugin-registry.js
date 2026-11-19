@@ -2,6 +2,7 @@ import { isWorkspaceApplicationVisible } from "../workspace/workspace-mode.js";
 const STORAGE_KEY = "zicode.application-plugins.v1";
 
 export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
+  { id:"com.zicode.mail", name:"Mail", description:"Write local drafts for Gmail and Alibaba Mail", icon:"mail", order:104, enabledByDefault:true, sidebarViews:[], commands:[{id:"mail.open",label:"Open Mail",icon:"open"}] },
   { id: "com.zicode.browser", name: "Browser", description: "Browse the web inside Studio", icon: "globe", order: -10, enabledByDefault: true, sidebarViews: [], commands: [] },
   {
     id: "core.chat",
