@@ -1,0 +1,38 @@
+.notes-sync-conflict-versions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.notes-sync-conflict-version {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.notes-sync-conflict-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: auto;
+  max-block-size: calc(var(--textarea-min-height) * 4);
+  margin-block: var(--space-2);
+}
+.notes-sync-conflict-meta {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-2);
+}
+.notes-sync-conflict-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.notes-sync-conflict-list {
+  display: grid;
+  gap: var(--space-2);
+}
+.notes-sync-conflict-actions {
+  flex-wrap: wrap;
+  margin-block: var(--space-2);
+}
+@media (max-width: 640px) {
+  .notes-sync-conflict-versions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

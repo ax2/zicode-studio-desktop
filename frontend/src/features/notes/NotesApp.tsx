@@ -902,7 +902,7 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
   const openMovePopover = store((state) => state.openMovePopover);
   const selectMode = store((state) => state.selectMode);
   const selectedNoteIds = store((state) => state.selectedNoteIds);
-  const isSelected = selectedNoteIds.includes(note.id);
+  const isSelected = selectedNoteIds.includes(referenceKey(note));
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const dragRef = useRef<{
     startX: number;
@@ -964,13 +964,13 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
       role="button"
       tabIndex={0}
       aria-pressed={selectMode ? isSelected : undefined}
-      className={`notes-list-item notes-tree-note${selectedNote?.id === note.id ? " active" : ""}${
+      className={`notes-list-item notes-tree-note${selectedNote && referenceKey(selectedNote) === referenceKey(note) ? " active" : ""}${
         isSelected ? " notes-selected" : ""
       }`}
       draggable={false}
       onClick={() => {
         if (selectMode) {
-          store.getState().toggleNoteSelected(note.id);
+          store.getState().toggleNoteSelected(note);
           return;
         }
         void selectNote(note);
@@ -986,7 +986,7 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         if (target.closest?.("button")) return;
         event.preventDefault();
         if (selectMode) {
-          store.getState().toggleNoteSelected(note.id);
+          store.getState().toggleNoteSelected(note);
         } else {
           void selectNote(note);
         }

@@ -4,6 +4,7 @@ export interface NotesSyncRunStatus {
   state: string;
   conflictCount: number;
   retryAfterSeconds: number | null;
+  conflictsAvailable?: boolean;
 }
 
 export const notesSyncMessages: Record<string, string> = {
@@ -11,6 +12,7 @@ export const notesSyncMessages: Record<string, string> = {
   running: "Syncing saved notes… You can continue editing.",
   synced: "Saved notes synced successfully.",
   conflicts: "Conflicting changes were kept. Conflict resolution is not available yet.",
+  resolvedLocally: "Conflict choices are saved on this device and are waiting to upload. Use Sync now to upload them.",
   cancelled: "Sync cancelled. A request may already have reached the server; the next manual sync safely checks it again.",
   interrupted: "Sync was interrupted. Click Sync now to retry the saved queue.",
   settingsChanged: "Settings or Notes permissions changed. Refresh cloud sync settings before trying again.",
@@ -32,13 +34,14 @@ export function parseNotesSyncRunStatus(value: unknown): NotesSyncRunStatus {
   const row = value as Partial<NotesSyncRunStatus>;
   if ((row.runId !== null && (typeof row.runId !== "string" || !row.runId || row.runId.length > 256))
     || typeof row.running !== "boolean" || (row.running && !row.runId)
+    || (row.conflictsAvailable !== undefined && typeof row.conflictsAvailable !== "boolean")
     || typeof row.state !== "string" || !row.state || row.state.length > 64
     || !Number.isSafeInteger(row.conflictCount) || (row.conflictCount as number) < 0
     || (row.retryAfterSeconds !== null && (!Number.isSafeInteger(row.retryAfterSeconds) || (row.retryAfterSeconds as number) < 0))) {
     throw new Error("Invalid sync status");
   }
   return { runId: row.runId, running: row.running, state: row.state,
-    conflictCount: row.conflictCount, retryAfterSeconds: row.retryAfterSeconds } as NotesSyncRunStatus;
+    conflictCount: row.conflictCount, retryAfterSeconds: row.retryAfterSeconds, ...(row.conflictsAvailable === true ? { conflictsAvailable: true } : {}) } as NotesSyncRunStatus;
 }
 
 export function notesSyncMessage(state: string): string {
