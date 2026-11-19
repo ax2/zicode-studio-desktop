@@ -26,6 +26,12 @@ pub(crate) async fn browser_set_startup_mode(
         .map_err(|_| "Browser metadata worker stopped")?
 }
 #[tauri::command]
+pub(crate) async fn browser_set_vertical_tabs(window: WebviewWindow, vertical: bool) -> Result<(), String> {
+    let (root, _) = context(&window)?;
+    tauri::async_runtime::spawn_blocking(move || Store::open(&root)?.set_vertical_tabs(vertical))
+        .await.map_err(|_| "Browser metadata worker stopped")?
+}
+#[tauri::command]
 pub(crate) async fn browser_set_search_engine(window: WebviewWindow, engine: SearchEngine) -> Result<SearchEngine, String> {
     let (root, _) = context(&window)?;
     tauri::async_runtime::spawn_blocking(move || Store::open(&root)?.set_search_engine(engine))

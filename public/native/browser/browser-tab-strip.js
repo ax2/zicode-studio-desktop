@@ -17,6 +17,7 @@ export function createBrowserTabStrip(host, newTab) {
   const title = '[role="tab"]';
   const controls = [title, ".browser-tab-unmute", ".browser-tab-close"];
   const selectedRow = () => host.querySelector('[aria-selected="true"]')?.closest(".browser-tab");
+  const vertical = () => host.getAttribute("aria-orientation") === "vertical";
   const rowOf = control => {
     const row = control?.closest?.(".browser-tab");
     return host.contains(row) ? row : null;
@@ -34,8 +35,14 @@ export function createBrowserTabStrip(host, newTab) {
     if (row) return { id: row.dataset.browserTabId, selector: controls.find(selector => button.matches(selector)) };
   }
   function revealRow(row) {
-    if (!row || row.hasAttribute("data-pinned")) return;
+    if (!row) return;
     const bounds = host.getBoundingClientRect(), tab = row.getBoundingClientRect();
+    if (vertical()) {
+      if (tab.top < bounds.top) host.scrollTop += tab.top - bounds.top;
+      else if (tab.bottom > bounds.bottom) host.scrollTop += tab.bottom - bounds.bottom;
+      return;
+    }
+    if (row.hasAttribute("data-pinned")) return;
     const pinned = [...host.querySelectorAll(".browser-tab[data-pinned]")].at(-1);
     const left = Math.max(bounds.left, pinned?.getBoundingClientRect().right ?? bounds.left);
     if (tab.left < left) host.scrollLeft += tab.left - left;
@@ -58,8 +65,8 @@ export function createBrowserTabStrip(host, newTab) {
     let target;
     if (event.key === "Home") target = rows[0];
     else if (event.key === "End") target = rows.at(-1);
-    else if (event.key === "ArrowLeft") target = rows[(index + rows.length - 1) % rows.length];
-    else if (event.key === "ArrowRight") target = rows[(index + 1) % rows.length];
+    else if (event.key === (vertical() ? "ArrowUp" : "ArrowLeft")) target = rows[(index + rows.length - 1) % rows.length];
+    else if (event.key === (vertical() ? "ArrowDown" : "ArrowRight")) target = rows[(index + 1) % rows.length];
     if (!target) return;
     event.preventDefault();
     event.stopPropagation();
@@ -75,7 +82,7 @@ export function createBrowserTabStrip(host, newTab) {
     if (!element.clientWidth) return;
     const rows = [...host.children], gap = parseFloat(getComputedStyle(host).columnGap) || 0;
     const minimum = rows.reduce((sum, row) => sum + (parseFloat(getComputedStyle(row).minWidth) || 0), 0) + Math.max(0, rows.length - 1) * gap;
-    previous.hidden = next.hidden = minimum <= element.clientWidth + 1;
+    previous.hidden = next.hidden = vertical() || minimum <= element.clientWidth + 1;
     const active = selectedRow();
     const id = active?.dataset.browserTabId;
     if (reveal || id !== lastActive) revealRow(focused ?? active);

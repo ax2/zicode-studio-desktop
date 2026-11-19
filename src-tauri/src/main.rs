@@ -12,7 +12,7 @@ use browser::{capture::browser_capture_page, reader::browser_read_article, selec
 mod browser_store;
 #[path = "browser/state_commands.rs"]
 mod browser_state_commands;
-use browser_state_commands::{browser_set_search_engine, browser_get_state, browser_set_startup_mode, browser_save_session, browser_bookmarks, browser_history};
+use browser_state_commands::{browser_set_search_engine, browser_get_state, browser_set_startup_mode, browser_set_vertical_tabs, browser_save_session, browser_bookmarks, browser_history};
 mod application_context;
 mod article_markdown;
 mod articles;
@@ -2208,6 +2208,7 @@ fn main() {
             browser_get_state,
             browser_set_startup_mode,
             browser_set_search_engine,
+            browser_set_vertical_tabs,
             browser_save_session,
             browser_bookmarks,
             browser_bookmark_file,

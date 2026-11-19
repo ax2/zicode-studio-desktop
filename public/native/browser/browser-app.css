@@ -21,6 +21,19 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-startup [hidden] { display: none; }
 .browser-startup { padding: var(--space-4); text-align: start; }
 .browser-page-area { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.browser-page-body { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.browser-tab-strip--vertical { flex: 0 0 clamp(6rem, 18%, 13rem); align-items: stretch; min-height: 0; }
+.browser-tab-strip--vertical, .browser-tab-strip--vertical .browser-tabs-frame, .browser-tab-strip--vertical .browser-tabs { flex-direction: column; }
+.browser-tab-strip--vertical .browser-tabs-frame { align-items: stretch; min-height: 0; }
+.browser-tab-strip--vertical .browser-tabs { overflow: hidden auto; min-height: 0; }
+.browser-tab-strip--vertical .browser-tab { flex: none; min-width: 0; max-width: none; }
+.browser-tab-strip--vertical .browser-tab[data-pinned] { position: relative; inset-inline-start: auto; }
+.browser-tab-strip--vertical .browser-tab[data-pinned] .browser-tab-label { display: inline; }
+@container (max-width: 560px) {
+  .browser-tab-strip--vertical { flex-basis: calc(var(--control-height-md) + var(--space-2)); }
+  .browser-tab-strip--vertical .browser-tab-title { justify-content: center; padding-inline: 0; }
+  .browser-tab-strip--vertical .browser-tab .browser-tab-label { display: none; }
+}
 .browser-viewport { flex: 1; min-width: 0; min-height: 0; overflow: hidden; text-align: center; }
 .browser-assistant {
   flex: 0 0 clamp(15rem, 36%, 25rem);
@@ -107,6 +120,9 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-tab[data-drop-side]::after { content: ""; position: absolute; top: var(--space-1); bottom: var(--space-1); width: var(--space-0-5); background: var(--accent); pointer-events: none; }
 .browser-tab[data-drop-side="before"]::after { left: 0; }
 .browser-tab[data-drop-side="after"]::after { right: 0; }
+.browser-tab-strip--vertical .browser-tab[data-drop-side]::after { left: 0; right: 0; top: auto; bottom: auto; width: auto; height: var(--space-0-5); }
+.browser-tab-strip--vertical .browser-tab[data-drop-side="before"]::after { top: 0; }
+.browser-tab-strip--vertical .browser-tab[data-drop-side="after"]::after { bottom: 0; }
 .browser-tabs--dragging .browser-tab-title { cursor: grabbing; }
 
 .browser-page-controls { display: grid; gap: var(--space-2); min-width: 0; margin: 0; padding: 0; border: 0; }

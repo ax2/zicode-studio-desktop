@@ -418,6 +418,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       const button = makeButton(tab.title || tab.url, () => select(tab.id));
       button.setAttribute("role", "tab"); button.setAttribute("aria-selected", String(tab.id === active));
       button.title = tab.url; button.classList.add("browser-tab-title");
+      button.setAttribute("aria-label", tab.title || tab.url);
       if (tab.pinned) {
         item.dataset.pinned = "";
         button.title = tab.title || tab.url;
@@ -485,6 +486,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (visiblePopup && tabs.some(tab => tab.id === visiblePopup.id)) active = visiblePopup.id;
     active ??= tabs[0]?.id ?? null;
     startup.value = stored.startupMode;
+    verticalTabs = stored.verticalTabs === true;
+    placeTabStrip();
     searchSettings.initialize(stored.searchEngine);
     if (listen) await listen("zicode:browser-event", ({ payload }) => {
       if (payload.kind === "processFailed") { recordCrash(payload.tab); return; }
@@ -593,6 +596,21 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     window.addEventListener("zicode:locale-changed", () => { menuLanguage(); paintStatus(); });
     menuLanguage(); paint();
     await syncSurface();
+  }
+  let tabLayoutInput, pageBody, verticalTabs = false;
+  function placeTabStrip() {
+    tabsHost.setAttribute("aria-orientation", verticalTabs ? "vertical" : "horizontal");
+    strip.classList.toggle("browser-tab-strip--vertical", verticalTabs);
+    tabLayoutInput.checked = verticalTabs;
+    if (!visible) return;
+    strip.hidden = false;
+    if (verticalTabs) pageBody.prepend(strip);
+    else {
+      const header = document.getElementById("page-header-actions");
+      if (header) header.append(strip);
+      else root.prepend(strip);
+    }
+    tabStripControls.refresh(true);
   }
   function mount() {
     root = document.createElement("section"); root.className = "studio-browser";
@@ -738,6 +756,28 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       screenshot: () => exportPage("saveScreenshot", "Screenshot saved to Downloads"),
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),
       pin: { state: pinState, toggle: () => act(togglePin) } });
+    const layoutLabel = document.createElement("label");
+    tabLayoutInput = document.createElement("input");
+    tabLayoutInput.type = "checkbox";
+    const layoutText = document.createElement("span");
+    layoutText.dataset.i18nText = "Vertical tabs";
+    layoutText.textContent = t("Vertical tabs");
+    layoutLabel.append(layoutText, tabLayoutInput);
+    options.querySelector(".browser-options-panel").append(layoutLabel);
+    tabLayoutInput.addEventListener("change", () => run(async () => {
+      tabLayoutInput.disabled = true;
+      const vertical = tabLayoutInput.checked;
+      try {
+        await invoke("browser_set_vertical_tabs", { vertical });
+        verticalTabs = vertical;
+        if (visible) options.open = false;
+      } finally {
+        tabLayoutInput.disabled = false;
+        placeTabStrip();
+        if (visible && initialized) paint();
+        if (visible && !options.open) options.querySelector("summary").focus();
+      }
+    }));
     read = makeButton("", readPage); read.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost browser-read";
     read.title = t("Read page"); read.setAttribute("aria-label", read.title);
     read.setAttribute("data-i18n-title", "Read page");
@@ -767,7 +807,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     nav.append(footer);
     const filePickerSpace = makeButton(t("Use fullscreen to choose files"), () => fullscreen.toggle());
     filePickerSpace.classList.add("browser-file-picker-space");
-    root.append(strip, nav, find.element, filePickerSpace, pageArea);
+    pageBody = document.createElement("div"); pageBody.className = "browser-page-body";
+    pageBody.append(pageArea);
+    root.append(strip, nav, find.element, filePickerSpace, pageBody);
     startupState = createBrowserStartup({ root, controls: [strip, nav, filePickerSpace], viewport, retry: () => { initPromise = restore(); } });
     new ResizeObserver(() => void run(syncSurface)).observe(viewport);
     document.addEventListener("visibilitychange", () => void run(syncSurface));
@@ -976,8 +1018,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   return {
     renderContent(container) {
       if (!root) mount(); container.replaceChildren(root); visible = true;
-      const header = document.getElementById("page-header-actions");
-      if (header) header.append(strip);
+      placeTabStrip();
       initPromise ??= restore();
       void initPromise.then(() => run(syncSurface));
     },
