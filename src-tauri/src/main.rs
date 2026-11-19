@@ -13,6 +13,8 @@ mod browser_store;
 #[path = "browser/state_commands.rs"]
 mod browser_state_commands;
 mod browser_windows;
+mod browser_private;
+use browser_state_commands::browser_list_profiles;
 use browser_windows::browser_window_command;
 use browser_state_commands::{browser_set_search_engine, browser_get_state, browser_set_startup_mode, browser_set_vertical_tabs, browser_save_session, browser_bookmarks, browser_history};
 mod application_context;
@@ -2213,6 +2215,7 @@ fn main() {
             browser_read_article,
             browser_read_selection,
             browser_get_state,
+            browser_list_profiles,
             browser_window_command,
             browser_set_startup_mode,
             browser_set_search_engine,

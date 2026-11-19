@@ -65,7 +65,7 @@ pub fn record(
     title: String,
     failed: impl FnOnce(String) + Send + 'static,
 ) -> Result<(), String> {
-    if url == "about:blank" {
+    if url == "about:blank" || crate::browser_windows::private(&owner) {
         return Ok(());
     }
     let at = chrono::Utc::now().to_rfc3339();

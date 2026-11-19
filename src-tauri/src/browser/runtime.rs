@@ -107,7 +107,7 @@ pub(super) fn execute(
             {
                 let app = window.app_handle().clone();
                 let owner = window.label().to_owned();
-                let engine = NativeBrowserEngine::new(
+                let mut engine = NativeBrowserEngine::new(
                     profile.ok_or("Browser profile unavailable")?,
                     BrowserPolicy::public_web(),
                     Arc::new(move |event| {
@@ -153,6 +153,7 @@ pub(super) fn execute(
                         );
                     }),
                 )?;
+                engine.private=crate::browser_windows::private(window.label());
                 entry.insert(WindowBrowser { engine, tabs: Vec::new() });
             }
             let browser = windows
@@ -231,7 +232,7 @@ pub(super) fn execute(
                     json!({"url":browser.engine.view(&tab)?.url().map_err(|e|e.to_string())?}),
                 )
             }
-            Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Suspend { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } => unreachable!(),
+            Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Suspend { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } | Request::SiteSettings { .. } => unreachable!(),
         }
         Ok(Value::Null)
     }))
@@ -244,6 +245,25 @@ pub(super) fn shutdown_downloads() {
     let managers = WINDOWS.with(|slot| slot.with_mut(|windows| Ok(windows.values().map(|browser| browser.engine.downloads.clone()).collect::<Vec<_>>())));
     if let Ok(managers) = managers { for manager in managers { manager.cancel_all(); } }
 }
+pub(super) fn site_settings(
+    window: &WebviewWindow, tab: &str, expected_origin: &str, action: super::SiteAction,
+    sender: tokio::sync::oneshot::Sender<Result<Value, String>>,
+) {
+    let sender = std::rc::Rc::new(RefCell::new(Some(sender)));
+    let completion = sender.clone();
+    let result = WINDOWS.with(|slot| slot.with_mut(|windows| {
+        let browser = windows.get(window.label()).ok_or("Browser unavailable")?;
+        let (view, guard) = browser.engine.begin_page_work(tab)?;
+        super::site_settings::run(view, expected_origin, action, move |result| {
+            drop(guard);
+            if let Some(tx) = completion.borrow_mut().take() { let _ = tx.send(result); }
+        })
+    }));
+    if let Err(error) = result {
+        if let Some(tx) = sender.borrow_mut().take() { let _ = tx.send(Err(error)); }
+    }
+}
+
 pub(super) fn start_suspend(
     window: &WebviewWindow,
     tab: &str,
