@@ -44,7 +44,24 @@ function Launch-Helper {
 $bad=Launch-Helper
 if($bad.ack -notmatch 'checksum changed' -or !$bad.process.WaitForExit(30000) -or $bad.process.ExitCode -eq 0 -or $parent.HasExited -or !(Test-Path $candidate)){throw "Checksum rejection failed: $($bad.ack)"}
 Write-Output 'PASS modified installer digest rejected before Studio exit'
+$signedFixture=Join-Path $updates ("candidate-"+[guid]::NewGuid()+".exe")
+[IO.File]::Copy($exe,$signedFixture)
+$cert=New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=ZiCode Disposable QA Only' -CertStoreLocation Cert:\CurrentUser\My
+$signature=Set-AuthenticodeSignature -FilePath $signedFixture -Certificate $cert -HashAlgorithm SHA256
+if(!$signature.SignerCertificate){throw 'Could not create signed test fixture'}
+$bytes=[IO.File]::ReadAllBytes($signedFixture)
+$bytes[76]=$bytes[76] -bxor 1
+[IO.File]::WriteAllBytes($signedFixture,$bytes)
+$invalid=Get-AuthenticodeSignature -LiteralPath $signedFixture
+if(!$invalid.SignerCertificate -or $invalid.Status -in @('NotSigned','Valid')){throw "Invalid fixture signature state $($invalid.Status)"}
+$handoff.installer=$signedFixture
+$handoff.expectedSha256=(Get-FileHash $signedFixture).Hash.ToLowerInvariant()
+$sigRejected=Launch-Helper
+if($sigRejected.ack -notmatch 'rejected installer signature' -or $parent.HasExited -or !$sigRejected.process.WaitForExit(30000) -or $sigRejected.process.ExitCode -eq 0){throw "Invalid signature reached handoff: $($sigRejected.ack)"}
+Write-Output "PASS invalid embedded signature ($($invalid.Status)) rejected even when file matches supplied checksum"
+$handoff.installer=$candidate
 $handoff.expectedSha256=$sha
+Write-Output "Observed official NSIS signature: $((Get-AuthenticodeSignature -LiteralPath $candidate).Status)"
 $other=Start-Process $exe -PassThru
 $blocked=Launch-Helper
 if($blocked.ack -notmatch 'Close other Studio instances' -or $other.HasExited -or $parent.HasExited){throw "Competing instance guard failed: $($blocked.ack)"}
