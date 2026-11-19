@@ -17,6 +17,8 @@ fn restart_preserves_preference_profile_order_active_and_unicode() {
     let mut store = Store::open(&root).unwrap();
     let original = store.state("window-a").unwrap();
     assert_eq!(original.startup_mode, StartupMode::Browser);
+    assert!(!original.vertical_tabs);
+    store.set_vertical_tabs(true).unwrap();
     store.set_startup(StartupMode::Workspace).unwrap();
     let tabs = vec![tab(), tab()];
     let active = Some(tabs[1].id.clone());
@@ -25,6 +27,9 @@ fn restart_preserves_preference_profile_order_active_and_unicode() {
     let reopened = Store::open(&root).unwrap();
     let state = reopened.state("window-a").unwrap();
     assert_eq!(state.session, saved);
+    assert!(state.vertical_tabs);
+    reopened.set_vertical_tabs(false).unwrap();
+    assert!(!reopened.state("window-a").unwrap().vertical_tabs);
     assert_eq!(state.profile_id, original.profile_id);
     assert_eq!(state.startup_mode, StartupMode::Workspace);
     assert_eq!(

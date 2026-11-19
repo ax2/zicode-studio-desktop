@@ -7,16 +7,17 @@ let app;
 beforeEach(() => { vi.stubGlobal("ResizeObserver", class { observe() {} }); vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ left: 0, right: 100, width: 100, height: 32, top: 0, bottom: 32 }); Element.prototype.scrollIntoView = vi.fn(); });
 afterEach(async () => { await app?.canDeactivate(); app = null; document.body.replaceChildren(); vi.unstubAllGlobals(); vi.restoreAllMocks(); delete Element.prototype.scrollIntoView; });
 const dataTransfer = () => ({ setData: vi.fn(), effectAllowed: "", dropEffect: "" });
-function drag(node, type, transfer, x = 75) {
+function drag(node, type, transfer, x = 75, y = 16) {
   const event = new Event(type, { bubbles: true, cancelable: true });
-  Object.assign(event, { dataTransfer: transfer, clientX: x, clientY: 16 }); node.dispatchEvent(event); return event;
+  Object.assign(event, { dataTransfer: transfer, clientX: x, clientY: y }); node.dispatchEvent(event); return event;
 }
-async function mount({ reject = () => false } = {}) {
+async function mount({ reject = () => false, verticalTabs = false, refuseLayout = false } = {}) {
   let session = { revision: 1, tabs: [tab(1), tab(2), tab(3)], activeTab: tab(2).id, closedTabs: [{ tab: tab(4), index: 0 }] }, receive;
   const calls = [];
   const invoke = async (name, args) => {
     calls.push({ name, args });
-    if (name === "browser_get_state") return { startupMode: "browser", session: structuredClone(session) };
+    if (name === "browser_get_state") return { startupMode: "browser", verticalTabs, session: structuredClone(session) };
+    if (name === "browser_set_vertical_tabs" && refuseLayout) throw Error("Layout storage unavailable");
     if (name === "browser_control" && args.request.kind === "status") return { surfaceRevision: 0, tabs: [] };
     if (name === "browser_save_session") {
       if (reject()) throw Error("Order storage unavailable");
@@ -32,6 +33,36 @@ async function mount({ reject = () => false } = {}) {
   const title = n => root.querySelector(`[data-browser-tab-id="${tab(n).id}"] [role="tab"]`);
   return { root, title, calls, saved: () => session, receive: payload => receive({ payload }) };
 }
+it("restores a vertical strip beside the page, moves focus and reorders using its vertical axis", async () => {
+  const h = await mount({ verticalTabs: true });
+  const list = h.root.querySelector('[role="tablist"]');
+  expect(list.getAttribute("aria-orientation")).toBe("vertical");
+  expect(list.closest(".browser-page-body").contains(h.root.querySelector(".browser-viewport"))).toBe(true);
+  h.title(1).focus();
+  fireEvent.keyDown(h.title(1), { key: "ArrowDown" });
+  expect(document.activeElement).toBe(h.title(2));
+  fireEvent.keyDown(h.title(2), { key: "ArrowUp", altKey: true, shiftKey: true });
+  await waitFor(() => expect(h.saved().tabs[0].id).toBe(tab(2).id));
+  fireEvent.click(h.root.querySelector(".browser-options-panel input[type=checkbox]"));
+  await waitFor(() => expect(list.getAttribute("aria-orientation")).toBe("horizontal"));
+  expect(h.calls).toContainEqual({ name: "browser_set_vertical_tabs", args: { vertical: false } });
+});
+it("uses the bottom half of a vertical tab for a drop even at the left edge", async () => {
+  const h = await mount({ verticalTabs: true }), transfer = dataTransfer();
+  drag(h.title(1), "dragstart", transfer);
+  drag(h.title(3), "drop", transfer, 1, 30);
+  await waitFor(() => expect(h.saved().tabs.map(t => t.id)).toEqual([tab(2).id, tab(3).id, tab(1).id]));
+  expect(h.saved().activeTab).toBe(tab(2).id);
+});
+it("keeps the horizontal strip and original tabs if saving the preference fails", async () => {
+  const h = await mount({ refuseLayout: true });
+  const input = h.root.querySelector(".browser-options-panel input[type=checkbox]");
+  fireEvent.click(input);
+  await waitFor(() => expect(h.root.querySelector('[role="status"]').textContent).toContain("Layout storage unavailable"));
+  expect(input.checked).toBe(false);
+  expect(h.root.querySelector('[role="tablist"]').getAttribute("aria-orientation")).toBe("horizontal");
+  expect(h.saved().tabs).toEqual([tab(1), tab(2), tab(3)]);
+});
 it("moves both directions and ignores absent targets, out-of-range steps and adjacent no-ops", () => {
   const tabs = [tab(1), tab(2), tab(3)];
   expect(moveBrowserTab(tabs, { id: tab(1).id, target: tab(3).id, after: true })).toEqual([tabs[1], tabs[2], tabs[0]]);

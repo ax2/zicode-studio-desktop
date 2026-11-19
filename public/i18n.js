@@ -1029,6 +1029,8 @@ const zhCN = {
   "Exit fullscreen": "退出全屏",
   "Could not read fullscreen state.": "无法读取全屏状态。",
   "Scroll tabs left": "向左浏览标签",
+  "Vertical tabs": "垂直标签栏",
+  "Drag to reorder. When focused, Alt+Shift+Up or Down moves this tab.": "拖动可调整顺序。聚焦后按 Alt+Shift+上或下移动此标签。",
   "Scroll tabs right": "向右浏览标签",
   "Browser options": "浏览器选项",
   "Save viewport PNG to Downloads": "将当前网页视口截图保存到下载文件夹",

@@ -37,24 +37,30 @@ export function setupBrowserTabOrdering(host, { onMove, onFinish }) {
     return row && host.contains(row) ? row : null;
   };
   const clearMarker = () => { for (const row of host.querySelectorAll("[data-drop-side]")) delete row.dataset.dropSide; };
-  const mark = (row, x) => {
+  const vertical = () => host.getAttribute("aria-orientation") === "vertical";
+  const mark = (row, x, y) => {
     clearMarker(); destination = null;
     if (!row || row.dataset.browserTabId === source) return;
     const origin = [...host.children].find(item => item.dataset.browserTabId === source);
     if (!origin || row.hasAttribute("data-pinned") !== origin.hasAttribute("data-pinned")) return;
-    const rect = row.getBoundingClientRect(), after = x > rect.left + rect.width / 2;
+    const rect = row.getBoundingClientRect();
+    const after = vertical() ? y > rect.top + rect.height / 2 : x > rect.left + rect.width / 2;
     row.dataset.dropSide = after ? "after" : "before";
     destination = { target: row.dataset.browserTabId, after };
   };
   const stopScroll = () => { if (frame !== null) cancelAnimationFrame(frame); frame = null; lastTime = null; pointer = null; };
   const tick = time => {
     frame = null; if (!source || !pointer) return;
-    const rect = host.getBoundingClientRect(), edge = Math.min(rect.height, rect.width / 3);
-    const direction = pointer.x < rect.left + edge ? -1 : pointer.x > rect.right - edge ? 1 : 0;
+    const rect = host.getBoundingClientRect();
+    const position = vertical() ? pointer.y - rect.top : pointer.x - rect.left;
+    const length = vertical() ? rect.height : rect.width;
+    const edge = Math.min(vertical() ? rect.width : rect.height, length / 3);
+    const direction = position < edge ? -1 : position > length - edge ? 1 : 0;
     const elapsed = lastTime === null ? 16 : Math.min(time - lastTime, 32); lastTime = time;
     if (direction) {
-      host.scrollLeft += direction * elapsed * 0.4;
-      mark(rowOf(document.elementFromPoint(pointer.x, pointer.y)), pointer.x);
+      if (vertical()) host.scrollTop += direction * elapsed * 0.4;
+      else host.scrollLeft += direction * elapsed * 0.4;
+      mark(rowOf(document.elementFromPoint(pointer.x, pointer.y)), pointer.x, pointer.y);
       frame = requestAnimationFrame(tick);
     }
   };
@@ -73,7 +79,7 @@ export function setupBrowserTabOrdering(host, { onMove, onFinish }) {
   host.addEventListener("dragover", event => {
     if (!source) return;
     event.preventDefault(); event.stopPropagation(); if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-    pointer = { x: event.clientX, y: event.clientY }; mark(rowOf(event.target), event.clientX);
+    pointer = { x: event.clientX, y: event.clientY }; mark(rowOf(event.target), event.clientX, event.clientY);
     if (frame === null) frame = requestAnimationFrame(tick);
   });
   host.addEventListener("dragleave", event => {
@@ -82,7 +88,7 @@ export function setupBrowserTabOrdering(host, { onMove, onFinish }) {
   host.addEventListener("drop", event => {
     if (!source) return;
     event.preventDefault(); event.stopPropagation();
-    mark(rowOf(event.target), event.clientX);
+    mark(rowOf(event.target), event.clientX, event.clientY);
     const change = destination ? { id: source, ...destination } : null;
     cancel(); if (change) onMove(change);
   });
@@ -91,16 +97,17 @@ export function setupBrowserTabOrdering(host, { onMove, onFinish }) {
     if (event.isComposing) return;
     if (source && event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancel(); return; }
     const row = event.target.matches?.('[role="tab"]') ? rowOf(event.target) : null;
-    if (!row || !event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey || !["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    const [back, forward] = vertical() ? ["ArrowUp", "ArrowDown"] : ["ArrowLeft", "ArrowRight"];
+    if (!row || !event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey || ![back, forward].includes(event.key)) return;
     event.preventDefault(); event.stopPropagation();
-    onMove({ id: row.dataset.browserTabId, step: event.key === "ArrowRight" ? 1 : -1 });
+    onMove({ id: row.dataset.browserTabId, step: event.key === forward ? 1 : -1 });
   });
   return {
     get dragging() { return source !== null; }, cancel,
     decorate(row, title, id) {
       row.dataset.browserTabId = id; title.draggable = true;
-      title.setAttribute("aria-keyshortcuts", "Alt+Shift+ArrowLeft Alt+Shift+ArrowRight");
-      title.setAttribute("aria-description", t("Drag to reorder. When focused, Alt+Shift+Left or Right moves this tab."));
+      title.setAttribute("aria-keyshortcuts", vertical() ? "Alt+Shift+ArrowUp Alt+Shift+ArrowDown" : "Alt+Shift+ArrowLeft Alt+Shift+ArrowRight");
+      title.setAttribute("aria-description", t(vertical() ? "Drag to reorder. When focused, Alt+Shift+Up or Down moves this tab." : "Drag to reorder. When focused, Alt+Shift+Left or Right moves this tab."));
     },
   };
 }

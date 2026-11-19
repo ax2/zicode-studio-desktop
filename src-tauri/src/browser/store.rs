@@ -35,6 +35,7 @@ pub struct Session {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct State {
+    pub vertical_tabs: bool,
     pub search_engine: SearchEngine,
     pub startup_mode: StartupMode,
     pub profile_id: String,
@@ -100,6 +101,9 @@ impl Store {
         // Additive side table. Keep the version and session JSON readable by builds without pinning.
         tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_pinned_tabs (owner TEXT NOT NULL, tab TEXT NOT NULL, PRIMARY KEY(owner,tab));")
             .map_err(|err| err.to_string())?;
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_tab_layout (
+            id INTEGER PRIMARY KEY CHECK(id=1), vertical INTEGER NOT NULL CHECK(vertical IN (0,1))
+        );").map_err(|err| err.to_string())?;
         tx.commit().map_err(|e| e.to_string())?;
         Ok(Self(db))
     }
@@ -135,6 +139,8 @@ impl Store {
         pins::restore(&read, owner, &mut session)?;
         read.commit().map_err(|err| err.to_string())?;
         Ok(State {
+            vertical_tabs: self.0.query_row("SELECT COALESCE((SELECT vertical FROM browser_tab_layout WHERE id=1),0)", [], |row| row.get(0))
+                .map_err(|err| err.to_string())?,
             search_engine: self.search_engine()?,
             startup_mode,
             profile_id,
@@ -152,6 +158,14 @@ impl Store {
                 [value],
             )
             .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    pub fn set_vertical_tabs(&self, vertical: bool) -> Result<(), String> {
+        self.0.execute(
+            "INSERT INTO browser_tab_layout(id,vertical) VALUES(1,?1)
+             ON CONFLICT(id) DO UPDATE SET vertical=excluded.vertical",
+            [vertical],
+        ).map_err(|err| err.to_string())?;
         Ok(())
     }
     pub fn save(
