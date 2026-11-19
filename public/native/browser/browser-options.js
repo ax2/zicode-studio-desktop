@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print, websiteShortcuts } = {}) {
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print, userAgentSettings, websiteShortcuts } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -124,6 +124,7 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     button.addEventListener("click", () => { menu.open = false; action(); });
     panel.append(button);
   }
+  if (userAgentSettings) panel.append(userAgentSettings);
   if (searchSettings) panel.append(searchSettings.element);
   panel.append(label); menu.append(trigger, panel);
   menu.addEventListener("keydown", event => {

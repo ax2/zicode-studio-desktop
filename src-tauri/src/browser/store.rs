@@ -119,11 +119,28 @@ impl Store {
         tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_tab_layout (
             id INTEGER PRIMARY KEY CHECK(id=1), vertical INTEGER NOT NULL CHECK(vertical IN (0,1))
         );").map_err(|err| err.to_string())?;
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_user_agents(profile TEXT PRIMARY KEY, value TEXT NOT NULL);").map_err(|e| e.to_string())?;
         groups::create(&tx)?;
         windows::create(&tx)?;
         profiles::create(&tx)?;
         tx.commit().map_err(|e| e.to_string())?;
         Ok(Self(db))
+    }
+    pub(crate) fn user_agent(&self, profile: &str) -> Result<Option<String>, String> {
+        self.0.query_row("SELECT value FROM browser_user_agents WHERE profile=?1", [profile], |r| r.get(0))
+            .optional().map_err(|e| e.to_string())
+    }
+    pub(crate) fn set_user_agent(&self, profile: &str, value: Option<&str>) -> Result<(), String> {
+        if let Some(value) = value {
+            if value.is_empty() || value.len() > 512 || value.trim() != value
+                || !value.bytes().all(|b| (0x20..=0x7e).contains(&b)) {
+                return Err("Use 1–512 printable ASCII characters without surrounding spaces".into());
+            }
+            self.0.execute("INSERT INTO browser_user_agents(profile,value) VALUES(?1,?2) ON CONFLICT(profile) DO UPDATE SET value=excluded.value", [profile,value]).map_err(|e| e.to_string())?;
+        } else {
+            self.0.execute("DELETE FROM browser_user_agents WHERE profile=?1", [profile]).map_err(|e| e.to_string())?;
+        }
+        Ok(())
     }
     pub fn state(&self, owner: &str) -> Result<State, String> {
         let (mode, default_profile): (String, String) = self

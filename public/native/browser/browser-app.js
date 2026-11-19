@@ -1,6 +1,7 @@
 import { copyText } from "../../ui/copy.js";
 import { createBrowserTabActivation } from "./browser-tab-activation.js";
 import { createBrowserStartup } from "./browser-startup.js";
+import { createBrowserUserAgentSettings } from "./browser-user-agent-settings.js";
 import { createBrowserAddressEditor } from "./browser-address-editor.js";
 import { resolveBrowserAddress } from "./browser-address.js";
 import { createBrowserSearchSettings } from "./browser-search-settings.js";
@@ -795,6 +796,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         open: item => void openSavedPage(item).catch(report),
         report,
       },
+      userAgentSettings: createBrowserUserAgentSettings(control),
       print: () => { const source = active; return act(() => runPageAction("print", source)); },
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),
       pin: { state: pinState, toggle: () => act(togglePin) } });
