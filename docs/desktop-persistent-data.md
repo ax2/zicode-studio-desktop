@@ -10,7 +10,7 @@
 
 配置只指向已经存在且带有 Studio 所有权标记的目录。目录缺失、无效或指向链接时启动失败，不新建空资料库、不悄悄回退。显式 `--isolated-profile` 仍优先，供真正独立的自动化测试使用；自动化测试不能改写个人目录选择。
 
-这个选择复用隔离配置原有安全行为（包括不自动发现外部扩展、不访问系统模型凭据），不会迁入账号或降低隔离限制。没有此配置文件的用户保持既有默认行为。旧二进制不认识新配置时，仍须显式传入同一 `--isolated-profile`；已经发布的旧程序不会被本次源码修改自动更新。
+普通启动会读取选定个人资料内的 `system/credentials/profile-permission.json`。文件缺省时关闭系统凭据访问；显式设置 `{"schemaVersion":1,"systemCredentials":true}` 后，Studio 可使用该资料对应的系统凭据。此设置独立于资料目录选择，升级时两者都要保留。个人资料继续禁用外部扩展自动发现。单独传入 `--isolated-profile` 的测试实例使用隔离模式，命名测试资料使用独立的模型凭据范围。
 
 用户笔记、附件及应用资料仍保存在每个工作区自己的 `.zicode` 中。工作区注册信息保存在固定 profile 的 `system/metadata/picot.sqlite3`，不要随版本重建。升级必须保留注册信息和原工作区；重新接回旧工作区时沿用原 ID 和路径，禁止覆盖同名笔记或复制模型凭据。
 
@@ -25,4 +25,6 @@
 
 以上目录长期保留，不列入构建缓存清理。备份不能替代磁盘故障时的异盘备份；本功能保证版本和安装位置不决定资料位置，不承诺存储介质永不损坏。
 
-当前本机运行入口为 D:\work\start-zicode-studio.cmd，指向 D:\work\apps\zicode-studio-desktop\zicode-studio-desktop.exe。交付 EXE 须具有普通 Medium 完整性标签，不能继承构建目录的 Low 标签；构建缓存、资料库和运行目录分开保留。完整验收见 iterations/2026-10-26-windows-tray-and-persistence.md。
+本机日常启动脚本 `D:\work\start-zicode-studio.cmd` 使用正式安装程序 `%LOCALAPPDATA%\ZiCode Studio Desktop\zicode-studio-desktop.exe`。更换安装版本后，日常入口应指向已安装的程序，普通启动会沿用同一份资料目录选择。旧开发运行目录和构建缓存独立保留。
+
+备份时同时覆盖固定资料根目录和位于其外部的工作区。校验固定资料目录内的文件时，外部工作区的笔记和附件需按各自路径另行核对。[历史托盘与资料保留验收](iterations/2026-10-26-windows-tray-and-persistence.md)
