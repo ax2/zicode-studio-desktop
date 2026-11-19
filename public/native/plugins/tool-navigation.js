@@ -18,6 +18,7 @@ export function primaryActivities(plugins, isAvailable) {
 }
 
 const APPLICATION_CATEGORIES = {
+  "com.zicode.mail": "Personal applications",
   "com.zicode.visual-assets": "Images and media",
   "com.zicode.projects": "Work and code", "com.zicode.tasks": "Work and code",
   "core.chat": "Work and code", "com.zicode.automation": "Work and code",
