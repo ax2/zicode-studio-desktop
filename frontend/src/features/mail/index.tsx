@@ -5,6 +5,7 @@ import { t } from "../../shared/i18n";
 
 
 import {AlibabaInbox} from "./AlibabaInbox";
+import {GmailInbox} from "./GmailInbox";
 import {MailDelivery} from "./MailDelivery";
 
 type Account={id:string,address:string,provider:string};
@@ -12,7 +13,7 @@ export type Draft={id?:string,revision:number,recipient:string,subject:string,bo
 export type Invoke=<T>(request:Record<string,unknown>)=>Promise<T>;
 const blank=():Draft=>({revision:0,recipient:"",subject:"",body:""});
 
-export function Mail({invoke,transport}:{invoke:Invoke,transport?:Invoke}) {
+export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?:Invoke,gmailTransport?:Invoke}) {
   const [accounts,setAccounts]=useState<Account[]>([]), [account,setAccount]=useState("");
   const [provider,setProvider]=useState("gmail"), [address,setAddress]=useState("");
   const [drafts,setDrafts]=useState<Draft[]>([]), [edit,setEdit]=useState<Draft>(blank);
@@ -21,6 +22,8 @@ export function Mail({invoke,transport}:{invoke:Invoke,transport?:Invoke}) {
   const [passwordOwner,setPasswordOwner]=useState("");
   const [mailBusy,setMailBusy]=useState(false);
   const owner=accounts.find(a=>a.id===account);
+  const [gmailSendOwner,setGmailSendOwner]=useState("");
+  const gmail=owner?.provider==="gmail"&&gmailTransport;
   const alibaba=owner?.provider==="alibaba"&&transport;
   async function run(fn:()=>Promise<void>) {
     if(lock.current)return;
@@ -32,7 +35,7 @@ export function Mail({invoke,transport}:{invoke:Invoke,transport?:Invoke}) {
   }
   async function load(id:string){
     const rows=id?await invoke<Draft[]>({kind:"drafts",account:id}):[];
-    if(id!==account)setPasswordOwner("");setMailBusy(false);setAccount(id);setDrafts(rows);setEdit(blank());setDirty(false);
+    if(id!==account){setPasswordOwner("");setGmailSendOwner("")};setMailBusy(false);setAccount(id);setDrafts(rows);setEdit(blank());setDirty(false);
   }
   useEffect(()=>{let live=true;lock.current=true;setBusy(true);void (async()=>{
     try{const rows=await invoke<Account[]>({kind:"accounts"});const id=rows[0]?.id??"";
@@ -49,7 +52,7 @@ export function Mail({invoke,transport}:{invoke:Invoke,transport?:Invoke}) {
   const discard=()=>!dirty||window.confirm(t("Discard unsaved draft changes?"));
   function change(key:"recipient"|"subject"|"body",value:string){setEdit({...edit,[key]:value});setDirty(true)}
   return <section className="mail-local"><h2>{t("Mail")}</h2>
-    {!alibaba&&<p>{t("Local drafts only. No mailbox is connected.")}</p>}
+    {!alibaba&&!gmail&&<p>{t("Local drafts only. No mailbox is connected.")}</p>}
     <fieldset disabled={busy||mailBusy}><legend>{t("Mail accounts")}</legend>
     {accounts.length>0&&<label>{t("Mail account")}<select value={account} onChange={e=>{const id=e.target.value;if(discard())void run(()=>load(id))}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}</select></label>}
     <form onSubmit={e=>{e.preventDefault();if(!discard())return;void run(async()=>{
@@ -58,6 +61,7 @@ export function Mail({invoke,transport}:{invoke:Invoke,transport?:Invoke}) {
     })}}><label>{t("Mail provider")}<select value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
     <label>{t("Email address")}<input required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button type="submit">{t("Add local account")}</button></form></fieldset>
+    {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}/>}
     {alibaba&&<AlibabaInbox key={account} id={account} invoke={alibaba} discard={discard} onBusy={setMailBusy}
       onConfigured={v=>setPasswordOwner(v?account:"")} onReply={d=>{setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);setEdit(d);setDirty(false);requestAnimationFrame(()=>document.getElementById("studio-mail-compose-body")?.focus())}}/>}
     {account&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
@@ -70,20 +74,21 @@ export function Mail({invoke,transport}:{invoke:Invoke,transport?:Invoke}) {
     <button type="button" disabled={!dirty} onClick={()=>void run(async()=>{
       const saved=await invoke<{id:string,revision:number}>({kind:"save",account,...edit});const d={...edit,...saved};setEdit(d);setDirty(false);setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);
     })}>{t("Save draft")}</button>
+    {gmail&&owner&&edit.id&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} provider="gmail" invoke={gmail} id={account} address={owner.address} draft={edit} configured={gmailSendOwner===account}/>}
     {alibaba&&owner&&edit.id&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} invoke={alibaba} id={account} address={owner.address} draft={edit} configured={passwordOwner===account}/>}
     {edit.id&&<button type="button" onClick={()=>{if(window.confirm(t("Delete this local draft?")))void run(async()=>{
       await invoke({kind:"delete",account,id:edit.id,revision:edit.revision});setDrafts(old=>old.filter(item=>item.id!==edit.id));setEdit(blank());setDirty(false);
     })}}>{t("Delete draft")}</button>}</fieldset>}
     {error&&<p role="alert">{error}</p>}</section>;
 }
-export function setupMailApp(invoke:Invoke,transport?:Invoke) {
+export function setupMailApp(invoke:Invoke,transport?:Invoke,gmailTransport?:Invoke) {
   let root:Root|null=null;
   let mount:HTMLElement|null=null;
   return {
     renderContent(el:HTMLElement){
       if(!mount){mount=document.createElement("div");mount.className="plugin-app-mount";root=createRoot(mount)}
       if(mount.parentNode!==el)el.append(mount);
-      root?.render(<Mail invoke={invoke} transport={transport}/>);
+      root?.render(<Mail invoke={invoke} transport={transport} gmailTransport={gmailTransport}/>);
     },
     deactivate(){},destroy(){root?.unmount();root=null;mount?.remove();mount=null},
     handlesCommand(id:string){return id==="mail.open"},executeCommand(){},async refresh(){},async setTarget(){}
