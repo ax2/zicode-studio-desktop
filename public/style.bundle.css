@@ -183,6 +183,8 @@
 .browser-tabs-frame { display: flex; align-items: center; flex: 1; min-width: 0; gap: var(--space-0-5); overflow: hidden; }
 .browser-tabs { display: flex; flex: 1; min-width: 0; gap: var(--space-0-5); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .browser-tabs::-webkit-scrollbar { display: none; }
+.browser-profile-identity { max-width: 20%; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--text-secondary); font-size: var(--font-size-sm); }
+.studio-browser:not([data-private-browser]) .browser-private-notice, .studio-browser[data-private-browser] .browser-regular-option { display: none; }
 .browser-tab-group-name { display: inline-block; max-inline-size: 40%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; color: var(--text-secondary); margin-inline-end: var(--space-1); font-size: var(--font-size-sm); }
 .browser-tab[data-tab-group] .browser-tab-title { border-inline-start-color: var(--accent); }
 .browser-tab-group-form { display: grid; gap: var(--space-2); }

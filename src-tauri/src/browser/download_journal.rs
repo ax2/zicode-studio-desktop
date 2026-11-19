@@ -31,6 +31,7 @@ fn write(db: &Connection, owner: &str, record: &Value) -> Result<(), String> {
     Ok(())
 }
 pub fn record(owner: String, record: Value, failed: impl FnOnce(String) + Send + 'static) -> Result<(), String> {
+    if crate::browser_windows::private(&owner){return Ok(())}
     submit(Box::new(move |db| { if let Err(error) = db.and_then(|db| write(db, &owner, &record)) { failed(error); } }))
 }
 fn page(db: &Connection, owner: &str, before: Option<i64>, query: Option<&str>) -> Result<Value, String> {
@@ -51,6 +52,7 @@ fn page(db: &Connection, owner: &str, before: Option<i64>, query: Option<&str>) 
     Ok(json!({"entries":entries,"nextBefore":next}))
 }
 pub async fn list(owner: String, before: Option<i64>, query: Option<String>) -> Result<Value, String> {
+    if crate::browser_windows::private(&owner){return Ok(serde_json::json!({"entries":[],"nextBefore":null}))}
     let (tx, rx) = tokio::sync::oneshot::channel();
     submit(Box::new(move |db| { let _ = tx.send(db.and_then(|db| page(db, &owner, before, query.as_deref()))); }))?;
     rx.await.map_err(|_| "Download history worker stopped".to_owned())?
@@ -94,6 +96,7 @@ fn delete_record(db: &Connection, owner: &str, id: &str) -> Result<(), String> {
     Ok(())
 }
 pub async fn remove(owner: String, id: String) -> Result<(), String> {
+    if crate::browser_windows::private(&owner){return Ok(())}
     let (tx, rx) = tokio::sync::oneshot::channel();
     // Share the ordered queue so a previously queued terminal update cannot resurrect the row.
     submit(Box::new(move |db| { let _ = tx.send(db.and_then(|db| delete_record(db, &owner, &id))); }))?;

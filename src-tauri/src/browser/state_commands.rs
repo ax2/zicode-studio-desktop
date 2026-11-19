@@ -11,7 +11,7 @@ fn context(window: &WebviewWindow) -> Result<(std::path::PathBuf, String), Strin
 #[tauri::command]
 pub(crate) async fn browser_get_state(window: WebviewWindow) -> Result<State, String> {
     let (root, owner) = context(&window)?;
-    tauri::async_runtime::spawn_blocking(move || Store::open(&root)?.state(&owner))
+    tauri::async_runtime::spawn_blocking(move || crate::browser_private::store(&root,&owner,|s|s.state(&owner)))
         .await
         .map_err(|_| "Browser metadata worker stopped")?
 }
@@ -20,21 +20,21 @@ pub(crate) async fn browser_set_startup_mode(
     window: WebviewWindow,
     mode: StartupMode,
 ) -> Result<(), String> {
-    let (root, _) = context(&window)?;
-    tauri::async_runtime::spawn_blocking(move || Store::open(&root)?.set_startup(mode))
+    let (root, owner) = context(&window)?;
+    tauri::async_runtime::spawn_blocking(move || crate::browser_private::store(&root,&owner,|s|s.set_startup(mode)))
         .await
         .map_err(|_| "Browser metadata worker stopped")?
 }
 #[tauri::command]
 pub(crate) async fn browser_set_vertical_tabs(window: WebviewWindow, vertical: bool) -> Result<(), String> {
-    let (root, _) = context(&window)?;
-    tauri::async_runtime::spawn_blocking(move || Store::open(&root)?.set_vertical_tabs(vertical))
+    let (root, owner) = context(&window)?;
+    tauri::async_runtime::spawn_blocking(move || crate::browser_private::store(&root,&owner,|s|s.set_vertical_tabs(vertical)))
         .await.map_err(|_| "Browser metadata worker stopped")?
 }
 #[tauri::command]
 pub(crate) async fn browser_set_search_engine(window: WebviewWindow, engine: SearchEngine) -> Result<SearchEngine, String> {
-    let (root, _) = context(&window)?;
-    tauri::async_runtime::spawn_blocking(move || Store::open(&root)?.set_search_engine(engine))
+    let (root, owner) = context(&window)?;
+    tauri::async_runtime::spawn_blocking(move || crate::browser_private::store(&root,&owner,|s|s.set_search_engine(engine)))
         .await.map_err(|_| "Browser metadata worker stopped")?
 }
 #[tauri::command]
@@ -46,7 +46,7 @@ pub(crate) async fn browser_save_session(
 ) -> Result<Session, String> {
     let (root, owner) = context(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
-        Store::open(&root)?.save(&owner, expected_revision, tabs, active_tab)
+        crate::browser_private::store(&root,&owner,|s|s.save(&owner, expected_revision, tabs, active_tab))
     })
     .await
     .map_err(|_| "Browser metadata worker stopped")?
@@ -58,7 +58,7 @@ pub(crate) async fn browser_bookmarks(
     request: crate::browser_store::bookmarks::Request,
 ) -> Result<crate::browser_store::bookmarks::Library, String> {
     let (root, owner) = context(&window)?;
-    tauri::async_runtime::spawn_blocking(move || Store::open(&root)?.bookmarks(&owner, request))
+    tauri::async_runtime::spawn_blocking(move || crate::browser_private::store(&root,&owner,|s|s.bookmarks(&owner,request)))
         .await
         .map_err(|_| "Bookmark worker stopped")?
 }
@@ -66,5 +66,13 @@ pub(crate) async fn browser_bookmarks(
 #[tauri::command]
 pub(crate) async fn browser_history(window: WebviewWindow, request: crate::browser_store::history::Request) -> Result<crate::browser_store::history::Page,String> {
     let (_,owner) = context(&window)?;
+    if crate::browser_windows::private(&owner){return Ok(Default::default())}
     crate::browser::history_worker::request(owner,request).await
+}
+
+#[tauri::command]
+pub(crate) async fn browser_list_profiles(window:WebviewWindow)->Result<Vec<crate::browser_store::profiles::Profile>,String>{
+    let (root,owner)=context(&window)?;
+    if crate::browser_windows::private(&owner){return Ok(Vec::new())}
+    tauri::async_runtime::spawn_blocking(move||Store::open(&root)?.profiles()).await.map_err(|_|"Browser metadata worker stopped")?
 }
