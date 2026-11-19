@@ -18,7 +18,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: updater32-test-app
-          run-id: 44443966212
+          run-id: 44445582863
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/testapp
       - name: Prepare installed product and observe its actual Windows upgrade
