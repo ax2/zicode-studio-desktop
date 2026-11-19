@@ -35,7 +35,9 @@ ZiCode Studio Desktop 当前通过 GitHub Release 的 Windows NSIS 安装包手�
 bun run release VERSION
 ```
 
-脚本同步应用版本并创建、推送对应 `v` 标签。Desktop release workflow 核对源码和全部版本来源，默认生成 Windows 草稿安装包；只有选定候选的必要检查和实际产物证据完成后才公开。默认不自动公开，也不为其它平台追加隐含构建。具体责任与快速迭代规则见[项目执行规则](agents/project-management.md)。
+脚本同步应用版本并创建、推送对应 `v` 标签。Desktop release workflow 核对源码和全部版本来源，默认只构建 Windows。标签推送会先验证实际安装包并核对完整附件，在同一次工作流中公开发行及对应 Issues。手动选择仅构建时，安装包只保存在 Actions artifacts，不创建 GitHub Release。具体责任与快速迭代规则见[项目执行规则](agents/project-management.md)。
+
+正式发行直接创建公开页面（不创建 Draft）；附件传输期间页面显示「安装包正在上传」，不会将稳定更新入口 `/releases/latest` 切向未完整校验的版本。所有附件的远端 SHA-256 和大小都匹配后才结束上传，并按版本提升稳定版。失败时重跑原 Actions run 的失败发布 job，保留原 Release ID、已校验的同名文件及原说明；不覆盖手工发行、其他 run 的发行或不同摘要的附件。此流程要求仓库允许公开发行后追加附件，不适用于强制 immutable releases 的仓库。
 
 发版前，本地脚本要求 `origin` 与 `scripts/release-repository.json` 一致；CI 要求 `GITHUB_REPOSITORY` 与该配置一致。`upstream` 仅用于跟踪上游，不是发布目标。不提前手工创建公开 Release。
 
@@ -47,5 +49,5 @@ bun run release VERSION
 | `src-tauri/src/desktop_updates.rs` | 原生更新检查、安装及重启桥接 |
 | `frontend/src/features/settings/UpdatesTab.tsx` | 已安装版本和手动稳定发行入口 |
 | `frontend/src/features/settings/updaterStore.ts` | 更新状态、过期请求和安装互斥 |
-| `.github/workflows/release.yml` | 默认 Windows 的构建与草稿发布流程 |
+| `.github/workflows/release.yml` | 默认 Windows 的构建、实物验证与发行流程 |
 | `scripts/release.sh` | 版本号、提交和标签管理 |

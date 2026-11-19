@@ -95,7 +95,7 @@ it("builds the Windows bridge before bundling and requires the installer DLL in 
   expect(bridgeStep).toContain("if: runner.os == 'Windows'");
   expect(bridgeStep).toContain('CARGO_HTTP_MULTIPLEXING: "false"');
   expect(bridgeStep).toContain('CARGO_NET_RETRY: "10"');
-  expect(prepare).toBeLessThan(workflow.indexOf("- name: Build bundles and upload to draft release"));
+  expect(prepare).toBeLessThan(workflow.indexOf("- name: Build local platform bundles"));
   expect(workflow).toContain("run: bun scripts/build-desktop.js --shell-only");
   expect(workflow).toContain("runner.os == 'Windows' && '--config src-tauri/tauri.shell.windows.conf.json'");
   const overlay = JSON.parse(read("../src-tauri/tauri.shell.windows.conf.json"));

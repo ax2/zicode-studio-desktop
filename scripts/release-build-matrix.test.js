@@ -32,9 +32,9 @@ describe("explicit release build scope", () => {
       "utf8",
     );
     expect(workflow).toContain(
-      "if: github.event_name != 'workflow_dispatch' || inputs.platform == 'windows' || inputs.platform == 'all'",
+      "if: github.event_name == 'push' || (inputs.publish == true && (inputs.platform == 'windows' || inputs.platform == 'all'))",
     );
     expect(workflow).toContain("fromJSON(needs.prepare-release.outputs.build_matrix)");
-    expect(workflow).toContain("Verify uploaded platform bundles");
+    expect(workflow).toContain("Check complete candidate inventory and digests");
   });
 });
