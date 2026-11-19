@@ -790,6 +790,11 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         return act(() => translatePageSelection(source));
       }),
       screenshot: () => exportPage("saveScreenshot", "Screenshot saved to Downloads"),
+      websiteShortcuts: {
+        list: async () => (await invoke("browser_bookmarks", { request: { kind: "list" } })).bookmarks.filter(item => item.shortcut),
+        open: item => void openSavedPage(item).catch(report),
+        report,
+      },
       print: () => { const source = active; return act(() => runPageAction("print", source)); },
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),
       pin: { state: pinState, toggle: () => act(togglePin) } });

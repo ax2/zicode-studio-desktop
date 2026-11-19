@@ -2,7 +2,8 @@ import { t } from "../../i18n.js";
 
 export function createBookmarkDraftGuard(owner) {
   let fields = [], pending = null, returnFocus = null;
-  const dirty = () => fields.some(([node, value]) => node.isConnected && node.value !== value);
+  const read = node => node.type === "checkbox" ? node.checked : node.value;
+  const dirty = () => fields.some(([node, value]) => node.isConnected && read(node) !== value);
   const restoreFocus = () => {
     if (returnFocus?.isConnected && !returnFocus.matches(":disabled")) {
       returnFocus.focus({ preventScroll: true });
@@ -11,7 +12,7 @@ export function createBookmarkDraftGuard(owner) {
   };
   return {
     track(form) {
-      fields = [...(form?.querySelectorAll("input, select") ?? [])].map(node => [node, node.value]);
+      fields = [...(form?.querySelectorAll("input, select") ?? [])].map(node => [node, read(node)]);
     },
     restoreFocus,
     dirty,

@@ -84,3 +84,10 @@ it("saves the retained draft and closes without a stale discard prompt", async (
   await waitFor(() => expect(h.onClose).toHaveBeenCalledOnce());
   expect(document.querySelector("dialog")).toBeNull();
 });
+
+it("protects an edit that only changes website shortcut visibility", async () => {
+  const { dialog } = await setup();
+  getByLabelText(dialog, t("Show in website shortcuts")).click();
+  getByRole(dialog, "button", { name: t("Close"), exact: true }).click();
+  await waitFor(() => expect(confirmation()).toBeTruthy());
+});
