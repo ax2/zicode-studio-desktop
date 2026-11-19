@@ -7,7 +7,10 @@ fn every_install_checkpoint_recovers_old_data_or_committed_new_data_after_reopen
     let note = source.note(&book.id);
     let old = source.vault.capture_sync().unwrap().records;
     // The first order record and the edited note must commit or recover together.
-    source.vault.save_notebook_order(None, &[book.id.clone()]).unwrap();
+    source
+        .vault
+        .save_notebook_order(None, std::slice::from_ref(&book.id))
+        .unwrap();
     source
         .vault
         .save_note(
