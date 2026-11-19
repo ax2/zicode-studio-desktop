@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$Installer,[Parameter(Mandatory)][string]$Version,
-  [Parameter(Mandatory)][string]$Receipt,[string]$PreviousInstaller,[string]$PreviousSha256)
+  [Parameter(Mandatory)][string]$Receipt,[string]$PreviousInstaller,[string]$PreviousSha256,[switch]$RequireUpgrade)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 if ($env:GITHUB_ACTIONS -ne 'true' -or $env:STUDIO_RUNNER_ENVIRONMENT -ne 'github-hosted' -or
@@ -25,6 +25,7 @@ $report.installerSha256=(Get-FileHash -LiteralPath $setup -Algorithm SHA256).Has
 $report.installerBytes=(Get-Item -LiteralPath $setup).Length
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$') {throw 'Invalid candidate version'}
 if (!$PreviousInstaller) {
+  if ($RequireUpgrade) {Case 'baselineInstall' {throw 'A verified previous installer is required for publication'}}
   foreach ($id in @('baselineInstall','blockedUpgrade','upgradeAndData')) {$report.cases[$id]=@{status='skipped';reason='No verified previous installer supplied'}}
 } else {
   if ($PreviousSha256 -notmatch '^[0-9a-fA-F]{64}$' -or (Get-FileHash -LiteralPath $PreviousInstaller).Hash -ne $PreviousSha256 -or
