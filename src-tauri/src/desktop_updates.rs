@@ -12,6 +12,24 @@ pub(crate) struct DesktopUpdateInfo {
     version: String,
     date: Option<String>,
     body: Option<String>,
+    full_installer: bool,
+}
+impl DesktopUpdateInfo {
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    pub(crate) fn full(version: String, date: Option<String>, body: Option<String>) -> Self {
+        Self {
+            version,
+            date,
+            body,
+            full_installer: true,
+        }
+    }
+}
+#[derive(serde::Serialize)]
+pub(crate) struct ResultNotice {
+    pub(crate) version: String,
+    pub(crate) success: bool,
+    pub(crate) message: String,
 }
 
 fn updater(app: &AppHandle, beta: bool) -> Result<tauri_plugin_updater::Updater, String> {
@@ -34,8 +52,14 @@ fn updater(app: &AppHandle, beta: bool) -> Result<tauri_plugin_updater::Updater,
 #[tauri::command]
 pub(crate) async fn check_desktop_update(
     app: AppHandle,
+    window: WebviewWindow,
     beta: bool,
 ) -> Result<Option<DesktopUpdateInfo>, String> {
+    crate::require_workspace_window(&window)?;
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    if !beta {
+        return crate::stable_update::check(&window, &app.package_info().version).await;
+    }
     let update = updater(&app, beta)?
         .check()
         .await
@@ -44,6 +68,7 @@ pub(crate) async fn check_desktop_update(
         version: update.version,
         date: update.date.map(|date| date.to_string()),
         body: update.body,
+        full_installer: false,
     }))
 }
 fn require_checked_version(expected: &str, actual: &str) -> Result<(), String> {
@@ -59,6 +84,16 @@ pub(crate) async fn install_desktop_update(
     expected_version: String,
     beta: bool,
 ) -> Result<(), String> {
+    crate::require_workspace_window(&window)?;
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    if !beta {
+        return crate::stable_update::install(
+            &window,
+            &expected_version,
+            &app.package_info().version,
+        )
+        .await;
+    }
     let update = updater(&app, beta)?
         .check()
         .await
@@ -84,15 +119,37 @@ pub(crate) async fn install_desktop_update(
     result
 }
 #[tauri::command]
-pub(crate) fn restart_desktop_after_update(
+pub(crate) async fn restart_desktop_after_update(
     app: AppHandle,
     window: WebviewWindow,
 ) -> Result<(), String> {
     crate::require_workspace_window(&window)?;
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    if crate::stable_update::handoff(&app, &window).await? {
+        return Ok(());
+    }
     if !INSTALLED.load(Ordering::Acquire) {
         return Err("No installed update is pending restart".into());
     }
     app.restart()
+}
+#[tauri::command]
+pub(crate) fn cancel_desktop_update(window: WebviewWindow) -> Result<(), String> {
+    crate::require_workspace_window(&window)?;
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    return crate::stable_update::cancel(&window);
+    #[cfg(not(all(windows, target_arch = "x86_64")))]
+    Err("No full-installer download is available".into())
+}
+#[tauri::command]
+pub(crate) fn take_desktop_update_result(
+    window: WebviewWindow,
+) -> Result<Option<ResultNotice>, String> {
+    crate::require_workspace_window(&window)?;
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    return crate::stable_update::take_result();
+    #[cfg(not(all(windows, target_arch = "x86_64")))]
+    Ok(None)
 }
 #[cfg(test)]
 mod tests {

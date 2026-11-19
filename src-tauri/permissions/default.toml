@@ -424,6 +424,8 @@ permissions = [
   "allow-check-desktop-update",
   "allow-install-desktop-update",
   "allow-restart-desktop-after-update",
+  "allow-cancel-desktop-update",
+  "allow-take-desktop-update-result",
   "allow-check-beta-update",
   "allow-install-beta-update",
   "allow-list-scene-profiles",
@@ -508,17 +510,17 @@ commands.allow = ["get_system_information"]
 
 [[permission]]
 identifier = "allow-check-desktop-update"
-description = "Allow the trusted desktop window to check desktop update using the configured signed feed."
+description = "Allow the trusted desktop window to check desktop update using the official Windows installer or configured signed feed."
 commands.allow = ["check_desktop_update"]
 
 [[permission]]
 identifier = "allow-install-desktop-update"
-description = "Allow the trusted desktop window to install desktop update using the configured signed feed."
+description = "Allow the trusted desktop window to install desktop update using the official Windows installer or configured signed feed."
 commands.allow = ["install_desktop_update"]
 
 [[permission]]
 identifier = "allow-restart-desktop-after-update"
-description = "Allow the trusted desktop window to restart desktop after update using the configured signed feed."
+description = "Allow the trusted desktop window to restart desktop after update using the official Windows installer or configured signed feed."
 commands.allow = ["restart_desktop_after_update"]
 
 [[permission]]
@@ -580,3 +582,13 @@ commands.allow = ["browser_history"]
 identifier = "allow-desktop-window-control"
 description = "Allow verified Studio chrome to control only its own native workspace window."
 commands.allow = ["desktop_window_control"]
+
+[[permission]]
+identifier = "allow-cancel-desktop-update"
+description = "Cancel the owning workspace window’s Windows installer download."
+commands.allow = ["cancel_desktop_update"]
+
+[[permission]]
+identifier = "allow-take-desktop-update-result"
+description = "Consume the last completed Windows installer result."
+commands.allow = ["take_desktop_update_result"]

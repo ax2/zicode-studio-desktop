@@ -37,10 +37,14 @@ mod desktop_tray;
 mod desktop_system_tray;
 mod system_information;
 mod desktop_updates;
+#[cfg(all(windows, target_arch = "x86_64"))]
+mod stable_update;
+#[cfg(all(windows, target_arch = "x86_64"))]
+mod desktop_update_handoff;
 mod system_temperature;
 use system_information::get_system_information;
 use system_temperature::{start_system_temperature_monitor, stop_system_temperature_monitor};
-use desktop_updates::{check_desktop_update, install_desktop_update, restart_desktop_after_update};
+use desktop_updates::{check_desktop_update, install_desktop_update, restart_desktop_after_update, cancel_desktop_update, take_desktop_update_result};
 use desktop_tool_shortcuts::set_desktop_tool_shortcuts;
 use desktop_tray::set_desktop_tray_locale;
 use explorer_entry::desktop_entry_mode;
@@ -2210,6 +2214,8 @@ fn main() {
             check_desktop_update,
             install_desktop_update,
             restart_desktop_after_update,
+            cancel_desktop_update,
+            take_desktop_update_result,
             check_beta_update,
             install_beta_update
         ])
@@ -2340,6 +2346,8 @@ fn main() {
                     }
                 }
                 tauri::WindowEvent::Destroyed if label.starts_with("native-workspace-") => {
+                    #[cfg(all(windows, target_arch = "x86_64"))]
+                    stable_update::forget_window(label);
                     browser::forget_window(label);
                     desktop_tray::forget_window(window.app_handle(), label);
                     if let Some(entries) =
