@@ -168,3 +168,15 @@ it("opens browser panels from chrome and from the same active native tab", async
   expect(openPanel).toHaveBeenCalledTimes(6);
   expect(args.focusChrome).toHaveBeenCalledTimes(3);
 });
+
+it("prints only the active source and ignores modified or repeated print keys", async () => {
+  const pageAction = vi.fn();
+  setup({ pageAction });
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, shiftKey: true }));
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, repeat: true }));
+  await shortcuts.native({ action: "print", tab: "background" });
+  expect(pageAction).not.toHaveBeenCalled();
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true }));
+  await shortcuts.native({ action: "print", tab: "a" });
+  expect(pageAction.mock.calls).toEqual([["print", "a"], ["print", "a"]]);
+});

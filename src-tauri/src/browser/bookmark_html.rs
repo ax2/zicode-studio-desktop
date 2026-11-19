@@ -52,7 +52,7 @@ pub fn parse(input: &str) -> Result<Imported, String> {
             let title = element.text().collect::<String>();
             let title = if title.trim().is_empty() { value.into() } else { title };
             if title.len() > 4096 { return Err("Bookmark title is too long".into()); }
-            result.bookmarks.push(Bookmark { id: uuid::Uuid::new_v4().to_string(), title, url: value.into(), folder_id: level.parent.clone() });
+            result.bookmarks.push(Bookmark { id: uuid::Uuid::new_v4().to_string(), title, url: value.into(), folder_id: level.parent.clone(), shortcut: false });
         }
     }
     if result.folders.is_empty() && result.bookmarks.is_empty() && result.skipped == 0 { return Err("No bookmarks found in this file".into()); }
