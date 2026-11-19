@@ -43,6 +43,8 @@ describe("strict optional file-tools release inventory", () => {
     expect(publish).toContain("github.workflow_sha");
     expect(publish.indexOf("node scripts/release-candidate-files.mjs")).toBeGreaterThan(0);
     expect(publish.indexOf("node scripts/render-release-issues.mjs")).toBeLessThan(publish.indexOf("gh release create"));
+    expect(publish).toContain('git show "$RELEASE_SHA:$snapshot" > "$snapshot"');
+    expect(publish.indexOf('git show "$RELEASE_SHA:$snapshot"')).toBeLessThan(publish.indexOf("node scripts/render-release-issues.mjs"));
     expect(publish.indexOf("Release tag moved")).toBeLessThan(publish.indexOf("gh release create"));
   });
 });

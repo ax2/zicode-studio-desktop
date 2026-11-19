@@ -431,6 +431,12 @@ jobs:
           [[ "$(git rev-parse 'FETCH_HEAD^{commit}')" == "$RELEASE_SHA" ]] || { echo "::error::Release tag moved"; exit 1; }
           base="$RELEASE_SHA:docs/releases/$RELEASE_TAG.md"
           if git cat-file -e "$base"; then git show "$base" > "$RUNNER_TEMP/base-notes.md"; else printf 'ZiCode Studio Desktop %s\n' "$RELEASE_TAG" > "$RUNNER_TEMP/base-notes.md"; fi
+          # Use the issue snapshot from the exact application commit, even on manual dispatch.
+          # The renderer itself stays pinned to the workflow commit.
+          snapshot="docs/releases/$RELEASE_TAG.issues.json"
+          git cat-file -e "$RELEASE_SHA:$snapshot" || { echo "::error::Frozen release issue snapshot is missing: $snapshot"; exit 1; }
+          mkdir -p docs/releases
+          git show "$RELEASE_SHA:$snapshot" > "$snapshot"
           node scripts/render-release-issues.mjs "$RELEASE_TAG" "$RUNNER_TEMP/base-notes.md" "$RUNNER_TEMP/release-notes.md"
           flags=()
           if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--prerelease); fi
