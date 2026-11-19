@@ -43,6 +43,8 @@ try {
     try { $actual = [BitConverter]::ToString($hash.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
     finally { $hash.Dispose() }
     if ($actual -cne $handoff.expectedSha256) { throw 'Downloaded installer checksum changed' }
+    $signature = Get-AuthenticodeSignature -LiteralPath $installer
+    if ($signature.Status -notin @('Valid','NotSigned')) { throw "Windows rejected installer signature: $($signature.Status)" }
     [Console]::Out.WriteLine('ready')
     [Console]::Out.Flush()
     $ready = $true
