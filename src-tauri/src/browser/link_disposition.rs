@@ -69,6 +69,7 @@ pub(super) fn observe(view: &wry::WebView) -> Rc<Cell<Option<Gesture>>> {
                 &mut 0,
             )?;
             for (method, args) in [
+                ("Page.enable", json!({})),
                 ("Runtime.enable", json!({})),
                 (
                     "Runtime.addBinding",
