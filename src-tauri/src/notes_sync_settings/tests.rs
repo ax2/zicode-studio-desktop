@@ -69,6 +69,67 @@ fn connection() -> Connection {
         vault_id: Uuid::new_v4().to_string(),
     }
 }
+
+#[test]
+fn previews_only_public_history_and_restores_locally_under_revision_guard() {
+    let root = Scratch::new();
+    let secrets = MemorySecrets::default();
+    let old = connection();
+    let mut new = old.clone();
+    new.endpoint = "https://next.invalid/".into();
+    let code = SyncKey::generate().1;
+    let save_at = |conn, previous, password| {
+        save(
+            &root.0,
+            None,
+            "one",
+            true,
+            &secrets,
+            request(conn, previous, Some(password), Some(&code)),
+        )
+        .unwrap()
+        .revision
+        .unwrap()
+    };
+    let first = save_at(old.clone(), None, "first-secret");
+    let second = save_at(new.clone(), Some(first.clone()), "second-secret");
+    let reads_before = secrets.reads.get();
+    let entries = history(&root.0, None, "one").unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].revision, first);
+    assert!(entries[0].connection == old);
+    assert!(entries[0].archived_at > 0);
+    let public = serde_json::to_value(&entries[0]).unwrap();
+    assert_eq!(public.as_object().unwrap().len(), 3);
+    assert_eq!(public["connection"].as_object().unwrap().len(), 3);
+    assert_eq!(reads_before, secrets.reads.get());
+    assert!(history(&root.0, None, "two").unwrap().is_empty());
+    assert!(history(&root.0, Some("isolated"), "one")
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        restore(&root.0, None, "one", &first, &first),
+        Err("notes_sync_settings_changed")
+    );
+    assert!(restore(&root.0, None, "one", &second, "../current").is_err());
+    restore(&root.0, None, "one", &second, &first).unwrap();
+    assert_eq!(reads_before, secrets.reads.get());
+    let restored = status(&root.0, None, "one", true, &secrets).unwrap();
+    assert!(restored.connection == old);
+    assert_eq!(restored.state, "configured");
+    assert_ne!(restored.revision.as_deref(), Some(first.as_str()));
+    let store = Storage::open(&root.0, &configuration_key("one", None).unwrap(), false)
+        .unwrap()
+        .unwrap();
+    let active = read(&store, "one").unwrap().unwrap();
+    assert_eq!(active.password_ref.as_deref(), Some(first.as_str()));
+    assert_eq!(active.key_ref.as_deref(), Some(first.as_str()));
+    assert_eq!(secrets.data.borrow().len(), 4);
+    assert!(history(&root.0, None, "one")
+        .unwrap()
+        .iter()
+        .any(|entry| entry.revision == second && entry.connection == new));
+}
 fn request(
     connection: Connection,
     revision: Option<String>,

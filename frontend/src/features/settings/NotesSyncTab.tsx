@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { NotesSyncRunControl } from "./NotesSyncRunControl";
+import { NotesSyncHistory } from "./NotesSyncHistory";
 
 type Connection = { endpoint: string; username: string; vaultId: string };
 type Status = {
@@ -59,18 +60,19 @@ export function NotesSyncTab({ getWorkspaceId, getSceneId, invoke }: {
   }, [getWorkspaceId, native, resetSecrets, fail, accept]);
   useEffect(() => { void load(); return () => { generation.current++; }; }, [load]);
 
-  async function action(kind: "save" | "newRecoveryCode") {
+  async function action(kind: "save" | "newRecoveryCode" | "restore", revision?: string) {
     if (busy || !native || !status || status.credentialStorage === "disabled") return;
+    if (kind === "restore" && (dirty || !revision || !status.revision)) return;
     const workspaceId = getWorkspaceId?.();
     if (!workspaceId || workspaceId !== scope.current) { await load(); return; }
     const request = ++generation.current;
     setBusy(true); setError("");
     try {
       const settings = { expectedRevision: status.revision, connection, password: password || null, recoveryCode: recovery || null };
-      const value = await native("notes_sync_settings", { request: { kind, workspaceId, ...(kind === "save" ? { settings } : {}) } });
+      const value = await native("notes_sync_settings", { request: { kind, workspaceId, ...(kind === "save" ? { settings } : {}), ...(kind === "restore" ? { revision, expectedRevision: status.revision } : {}) } });
       if (generation.current !== request) return;
       if (workspaceId !== getWorkspaceId?.()) { await load(); return; }
-      if (kind === "save") accept(value as Status);
+      if (kind !== "newRecoveryCode") accept(value as Status);
       else setRecovery((value as { recoveryCode: string }).recoveryCode);
     } catch (error) { if (generation.current === request) fail(error); }
     finally { if (generation.current === request) setBusy(false); }
@@ -104,6 +106,9 @@ export function NotesSyncTab({ getWorkspaceId, getSceneId, invoke }: {
       </fieldset>
     </form>
     <button type="button" className="ui-button ui-button--secondary" disabled={busy} onClick={() => void load()}>{t("Refresh")}</button>
+    {status?.revision && scope.current && native && <NotesSyncHistory key={status.revision} workspace={scope.current}
+      current={status.connection} invoke={native} disabled={disabled || Boolean(dirty)}
+      restore={revision => void action("restore", revision)} />}
     {status?.syncAvailable && <NotesSyncRunControl workspaceId={scope.current} revision={status.revision} connection={status.connection}
       ready={status.state === "configured" && !disabled && !dirty} getWorkspaceId={getWorkspaceId} getSceneId={getSceneId} onRefreshSettings={load} invoke={native} />}
   </section>;
