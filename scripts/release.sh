@@ -68,13 +68,15 @@ ensure_clean_worktree() {
   fi
 }
 ensure_clean_worktree "before release gates"
+bun scripts/check-release-notes-inputs.mjs "$TAG"
 
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   echo "Tag already exists locally: $TAG"
   exit 1
 fi
 
-if [[ -n "$(git ls-remote --tags origin "refs/tags/$TAG")" ]]; then
+REMOTE_TAG="$(git ls-remote --tags origin "refs/tags/$TAG")"
+if [[ -n "$REMOTE_TAG" ]]; then
   echo "Tag already exists on origin: $TAG"
   exit 1
 fi
@@ -87,6 +89,7 @@ bun run check:design
 echo "Release gates passed."
 ensure_clean_worktree "after release gates"
 
+update_versions() {
 echo "Updating app versions to $APP_VERSION (release tag: $TAG)..."
 PI_RELEASE_VERSION="$APP_VERSION" bun run - <<'EOF'
 import { readFileSync, writeFileSync } from "node:fs";
@@ -103,20 +106,18 @@ const jsonFiles = [
 
 for (const file of jsonFiles) {
   const content = JSON.parse(readFileSync(file, "utf8"));
+  if (content.version === version) continue;
   content.version = version;
   writeFileSync(file, JSON.stringify(content, null, 2) + "\n");
 }
 
 const cargoPath = resolve(root, "src-tauri", "Cargo.toml");
 const cargo = readFileSync(cargoPath, "utf8");
-const updated = cargo.replace(
-  /(\[package\][\s\S]*?\nversion\s*=\s*")([^"]+)(")/,
-  `$1${version}$3`,
-);
-if (updated === cargo) {
-  throw new Error("Failed to update version in src-tauri/Cargo.toml");
-}
-writeFileSync(cargoPath, updated);
+const section = cargo.match(/^\[package\][^\r\n]*\r?\n[\s\S]*?(?=^\[|(?![\s\S]))/m);
+const field = /^(version[ \t]*=[ \t]*")([^"]+)(")/m;
+if (!section || !field.test(section[0])) throw new Error("Missing [package].version in src-tauri/Cargo.toml");
+const block = section[0].replace(field, (_all, start, _old, end) => start + version + end);
+if (block !== section[0]) writeFileSync(cargoPath,cargo.slice(0,section.index)+block+cargo.slice(section.index+section[0].length));
 EOF
 
 echo "Regenerating bun.lock..."
@@ -142,13 +143,20 @@ if [[ -n "$CARGO_BIN" ]]; then
 else
   echo "  (cargo not found; skipping Cargo.lock refresh)"
 fi
+}
+
+if bun run scripts/check-release-version.js "$TAG" >/dev/null 2>&1; then
+  echo "Application versions and lockfile already match $TAG; using the frozen commit."
+else
+  update_versions
+fi
 
 echo "Checking release tag and application versions..."
 bun run scripts/check-release-version.js "$TAG"
 
 echo "Committing release version bump..."
 git add src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock package.json bun.lock
-git commit -m "chore(release): $TAG"
+if ! git diff --cached --quiet; then git commit -m "chore(release): $TAG"; fi
 
 echo "Creating tag $TAG..."
 git tag "$TAG"
