@@ -1,0 +1,62 @@
+name: Windows process identity acceptance
+on:
+  push:
+    branches: [codex/qa64-process]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: windows-2022
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
+      - name: Compare module enumeration with the original process handle and child readiness
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $verifier=Get-Content -Raw scripts/verify-windows-installer-runtime.ps1
+          $report=@{canaries=@()}
+          $a=$verifier.IndexOf("Add-Type @'")
+          $b=$verifier.IndexOf('function Run-Installer')
+          . ([ScriptBlock]::Create($verifier.Substring($a,$b-$a)))
+          $mismatch=0
+          for($iteration=0;$iteration -lt 120;$iteration++){
+            $p=Canary
+            try{
+              Assert-Alive $p
+              $sample=$report.canaries[-1]
+              if($sample.initialModulePath -ne $fixture){$mismatch++}
+              if(!$sample.ready -or $sample.nativeImage -ne $fixture){throw 'Unexpected actual process identity'}
+            }finally{$p.Kill();$p.WaitForExit();$p.Dispose()}
+          }
+          "PASS 120 ordinary canary starts; immediate module-path mismatches=$mismatch, original-handle and Main-signal matches=120"
+          # Observe a real Windows process before its user-mode loader is allowed to initialize.
+          Add-Type @"
+          using System;
+          using System.Text;
+          using System.Runtime.InteropServices;
+          using System.ComponentModel;
+          public static class DeferredLoader {
+            [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)] struct SI{public int cb;public string reserved,desktop,title;public uint x,y,w,h,xc,yc,fill,flags;public ushort show,reserved2;public IntPtr data,input,output,error;}
+            [StructLayout(LayoutKind.Sequential)]public struct Handles{public IntPtr process,thread;public uint pid,tid;}
+            [DllImport("kernel32.dll", CharSet=CharSet.Unicode,SetLastError=true)]static extern bool CreateProcess(string path,StringBuilder cmd,IntPtr pa,IntPtr ta,bool inherit,uint flags,IntPtr env,string dir,ref SI si,out Handles pi);
+            [DllImport("kernel32.dll")]public static extern uint ResumeThread(IntPtr h);
+            public static Handles Start(string path,string eventName){var si=new SI();si.cb=Marshal.SizeOf(si);Handles result;if(!CreateProcess(path,new StringBuilder("\""+path+"\" "+eventName),IntPtr.Zero,IntPtr.Zero,false,4,IntPtr.Zero,null,ref si,out result))throw new Win32Exception();return result;}
+          }
+          "@
+          $eventName='Local\ZiCode64-'+[guid]::NewGuid().ToString('N')
+          $ready=[Threading.EventWaitHandle]::new($false,'ManualReset',$eventName)
+          $native=[DeferredLoader]::Start($fixture,$eventName)
+          $p=Get-Process -Id $native.pid
+          try{
+            $modulePath=$p.Path
+            $nativePath=[Issue64Gui]::Image($native.process)
+            if($nativePath -ne $fixture -or $ready.WaitOne(0)){throw 'Unexpected image or loader state'}
+            "Controlled early loader: process alive=$(!$p.HasExited) nativeImageMatches=$($nativePath -eq $fixture) immediateModuleMatches=$($modulePath -eq $fixture)"
+            [void][DeferredLoader]::ResumeThread($native.thread)
+            if(!$ready.WaitOne(10000)){throw 'Resumed real loader never reached Main'}
+            Assert-Alive $p
+          }finally{$p.Kill();$p.WaitForExit();$ready.Dispose();[void][Issue64Gui]::CloseHandle($native.thread);[void][Issue64Gui]::CloseHandle($native.process)}
