@@ -6,6 +6,7 @@ Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 public static class Q35 {
+  [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr parent,int id);
   [DllImport("user32.dll")]public static extern void keybd_event(byte vk,byte scan,uint flags,UIntPtr extra);
   [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr parent,IntPtr after,string cls,string title);
   [DllImport("user32.dll")] public static extern IntPtr SendMessageTimeout(IntPtr hwnd,uint msg,IntPtr wp,IntPtr lp,uint flags,uint timeout,out IntPtr result);
@@ -150,6 +151,17 @@ if($Mode -eq 'printcancel'){
   foreach($dlg in $r.FindAll([Windows.Automation.TreeScope]::Descendants,$windows)){
    $titles+=($dlg.Current.ClassName+' '+$dlg.Current.Name)
    if($dlg.Current.Name -notmatch 'print|打印'){continue}
+   $dh=[IntPtr]$dlg.Current.NativeWindowHandle
+   if($dh -ne [IntPtr]::Zero -and $dlg.Current.ClassName -eq '#32770' -and [Q35]::IsWindowVisible($dh)){
+    $cancelButton=[Q35]::GetDlgItem($dh,2)
+    if($cancelButton -ne [IntPtr]::Zero -and [Q35]::IsWindowVisible($cancelButton)){
+     $buttons=@($dlg.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)|ForEach-Object {$_.Current.Name}|Where-Object {$_ -match 'printer|print to pdf|xps|打印'}|Select-Object -First 8)
+     $ret=[IntPtr]::Zero
+     [void][Q35]::SendMessageTimeout($cancelButton,245,[IntPtr]::Zero,[IntPtr]::Zero,2,500,[ref]$ret)
+     for($j=0;$j -lt 15 -and [Q35]::IsWindowVisible($dh);$j++){Start-Sleep -Milliseconds 100}
+     if(![Q35]::IsWindowVisible($dh)){$result.title='#32770 Print';$result.cancelled=$true;$result.controls=$buttons;break}
+    }
+   }
    $list=@($dlg.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition))
    $cancel=$list|Where-Object {$_.Current.ControlType -eq [Windows.Automation.ControlType]::Button -and $_.Current.Name -match '^Cancel$|^取消$'}|Select-Object -First 1
    if($cancel){$result.title=$dlg.Current.Name;$result.printerControls=@($list|Where-Object {$_.Current.Name -match '(Printer|Microsoft Print|打印机)'}|ForEach-Object {$_.Current.Name}|Select-Object -First 8);$cancel.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke();$result.cancelled=$true;break}
