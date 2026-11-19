@@ -40,62 +40,49 @@ impl HostServer {
                 if !confirmed {
                     return Err("notes_sync_confirmation_required".into());
                 }
-                let scene_for_launch = scene_id.clone();
-                let state = Arc::downgrade(&self.state);
-                let scope = workspace_id.clone();
-                let repository = self
-                    .state
-                    .lifecycle
-                    .blocking(move || {
-                        let repository = crate::notes_sync_settings::resolve_for_sync(
-                            &root,
-                            test_name.as_deref(),
-                            &scope,
-                            enabled,
-                            &revision,
-                        )
-                        .map_err(str::to_owned)?;
-                        Ok::<_, String>(repository.with_guard(move || {
-                            let state = state
-                                .upgrade()
-                                .ok_or(crate::notes_sync::SyncError::Cancelled)?;
-                            if state.lifecycle.stopping() {
-                                return Err(crate::notes_sync::SyncError::Cancelled);
-                            }
-                            ensure_notes_authorized(&state, &scene_id, true)
-                                .map_err(|_| crate::notes_sync::SyncError::ConfigurationChanged)?;
-                            let gate = state
-                                .workspace_write_gates
-                                .gate(&scope)
-                                .map_err(|_| crate::notes_sync::SyncError::ConfigurationChanged)?;
-                            if *gate
-                                .lock()
-                                .map_err(|_| crate::notes_sync::SyncError::ConfigurationChanged)?
-                            {
-                                return Err(crate::notes_sync::SyncError::ConfigurationChanged);
-                            }
-                            let lease = crate::notes_sync_settings::lock_current_config(
-                                &root,
-                                test_name.as_deref(),
-                                &scope,
-                                &revision,
-                            )
-                            .map_err(|_| crate::notes_sync::SyncError::ConfigurationChanged)?;
-                            Ok(Box::new(lease) as Box<dyn Send>)
-                        }))
-                    })
-                    .await
-                    .map_err(|_| "notes_sync_task_unavailable")??;
-                self.launch_notes_sync(&workspace_id, &scene_for_launch, repository)
+                let review_context = crate::notes_sync_task::ReviewContext {
+                    scene: scene_id.clone(),
+                    revision: revision.clone(),
+                };
+                let repository = super::notes_sync_repository::resolve(
+                    &self.state,
+                    super::notes_sync_repository::Context {
+                        root,
+                        test_name,
+                        workspace: workspace_id.clone(),
+                        scene: scene_id.clone(),
+                        revision,
+                        enabled,
+                    },
+                )
+                .await
+                .map_err(|_| "notes_sync_task_unavailable")??;
+                self.launch_notes_sync_with_context(
+                    &workspace_id,
+                    &scene_id,
+                    repository,
+                    Some(review_context),
+                )
             }
         }
     }
 
+    #[cfg(test)]
     fn launch_notes_sync(
+        &self,
+        workspace: &str,
+        scene: &str,
+        repository: crate::notes_sync::repository::SyncRepository,
+    ) -> Result<Status, String> {
+        self.launch_notes_sync_with_context(workspace, scene, repository, None)
+    }
+
+    pub(super) fn launch_notes_sync_with_context(
         &self,
         workspace_id: &str,
         scene: &str,
         repository: crate::notes_sync::repository::SyncRepository,
+        context: Option<crate::notes_sync_task::ReviewContext>,
     ) -> Result<Status, String> {
         ensure_notes_authorized(&self.state, scene, true)
             .map_err(|_| "notes_sync_permission_denied".to_owned())?;
@@ -111,6 +98,9 @@ impl HostServer {
         }
         // A competing start cannot send requests before acquiring the run slot.
         let run = self.state.notes_sync_runs.begin(workspace_id)?;
+        if let Some(context) = context {
+            run.review_context(context);
+        }
         let cancel = run.token();
         let storage = self.notes_vault()?;
         let lifecycle = self.state.lifecycle.clone();

@@ -17,6 +17,14 @@ const BASELINE_LIMIT: usize = MAX_INDEX_BYTES + 44;
 const BASELINE_FILE: &str = "baseline.zns";
 const TRANSFER_LEASE: &str = "transfer.lock";
 
+#[derive(Clone)]
+pub(crate) struct TransferBinding {
+    root: PathBuf,
+    scope: String,
+    directory: Identity,
+    lease: Identity,
+}
+
 pub(crate) struct Transfer {
     store: Storage,
     root: PathBuf,
@@ -77,6 +85,26 @@ impl Transfer {
                 .map_err(storage_error)?
                 .as_ref()
                 != Some(&self.lease_identity)
+        {
+            return Err(SyncError::LocalChanged);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn binding(&self) -> Result<TransferBinding, SyncError> {
+        Ok(TransferBinding {
+            root: self.store.root.clone(),
+            scope: self.scope.clone(),
+            directory: self.store.directory_identity().map_err(storage_error)?,
+            lease: self.lease_identity.clone(),
+        })
+    }
+
+    pub(crate) fn check_binding(&self, expected: &TransferBinding) -> Result<(), SyncError> {
+        if self.store.root != expected.root
+            || self.scope != expected.scope
+            || self.lease_identity != expected.lease
+            || self.store.directory_identity().map_err(storage_error)? != expected.directory
         {
             return Err(SyncError::LocalChanged);
         }

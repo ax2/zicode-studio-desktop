@@ -14,8 +14,8 @@ pub(crate) use crypto::{digest, valid_digest};
 pub use model::{Conflict, Manifest, Snapshot, SyncError, SyncOutcome};
 #[cfg(test)]
 pub use repository::SyncRepository;
-#[cfg(test)]
-pub use resolution::ConflictChoice;
+pub(crate) use resolution::ConflictChoice;
+pub(crate) use model::validate_snapshot;
 pub use resolution::PendingMerge;
 
 pub(super) const MAX_OBJECT_BYTES: usize = 8 * 1024 * 1024;

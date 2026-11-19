@@ -101,7 +101,7 @@ fn validate_id(id: &str) -> Result<(), SyncError> {
     Ok(())
 }
 
-pub(super) fn validate_snapshot(snapshot: &Snapshot) -> Result<(), SyncError> {
+pub(crate) fn validate_snapshot(snapshot: &Snapshot) -> Result<(), SyncError> {
     if snapshot.len() > MAX_RECORDS {
         return Err(SyncError::TooLarge);
     }

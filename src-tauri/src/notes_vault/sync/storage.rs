@@ -7,7 +7,7 @@ use cap_std::{
 use std::io::{Read, Write};
 use std::path::Component;
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct Identity {
     device: u64,
     file: u64,

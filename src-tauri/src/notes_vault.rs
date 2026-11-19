@@ -18,9 +18,10 @@ mod relocation_tests;
 mod chapter_page;
 mod trash_guard;
 mod trash_metadata;
-#[cfg_attr(not(test), allow(dead_code))] // Awaiting sync settings and credentials integration.
+#[cfg_attr(not(test), allow(dead_code))] // Standalone conflict/transaction helpers are also exercised by focused tests.
 mod sync;
-pub(crate) use sync::{BaselineUpdate, Transfer};
+pub(crate) use sync::{BaselineUpdate, Transfer, TransferBinding};
+pub(crate) use sync::conflicts;
 
 use base64::Engine;
 use chrono::{SecondsFormat, Utc};

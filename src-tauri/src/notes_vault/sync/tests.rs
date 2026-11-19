@@ -87,3 +87,5 @@ mod transport;
 mod hardening;
 
 mod caller_guard;
+
+mod conflicts;
