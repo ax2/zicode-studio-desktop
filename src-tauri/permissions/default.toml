@@ -5,6 +5,11 @@
 # the [default] set, which the capability references.
 
 [[permission]]
+identifier = "allow-notes-sync-conflicts"
+description = "Allow a trusted workspace to inspect captured Notes conflicts and explicitly commit complete choices locally."
+commands.allow = ["notes_sync_conflicts"]
+
+[[permission]]
 identifier = "allow-notes-sync-task"
 description = "Allow a trusted, workspace-bound desktop window to explicitly start, inspect or cancel saved-note sync."
 commands.allow = ["notes_sync_task"]
@@ -429,6 +434,7 @@ permissions = [
   "allow-scene-credential-status",
   "allow-notes-sync-settings",
   "allow-notes-sync-task",
+  "allow-notes-sync-conflicts",
   "allow-send-desktop-notification",
   "allow-publish-notes-notebook",
   "allow-list-workspaces",

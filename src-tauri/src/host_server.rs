@@ -42,6 +42,8 @@ mod manual_tool_catalog;
 mod model_tools_http;
 mod notes_create;
 mod notes_sync_task;
+mod notes_sync_repository;
+mod notes_sync_review;
 #[cfg(windows)]
 mod novel_notes;
 mod plugin_call_lifecycle;

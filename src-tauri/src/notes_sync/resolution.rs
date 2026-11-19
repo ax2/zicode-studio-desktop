@@ -7,13 +7,26 @@ pub enum ConflictChoice {
     Remote,
 }
 
+pub(crate) struct SavedConflict {
+    pub workspace_id: String,
+    pub local_revision: String,
+    pub baseline_digest: String,
+    pub binding: crate::notes_vault::TransferBinding,
+}
+
 pub struct PendingMerge {
     pub conflicts: Vec<super::Conflict>,
     pub(super) automatic: Snapshot,
     pub(super) head: Manifest,
+    pub(crate) remote_snapshot: Snapshot,
+    pub(crate) saved: Option<SavedConflict>,
 }
 
 impl PendingMerge {
+    pub(crate) fn automatic_record(&self, id: &str) -> Option<&[u8]> {
+        self.automatic.get(id).map(Vec::as_slice)
+    }
+
     /// Every conflict needs an explicit decision. The caller may edit the
     /// resolved snapshot before another synchronize; a newly changed remote
     /// still goes through normal three-way merge and conditional commit.

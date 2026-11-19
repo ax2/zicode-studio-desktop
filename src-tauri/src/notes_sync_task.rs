@@ -1,5 +1,7 @@
 //! Explicit desktop-only saved-note sync. No automatic startup or timer.
+mod reviews;
 mod state;
+pub(crate) use reviews::ReviewContext;
 use serde::{Deserialize, Serialize};
 pub(crate) use state::{Runs, Status};
 use tauri::{Manager, WebviewWindow};
@@ -47,28 +49,30 @@ impl Request {
     }
 }
 
+pub(crate) fn require_scope(window: &WebviewWindow, workspace: &str) -> Result<(), String> {
+    crate::require_workspace_window(window)?;
+    let windows = window
+        .try_state::<crate::WindowWorkspaceState>()
+        .ok_or("notes_sync_workspace_unavailable")?;
+    if windows
+        .0
+        .lock()
+        .map_err(|_| "notes_sync_workspace_unavailable")?
+        .get(window.label())
+        .map(String::as_str)
+        != Some(workspace)
+    {
+        return Err("notes_sync_workspace_unavailable".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub(crate) async fn notes_sync_task(
     window: WebviewWindow,
     request: Request,
 ) -> Result<Status, String> {
-    crate::require_workspace_window(&window)?;
-    let workspace = request.scope().0;
-    {
-        let windows = window
-            .try_state::<crate::WindowWorkspaceState>()
-            .ok_or("notes_sync_workspace_unavailable")?;
-        if windows
-            .0
-            .lock()
-            .map_err(|_| "notes_sync_workspace_unavailable")?
-            .get(window.label())
-            .map(String::as_str)
-            != Some(workspace)
-        {
-            return Err("notes_sync_workspace_unavailable".into());
-        }
-    }
+    require_scope(&window, request.scope().0)?;
     let host = window
         .try_state::<crate::host_server::HostServer>()
         .ok_or("notes_sync_workspace_unavailable")?;

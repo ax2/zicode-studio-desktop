@@ -1,5 +1,6 @@
 //! Saved Notes projection and recoverable local application, independent of
 //! network transport. Only a workspace-scoped, locked vault can use it.
+pub(crate) mod conflicts;
 mod records;
 mod snapshot;
 mod storage;
@@ -8,7 +9,7 @@ mod tests;
 mod transaction;
 mod transfer;
 
-pub(crate) use transfer::{BaselineUpdate, Transfer};
+pub(crate) use transfer::{BaselineUpdate, Transfer, TransferBinding};
 
 use super::*;
 use crate::notes_sync::Snapshot as RecordMap;

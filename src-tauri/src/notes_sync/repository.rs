@@ -1,3 +1,5 @@
+mod review;
+
 use super::{
     crypto::digest,
     merge::merge,
@@ -118,7 +120,7 @@ impl SyncRepository {
             () = cancel.cancelled() => Err(SyncError::Cancelled),
             result = run => result,
         };
-        let outcome = match result {
+        let mut outcome = match result {
             Err(SyncError::RateLimited {
                 retry_after_seconds,
             }) => {
@@ -132,6 +134,14 @@ impl SyncRepository {
         let _current = self.lock_current()?;
         if cancel.is_cancelled() {
             return Err(SyncError::Cancelled);
+        }
+        if let SyncOutcome::Conflicts(pending) = &mut outcome {
+            pending.saved = Some(super::resolution::SavedConflict {
+                workspace_id: workspace_id.to_owned(),
+                local_revision: local.revision.clone(),
+                baseline_digest: Self::manifest_digest(&base)?,
+                binding: transfer.binding()?,
+            });
         }
         if let SyncOutcome::Synced { manifest, snapshot } = &outcome {
             let vault = storage.scope_for_sync(workspace_id)?;
@@ -148,6 +158,12 @@ impl SyncRepository {
             })?;
         }
         Ok(outcome)
+    }
+
+    fn manifest_digest(manifest: &Manifest) -> Result<String, SyncError> {
+        serde_json::to_vec(manifest)
+            .map(|bytes| digest(&bytes))
+            .map_err(|_| SyncError::InvalidData)
     }
 
     fn load_baseline(&self, transfer: &Transfer) -> Result<Manifest, SyncError> {
@@ -244,6 +260,8 @@ impl SyncRepository {
                 conflicts: merged.conflicts,
                 automatic: merged.snapshot,
                 head: remote,
+                remote_snapshot: downloaded,
+                saved: None,
             })));
         }
         validate_snapshot(&merged.snapshot)?;
