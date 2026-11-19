@@ -99,6 +99,12 @@ try{
   assert.equal(bundle.length,368501225);
   assert.equal(createHash('sha256').update(bundle).digest('hex'),'e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c');
   pass('retry verified the exact 368501225-byte public Windows NSIS before installation');
+  await ui.getByRole('button',{name:/Discard update|取消本次更新/}).click();
+  await until('verified candidate removed',async()=>!(await readdir(store)).includes(installedBundle));
+  assert.equal(app.exitCode,null);
+  pass('discarding the verified full update deletes its candidate and keeps Studio running');
+  await btn.click();
+  await until('redownload after discarding',async()=>/Install and exit|安装并退出/.test(await btn.innerText()),300000);
   await btn.click({noWaitAfter:true}).catch(e=>{if(!/closed|destroyed/i.test(e.message))throw e;});
   await until('original Studio exited normally',()=>app.exitCode===0,90000);
   const r=await until('post-install handoff receipt',async()=>JSON.parse(await readFile(path.join(store,'result.json'),'utf8')),240000);
