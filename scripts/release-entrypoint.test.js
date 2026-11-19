@@ -56,7 +56,10 @@ function repo() {
   put("src-tauri/Cargo.lock", '[[package]]\nname = "zicode-studio-desktop"\nversion = "0.6.7"\n');
   put("bun.lock", "");
   put("docs/releases/v0.6.7.md", "Frozen release notes");
-  put("docs/releases/v0.6.7.issues.json", '{"milestones":["v0.6.7"]}');
+  put(
+    "docs/releases/v0.6.7.issues.json",
+    JSON.stringify({ milestones: ["v0.6.7"], extraCompleted: [], known: [], exclude: {} }),
+  );
   git("add", ".");
   git("commit", "--quiet", "-m", "Freeze candidate");
   let bash = "bash";
