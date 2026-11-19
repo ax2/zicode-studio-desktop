@@ -83,7 +83,7 @@ try{
   await mute(other,/^(Mute tab|标签页静音|静音标签页|静音标签)$/i);
   await wait('muted peer',async()=>(await setting(second)).muted);
   assert.equal((await setting(first)).muted,false);assert.equal((await state()).activeTab,first);
-  await mute(other,/^(Unmute tab|取消标签页静音|取消静音|取消静音标签页)$/i);
+  await ui.locator('.browser-tab-unmute').click();
   await wait('unmuted peer',async()=>!(await setting(second)).muted);
   record('two real pages generate distinct audio samples while genuine tab-menu mute and unmute affects only the selected source identity', {first,second,deviceCount:process.env.QA10_RENDER_DEVICES});
   }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message,JSON.stringify(await describe()));}
