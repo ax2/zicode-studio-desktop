@@ -105,7 +105,16 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     }
   }
   const note = document.createElement("p");
-  setLabel(note, capture.page.truncated ? "Page content was shortened" : "Content read locally. Nothing has been sent to AI.");
+  const notices = [];
+  if (capture.page.textTruncated ?? capture.page.truncated) notices.push("Page content was shortened");
+  if (capture.page.selectionTruncated) notices.push("Selected text was shortened");
+  if (!notices.length) notices.push("Content read locally. Nothing has been sent to AI.");
+  for (const key of notices) {
+    const label = document.createElement("span");
+    setLabel(label, key);
+    if (note.childNodes.length) note.append(" ");
+    note.append(label);
+  }
   const close = document.createElement("button"); close.type = "button"; close.className = "ui-button ui-button--primary";
   setLabel(close, "Close");
   close.addEventListener("click", () => { if (!busy) dismiss(true); });

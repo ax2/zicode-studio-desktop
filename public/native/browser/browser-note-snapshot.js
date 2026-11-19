@@ -24,10 +24,12 @@ export function browserNoteContent(capture, selectionOnly = false, { includeLink
   if (!text?.trim() && !links?.length && !tables?.length && !metadata.length && !images.length) {
     throw new Error(t("There is no page text to save."));
   }
+  const shortened = selectionOnly ? capture.page.selectionTruncated : capture.page.textTruncated;
+  const warning = selectionOnly && shortened ? "Selected text was shortened" : "Page content was shortened";
   return [
     `${t("Source")}: ${quotedPageText(capture.page.url)}`,
     `${t("Captured at")}: ${quotedPageText(capture.capturedAt)}`,
-    capture.page.truncated ? t("Page content was shortened") : "",
+    (shortened ?? capture.page.truncated) ? t(warning) : "",
     ...(text?.trim() ? [`## ${t(selectionOnly ? "Selected text" : "Page content")}`, quotedPageText(text)] : []),
     ...(links?.length ? [`## ${t("Page links")}`, ...links.map(({ label, url }) => quotedPageText(label ? `${label} — ${url}` : url))] : []),
     links?.length && capture.page.linksTruncated ? t("Only some page links are shown.") : "",
