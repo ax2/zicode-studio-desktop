@@ -18,6 +18,8 @@ struct Journal {
     transaction: String,
     plans: Vec<Plan>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    order: Option<order::Change>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     baseline: Option<BaselineReceipt>,
 }
 
@@ -120,6 +122,10 @@ impl NotesVault {
         for plan in &journal.plans {
             install(&store, &stage, &transaction, plan, &mut run)?;
         }
+        if let Some(order) = &journal.order {
+            order.apply(&store, true)?;
+            run.tick()?;
+        }
         verify_backups(&store, &stage, &journal)?;
         // Verify the actual saved projection before making the commit durable.
         if snapshot::capture(&store)?.records != *desired {
@@ -214,6 +220,7 @@ fn prepare(
         transaction: transaction.to_string(),
         plans,
         baseline: None,
+        order: order::Change::between(current, desired)?,
     })
 }
 
@@ -298,6 +305,9 @@ fn remove_entry(store: &Storage, path: &Path) -> Result<(), NotesError> {
 }
 
 fn rollback(store: &Storage, stage: &Path, journal: &Journal) -> Result<(), NotesError> {
+    if let Some(order) = &journal.order {
+        order.apply(store, false)?;
+    }
     for plan in journal.plans.iter().rev() {
         let work = stage.join("work").join(&plan.id);
         if !owned(store, &work, &journal.transaction)? {

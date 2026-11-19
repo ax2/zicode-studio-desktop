@@ -4,7 +4,7 @@ export interface ConflictSide {
   text?: string; properties?: string;
 }
 export interface ConflictRow {
-  id: string; kind: "book" | "note" | "attachment"; notebookTitle: string;
+  id: string; kind: "book" | "note" | "attachment" | "order"; notebookTitle: string;
   allowedChoices: ConflictChoice[]; local: ConflictSide; remote: ConflictSide;
 }
 export interface ConflictPage { runId: string; revision: string; total: number; nextCursor: number | null; rows: ConflictRow[] }
@@ -46,7 +46,7 @@ function side(value: unknown): ConflictSide {
 }
 function conflict(value: unknown): ConflictRow {
   const row = object(value), id = text(row.id, 1024);
-  if (!id || !["book", "note", "attachment"].includes(row.kind as string)
+  if (!id || !["book", "note", "attachment", "order"].includes(row.kind as string)
     || !Array.isArray(row.allowedChoices) || row.allowedChoices.length === 0 || row.allowedChoices.length > 3
     || row.allowedChoices.some(choice => !choices.has(choice)) || new Set(row.allowedChoices).size !== row.allowedChoices.length) throw Error("notes_sync_review_invalid");
   return { id, kind: row.kind as ConflictRow["kind"], notebookTitle: text(row.notebookTitle),

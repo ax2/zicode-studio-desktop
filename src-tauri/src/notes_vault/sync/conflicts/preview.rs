@@ -66,7 +66,7 @@ fn version(kind: &str, bytes: Option<&[u8]>, full: bool) -> Result<Version, Sync
                 result.text = Some(serde_json::to_string_pretty(&book).map_err(failure)?);
             }
         }
-        "attachment" => {}
+        "attachment" | "order" => {}
         _ => return Err(SyncError::InvalidData),
     }
     Ok(result)
@@ -83,6 +83,35 @@ fn row(
         .find(|entry| entry.id == id)
         .ok_or(SyncError::InvalidData)?;
     let parsed = key(id)?;
+    if parsed.kind == "order" {
+        let side = |bytes: Option<&[u8]>, records: &Snapshot| -> Result<Version, SyncError> {
+            let mut side = version("order", bytes, full)?;
+            if let Some(bytes) = bytes {
+                let ids = order::parse(bytes).map_err(failure)?;
+                if full {
+                    let mut names = Vec::new();
+                    for id in ids {
+                        if let Some(bytes) = records.get(&format!("book/{id}")) {
+                            let book: Book = decode(bytes).map_err(failure)?;
+                            if !book.deleted {
+                                names.push(book.title);
+                            }
+                        }
+                    }
+                    side.text = Some(names.join("\n"));
+                }
+            }
+            Ok(side)
+        };
+        return Ok(Detail {
+            id: id.into(),
+            kind: "order".into(),
+            notebook_title: String::new(),
+            allowed_choices: allowed_choices(pending, id)?,
+            local: side(conflict.local.as_deref(), local)?,
+            remote: side(conflict.remote.as_deref(), &pending.remote_snapshot)?,
+        });
+    }
     let book_key = format!("book/{}", parsed.book);
     let book = local
         .get(&book_key)

@@ -173,6 +173,11 @@ pub(super) fn capture(store: &Storage) -> Result<SyncCapture, NotesError> {
             }
         }
     }
+    if let Some(order) = order::read(store)? {
+        let bytes = encode(&order)?;
+        revisions.insert(format!("{}:{:x}", order::KEY, Sha256::digest(&bytes)));
+        insert(&mut records, &mut remaining, order::KEY.to_owned(), bytes)?;
+    }
     records::books(&records)?;
     let total = records
         .values()

@@ -112,6 +112,82 @@ impl Pair {
 }
 
 #[tokio::test]
+async fn notebook_order_round_trips_and_concurrent_orders_are_resolved_as_a_single_choice() {
+    let mut pair = Pair::new().await;
+    let b = pair
+        .local
+        .vault
+        .create_notebook("Blue", None, None)
+        .unwrap()
+        .id;
+    let c = pair
+        .local
+        .vault
+        .create_notebook("Coral", None, None)
+        .unwrap()
+        .id;
+    let original = vec![pair.book.clone(), b.clone(), c.clone()];
+    assert!(pair.local.vault.stored_notebook_order().unwrap().is_none());
+    pair.local
+        .vault
+        .save_notebook_order(None, &original)
+        .unwrap();
+    sync(&pair.local_repo, &mut pair.local).await.unwrap();
+    sync(&pair.remote_repo, &mut pair.remote).await.unwrap();
+    assert_eq!(
+        pair.remote.vault.stored_notebook_order().unwrap().as_ref(),
+        Some(&original)
+    );
+    let local = vec![b.clone(), pair.book.clone(), c.clone()];
+    let remote = vec![c, b, pair.book.clone()];
+    pair.local
+        .vault
+        .save_notebook_order(Some(&original), &local)
+        .unwrap();
+    assert!(pair
+        .local
+        .vault
+        .save_notebook_order(Some(&original), &remote)
+        .is_err());
+    pair.remote
+        .vault
+        .save_notebook_order(Some(&original), &remote)
+        .unwrap();
+    let pending = pair.conflict().await;
+    assert_eq!(pending.conflicts.len(), 1);
+    let storage = storage(&mut pair.local);
+    let detail = pair
+        .local_repo
+        .conflict_detail(&storage, &pair.local.workspace_id, &pending, order::KEY)
+        .unwrap();
+    assert_eq!(detail.kind, "order");
+    assert_eq!(
+        detail.local.text.as_deref(),
+        Some("Blue\n同步笔记本\nCoral")
+    );
+    assert_eq!(
+        detail.remote.text.as_deref(),
+        Some("Coral\nBlue\n同步笔记本")
+    );
+    assert!(!detail.allowed_choices.contains(&Choice::Both));
+    let choices = BTreeMap::from([(order::KEY.to_string(), Choice::Remote)]);
+    pair.local_repo
+        .apply_saved_choices(
+            &storage,
+            &pair.local.workspace_id,
+            &pending,
+            &choices,
+            CopyLocale::ZhCn,
+        )
+        .unwrap();
+    pair.local.restart();
+    assert_eq!(
+        pair.local.vault.stored_notebook_order().unwrap(),
+        Some(remote)
+    );
+}
+
+#[tokio::test]
 async fn both_real_note_versions_and_same_attachment_id_are_isolated_and_upload_only_on_next_manual_sync(
 ) {
     let mut pair = Pair::new().await;
@@ -493,7 +569,8 @@ async fn replacement_transfer_identity_and_write_failures_preserve_complete_save
         if after.records == before.records {
             rolled_back += 1;
         } else if after.records == desired {
-            committed += 1; break;
+            committed += 1;
+            break;
         }
         assert!(
             after.records == before.records || after.records == desired,

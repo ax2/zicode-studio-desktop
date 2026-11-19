@@ -6,6 +6,8 @@ fn every_install_checkpoint_recovers_old_data_or_committed_new_data_after_reopen
     let book = source.book();
     let note = source.note(&book.id);
     let old = source.vault.capture_sync().unwrap().records;
+    // The first order record and the edited note must commit or recover together.
+    source.vault.save_notebook_order(None, &[book.id.clone()]).unwrap();
     source
         .vault
         .save_note(
@@ -19,7 +21,7 @@ fn every_install_checkpoint_recovers_old_data_or_committed_new_data_after_reopen
         )
         .unwrap();
     let new = source.vault.capture_sync().unwrap().records;
-    for checkpoint in 1..=14 {
+    for checkpoint in 1..=15 {
         let mut target = Fixture::new();
         let initial = target.vault.capture_sync().unwrap();
         target.vault.apply_sync(&initial.revision, &old).unwrap();

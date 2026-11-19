@@ -43,6 +43,7 @@ export interface Notebook {
 }
 
 export interface NotesSnapshot {
+  notebookOrder?: string[] | null;
   notebooks: Notebook[];
   notes: NoteSummary[];
   tags: string[];

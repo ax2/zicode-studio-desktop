@@ -2,6 +2,7 @@ import { t } from "../../shared/i18n";
 import type { ConflictRow, ConflictSide } from "./notes-sync-conflict-state";
 
 export function conflictTitle(row: ConflictRow): string {
+  if (row.kind === "order") return t("Notebook order");
   return row.local.title || row.remote.title || t(row.kind === "book" ? "Notebook" : row.kind === "note" ? "Note" : "Attachment");
 }
 export function ConflictVersion({ label, side, attachment = false }: { label: string; side: ConflictSide; attachment?: boolean }) {

@@ -5123,6 +5123,8 @@ const zhCN = {
   "Each notebook is a readable Astro-compatible Markdown vault.":
     "每个笔记本都是可直接阅读、兼容 Astro 的 Markdown 内容库。",
   "Notebook name": "笔记本名称",
+  "Notebook order": "笔记本顺序",
+  "Notebook order changed. Reload the notebooks before trying again.": "笔记本顺序已变更，请刷新后重试。",
   "My Notes": "我的笔记",
   "Capture web page": "采集网页",
   "Capturing…": "正在采集…",

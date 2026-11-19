@@ -937,6 +937,7 @@ impl HostServer {
             .route("/v2/notes/changes", get(list_note_changes))
             .route("/v2/notes/notebooks", post(create_notebook))
             .route("/v2/notes/notebooks/update", post(update_notebook))
+            .route("/v2/notes/notebooks/order", post(save_notebook_order))
             .route("/v2/notes/notebooks/delete", post(delete_notebook))
             .route("/v2/notes/move", post(move_note))
             .route("/v2/notes/note", get(get_note))
@@ -2335,6 +2336,14 @@ struct DeleteNotebookRequest {
     scene_id: String,
     notebook_id: String,
 }
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct NotebookOrderRequest {
+    workspace_id: String,
+    scene_id: String,
+    expected_order: Option<Vec<String>>,
+    order: Vec<String>,
+}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -2755,6 +2764,19 @@ async fn update_notebook(
         )
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "notebook": notebook })))
+}
+
+async fn save_notebook_order(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<NotebookOrderRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes.scoped(&request.workspace_id).map_err(notes_api_error)?;
+    scoped
+        .save_notebook_order(request.expected_order.as_deref(), &request.order)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "saved": true })))
 }
 
 async fn delete_notebook(
@@ -6498,7 +6520,7 @@ fn notes_api_error(error: NotesError) -> (StatusCode, Json<Value>) {
     let status = match error.code {
         "invalid_parameters" => StatusCode::BAD_REQUEST,
         "notebook_not_found" | "note_not_found" | "attachment_not_found" => StatusCode::NOT_FOUND,
-        "version_conflict" | "conflict" | "notes_storage_busy" => StatusCode::CONFLICT,
+        "version_conflict" | "conflict" | "notes_storage_busy" | "notebook_order_changed" => StatusCode::CONFLICT,
         "payload_too_large" | "quota_exceeded" => StatusCode::PAYLOAD_TOO_LARGE,
         "permission_denied" => StatusCode::FORBIDDEN,
         "capture_blocked" => StatusCode::FORBIDDEN,

@@ -64,6 +64,7 @@ export interface NotesGatewayLike {
     };
   }>;
   createNotebook(sceneId: string, workspaceId: string, params: { title: string; icon?: string; parentId?: string | null }): Promise<{ notebook: Notebook }>;
+  saveNotebookOrder?(sceneId: string, workspaceId: string, expectedOrder: string[] | null, order: string[]): Promise<unknown>;
   updateNotebook(sceneId: string, workspaceId: string, params: { notebookId: string; title: string; icon: string; parentId?: string | null }): Promise<unknown>;
   deleteNotebook(sceneId: string, workspaceId: string, notebookId: string): Promise<unknown>;
   create(sceneId: string, workspaceId: string, notebookId: string, params: { title: string; content?: string; tags?: string[]; icon?: string }): Promise<{ note: Note }>;
@@ -291,9 +292,37 @@ export function createNotesStore(options: NotesStoreOptions) {
   let recovery!: ReturnType<typeof createNoteDraftRecovery>;
   const operationScope = createNotesOperationScope(getTarget);
   let activeTarget = JSON.stringify([sceneId(), workspaceId()]);
+  const orderSession = () => ({ saved: undefined as string[] | null | undefined, pending: 0, revision: 0, triedMigration: false, tail: Promise.resolve() });
+  let ordering = orderSession();
 
   const store = create<NotesState>()((set, get) => {
     const guard = createEditorTransition({ get, set, capture: operationScope.capture, localize: localizeNotesHostError });
+    function persistOrder(ids: string[]) {
+      const session = ordering;
+      const scope = operationScope.capture();
+      const save = gateway.saveNotebookOrder;
+      if (!save || session.saved === undefined) return;
+      const revision = ++session.revision;
+      session.pending++;
+      session.tail = session.tail.then(async () => {
+        try {
+          if (session.saved === undefined) return;
+          await save.call(gateway, scope.sceneId, scope.workspaceId, session.saved, ids);
+          session.saved = ids;
+          if (scope.isCurrent()) writeNotebookLayout(layoutScope(), [], get().expandedNotebookIds);
+        } catch (error) {
+          // A second window or sync may have won this write. Reload its order;
+          // queued drags must never overwrite it using a newly fetched baseline.
+          session.saved = undefined;
+          if (scope.isCurrent()) {
+            notify(localizeNotesHostError(error).message);
+          }
+        } finally {
+          session.pending--;
+          if (scope.isCurrent() && revision === session.revision && session.saved === undefined) await get().load();
+        }
+      });
+    }
     recovery = createNoteDraftRecovery({ get, set, capture: operationScope.capture, repository: options.draftRepository ?? createNoteDraftRepository(), guard, gateway, download: downloadFile, notify });
     const editorSave = createNoteEditorSave({ get, set, gateway, capture: operationScope.capture, notify, localize: localizeNotesHostError });
     shortcuts = createNoteShortcuts({ get, set, capture: operationScope.capture, gateway, repository: options.shortcutRepository ?? createShortcutRepository(), notify });
@@ -360,6 +389,8 @@ export function createNotesStore(options: NotesStoreOptions) {
       const state = get();
       const scope = operationScope.capture();
       const request = ++loadSequence;
+      const orderRevision = ordering.revision;
+      const orderIdleAtStart = ordering.pending === 0;
       const current = () => scope.isCurrent() && request === loadSequence;
       set({ loading: true, error: null });
       try {
@@ -385,8 +416,18 @@ export function createNotesStore(options: NotesStoreOptions) {
         if (!((preserveSelection || selectionChanged) && selectedNote)) {
           if (!live.dirty) selectedNote = null;
         }
-        snapshot.notebooks = orderNotebooks(snapshot.notebooks, get().notebookOrder);
-        set({ snapshot, selectedNotebookId, selectedNote });
+        let ranks = live.notebookOrder;
+        const freshOrder = orderIdleAtStart && !ordering.pending && orderRevision === ordering.revision && snapshot.notebookOrder !== undefined;
+        if (freshOrder) {
+          ordering.saved = snapshot.notebookOrder;
+          ranks = snapshot.notebookOrder ?? readNotebookLayout(layoutScope()).notebookOrder;
+        }
+        snapshot.notebooks = orderNotebooks(snapshot.notebooks, ranks);
+        set({ snapshot, selectedNotebookId, selectedNote, notebookOrder: ranks });
+        if (freshOrder && ordering.saved === null && !ordering.triedMigration && ranks.some(id => snapshot.notebooks.some(book => book.id === id))) {
+          ordering.triedMigration = true;
+          persistOrder(snapshot.notebooks.map(book => book.id));
+        }
       } catch (error) {
         if (current()) set({ error: localizeNotesHostError(error) });
       } finally {
@@ -571,7 +612,11 @@ export function createNotesStore(options: NotesStoreOptions) {
     reorderNotebook(sourceId, targetId, after = false) {
       const snapshot = get().snapshot;
       const notebooks = reorderNotebooks(snapshot.notebooks, sourceId, targetId, after);
-      if (notebooks !== snapshot.notebooks) set({ snapshot: { ...snapshot, notebooks }, notebookOrder: notebooks.map(book => book.id) });
+      if (notebooks !== snapshot.notebooks) {
+        const ids = notebooks.map(book => book.id);
+        set({ snapshot: { ...snapshot, notebooks }, notebookOrder: ids });
+        persistOrder(ids);
+      }
     },
     toggleNotebookExpanded(id, force) {
       const expanded = new Set(get().expandedNotebookIds);
@@ -628,6 +673,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       const nextTarget = JSON.stringify([sceneId(), workspaceId()]);
       if (nextTarget === activeTarget) return;
       activeTarget = nextTarget;
+      ordering = orderSession();
       operationScope.invalidate();
       get().invalidateCaptureView();
       recovery.switchTarget();
@@ -670,7 +716,7 @@ export function createNotesStore(options: NotesStoreOptions) {
 
   stopLayoutWatch = store.subscribe((state, previous) => {
     if (state.expandedNotebookIds !== previous.expandedNotebookIds || state.notebookOrder !== previous.notebookOrder)
-      writeNotebookLayout(layoutScope(), state.notebookOrder, state.expandedNotebookIds);
+      writeNotebookLayout(layoutScope(), Array.isArray(ordering.saved) ? [] : state.notebookOrder, state.expandedNotebookIds);
   });
   stopDraftWatch = store.subscribe((state, previous) => recovery.observe(state, previous));
   stopDraftLifecycle = recovery.listen();
@@ -704,6 +750,7 @@ export function localizeNotesHostError(error: unknown): Error {
   const importError = notesImportError(error);
   if (importError) return importError;
   const code = (error as Error & { code?: string }).code;
+  if (code === "notebook_order_changed") return new Error(t("Notebook order changed. Reload the notebooks before trying again."));
   if (code === "version_conflict") return Object.assign(new Error(t("This note changed elsewhere. Reload the saved version; your edits will stay in local recovery.")), { code });
   if (code === "permission_denied" && /network/i.test(error.message)) {
     return new Error(
