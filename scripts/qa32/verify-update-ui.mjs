@@ -64,24 +64,27 @@ try{
   const calls=new Set(['check_desktop_update','install_desktop_update','restart_desktop_after_update','cancel_desktop_update']);
   ui.on('request',req=>{const name=new URL(req.url()).pathname.split('/').at(-1);if(calls.has(name))seen.push(name);});
   await ui.exposeBinding('recordUpdate32',(_,name)=>seen.push(name));
-  await ui.evaluate(()=>{
-    const ipc=window.__TAURI_INTERNALS__,original=ipc.invoke;
+  await ui.addInitScript(()=>{
+    const ipc=window.__TAURI_INTERNALS__,original=ipc?.invoke;
     const names=new Set(['check_desktop_update','install_desktop_update','restart_desktop_after_update','cancel_desktop_update']);
     const observer=new PerformanceObserver(list=>{for(const entry of list.getEntries()){const name=new URL(entry.name).pathname.split('/').at(-1);if(names.has(name))window.recordUpdate32(name);}});
     observer.observe({type:'resource',buffered:true});
-    if(!Object.getOwnPropertyDescriptor(ipc,'invoke')?.writable)return;
+    if(!ipc||!Object.getOwnPropertyDescriptor(ipc,'invoke')?.writable)return;
     ipc.invoke=function(name,...args){if(['check_desktop_update','install_desktop_update','restart_desktop_after_update','cancel_desktop_update'].includes(name))window.recordUpdate32(name);return original.call(this,name,...args);};
   });
+  await ui.reload({waitUntil:'domcontentloaded'});
+  await ui.waitForFunction(()=>!!window.__picotNative,{},{timeout:55000});
   await ui.locator('[data-plugin-id="core.commands"]').click();
   const field=ui.locator('#command-palette [role=combobox]');
   const zh=await ui.evaluate(()=>document.documentElement.lang.startsWith('zh'));
   await field.fill(zh?'设置':'Settings');
-  const opt=ui.locator('#command-palette [role=option]').filter({hasText:zh?'设置':'Settings'});
+  const opt=ui.locator('#command-palette [role=option]').filter({has:ui.locator('.command-label',{hasText:zh?/^设置$/:/^Settings$/})});
   await opt.first().click();
   await ui.locator('[data-settings-tab="updates"]').click();
   const btn=ui.locator('#btn-check-updates'),status=ui.locator('#setting-update-status');
   assert.match(await ui.locator('#setting-app-version-value').innerText(),/0\.6\.1/);
-  await btn.click();
+  await until('initial version read',()=>btn.isEnabled());
+  if(await btn.getAttribute('data-mode')==='check')await btn.click();
   await until('real stable metadata',async()=>(await status.innerText()).includes('0.6.2'),65000);
   assert.ok((await ui.locator('[data-settings-panel=updates] details p').textContent()).trim().length>0);
   pass('production settings shows current 0.6.1, public 0.6.2 and nonempty release notes');
