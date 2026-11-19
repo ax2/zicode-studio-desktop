@@ -121,6 +121,16 @@ try{
   assert.equal(await load(secondary,'other-custom'),other);assert.equal(await pref(ui),marker);
   await invoke(secondary,'browser_window_command',{action:'close'}).catch(()=>{});
   record('two named/default browser profiles with different server-observed headers share a single isolated installation');
+  async function privateWindow(){
+    await invoke(ui,'browser_window_command',{action:'private'});
+    return wait('private workspace',async()=>{for(const page of browser.contexts().flatMap(c=>c.pages())){if(!page.url().includes('/app/workspaces/'))continue;try{if((await state(page)).private)return page}catch{}}});
+  }
+  let priv=await privateWindow();await priv.locator('.studio-browser[aria-busy=false]').waitFor();assert.equal(await pref(priv),null);
+  assert.equal(await load(priv,'private-default'),baseline);await configure(priv,'QA179-Private/1.0');assert.equal(await load(priv,'private-custom'),'QA179-Private/1.0');
+  await invoke(priv,'browser_window_command',{action:'close'}).catch(()=>{});await wait('private window closed',()=>priv.isClosed());
+  priv=await privateWindow();await priv.locator('.studio-browser[aria-busy=false]').waitFor();assert.equal(await pref(priv),null);
+  assert.equal(await load(priv,'private-reopened'),baseline);await invoke(priv,'browser_window_command',{action:'close'}).catch(()=>{});assert.equal(await pref(ui),marker);
+  record('private User-Agent exists only for its window; fresh private window sent engine default and regular preference was unchanged');
   const old=app.pid,exited=new Promise(resolve=>app.once('exit',resolve));app.kill();await exited;app=spawn(process.env.STUDIO_Q35_EXE,['--isolated-profile',profile],{env,stdio:'ignore'});assert.notEqual(old,app.pid);
   const recovered=await wait('restarted Studio',async()=>{try{const b=await chromium.connectOverCDP(await endpoint('webview'),{timeout:3000});for(const p of b.contexts().flatMap(c=>c.pages())){if(p.url().includes('/app/workspaces/')&&(await pref(p))===marker)return {b,p}}}catch{}});
   browser=recovered.b;const p=recovered.p;await p.locator('.studio-browser[aria-busy=false]').waitFor();assert.equal(await load(p,'after-restart'),marker);
