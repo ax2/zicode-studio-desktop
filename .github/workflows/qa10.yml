@@ -1,7 +1,7 @@
 name: Isolated Windows shell acceptance
 on:
   push:
-    branches: [codex/qa13-reader]
+    branches: [codex/qa13-print]
     paths: ['.github/workflows/qa10.yml', 'scripts/qa/shell35/**']
 permissions:
   contents: read
@@ -17,14 +17,23 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
-          artifact-ids: 14494219496
-          run-id: 44448986884
+          name: browser13-test-app
+          run-id: 44464736983
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/from067
           merge-multiple: true
       - name: Prepare the already accepted production shell with its test version label
         run: ./scripts/qa/shell35/prepare.ps1
-      - name: Exercise the actual native PDF viewer and pagination
+      - name: Prepare isolated Windows print service and record queue baseline
+        run: |
+          Start-Service Spooler
+          $printers=@(Get-Printer)
+          Write-Output ("Available test printers: "+($printers.Name -join ", "))
+          $jobs=@($printers | ForEach-Object {Get-PrintJob -PrinterName $_.Name -ErrorAction SilentlyContinue})
+          if($jobs.Count){throw 'Expected an empty queue on this disposable Windows machine'}
+      - name: Exercise PDF and HTML system print dialogs without submitting print jobs
+        env:
+          QA13_PRINT: '1'
         working-directory: scripts/qa/shell35
         run: |
           $driver=Join-Path $env:RUNNER_TEMP 'shell-driver'
@@ -34,3 +43,9 @@ jobs:
           npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
           if($LASTEXITCODE){exit $LASTEXITCODE}
           node qa.mjs
+
+      - name: Verify printer queues remain empty
+        if: always()
+        run: |
+          $jobs=@(Get-Printer|ForEach-Object {Get-PrintJob -PrinterName $_.Name -ErrorAction SilentlyContinue})
+          if($jobs.Count){throw "Unexpected print jobs: $($jobs.Count)"}
