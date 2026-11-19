@@ -21,6 +21,10 @@ fn named_profiles_do_not_replace_the_legacy_profile_or_cross_persistent_windows(
     store.bind_profile("new-window",&id).unwrap();
     assert!(store.bind_profile("other","../invalid").is_err());
     assert!(store.add_profile("研究用").is_err());
+    store.insert_browser_window("primary","already-open").unwrap();
+    assert!(store.register_profile_window("primary","already-open",None,Some("rollback")).is_err());
+    assert_eq!(store.profiles().unwrap().len(),1);
+    assert!(store.profile_for_window("already-open").unwrap().is_none());
     drop(store); let store=Store::open(&path).unwrap();
     assert_eq!(store.state("primary").unwrap().profile_id,default);
     let named=store.state("new-window").unwrap();

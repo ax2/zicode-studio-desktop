@@ -144,16 +144,13 @@ fn execute(
         Action::New | Action::OpenProfile | Action::CreateProfile => {
             let label = format!("{PREFIX}{}", uuid::Uuid::new_v4());
             let profile = match action {
-                Action::CreateProfile => {
-                    Some(store.add_profile(profile_name.as_deref().unwrap_or(""))?)
-                }
+                Action::CreateProfile => None,
                 Action::OpenProfile => profile_id,
                 _ => store.profile_for_window(caller)?.map(|p| p.id),
             };
-            if let Some(profile) = profile {
-                store.bind_profile(&label, &profile)?;
-            }
-            store.insert_browser_window(&parent, &label)?;
+            let name = matches!(action, Action::CreateProfile)
+                .then(|| profile_name.as_deref().unwrap_or(""));
+            store.register_profile_window(&parent, &label, profile.as_deref(), name)?;
             label
         }
         Action::Reopen => {

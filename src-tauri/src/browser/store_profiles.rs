@@ -10,6 +10,21 @@ pub(super) fn create(db: &Connection) -> Result<(), String> {
     db.execute_batch("CREATE TABLE IF NOT EXISTS browser_named_profiles(id TEXT PRIMARY KEY,name TEXT NOT NULL UNIQUE);CREATE TABLE IF NOT EXISTS browser_window_profiles(owner TEXT PRIMARY KEY,profile TEXT NOT NULL);").map_err(|e|e.to_string())
 }
 impl Store {
+    pub(crate) fn register_profile_window(
+        &self,
+        parent: &str,
+        owner: &str,
+        existing: Option<&str>,
+        new_name: Option<&str>,
+    ) -> Result<(), String> {
+        let transaction = self.0.unchecked_transaction().map_err(|e| e.to_string())?;
+        let created = new_name.map(|name| self.add_profile(name)).transpose()?;
+        if let Some(id) = created.as_deref().or(existing) {
+            self.bind_profile(owner, id)?;
+        }
+        self.insert_browser_window(parent, owner)?;
+        transaction.commit().map_err(|e| e.to_string())
+    }
     pub(crate) fn profile_for_window(&self, owner: &str) -> Result<Option<Profile>, String> {
         self.0.query_row("SELECT p.id,p.name FROM browser_window_profiles w JOIN browser_named_profiles p ON p.id=w.profile WHERE w.owner=?1",[owner],|r|Ok(Profile{id:r.get(0)?,name:r.get(1)?})).optional().map_err(|e|e.to_string())
     }
