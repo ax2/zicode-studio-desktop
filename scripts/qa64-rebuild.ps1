@@ -45,6 +45,7 @@ $metadata=[IO.File]::ReadAllText($manifest)
 $metadata=$metadata.Replace('[package]',"[package]`nautobins = false")
 $metadata=[regex]::Replace($metadata,'(?ms)^\[\[bin\]\]\s*name\s*=\s*"zicode-relay".*?(?=^\[|\z)','')
 [IO.File]::WriteAllText($manifest,$metadata)
+[IO.Directory]::Move("$project/src-tauri/src/bin","$env:RUNNER_TEMP/unused-cargo-bins")
 $lockedTools=Join-Path $env:RUNNER_TEMP 'tauri-cli'
 [void][IO.Directory]::CreateDirectory($lockedTools)
 Push-Location $lockedTools
