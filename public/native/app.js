@@ -1266,6 +1266,7 @@ pluginShell = setupPluginShell({
     "com.zicode.mail": setupMailApp(
       request => globalThis.__TAURI__.core.invoke("mail_local", { request }),
       request => globalThis.__TAURI__.core.invoke("mail_alibaba", { workspaceId: target.workspaceId, request }),
+      ({accountId,...request}) => globalThis.__TAURI__.core.invoke("mail_gmail", {accountId,request}),
     ),
     "com.zicode.habits": habitsApp,
     "com.zicode.translate": translationApp,
