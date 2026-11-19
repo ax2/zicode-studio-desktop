@@ -17,7 +17,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: qa64-installer-fixture
-          run-id: 44458395910
+          run-id: 44459510613
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/bundle
       - name: Exercise actual installer on disposable Windows
