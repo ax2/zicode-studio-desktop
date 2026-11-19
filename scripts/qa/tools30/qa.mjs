@@ -29,7 +29,7 @@ try{
   const pending=ui.evaluate(()=>window.__TAURI__.core.invoke('select_developer_plugin_package'));
   pending.catch(()=>{});
   console.log(await native('choose'));
-  const preview=await pending;
+  const preview=await Promise.race([pending,sleep(20000).then(()=>{throw Error('Real folder picker did not return selected fixture')})]);
   assert.equal(preview.pluginId,plugin);
   await ui.evaluate(async({preview,plugin})=>{
     await window.__TAURI__.core.invoke('install_previewed_developer_plugin',{sourcePath:preview.sourcePath,contentSha256:preview.contentSha256});

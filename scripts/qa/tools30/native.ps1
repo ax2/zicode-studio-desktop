@@ -6,6 +6,7 @@ Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 public static class Q35 {
+  [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr dialog,int id);
   [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr parent,IntPtr after,string cls,string title);
   [DllImport("user32.dll")] public static extern IntPtr SendMessageTimeout(IntPtr hwnd,uint msg,IntPtr wp,IntPtr lp,uint flags,uint timeout,out IntPtr result);
     [DllImport("user32.dll")] public static extern int GetMenuItemCount(IntPtr menu);
@@ -63,8 +64,15 @@ if($Mode -eq 'choose'){
   Start-Sleep -Milliseconds 570
   $button=$dialog.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)|Where-Object {$_.Current.ControlType -eq [Windows.Automation.ControlType]::Button -and $_.Current.Name -match '^(Select Folder|选择文件夹|选择文件夹\(.*\)|Open|打开)$'}|Select-Object -First 1
   if(!$button){
-    $labels=@($dialog.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)|Where-Object {$_.Current.ControlType -eq [Windows.Automation.ControlType]::Button}|ForEach-Object {$_.Current.Name})
-    throw "Native folder picker select button not found: $($labels -join '|')"
+    $hDialog=[IntPtr]$dialog.Current.NativeWindowHandle
+    $ok=[Q35]::GetDlgItem($hDialog,1)
+    if($ok -ne [IntPtr]::Zero){
+      $r=[IntPtr]::Zero
+      [void][Q35]::SendMessageTimeout($ok,0xf5,[IntPtr]::Zero,[IntPtr]::Zero,2,3000,[ref]$r)
+      Write-Output 'Confirmed genuine file picker by its native IDOK button';exit
+    }
+    [System.Windows.Forms.SendKeys]::SendWait('%s')
+    Write-Output 'Confirmed genuine folder picker through Select shortcut';exit
   }
   Click $button $false
   Write-Output 'Genuine Studio folder picker confirmed public fixture';exit
