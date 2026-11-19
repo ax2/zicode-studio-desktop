@@ -25,6 +25,8 @@ mod runtime;
 #[cfg(windows)]
 mod native_find;
 #[cfg(windows)]
+mod site_settings;
+#[cfg(windows)]
 mod page_output;
 #[cfg(windows)]
 mod lifecycle;
@@ -48,6 +50,7 @@ pub struct Viewport {
 // Keep the same deserialization contract on platforms without an engine.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub enum Request {
+    SiteSettings { tab: String, #[serde(rename = "expectedOrigin")] expected_origin: String, action: SiteAction },
     Status,
     Fullscreen { enabled: Option<bool> },
     Downloads { before: Option<i64>, query: Option<String> },
@@ -115,6 +118,16 @@ pub enum Request {
     },
 }
 
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(not(windows), allow(dead_code))]
+pub enum SiteAction {
+    List,
+    Revoke { permission: i32, confirmed: bool },
+    ClearStorage { confirmed: bool },
+    ClearHostCookies { confirmed: bool },
+}
+
 #[tauri::command]
 pub(crate) async fn browser_control(
     window: WebviewWindow,
@@ -144,6 +157,7 @@ pub(crate) async fn browser_control(
             let owner = window.label().to_owned();
             Some(
                 tauri::async_runtime::spawn_blocking(move || {
+                    if crate::browser_windows::private(&owner){return crate::browser_private::engine(&owner)}
                     let state = crate::browser_store::Store::open(&root)?.state(&owner)?;
                     Ok::<_, String>(root.join("profiles").join(state.profile_id).join("engine"))
                 })
@@ -154,6 +168,7 @@ pub(crate) async fn browser_control(
             None
         };
         let deadline = match &request {
+            Request::SiteSettings { .. } => Some("Site settings request timed out"),
             Request::FindStart { .. } => Some("Page search timed out"),
             Request::Suspend { .. } => Some("Could not confirm tab suspension"),
             _ => None,
@@ -164,6 +179,7 @@ pub(crate) async fn browser_control(
             // Origin may have changed while the UI-thread job was queued.
             if let Err(error) = crate::require_workspace_window(&window) { let _ = tx.send(Err(error)); return; }
             match request {
+                Request::SiteSettings { tab, expected_origin, action } => runtime::site_settings(&window, &tab, &expected_origin, action, tx),
                 Request::FindStart { tab, text, case_sensitive } => runtime::start_find(&window, tab, text, case_sensitive, tx),
                 Request::Suspend { tab } => runtime::start_suspend(&window, &tab, tx),
                 request => { let _ = tx.send(runtime::execute(&window, profile, request)); }
@@ -189,6 +205,7 @@ pub(crate) fn shutdown_downloads() {
 pub(crate) fn forget_window(label: &str) {
     #[cfg(windows)]
     runtime::forget(label);
+    if crate::browser_windows::private(label){crate::browser_private::finish(label);}
     #[cfg(not(windows))]
     let _ = label;
 }

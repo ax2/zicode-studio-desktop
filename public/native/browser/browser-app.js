@@ -18,8 +18,10 @@ import { createBrowserFind } from "./browser-find.js";
 import { createBrowserPageControls, applyBrowserPageSetting, nextPageZoom, persistBrowserPageSetting } from "./browser-page-controls.js";
 import { browserPinLimit, groupBrowserTabs, moveBrowserTab, setBrowserTabGroup, setupBrowserTabOrdering, toggleBrowserTabPin } from "./browser-tab-order.js";
 import { showBrowserTabGroup } from "./browser-tab-group-dialog.js";
+import { showBrowserProfiles } from "./browser-profiles.js";
 import { showBrowserDownloads } from "./browser-downloads.js";
 import { showBrowserHistory } from "./browser-history.js";
+import { showSiteSettings } from "./browser-site-settings.js";
 import { showBrowserBookmarks } from "./browser-bookmarks.js";
 import { createBrowserSurface } from "./browser-surface.js";
 import { createBrowserOptions } from "./browser-options.js";
@@ -507,6 +509,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (visiblePopup && tabs.some(tab => tab.id === visiblePopup.id)) active = visiblePopup.id;
     active ??= tabs[0]?.id ?? null;
     startup.value = stored.startupMode;
+    const identity=root.querySelector(".browser-profile-identity");
+    identity.textContent=stored.private?t("Private browsing"):stored.profileName??"";
+    identity.hidden=!identity.textContent;
+    root.toggleAttribute("data-private-browser",stored.private===true);
     verticalTabs = stored.verticalTabs === true;
     placeTabStrip();
     searchSettings.initialize(stored.searchEngine);
@@ -705,6 +711,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const go = document.createElement("button");
     go.type = "submit"; go.className = "ui-button ui-button--ghost browser-go"; go.textContent = t("Go");
     nav.append(address, go);
+    const identity=document.createElement("span");identity.className="browser-profile-identity";identity.hidden=true;nav.append(identity);
     nav.addEventListener("submit", event => {
       event.preventDefault();
       const submission = addressEditor.submission();
@@ -770,8 +777,13 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       await syncSurface();
       if (active && pageAvailable(active)) await control({ kind: "action", tab: active, action: "selectAll" });
     }), { reopen: () => act(reopen), canReopen: () => closedTabs.length > 0,
-      windows: action => action === "canReopen" ? invoke("browser_window_command", { action }).catch(() => false) : act(() => invoke("browser_window_command", { action })),
-      bookmarks: () => act(() => openBookmarks(false)), history: () => act(() => openHistory()), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
+      windows: action => action === "canReopen" ? invoke("browser_window_command", { action }).catch(() => false) :
+        action==="profiles" ? act(async()=>{
+          if(tabSearch)return;
+          const profiles=await invoke("browser_list_profiles");await hide(true);
+          if(visible)tabSearch=showBrowserProfiles(profiles,params=>invoke("browser_window_command",params),()=>{tabSearch=null;void run(syncSurface)});
+        }) : act(() => invoke("browser_window_command", { action })),
+      bookmarks: () => act(() => openBookmarks(false)), history: () => act(() => openHistory()), siteSettings: () => act(openSiteSettings), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
       reader: () => act(openReader),
       translateSelection: onTranslateSelection && (() => {
         const source = active;
@@ -919,6 +931,15 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function openHistory(returnToPage) {
     await hide(true);
     showBrowserHistory({ invoke, onOpen: openSavedPage, onClose: () => restorePanelPage(returnToPage) });
+  }
+  async function openSiteSettings() {
+    const tab = active;
+    const origin = new URL((await tabPage(tab)).url).origin;
+    await hide(true);
+    showSiteSettings({
+      origin, request: action => control({ kind: "siteSettings", tab, expectedOrigin: origin, action }),
+      onClose: () => restorePanelPage(tab),
+    });
   }
   async function tabPage(id) {
     const tab = tabs.find(item => item.id === id);
