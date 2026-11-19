@@ -139,6 +139,7 @@ enum ViewStart<'a> {
 }
 
 pub struct NativeBrowserEngine {
+    pub(super) private:bool,
     // Drop native views before their shared browser context.
     pub menu_chinese: Arc<std::sync::atomic::AtomicBool>,
     pub downloads: std::rc::Rc<native_downloads::Downloads>,
@@ -159,6 +160,7 @@ impl NativeBrowserEngine {
     ) -> Result<Self, String> {
         std::fs::create_dir_all(&profile).map_err(|error| error.to_string())?;
         Ok(Self {
+            private:false,
             menu_chinese: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             downloads: native_downloads::Downloads::new(emit.clone()),
             popups: Default::default(),
@@ -247,6 +249,7 @@ impl NativeBrowserEngine {
         let builder = WebViewBuilder::new_with_web_context(&mut self.context);
         let builder = if let Some(environment) = environment { builder.with_environment(environment) } else { builder };
         let view = builder
+            .with_incognito(self.private)
             .with_bounds(initial_bounds)
             .with_visible(false)
             .with_focused(false)
@@ -285,6 +288,14 @@ impl NativeBrowserEngine {
             })
             .build_as_child(&container)
             .map_err(|error| startup_error("create renderer", &error))?;
+        if self.private {
+            use windows::core::{Interface,BOOL};
+            use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_13;
+            let mut enabled=BOOL::default();
+            unsafe{view.controller().CoreWebView2().and_then(|v|v.cast::<ICoreWebView2_13>()).and_then(|v|v.Profile()).and_then(|p|p.IsInPrivateModeEnabled(&mut enabled))}
+                .map_err(|e|startup_error("verify private profile",&e))?;
+            if !enabled.as_bool(){return Err("WebView2 private browsing is unavailable".into())}
+        }
         let view = NativeView {
             suspension: native_suspension::Suspension::new(&view, &events),
             favicon,

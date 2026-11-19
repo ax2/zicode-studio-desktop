@@ -37,6 +37,8 @@ pub struct Session {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct State {
+    pub profile_name: Option<String>,
+    pub private: bool,
     pub vertical_tabs: bool,
     pub search_engine: SearchEngine,
     pub startup_mode: StartupMode,
@@ -52,6 +54,8 @@ mod pins;
 mod groups;
 #[path = "store_windows.rs"]
 mod windows;
+#[path = "store_profiles.rs"]
+pub(crate) mod profiles;
 #[path = "bookmarks.rs"]
 pub mod bookmarks;
 #[path = "history.rs"]
@@ -63,7 +67,12 @@ pub struct Store(Connection);
 impl Store {
     pub fn open(root: &Path) -> Result<Self, String> {
         std::fs::create_dir_all(root).map_err(|e| e.to_string())?;
-        let mut db = Connection::open(root.join("metadata.sqlite3")).map_err(|e| e.to_string())?;
+        Self::initialize(Connection::open(root.join("metadata.sqlite3")).map_err(|e| e.to_string())?)
+    }
+    pub(crate) fn memory()->Result<Self,String>{
+        Self::initialize(Connection::open_in_memory().map_err(|e|e.to_string())?)
+    }
+    fn initialize(mut db:Connection)->Result<Self,String>{
         db.busy_timeout(Duration::from_secs(5))
             .map_err(|e| e.to_string())?;
         db.pragma_update(None, "synchronous", "FULL")
@@ -112,11 +121,12 @@ impl Store {
         );").map_err(|err| err.to_string())?;
         groups::create(&tx)?;
         windows::create(&tx)?;
+        profiles::create(&tx)?;
         tx.commit().map_err(|e| e.to_string())?;
         Ok(Self(db))
     }
     pub fn state(&self, owner: &str) -> Result<State, String> {
-        let (mode, profile_id): (String, String) = self
+        let (mode, default_profile): (String, String) = self
             .0
             .query_row(
                 "SELECT startup,profile FROM browser_preferences WHERE id=1",
@@ -124,7 +134,7 @@ impl Store {
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .map_err(|e| e.to_string())?;
-        uuid::Uuid::parse_str(&profile_id).map_err(|_| "Invalid browser profile identity")?;
+        uuid::Uuid::parse_str(&default_profile).map_err(|_| "Invalid browser profile identity")?;
         let startup_mode = match mode.as_str() {
             "browser" => StartupMode::Browser,
             "workspace" => StartupMode::Workspace,
@@ -147,7 +157,12 @@ impl Store {
         pins::restore(&read, owner, &mut session)?;
         groups::restore(&read, owner, &mut session)?;
         read.commit().map_err(|err| err.to_string())?;
+        let named=self.profile_for_window(owner)?;
+        let profile_id=named.as_ref().map(|p|p.id.clone()).unwrap_or(default_profile);
+        // Profile IDs are directory components, including IDs recovered from older metadata.
+        uuid::Uuid::parse_str(&profile_id).map_err(|_|"Invalid browser profile identity")?;
         Ok(State {
+            profile_name:named.map(|p|p.name),private:crate::browser_windows::private(owner),
             vertical_tabs: self.0.query_row("SELECT COALESCE((SELECT vertical FROM browser_tab_layout WHERE id=1),0)", [], |row| row.get(0))
                 .map_err(|err| err.to_string())?,
             search_engine: self.search_engine()?,

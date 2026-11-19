@@ -107,7 +107,7 @@ pub(super) fn execute(
             {
                 let app = window.app_handle().clone();
                 let owner = window.label().to_owned();
-                let engine = NativeBrowserEngine::new(
+                let mut engine = NativeBrowserEngine::new(
                     profile.ok_or("Browser profile unavailable")?,
                     BrowserPolicy::public_web(),
                     Arc::new(move |event| {
@@ -153,6 +153,7 @@ pub(super) fn execute(
                         );
                     }),
                 )?;
+                engine.private=crate::browser_windows::private(window.label());
                 entry.insert(WindowBrowser { engine, tabs: Vec::new() });
             }
             let browser = windows

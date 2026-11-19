@@ -422,6 +422,7 @@ permissions = [
   "allow-browser-set-search-engine",
   "allow-browser-set-vertical-tabs",
   "allow-browser-window-command",
+  "allow-browser-list-profiles",
   "allow-browser-save-session",
   "allow-browser-bookmarks",
   "allow-browser-bookmark-file",
@@ -555,6 +556,11 @@ commands.allow = ["browser_set_vertical_tabs"]
 identifier = "allow-browser-window-command"
 description = "Open or restore a browser window within the calling Studio window family."
 commands.allow = ["browser_window_command"]
+
+[[permission]]
+identifier = "allow-browser-list-profiles"
+description = "List local browser profile names for the trusted Studio window."
+commands.allow = ["browser_list_profiles"]
 
 [[permission]]
 identifier = "allow-browser-save-session"

@@ -34,6 +34,11 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
       return button;
     };
     addWindowButton("New browser window", "new");
+    addWindowButton("Browser profiles", "profiles").classList.add("browser-regular-option");
+    addWindowButton("New private window", "private").classList.add("browser-regular-option");
+    const privacy=document.createElement("p");privacy.className="browser-private-notice";
+    privacy.textContent=t("Private tabs, browsing history and site data are discarded when this window closes. Files you choose to save are kept.");
+    panel.append(privacy);
     const reopenWindow = addWindowButton("Reopen closed window", "reopen");
     reopenWindow.disabled = true;
     menu.addEventListener("toggle", async () => {

@@ -1,6 +1,6 @@
 //! File choices stay in the native picker. Webpages never receive file paths.
 use super::bookmark_html;
-use crate::browser_store::{bookmarks, Store};
+use crate::browser_store::bookmarks;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{io::{Read, Write}, path::Path};
@@ -48,7 +48,7 @@ pub(crate) async fn browser_bookmark_file(window: WebviewWindow, request: Reques
         Request::Export { expected_revision } => {
             let root = crate::app_paths::data_root()?.join("browser"); let owner = window.label().to_owned();
             let (html, folders, bookmarks) = tauri::async_runtime::spawn_blocking(move || {
-                let library = Store::open(&root)?.bookmarks(&owner, bookmarks::Request::List)?;
+                let library = crate::browser_private::store(&root,&owner,|store|store.bookmarks(&owner, bookmarks::Request::List))?;
                 if library.revision != expected_revision { return Err("Bookmarks changed; reload before saving".to_owned()); }
                 Ok((bookmark_html::export(&library), library.folders.len(), library.bookmarks.len()))
             }).await.map_err(|_| "Bookmark export worker stopped")??;
