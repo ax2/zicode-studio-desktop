@@ -1,13 +1,14 @@
 # 软件更新
 
-ZiCode Studio Desktop 当前通过 GitHub Release 的 Windows NSIS 安装包手动升级。设置页显示已安装的 Studio 版本和内嵌 Pi 版本；版本读取失败时显示“不可用”。没有检查公开发行信息时，不把本机版本当作“最新版本”。
+在 Windows x64 上打开「设置 → 软件更新」，可以查看当前 Studio 和内嵌 Pi 版本。稳定通道使用 GitHub 公开发行的完整 Windows 安装包。
 
 ## 当前可用入口
 
-- 「设置 → 软件更新 → 使用 GitHub Releases」打开[最新稳定发行](https://github.com/ax2/zicode-studio-desktop/releases/latest)，可查看该版本号、发行说明及 Windows 安装包。草稿和预发行不作为这个手动稳定入口的目标。
-- 手动入口不会调用自动更新清单、下载安装或重启 Studio。用户核对版本后自行下载安装包；升级继续使用原来的固定资料目录，见[数据保留说明](desktop-persistent-data.md)。
-- Tauri v2 updater 插件已集成，但 `bundle.createUpdaterArtifacts` 仍为 `false`。尚未交付可用的签名自动更新清单，当前不能把自动更新的下载、验证、安装或失败恢复流程标为已验收。
-- 稳定清单预留地址为 `https://github.com/ax2/zicode-studio-desktop/releases/latest/download/latest.json`；Beta 预留地址为 `https://github.com/ax2/zicode-studio-desktop/releases/download/beta/latest.json`。这些是未来协议地址，不是当前手动安装包入口或可用性承诺。
+1. 点「立即检查」。有新版本时，查看目标版本和发行说明，点「下载更新」。下载期间可以取消，失败后可重试。
+2. 等待显示「安装包已校验」，保存正在编辑的内容，再点「安装并退出」。安装结果在下次打开 Studio 的更新设置时显示。
+3. 如果仍使用 v0.5.3 等缺少此入口的版本，从[最新稳定发行](https://github.com/ax2/zicode-studio-desktop/releases/latest)下载 Windows x64 安装包，保存工作并从托盘退出，再覆盖安装。保留原安装位置和资料目录。[资料保留说明](desktop-persistent-data.md)
+
+稳定通道从该仓库的公开发行记录读取版本、安装包和 SHA-256。Tauri 签名更新清单与 Beta 通道沿用独立的发布配置。
 
 ## 默认构建与发布范围
 
@@ -17,7 +18,7 @@ ZiCode Studio Desktop 当前通过 GitHub Release 的 Windows NSIS 安装包手�
 
 ## 将来启用签名更新的条件
 
-以下事项仍由 [#32](https://github.com/ax2/zicode-studio-desktop/issues/32) 跟踪，本轮没有开启开关、读取密钥或生成凭据：
+若将来发行 Tauri 签名更新清单，还需要完成以下工作。
 
 1. 核对实际使用的签名配置和公钥，私钥与口令仅由批准的凭据存储提供。2026-08-12 的历史记录说明本机曾生成密钥并配置公钥，不证明当前 Actions secrets 已配置或签名链已验收；历史提交保留供追溯。
 2. 启用前先扩展发行资产清单和签名验证，再将 `bundle.createUpdaterArtifacts` 改为 `true`。现有 `prepare-release` 会拒绝在安装包清单尚未扩展时打开该开关。
