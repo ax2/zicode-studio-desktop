@@ -1,0 +1,32 @@
+name: Isolated Windows clipboard translation
+on:
+  push:
+    branches: [codex/qa-56-native]
+    paths: ['.github/workflows/qa-56-native.yml', 'scripts/qa/clipboard-56/**']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: windows-2022
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install frozen Windows candidate in disposable VM
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v0.6.6 -p '*x64-setup.exe' -D $env:RUNNER_TEMP
+          if ($LASTEXITCODE) {exit $LASTEXITCODE}
+          $pkg=Get-Item "$env:RUNNER_TEMP/ZiCode.Studio.Desktop_0.6.6_x64-setup.exe"
+          if ((Get-FileHash $pkg).Hash -ne '92068D0B8D6A353BBEADF7872E399CCA4988806B2C89D8541F72D11E6AFEFB92') {throw 'Candidate digest mismatch'}
+          $dir=Join-Path $env:RUNNER_TEMP studio56
+          $p=Start-Process $pkg -ArgumentList "/S /D=$dir" -PassThru -Wait
+          if ($p.ExitCode) {throw "Installer: $($p.ExitCode)"}
+          $exe=Get-Item "$dir/zicode-studio-desktop.exe"
+          "STUDIO_56_EXE=$($exe.FullName)" >> $env:GITHUB_ENV
+      - name: Exercise Windows hotkey, clipboard, popup and handoff
+        working-directory: scripts/qa/clipboard-56
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
+          if ($LASTEXITCODE) {exit $LASTEXITCODE}
+          node qa.mjs
