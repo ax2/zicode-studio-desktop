@@ -60,6 +60,10 @@ jobs:
           $p=Start-Process $env:Q32_CANDIDATE -ArgumentList "/S /NS /D=$dir" -WindowStyle Hidden -PassThru
           if(!$p.WaitForExit(180000) -or $p.ExitCode){throw 'Initial real install failed'}
           $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=0 --remote-debugging-address=127.0.0.1'
+          $js=Join-Path $env:RUNNER_TEMP driver
+          [void][IO.Directory]::CreateDirectory($js)
+          Copy-Item daily-vault.mjs "$js/daily-vault.mjs"
+          Set-Location $js
           npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
           if($LASTEXITCODE){exit $LASTEXITCODE}
           node daily-vault.mjs seed

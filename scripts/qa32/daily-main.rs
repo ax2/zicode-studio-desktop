@@ -7,7 +7,7 @@ mod explorer_entry {
     pub fn selection()->Option<()> { None }
 }
 fn main() -> Result<(),String> {
-    let profile = std::path::PathBuf::from(std::env::var_os("Q32_PROFILE").unwrap());
+    let profile = std::path::PathBuf::from(std::env::var_os("Q32_PROFILE").unwrap()).canonicalize().unwrap();
     desktop_profile::initialize(std::env::args_os())?;
     assert_eq!(desktop_profile::root(),Some(profile.as_path()));
     assert!(!desktop_profile::requires_explicit_argument());
