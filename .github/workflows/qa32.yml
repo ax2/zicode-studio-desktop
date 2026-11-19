@@ -1,0 +1,21 @@
+name: Windows update handoff acceptance
+on:
+  push:
+    branches: [codex/qa32-handoff]
+    paths: ['.github/workflows/qa32.yml', 'scripts/verify-windows-update-handoff.ps1','src-tauri/src/desktop_update_handoff.ps1']
+permissions:
+  contents: read
+jobs:
+  handoff:
+    runs-on: windows-2022
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts
+            src-tauri/src/desktop_update_handoff.ps1
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Verify real independent full-installer handoff
+        run: ./scripts/verify-windows-update-handoff.ps1
