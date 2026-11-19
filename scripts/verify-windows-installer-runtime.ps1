@@ -109,7 +109,7 @@ function Canary {
   $p=$null
   try {
     $p=Start-Process -FilePath $fixture -ArgumentList $eventName -PassThru -WindowStyle Hidden
-    $initial=$p.Path
+    try { $initial=$p.Path } catch { $initial=$null }
     $record=[ordered]@{pid=$p.Id;initialModulePath=$initial;nativeImage=[Issue64Gui]::Image($p.Handle);ready=$false}
     $report.canaries+=@($record)
     Assert-Alive $p
