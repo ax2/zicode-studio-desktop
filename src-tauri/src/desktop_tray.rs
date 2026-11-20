@@ -139,13 +139,7 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
     let tray = window
         .try_state::<DesktopTray>()
         .ok_or("Desktop tray is unavailable")?;
-    tray.translation
-        .set_text(if locale == "en" {
-            "Translate"
-        } else {
-            "翻译"
-        })
-        .map_err(|error| error.to_string())?;
+    tray.translation.set_text(if locale == "en" { "Translate" } else { "翻译" }).map_err(|error| error.to_string())?;
     tray.tools
         .set_text(labels[0])
         .map_err(|error| error.to_string())?;
@@ -256,25 +250,11 @@ pub(crate) fn show_workspaces(app: &AppHandle) {
 
 fn open_workspace_feature(app: &AppHandle, event: &'static str) {
     show_workspaces(app);
-    let focused = app.try_state::<DesktopTray>().and_then(|tray| {
-        tray.focused_window
-            .lock()
-            .ok()
-            .and_then(|value| value.clone())
-    });
-    let window = focused
-        .and_then(|label| app.get_webview_window(&label))
-        .filter(|window| window.label().starts_with("native-workspace-"))
-        .or_else(|| {
-            app.webview_windows()
-                .into_iter()
-                .find(|(label, _)| label.starts_with("native-workspace-"))
-                .map(|(_, window)| window)
-        });
+    let focused = app.try_state::<DesktopTray>().and_then(|tray| tray.focused_window.lock().ok().and_then(|value| value.clone()));
+    let window = focused.and_then(|label| app.get_webview_window(&label)).filter(|window| window.label().starts_with("native-workspace-"))
+        .or_else(|| app.webview_windows().into_iter().find(|(label, _)| label.starts_with("native-workspace-")).map(|(_, window)| window));
     if let Some(window) = window {
-        if let Err(error) = window.emit(event, ()) {
-            log::warn!("Could not open workspace feature from tray: {error}");
-        }
+        if let Err(error) = window.emit(event, ()) { log::warn!("Could not open workspace feature from tray: {error}"); }
     }
 }
 
@@ -308,37 +288,22 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     let separator = PredefinedMenuItem::separator(app)?;
     let exit = MenuItem::with_id(app, "studio.exit", "退出 ZiCode Studio", true, None::<&str>)?;
     let menu = if crate::workspace_mode::single_default() {
-        Menu::with_items(
-            app,
-            &[
-                &translation,
-                &system_information,
-                &tools,
-                &favorite_tools,
-                &recent_tools,
-                &show,
-                &hide,
-                &separator,
-                &exit,
-            ],
-        )?
-    } else {
-        Menu::with_items(
-            app,
-            &[
-                &translation,
-                &system_information,
-                &project_tools,
-                &tools,
-                &favorite_tools,
-                &recent_tools,
-                &show,
-                &hide,
-                &separator,
-                &exit,
-            ],
-        )?
-    };
+        Menu::with_items(app, &[&translation, &system_information, &tools, &favorite_tools, &recent_tools, &show, &hide, &separator, &exit])?
+    } else { Menu::with_items(
+        app,
+        &[
+            &translation,
+            &system_information,
+            &project_tools,
+            &tools,
+            &favorite_tools,
+            &recent_tools,
+            &show,
+            &hide,
+            &separator,
+            &exit,
+        ],
+    )? };
     let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
     let tray = TrayIconBuilder::with_id("zicode-studio-desktop")
         .icon(icon)
@@ -355,9 +320,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             }
             match event.id.as_ref() {
                 "studio.translation" => open_workspace_feature(app, "studio-open-translation"),
-                "studio.system.open" => {
-                    open_workspace_feature(app, "studio-open-system-information")
-                }
+                "studio.system.open" => open_workspace_feature(app, "studio-open-system-information"),
                 "studio.project.tools" => {
                     let focused = app.try_state::<DesktopTray>().and_then(|tray| {
                         tray.focused_window
@@ -486,3 +449,4 @@ mod tests {
         assert_ne!(english.1, english.2);
     }
 }
+
