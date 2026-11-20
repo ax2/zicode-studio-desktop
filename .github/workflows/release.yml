@@ -137,6 +137,15 @@ jobs:
         with:
           ref: ${{ needs.prepare-release.outputs.release_sha }}
 
+      - name: Use crates.io on the Windows runner
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Omit the developer mirror from this checkout while keeping Git provenance clean.
+          git sparse-checkout set --no-cone '/*' '!/.cargo/config.toml'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "CARGO_TARGET_DIR=$env:GITHUB_WORKSPACE/target" >> $env:GITHUB_ENV
+
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: |
@@ -168,7 +177,7 @@ jobs:
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
-          # .cargo/config.toml places Cargo output at the repository root.
+          # Cargo output is shared at the repository root.
           workspaces: "src-tauri -> ../target"
           # Match the existing platform job's key + GITHUB_JOB suffix so the
           # release can restore its checked dependencies without a new cache tree.
