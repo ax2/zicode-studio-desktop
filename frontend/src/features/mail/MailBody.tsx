@@ -10,12 +10,15 @@ function formatBody(html: string): ReactNode {
   const template = document.createElement("template");
   template.innerHTML = html;
   let remaining = 20000;
+  let readable = false;
   function children(parent: ParentNode, depth: number): ReactNode[] {
     const result: ReactNode[] = [];
     for (let node = parent.firstChild; node; node = node.nextSibling) {
       if (--remaining < 0 || depth > 64) throw new RangeError("mail_body_too_complex");
       if (node.nodeType === Node.TEXT_NODE) {
-        result.push(node.textContent);
+        const text = node.textContent ?? "";
+        if (text.trim()) readable = true;
+        result.push(text);
         continue;
       }
       if (node.nodeType !== Node.ELEMENT_NODE) continue;
@@ -23,7 +26,9 @@ function formatBody(html: string): ReactNode {
       const tag = element.localName;
       if (element.namespaceURI !== "http://www.w3.org/1999/xhtml" || skip.has(tag)) continue;
       if (tag === "img") {
-        result.push(element.getAttribute("alt") ?? t("Image blocked"));
+        const alt = element.getAttribute("alt") ?? "";
+        if (alt.trim()) readable = true;
+        result.push(alt || t("Image blocked"));
       } else if (tag === "br" || tag === "hr") {
         result.push(createElement(tag, { key: result.length }));
       } else {
@@ -35,7 +40,8 @@ function formatBody(html: string): ReactNode {
     return result;
   }
   try {
-    return children(template.content, 0);
+    const content = children(template.content, 0);
+    return readable ? content : null;
   } catch (error) {
     if (error instanceof RangeError) return null;
     throw error;
