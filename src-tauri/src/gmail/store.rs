@@ -27,18 +27,32 @@ pub fn address(p: &Path, scope: &str, account: &str) -> Result<String> {
 pub fn cache_generation(p: &Path, scope: &str, account: &str) -> Result<i64> {
     db(p)?.query_row("SELECT COALESCE((SELECT generation FROM gmail_cache_generation WHERE workspace=? AND account=?),0)",params![scope,account],|r|r.get(0)).map_err(|_|"gmail_storage")
 }
-pub fn cache(p: &Path, scope: &str, account: &str, epoch: i64, kind: &str, key: &str, value: &Value) -> Result<()> {
+pub fn cache(
+    p: &Path,
+    scope: &str,
+    account: &str,
+    epoch: i64,
+    kind: &str,
+    key: &str,
+    value: &Value,
+) -> Result<()> {
     let written=db(p)?.execute("INSERT INTO gmail_cache SELECT ?1,?2,?3,?4,?5 WHERE ?6=COALESCE((SELECT generation FROM gmail_cache_generation WHERE workspace=?1 AND account=?2),0) ON CONFLICT(workspace,account,kind,cache_key) DO UPDATE SET value=excluded.value",
         params![scope,account,kind,key,value.to_string(),epoch]).map_err(|_|"gmail_storage")?;
-    if written == 0 {return Err("gmail_cancelled")}
+    if written == 0 {
+        return Err("gmail_cancelled");
+    }
     Ok(())
 }
 pub fn clear_cache(p: &Path, scope: &str, account: &str) -> Result<()> {
-    let mut db=db(p)?;
-    let tx=db.transaction().map_err(|_|"gmail_storage")?;
+    let mut db = db(p)?;
+    let tx = db.transaction().map_err(|_| "gmail_storage")?;
     tx.execute("INSERT INTO gmail_cache_generation VALUES(?,?,1) ON CONFLICT(workspace,account) DO UPDATE SET generation=generation+1",params![scope,account]).map_err(|_|"gmail_storage")?;
-    tx.execute("DELETE FROM gmail_cache WHERE workspace=? AND account=?",params![scope,account]).map_err(|_|"gmail_storage")?;
-    tx.commit().map_err(|_|"gmail_storage")
+    tx.execute(
+        "DELETE FROM gmail_cache WHERE workspace=? AND account=?",
+        params![scope, account],
+    )
+    .map_err(|_| "gmail_storage")?;
+    tx.commit().map_err(|_| "gmail_storage")
 }
 pub fn cached(p: &Path, scope: &str, a: &str, kind: &str, key: &str) -> Result<Value> {
     let text:Option<String>=db(p)?.query_row("SELECT value FROM gmail_cache WHERE workspace=? AND account=? AND kind=? AND cache_key=?",params![scope,a,kind,key],|r|r.get(0)).optional().map_err(|_|"gmail_storage")?;

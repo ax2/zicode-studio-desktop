@@ -17,3 +17,12 @@ it("keeps cached messages by default and requires explicit confirmation to clear
   await waitFor(()=>expect(disconnect).toHaveBeenCalledWith(true));
   expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false);
 });
+
+it("ignores a pending confirmation after the user leaves that account",async()=>{
+  setLocale("en");let finish:(ok:boolean)=>void=()=>{};
+  vi.spyOn(window,"confirm").mockImplementation(()=>new Promise<boolean>(r=>{finish=r;}) as unknown as boolean);
+  const disconnect=vi.fn(async()=>{});
+  const view=render(<MailDisconnect connected label="Disconnect" prompt="Keep cache?" disconnect={disconnect}/>);
+  fireEvent.click(screen.getByRole("button",{name:"Disconnect"}));view.unmount();finish(true);
+  await Promise.resolve();expect(disconnect).not.toHaveBeenCalled();
+});

@@ -322,17 +322,34 @@ fn narrower_refresh_grant_is_persisted_even_without_token_rotation() {
 
 #[test]
 fn disconnect_cache_keeps_scopes_and_rejects_late_gmail_writes() {
-    let file=std::env::temp_dir().join(format!("mail-clear-{}.sqlite",uuid::Uuid::new_v4()));
+    let file = std::env::temp_dir().join(format!("mail-clear-{}.sqlite", uuid::Uuid::new_v4()));
     rusqlite::Connection::open(&file).unwrap();
-    let initial=store::cache_generation(&file,"one","a").unwrap();
-    for (scope,id) in [("one","a"),("two","a"),("one","b")]{
-        store::cache(&file,scope,id,initial,"body","42",&json!({"plainText":"fixture"})).unwrap();
+    let initial = store::cache_generation(&file, "one", "a").unwrap();
+    for (scope, id) in [("one", "a"), ("two", "a"), ("one", "b")] {
+        store::cache(
+            &file,
+            scope,
+            id,
+            initial,
+            "body",
+            "42",
+            &json!({"plainText":"fixture"}),
+        )
+        .unwrap();
     }
-    store::clear_cache(&file,"one","a").unwrap();
-    assert_eq!(store::cache(&file,"one","a",initial,"page","old",&json!({})),Err("gmail_cancelled"));
-    assert!(store::cached(&file,"one","a","body","42").unwrap().is_null());
-    for (scope,id) in [("two","a"),("one","b")] {
-        assert_eq!(store::cached(&file,scope,id,"body","42").unwrap()["plainText"],"fixture");
+    store::clear_cache(&file, "one", "a").unwrap();
+    assert_eq!(
+        store::cache(&file, "one", "a", initial, "page", "old", &json!({})),
+        Err("gmail_cancelled")
+    );
+    assert!(store::cached(&file, "one", "a", "body", "42")
+        .unwrap()
+        .is_null());
+    for (scope, id) in [("two", "a"), ("one", "b")] {
+        assert_eq!(
+            store::cached(&file, scope, id, "body", "42").unwrap()["plainText"],
+            "fixture"
+        );
     }
     std::fs::remove_file(file).unwrap();
 }

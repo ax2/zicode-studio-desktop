@@ -75,6 +75,7 @@ const zhCN = {
   "No messages on this page.": "此页没有邮件。",
   "Clear cached messages for this account? Drafts and delivery records will be kept.": "清除这个账号的缓存邮件？草稿和投递记录将保留。",
   "Clear cached messages for this account": "清除这个账号的缓存邮件",
+  "Disconnect this account and clear its cached messages? Drafts and delivery records will be kept.": "断开这个账号并清除其缓存邮件？草稿和投递记录将保留。",
   "Clear offline messages": "清除离线邮件",
   "No subject": "无主题",
   "Load older messages": "加载更早邮件",

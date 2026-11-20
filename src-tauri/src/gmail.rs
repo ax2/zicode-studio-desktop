@@ -104,7 +104,10 @@ pub(crate) enum Request {
         send: bool,
     },
     Cancel,
-    Disconnect { #[serde(default,rename="clearCache")] clear_cache: bool },
+    Disconnect {
+        #[serde(default, rename = "clearCache")]
+        clear_cache: bool,
+    },
     List {
         cursor: Option<String>,
         limit: u8,
@@ -157,7 +160,9 @@ pub(crate) async fn mail_gmail(
     let path = root.join("mail").join("mail.sqlite3");
     let address = store::address(&path, &scope, &account_id)?;
     let cache_epoch = match request {
-        Request::List{..} | Request::Read{..} => store::cache_generation(&path,&scope,&account_id)?,
+        Request::List { .. } | Request::Read { .. } => {
+            store::cache_generation(&path, &scope, &account_id)?
+        }
         _ => 0,
     };
     let key = format!(
@@ -215,12 +220,17 @@ pub(crate) async fn mail_gmail(
         }
         _ => {}
     }
-    if !crate::desktop_profile::system_credentials_enabled() && !matches!(request, Request::Disconnect {..}) {
+    if !crate::desktop_profile::system_credentials_enabled()
+        && !matches!(request, Request::Disconnect { .. })
+    {
         return Err("gmail_credentials_disabled".into());
     }
     let (generation, stop) = {
         let mut g = gate.state.lock().map_err(|_| "gmail_unavailable")?;
-        if matches!(request, Request::Connect { .. } | Request::Disconnect { .. }) {
+        if matches!(
+            request,
+            Request::Connect { .. } | Request::Disconnect { .. }
+        ) {
             g.invalidate()
         }
         (g.generation, g.stop.clone())
@@ -245,10 +255,19 @@ pub(crate) async fn mail_gmail(
     };
     drop(current()?);
     let client = oauth::client()?;
-    if let Request::Disconnect {clear_cache} = request {
+    if let Request::Disconnect { clear_cache } = request {
         let previous = {
             let _g = current()?;
-            let v = if crate::desktop_profile::system_credentials_enabled() {let saved=read_secret(&key)?; clear_secret(&key)?;saved} else {None}; if clear_cache {store::clear_cache(&path,&scope,&account_id)?;}
+            let v = if crate::desktop_profile::system_credentials_enabled() {
+                let saved = read_secret(&key)?;
+                clear_secret(&key)?;
+                saved
+            } else {
+                None
+            };
+            if clear_cache {
+                store::clear_cache(&path, &scope, &account_id)?;
+            }
             v
         };
         let revoked = match previous {

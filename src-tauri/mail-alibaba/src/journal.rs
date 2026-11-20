@@ -52,11 +52,15 @@ impl<'a> Mailbox<'a> {
         })
     }
     pub fn clear_cache(&mut self) -> Result<()> {
-        let tx=self.db.transaction().map_err(db_err)?;
+        let tx = self.db.transaction().map_err(db_err)?;
         tx.execute("INSERT INTO alibaba_cache_generation VALUES(?,?,1) ON CONFLICT(scope,account) DO UPDATE SET generation=generation+1",
             params![self.scope,self.account.id]).map_err(db_err)?;
-        for table in ["alibaba_inbox","alibaba_epoch"] {
-            tx.execute(&format!("DELETE FROM {table} WHERE scope=? AND account=?"),params![self.scope,self.account.id]).map_err(db_err)?;
+        for table in ["alibaba_inbox", "alibaba_epoch"] {
+            tx.execute(
+                &format!("DELETE FROM {table} WHERE scope=? AND account=?"),
+                params![self.scope, self.account.id],
+            )
+            .map_err(db_err)?;
         }
         tx.commit().map_err(db_err)
     }
@@ -70,7 +74,7 @@ impl<'a> Mailbox<'a> {
         cursor: Option<Cursor>,
         limit: u8,
     ) -> Result<Page> {
-        let generation=self.generation;
+        let generation = self.generation;
         let observed: Option<u32> = self
             .db
             .query_row(
@@ -86,7 +90,9 @@ impl<'a> Mailbox<'a> {
         let page = adapter.list(self.address(), password, cursor, limit)?;
         let tx = self.db.transaction().map_err(db_err)?;
         let current_generation:i64=tx.query_row("SELECT COALESCE((SELECT generation FROM alibaba_cache_generation WHERE scope=? AND account=?),0)",params![self.scope,self.account.id],|r|r.get(0)).map_err(db_err)?;
-        if current_generation!=generation {return Err("mail_inbox_changed")}
+        if current_generation != generation {
+            return Err("mail_inbox_changed");
+        }
         // A delayed older page must not switch the active cache back to a stale UIDVALIDITY.
         let current: Option<u32> = tx
             .query_row(
@@ -173,7 +179,7 @@ impl<'a> Mailbox<'a> {
         epoch: u32,
         uid: u32,
     ) -> Result<Letter> {
-        let generation=self.generation;
+        let generation = self.generation;
         self.meta(epoch, uid)?;
         let letter = adapter.letter(self.address(), password, epoch, uid)?;
         let updated=self.db
@@ -182,7 +188,9 @@ impl<'a> Mailbox<'a> {
                 params![letter.text, self.scope, self.account.id, epoch, uid,generation,self.scope,self.account.id],
             )
             .map_err(db_err)?;
-        if updated!=1 { return Err("mail_inbox_changed") }
+        if updated != 1 {
+            return Err("mail_inbox_changed");
+        }
         Ok(letter)
     }
     fn meta(&self, epoch: u32, uid: u32) -> Result<Summary> {
