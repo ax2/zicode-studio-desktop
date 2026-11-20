@@ -90,9 +90,9 @@ try{
   for(const [width,height] of [[1050,730],[720,670]]){
     await native('size',width,height);
     await sleep(300);
-    for(const panel of ['bookmark','downloads','menu','sidebar']){
-      const trigger=ui.locator({bookmark:'.browser-bookmark-toggle',downloads:'.browser-downloads-open',menu:'.browser-options summary',sidebar:'#sidebar-toggle:visible,#file-sidebar-toggle:visible,[data-file-toggle]:visible'}[panel]).first();
-      console.log('trigger',width,panel,await trigger.isVisible(),await trigger.getAttribute('title'));
+    for(const panel of ['bookmark','downloads','menu','sidebar',...(width<768?['activity']:[])]){
+      const trigger=ui.locator({bookmark:'.browser-bookmark-toggle',downloads:'.browser-downloads-open',menu:'.browser-options summary',sidebar:'.browser-read',activity:'[data-mobile-activity-more]'}[panel]).first();
+      console.log('trigger',width,panel,await trigger.isVisible());
       if(!(await trigger.isVisible())){
         console.log('sidebar candidates',await ui.locator('button').evaluateAll(es=>es.filter(e=>e.offsetWidth).map(e=>[e.id,e.className,e.title]).filter(a=>a.some(x=>/side|panel|bar|菜单|栏/i.test(x))).slice(0,35)));
         throw Error('Expected visible trigger '+panel);
@@ -109,7 +109,9 @@ try{
         await dialog.waitFor({state:'detached'});
       }else{
         await sleep(250);
-        if(panel==='sidebar' && await ui.locator('#sidebar-overlay.visible').count()){
+        if(panel==='sidebar'){
+          const dock=ui.locator('#browser-page-assistant'); await dock.waitFor(); await dock.getByRole('button',{name:/^Close$|^关闭$/}).click(); await dock.waitFor({state:'hidden'});
+        }else if(panel==='activity'){
           await ui.keyboard.press('Escape');
         }else{
           await trigger.click();
@@ -122,10 +124,12 @@ try{
       assert.equal(await child.locator('#draft').inputValue(),'retain-222');
       assert.equal(await child.evaluate(()=>scrollY),280);
       assert.equal(child.url(),site);
+      console.log('focus',width,panel,await ui.evaluate(()=>[document.activeElement.id,document.activeElement.className]),await child.evaluate(()=>document.activeElement.id));
     }
   }
   assert.ok(checks.every(c=>c.blank===0&&c.frames>=15),JSON.stringify(checks));
   }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message,JSON.stringify(await describe()));}
   if(pageFailure)throw pageFailure;
 }finally{await nativeBrowser?.close().catch(()=>{});await browser?.close().catch(()=>{});app?.kill();served.server.closeAllConnections();served.server.close();}
+
 
