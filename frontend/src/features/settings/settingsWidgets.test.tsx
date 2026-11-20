@@ -214,15 +214,14 @@ describe("settings widgets React render", () => {
     window.removeEventListener("zicode:work-mode-changed", onEvent);
   });
 
-  it("renders toggles, thinking effort, and scene profiles in the general tab", async () => {
+  it("renders toggles and thinking effort without the retired scene selector", async () => {
     const { widgets } = renderGeneral();
     expect(document.getElementById("toggle-auto-compact")).toBeTruthy();
     expect(document.getElementById("toggle-show-thinking")?.classList.contains("on")).toBe(true);
     expect(document.getElementById("toggle-auto-compact")?.getAttribute("aria-label")).toBeTruthy();
     expect(document.getElementById("toggle-show-thinking")?.getAttribute("aria-label")).toBeTruthy();
     expect(document.querySelectorAll(".thinking-effort-dot").length).toBe(5);
-    expect(document.getElementById("scene-profile-select")).toBeTruthy();
-    expect(document.getElementById("scene-profile-select")?.getAttribute("aria-label")).toBeTruthy();
+    expect(document.getElementById("scene-profile-select")).toBeNull();
     await waitFor(() =>
       expect(widgets.getState().sceneProfiles.length).toBeGreaterThan(0),
     );
@@ -232,17 +231,16 @@ describe("settings widgets React render", () => {
     ).toBe(true);
   });
 
-  it("opens the scene editor form and updates fields", async () => {
+  it("keeps retained scene configuration internal without exposing an editor", async () => {
     const { widgets } = renderGeneral();
     await waitFor(() =>
       expect(widgets.getState().sceneProfiles.length).toBeGreaterThan(0),
     );
     act(() => widgets.getState().openSceneEditor());
-    expect(document.getElementById("scene-profile-editor")).toBeTruthy();
+    expect(document.getElementById("scene-profile-editor")).toBeNull();
     act(() => widgets.getState().setSceneForm({ name: "Research" }));
-    expect((document.getElementById("scene-profile-name") as HTMLInputElement).value).toBe(
-      "Research",
-    );
-    expect(document.getElementById("scene-profile-save")).toBeTruthy();
+    expect(widgets.getState().sceneForm.name).toBe("Research");
+    expect(document.getElementById("scene-profile-name")).toBeNull();
+    expect(document.getElementById("scene-profile-save")).toBeNull();
   });
 });

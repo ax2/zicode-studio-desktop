@@ -77,11 +77,14 @@ export function createNoteEditorSave({
       if (sameEditor()) set({ saveDisabled: !get().dirty });
     }
   }
-  return async function saveEditor(silent = false) {
+  async function waitForPending() {
+    while (pending) await pending;
+  }
+  async function saveEditor(silent = false) {
     const scope = capture();
     // Wait for an existing write before taking a new version/content snapshot.
     while (pending) await pending;
-    if (!scope.isCurrent()) return;
+    if (!scope.isCurrent() || get().editorLocked) return;
     const operation = perform(silent, scope);
     pending = operation;
     try {
@@ -89,5 +92,6 @@ export function createNoteEditorSave({
     } finally {
       if (pending === operation) pending = null;
     }
-  };
+  }
+  return { saveEditor, waitForPending };
 }

@@ -1,6 +1,11 @@
 //! Explicit, one-use, read-only directory metadata snapshots for a trusted desktop UI.
 //! No absolute path or directory handle reaches a plugin Worker.
-use super::*;
+mod checksum;
+mod checksum_progress;
+mod native_checksum;
+pub(super) use native_checksum::open_picked_file;
+
+use super::{export::Context, *};
 use cap_fs_ext::DirExt;
 use cap_std::ambient_authority;
 use cap_std::fs::Dir;
@@ -29,20 +34,49 @@ pub(in crate::host_server) struct DirectoryGrantRequest {
     confirmed: bool,
 }
 
+enum Purpose {
+    Metadata,
+    Checksum(Vec<checksum::Entry>),
+    GenerateChecksum(Vec<checksum::SelectedFile>),
+}
+
 struct Grant {
+    purpose: Purpose,
     owner: Owner,
     root: PathBuf,
-    relative: String,
+    selection: Selection,
     proof: String,
     registry_revision: String,
     stamp: String,
     expires: Instant,
 }
 
+enum Selection {
+    Workspace(String),
+    Picked(native_checksum::SelectedDirectory),
+}
+
+impl Selection {
+    fn context(&self) -> Option<&Context> {
+        match self {
+            Self::Workspace(_) => None,
+            Self::Picked(selection) => Some(&selection.context),
+        }
+    }
+
+    fn open(&self, workspace_root: &Path) -> Result<Dir, ApiError> {
+        match self {
+            Self::Picked(selection) => native_checksum::open_picked_directory(&selection.path),
+            Self::Workspace(relative) => open_directory(workspace_root, relative),
+        }
+    }
+}
+
 struct Control {
     cancelled: AtomicBool,
     outcome: AtomicU8,
     deadline: Instant,
+    progress: Option<Mutex<checksum_progress::Counts>>,
 }
 
 impl Control {
@@ -51,6 +85,7 @@ impl Control {
             cancelled: AtomicBool::new(false),
             outcome: AtomicU8::new(0),
             deadline: expires.min(Instant::now() + Duration::from_secs(30)),
+            progress: None,
         }
     }
     fn check(&self) -> Result<(), ApiError> {
@@ -78,6 +113,7 @@ impl Control {
 
 struct Active {
     owner: Owner,
+    context: Option<Context>,
     control: Arc<Control>,
 }
 
@@ -123,13 +159,15 @@ impl Grants {
         self.pending.insert(id.clone(), grant);
         Ok(id)
     }
-    fn take(&mut self, request: &DirectoryGrantRequest) -> Result<Grant, ApiError> {
+    fn take(
+        &mut self,
+        request: &DirectoryGrantRequest,
+        context: Option<&Context>,
+    ) -> Result<Grant, ApiError> {
         self.prune();
-        if !self
-            .pending
-            .get(&request.grant_id)
-            .is_some_and(|grant| grant.owner == request.owner)
-        {
+        if !self.pending.get(&request.grant_id).is_some_and(|grant| {
+            grant.owner == request.owner && grant.selection.context() == context
+        }) {
             return Err(rejected("resource_directory_grant_unavailable"));
         }
         self.pending
@@ -139,21 +177,29 @@ impl Grants {
     fn begin(
         &mut self,
         request: &DirectoryGrantRequest,
+        context: Option<&Context>,
     ) -> Result<(Grant, Arc<Control>), ApiError> {
-        let grant = self.take(request)?;
-        let control = Arc::new(Control::new(grant.expires));
+        let grant = self.take(request, context)?;
+        let control = Arc::new(
+            Control::new(grant.expires).with_checksum_total(grant.purpose.checksum_total()),
+        );
         self.active.insert(
             request.grant_id.clone(),
             Active {
                 owner: request.owner.clone(),
+                context: context.cloned(),
                 control: control.clone(),
             },
         );
         Ok((grant, control))
     }
-    fn cancel(&mut self, request: &DirectoryGrantRequest) -> Result<Value, ApiError> {
+    fn cancel(
+        &mut self,
+        request: &DirectoryGrantRequest,
+        context: Option<&Context>,
+    ) -> Result<Value, ApiError> {
         if let Some(active) = self.active.get(&request.grant_id) {
-            if active.owner != request.owner {
+            if active.owner != request.owner || active.context.as_ref() != context {
                 return Err(rejected("resource_directory_grant_unavailable"));
             }
             let requested = active.control.cancel();
@@ -162,7 +208,7 @@ impl Grants {
                 "executionFinished":!requested}),
             );
         }
-        self.take(request)?;
+        self.take(request, context)?;
         Ok(
             json!({"schemaVersion":1,"cancelled":true,"cancellationRequested":true,"executionFinished":true}),
         )
@@ -181,9 +227,14 @@ impl Drop for Lease {
     }
 }
 
-fn authorize(state: &HostState, owner: &Owner) -> Result<(PathBuf, String, String), ApiError> {
+fn authorize(
+    state: &HostState,
+    owner: &Owner,
+    checksum: bool,
+    context: Option<&Context>,
+) -> Result<(PathBuf, String, String), ApiError> {
     let (root, proof) = local_file::scope(state, owner)?;
-    let scene = state
+    let target = state
         .runtimes
         .statuses()
         .map_err(|_| rejected("runtime_unavailable"))?
@@ -193,8 +244,11 @@ fn authorize(state: &HostState, owner: &Owner) -> Result<(PathBuf, String, Strin
                 && status.target.session_id == owner.session_id
         })
         .ok_or_else(|| rejected("runtime_stopped"))?
-        .target
-        .scene_id;
+        .target;
+    if context.is_some_and(|item| item.workspace != target.workspace_id) {
+        return Err(rejected("resource_authorization_changed"));
+    }
+    let scene = target.scene_id;
     let registry = state
         .plugins
         .lock()
@@ -203,17 +257,27 @@ fn authorize(state: &HostState, owner: &Owner) -> Result<(PathBuf, String, Strin
         .execution_plugin(&scene, &owner.plugin_id)
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| rejected("resource_plugin_unavailable"))?;
+    let permission = if checksum {
+        if owner.plugin_id != "com.zicode.devtools.files"
+            || owner.capability_id != crate::plugin_resource_execution::file_digest::CAPABILITY
+        {
+            return Err(rejected("resource_directory_profile_unsupported"));
+        }
+        "resource.read"
+    } else {
+        "resource.directory.read"
+    };
     if !plugin
         .manifest
         .permissions
         .required
         .iter()
         .chain(&plugin.manifest.permissions.optional)
-        .any(|permission| permission.name == "resource.directory.read")
+        .any(|item| item.name == permission)
     {
         return Err(rejected("resource_directory_profile_unsupported"));
     }
-    if plugin.permission_grants.get("resource.directory.read") != Some(&true) {
+    if plugin.permission_grants.get(permission) != Some(&true) {
         return Err(plugin_api_error(
             StatusCode::FORBIDDEN,
             "permission_denied",
@@ -265,7 +329,7 @@ fn open_directory(root: &Path, relative: &str) -> Result<Dir, ApiError> {
     Ok(handles.pop().expect("root directory present"))
 }
 
-fn open_checked_child(parent: &Dir, part: &str) -> Result<Dir, ApiError> {
+fn open_checked_child(parent: &Dir, part: impl AsRef<Path>) -> Result<Dir, ApiError> {
     // The earlier metadata check describes a stable path, but the entry can
     // be replaced before this open. Bind no-follow to the opened handle.
     let child = parent
@@ -413,38 +477,54 @@ pub(in crate::host_server) async fn prepare(
         return Err(rejected("resource_schema_unsupported"));
     }
     validate_path(&request.relative_path)?;
+    let profile = "resource.local-directory.draft1";
     blocking(state.clone(), move || {
-        let (root, proof, registry_revision) = authorize(&state, &request.owner)?;
-        let directory = open_directory(&root, &request.relative_path)?;
-        let directory_stamp = stamp(&directory)?;
-        drop(directory);
-        if authorize(&state, &request.owner)?
-            != (root.clone(), proof.clone(), registry_revision.clone())
-        {
-            return Err(rejected("resource_authorization_changed"));
-        }
-        let grant = Grant {
-            owner: request.owner.clone(),
-            root,
-            relative: request.relative_path.clone(),
-            proof,
-            registry_revision,
-            stamp: directory_stamp,
-            expires: Instant::now() + TTL,
-        };
-        let grant_id = state
-            .plugin_resources
-            .lock()
-            .map_err(|_| rejected("resource_store_unavailable"))?
-            .directory_imports
-            .insert(grant)?;
+        let grant_id = issue_grant(
+            &state,
+            request.owner.clone(),
+            Purpose::Metadata,
+            Selection::Workspace(request.relative_path.clone()),
+        )?;
         Ok(
-            json!({"schemaVersion":1,"profile":"resource.local-directory.draft1","grantId":grant_id,
+            json!({"schemaVersion":1,"profile":profile,"grantId":grant_id,
             "owner":request.owner,"relativePath":request.relative_path,"entryNamesRead":false,
             "confirmed":false,"expiresInSeconds":120}),
         )
     })
     .await
+}
+
+fn issue_grant(
+    state: &HostState,
+    owner: Owner,
+    purpose: Purpose,
+    selection: Selection,
+) -> Result<String, ApiError> {
+    let context = selection.context();
+    let checksum = !matches!(purpose, Purpose::Metadata);
+    let expected = authorize(state, &owner, checksum, context)?;
+    let directory = selection.open(&expected.0)?;
+    let directory_stamp = stamp(&directory)?;
+    if authorize(state, &owner, checksum, context)? != expected {
+        return Err(rejected("resource_authorization_changed"));
+    }
+    let (root, proof, registry_revision) = expected;
+    let grant = Grant {
+        owner,
+        purpose,
+        root,
+        selection,
+        proof,
+        registry_revision,
+        stamp: directory_stamp,
+        expires: Instant::now() + TTL,
+    };
+    state
+        .plugin_resources
+        .lock()
+        .map_err(|_| rejected("resource_store_unavailable"))?
+        .directory_imports
+        .insert(grant)
 }
 
 pub(in crate::host_server) async fn commit(
@@ -453,6 +533,14 @@ pub(in crate::host_server) async fn commit(
     Json(request): Json<DirectoryGrantRequest>,
 ) -> Result<Json<Value>, ApiError> {
     desktop(&state, &headers)?;
+    commit_grant(state, request, None).await
+}
+
+async fn commit_grant(
+    state: Arc<HostState>,
+    request: DirectoryGrantRequest,
+    context: Option<Context>,
+) -> Result<Json<Value>, ApiError> {
     if request.schema_version != 1 {
         return Err(rejected("resource_schema_unsupported"));
     }
@@ -465,7 +553,7 @@ pub(in crate::host_server) async fn commit(
             .lock()
             .map_err(|_| rejected("resource_store_unavailable"))?
             .directory_imports
-            .begin(&request)?;
+            .begin(&request, context.as_ref())?;
         let _lease = Lease {
             state: state.clone(),
             id: request.grant_id.clone(),
@@ -475,23 +563,59 @@ pub(in crate::host_server) async fn commit(
             grant.proof.clone(),
             grant.registry_revision.clone(),
         );
-        if authorize(&state, &request.owner)? != expected.clone() {
-            return Err(rejected("resource_authorization_changed"));
+        let check_authority = || {
+            control.check()?;
+            if authorize(&state, &request.owner, !matches!(grant.purpose, Purpose::Metadata), context.as_ref())? != expected {
+                return Err(rejected("resource_authorization_changed"));
+            }
+            Ok(())
+        };
+        check_authority()?;
+        let directory = grant.selection.open(&grant.root)?;
+        match &grant.purpose {
+            Purpose::Metadata => {
+                let (bytes, count) = snapshot(&directory, &grant.stamp, &control)?;
+                check_authority()?;
+                let mut store = state
+                    .plugin_resources
+                    .lock()
+                    .map_err(|_| rejected("resource_store_unavailable"))?;
+                control.check()?;
+                let mut result = store.import_directory(request.owner, grant.proof, bytes)?;
+                control.published();
+                result["entryCount"] = json!(count);
+                Ok(result)
+            }
+            purpose => {
+                if stamp(&directory)? != grant.stamp {
+                    return Err(rejected("resource_directory_changed"));
+                }
+                let result = match purpose {
+                    Purpose::Checksum(entries) => {
+                        let rows = checksum::verify(&directory, entries, &control, &check_authority)?;
+                        json!({"schemaVersion":1,"profile":checksum::PROFILE,"entries":rows})
+                    }
+                    Purpose::GenerateChecksum(selected) => {
+                        let files = checksum::generate(&directory, selected, &control, &check_authority)?;
+                        json!({"schemaVersion":1,"profile":checksum::GENERATE_PROFILE,"files":files})
+                    }
+                    Purpose::Metadata => unreachable!("metadata already handled"),
+                };
+                let current_directory = grant.selection.open(&grant.root)?;
+                if stamp(&current_directory)? != grant.stamp {
+                    return Err(rejected("resource_directory_changed"));
+                }
+                check_authority()?;
+                // Serialize successful publication with cancellation of this grant.
+                let _store = state
+                    .plugin_resources
+                    .lock()
+                    .map_err(|_| rejected("resource_store_unavailable"))?;
+                control.check()?;
+                control.published();
+                Ok(result)
+            }
         }
-        let directory = open_directory(&grant.root, &grant.relative)?;
-        let (bytes, count) = snapshot(&directory, &grant.stamp, &control)?;
-        if authorize(&state, &request.owner)? != expected {
-            return Err(rejected("resource_authorization_changed"));
-        }
-        let mut store = state
-            .plugin_resources
-            .lock()
-            .map_err(|_| rejected("resource_store_unavailable"))?;
-        control.check()?;
-        let mut result = store.import_directory(request.owner, grant.proof, bytes)?;
-        control.published();
-        result["entryCount"] = json!(count);
-        Ok(result)
     })
     .await
 }
@@ -502,17 +626,27 @@ pub(in crate::host_server) async fn cancel(
     Json(request): Json<DirectoryGrantRequest>,
 ) -> Result<Json<Value>, ApiError> {
     desktop(&state, &headers)?;
+    cancel_grant(&state, &request, None).map(Json)
+}
+
+fn cancel_grant(
+    state: &HostState,
+    request: &DirectoryGrantRequest,
+    context: Option<&Context>,
+) -> Result<Value, ApiError> {
     if request.schema_version != 1 {
         return Err(rejected("resource_schema_unsupported"));
     }
-    let value = state
+    state
         .plugin_resources
         .lock()
         .map_err(|_| rejected("resource_store_unavailable"))?
         .directory_imports
-        .cancel(&request)?;
-    Ok(Json(value))
+        .cancel(request, context)
 }
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod checksum_acceptance;

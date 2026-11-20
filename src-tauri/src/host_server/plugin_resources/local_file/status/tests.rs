@@ -16,6 +16,7 @@ fn grant() -> Grant {
         relative: "private-path".into(),
         stamp: "stamp".into(),
         expires: Instant::now() + TTL,
+        picked: None,
     }
 }
 fn request(id: String) -> FileGrant {
@@ -35,9 +36,9 @@ fn status_tracks_real_finish_and_never_turns_cancel_into_completion() {
     let prepared = grants.status(&request).unwrap();
     assert_eq!(prepared["phase"], "prepared");
     assert_eq!(prepared["contentRead"], false);
-    let (_, control) = grants.begin(&request).unwrap();
+    let (_, control) = grants.begin(&request, None).unwrap();
     assert_eq!(grants.status(&request).unwrap()["phase"], "reading");
-    grants.cancel(&request).unwrap();
+    grants.cancel(&request, None).unwrap();
     let reading = grants.status(&request).unwrap();
     assert_eq!(reading["cancellationRequested"], true);
     assert_eq!(reading["executionFinished"], false);
@@ -51,7 +52,7 @@ fn status_tracks_real_finish_and_never_turns_cancel_into_completion() {
     assert_eq!(ended["phase"], "ended");
     assert_eq!(ended["executionFinished"], true);
     assert_eq!(ended["outcome"], "cancelled");
-    assert!(grants.take(&request).is_err());
+    assert!(grants.take(&request, None).is_err());
     assert!(!ended.to_string().contains("private-path"));
     assert!(!ended.to_string().contains("proof"));
     assert!(ended.get("access").is_none());
@@ -68,9 +69,9 @@ fn pending_cancel_published_failure_and_timeout_have_distinct_receipts() {
         let id = grants.insert(grant()).unwrap();
         let request = request(id.clone());
         if expected == "cancelled" {
-            grants.cancel(&request).unwrap();
+            grants.cancel(&request, None).unwrap();
         } else {
-            let (_, control) = grants.begin(&request).unwrap();
+            let (_, control) = grants.begin(&request, None).unwrap();
             if expected == "published" {
                 control.published();
             }
@@ -94,7 +95,7 @@ fn pending_cancel_published_failure_and_timeout_have_distinct_receipts() {
                 _ => Value::Null,
             }
         );
-        assert!(grants.begin(&request).is_err());
+        assert!(grants.begin(&request, None).is_err());
     }
 }
 
@@ -102,7 +103,7 @@ fn pending_cancel_published_failure_and_timeout_have_distinct_receipts() {
 fn receipts_are_bounded_expiring_and_do_not_evict_live_work() {
     let mut grants = Grants::default();
     let id = grants.insert(grant()).unwrap();
-    grants.begin(&request(id.clone())).unwrap();
+    grants.begin(&request(id.clone()), None).unwrap();
     for n in 0..=MAX_RECEIPTS {
         grants
             .2

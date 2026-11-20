@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-// @ts-expect-error shared trusted image parser is plain JavaScript
 import { decodeResourceImage } from "../../../../public/native/plugins/plugin-resource-image.js";
-import { t } from "../../shared/i18n.js";
+import { savedResourceLimit } from "../../../../public/native/plugins/resource-save-policy.js";
+import { getLocale, t } from "../../shared/i18n.js";
 import { formatBytes } from "./logic";
 import { isBinarySavedOutput, isTextSavedOutput, savedOutputExtension } from "./saved-output-formats";
 import { type SavedOutput, type SavedOutputGateway, type SavedOutputPage, validSavedOutput } from "./saved-output-types";
 
-export function SavedOutputs({ gateway, getTarget }: {
+export function SavedOutputs({ gateway, getTarget, expanded = false }: {
+  expanded?: boolean;
   gateway?: SavedOutputGateway; getTarget?: () => { sceneId?: string; workspaceId?: string } | null;
 }) {
-  const [open, setOpen] = useState(false), [page, setPage] = useState<SavedOutputPage | null>(null);
+  const [open, setOpen] = useState(expanded), [page, setPage] = useState<SavedOutputPage | null>(null);
   const [query, setQuery] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [selected, setSelected] = useState<SavedOutput | null>(null);
   const [preview, setPreview] = useState<{ image?: string; text?: string; notice?: string } | null>(null);
@@ -41,12 +42,14 @@ export function SavedOutputs({ gateway, getTarget }: {
     } catch { if (scope.valid()) { setPage(null); setError(t("Saved files could not be loaded. Check project access and refresh.")); } }
     finally { if (scope.valid()) setBusy(false); }
   }
+  // biome-ignore lint/correctness/useExhaustiveDependencies: expanded libraries mount only on explicit opening, keyed by workspace. Search remains a submitted action.
+  useEffect(() => { if (expanded) void load(); }, [expanded]);
   async function read(item: SavedOutput, download: boolean) {
     if (!gateway) return; const scope = request(); setBusy(true); setError("");
     try {
       const receipt = item.receipt;
       if (!validSavedOutput(item, scope.workspace)) throw new Error();
-      const limit = download ? 32 * 1024 * 1024 : isTextSavedOutput(receipt.mimeType) ? 128 * 1024 : 8 * 1024 * 1024;
+      const limit = download ? savedResourceLimit(receipt) : isTextSavedOutput(receipt.mimeType) ? 128 * 1024 : 8 * 1024 * 1024;
       if (receipt.byteLength > limit) throw new Error();
       const bytes = new Uint8Array(await gateway.read(scope.scene, scope.workspace, item, scope.signal));
       if (!scope.valid()) return;
@@ -85,13 +88,14 @@ export function SavedOutputs({ gateway, getTarget }: {
   }, [selected, gateway, getTarget, clear]);
   if (!gateway) return null;
   return <section className="saved-outputs ui-panel" aria-label={t("Saved plugin files")}>
-    <button type="button" className="ui-button ui-button--secondary" aria-expanded={open} onClick={() => {
+    {!expanded && <button type="button" className="ui-button ui-button--secondary" aria-expanded={open} onClick={() => {
       if (open) { clear(); setBusy(false); } else void load(); setOpen(!open);
-    }}>{t("Saved plugin files")}</button>
+    }}>{t("Saved plugin files")}</button>}
     {open ? <>
-      <p>{t("Files you confirmed saving in this project. Download separately; these files are not included in artifact JSON exports.")}</p>
+      <p>{t(expanded ? "Files saved by tools in this workspace. Preview a file or download a copy."
+        : "Files you confirmed saving in this project. Download separately; these files are not included in artifact JSON exports.")}</p>
       <form className="saved-outputs-search" onSubmit={event => { event.preventDefault(); void load(); }}>
-        <label>{t("Search saved plugin files")}<input className="ui-input" type="search" maxLength={120} value={query} onChange={event => setQuery(event.target.value)} /></label>
+        <label>{t(expanded ? "Search saved files" : "Search saved plugin files")}<input className="ui-input" type="search" maxLength={120} value={query} onChange={event => setQuery(event.target.value)} /></label>
         <button type="submit" disabled={busy} className="ui-button ui-button--secondary">{t("Search")}</button>
       </form>
       <p role="status">{busy ? t("Loading…") : error || (page ? `${page.total} ${t("Files")} · ${t("File contents are verified only when opened.")}` : "")}</p>
@@ -101,10 +105,16 @@ export function SavedOutputs({ gateway, getTarget }: {
         <button type="button" className="ui-button ui-button--secondary" onClick={clear}>{t("Close preview")}</button>
         {preview.notice ? <p>{preview.notice}</p> : preview.image ? <img src={preview.image} alt={t("Saved plugin file preview")} /> : <textarea className="ui-textarea" readOnly rows={8} aria-label={t("Saved plugin file preview")} value={preview.text ?? ""} />}
       </div> : null}
+      {page?.total === 0 && <p>{t("No saved files in this workspace yet.")}</p>}
       <ul>{page?.items.map(item => <li key={item.receipt.saveId}>
-        <strong>{item.receipt.source.pluginId} · {item.receipt.source.capabilityId}</strong>
-        <span>{item.receipt.relativePath}</span><span>{item.receipt.mimeType} · {formatBytes(item.receipt.byteLength)}</span>
-        <span>{t("Recorded package version")}: {item.receipt.source.packageVersion}</span>
+        <strong>{`result.${savedOutputExtension(item.receipt.mimeType)}`} · {formatBytes(item.receipt.byteLength)}</strong>
+        {Number.isFinite(Date.parse(item.receipt.preparedAt)) && <time dateTime={item.receipt.preparedAt}>{t("Saved at {time}")
+          .replace("{time}", new Date(item.receipt.preparedAt).toLocaleString(getLocale() === "zh-CN" ? "zh-CN" : "en-US"))}</time>}
+        <details><summary>{t("File details")}</summary>
+          <p>{item.receipt.relativePath}</p><p>{item.receipt.mimeType}</p>
+          <p>{item.receipt.source.pluginId} · {item.receipt.source.capabilityId}</p>
+          <p>{t("Recorded package version")}: {item.receipt.source.packageVersion}</p>
+        </details>
         <div className="saved-outputs-actions">
           <button type="button" disabled={busy || item.receipt.byteLength > (isTextSavedOutput(item.receipt.mimeType) ? 128 * 1024 : 8 * 1024 * 1024)} className="ui-button ui-button--secondary" onClick={() => void read(item, false)}>{t("Preview saved file")}</button>
           <button type="button" disabled={busy} className="ui-button ui-button--secondary" onClick={() => void read(item, true)}>{t("Download saved file")}</button>

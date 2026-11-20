@@ -1,3 +1,4 @@
+import { MULTI_PROJECT_UI_ENABLED } from "./workspace-mode.js";
 /**
  * Workspace actions — bridge UI controls to native Tauri commands that manage
  * workspace windows. The workspace bar shows the current workspace as a
@@ -262,6 +263,10 @@ function isTypingTarget(target) {
  * remote/browser clients that cannot invoke native window navigation.
  */
 export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, openPath } = {}) {
+  if (!MULTI_PROJECT_UI_ENABLED) {
+    document.getElementById("workspace-bar")?.classList.add("hidden");
+    return false;
+  }
   const button = document.getElementById("workspace-switcher-btn");
   const menu = document.getElementById("workspace-switcher-menu");
   const label = document.getElementById("workspace-bar-label");

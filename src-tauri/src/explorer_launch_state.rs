@@ -11,6 +11,26 @@ pub enum EntryIntent {
     Folder(PathBuf),
     Drive,
     Tools,
+    NotesWidget(WidgetAction),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WidgetAction {
+    New,
+    Recent,
+    Pinned,
+}
+
+impl WidgetAction {
+    pub fn parse(s: &str) -> Result<Self, String> {
+        match s {
+            "new" => Ok(Self::New),
+            "recent" => Ok(Self::Recent),
+            "pinned" => Ok(Self::Pinned),
+            _ => Err("Unknown notes widget action".into()),
+        }
+    }
 }
 
 impl EntryIntent {
@@ -21,6 +41,7 @@ impl EntryIntent {
             Self::Folder(_) => "folder",
             Self::Drive => "drive",
             Self::Tools => "tools",
+            Self::NotesWidget(_) => "notesWidget",
         }
     }
 }
@@ -96,6 +117,24 @@ impl ExplorerLaunchState {
         Ok((bound.route == route).then(|| bound.intent.clone()))
     }
 
+    pub fn take_widget(&self, label: &str, route: &str) -> Result<Option<WidgetAction>, String> {
+        let mut entries = self
+            .0
+            .lock()
+            .map_err(|_| "Window launch state is unavailable")?;
+        let action = entries
+            .get(label)
+            .filter(|e| e.route == route)
+            .and_then(|e| match e.intent {
+                EntryIntent::NotesWidget(action) => Some(action),
+                _ => None,
+            });
+        if action.is_some() {
+            entries.remove(label);
+        }
+        Ok(action)
+    }
+
     pub fn forget(&self, label: &str) {
         if let Ok(mut entries) = self.0.lock() {
             entries.remove(label);
@@ -107,6 +146,36 @@ impl ExplorerLaunchState {
 mod tests {
     use super::*;
 
+    #[test]
+    fn widget_actions_consume_once_in_the_bound_window() {
+        let state = ExplorerLaunchState::default();
+        state
+            .bind(
+                "native-workspace-qa",
+                "a",
+                "s",
+                EntryIntent::NotesWidget(WidgetAction::New),
+            )
+            .unwrap();
+        assert_eq!(
+            state
+                .take_widget("native-workspace-qa", "/app/workspaces/b/sessions/s")
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            state
+                .take_widget("native-workspace-qa", "/app/workspaces/a/sessions/s")
+                .unwrap(),
+            Some(WidgetAction::New)
+        );
+        assert_eq!(
+            state
+                .take_widget("native-workspace-qa", "/app/workspaces/a/sessions/s")
+                .unwrap(),
+            None
+        );
+    }
     #[test]
     fn launch_intents_follow_window_and_session() {
         let state = ExplorerLaunchState::default();

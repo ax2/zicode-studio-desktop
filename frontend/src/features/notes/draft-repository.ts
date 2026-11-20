@@ -1,6 +1,8 @@
 import type { Note } from "./notesLogic";
 
 export interface NoteDraft {
+  incoming?: true;
+  saveAttemptNotebookId?: string;
   attachmentMarkdown?: string;
   id: string;
   revision: string;
@@ -58,6 +60,9 @@ function valid(value: unknown): value is NoteDraft {
     draft.note?.content,
   ];
   return (
+    (draft.incoming === undefined || draft.incoming === true) &&
+    (draft.saveAttemptNotebookId === undefined ||
+      (typeof draft.saveAttemptNotebookId === "string" && draft.saveAttemptNotebookId.length > 0)) &&
     (draft.attachmentMarkdown === undefined || typeof draft.attachmentMarkdown === "string") &&
     strings.every((item) => typeof item === "string") &&
     Array.isArray(draft.tags) &&

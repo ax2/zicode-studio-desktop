@@ -1,3 +1,4 @@
+vi.mock("./workspace-mode.js", async (actual) => ({ ...await actual(), MULTI_PROJECT_UI_ENABLED: true }));
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createSessionInApp,
@@ -595,3 +596,4 @@ describe("workspace actions", () => {
     );
   });
 });
+

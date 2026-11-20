@@ -25,7 +25,7 @@ pub(in crate::host_server::plugin_resources) fn components(
 }
 
 #[cfg(unix)]
-pub(super) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
+pub(in crate::host_server::plugin_resources) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
     use std::os::fd::{AsRawFd, FromRawFd};
     use std::os::unix::fs::OpenOptionsExt;
     let parts = components(relative)?;
@@ -57,7 +57,7 @@ pub(super) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
 }
 
 #[cfg(windows)]
-pub(super) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
+pub(in crate::host_server::plugin_resources) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
     use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Storage::FileSystem::*;
@@ -107,15 +107,22 @@ pub(super) fn open(root: &Path, relative: &str) -> Result<File, ApiError> {
     Ok(file)
 }
 
-pub(super) fn stamp(file: &File) -> Result<(String, usize), ApiError> {
+pub(in crate::host_server::plugin_resources) fn stamp(file: &File) -> Result<(String, usize), ApiError> {
+    let (identity, length) = regular_file_identity(file)?;
+    if length > MAX_BYTES as u64 {
+        return Err(rejected("resource_budget_exceeded"));
+    }
+    Ok((identity, length as usize))
+}
+
+pub(in crate::host_server::plugin_resources) fn regular_file_identity(
+    file: &File,
+) -> Result<(String, u64), ApiError> {
     let meta = file
         .metadata()
         .map_err(|_| rejected("resource_file_unavailable"))?;
     if !meta.is_file() {
         return Err(rejected("resource_file_not_regular"));
-    }
-    if meta.len() > MAX_BYTES as u64 {
-        return Err(rejected("resource_budget_exceeded"));
     }
     #[cfg(windows)]
     let identity = {
@@ -152,7 +159,7 @@ pub(super) fn stamp(file: &File) -> Result<(String, usize), ApiError> {
             meta.ctime_nsec()
         )
     };
-    Ok((sha256_hex(identity.as_bytes()), meta.len() as usize))
+    Ok((sha256_hex(identity.as_bytes()), meta.len()))
 }
 
 #[cfg(test)]
@@ -165,14 +172,18 @@ pub(super) fn snapshot(root: &Path, relative: &str, expected: &str) -> Result<Ve
     )
 }
 
-pub(super) fn snapshot_controlled(
+pub(in crate::host_server::plugin_resources) fn snapshot_controlled(
     root: &Path,
     relative: &str,
     expected: &str,
     control: &reading::Control,
 ) -> Result<Vec<u8>, ApiError> {
     control.check()?;
-    let mut file = open(root, relative)?;
+    snapshot_opened(open(root, relative)?, expected, control)
+}
+
+pub(in crate::host_server::plugin_resources) fn snapshot_opened(mut file: File, expected: &str, control: &reading::Control) -> Result<Vec<u8>, ApiError> {
+    control.check()?;
     let (before, length) = stamp(&file)?;
     if before != expected {
         return Err(rejected("resource_file_changed"));

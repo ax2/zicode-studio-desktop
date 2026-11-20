@@ -29,7 +29,20 @@ fn regular_directory(path: &Path) -> Result<(), NotesError> {
     Ok(())
 }
 
-pub(super) fn lock_storage(root: &Path) -> Result<Arc<File>, NotesError> {
+/// Only the last owning vault releases the lock. Explicit unlock also releases
+/// a Unix descriptor briefly inherited by an unrelated fork/exec child.
+pub(super) struct StorageLock(File);
+
+impl Drop for StorageLock {
+    fn drop(&mut self) {
+        let _ = FileExt::unlock(&self.0);
+    }
+}
+
+#[cfg(test)]
+mod lock_tests;
+
+pub(super) fn lock_storage(root: &Path) -> Result<Arc<StorageLock>, NotesError> {
     let lock = root.join(".notes.lock");
     if fs::symlink_metadata(&lock)
         .is_ok_and(|metadata| !metadata.is_file() || metadata.file_type().is_symlink())
@@ -44,7 +57,12 @@ pub(super) fn lock_storage(root: &Path) -> Result<Arc<File>, NotesError> {
         .open(lock)
         .map_err(|_| unavailable("Cannot open Notes storage lock"))?;
     FileExt::try_lock_exclusive(&file).map_err(|error| {
-        if error.kind() == std::io::ErrorKind::WouldBlock {
+        if error.kind() == std::io::ErrorKind::WouldBlock
+            || error
+                .raw_os_error()
+                .zip(fs2::lock_contended_error().raw_os_error())
+                .is_some_and(|(actual, expected)| actual == expected)
+        {
             NotesError::new(
                 "notes_storage_busy",
                 "Another process is using this Notes workspace. Try again shortly.",
@@ -54,7 +72,7 @@ pub(super) fn lock_storage(root: &Path) -> Result<Arc<File>, NotesError> {
         }
     })?;
     // Keep the inode; removing a lock file would let another process lock a replacement.
-    Ok(Arc::new(file))
+    Ok(Arc::new(StorageLock(file)))
 }
 
 fn sync_directory(path: &Path) -> Result<(), NotesError> {
@@ -304,21 +322,11 @@ impl NotesVault {
                 }
             }
         }
-        let known_references = exports
-            .iter()
-            .flat_map(|export| {
-                export
-                    .notes
-                    .iter()
-                    .chain(export.trashed_notes.iter().map(|trash| &trash.note))
-                    .map(|note| {
-                        (
-                            export.notebook.id.to_ascii_lowercase(),
-                            note.summary.id.to_ascii_lowercase(),
-                        )
-                    })
-            })
-            .collect::<BTreeSet<_>>();
+        let known_references = super::relocation::reference_targets(
+            exports.iter().flat_map(|export| export.notes.iter()
+                .chain(export.trashed_notes.iter().map(|trash| &trash.note))
+                .map(move |note| (export.notebook.id.as_str(), note))), true,
+        )?;
         let imports = root.join(IMPORTS);
         fs::create_dir_all(&imports).map_err(|_| recovery_error())?;
         regular_directory(&imports)?;

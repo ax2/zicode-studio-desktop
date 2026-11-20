@@ -1,8 +1,8 @@
 name: Developer platform
 
 on:
-  # Human-readable guidance only. Keep machine inputs and packaged notices
-  # under full platform checks, including all docs/plugins and nested fixtures.
+  # Documentation CI checks release issue plans alongside the release notes.
+  # Keep all plugin inputs, nested fixtures and packaged notices under platform checks.
   # Any mixed code/workflow change still triggers the job.
   pull_request:
     paths-ignore:
@@ -14,6 +14,7 @@ on:
       - "docs/adr/*.md"
       - "docs/iterations/*.md"
       - "docs/releases/*.md"
+      - "docs/releases/v*.*.*.issues.json"
       - "docs/reviews/*.md"
   push:
     branches: [main]
@@ -26,6 +27,7 @@ on:
       - "docs/adr/*.md"
       - "docs/iterations/*.md"
       - "docs/releases/*.md"
+      - "docs/releases/v*.*.*.issues.json"
       - "docs/reviews/*.md"
   workflow_dispatch:
     inputs:

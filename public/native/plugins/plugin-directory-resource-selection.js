@@ -25,7 +25,7 @@ export function createPluginDirectoryResourceSelection({
   panel.className = "plugin-resource-selection";
   panel.setAttribute("aria-label", t("Studio directory selection"));
   const label = document.createElement("strong");
-  label.textContent = t("Studio · Share project directory names with this plugin");
+  label.textContent = t("Studio · Share folder names with this plugin");
   const description = document.createElement("p");
   description.textContent = t(
     "Only names and file or directory types from one level are shared. No file contents are read. Nothing is saved or sent to AI.",
@@ -33,7 +33,7 @@ export function createPluginDirectoryResourceSelection({
   const choose = document.createElement("button");
   choose.type = "button";
   choose.className = "ui-button ui-button--secondary";
-  choose.textContent = t("Choose a project directory");
+  choose.textContent = t("Choose a folder");
   const confirm = document.createElement("button");
   confirm.type = "button";
   confirm.className = "ui-button ui-button--primary";
@@ -90,7 +90,7 @@ export function createPluginDirectoryResourceSelection({
     panel.setAttribute("aria-busy", "true");
     let stage = "picker";
     status.textContent = t(
-      "Choose a directory inside the current project. Names are shared only after confirmation.",
+      "Choose a folder within the current file location. Names are shared only after confirmation.",
     );
     try {
       const path = await gateway.projectDirectories.choose(target.workspaceId);
@@ -138,7 +138,7 @@ export function createPluginDirectoryResourceSelection({
         status.textContent =
           stage === "picker"
             ? t(
-                "Directory picker could not use this selection. Check the current project and retry.",
+                "Directory picker could not use this selection. Check the file location and retry.",
               )
             : stage === "prepare"
               ? t(

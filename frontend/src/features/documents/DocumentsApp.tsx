@@ -174,6 +174,7 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
             ) : (
               <article
                 ref={previewRef}
+                translate="no"
                 className="markdown-body documents-preview" // biome-ignore lint/security/noDangerouslySetInnerHtml: renderMarkdown escapes HTML before returning the preview
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(result.markdown) }}
               />

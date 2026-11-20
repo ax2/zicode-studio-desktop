@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "requests": {
+    "status": { "kind": "status", "workspaceId": "workspace-a", "sceneId": "programming" },
+    "start": { "kind": "start", "workspaceId": "workspace-a", "sceneId": "programming", "revision": "revision-a", "confirmed": true },
+    "cancel": { "kind": "cancel", "workspaceId": "workspace-a", "sceneId": "programming", "runId": "run-owned" }
+  },
+  "responses": {
+    "idle": { "runId": null, "running": false, "state": "idle", "retryAfterSeconds": null, "conflictCount": 0 },
+    "running": { "runId": "run-owned", "running": true, "state": "running", "retryAfterSeconds": null, "conflictCount": 0 },
+    "synced": { "runId": "run-owned", "running": false, "state": "synced", "retryAfterSeconds": null, "conflictCount": 0 },
+    "cancelled": { "runId": "run-owned", "running": false, "state": "cancelled", "retryAfterSeconds": null, "conflictCount": 0 }
+  },
+  "rejectedRequests": [
+    { "kind": "start", "workspaceId": "workspace-a", "sceneId": "programming", "revision": "revision-a" },
+    { "kind": "start", "workspaceId": "workspace-a", "sceneId": "programming", "revision": "revision-a", "confirmed": true, "endpoint": "https://untrusted.invalid/" },
+    { "kind": "cancel", "workspaceId": "workspace-a", "sceneId": "programming", "runId": 42 },
+    { "kind": "status", "workspaceId": "workspace-a", "sceneId": "programming", "password": "must-not-cross-this-interface" }
+  ]
+}

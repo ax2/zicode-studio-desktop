@@ -13,6 +13,7 @@ fn fixture() -> (Store, Access, Owner) {
         .prepare(
             Prepare {
                 catalog_revision: None,
+                file_name: None,
                 schema_version: 1,
                 owner: owner.clone(),
                 mime_type: "text/plain".into(),
@@ -41,7 +42,7 @@ fn fixture() -> (Store, Access, Owner) {
 }
 fn grant(store: &mut Store, source: &Access, target: &Owner) -> String {
     store
-        .prepare_transfer(source, "source", target.clone(), "target".into())
+        .prepare_transfer(source, "source", target.clone(), "target".into(), None)
         .unwrap()["grantId"]
         .as_str()
         .unwrap()
@@ -165,14 +166,14 @@ fn scope_grants_and_publication_remain_bounded() {
         },
     ] {
         assert!(store
-            .prepare_transfer(&source, "source", invalid, "target".into())
+            .prepare_transfer(&source, "source", invalid, "target".into(), None)
             .is_err());
     }
     for _ in 0..MAX_GRANTS {
         grant(&mut store, &source, &target);
     }
     assert!(store
-        .prepare_transfer(&source, "source", target.clone(), "target".into())
+        .prepare_transfer(&source, "source", target.clone(), "target".into(), None)
         .is_err());
     let id = store.transfers.keys().next().unwrap().clone();
     for _ in 1..MAX_RECORDS {
@@ -180,6 +181,7 @@ fn scope_grants_and_publication_remain_bounded() {
             .prepare(
                 Prepare {
                     catalog_revision: None,
+                    file_name: None,
                     schema_version: 1,
                     owner: target.clone(),
                     mime_type: "text/plain".into(),
@@ -211,6 +213,7 @@ fn byte_quota_is_checked_at_confirmation_and_failure_does_not_consume_grant() {
             .prepare(
                 Prepare {
                     catalog_revision: None,
+                    file_name: None,
                     schema_version: 1,
                     owner: target.clone(),
                     mime_type: "application/octet-stream".into(),

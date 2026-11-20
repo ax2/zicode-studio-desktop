@@ -63,7 +63,7 @@ fn refresh_blocking(roots: &WorkspaceRoots) -> Result<usize, String> {
         let Ok(root) = PathBuf::from(path).canonicalize() else {
             continue;
         };
-        if root.is_dir() {
+        if root.is_dir() && crate::workspace_mode::context_allowed(&root) {
             next.insert(id, root);
         }
     }

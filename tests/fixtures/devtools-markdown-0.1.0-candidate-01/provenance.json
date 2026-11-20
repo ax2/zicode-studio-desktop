@@ -1,0 +1,85 @@
+{
+  "sourceRevision": "97fa495b481971abef0abc67b901bed9e8f843ba",
+  "dirty": true,
+  "builtAt": "2026-10-29T18:57:51.903153+00:00",
+  "signature": "unsigned",
+  "sourceToolVersion": "1.0.1",
+  "core": "zi-markdown-core/0.1.0",
+  "adapter": "zi-markdown-wasi/0.1.0",
+  "sources": [
+    {
+      "path": "Cargo.toml",
+      "sha256": "e2a711af70e2a895a3cbbcfdf196931581c39ad012661a13fe3be3eea4cbe1ae"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "5556381fb2f67f19379c565eb60b9c070ba46e4482350cb82a800ae1740bc9f0"
+    },
+    {
+      "path": "src/markdown_preview.rs",
+      "sha256": "326914c18eb828af6ce7a29c54ab0fe26c7078494d8c76933a4af135e40d9aaa"
+    },
+    {
+      "path": "crates/zi-markdown-core/Cargo.toml",
+      "sha256": "c8407a069fffb56cd3aedc2bc6bf72e2211fe445e76c8fb4c0e8b5f2c52bea70"
+    },
+    {
+      "path": "crates/zi-markdown-core/src/lib.rs",
+      "sha256": "7ae2b55f699ead212af961f262b6310dd72103b15e125623e0da05c3b5db0286"
+    },
+    {
+      "path": "crates/zi-markdown-core/src/tests.rs",
+      "sha256": "a1717bb5c3dd21bd07fb5d1955e206de4270254579e8ec5da770b72c11cbbb62"
+    },
+    {
+      "path": "crates/zi-markdown-wasi/build.rs",
+      "sha256": "021c65549c256c011a6fc372302d23df9415284a33f24c3ea7b55102861719bd"
+    },
+    {
+      "path": "crates/zi-markdown-wasi/Cargo.toml",
+      "sha256": "d9827b83c4f55531b80c14f2a4fe82228e65dbe088ba2487af64098598dc65c8"
+    },
+    {
+      "path": "crates/zi-markdown-wasi/src/lib.rs",
+      "sha256": "f3018d4496f5c8d19e5a0aa34964e3e1845390698a65bdd7da24305a260f8488"
+    },
+    {
+      "path": "crates/zi-markdown-wasi/src/main.rs",
+      "sha256": "3e0070f531102cd1f07592fa5054f95a3bad47806e49379e4486de64f9d1a7ed"
+    },
+    {
+      "path": "crates/zi-markdown-wasi/src/native.rs",
+      "sha256": "3dc7f5e85d49c0494d9076a6821a80bea9736a380e0a509aa5c3b4a997d66faf"
+    },
+    {
+      "path": "crates/zi-markdown-wasi/src/tests.rs",
+      "sha256": "83b6c3d0ffd3a8b70dd8b1080f38880434f9d5b170055d9a883be51e709261c6"
+    },
+    {
+      "path": "crates/zi-markdown-wasi/src/wasi.rs",
+      "sha256": "68af65cb03606184f6ea8a217a714dc3daebac0714137f01f96a17405f754794"
+    },
+    {
+      "path": "scripts/sync_markdown_plugin.py",
+      "sha256": "8e4e9507379b12cd61421a51d8566767c8003853c30280f0eb68115c1f7b4e64"
+    },
+    {
+      "path": "scripts/package_markdown_plugin.py",
+      "sha256": "6fe0c6f8cd8848c661118692f762b23d23cb4909afd1931cdea431a8e781fa4c"
+    },
+    {
+      "path": "plugins/markdown/plugin.json",
+      "sha256": "c3199e827dde0c501c569db10fca8997527a3d6346312a149fc09a8c4999ef2c"
+    }
+  ],
+  "contractSha256": "52114198bb66e217d4092c55d1a636216547b36a9e640c6459242d761c951b39",
+  "preFreezeProofSha256": "5faef3cbb27b2d818f35e5cdb1c62103e00f09fa526dfafc7ddc4568f734c6a6",
+  "conformanceVectors": 33,
+  "memory": [
+    {
+      "initialPages": 34,
+      "maximumPages": 4096
+    }
+  ],
+  "installedHostAcceptance": false
+}

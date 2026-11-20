@@ -93,9 +93,9 @@ fn manual_sources_cover_full_scoped_lists_before_search_filter_and_paging() {
 }
 
 #[test]
-fn scoped_lists_filter_before_paging_and_recent_order_is_preserved() {
+fn scoped_lists_filter_before_paging_and_saved_order_is_preserved() {
     let registry = registry();
-    let mut access = ToolAccess { revision: 7, favorites: (100..155).map(access_id).collect(),
+    let mut access = ToolAccess { revision: 7, favorites: (100..155).rev().map(access_id).collect(),
         recent: [204, 2, 150].map(|index| RecentEntry { id: access_id(index), used_at: index as u64 }).to_vec(),
         ..Default::default() };
     access.favorites.push("removed-or-application-id".into());
@@ -103,7 +103,7 @@ fn scoped_lists_filter_before_paging_and_recent_order_is_preserved() {
     let first = registry.manual_catalog_with_access(&query, Some(&access)).unwrap();
     assert_eq!(first["total"], 55);
     assert_eq!(first["items"].as_array().unwrap().len(), 40);
-    assert_eq!(first["items"][0]["capabilityId"], "text.100");
+    assert_eq!(first["items"][0]["capabilityId"], "text.154");
     assert!(!first.to_string().contains("inputSchema"));
     query.offset = 40;
     query.revision = Some(first["revision"].as_str().unwrap().into());
@@ -111,9 +111,15 @@ fn scoped_lists_filter_before_paging_and_recent_order_is_preserved() {
     query.access_revision = Some(7);
     let second = registry.manual_catalog_with_access(&query, Some(&access)).unwrap();
     assert_eq!(second["items"].as_array().unwrap().len(), 15);
-    assert_eq!(second["items"][0]["capabilityId"], "text.140");
+    assert_eq!(second["items"][0]["capabilityId"], "text.114");
     access.revision = 8;
     assert_eq!(registry.manual_catalog_with_access(&query, Some(&access)).unwrap_err(), "catalog_changed");
+    query.offset = 0; query.access_revision = None; query.query = "14".into();
+    let filtered = registry.manual_catalog_with_access(&query, Some(&access)).unwrap();
+    assert_eq!(filtered["items"].as_array().unwrap().iter()
+        .map(|item| item["accessId"].as_str().unwrap().to_owned()).collect::<Vec<_>>(),
+        (140..150).rev().chain(std::iter::once(114)).map(access_id).collect::<Vec<_>>());
+    query.query.clear();
     query.offset = 0; query.access_revision = None; query.view = CatalogView::Recent;
     let recent = registry.manual_catalog_with_access(&query, Some(&access)).unwrap();
     assert_eq!(recent["items"].as_array().unwrap().iter().map(|item|item["capabilityId"].as_str().unwrap()).collect::<Vec<_>>(), vec!["text.204", "text.002", "text.150"]);

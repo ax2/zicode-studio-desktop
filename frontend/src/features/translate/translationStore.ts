@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { friendlyPluginError } from "../../shared/hostErrors";
 import { t } from "../../shared/i18n";
 import type { ModelToolChoice, ModelToolSelection } from "../../shared/ModelToolPicker";
+import type { ClipboardTranslationInvoke } from "./DesktopClipboardTranslation";
 import type { TranslationResult } from "./translationLogic";
 
 export interface TranslationScope {
@@ -19,7 +20,7 @@ export interface TranslateInput {
 
 export interface TranslationGateway {
   listModels?(scope: TranslationScope): Promise<ModelToolChoice[]>;
-  translate(scope: TranslationScope, input: TranslateInput): Promise<TranslationResult>;
+  translate(scope: TranslationScope, input: TranslateInput, signal?: AbortSignal): Promise<TranslationResult>;
 }
 
 export class TranslationHttpGateway implements TranslationGateway {
@@ -47,15 +48,19 @@ export class TranslationHttpGateway implements TranslationGateway {
     return (await response.json()).models;
   }
 
-  async translate(scope: TranslationScope, input: TranslateInput): Promise<TranslationResult> {
+  async translate(scope: TranslationScope, input: TranslateInput, signal?: AbortSignal): Promise<TranslationResult> {
     const response = await this.#fetch(
       new URL("/v2/translate", this.#location.origin).toString(),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...scope, ...input }),
+        signal,
       },
-    );
+    ).catch((error) => {
+      if (signal?.aborted) throw error;
+      throw new Error("model gateway is unreachable");
+    });
     if (!response.ok) {
       let detail = "";
       try {
@@ -70,10 +75,36 @@ export class TranslationHttpGateway implements TranslationGateway {
   }
 }
 
+export type ClipboardTranslationDraft = {
+  text: string;
+  sourceLang: string | null;
+  targetLang: string;
+  result: TranslationResult | null;
+};
+
+export type BrowserSelectionSource = { url: string; title: string; capturedAt: string; documentRevision: string };
+
+type IncomingText = { text: string; scope: TranslationScope; provenance?: BrowserSelectionSource } & (
+  { source: "webpage" | "clipboard" } | { source: "floating"; draft: ClipboardTranslationDraft }
+);
+
+const sameScope = (a: TranslationScope, b: TranslationScope) =>
+  a.sceneId === b.sceneId && a.workspaceId === b.workspaceId;
+
+const maxTextCharacters = 50_000;
+
 export interface TranslationState {
   modelSelection: ModelToolSelection | null;
   setModelSelection(value: ModelToolSelection | null): void;
   getSceneId(): string;
+  getScope(): TranslationScope;
+  pendingIncomingText: IncomingText | null;
+  stageBrowserSelection(value: string, provenance?: BrowserSelectionSource): void;
+  browserSource: BrowserSelectionSource | null;
+  stageClipboardTranslation(draft: ClipboardTranslationDraft): void;
+  importClipboard(): Promise<void>;
+  acceptIncomingText(): void;
+  dismissIncomingText(): void;
   loadModels(): Promise<ModelToolChoice[]>;
   text: string;
   sourceLang: string;
@@ -82,11 +113,13 @@ export interface TranslationState {
   editedText: string;
   busy: boolean;
   error: string;
+  cancelled: boolean;
   setText(value: string): void;
   setSourceLang(value: string): void;
   setTargetLang(value: string): void;
   swap(): void;
   run(): Promise<void>;
+  cancel(): void;
   copyResult(): Promise<void>;
   setEditedText(value: string): void;
   download(): void;
@@ -95,16 +128,97 @@ export interface TranslationState {
 
 export interface TranslationOptions {
   gateway?: TranslationGateway;
+  clipboardTranslation?: ClipboardTranslationInvoke;
   getTarget(): TranslationScope;
   notify(message: string): void;
 }
 
 export function createTranslationStore(options: TranslationOptions) {
   const { gateway = new TranslationHttpGateway(), getTarget, notify } = options;
-  return create<TranslationState>()((set, get) => ({
+  let inputRevision = 0;
+  let incomingRevision = 0;
+  let activeRequest: AbortController | null = null;
+  let completedInput: { scope: TranslationScope; text: string; sourceLang: string; targetLang: string } | null = null;
+  function applyIncoming(incoming: IncomingText) {
+    if (incoming.source !== "floating") {
+      store.getState().setText(incoming.text);
+      store.setState({ browserSource: incoming.source === "webpage" ? incoming.provenance ?? null : null });
+      return;
+    }
+    const { text, targetLang, result, sourceLang: source } = incoming.draft;
+    const sourceLang = source ?? "";
+    inputRevision += 1;
+    completedInput = result ? { scope: incoming.scope, text, sourceLang, targetLang } : null;
+    store.setState({ text, sourceLang, targetLang, result, browserSource: null, editedText: result?.translated ?? "", error: "", cancelled: false });
+  }
+
+  function stageIncomingText(incoming: IncomingText) {
+    const current = store.getState();
+    if (!current.text.trim() && !current.busy && !current.result) {
+      applyIncoming(incoming);
+      store.setState({ pendingIncomingText: null });
+      return;
+    }
+    store.setState({ pendingIncomingText: incoming.source === "floating" || incoming.source === "webpage" || incoming.text !== current.text ? incoming : null });
+  }
+
+  const store = create<TranslationState>()((set, get) => ({
     modelSelection: null,
-    setModelSelection(value) { set({ modelSelection: value }); },
+    setModelSelection(value) {
+      const previous = get().modelSelection;
+      if (previous?.sceneId === value?.sceneId && previous?.provider === value?.provider && previous?.model === value?.model) return;
+      inputRevision += 1;
+      set({ modelSelection: value ? { ...value } : null, error: "", cancelled: false });
+    },
     getSceneId: () => getTarget().sceneId,
+    getScope: getTarget,
+    pendingIncomingText: null,
+    browserSource: null,
+    stageBrowserSelection(text, provenance) {
+      if (!text.trim()) return;
+      incomingRevision += 1;
+      stageIncomingText({ text, source: "webpage", provenance, scope: { ...getTarget() } });
+    },
+    stageClipboardTranslation(draft) {
+      if (!draft.text.trim()) return;
+      incomingRevision += 1;
+      stageIncomingText({ text: draft.text, source: "floating", scope: { ...getTarget() }, draft });
+    },
+    async importClipboard() {
+      const scope = { ...getTarget() };
+      const revision = ++incomingRevision;
+      const isCurrent = () => incomingRevision === revision && sameScope(scope, getTarget());
+      let text: string;
+      try {
+        if (typeof navigator.clipboard?.readText !== "function") throw new Error("clipboard_unavailable");
+        text = await navigator.clipboard.readText();
+      } catch {
+        if (isCurrent()) set({ error: t("Could not read text from the clipboard") });
+        return;
+      }
+      if (!isCurrent()) return;
+      if (!text.trim()) {
+        set({ error: t("Clipboard contains no text") });
+        return;
+      }
+      if (text.length > maxTextCharacters * 2 ||
+          (text.length > maxTextCharacters && Array.from(text).length > maxTextCharacters)) {
+        set({ error: t("Clipboard text exceeds the 50,000-character translation limit") });
+        return;
+      }
+      set({ error: "" });
+      stageIncomingText({ text, source: "clipboard", scope });
+    },
+    acceptIncomingText() {
+      const { pendingIncomingText: pending, busy } = get();
+      if (!pending || busy) return;
+      if (sameScope(pending.scope, getTarget())) applyIncoming(pending);
+      set({ pendingIncomingText: null });
+    },
+    dismissIncomingText() {
+      incomingRevision += 1;
+      set({ pendingIncomingText: null });
+    },
     loadModels: () => gateway.listModels?.(getTarget()) ?? Promise.resolve([]),
     text: "",
     sourceLang: "",
@@ -113,54 +227,96 @@ export function createTranslationStore(options: TranslationOptions) {
     editedText: "",
     busy: false,
     error: "",
+    cancelled: false,
 
     setText(value) {
-      set({ text: value, error: "", result: null });
+      if (value === get().text) return;
+      inputRevision += 1;
+      completedInput = null;
+      set({ text: value, browserSource: null, error: "", cancelled: false, result: null, editedText: "" });
     },
 
     setSourceLang(value) {
-      set({ sourceLang: value, error: "" });
+      if (value === get().sourceLang) return;
+      inputRevision += 1;
+      set({ sourceLang: value, error: "", cancelled: false });
     },
 
     setTargetLang(value) {
-      set({ targetLang: value, error: "" });
+      if (value === get().targetLang) return;
+      inputRevision += 1;
+      set({ targetLang: value, error: "", cancelled: false });
     },
 
     swap() {
-      const { sourceLang, targetLang, editedText, text } = get();
+      const { sourceLang, targetLang, editedText, text, result } = get();
+      const scope = getTarget();
+      const currentResult = result && completedInput && completedInput.text === text &&
+        completedInput.sourceLang === sourceLang && completedInput.targetLang === targetLang &&
+        completedInput.scope.sceneId === scope.sceneId && completedInput.scope.workspaceId === scope.workspaceId;
+      inputRevision += 1;
+      completedInput = null;
       set({
         sourceLang: targetLang,
         targetLang: sourceLang || "English",
         // With a previous result, swap the translated text into the source.
         // Without one, keep the source text so swapping languages never
         // clears what the user typed.
-        text: editedText || text,
+        text: currentResult ? editedText : text,
+        browserSource: null,
         result: null,
         editedText: "",
         error: "",
+        cancelled: false,
       });
     },
 
     async run() {
       const { text, sourceLang, targetLang, busy } = get();
       if (!text.trim() || busy) return;
-      const scope = getTarget();
+      const scope = { ...getTarget() };
+      const revision = inputRevision;
       const selection = get().modelSelection;
-      if (!selection || selection.sceneId !== scope.sceneId) { set({ error: t("Choose a configured model") }); return; }
-      set({ busy: true, error: "", result: null });
+      if (!selection || selection.sceneId !== scope.sceneId) { set({ error: t("Choose a configured model"), cancelled: false }); return; }
+      const request = new AbortController();
+      activeRequest = request;
+      const acceptCompletion = () => {
+        if (activeRequest !== request) return false;
+        activeRequest = null;
+        const current = getTarget();
+        if (current.sceneId !== scope.sceneId || current.workspaceId !== scope.workspaceId) {
+          set({ busy: false });
+          return false;
+        }
+        if (inputRevision !== revision) {
+          set({ busy: false, error: get().text.trim() ? t("Translation input changed. Translate again when ready.") : "" });
+          return false;
+        }
+        return true;
+      };
+      set({ busy: true, error: "", cancelled: false, result: null, editedText: "" });
       try {
         const result = await gateway.translate(scope, {
           provider: selection.provider, model: selection.model,
           text,
           targetLang,
           ...(sourceLang ? { sourceLang } : {}),
-        });
-        if (getTarget().sceneId !== scope.sceneId) { set({ busy: false }); return; }
+        }, request.signal);
+        if (!acceptCompletion()) return;
+        completedInput = { scope, text, sourceLang, targetLang };
         set({ result, editedText: result.translated, busy: false });
         notify(t("Translation complete"));
       } catch (error) {
-        set({ busy: false, error: friendlyPluginError(error) });
+        if (acceptCompletion()) set({ busy: false, error: friendlyPluginError(error) });
       }
+    },
+
+    cancel() {
+      const request = activeRequest;
+      if (!request) return;
+      activeRequest = null;
+      request.abort();
+      set({ busy: false, error: "", cancelled: true });
     },
 
     async copyResult() {
@@ -198,9 +354,13 @@ export function createTranslationStore(options: TranslationOptions) {
     },
 
     clear() {
-      set({ text: "", result: null, editedText: "", error: "" });
+      inputRevision += 1;
+      incomingRevision += 1;
+      completedInput = null;
+      set({ text: "", pendingIncomingText: null, browserSource: null, result: null, editedText: "", error: "", cancelled: false });
     },
   }));
+  return store;
 }
 
 export type TranslationStore = ReturnType<typeof createTranslationStore>;

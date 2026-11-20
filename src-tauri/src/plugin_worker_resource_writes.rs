@@ -1,5 +1,7 @@
 //! Bounded append-only guest output buffers. No filesystem, network or grant access.
-use super::resource_output::{Blob, MAX_BYTES, MIMES};
+use super::resource_output::{Blob, MIMES, Profile};
+#[cfg(test)]
+use super::resource_output::MAX_BYTES;
 use wasmtime::{Caller, Linker};
 
 struct Record {
@@ -8,6 +10,7 @@ struct Record {
     sealed: bool,
 }
 pub(super) struct Writes {
+    profile: Profile,
     records: Vec<Record>,
     reserved: usize,
     calls: usize,
@@ -15,6 +18,7 @@ pub(super) struct Writes {
 impl Default for Writes {
     fn default() -> Self {
         Self {
+            profile: Profile::Draft1,
             records: Vec::new(),
             reserved: 0,
             calls: 4096,
@@ -22,6 +26,9 @@ impl Default for Writes {
     }
 }
 impl Writes {
+    pub(super) fn for_profile(profile: Profile) -> Self {
+        Self { profile, ..Self::default() }
+    }
     fn attempt(&mut self) -> bool {
         if self.calls == 0 {
             false
@@ -37,10 +44,13 @@ impl Writes {
         let Some(mime) = MIMES.get(mime as usize) else {
             return -1;
         };
+        if !self.profile.permits_mime(mime) { return -1; }
         let Ok(length) = usize::try_from(length) else {
             return -1;
         };
-        if self.records.len() == 4 || length > MAX_BYTES.saturating_sub(self.reserved) {
+        if self.records.len() == self.profile.max_records()
+            || length > self.profile.max_file()
+            || length > self.profile.max_bytes().saturating_sub(self.reserved) {
             return -3;
         }
         let mut bytes = Vec::new();
@@ -98,9 +108,18 @@ pub(super) fn link<T: 'static>(
     linker: &mut Linker<T>,
     state: fn(&mut T) -> &mut Writes,
 ) -> Result<(), String> {
+    link_with_profile(linker, state, Profile::Draft1)
+}
+
+pub(super) fn link_with_profile<T: 'static>(
+    linker: &mut Linker<T>,
+    state: fn(&mut T) -> &mut Writes,
+    profile: Profile,
+) -> Result<(), String> {
+    let namespace = profile.namespace();
     linker
         .func_wrap(
-            "zicode_resource_output_draft1",
+            namespace,
             "create",
             move |mut caller: Caller<'_, T>, mime: i32, length: i64| -> i32 {
                 state(caller.data_mut()).create(mime, length)
@@ -109,7 +128,7 @@ pub(super) fn link<T: 'static>(
         .map_err(|_| "Cannot link resource output create".to_string())?;
     linker
         .func_wrap(
-            "zicode_resource_output_draft1",
+            namespace,
             "write",
             move |mut caller: Caller<'_, T>, index: i32, source: i32, length: i32| -> i32 {
                 if !state(caller.data_mut()).attempt() {
@@ -131,7 +150,7 @@ pub(super) fn link<T: 'static>(
         .map_err(|_| "Cannot link resource output write".to_string())?;
     linker
         .func_wrap(
-            "zicode_resource_output_draft1",
+            namespace,
             "finish",
             move |mut caller: Caller<'_, T>, index: i32| -> i32 {
                 state(caller.data_mut()).seal(index)

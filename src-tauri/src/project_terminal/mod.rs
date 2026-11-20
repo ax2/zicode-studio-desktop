@@ -7,6 +7,8 @@ mod output;
 mod process;
 #[cfg(any(windows, test))]
 mod process_drain;
+#[cfg(windows)]
+mod process_members;
 pub mod protocol;
 #[cfg(test)]
 mod tests;

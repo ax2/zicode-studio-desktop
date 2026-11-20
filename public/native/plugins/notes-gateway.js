@@ -81,7 +81,11 @@ export class NotesGateway {
     });
   }
 
-  create(sceneId, workspaceId, notebookId, { title, content = "", tags = [], icon }) {
+  saveNotebookOrder(sceneId, workspaceId, expectedOrder, order) {
+    return this.#post("/v2/notes/notebooks/order", { sceneId, workspaceId, expectedOrder, order });
+  }
+
+  create(sceneId, workspaceId, notebookId, { title, content = "", tags = [], icon, source }) {
     return this.#post("/v2/notes/create", {
       sceneId,
       workspaceId,
@@ -90,6 +94,7 @@ export class NotesGateway {
       content,
       tags,
       icon,
+      source,
     });
   }
 

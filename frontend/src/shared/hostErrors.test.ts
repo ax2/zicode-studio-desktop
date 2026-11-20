@@ -106,7 +106,7 @@ describe("host error localization", () => {
     );
     expect(
       friendlyPluginError(new Error("Translation model key is not configured for this scene")),
-    ).toBe("当前场景尚未配置翻译模型。");
+    ).toBe("尚未配置翻译模型，请在设置中选择模型。");
     expect(friendlyPluginError(new Error("Model gateway is unreachable: timeout"))).toBe(
       "无法连接翻译服务，请检查网络或代理设置。",
     );
@@ -123,7 +123,7 @@ describe("host error localization", () => {
       friendlyPluginError(
         new Error("QVeris API Key is not configured for this scene. Open Settings."),
       ),
-    ).toBe("当前场景尚未配置 QVeris API Key。");
+    ).toBe("尚未配置 QVeris API 密钥，请在模型设置中添加。");
     expect(friendlyPluginError(new Error("QVeris request timed out"))).toBe(
       "QVeris 请求超时，请稍后重试。",
     );

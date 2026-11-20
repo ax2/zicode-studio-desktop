@@ -1,23 +1,25 @@
+import { OpenToolTabs } from "./OpenToolTabs";
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { ToolAccessScope, ToolAccessStore } from "../commandPalette/tool-access";
 import { useToolAccess } from "../commandPalette/use-tool-access";
 import { ManualToolSession } from "./ManualToolSession";
 import { ToolCloseConfirmation } from "./ToolCloseConfirmation";
-import type { ResourceTargetProvider } from "./ResourceToolRunner";
+import type { ResourceTargetProvider, ReceiveNoteDraft } from "./ResourceToolRunner";
 import { toolCategoryTitle } from "./tool-categories";
 import { useDirectoryToolFilter } from "./use-directory-tool-filter";
 import { useFileToolFilter } from "./use-file-tool-filter";
 import { type ManualTool, type ManualToolApi, type ToolPage, type ToolDirectoryView, type ToolOpenRequest, type ViewOperation, manualToolError } from "./manual-tools";
 import { initialTrayToolView, subscribeTrayToolView } from "./tray-tool-view";
 
-export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, openApplication, openViewOperation, requestedTool, getResourceTarget }: {
+export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, openApplication, openViewOperation, requestedTool, getResourceTarget, receiveNoteDraft }: {
   api: ManualToolApi; scope: ToolAccessScope; accessStore?: ToolAccessStore;
   catalogRevision?: number;
   openApplication(pluginId: string, capabilityId: string, version: string): (() => void) | undefined;
   openViewOperation?(operation: ViewOperation, revision: string): Promise<unknown> | unknown;
   requestedTool?: ToolOpenRequest;
   getResourceTarget?: ResourceTargetProvider;
+  receiveNoteDraft?: ReceiveNoteDraft;
 }) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ToolDirectoryView>(initialTrayToolView);
@@ -35,7 +37,6 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [runningTools, setRunningTools] = useState<string[]>([]);
   const [closeTarget, setCloseTarget] = useState<{ toolId: string; title: string; trigger: HTMLButtonElement; sceneId: string; workspaceId: string } | null>(null);
-  const activeOpened = opened.find(item => item.tool.toolId === activeTool);
   const runningToolsRef = useRef<string[]>([]);
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
@@ -130,30 +131,9 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     return () => { active = false; clearTimeout(timer); controller.abort(); };
   }, [api, scope.sceneId, scope.workspaceId, query, cursor, effectiveView, source, category, openViewOperation, fileFilter.ready, fileFilter.enabled, fileFilter.fileName, fileFilter.selectedFileCount, fileFilter.fileNames, directoryFilter.ready, directoryFilter.enabled]);
   return <div className="manual-tool-directory" ref={directory}>
-    <fieldset ref={switcher} className={`ui-toolbar tool-open-switcher${opened.length > 3 ? " tool-open-switcher--compact" : ""}`} aria-label={t("Opened tools")}>
-      <button ref={activeTool === null ? selectedButton : undefined} data-open-tool-id="" type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === null} onClick={() => setActiveTool(null)}>{t("Tool directory")}</button>
-      {opened.length > 3 ? <>
-        <select className="ui-select tool-open-picker" aria-label={t("Opened tools")} value={activeTool ?? ""}
-          onChange={event => setActiveTool(event.target.value || null)}>
-          <option value="" disabled>{t("Opened tools")} · {opened.length}/8</option>
-          {opened.map(item => <option key={item.tool.toolId} value={item.tool.toolId}>
-            {item.tool.title} · {item.tool.applicationName}{runningTools.includes(item.tool.toolId) ? ` · ${t("Completion unconfirmed")}` : ""}
-          </option>)}
-        </select>
-        {activeOpened && <button type="button" className="ui-button ui-button--secondary"
-          aria-label={`${t("Close tool")}: ${activeOpened.tool.title}`}
-          disabled={runningTools.includes(activeOpened.tool.toolId)}
-          onClick={event => setCloseTarget({ toolId: activeOpened.tool.toolId, title: activeOpened.tool.title,
-            trigger: event.currentTarget, sceneId: scope.sceneId, workspaceId: scope.workspaceId })}>{t("Close")}</button>}
-      </> : opened.map(item => <span key={item.tool.toolId} className="ui-toolbar tool-open-item">
-        <button type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === item.tool.toolId}
-          ref={activeTool === item.tool.toolId ? selectedButton : undefined} data-open-tool-id={item.tool.toolId} title={item.tool.title}
-          onClick={() => setActiveTool(item.tool.toolId)}><span className="tool-open-title">{item.tool.title}</span>{runningTools.includes(item.tool.toolId) ? ` · ${t("Completion unconfirmed")}` : ""}</button>
-        <button type="button" className="ui-button ui-button--ghost" aria-label={`${t("Close tool")}: ${item.tool.title}`}
-          disabled={runningTools.includes(item.tool.toolId)} onClick={event => setCloseTarget({ toolId: item.tool.toolId, title: item.tool.title,
-            trigger: event.currentTarget, sceneId: scope.sceneId, workspaceId: scope.workspaceId })}>{t("Close")}</button>
-      </span>)}
-    </fieldset>
+    <OpenToolTabs opened={opened} active={activeTool} running={runningTools} strip={switcher} selected={selectedButton}
+      onSelect={setActiveTool} onClose={(tool, trigger) => setCloseTarget({ toolId: tool.toolId, title: tool.title,
+        trigger, sceneId: scope.sceneId, workspaceId: scope.workspaceId })} />
     <div hidden={activeTool !== null} className="manual-tool-directory-list">
     {accessStore && <fieldset className="ui-toolbar" aria-label={t("Tool list")}>
       {(["all", "favorites", "recent"] as const).map(value => <button key={value} type="button"
@@ -167,7 +147,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     </label>
     {typeof api.projectDirectories?.choose === "function" && <label className="tool-input-field">
       <span><input type="checkbox" checked={directoryFilter.enabled} disabled={!fileFilter.ready || !directoryFilter.ready}
-        onChange={event => { directoryFilter.setEnabled(event.target.checked); if (event.target.checked) fileFilter.setEnabled(false); setCursor({ offset: 0, revision: null }); }} /> {t("Only project directory tools")}</span>
+        onChange={event => { directoryFilter.setEnabled(event.target.checked); if (event.target.checked) fileFilter.setEnabled(false); setCursor({ offset: 0, revision: null }); }} /> {t("Only folder tools")}</span>
     </label>}
     <div className="tool-directory-filters">
     {page?.sources && <label className="tool-input-field">{t("Tool source")}
@@ -195,6 +175,11 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
         onChange={event => { setQuery(event.target.value); setCursor({ offset: 0, revision: null }); }} />
     </label>
     </div>
+    {(query || source || category || fileFilter.enabled || directoryFilter.enabled || effectiveView !== "all") &&
+      <button type="button" className="ui-button ui-button--secondary" disabled={!fileFilter.ready || !directoryFilter.ready}
+        onClick={() => { setQuery(""); setSource(""); setCategory(""); setView("all");
+          fileFilter.setEnabled(false); directoryFilter.setEnabled(false); setCursor({ offset: 0, revision: null });
+        }}>{t("Clear filters and show all tools")}</button>}
     <p className="tool-center-source">{t("Browsing loads metadata only. Choose an entry to open it.")}</p>
     {fileFilter.enabled && <p className="tool-center-source">{t("Shows enabled tools with file read permission. File type hints are plugin declarations; check supported formats before sharing.")}</p>}
     {fileFilter.enabled && fileFilter.fileName && <p role="status" className="tool-center-source">
@@ -206,7 +191,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     {fileFilter.enabled && fileFilter.selectedFileCount && <p className="tool-center-source">{t("Showing tools that declare support for at least {count} input files. Confirm formats and sharing before use.").replace("{count}", String(fileFilter.selectedFileCount))}</p>}
     {fileFilter.failed && <p role="status">{t("The opened file could not be checked. You can select the file tool filter manually.")}</p>}
     {directoryFilter.failed && <p role="status">{t("The opened folder could not be checked. You can select the directory tool filter manually.")}</p>}
-    {effectiveView !== "all" && <p className="tool-center-source">{t("This list belongs to the current workspace and scene. Removed tools are hidden.")}</p>}
+    {effectiveView !== "all" && <p className="tool-center-source">{t("This list belongs to the current workspace. Removed tools are hidden.")}</p>}
     {access.error && <p role="alert">{t("Tool history could not be loaded or saved.")}
       <button type="button" className="ui-button ui-button--secondary" onClick={access.retry}>{t("Retry")}</button></p>}
     {(loading || !fileFilter.ready || !directoryFilter.ready) && <p role="status">{t("Loading tools…")}</p>}
@@ -271,7 +256,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
           setOpened(previous => previous.map(entry => entry.tool.toolId === item.tool.toolId
             ? { tool: replacement, revision: fresh.revision, reloadCount: (entry.reloadCount ?? 0) + 1 } : entry));
         }}
-        onRecentChange={access.retry} getResourceTarget={getResourceTarget}
+        onRecentChange={access.retry} getResourceTarget={getResourceTarget} receiveNoteDraft={receiveNoteDraft}
         onBusy={busy => {
           runningToolsRef.current = busy ? [...new Set([...runningToolsRef.current, item.tool.toolId])] : runningToolsRef.current.filter(id => id !== item.tool.toolId);
           setRunningTools(runningToolsRef.current);
@@ -280,11 +265,14 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     </div>)}
     {closeTarget && closeTarget.sceneId === scope.sceneId && closeTarget.workspaceId === scope.workspaceId && <ToolCloseConfirmation
       title={closeTarget.title} trigger={closeTarget.trigger} busy={runningTools.includes(closeTarget.toolId)} onCancel={() => setCloseTarget(null)}
-      restoreFocus={() => switcher.current?.querySelector<HTMLButtonElement>("button")?.focus()}
+      restoreFocus={() => (selectedButton.current ?? switcher.current?.querySelector<HTMLButtonElement>("button"))?.focus({ preventScroll: true })}
       onConfirm={() => {
         if (runningToolsRef.current.includes(closeTarget.toolId) || closeTarget.sceneId !== scope.sceneId || closeTarget.workspaceId !== scope.workspaceId) return;
         setOpened(previous => previous.filter(item => item.tool.toolId !== closeTarget.toolId));
-        if (activeTool === closeTarget.toolId) setActiveTool(null);
+        if (activeTool === closeTarget.toolId) {
+          const index = opened.findIndex(item => item.tool.toolId === closeTarget.toolId);
+          setActiveTool((opened[index + 1] ?? opened[index - 1])?.tool.toolId ?? null);
+        }
         setCloseTarget(null);
       }} />}
   </div>;

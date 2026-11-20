@@ -91,7 +91,10 @@ pub fn shell(root: &Path) -> Result<(CommandBuilder, String), String> {
 }
 
 #[cfg(windows)]
-pub struct ProcessGuard(std::os::windows::io::OwnedHandle);
+pub struct ProcessGuard {
+    job: std::os::windows::io::OwnedHandle,
+    termination: std::sync::OnceLock<Result<super::process_members::Members, &'static str>>,
+}
 
 #[cfg(windows)]
 impl ProcessGuard {
@@ -119,35 +122,38 @@ impl ProcessGuard {
             {
                 return Err("terminal_process_group_failed".into());
             }
-            Ok(Self(owner))
+            Ok(Self {
+                job: owner,
+                termination: Default::default(),
+            })
         }
     }
     pub fn terminate(&self) {
         use std::os::windows::io::AsRawHandle;
-        unsafe {
-            windows_sys::Win32::System::JobObjects::TerminateJobObject(self.0.as_raw_handle(), 1);
-        }
+        self.termination.get_or_init(|| {
+            let job = self.job.as_raw_handle();
+            let members = super::process_members::Members::capture(job);
+            // Even a failed observation must not prevent termination of the owned job.
+            if unsafe { windows_sys::Win32::System::JobObjects::TerminateJobObject(job, 1) } == 0 {
+                return Err("terminal_process_group_unconfirmed");
+            }
+            members
+        });
     }
 
     pub fn wait_for_exit(&self) -> Result<(), &'static str> {
         use std::os::windows::io::AsRawHandle;
-        use windows_sys::Win32::System::JobObjects::*;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        let members = self
+            .termination
+            .get()
+            .ok_or("terminal_process_group_unconfirmed")?
+            .as_ref()
+            .map_err(|&error| error)?;
+        members.wait(deadline)?;
         super::process_drain::wait_until_empty(
-            || unsafe {
-                let mut info: JOBOBJECT_BASIC_ACCOUNTING_INFORMATION = std::mem::zeroed();
-                if QueryInformationJobObject(
-                    self.0.as_raw_handle(),
-                    JobObjectBasicAccountingInformation,
-                    (&mut info as *mut JOBOBJECT_BASIC_ACCOUNTING_INFORMATION).cast(),
-                    std::mem::size_of_val(&info) as u32,
-                    std::ptr::null_mut(),
-                ) == 0 {
-                    Err(())
-                } else {
-                    Ok(info.ActiveProcesses)
-                }
-            },
-            std::time::Instant::now() + std::time::Duration::from_secs(3),
+            || members.active_processes(self.job.as_raw_handle()),
+            deadline,
         )
     }
 }
@@ -192,6 +198,8 @@ impl ProcessGuard {
     }
 }
 
+// Windows closes its kill-on-close job handle automatically.
+#[cfg(unix)]
 impl Drop for ProcessGuard {
     fn drop(&mut self) {
         self.terminate();

@@ -1,0 +1,10 @@
+.browser-downloads-dialog { position: fixed; inset: 0; margin: auto; width: min(92vw, 56rem); max-height: 90vh; overflow: auto; padding: var(--space-4); background: var(--bg-solid); color: var(--text-primary); }
+.browser-downloads-list { min-width: 0; max-height: 55vh; overflow: auto; }
+.browser-downloads-row { display: grid; gap: var(--space-1); min-width: 0; padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+.browser-downloads-name, .browser-downloads-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.browser-downloads-meta, .browser-downloads-path, .browser-downloads-error { font-size: var(--font-size-sm); color: var(--text-secondary); }
+.browser-downloads-path, .browser-downloads-error, .browser-downloads-message { overflow-wrap: anywhere; }
+.browser-downloads-row progress { width: 100%; accent-color: var(--accent); }
+.browser-downloads-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.browser-downloads-row [hidden], .browser-downloads-dialog > [hidden] { display: none; }
+.browser-downloads-open svg { width: var(--font-size-lg); height: var(--font-size-lg); }

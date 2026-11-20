@@ -35,8 +35,8 @@ pub fn global_workspace_root() -> Result<PathBuf, String> {
 /// app data in `<workspace>/.zicode/<app>`, including the global shared
 /// workspace (`~/.zicode` itself uses `~/.zicode/.zicode/<app>`), so project
 /// data is never mixed with the `~/.zicode` system configuration files.
-pub fn workspace_app_dir(workspace_root: &Path, _system_root: &Path) -> PathBuf {
-    workspace_root.join(".zicode")
+pub fn workspace_app_dir(workspace_root: &Path, system_root: &Path) -> PathBuf {
+    crate::workspace_mode::app_directory(workspace_root, system_root)
 }
 
 /// Pi's global agent configuration directory (`~/.zicode/agent`), used for
@@ -209,12 +209,8 @@ fn copy_dir(source: &Path, destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Remove abandoned instance directories that contain no saved Pi session.
-///
-/// A fresh temporary instance is created on every application launch. If the
-/// user never sends a message, that instance has no `.jsonl` session and can
-/// be removed safely on the next launch. Directories containing a session are
-/// retained indefinitely.
+/// Remove only empty directory trees. Any file or link may be user data,
+/// even when no Pi session was saved; retain those instances indefinitely.
 pub fn cleanup_empty_instances() -> Result<usize, String> {
     cleanup_empty_instances_at(&data_root()?)
 }
@@ -230,7 +226,13 @@ fn cleanup_empty_instances_at(root: &Path) -> Result<usize, String> {
     {
         let entry = entry.map_err(|error| format!("Cannot read instance entry: {error}"))?;
         let path = entry.path();
-        if !path.is_dir() || contains_session_file(&path)? {
+        if entry
+            .file_type()
+            .map_err(|error| error.to_string())?
+            .is_symlink()
+            || !path.is_dir()
+            || contains_preserved_entry(&path)?
+        {
             continue;
         }
         fs::remove_dir_all(&path)
@@ -240,7 +242,7 @@ fn cleanup_empty_instances_at(root: &Path) -> Result<usize, String> {
     Ok(removed)
 }
 
-fn contains_session_file(root: &Path) -> Result<bool, String> {
+fn contains_preserved_entry(root: &Path) -> Result<bool, String> {
     for entry in
         fs::read_dir(root).map_err(|error| format!("Cannot read {}: {error}", root.display()))?
     {
@@ -248,18 +250,10 @@ fn contains_session_file(root: &Path) -> Result<bool, String> {
         let file_type = entry
             .file_type()
             .map_err(|error| format!("Cannot inspect {}: {error}", entry.path().display()))?;
-        if file_type.is_symlink() {
-            continue;
-        }
-        if file_type.is_dir() && contains_session_file(&entry.path())? {
+        if !file_type.is_dir() {
             return Ok(true);
         }
-        if file_type.is_file()
-            && entry
-                .path()
-                .extension()
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("jsonl"))
-        {
+        if file_type.is_dir() && contains_preserved_entry(&entry.path())? {
             return Ok(true);
         }
     }
@@ -330,7 +324,7 @@ mod tests {
     }
 
     #[test]
-    fn removes_only_instances_without_saved_sessions() {
+    fn removes_only_empty_instances_and_preserves_non_session_data() {
         let root = std::env::temp_dir().join(format!(
             "zicode-paths-cleanup-{}",
             uuid::Uuid::new_v4().simple()
@@ -341,7 +335,11 @@ mod tests {
         fs::create_dir_all(&saved).unwrap();
         fs::write(saved.join("session.jsonl"), b"{\"type\":\"session\"}\n").unwrap();
 
+        let notes = root.join("instances/notes-only");
+        fs::create_dir_all(&notes).unwrap();
+        fs::write(notes.join("note.md"), b"keep my notes").unwrap();
         assert_eq!(cleanup_empty_instances_at(&root).unwrap(), 1);
+        assert_eq!(fs::read(notes.join("note.md")).unwrap(), b"keep my notes");
         assert!(!empty.exists());
         assert!(saved.parent().unwrap().exists());
         fs::remove_dir_all(root).unwrap();

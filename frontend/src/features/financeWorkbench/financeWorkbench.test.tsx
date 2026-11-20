@@ -1,4 +1,4 @@
-import { fireEvent } from "@testing-library/react";
+import { fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
 import { number, percent } from "./financeWorkbenchLogic";
@@ -68,15 +68,15 @@ describe("finance workbench", () => {
 
     targetRef.current = { sceneId: "programming" };
     workbench.setTarget();
-    expect(content.textContent).toContain("金融工作台需要金融场景");
+    expect(content.textContent).toContain("金融工作台");
     expect(content.textContent).toContain("打开金融工作台");
-    expect(content.textContent).toContain("选择金融场景");
+    expect(content.textContent).not.toContain("场景");
     expect(
       navigation.querySelector<HTMLButtonElement>(".finance-nav-item")?.disabled,
     ).toBe(true);
   });
 
-  it("routes the scene-guard scene button to scene settings, not data-key config", () => {
+  it("opens the dedicated workbench session directly without a second configuration choice", async () => {
     const openConfiguration = vi.fn();
     const openSceneSettings = vi.fn();
     const createFinanceSession = vi.fn(async () => ({ ok: true }));
@@ -89,9 +89,8 @@ describe("finance workbench", () => {
     const sceneButton = content.querySelector<HTMLButtonElement>(
       ".finance-scene-guard .ui-button--secondary",
     );
-    if (!sceneButton) throw new Error("missing scene-settings button");
-    fireEvent.click(sceneButton);
-    expect(openSceneSettings).toHaveBeenCalledTimes(1);
+    expect(sceneButton).toBeNull();
+    expect(openSceneSettings).not.toHaveBeenCalled();
     expect(openConfiguration).not.toHaveBeenCalled();
 
     const sessionButton = content.querySelector<HTMLButtonElement>(
@@ -99,7 +98,7 @@ describe("finance workbench", () => {
     );
     if (!sessionButton) throw new Error("missing new-session button");
     fireEvent.click(sessionButton);
-    expect(createFinanceSession).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(createFinanceSession).toHaveBeenCalledTimes(1));
   });
 
   it("loads the status and shows Connected when the Finance key is configured", async () => {

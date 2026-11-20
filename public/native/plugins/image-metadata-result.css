@@ -1,0 +1,15 @@
+.image-metadata-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.image-metadata-result[hidden], .image-metadata-result [hidden] { display: none; }
+.image-metadata-result h3, .image-metadata-result p, .image-metadata-result dl, .image-metadata-result ul { margin: 0; }
+.image-metadata-result dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); }
+.image-metadata-result dt { color: var(--text-muted); font-size: var(--font-size-sm); }
+.image-metadata-result dd { margin: 0; }
+.image-metadata-result ul { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; list-style: none; }
+.image-metadata-result details > .tool-result { margin-block: var(--space-2); }
+.image-metadata-result .image-metadata-report { display: block; width: 100%; margin-block: var(--space-2); }

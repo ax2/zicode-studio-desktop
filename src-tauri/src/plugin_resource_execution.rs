@@ -1,4 +1,32 @@
 //! Fixed execution budgets for explicitly negotiated resource capabilities.
+#[path = "plugin_resource_encoding.rs"]
+pub(crate) mod encoding;
+#[path = "plugin_resource_file_digest.rs"]
+pub(crate) mod file_digest;
+#[path = "plugin_resource_json_compare.rs"]
+pub(crate) mod json_compare;
+#[path = "plugin_resource_json_transform.rs"]
+pub(crate) mod json_transform;
+#[path = "plugin_resource_markdown.rs"]
+pub(crate) mod markdown;
+#[path = "plugin_resource_image_metadata.rs"]
+pub(crate) mod metadata;
+
+pub(crate) fn json_file_selected(profile: Option<&str>) -> bool {
+    profile == Some(json_compare::PROFILE) || json_transform::selected(profile)
+}
+
+pub(crate) fn json_file_input_count(
+    profile: Option<&str>,
+    plugin: &str,
+    capability: Option<&str>,
+) -> Option<usize> {
+    match profile {
+        Some(json_compare::PROFILE) => json_compare::input_count(plugin, capability),
+        Some(json_transform::PROFILE) => json_transform::input_count(plugin, capability),
+        _ => None,
+    }
+}
 pub(crate) const IMAGE_RESIZE_PROFILE: &str = "resource.wasi.image.resize.v1";
 pub(crate) const IMAGE_RESIZE_PROFILE_VERSION: &str = "1.0.0-preview.1";
 pub(crate) const IMAGE_RESIZE_MEMORY_MIB: usize = 256;
@@ -34,7 +62,8 @@ pub(crate) fn inspect_text(
     bytes: &[u8],
     mime_type: &str,
 ) -> Result<serde_json::Value, &'static str> {
-    if mime_type != "text/plain" || bytes.len() > HOST_TEXT_MAX_BYTES {
+    if !matches!(mime_type, "text/plain" | "application/json") || bytes.len() > HOST_TEXT_MAX_BYTES
+    {
         return Err("resource_input_invalid");
     }
     let text = std::str::from_utf8(bytes).map_err(|_| "resource_input_invalid")?;

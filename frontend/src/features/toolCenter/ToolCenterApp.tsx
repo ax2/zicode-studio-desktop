@@ -1,3 +1,5 @@
+import { MULTI_PROJECT_UI_ENABLED, isWorkspaceEntryVisible } from "../../shared/workspaceMode";
+import { ToolSavedFiles } from "./ToolSavedFiles";
 import { useEffect, useMemo, useState } from "react";
 import { matchesSearchTerms, prepareSearchQuery } from "../../shared/catalog-search";
 import { t } from "../../shared/i18n";
@@ -6,7 +8,7 @@ import { accessCommands, type ToolAccessScope, type ToolAccessStore } from "../c
 import { useToolAccess } from "../commandPalette/use-tool-access";
 import { ManualToolDirectory } from "./ManualToolDirectory";
 import type { ManualToolApi, ToolOpenRequest, ViewOperation } from "./manual-tools";
-import type { ResourceTargetProvider } from "./ResourceToolRunner";
+import type { ResourceTargetProvider, ReceiveNoteDraft } from "./ResourceToolRunner";
 import { ResourceCallRecords } from "./ResourceCallRecords";
 import { ToolWorkspacePicker, type ToolWorkspaceApi } from "./ToolWorkspacePicker";
 import { initialTrayToolView, subscribeTrayToolView } from "./tray-tool-view";
@@ -20,6 +22,7 @@ export interface ToolCenterProps {
   catalogRevision?: number;
   requestedTool?: ToolOpenRequest;
   getResourceTarget?: ResourceTargetProvider;
+  receiveNoteDraft?: ReceiveNoteDraft;
   onOpen(entry: ApplicationEntry): void;
   onOpenToolApplication?(pluginId: string, capabilityId: string, version: string, entry: ApplicationEntry): void;
   onOpenViewOperation?(operation: ViewOperation, revision: string, scope: ToolAccessScope): Promise<unknown> | unknown;
@@ -28,9 +31,7 @@ export interface ToolCenterProps {
   workspaceApi?: ToolWorkspaceApi;
 }
 
-export function ToolCenterApp({ entries, accessStore, scope, toolApi, catalogRevision, requestedTool, getResourceTarget, onOpen, onOpenToolApplication, onOpenViewOperation, onManage, onCommands, workspaceApi }: ToolCenterProps) {
-  const [section, setSection] = useState(toolApi && scope ? "tools" : "applications");
-  useEffect(() => { if (requestedTool) setSection("tools"); }, [requestedTool]);
+export function ToolCenterApp({ entries, accessStore, scope, toolApi, catalogRevision, requestedTool, getResourceTarget, receiveNoteDraft, onOpen, onOpenToolApplication, onOpenViewOperation, onManage, onCommands, workspaceApi }: ToolCenterProps) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState(initialTrayToolView);
   useEffect(() => subscribeTrayToolView(next => { setView(next); setPage(0); }), []);
@@ -52,31 +53,28 @@ export function ToolCenterApp({ entries, accessStore, scope, toolApi, catalogRev
     return visible;
   }, [entries, access.state, effectiveView, category, query]);
   const currentPage = Math.min(page, Math.max(0, Math.ceil(filtered.length / 40) - 1));
-  const missing = access.state.favorites.filter(id => id.endsWith(":open") && !entries.some(entry => entry.id === id));
+  const missing = access.state.favorites.filter(id => isWorkspaceEntryVisible(id) && id.endsWith(":open") && !entries.some(entry => entry.id === id));
   const busy = access.loading || access.pending || access.error;
   return <section className="tool-center" aria-labelledby="tool-center-title">
     <header className="tool-center-header">
-      <div><h1 id="tool-center-title">{t("Applications and tools")}</h1>
-        <p>{t("Find a tool or an application. Opening does not execute a tool.")}</p></div>
+      <div><h1 id="tool-center-title">{t("Tools")}</h1>
+        <p>{t("Search tools or favorite them for quick access from Home and the tray.")}</p></div>
       <div className="ui-toolbar">
-        {workspaceApi && <ToolWorkspacePicker api={workspaceApi} currentWorkspaceId={scope?.workspaceId} />}
+        {MULTI_PROJECT_UI_ENABLED && workspaceApi && <ToolWorkspacePicker api={workspaceApi} currentWorkspaceId={scope?.workspaceId} />}
+        {scope && toolApi?.savedOutputs && <ToolSavedFiles key={JSON.stringify([scope.sceneId, scope.workspaceId])} gateway={toolApi.savedOutputs} scope={scope} />}
         <button type="button" className="ui-button ui-button--secondary" onClick={onCommands}>{t("Commands")}</button>
         <button type="button" className="ui-button ui-button--secondary" onClick={onManage}>{t("Manage plugins")}</button>
       </div>
     </header>
-    {toolApi && scope && <ResourceCallRecords api={toolApi} scope={scope} getTarget={getResourceTarget} />}
-    {toolApi && scope && <fieldset className="ui-toolbar" aria-label={t("Directory type")}>
-      <button type="button" className="ui-button ui-button--secondary" aria-pressed={section === "tools"} onClick={() => setSection("tools")}>{t("Individual tools")}</button>
-      <button type="button" className="ui-button ui-button--secondary" aria-pressed={section === "applications"} onClick={() => setSection("applications")}>{t("Full applications")}</button>
-    </fieldset>}
-    {toolApi && scope && <div hidden={section !== "tools"}><ManualToolDirectory api={toolApi} scope={scope} accessStore={accessStore} catalogRevision={catalogRevision} requestedTool={requestedTool} getResourceTarget={getResourceTarget}
+    {toolApi && scope && <div><ManualToolDirectory api={toolApi} scope={scope} accessStore={accessStore} catalogRevision={catalogRevision} requestedTool={requestedTool} getResourceTarget={getResourceTarget} receiveNoteDraft={receiveNoteDraft}
       openViewOperation={onOpenViewOperation ? (operation, revision) => onOpenViewOperation(operation, revision, scope) : undefined}
       openApplication={(pluginId, capabilityId, version) => {
         const entry = entries.find(candidate => candidate.id === `${pluginId}:open`);
         return entry && !entry.disabled ? () => onOpenToolApplication
           ? onOpenToolApplication(pluginId, capabilityId, version, entry) : onOpen(entry) : undefined;
       }} /></div>}
-    <div hidden={section === "tools" && Boolean(toolApi && scope)}>
+    <details className="tool-center-extras" open={!toolApi || !scope}>
+    <summary>{t("More apps")}</summary>
     <div className="tool-center-search">
       <label htmlFor="tool-center-search">{t("Search applications and tools")}</label>
       <input id="tool-center-search" type="search" className="ui-input" value={query}
@@ -129,6 +127,11 @@ export function ToolCenterApp({ entries, accessStore, scope, toolApi, catalogRev
       {missing.map(id => <div key={id}>{id} <button type="button" className="ui-button ui-button--ghost" disabled={busy}
         onClick={() => { void access.mutate({ kind: "favoriteSet", id, enabled: false }); }}>{t("Remove favorite")}</button></div>)}
     </details>}
-    </div>
+    </details>
+    {toolApi && scope && <details className="tool-center-extras">
+      <summary>{t("Troubleshooting")}</summary>
+      <p className="ui-muted">{t("Review file and service operations when a result is uncertain.")}</p>
+      <ResourceCallRecords api={toolApi} scope={scope} getTarget={getResourceTarget} />
+    </details>}
   </section>;
 }

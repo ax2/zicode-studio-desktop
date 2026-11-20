@@ -1,9 +1,9 @@
 use super::*;
 use std::fs;
 
-struct Fixture(PathBuf);
+pub(super) struct Fixture(pub(super) PathBuf);
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let scratch = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.cache/task-scratch");
         let root = scratch.join(format!("local-directory-{}", uuid::Uuid::new_v4()));
         let data = root.join("data");
@@ -37,6 +37,10 @@ impl Drop for Fixture {
         let _ = fs::remove_dir(self.0.join("link"));
         let _ = fs::remove_dir(self.0.join("folder"));
         let _ = fs::remove_dir(root.join("outside"));
+        let _ = fs::remove_file(self.0.join("文件.txt"));
+        let _ = fs::remove_file(self.0.join("different.txt"));
+        let _ = fs::remove_file(self.0.join("large.bin"));
+        let _ = fs::remove_dir(self.0.join("directory.txt"));
         fs::remove_dir(&self.0).unwrap();
         fs::remove_file(root.join("owner.json")).unwrap();
         fs::remove_dir(root).unwrap();
@@ -53,9 +57,10 @@ fn owner() -> Owner {
 }
 fn grant(root: &Path) -> Grant {
     Grant {
+        purpose: Purpose::Metadata,
         owner: owner(),
         root: root.into(),
-        relative: ".".into(),
+        selection: Selection::Workspace(".".into()),
         proof: "proof".into(),
         registry_revision: "revision".into(),
         stamp: "stamp".into(),
@@ -127,15 +132,15 @@ fn directory_grants_require_matching_owner_and_are_one_use() {
     let id = grants.insert(grant(&fixture.0)).unwrap();
     let mut wrong = request(id.clone());
     wrong.owner.plugin_id = "other".into();
-    assert!(grants.take(&wrong).is_err());
-    assert!(grants.take(&request(id.clone())).is_ok());
-    assert!(grants.take(&request(id)).is_err());
+    assert!(grants.take(&wrong, None).is_err());
+    assert!(grants.take(&request(id.clone()), None).is_ok());
+    assert!(grants.take(&request(id), None).is_err());
     let id = grants.insert(grant(&fixture.0)).unwrap();
     assert_eq!(
-        grants.cancel(&request(id.clone())).unwrap()["cancelled"],
+        grants.cancel(&request(id.clone()), None).unwrap()["cancelled"],
         true
     );
-    assert!(grants.take(&request(id)).is_err());
+    assert!(grants.take(&request(id), None).is_err());
 }
 
 #[cfg(windows)]
@@ -145,14 +150,11 @@ fn directory_snapshot_rejects_reparse_entries_and_intermediate_directories() {
     let outside = fixture.0.parent().unwrap().join("outside");
     fs::create_dir(&outside).unwrap();
     let link = fixture.0.join("link");
-    if let Err(error) = std::os::windows::fs::symlink_dir(&outside, &link) {
-        if error.kind() == std::io::ErrorKind::PermissionDenied {
-            eprintln!("symlink creation unavailable; reparse case not exercised");
-            return;
-        }
-        panic!("symlink fixture failed: {error}");
-    }
+    create_directory_link(&outside, &link);
     let error = open_directory(&fixture.0, "link").err().unwrap();
+    assert!(native_checksum::open_picked_directory(&outside).is_ok());
+    assert!(native_checksum::open_picked_directory(&link).is_err());
+    assert!(native_checksum::open_picked_directory(Path::new(r"\\remote\share\directory")).is_err());
     assert_eq!(
         error.1 .0["error"]["code"],
         "resource_directory_path_invalid"
@@ -178,14 +180,37 @@ fn directory_open_rejects_link_replacing_a_checked_child() {
     let parent = Dir::open_ambient_dir(&fixture.0, ambient_authority()).unwrap();
     assert!(parent.symlink_metadata("link").unwrap().is_dir());
     fs::remove_dir(&link).unwrap();
-    if let Err(error) = std::os::windows::fs::symlink_dir(&outside, &link) {
-        if error.kind() == std::io::ErrorKind::PermissionDenied {
-            eprintln!("symlink creation unavailable; replacement case not exercised");
-            return;
-        }
-        panic!("replacement symlink fixture failed: {error}");
-    }
+    create_directory_link(&outside, &link);
     let error = open_checked_child(&parent, "link").err().unwrap();
     let (_, Json(body)) = error;
     assert_eq!(body["error"]["code"], "resource_directory_path_invalid");
+}
+
+#[cfg(windows)]
+fn create_directory_link(target: &Path, link: &Path) {
+    use std::os::windows::fs::MetadataExt;
+    if let Err(error) = std::os::windows::fs::symlink_dir(target, link) {
+        assert!(
+            error.raw_os_error() == Some(1314)
+                || error.kind() == std::io::ErrorKind::PermissionDenied,
+            "unexpected symlink fixture error: {error}"
+        );
+        // Junctions exercise the same reparse-point boundary without requiring
+        // Developer Mode or SeCreateSymbolicLinkPrivilege. Never skip the check.
+        let output = crate::process_command::new_command("cmd.exe")
+            .args(["/D", "/C", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "junction fixture failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    assert_ne!(
+        fs::symlink_metadata(link).unwrap().file_attributes() & 0x400,
+        0
+    );
 }

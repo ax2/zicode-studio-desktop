@@ -33,6 +33,18 @@ function setup(result = reply) {
   };
 }
 describe("isolated plugin resource reads", () => {
+  it("reads a large derived image only for the explicitly negotiated metadata capability", async () => {
+    const options=setup();
+    const offset=32*1024*1024+1;
+    options.params={...params,capabilityId:"devtools.image.metadata.clean",offset};
+    options.gateway.readResource.mockResolvedValue({...reply,offset});
+    await expect(readPluginViewResource(options)).rejects.toThrow("resource_request_invalid");
+    expect(options.gateway.readResource).not.toHaveBeenCalled();
+    options.instance.resourceExecutionProfile="resource.wasi.image.metadata.v1";
+    expect((await readPluginViewResource(options)).offset).toBe(offset);
+    options.params={...options.params,offset:128*1024*1024+1};
+    await expect(readPluginViewResource(options)).rejects.toThrow("resource_request_invalid");
+  });
   it("binds the parent runtime and plugin and strips unknown response fields", async () => {
     const options = setup();
     expect(await readPluginViewResource(options)).toEqual(reply);

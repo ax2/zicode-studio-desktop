@@ -20,7 +20,7 @@ export function ToolCloseConfirmation({ title, trigger, busy, onCancel, onConfir
     return () => {
       window.cancelAnimationFrame(focusFrame);
       element?.close();
-      if (trigger.isConnected) trigger.focus(); else fallback.current();
+      if (trigger.isConnected) trigger.focus({ preventScroll: true }); else fallback.current();
     };
   }, [trigger]);
   return createPortal(<dialog ref={dialog} className="dialog tool-close-dialog" aria-modal="true" aria-labelledby={label} aria-describedby={description}

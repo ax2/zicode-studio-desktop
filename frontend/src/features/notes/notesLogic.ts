@@ -29,6 +29,7 @@ export interface NoteSummary {
 
 export interface Note extends NoteSummary {
   content: string;
+  previousNotebookIds?: string[];
   tags: string[];
   createdAt?: string;
 }
@@ -42,6 +43,7 @@ export interface Notebook {
 }
 
 export interface NotesSnapshot {
+  notebookOrder?: string[] | null;
   notebooks: Notebook[];
   notes: NoteSummary[];
   tags: string[];

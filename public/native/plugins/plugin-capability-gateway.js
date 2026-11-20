@@ -14,6 +14,7 @@ export class PluginCapabilityGateway {
     fetchImpl = globalThis.fetch?.bind(globalThis),
     location = globalThis.location,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    nativeInvoke = globalThis.__TAURI__?.core?.invoke?.bind(globalThis.__TAURI__.core),
     pickProjectFile = globalThis.__TAURI__?.core?.invoke
       ? workspaceId => globalThis.__TAURI__.core.invoke("select_project_resource_file", { workspaceId })
       : null,
@@ -36,6 +37,37 @@ export class PluginCapabilityGateway {
     this.#fetch = fetchImpl;
     this.#location = location;
     this.#timeoutMs = timeoutMs;
+    this.exports = typeof nativeInvoke === "function" ? {
+      choose: (workspaceId, source) => nativeInvoke("select_resource_export", { workspaceId, source }),
+      commit: (workspaceId, source, grantId) => nativeInvoke("commit_resource_export", { workspaceId, source, grantId, confirmed: true }),
+      cancel: (workspaceId, source, grantId) => nativeInvoke("cancel_resource_export", { workspaceId, source, grantId }),
+      verify: (workspaceId, source, grantId) => nativeInvoke("verify_resource_export", { workspaceId, source, grantId }),
+    } : null;
+    this.textExports = typeof nativeInvoke === "function" ? {
+      choose: (workspaceId, source) => nativeInvoke("select_result_text_export", { workspaceId, source }),
+      commit: (workspaceId, source, grantId) => nativeInvoke("commit_result_text_export", { workspaceId, source, grantId, confirmed: true }),
+      cancel: (workspaceId, source, grantId) => nativeInvoke("cancel_result_text_export", { workspaceId, source, grantId }),
+      verify: (workspaceId, source, grantId) => nativeInvoke("verify_result_text_export", { workspaceId, source, grantId }),
+    } : null;
+    this.checksumFolders = typeof nativeInvoke === "function" ? {
+      prepare: (workspaceId, owner, manifest) => nativeInvoke("select_checksum_folder", { workspaceId, owner, manifest }),
+      prepareFiles: (workspaceId, owner) => nativeInvoke("select_checksum_files", { workspaceId, owner }),
+      commit: (workspaceId, owner, grantId) => nativeInvoke("commit_checksum_folder", { workspaceId, owner, grantId, confirmed: true }),
+      progress: (workspaceId, owner, grantId) => nativeInvoke("checksum_folder_progress", { workspaceId, owner, grantId }),
+      cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_checksum_folder", { workspaceId, owner, grantId }),
+    } : null;
+    this.digestStreams = typeof nativeInvoke === "function" ? {
+      choose: (workspaceId, owner) => nativeInvoke("select_digest_stream_files", { workspaceId, owner }),
+      run: (workspaceId, owner, grantId, expected) => nativeInvoke("run_digest_stream_files", { workspaceId, owner, grantId, expected, confirmed: true }),
+      progress: (workspaceId, owner, grantId) => nativeInvoke("digest_stream_progress", { workspaceId, owner, grantId }),
+      cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_digest_stream", { workspaceId, owner, grantId }),
+      original: (workspaceId, report, index) => nativeInvoke("prepare_digest_stream_original", { workspaceId, report, index }),
+    } : null;
+    this.digestFiles = typeof nativeInvoke === "function" ? {
+      choose: (workspaceId, owner) => nativeInvoke("select_digest_files", { workspaceId, owner }),
+      commit: (workspaceId, owner, grantId) => nativeInvoke("commit_digest_file", { workspaceId, owner, grantId, confirmed: true }),
+      cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_digest_file", { workspaceId, owner, grantId }),
+    } : null;
     this.savedOutputs = createSavedOutputGateway({ fetchImpl, location, timeoutMs });
     this.resourceCalls = createResourceCallJournal();
     this.projectFiles = typeof pickProjectFile === "function" ? {
@@ -244,9 +276,9 @@ export class PluginCapabilityGateway {
     });
   }
 
-  prepareResourceTransfer(source, target) {
+  prepareResourceTransfer(source, target, originalFile = false) {
     return this.#request(this.#url("/v2/plugin-resources/prepare-transfer"), {
-      method: "POST", body: JSON.stringify({ schemaVersion: 1, source, target }),
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, source, target, ...(originalFile ? { originalFile: true } : {}) }),
     });
   }
 

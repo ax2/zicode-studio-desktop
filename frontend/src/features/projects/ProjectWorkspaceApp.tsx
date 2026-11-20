@@ -2,7 +2,6 @@ import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import type { Root } from "react-dom/client";
 import { t } from "../../shared/i18n.js";
 import { mountPluginSurface } from "../../shared/reactMount.js";
-import { Select } from "../../shared/Select";
 import { ContextPackButton } from "./ContextPackButton";
 import { ContextRecoveryPanel } from "./ContextRecoveryPanel";
 import { directoryScope } from "./directory-context";
@@ -472,7 +471,7 @@ function ContextEditor({ store }: { store: ProjectStore }) {
                   {field === "instructions"
                     ? t("Project instructions")
                     : field === "defaultScene"
-                      ? t("Default scene")
+                      ? t("Earlier version settings")
                       : t("Session budget")}
                 </span>
                 <button
@@ -511,19 +510,6 @@ function ContextEditor({ store }: { store: ProjectStore }) {
           onChange={(event) => setContextDraft({ instructions: event.target.value })}
         />
       </Field>
-      <Field label={t("Default scene")} htmlFor="project-scene">
-        <Select
-          id="project-scene"
-          value={draft.defaultScene}
-          label={t("Default scene")}
-          options={[
-            { value: "programming", label: t("Programming") },
-            { value: "finance", label: t("Finance") },
-            { value: "creative", label: t("Creative") },
-          ]}
-          onChange={(value) => setContextDraft({ defaultScene: value })}
-        />
-      </Field>
       <Field label={t("Session budget")} htmlFor="project-budget">
         <input
           id="project-budget"
@@ -540,10 +526,6 @@ function ContextEditor({ store }: { store: ProjectStore }) {
             <div>
               <dt>{t("Project instructions")}</dt>
               <dd>{profile.instructions || "—"}</dd>
-            </div>
-            <div>
-              <dt>{t("Default scene")}</dt>
-              <dd>{profile.defaultScene}</dd>
             </div>
             <div>
               <dt>{t("Session budget")}</dt>

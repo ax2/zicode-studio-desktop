@@ -5,9 +5,12 @@ import { t } from "../../shared/i18n";
 import { ModelToolPicker } from "../../shared/ModelToolPicker";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { Select } from "../../shared/Select";
+import { DesktopClipboardTranslation, type ClipboardTranslationInvoke } from "./DesktopClipboardTranslation";
 import { TARGET_LANGUAGES } from "./translationLogic";
 import {
   createTranslationStore,
+  type BrowserSelectionSource,
+  type ClipboardTranslationDraft,
   type TranslationOptions,
   type TranslationStore,
 } from "./translationStore";
@@ -19,6 +22,9 @@ export type TranslationAppApi = {
   destroy(): void;
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
+  focusInput(): void;
+  stageBrowserSelection(text: string, provenance?: BrowserSelectionSource): void;
+  stageClipboardTranslation(draft: ClipboardTranslationDraft): void;
   refresh(): Promise<void>;
 };
 
@@ -26,16 +32,27 @@ function TranslationNav() {
   return <nav className="translate-nav" aria-label={t("Translate")} />;
 }
 
-export function TranslationMain({ store }: { store: TranslationStore }) {
+export function TranslationMain({ store, clipboardTranslation }: {
+  store: TranslationStore;
+  clipboardTranslation?: ClipboardTranslationInvoke;
+}) {
   const modelSelection = store((state) => state.modelSelection);
   const text = store((state) => state.text);
   const sourceLang = store((state) => state.sourceLang);
+  const browserSource = store((state) => state.browserSource);
   const targetLang = store((state) => state.targetLang);
   const result = store((state) => state.result);
   const editedText = store((state) => state.editedText);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
+  const cancelled = store((state) => state.cancelled);
+  const incoming = store((state) => {
+    const pending = state.pendingIncomingText, scope = state.getScope();
+    return pending?.scope.sceneId === scope.sceneId && pending.scope.workspaceId === scope.workspaceId ? pending : null;
+  });
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const incomingLabel = incoming?.source === "floating" ? t("Clipboard translation") :
+    incoming?.source === "clipboard" ? t("Clipboard text") : t("Selected webpage text");
 
   return (
     <div className="translate-main">
@@ -60,8 +77,24 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
         onCta={() => inputRef.current?.focus()}
       />
 
+      {incoming && (
+        <section className="ui-card translate-incoming" aria-label={incomingLabel}>
+          <textarea className="ui-textarea" readOnly rows={3} value={incoming.text} aria-label={incomingLabel} />
+          {incoming.provenance && <p>{incoming.provenance.title} · {incoming.provenance.url} · {incoming.provenance.capturedAt} · {incoming.provenance.documentRevision}</p>}
+          <div className="ui-toolbar">
+            <button type="button" className="ui-button ui-button--secondary" disabled={busy} onClick={() => store.getState().acceptIncomingText()}>
+              {incoming.source === "floating" ? t("Use clipboard translation") :
+                incoming.source === "clipboard" ? t("Use clipboard text") : t("Use selected text")}
+            </button>
+            <button type="button" className="ui-button ui-button--ghost" onClick={() => store.getState().dismissIncomingText()}>
+              {t("Keep current draft")}
+            </button>
+          </div>
+        </section>
+      )}
       <section className="ui-card translate-source">
         <ModelToolPicker sceneId={store.getState().getSceneId()} value={modelSelection} onChange={store.getState().setModelSelection} load={store.getState().loadModels} disabled={busy} />
+        {clipboardTranslation && <DesktopClipboardTranslation invoke={clipboardTranslation} selection={modelSelection} />}
         <textarea
           ref={inputRef}
           className="translate-textarea"
@@ -71,13 +104,21 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
           rows={6}
           onChange={(event) => store.getState().setText(event.target.value)}
           onKeyDown={(event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+            if (!event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229 && (event.ctrlKey || event.metaKey) && event.key === "Enter") {
               event.preventDefault();
               if (!busy && text.trim()) void store.getState().run();
             }
           }}
         />
+        {browserSource && <p>{t("Webpage source")} · {browserSource.title} · {browserSource.url} · {browserSource.capturedAt} · {browserSource.documentRevision}</p>}
         <div className="translate-controls">
+          <button
+            type="button"
+            className="ui-button ui-button--ghost ui-button--sm"
+            onClick={() => void store.getState().importClipboard()}
+          >
+            {t("Import from clipboard")}
+          </button>
           <div className="settings-field">
             <span>{t("Source language")}</span>
             <Select
@@ -122,8 +163,17 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
             aria-busy={busy}
             onClick={() => void store.getState().run()}
           >
-            {busy ? t("Translating…") : t("Translate")}
+            {busy ? t("Translating…") : cancelled || (error && !result) ? t("Try again") : t("Translate")}
           </button>
+          {busy && (
+            <button
+              type="button"
+              className="ui-button ui-button--secondary ui-button--sm"
+              onClick={() => store.getState().cancel()}
+            >
+              {t("Cancel")}
+            </button>
+          )}
           <button
             type="button"
             className="ui-button ui-button--ghost ui-button--sm"
@@ -138,6 +188,14 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
             {error}
           </p>
         ) : null}
+        {cancelled && (
+          <p role="status">
+            {t("Stopped waiting. The selected service may already have received the text.")}
+          </p>
+        )}
+        <p className="translate-result-meta">
+          {t("Long text: translate up to 50,000 characters at a time. Split longer text and submit each part separately.")}
+        </p>
       </section>
 
       <section className="ui-card translate-result">
@@ -190,12 +248,14 @@ export function createTranslationApp(options: TranslationOptions): TranslationAp
   const store = createTranslationStore(options);
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
+  let contentContainer: HTMLElement | null = null;
   return {
     renderNavigation(container) {
       navRoot = mountPluginSurface(container, <TranslationNav />, navRoot);
     },
     renderContent(container) {
-      contentRoot = mountPluginSurface(container, <TranslationMain store={store} />, contentRoot);
+      contentContainer = container;
+      contentRoot = mountPluginSurface(container, <TranslationMain store={store} clipboardTranslation={options.clipboardTranslation} />, contentRoot);
     },
     deactivate() {},
     destroy() {
@@ -203,11 +263,15 @@ export function createTranslationApp(options: TranslationOptions): TranslationAp
       contentRoot?.unmount();
       navRoot = null;
       contentRoot = null;
+      contentContainer = null;
     },
     handlesCommand(commandId) {
       return commandId === "translate.open";
     },
     executeCommand() {},
+    stageBrowserSelection(text, provenance) { store.getState().stageBrowserSelection(text, provenance); },
+    stageClipboardTranslation(draft) { store.getState().stageClipboardTranslation(draft); },
+    focusInput() { requestAnimationFrame(() => contentContainer?.querySelector<HTMLTextAreaElement>(".translate-textarea")?.focus()); },
     refresh() {
       return Promise.resolve();
     },

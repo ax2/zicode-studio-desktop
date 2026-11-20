@@ -3245,7 +3245,8 @@
       "acceptedFullTool": false,
       "verifiedPilotCapabilities": [],
       "family": "resource",
-      "assessmentConfidence": "catalog_scope_review; not an implementation feasibility proof"
+      "assessmentConfidence": "catalog_scope_review; not an implementation feasibility proof",
+      "currentWindowsAcceptance": "devtools-windows-current.json#checksum-manifest"
     },
     {
       "sourceToolId": "disk-inspector",
@@ -7737,7 +7738,13 @@
     "date": "2026-10-17",
     "providerPluginId": "com.zicode.devtools.inspect",
     "providerVersion": "0.1.1",
-    "sourceToolIds": ["color", "yaml", "cidr", "jwt", "unicode"],
+    "sourceToolIds": [
+      "color",
+      "yaml",
+      "cidr",
+      "jwt",
+      "unicode"
+    ],
     "capabilityIds": [
       "devtools.inspect.color.convert",
       "devtools.inspect.yaml.to_json",
@@ -7770,7 +7777,13 @@
     "date": "2026-10-17",
     "providerPluginId": "com.zicode.devtools.inspect",
     "providerVersion": "0.1.1",
-    "sourceToolIds": ["color", "yaml", "cidr", "jwt", "unicode"],
+    "sourceToolIds": [
+      "color",
+      "yaml",
+      "cidr",
+      "jwt",
+      "unicode"
+    ],
     "exactSamples": 8,
     "phases": 10,
     "deniedCachedCalls": 40,
@@ -7800,7 +7813,13 @@
     "date": "2026-10-17",
     "providerPluginId": "com.zicode.devtools.inspect",
     "providerVersion": "0.1.1",
-    "sourceToolIds": ["color", "yaml", "cidr", "jwt", "unicode"],
+    "sourceToolIds": [
+      "color",
+      "yaml",
+      "cidr",
+      "jwt",
+      "unicode"
+    ],
     "nativeWindowsOperationsPassed": 8,
     "invalidYamlErrorCode": "INVALID_INPUT",
     "siblingToolSucceededAfterError": true,
@@ -10245,5 +10264,23 @@
       "second verification script used wrong success wording; actual invoke HTTP 200",
       "not full source scope or cross-platform acceptance"
     ]
+  },
+  "currentWindowsChecksumManifestGenerationVerification": {
+    "date": "2026-10-30",
+    "currentState": "devtools-windows-current.json",
+    "evidence": "../iterations/2026-10-30-checksum-manifest.md",
+    "capabilities": [
+      "devtools.checksum-manifest.review",
+      "devtools.checksum-manifest.generate"
+    ],
+    "fullSourceAccepted": false,
+    "sourceCounts": {
+      "full": 6,
+      "partial": 51,
+      "unmapped": 97
+    },
+    "packages": 23,
+    "capabilityOperations": 103,
+    "viewOperations": 7
   }
 }

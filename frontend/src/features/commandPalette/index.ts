@@ -1,3 +1,4 @@
+import { restorePaletteFocus } from "./restoreFocus";
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
@@ -68,7 +69,7 @@ export function setupCommandPalette({
       root.render(null);
     });
     if (restoreFocus) {
-      (previousFocus?.isConnected ? previousFocus : trigger).focus();
+      restorePaletteFocus(previousFocus, trigger);
     }
     previousFocus = null;
     openedScope = undefined;

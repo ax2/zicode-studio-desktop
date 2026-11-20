@@ -11,7 +11,7 @@ import {
   splitStreamingContent,
   toolStageLabel,
 } from "./chatLogic";
-import { CHAT_TEMPLATES } from "./chatTemplates";
+import { CHAT_TEMPLATES, allChatTemplates } from "./chatTemplates";
 import { MessageRenderer, ToolCardRenderer } from "./index";
 
 const roots = vi.hoisted(() => [] as Root[]);
@@ -83,7 +83,7 @@ describe("chat logic", () => {
     ).toBe("工具会话已过期。请重试以再次运行。");
     expect(
       friendlyToolError("The tool is missing, disabled, or not granted for this scene"),
-    ).toBe("当前场景中此工具不可用。");
+    ).toBe("此工具不可用，请检查它是否已启用并具有所需权限。");
     expect(friendlyToolError("some other failure")).toBeNull();
   });
 
@@ -109,7 +109,7 @@ describe("chat feed renderers", () => {
     renderer.renderWelcome({ workspacePath: "/home/test" });
     await flush();
     expect(container.querySelector(".welcome")).toBeTruthy();
-    expect(container.querySelector(".welcome-workspace code")?.textContent).toBe("/home/test");
+    expect(container.querySelector(".welcome-workspace")).toBeNull();
 
     renderer.renderUserMessage({ content: "# Hello" });
     await flush();
@@ -119,90 +119,44 @@ describe("chat feed renderers", () => {
     expect(container.querySelector(".message-copy-btn")).toBeTruthy();
   });
 
-  it("updates the welcome scene card from the scene indicator feed", async () => {
+  it("keeps legacy scene metadata out of the compact start page", async () => {
     const container = makeContainer();
     const renderer = await messageRenderer(container);
-    renderer.renderWelcome();
-    await flush();
-    expect(container.querySelector(".welcome-scene")?.getAttribute("data-scene")).toBe(
-      "programming",
-    );
-    renderer.setWelcomeScene({
-      id: "finance",
-      name: "Finance",
-      description: "Evidence-led financial analysis.",
-    });
-    await flush();
-    expect(container.querySelector(".welcome-scene")?.getAttribute("data-scene")).toBe(
-      "finance",
-    );
-    expect(container.querySelector("[data-scene-name]")?.textContent).toBe("金融");
-    expect(container.querySelector("[data-scene-description]")?.textContent).toContain(
-      "Evidence",
-    );
+    renderer.renderWelcome(); await flush();
+    renderer.setWelcomeScene({ id: "finance", name: "Finance", description: "Legacy configuration" }); await flush();
+    expect(container.querySelector(".welcome-scene")).toBeNull();
+    expect(container.querySelector(".welcome-simple")).toBeTruthy();
+    expect(container.textContent).not.toContain("Legacy configuration");
   });
 
-  it("opens scene settings from the welcome scene card", async () => {
-    const container = makeContainer();
-    const onOpenSceneSettings = vi.fn();
-    const renderer = await messageRenderer(container, { onOpenSceneSettings });
-    renderer.renderWelcome();
-    await flush();
-    (container.querySelector(".welcome-scene") as HTMLElement | null)?.click();
-    expect(onOpenSceneSettings).toHaveBeenCalledTimes(1);
+  it("publishes an explicit shortcut-open request from Home", async () => {
+    const container = makeContainer(), opened = vi.fn();
+    const renderer = await messageRenderer(container); renderer.renderWelcome(); await flush();
+    window.addEventListener("zicode:open-quick-tool", opened);
+    window.dispatchEvent(new CustomEvent("zicode:quick-tools-changed", { detail: { items: [{ id: "test:tool", title: "Base64" }] } }));
+    await flush(); expect(opened).not.toHaveBeenCalled();
+    (container.querySelector('[data-quick-tool-id="test:tool"]') as HTMLButtonElement).click();
+    expect(opened.mock.calls[0][0].detail).toBe("test:tool");
+    window.removeEventListener("zicode:open-quick-tool", opened);
   });
 
-  it("offers desktop quick actions that open apps or focus the composer", async () => {
-    const container = makeContainer();
-    const input = document.createElement("textarea");
-    input.id = "message-input";
-    document.body.append(input);
-    const focusSpy = vi.spyOn(input, "focus");
-    const openApp = vi.fn();
-    const renderer = await messageRenderer(container, { openApp });
-    renderer.renderWelcome();
-    await flush();
-
-    const actions = container.querySelectorAll(".welcome-quick-action");
-    expect(actions.length).toBeGreaterThanOrEqual(5);
-
-    (container.querySelector('[data-quick-action="com.zicode.notes"]') as HTMLElement | null)?.click();
+  it("keeps four direct application entries and removes redundant welcome actions", async () => {
+    const container = makeContainer(), openApp = vi.fn();
+    const renderer = await messageRenderer(container, { openApp }); renderer.renderWelcome(); await flush();
+    expect(container.querySelectorAll(".welcome-quick-action")).toHaveLength(4);
+    (container.querySelector('[data-quick-action="com.zicode.notes"]') as HTMLElement).click();
     expect(openApp).toHaveBeenCalledWith("com.zicode.notes");
-
-    (container.querySelector('[data-quick-action="new-chat"]') as HTMLElement | null)?.click();
-    expect(focusSpy).toHaveBeenCalled();
-
-    const dispatched = vi.fn();
-    window.addEventListener("zicode:extract-memory", dispatched);
-    (
-      container.querySelector('[data-quick-action="extract-memory"]') as HTMLElement | null
-    )?.click();
-    expect(dispatched).toHaveBeenCalledTimes(1);
-    window.removeEventListener("zicode:extract-memory", dispatched);
+    (container.querySelector('[data-quick-action="core.tools"]') as HTMLElement).click();
+    expect(openApp).toHaveBeenCalledWith("core.tools");
+    expect(container.querySelector('[data-quick-action="extract-memory"]')).toBeNull();
   });
 
-  it("renders starter templates that prefill the composer", async () => {
-    const container = makeContainer();
-    const renderer = await messageRenderer(container);
-    renderer.renderWelcome();
-    await flush();
-
-    const templates = container.querySelectorAll(".welcome-template");
-    expect(templates.length).toBeGreaterThanOrEqual(5);
-    expect(container.querySelector(".welcome-templates-heading")?.textContent).toBe(
-      "从模板开始",
-    );
-
-    const prefill = vi.fn();
-    container.addEventListener("zicode:composer-prefill", prefill);
-    (
-      container.querySelector('[data-template-id="write-blog"]') as HTMLElement | null
-    )?.click();
-    expect(prefill).toHaveBeenCalledTimes(1);
-    const detail = prefill.mock.calls[0][0].detail as { text: string };
-    expect(detail.text).toContain("技术博客");
-    expect(detail.text).toContain("结构清晰");
-    container.removeEventListener("zicode:composer-prefill", prefill);
+  it("keeps the start page compact without template grids or tutorial blocks", async () => {
+    const container = makeContainer(), renderer = await messageRenderer(container);
+    renderer.renderWelcome(); await flush();
+    expect(container.querySelector(".welcome-templates")).toBeNull();
+    expect(container.querySelector(".welcome-orientation")).toBeNull();
+    expect(container.querySelector(".welcome-quick-tools")).toBeTruthy();
   });
 
   it("keeps starter template ids unique and prompts non-empty", () => {
@@ -215,79 +169,24 @@ describe("chat feed renderers", () => {
     }
   });
 
-  it("renders custom starter templates from storage and prefills them", async () => {
-    globalThis.localStorage?.setItem(
-      "zicode-chat-templates-custom",
-      JSON.stringify([
-        {
-          id: "custom-qa",
-          icon: "🔥",
-          label: "Custom QA",
-          prompt: "Run the QA sweep and report.",
-        },
-      ]),
-    );
-    const container = makeContainer();
-    const renderer = await messageRenderer(container);
-    renderer.renderWelcome();
-    await flush();
-
-    const custom = container.querySelector('[data-template-id="custom-qa"]');
-    expect(custom).not.toBeNull();
-    expect(custom?.textContent).toContain("Custom QA");
-
-    const prefill = vi.fn();
-    container.addEventListener("zicode:composer-prefill", prefill);
-    (custom as HTMLElement | null)?.click();
-    expect(prefill).toHaveBeenCalledTimes(1);
-    const detail = prefill.mock.calls[0][0].detail as { text: string };
-    expect(detail.text).toBe("Run the QA sweep and report.");
-    container.removeEventListener("zicode:composer-prefill", prefill);
-    globalThis.localStorage?.removeItem("zicode-chat-templates-custom");
+  it("preserves stored custom templates while removing them from Home", async () => {
+    const saved = JSON.stringify([{ id: "custom-qa", icon: "Q", label: "Custom QA", prompt: "Run the QA sweep and report." }]);
+    localStorage.setItem("zicode-chat-templates-custom", saved);
+    const container = makeContainer(), renderer = await messageRenderer(container); renderer.renderWelcome(); await flush();
+    expect(container.querySelector('[data-template-id="custom-qa"]')).toBeNull();
+    expect(allChatTemplates().find(template => template.id === "custom-qa")?.prompt).toBe("Run the QA sweep and report.");
+    expect(localStorage.getItem("zicode-chat-templates-custom")).toBe(saved);
+    localStorage.removeItem("zicode-chat-templates-custom");
   });
 
-  it("filters welcome quick actions to enabled applications", async () => {
-    const container = makeContainer();
-    const openApp = vi.fn();
-    const renderer = await messageRenderer(container, {
-      openApp,
-      getEnabledAppIds: () => [
-        "core.chat",
-        "com.zicode.notes",
-        "com.zicode.translate",
-        "com.zicode.finance",
-        "com.zicode.idphoto",
-        "com.zicode.projects",
-      ],
-    });
-    renderer.renderWelcome();
-    await flush();
-
-    expect(
-      container.querySelector('[data-quick-action="com.zicode.notes"]'),
-    ).not.toBeNull();
-    expect(
-      container.querySelector('[data-quick-action="com.zicode.translate"]'),
-    ).not.toBeNull();
-    // Only the first four enabled applications are shown; disabled
-    // Tasks/Automation and Projects (outside the top four) stay hidden.
-    expect(
-      container.querySelector('[data-quick-action="com.zicode.projects"]'),
-    ).toBeNull();
-    expect(
-      container.querySelector('[data-quick-action="com.zicode.tasks"]'),
-    ).toBeNull();
-    expect(
-      container.querySelector('[data-quick-action="com.zicode.automation"]'),
-    ).toBeNull();
-    expect(container.querySelectorAll(".welcome-quick-action").length).toBe(6);
-
-    (
-      container.querySelector(
-        '[data-quick-action="com.zicode.translate"]',
-      ) as HTMLElement | null
-    )?.click();
-    expect(openApp).toHaveBeenCalledWith("com.zicode.translate");
+  it("only offers enabled apps plus the always available tool directory", async () => {
+    const container = makeContainer(), openApp = vi.fn();
+    const renderer = await messageRenderer(container, { openApp, getEnabledAppIds: () => ["com.zicode.notes", "com.zicode.projects"] });
+    renderer.renderWelcome(); await flush();
+    expect(container.querySelectorAll(".welcome-quick-action")).toHaveLength(3);
+    expect(container.querySelector('[data-quick-action="com.zicode.tasks"]')).toBeNull();
+    (container.querySelector('[data-quick-action="com.zicode.projects"]') as HTMLElement).click();
+    expect(openApp).toHaveBeenCalledWith("com.zicode.projects");
   });
 
   it("renders an onboarding welcome for the Agent Inbox session", async () => {

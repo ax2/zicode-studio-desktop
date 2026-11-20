@@ -32,7 +32,8 @@ plugin-data/com.zicode.notes/vaults/<vault-id>/
 - `POST /v2/notes/attachments` 与 `GET /v2/notes/attachment`：保存和读取受限附件；
 - `POST /v2/notes/import-markdown`：导入普通 Markdown；
 - `GET /v2/notes/export` 与 `POST /v2/notes/import-backup`：导出/导入包含附件的
-  可读 JSON 备份；
+  可读 JSON 备份；`GET /v2/notes/export-all` 与 `POST /v2/notes/import-all-backup`
+  保存/恢复包含层级的整库 JSON；
 - `POST /v2/notes/rebuild`：从 Markdown 重建 `.zicode/index.json` 并返回诊断。
 
 所有接口都要求 Notes 在当前 Scene 启用并拥有 `storage.plugin` 权限。网页采集还要求 `network.fetch`。
@@ -70,6 +71,8 @@ Chat → Notes 沉淀、Notes → Chat 继续推理的双向闭环。
 
 ## 附件、备份和重建
 
+同步不是备份。完整 JSON 与本地冷副本的操作和恢复检查见[笔记的独立备份与恢复](../notes/local-backup-and-recovery.md)。
+
 附件使用随机 UUID 文件名，按 Note 分目录，单文件上限 5 MiB，只允许常见静态图片、
 PDF 和文本数据格式；SVG 和可执行文件被拒绝。Markdown 使用
 `/attachments/<note-id>/<attachment-id>`，可由 Astro 的 `public/attachments` 直接
@@ -83,4 +86,4 @@ Notebook。重建操作始终以 Markdown 为真相，只写可删除的 `.zicod
 P5 已实现 Vault、CRUD、标签与正文搜索、编辑预览、附件、网页采集、来源和重复检测、
 Chat/Pi 能力、Markdown 导入、可读备份及索引重建。用户确认后可使用固定 Astro 与
 随应用携带的 Bun 构建本地 `dist/`。增量协议提供游标、删除墓碑、自动压缩和
-`resetRequired`；云端传输与端到端加密适配器仍保持关闭。
+`resetRequired`；云同步的配置与运行边界见[云同步设置](../notes/cloud-sync-settings.md)，不能替代独立备份。

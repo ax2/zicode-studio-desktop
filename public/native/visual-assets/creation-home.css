@@ -1,0 +1,28 @@
+.visual-assets-workflows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--space-8) * 8)), 1fr));
+  gap: var(--space-4);
+  margin-block: var(--space-4);
+}
+.visual-assets-workflow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+.visual-assets-workflow > .ui-button {
+  margin-block-start: auto;
+}
+.visual-assets-outfit img {
+  max-inline-size: 100%;
+  object-fit: contain;
+}
+.visual-assets-outfit label {
+  display: grid;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+}
+.visual-assets-prompt {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -182,6 +182,8 @@ jobs:
           # Match the existing platform job's key + GITHUB_JOB suffix so the
           # release can restore its checked dependencies without a new cache tree.
           shared-key: developer-platform-${{ matrix.os }}-platform
+          # Other tags cannot restore a cache written by this release tag.
+          save-if: ${{ runner.os != 'Windows' || github.event_name != 'push' || github.ref_type != 'tag' }}
           cache-on-failure: true
 
       - name: Cache embedded runtimes
@@ -328,18 +330,31 @@ jobs:
         shell: pwsh
         env:
           STUDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          PUBLISHING: ${{ github.event_name == 'push' || inputs.publish == true }}
         run: |
           $files = @(Get-ChildItem -LiteralPath target/release/bundle/nsis -Filter '*_x64-setup.exe' -File)
           if ($files.Count -ne 1) { throw 'Expected exactly one candidate installer' }
-          # An older public version is used only to set up the upgrade. No credentials or draft release access.
-          $baseline = Join-Path $env:RUNNER_TEMP 'studio-upgrade-baseline-0.6.2.exe'
-          $argsForBaseline = @{}
-          if ([version]($env:RELEASE_TAG.Substring(1).Split('-')[0]) -gt [version]'0.6.2') {
-            curl.exe --fail --location --silent --show-error --max-time 120 --output $baseline 'https://github.com/ax2/zicode-studio-desktop/releases/download/v0.6.2/ZiCode.Studio.Desktop_0.6.2_x64-setup.exe'
+          $candidate = [version]($env:RELEASE_TAG.Substring(1).Split('-')[0])
+          $argsForBaseline = @{ RequireUpgrade = ($candidate -ge [version]'0.6.8' -and $env:PUBLISHING -eq 'true') }
+          if ($candidate -gt [version]'0.6.2') {
+            # Record verified public Windows packages. Historical reruns select the same predecessor.
+            $publicDigests = @{
+              '0.6.2' = 'e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c'
+              '0.6.7' = 'a1cee55fc1c30eb803257a5431b26a6a4031618756ffacbad206c6777369ef47'
+              '0.6.8' = 'c87460f36705d7f95e4959a9d70c3672498b8e7c44e66023e6b1d0b3d1f8032f'
+              '0.6.9' = '799dc8822ceb94a582c13d56de922b73cb611a949e6d70839dc36419112692ff'
+            }
+            $previous = $publicDigests.Keys | Where-Object { [version]$_ -lt $candidate } |
+              Sort-Object { [version]$_ } -Descending | Select-Object -First 1
+            $digest = $publicDigests[$previous]
+            $baseline = Join-Path $env:RUNNER_TEMP "studio-upgrade-baseline-$previous.exe"
+            $url = "https://github.com/ax2/zicode-studio-desktop/releases/download/v$previous/ZiCode.Studio.Desktop_${previous}_x64-setup.exe"
+            curl.exe --fail --location --proto '=https' --proto-redir '=https' --silent --show-error --retry 2 --max-time 300 --output $baseline $url
             if ($LASTEXITCODE -eq 0) {
-              $argsForBaseline = @{ PreviousInstaller=$baseline; PreviousSha256='e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c' }
+              $argsForBaseline.PreviousInstaller = $baseline
+              $argsForBaseline.PreviousSha256 = $digest
             } else {
-              Write-Warning 'Public upgrade baseline unavailable; upgrade cases will be recorded as skipped.'
+              Write-Warning "Public upgrade baseline v$previous could not be downloaded."
               $global:LASTEXITCODE = 0
             }
           }

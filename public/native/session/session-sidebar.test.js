@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale, t } from "../../i18n.js";
 import { setSuperAgentEnabled } from "../../super-agent/settings.js";
-import { formatSessionTime, SessionSidebar } from "../react/session-sidebar.js";
+import { formatSessionTime, SessionSidebar } from "../../../frontend/src/features/sessionSidebar/index.ts";
+const workspacePolicy = vi.hoisted(() => ({ multiProject: true }));
+vi.mock("../../../frontend/src/shared/workspaceMode", () => ({ get MULTI_PROJECT_UI_ENABLED() { return workspacePolicy.multiProject; } }));
 
 function makeSidebar(sessions, overrides = {}) {
   const container = document.createElement("div");
@@ -61,6 +63,17 @@ describe("formatSessionTime", () => {
 describe("SessionSidebar.render", () => {
   beforeEach(() => {
     localStorage.clear();
+    workspacePolicy.multiProject = true;
+  });
+
+  it("shows a flat usable session list without project headings by default", async () => {
+    workspacePolicy.multiProject = false;
+    const { sidebar, container } = makeSidebar([{ id: "s-default", name: "Daily conversation", timestamp: new Date().toISOString() }]);
+    await sidebar.load();
+    expect(container.querySelector(".session-title").textContent).toBe("Daily conversation");
+    expect(container.querySelector(".project-group-header")).toBeNull();
+    expect(container.textContent).not.toContain("/ws-1");
+    sidebar.dispose();
   });
 
   afterEach(() => {

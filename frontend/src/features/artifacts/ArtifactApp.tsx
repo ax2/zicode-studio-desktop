@@ -133,7 +133,7 @@ export function ArtifactNav({ store }: { store: ArtifactStore }) {
               aria-pressed={selected?.id === artifact.id}
               onClick={() => void selectArtifact(artifact)}
             >
-              <strong>{artifact.title}</strong>
+              <strong translate="no">{artifact.title}</strong>
               <span>
                 {t(kindLabel(artifact.kind))} · {formatDate(artifact.createdAt)}
               </span>
@@ -254,7 +254,7 @@ function ArtifactDocumentView({
           <span className="artifacts-document-kicker">
             {t(kindLabel(selected.kind))} · {pluginLabel(selected.pluginId)}
           </span>
-          <h1>{selected.title}</h1>
+          <h1 translate="no">{selected.title}</h1>
           {selected.summary ? <p>{selected.summary}</p> : null}
         </div>
         <div className="artifacts-document-actions">
@@ -300,6 +300,7 @@ function ArtifactDocumentView({
         {markdown !== null ? (
           <div
             className="artifacts-markdown markdown-body"
+            translate="no"
             ref={(node) => {
               if (node) node.innerHTML = renderMarkdown(markdown);
             }}

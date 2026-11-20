@@ -15,27 +15,15 @@ export function ConfigTab({
   store: ConfigStore;
   widgets: SettingsWidgetsStore;
 }) {
-  const sceneId = store((state) => state.sceneId);
-  const sceneName = store((state) => state.sceneName);
   const configEditor = store((state) => state.configEditor);
   const modelsEditor = store((state) => state.modelsEditor);
   const authEnabled = widgets((state) => state.toggles.auth);
   return (
     <div className="settings-body">
-      <div className="settings-scene-context configuration-scene-context">
-        <span className="settings-scene-context-label">{t("Editing current scene")}</span>
-        <strong id="configuration-scene-name">{sceneName}</strong>
-        <code id="configuration-scene-id">{sceneId}</code>
-        <span className="settings-scene-context-note">
-          Credentials and model channels below belong only to this session scene.
-        </span>
-      </div>
       <div className="settings-section">
         <div className="settings-section-title">{t("Authentication")}</div>
         <p className="settings-help">
-          Keys are stored in the operating system credential vault. Scene configuration contains
-          only non-sensitive references; secrets are never written to models.json or
-          documentation.
+          {t("Keys are stored in the operating system credential vault, separately from model configuration.")}
         </p>
         <div className="settings-api-keys" id="settings-api-keys">
           <ApiKeysPanel store={store} />
@@ -70,7 +58,7 @@ export function ConfigTab({
         </div>
         <p className="settings-help">
           {t(
-            "Configure an OpenAI-, Anthropic-, or Google-compatible endpoint for this scene.",
+            "Configure an OpenAI-, Anthropic-, or Google-compatible endpoint.",
           )}{" "}
           {t("Credentials are stored separately from {file}.").replace(
             "{file}",
@@ -86,7 +74,7 @@ export function ConfigTab({
         <div className="settings-section-title">{t("Agent")}</div>
         <div className="settings-config-meta">
           <span className="settings-label">{t("Agent config file")}</span>
-          <span className="settings-static-value" id="inline-config-path">
+          <span className="settings-static-value" id="inline-config-path" translate={configEditor.loading ? undefined : "no"}>
             {inlinePath(configEditor)}
           </span>
         </div>
@@ -113,7 +101,7 @@ export function ConfigTab({
         </p>
         <div className="settings-config-meta">
           <span className="settings-label">{t("Providers file")}</span>
-          <span className="settings-static-value" id="inline-models-path">
+          <span className="settings-static-value" id="inline-models-path" translate={modelsEditor.loading ? undefined : "no"}>
             {inlinePath(modelsEditor)}
           </span>
         </div>
@@ -251,7 +239,7 @@ function ApiKeyRow({ store, provider }: { store: ConfigStore; provider: ConfigPr
             }
           }}
         >
-          <div className="api-key-row-name">{provider.displayName || provider.provider}</div>
+          <div className="api-key-row-name" translate="no">{provider.displayName || provider.provider}</div>
         </div>
         {hasConfiguredModels ? (
           <div className="api-key-row-summary">{describeProviderSummary(models)}</div>
@@ -308,7 +296,7 @@ function ApiKeyEditor({ store, provider }: { store: ConfigStore; provider: Confi
       }}
     >
       <div className="api-key-row-name">
-        {provider.displayName || provider.provider} API key
+        <span translate="no">{provider.displayName || provider.provider}</span>{" "}{t("API key")}
       </div>
       <input
         type="password"
@@ -421,7 +409,7 @@ function ModelRow({
         title={checking ? t("Checking health") : describeModelHealth(health as { status?: string; latencyMs?: number; error?: string })}
       ></span>
       <div className="api-model-label">
-        <div className="api-model-name">{model.name || model.id}</div>
+        <div className="api-model-name" translate="no">{model.name || model.id}</div>
         <div className="api-model-health-status">{statusText}</div>
       </div>
       <div className="api-model-actions">
@@ -455,7 +443,7 @@ function ProviderChannelsPanel({ store }: { store: ConfigStore }) {
     return <div className="settings-api-keys-empty">{error}</div>;
   }
   if (channels.length === 0) {
-    return <div className="settings-api-keys-empty">{t("No custom model channels in this scene.")}</div>;
+    return <div className="settings-api-keys-empty">{t("No custom model channels.")}</div>;
   }
   return (
     <>
@@ -477,13 +465,13 @@ function ChannelRow({ store, channel }: { store: ConfigStore; channel: ProviderC
   return (
     <div className="provider-channel-row">
       <div>
-        <strong>{channel.displayName || channel.provider}</strong>
+        <strong translate="no">{channel.displayName || channel.provider}</strong>
         {channel.enabled === false ? (
           <span className="ui-badge" title={t("Enable this channel before making requests.")}>
             {t("Disabled")}
           </span>
         ) : null}
-        <span>
+        <span translate="no">
           {channel.displayName ? `${channel.provider} · ` : ""}{channel.api} · {channel.baseUrl}
         </span>
       </div>

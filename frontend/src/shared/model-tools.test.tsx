@@ -51,7 +51,8 @@ it("requires an explicit choice and sends only that scene/provider/model on tran
   });
   expect(gateway.translate).toHaveBeenCalledWith(
     { sceneId: "programming", workspaceId: "workspace" },
-    expect.objectContaining({ provider: "local", model: "local-model", text: "hello" }),
+    { provider: "local", model: "local-model", text: "hello", targetLang: "Chinese" },
+    expect.any(AbortSignal),
   );
   sceneId = "finance";
   await act(async () => {

@@ -31,8 +31,8 @@ async function mount() {
   const busy = vi.fn();
   const container = document.createElement("div"); document.body.append(container);
   const root = createRoot(container); roots.push(root);
-  const render = async (resultId: string, workspaceId = "workspace") => { await act(async () => root.render(
-    <ManualToolResultActions response={{ result: {}, resultRef: { resultId } }} scope={{ ...scope, workspaceId }} gateway={gateway} onBusy={busy} accessStore={store} onRecentChange={recentChanged} />)); };
+  const render = async (resultId: string, workspaceId = "workspace", response: CapturedToolResponse = { result: {}, resultRef: { resultId } }) => { await act(async () => root.render(
+    <ManualToolResultActions response={response} scope={{ ...scope, workspaceId }} gateway={gateway} onBusy={busy} accessStore={store} onRecentChange={recentChanged} />)); };
   await render("source-result");
   const click = async (text: string) => { await act(async () => {
     const button = [...container.querySelectorAll("button")].find(node => node.textContent === text);
@@ -50,7 +50,7 @@ it("previews and cancels without writing; only confirmation uses the Host grant"
   await click("Preview save"); await click("Confirm save");
   expect(gateway.commitSave).toHaveBeenCalledWith(scope, "save-grant");
   expect(busy.mock.calls).toEqual([[true], [false]]);
-  expect(container.textContent).toContain("Saved to the current workspace artifacts.");
+  expect(container.textContent).toContain("Saved to results.");
 });
 
 it("recovers a lost save receipt through the tool center without repeating the write", async () => {
@@ -59,7 +59,7 @@ it("recovers a lost save receipt through the tool center without repeating the w
   gateway.saveStatus.mockResolvedValueOnce({ schemaVersion: 1, status: "saved", artifactId: "11111111-1111-4111-8111-111111111111" });
   await click("Preview save");
   await click("Confirm save");
-  await vi.waitFor(() => expect(container.textContent).toContain("Verified saved artifact"));
+  await vi.waitFor(() => expect(container.textContent).toContain("Verified saved result"));
   expect(gateway.saveStatus).toHaveBeenCalledWith(scope, "save-grant");
   expect(gateway.commitSave).toHaveBeenCalledTimes(1);
 });
@@ -125,6 +125,18 @@ it("records successful execution even when its result cannot be captured", async
   await click("Send to tool"); await click("Encode · target · field text"); await click("Confirm transfer and run");
   await vi.waitFor(() => expect(store.mutate).toHaveBeenCalledTimes(1));
   expect(container.textContent).toContain("result_profile_unsupported");
+  expect(container.querySelector('[aria-label="Transferred result"]')?.textContent).toBe("done");
+  expect(container.querySelector("details")?.open).toBe(false);
+});
+
+it("does not duplicate a source result already rendered by the tool detail view", async () => {
+  const { container, gateway, render } = await mount();
+  await render("unused", "workspace", { result: { ok: true, data: { text: "large original result" } }, resultCaptureError: { code: "result_budget_exceeded" } });
+  expect(container.querySelector("pre")).toBeNull();
+  expect(container.querySelector('[role="status"]')?.textContent).toContain("current capacity");
+  expect(container.querySelector("details")?.open).toBe(false);
+  expect(gateway.prepareSave).not.toHaveBeenCalled();
+  expect(gateway.commitSave).not.toHaveBeenCalled();
 });
 
 it("records the receiver of each confirmed hop, not the original source", async () => {

@@ -43,17 +43,18 @@ it("cancels a project automation draft without saving it", async () => {
   const store = createAutomationStore({ call, getTarget: () => ({ cwd: "/fallback" }) });
   render(<AutomationMain store={store} />);
   act(() => store.getState().requestCreation("/requested"));
-  expect((screen.getByLabelText("Target project") as HTMLInputElement).value).toBe("/requested");
+  expect(screen.queryByLabelText("Target project")).toBeNull();
+  expect(store.getState().creationRequest?.projectPath).toBe("/requested");
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(store.getState().creationRequest).toBeNull();
-  expect((screen.getByLabelText("Target project") as HTMLInputElement).value).toBe("/fallback");
+  expect(screen.queryByLabelText("Target project")).toBeNull();
   expect(
     call.mock.calls.some((args) => (args[1] as { action?: string })?.action === "upsert"),
   ).toBe(false);
   store.getState().destroy();
 });
 
-it("carries the clicked project through navigation, task creation and scoped readback", async () => {
+it("uses the default workspace for legacy project task requests and scoped readback", async () => {
   let persisted: Array<Record<string, unknown>> = [
     { id: "existing", status: "done", title: "Other project", targetProject: "/other" },
   ];
@@ -84,9 +85,8 @@ it("carries the clicked project through navigation, task creation and scoped rea
   );
   try {
     fireEvent.click(screen.getByRole("button", { name: "New task for this project" }));
-    expect(((await screen.findByLabelText("Target project")) as HTMLInputElement).value).toBe(
-      "C:/项目 A",
-    );
+    await screen.findByLabelText("Title");
+    expect(screen.queryByLabelText("Target project")).toBeNull();
     expect(call.mock.calls.some(([operation]) => operation === "write_super_agent_tasks")).toBe(
       false,
     );
@@ -96,11 +96,11 @@ it("carries the clicked project through navigation, task creation and scoped rea
     });
     fireEvent.click(screen.getByRole("button", { name: "Create task" }));
     await waitFor(() => expect(persisted).toHaveLength(2));
-    expect(persisted[1]).toMatchObject({ targetProject: "C:/项目 A", title: "Build project" });
+    expect(persisted[1]).toMatchObject({ targetProject: "/different-current-project", title: "Build project" });
     const selected = projectWorkFromResponses(
       { ok: true, data: { tasks: persisted } },
       { ok: true, data: { workflows: [] } },
-      { cwd: "C:/项目 A" },
+      { cwd: "/different-current-project" },
     );
     expect(selected.tasks.map((task) => task.title)).toEqual(["Build project"]);
     expect(store.getState().creationRequest).toBeNull();
@@ -149,7 +149,7 @@ it("retains task input after a failed save and never writes after a failed initi
   store.getState().destroy();
 });
 
-it("reinitializes an automation for a new project and preserves the editable target on save", async () => {
+it("reinitializes legacy automation drafts while preserving the hidden default target", async () => {
   const call = vi.fn(async (_operation: string, params?: unknown) => ({
     ok: true,
     data: {
@@ -162,17 +162,14 @@ it("reinitializes an automation for a new project and preserves the editable tar
   const store = createAutomationStore({ call, getTarget: () => ({ cwd: "/fallback" }) });
   render(<AutomationMain store={store} />);
   act(() => store.getState().requestCreation("/project/a"));
-  expect((screen.getByLabelText("Target project") as HTMLInputElement).value).toBe("/project/a");
+  expect(screen.queryByLabelText("Target project")).toBeNull();
   fireEvent.change(screen.getByPlaceholderText("Name"), { target: { value: "Draft A" } });
   act(() => store.getState().requestCreation("/project/b"));
   expect((screen.getByPlaceholderText("Name") as HTMLInputElement).value).toBe("");
-  expect((screen.getByLabelText("Target project") as HTMLInputElement).value).toBe("/project/b");
+  expect(screen.queryByLabelText("Target project")).toBeNull();
   fireEvent.change(screen.getByPlaceholderText("Name"), { target: { value: "Review B" } });
   fireEvent.change(screen.getByPlaceholderText("Task instructions"), {
     target: { value: "Review changes" },
-  });
-  fireEvent.change(screen.getByLabelText("Target project"), {
-    target: { value: "/project/edited" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Create automation" }));
   await waitFor(() =>
@@ -181,7 +178,7 @@ it("reinitializes an automation for a new project and preserves the editable tar
       expect.objectContaining({
         action: "upsert",
         expectedRevision: "workflows-read",
-        workflow: expect.objectContaining({ targetProject: "/project/edited", title: "Review B" }),
+        workflow: expect.objectContaining({ targetProject: "/fallback", title: "Review B" }),
       }),
       { target: { cwd: "/fallback" } },
     ),

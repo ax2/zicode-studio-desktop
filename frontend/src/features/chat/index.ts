@@ -205,3 +205,5 @@ export class ToolCardRenderer {
 }
 
 export { ChatFeed, describeModelError, feedFor, splitStreamingContent, t };
+
+export { mountQuickTools } from "../quickTools/QuickToolLinks";

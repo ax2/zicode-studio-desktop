@@ -1,10 +1,27 @@
+mod backup_note_files;
+#[cfg(test)]
+mod body_whitespace_tests;
+#[cfg(test)]
+mod move_tests;
+mod move_journal;
+mod notebook_trash_transaction;
+mod move_update;
 mod import_content;
 mod import_references;
 mod import_transaction;
 mod knowledge;
 mod references;
+mod relocation;
+#[cfg(test)]
+mod relocation_tests;
+#[cfg(windows)]
+mod chapter_page;
 mod trash_guard;
 mod trash_metadata;
+#[cfg_attr(not(test), allow(dead_code))] // Standalone conflict/transaction helpers are also exercised by focused tests.
+mod sync;
+pub(crate) use sync::{BaselineUpdate, Transfer, TransferBinding};
+pub(crate) use sync::conflicts;
 
 use base64::Engine;
 use chrono::{SecondsFormat, Utc};
@@ -57,6 +74,8 @@ pub struct NoteSource {
     pub captured_at: String,
     pub content_hash: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_revision: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub author: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub published_at: Option<String>,
@@ -90,6 +109,8 @@ pub struct NoteDocument {
     #[serde(flatten)]
     pub summary: NoteSummary,
     pub content: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub previous_notebook_ids: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -110,6 +131,8 @@ pub struct TrashEntry {
 #[serde(rename_all = "camelCase")]
 pub struct NotesSnapshot {
     pub notebooks: Vec<NotebookDescriptor>,
+    #[serde(default)]
+    pub notebook_order: Option<Vec<String>>,
     pub notes: Vec<NoteSummary>,
     pub tags: Vec<String>,
 }
@@ -286,7 +309,7 @@ impl NotesError {
 pub struct NotesVault {
     root: PathBuf,
     storage_dir: Option<PathBuf>,
-    storage_guard: Option<std::sync::Arc<std::fs::File>>,
+    storage_guard: Option<std::sync::Arc<import_transaction::StorageLock>>,
     workspace_id: Option<String>,
     workspace_roots:
         Option<std::sync::Arc<std::sync::RwLock<std::collections::HashMap<String, PathBuf>>>>,
@@ -357,7 +380,10 @@ impl NotesVault {
         fs::create_dir_all(&vault_dir)
             .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
         let storage_guard = import_transaction::lock_storage(&vault_dir)?;
+        move_journal::recover(&vault_dir)?;
         import_transaction::recover(&vault_dir)?;
+        sync::recover(&vault_dir)?;
+        notebook_trash_transaction::recover(&vault_dir)?;
         self.migrate_legacy(&workspace_id)?;
         Ok(NotesVault {
             root: self.root.clone(),
@@ -557,6 +583,7 @@ impl NotesVault {
         }
         notes.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
         Ok(NotesSnapshot {
+            notebook_order: self.stored_notebook_order()?,
             notebooks,
             notes,
             tags: tags.into_iter().collect(),
@@ -731,43 +758,7 @@ impl NotesVault {
                 }
             }
         }
-        let deleted_root = self.deleted_vaults_dir();
-        fs::create_dir_all(&deleted_root).map_err(|_| {
-            NotesError::new("storage_unavailable", "Cannot prepare the Notes trash")
-        })?;
-        for id in &to_delete {
-            let source = self.vault_root(id)?;
-            if !source.exists() {
-                continue;
-            }
-            let target = deleted_root.join(id);
-            if target.exists() {
-                return Err(NotesError::new(
-                    "storage_unavailable",
-                    format!("Notebook {id} is already in the trash"),
-                ));
-            }
-            // Move every active note into the notebook's own `.trash` first
-            // so the existing restore/purge pipeline stays uniform for
-            // deleted notebooks.
-            let notes = self.scan_notebook_notes(id)?;
-            if !notes.is_empty() {
-                let trash_dir = source.join(".trash");
-                fs::create_dir_all(&trash_dir).map_err(|_| {
-                    NotesError::new("storage_unavailable", "Cannot prepare the Notes trash")
-                })?;
-                for note in &notes {
-                    let note_path = self.note_path(id, &note.id)?;
-                    let trash_path = trash_dir.join(format!("{}.md", note.id));
-                    trash_metadata::move_to_trash(&note_path, &trash_path)?;
-                    self.append_change("deleted", note, None)?;
-                }
-            }
-            fs::rename(&source, &target).map_err(|_| {
-                NotesError::new("storage_unavailable", "Cannot move the notebook to trash")
-            })?;
-        }
-        Ok(())
+        notebook_trash_transaction::apply(self, &to_delete)
     }
 
     pub fn create_note(
@@ -805,6 +796,7 @@ impl NotesVault {
         let document = NoteDocument {
             summary,
             content: normalize_newlines(content),
+            previous_notebook_ids: Vec::new(),
         };
         let written = self.write_note(&document, None)?;
         self.touch_notebook(&notebook_id)?;
@@ -844,6 +836,7 @@ impl NotesVault {
             ));
         }
         let document = NoteDocument {
+            previous_notebook_ids: existing.previous_notebook_ids,
             summary: NoteSummary {
                 id: note_id,
                 notebook_id: notebook_id.clone(),
@@ -895,6 +888,9 @@ impl NotesVault {
         }
         self.read_notebook(&target_notebook_id)?;
         let mut moved = existing;
+        if !moved.previous_notebook_ids.contains(&notebook_id) {
+            moved.previous_notebook_ids.push(notebook_id.clone());
+        }
         moved.summary.notebook_id = target_notebook_id.clone();
         moved.summary.updated_at = now_iso();
         moved.summary.version = String::new();
@@ -906,20 +902,7 @@ impl NotesVault {
             ));
         }
         let bytes = serialize_note(&moved)?;
-        atomic_write(&target_path, &bytes)?;
-        let source_path = self.note_path(&notebook_id, &note_id)?;
-        fs::remove_file(&source_path).map_err(|_| {
-            NotesError::new(
-                "storage_unavailable",
-                "Cannot remove the note from its source",
-            )
-        })?;
-        let mut written = moved;
-        written.summary.version = version_for(&bytes);
-        self.touch_notebook(&target_notebook_id)?;
-        self.touch_notebook(&notebook_id)?;
-        self.append_change("moved", &written.summary, Some(&written.summary.version))?;
-        Ok(written)
+        move_update::commit(self, &notebook_id, moved, bytes, expected_version)
     }
 
     pub fn delete_note(
@@ -1255,39 +1238,26 @@ impl NotesVault {
     pub fn export_notebook(&self, notebook_id: &str) -> Result<VaultExport, NotesError> {
         let notebook_id = validate_opaque_id(notebook_id)?;
         let notebook = self.read_notebook(&notebook_id)?;
-        let summaries = self.scan_notebook_notes(&notebook_id)?;
-        let mut notes = Vec::with_capacity(summaries.len());
-        for summary in summaries {
-            notes.push(self.get_note(&notebook_id, &summary.id)?);
-        }
+        let vault = self.vault_root(&notebook_id)?;
+        let notes = backup_note_files::read(&vault.join("src/content/notes"), &notebook_id, false)?
+            .into_iter()
+            .map(|(_, document)| document)
+            .collect::<Vec<_>>();
         let mut trashed_notes = Vec::new();
-        let trash_dir = self.vault_root(&notebook_id)?.join(".trash");
-        if trash_dir.is_dir() {
-            for entry in fs::read_dir(&trash_dir)
-                .map_err(|_| NotesError::new("storage_unavailable", "Cannot read trash"))?
-                .flatten()
-            {
-                let Ok(file_type) = entry.file_type() else {
-                    continue;
-                };
-                if !file_type.is_file() || file_type.is_symlink() {
-                    continue;
-                }
-                let Some(name) = entry.file_name().to_str().map(str::to_string) else {
-                    continue;
-                };
-                if !name.ends_with(".md") {
-                    continue;
-                }
-                if let Ok(document) = read_note_file(&entry.path(), &notebook_id) {
-                    let stamp = trash_metadata::read_or_initialize(&entry.path())?;
-                    trashed_notes.push(TrashNoteExport {
-                        note: document,
-                        deleted_at: stamp.deleted_at,
-                        deletion_time_known: stamp.deletion_time_known,
-                    });
-                }
-            }
+        for (path, document) in backup_note_files::read(&vault.join(".trash"), &notebook_id, true)?
+        {
+            let stamp = trash_metadata::read_or_initialize(&path)?;
+            trashed_notes.push(TrashNoteExport {
+                note: document,
+                deleted_at: stamp.deleted_at,
+                deletion_time_known: stamp.deletion_time_known,
+            });
+        }
+        if notes.len().saturating_add(trashed_notes.len()) > MAX_NOTES {
+            return Err(NotesError::new(
+                "quota_exceeded",
+                "Notes backup contains too many notes",
+            ));
         }
         let mut attachments = Vec::new();
         let mut total_attachment_bytes = 0usize;
@@ -1295,26 +1265,46 @@ impl NotesVault {
             .vault_root(&notebook_id)?
             .join("public")
             .join("attachments");
-        if let Ok(note_directories) = fs::read_dir(attachment_root) {
-            for note_directory in note_directories.flatten() {
+        let note_directories = match fs::read_dir(attachment_root) {
+            Ok(entries) => Some(entries),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(_) => {
+                return Err(NotesError::new(
+                    "storage_unavailable",
+                    "Cannot read attachment",
+                ))
+            }
+        };
+        if let Some(note_directories) = note_directories {
+            for note_directory in note_directories {
+                let note_directory = note_directory.map_err(|_| {
+                    NotesError::new("storage_unavailable", "Cannot read attachment")
+                })?;
                 let Some(note_id) = note_directory.file_name().to_str().map(str::to_string) else {
                     continue;
                 };
                 if validate_opaque_id(&note_id).is_err() {
                     continue;
                 }
-                let Ok(files) = fs::read_dir(note_directory.path()) else {
-                    continue;
-                };
-                for file in files.flatten() {
+                let files = fs::read_dir(note_directory.path()).map_err(|_| {
+                    NotesError::new("storage_unavailable", "Cannot read attachment")
+                })?;
+                for file in files {
+                    let file = file.map_err(|_| {
+                        NotesError::new("storage_unavailable", "Cannot read attachment")
+                    })?;
                     let Some(file_name) = file.file_name().to_str().map(str::to_string) else {
                         continue;
                     };
-                    let Ok((bytes, mime_type)) =
-                        self.read_attachment(&notebook_id, &note_id, &file_name)
-                    else {
-                        continue;
-                    };
+                    // An archival export must be restorable, never silently partial.
+                    let (bytes, mime_type) =
+                        self.read_attachment(&notebook_id, &note_id, &file_name)?;
+                    if bytes.is_empty() {
+                        return Err(NotesError::new(
+                            "payload_too_large",
+                            "Backup attachment size is invalid",
+                        ));
+                    }
                     total_attachment_bytes = total_attachment_bytes.saturating_add(bytes.len());
                     if total_attachment_bytes > MAX_EXPORT_ATTACHMENT_BYTES {
                         return Err(NotesError::new(
@@ -1344,11 +1334,29 @@ impl NotesVault {
     /// Export every notebook in this vault as one archival bundle so users can
     /// back up an entire workspace without exporting notebooks one by one.
     pub fn export_all_notebooks(&self) -> Result<Vec<VaultExport>, NotesError> {
-        let notebooks = self.list_notebooks()?;
-        let mut exports = Vec::with_capacity(notebooks.len());
-        for notebook in notebooks {
-            exports.push(self.export_notebook(&notebook.id)?);
+        let vaults = self.vaults_dir();
+        let unavailable = |_| NotesError::new("storage_unavailable", "Cannot enumerate notebooks for backup");
+        fs::create_dir_all(&vaults).map_err(unavailable)?;
+        let mut exports = Vec::new();
+        for entry in fs::read_dir(vaults).map_err(unavailable)? {
+            let entry = entry.map_err(unavailable)?;
+            let name = entry.file_name();
+            let Some(id) = name.to_str().filter(|id| validate_opaque_id(id).is_ok()) else {
+                continue;
+            };
+            let kind = entry.file_type().map_err(unavailable)?;
+            if kind.is_symlink() {
+                return Err(NotesError::new("vault_corrupt", "Notebook backup cannot follow a linked notebook"));
+            }
+            if !kind.is_dir() {
+                continue;
+            }
+            if exports.len() == MAX_NOTEBOOKS {
+                return Err(NotesError::new("quota_exceeded", "Too many notebooks to export"));
+            }
+            exports.push(self.export_notebook(id)?);
         }
+        exports.sort_by_cached_key(|item| item.notebook.title.to_lowercase());
         Ok(exports)
     }
 
@@ -1514,7 +1522,7 @@ impl NotesVault {
         Ok(None)
     }
 
-    fn list_notebooks(&self) -> Result<Vec<NotebookDescriptor>, NotesError> {
+    pub(crate) fn list_notebooks(&self) -> Result<Vec<NotebookDescriptor>, NotesError> {
         let vaults = self.vaults_dir();
         fs::create_dir_all(&vaults)
             .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
@@ -1938,6 +1946,7 @@ const notes = defineCollection({
       url: z.string().url(),
       capturedAt: z.string(),
       contentHash: z.string(),
+      documentRevision: z.string().optional(),
       author: z.string().optional(),
       publishedAt: z.string().optional(),
     }).optional(),
@@ -2042,6 +2051,11 @@ fn serialize_note(document: &NoteDocument) -> Result<Vec<u8>, NotesError> {
         serde_json::to_string(&document.summary.tags)
             .map_err(|_| NotesError::new("serialization_failed", "Cannot encode note tags"))?,
     ));
+    let previous = relocation::previous_notebooks(document.previous_notebook_ids.clone())?;
+    if !previous.is_empty() {
+        output.push_str(&format!("previousNotebookIds: {}\n",
+            serde_json::to_string(&previous).map_err(|_| NotesError::new("serialization_failed", "Cannot encode note move history"))?));
+    }
     if let Some(icon) = &document.summary.icon {
         output.push_str(&format!("icon: {}\n", yaml_string(icon)));
     }
@@ -2056,6 +2070,9 @@ fn serialize_note(document: &NoteDocument) -> Result<Vec<u8>, NotesError> {
             "  contentHash: {}\n",
             yaml_string(&source.content_hash)
         ));
+        if let Some(revision) = &source.document_revision {
+            output.push_str(&format!("  documentRevision: {}\n", yaml_string(revision)));
+        }
         if let Some(author) = &source.author {
             output.push_str(&format!("  author: {}\n", yaml_string(author)));
         }
@@ -2071,9 +2088,9 @@ fn serialize_note(document: &NoteDocument) -> Result<Vec<u8>, NotesError> {
     }
     output.push_str("---\n\n");
     output.push_str(&document.content);
-    if !output.ends_with('\n') {
-        output.push('\n');
-    }
+    // The reader removes one formatting newline; always append it separately
+    // so a newline belonging to the user's content is never consumed.
+    output.push('\n');
     if output.len() > MAX_NOTE_BYTES {
         return Err(NotesError::new(
             "payload_too_large",
@@ -2120,6 +2137,7 @@ fn read_note_file(path: &Path, notebook_id: &str) -> Result<NoteDocument, NotesE
             url,
             captured_at: required_frontmatter_string(frontmatter, "capturedAt")?,
             content_hash: required_frontmatter_string(frontmatter, "contentHash")?,
+            document_revision: optional_frontmatter_string(frontmatter, "documentRevision"),
             author: optional_frontmatter_string(frontmatter, "author"),
             published_at: optional_frontmatter_string(frontmatter, "publishedAt"),
             site_name: optional_frontmatter_string(frontmatter, "siteName"),
@@ -2142,6 +2160,7 @@ fn read_note_file(path: &Path, notebook_id: &str) -> Result<NoteDocument, NotesE
             version: version_for(&bytes),
         },
         content: content.to_string(),
+        previous_notebook_ids: relocation::read_history(frontmatter)?,
     })
 }
 
@@ -2338,7 +2357,8 @@ fn validate_source(source: &NoteSource) -> Result<(), NotesError> {
             "Note source must be an HTTP(S) URL without credentials",
         ));
     }
-    if source.captured_at.chars().count() > 100
+    if source.document_revision.as_ref().is_some_and(|value| value.is_empty() || value.len() > 160 || value.chars().any(char::is_control))
+        || source.captured_at.chars().count() > 100
         || source.content_hash.chars().count() > 100
         || source
             .author
@@ -2420,12 +2440,14 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), NotesError> {
     let suffix = Uuid::new_v4().simple().to_string();
     let temporary = parent.join(format!(".write-{suffix}.tmp"));
     let backup = parent.join(format!(".write-{suffix}.bak"));
-    fs::write(&temporary, bytes)
-        .map_err(|_| NotesError::new("storage_unavailable", "Cannot write Notes data"))?;
+    if fs::write(&temporary, bytes).is_err() {
+        let _ = fs::remove_file(&temporary);
+        return Err(NotesError::new("storage_unavailable", "Cannot write Notes data"));
+    }
     let had_previous = path.is_file();
-    if had_previous {
-        fs::rename(path, &backup)
-            .map_err(|_| NotesError::new("storage_unavailable", "Cannot prepare Notes update"))?;
+    if had_previous && fs::rename(path, &backup).is_err() {
+        let _ = fs::remove_file(&temporary);
+        return Err(NotesError::new("storage_unavailable", "Cannot prepare Notes update"));
     }
     if let Err(error) = fs::rename(&temporary, path) {
         if had_previous {
@@ -2475,6 +2497,19 @@ mod tests {
         assert!(snippet.ends_with('…'));
         assert_eq!(snippet_for("", "needle"), None);
         assert_eq!(snippet_for("body", ""), None);
+    }
+
+    #[test]
+    fn full_backup_rejects_a_notebook_missing_from_the_tolerant_list() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let bad = vault.create_notebook("Broken", None, None).unwrap();
+        vault.create_notebook("Healthy", None, None).unwrap();
+        let metadata = vault.vaults_dir().join(bad.id).join(".zicode").join("vault.json");
+        fs::write(metadata, b"{broken").unwrap();
+        assert_eq!(vault.list_notebooks().unwrap().len(), 1);
+        assert!(vault.export_all_notebooks().is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -2667,6 +2702,7 @@ mod tests {
                 vec!["clip".into()],
                 None,
                 Some(NoteSource {
+                    document_revision: None,
                     url: "https://example.com/article".into(),
                     captured_at: "2026-07-31T00:00:00Z".into(),
                     content_hash: content_hash("Captured body"),

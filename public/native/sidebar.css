@@ -484,6 +484,3 @@
   backdrop-filter: blur(8px);
 }
 
-.sidebar-overlay.visible {
-  display: block;
-}

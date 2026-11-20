@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-const MAX_TEXT_CHARS: usize = 50_000;
+pub(crate) const MAX_TEXT_CHARS: usize = 50_000;
 const MAX_LANG_CHARS: usize = 40;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -87,7 +87,6 @@ pub fn translate(
         &request.target_lang,
         request.source_lang.as_deref(),
     )?;
-    let model = &endpoint.choice.model;
     let prompt = build_prompt(
         &request.text,
         request.source_lang.as_deref(),
@@ -99,13 +98,21 @@ pub fn translate(
         prompt,
         std::time::Duration::from_secs(60),
     )?;
+    result_from_payload(request, endpoint, &payload)
+}
+
+pub(crate) fn result_from_payload(
+    request: &TranslationRequest,
+    endpoint: &crate::model_tools::ModelEndpoint,
+    payload: &serde_json::Value,
+) -> Result<TranslationResult, String> {
     let translated =
-        extract_text(&payload).ok_or_else(|| "Model returned an empty translation".to_string())?;
+        extract_text(payload).ok_or_else(|| "Model returned an empty translation".to_string())?;
     let char_count = translated.chars().count();
     Ok(TranslationResult {
         provider: endpoint.choice.provider.clone(),
         translated,
-        model: model.to_string(),
+        model: endpoint.choice.model.clone(),
         target_lang: request.target_lang.trim().to_string(),
         source_lang: request
             .source_lang

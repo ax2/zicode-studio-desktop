@@ -1,9 +1,11 @@
+import { MULTI_PROJECT_UI_ENABLED } from "../workspace/workspace-mode.js";
 // Trusted parent UI. References and grants never cross the plugin iframe bridge.
 
 import { t } from "i18n";
 import { createPluginResultTransfer } from "./plugin-result-transfer.js";
 import { openSavedArtifact } from "../features/artifact-navigation.js";
-export function createPluginResultActions({ container, gateway, isCurrent, onReceiverExecuted, onOpenSaved = openSavedArtifact }) {
+import { appendResultCaptureNotice } from "./plugin-result-capture-notice.js";
+export function createPluginResultActions({ container, gateway, isCurrent, onReceiverExecuted, onOpenSaved = openSavedArtifact, sourceResultDisplayed = false }) {
   const artifactIdPattern = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   const panel = document.createElement("section");
   panel.className = "plugin-result-actions";
@@ -14,6 +16,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
   let current = null;
   let active = true;
   let transfer = null;
+  let disposeCaptureNotice = null;
   const valid = (token) => active && token === revision && isCurrent(current?.scope);
 
   function element(tag, text, className) {
@@ -52,7 +55,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
         showPreview(response, token);
       } catch {
         if (valid(token)) {
-          status.textContent = t("Could not prepare save. Review the current workspace and try again.");
+          status.textContent = t("Could not prepare save. Check saved results and try again.");
           preview.disabled = false;
           if (send) send.disabled = false;
         }
@@ -94,11 +97,13 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     );
     if (current.saveOutcomeUnknown) {
       preview.disabled = true;
-      status.textContent = t("Save outcome is uncertain. Check workspace artifacts before saving again; this view will not retry the write.");
+      status.textContent = t("Save outcome is uncertain. Check saved results before saving again; this view will not retry the write.");
     }
   }
   function show(response, scope, transferred = false) {
     revision += 1;
+    disposeCaptureNotice?.();
+    disposeCaptureNotice = null;
     transfer?.destroy();
     const resultText = response?.resultRef?.mimeType === "application/json" && response?.result?.data && typeof response.result.data === "object"
       ? JSON.stringify(response.result.data)
@@ -123,16 +128,13 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     if (current) offer();
     else if (successful && response.resultCaptureError) {
       panel.hidden = false;
-      if (typeof resultText === "string") panel.append(element("pre", resultText));
-      panel.append(
-        element(
-          "p",
-          t("Result cannot be reused or saved: {error}").replace(
-            "{error}",
-            response.resultCaptureError.code ?? "unknown",
-          ),
-        ),
-      );
+      // Receiver results are owned here even when the original source has a React result view.
+      if ((!sourceResultDisplayed || transferred) && typeof resultText === "string") {
+        const content = element("pre", resultText);
+        if (transferred) content.setAttribute("aria-label", t("Transferred result"));
+        panel.append(content);
+      }
+      disposeCaptureNotice = appendResultCaptureNotice(panel, response.resultCaptureError.code ?? "unknown");
     }
   }
   function showPreview(response, token) {
@@ -150,14 +152,14 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
         if (!valid(token)) return;
         if (saved?.schemaVersion !== 1 || typeof saved.replayed !== "boolean" ||
             !artifactIdPattern.test(saved.artifact?.id ?? "")) throw new Error("invalid_save_receipt");
-        panel.replaceChildren(element("p", t("Saved to the current workspace artifacts.")));
+        panel.replaceChildren(element("p", t("Saved to results.")));
         panel.append(button(t("View saved artifact"), () => {
           if (valid(token)) onOpenSaved(saved.artifact.id, current.scope);
         }));
       } catch {
         if (valid(token)) {
           current.saveOutcomeUnknown = true;
-          status.textContent = t("Save outcome is uncertain. Check workspace artifacts before saving again; this view will not retry the write.");
+          status.textContent = t("Save outcome is uncertain. Check saved results before saving again; this view will not retry the write.");
           confirm.remove();
           cancel.disabled = false;
           cancel.textContent = t("Close");
@@ -171,13 +173,13 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
                 const outcome = await gateway.saveStatus(current.scope, response.grantId);
                 if (!valid(token)) return;
                 if (outcome?.schemaVersion === 1 && outcome.status === "saved" && artifactIdPattern.test(outcome.artifactId ?? "")) {
-                  panel.replaceChildren(element("p", t("Verified saved artifact in the current workspace.")),
+                  panel.replaceChildren(element("p", t("Verified saved result.")),
                     button(t("View saved artifact"), () => { if (valid(token)) onOpenSaved(outcome.artifactId, current.scope); }));
                   return;
                 }
-                status.textContent = t("The save could not be verified. Check workspace artifacts before saving again; no write was retried.");
+                status.textContent = t("The save could not be verified. Check saved results before saving again; no write was retried.");
               } catch {
-                if (valid(token)) status.textContent = t("The save could not be verified. Check workspace artifacts before saving again; no write was retried.");
+                if (valid(token)) status.textContent = t("The save could not be verified. Check saved results before saving again; no write was retried.");
               } finally {
                 if (valid(token)) check.disabled = false;
               }
@@ -202,7 +204,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           .replace("{bytes}", preview.byteLength)
           .replace("{version}", preview.packageVersion),
       ),
-      element("p", t("Workspace: {workspace}").replace("{workspace}", preview.workspaceId)),
+      ...(MULTI_PROJECT_UI_ENABLED ? [element("p", t("Workspace: {workspace}").replace("{workspace}", preview.workspaceId))] : []),
       text,
       confirm,
       cancel,
@@ -213,6 +215,8 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
   return {
     clear() {
       revision += 1;
+      disposeCaptureNotice?.();
+      disposeCaptureNotice = null;
       transfer?.destroy();
       current = null;
       panel.hidden = true;
@@ -221,6 +225,8 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     show,
     destroy() {
       active = false;
+      disposeCaptureNotice?.();
+      disposeCaptureNotice = null;
       transfer?.destroy();
       revision += 1;
       panel.remove();

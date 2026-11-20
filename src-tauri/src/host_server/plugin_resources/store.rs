@@ -1,10 +1,16 @@
 use super::*;
 const MAX_RESOURCE: usize = 32 * 1024 * 1024;
 const MAX_RESERVED: usize = 128 * 1024 * 1024;
+const MAX_TOTAL_RESERVED: usize = 256 * 1024 * 1024;
 const MAX_RECORDS: usize = 32;
 const MAX_CHUNKS: usize = MAX_RESOURCE.div_ceil(MAX_CHUNK);
 
+mod file_reference_store;
+mod stream_reports;
+pub(in crate::host_server::plugin_resources) use stream_reports::StreamOriginal;
+
 struct Record {
+    output_profile: crate::plugin_worker::resource_output::Profile,
     owner: Owner,
     proof: String,
     mime: String,
@@ -15,6 +21,8 @@ struct Record {
     confirmed: bool,
     expires: Instant,
     parents: Vec<Ancestor>,
+    original: Option<file_reference::FileBinding>,
+    digest_name: Option<String>,
 }
 
 #[derive(Clone)]
@@ -28,20 +36,26 @@ mod tests;
 
 #[derive(Default)]
 pub(crate) struct Store {
+    pub(super) exports: super::export::Grants,
     pub(super) file_imports: local_file::Grants,
+    pub(super) digest_streams: local_file::digest_stream::Grants,
     pub(super) directory_imports: local_directory::Grants,
     records: HashMap<String, Record>,
+    stream_reports: HashMap<String, stream_reports::StreamReport>,
     transfers: HashMap<String, transfer::Grant>,
     saves: HashMap<String, save::SaveGrant>,
 }
 mod outputs;
+mod export;
 mod save;
 mod transfer;
 pub(in crate::host_server::plugin_resources) use outputs::Pending;
 
 impl Store {
     pub(in crate::host_server) fn invalidate_runtime(&mut self, runtime_id: &str) {
+        self.exports.invalidate_runtime(runtime_id);
         self.file_imports.invalidate_runtime(runtime_id);
+        self.digest_streams.invalidate_runtime(runtime_id);
         self.directory_imports.invalidate_runtime(runtime_id);
         self.records
             .retain(|_, record| record.owner.runtime_id != runtime_id);
@@ -93,6 +107,7 @@ impl Store {
                 byte_length: bytes.len(),
                 content_version: version.clone(),
                 catalog_revision: None,
+                file_name: None,
             },
             proof.clone(),
         )?;
@@ -150,11 +165,12 @@ impl Store {
                 self.records.remove(&id);
             }
         }
+        self.stream_reports.retain(|id, _| self.records.contains_key(id));
     }
 
     pub(super) fn prepare(&mut self, request: Prepare, proof: String) -> Result<Value, ApiError> {
         self.prune();
-        if crate::plugin_output_types::extension(&request.mime_type).is_none()
+        if request.mime_type == "application/json" || crate::plugin_output_types::extension(&request.mime_type).is_none()
             || request.content_version.len() != 64
             || !request
                 .content_version
@@ -165,15 +181,21 @@ impl Store {
         }
         if request.byte_length > MAX_RESOURCE
             || self.records.len() >= MAX_RECORDS
-            || self.records.values().map(|r| r.expected).sum::<usize>() + request.byte_length
-                > MAX_RESERVED
+            || request.byte_length > MAX_RESERVED.saturating_sub(self.records.values().filter(|r|r.output_profile.uses_shared_store_budget()).map(|r|r.expected).sum::<usize>())
+            || request.byte_length > MAX_TOTAL_RESERVED.saturating_sub(self.records.values().map(|r|r.expected).sum::<usize>())
         {
             return Err(rejected("resource_budget_exceeded"));
         }
+        let digest_name = if file_reference::is_source(&request.owner) {
+            request.file_name.as_deref().and_then(file_digest_report::safe_file_name).map(str::to_owned)
+        } else {
+            None
+        };
         let id = uuid::Uuid::new_v4().to_string();
         self.records.insert(
             id.clone(),
             Record {
+                output_profile: crate::plugin_worker::resource_output::Profile::Draft1,
                 owner: request.owner,
                 proof,
                 mime: request.mime_type,
@@ -184,6 +206,8 @@ impl Store {
                 confirmed: false,
                 expires: Instant::now() + Duration::from_secs(120),
                 parents: Vec::new(),
+                original: None,
+                digest_name,
             },
         );
         Ok(
@@ -268,6 +292,9 @@ impl Store {
         if !r.confirmed {
             return Err(rejected("resource_confirmation_required"));
         }
+        if r.is_file_reference() {
+            return Err(rejected("resource_file_reference_requires_run"));
+        }
         if offset > r.expected || length == 0 || length > MAX_CHUNK {
             return Err(rejected("resource_range_invalid"));
         }
@@ -314,17 +341,15 @@ impl Store {
         if !r.confirmed {
             return Err(rejected("resource_confirmation_required"));
         }
+        if r.is_file_reference() {
+            return Err(rejected("resource_file_reference_requires_run"));
+        }
         let mut bytes = Vec::with_capacity(r.expected);
         for chunk in &r.chunks {
             bytes.extend_from_slice(chunk);
         }
         Ok(crate::plugin_worker::resource_input::Resource {
-            descriptor: crate::plugin_worker::resource_input::Descriptor {
-                resource_id: access.resource_id.clone(),
-                content_version: r.version.clone(),
-                mime_type: r.mime.clone(),
-                byte_length: r.expected,
-            },
+            descriptor: r.descriptor(access),
             bytes,
         })
     }

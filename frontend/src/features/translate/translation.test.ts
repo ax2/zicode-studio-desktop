@@ -36,10 +36,119 @@ describe("translation store", () => {
     expect(gateway.translate).toHaveBeenCalledWith(
       { sceneId: "programming", workspaceId: "ws-1" },
       { text: "Hello", targetLang: "Chinese", provider: "local", model: "example" },
+      expect.any(AbortSignal),
     );
     expect(store.getState().result?.translated).toBe("你好");
     expect(store.getState().editedText).toBe("你好");
     expect(notify).toHaveBeenCalledWith("Translation complete");
+  });
+
+  it("stages webpage selections without submitting or replacing an existing draft", () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    store.getState().stageBrowserSelection("first selection");
+    expect(store.getState().text).toBe("first selection");
+    store.getState().stageBrowserSelection("second selection");
+    expect(store.getState().text).toBe("first selection");
+    expect(store.getState().pendingIncomingText?.text).toBe("second selection");
+    store.getState().dismissIncomingText();
+    expect(store.getState().text).toBe("first selection");
+    store.getState().stageBrowserSelection("third selection");
+    store.getState().acceptIncomingText();
+    expect(store.getState().text).toBe("third selection");
+    expect(store.getState().pendingIncomingText).toBeNull();
+    expect(gateway.translate).not.toHaveBeenCalled();
+  });
+
+  it("reads the clipboard only on import and stages text over an existing draft", async () => {
+    const gateway = stubGateway();
+    const readText = vi.fn(async () => "Clipboard draft\n");
+    const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
+    try {
+      const { store } = createStore(gateway);
+      store.getState().setText("Existing draft");
+      expect(readText).not.toHaveBeenCalled();
+      await store.getState().importClipboard();
+      expect(readText).toHaveBeenCalledTimes(1);
+      expect(store.getState().text).toBe("Existing draft");
+      expect(store.getState().pendingIncomingText).toMatchObject({ source: "clipboard", text: "Clipboard draft\n" });
+      store.getState().acceptIncomingText();
+      expect(store.getState().text).toBe("Clipboard draft\n");
+      expect(gateway.translate).not.toHaveBeenCalled();
+    } finally {
+      if (original) Object.defineProperty(navigator, "clipboard", original);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
+  it("ignores old clipboard reads and rejects empty or oversized input without editing the draft", async () => {
+    const gateway = stubGateway();
+    let finish: (text: string) => void = () => {};
+    const readText = vi.fn()
+      .mockReturnValueOnce(new Promise<string>(resolve => { finish = resolve; }))
+      .mockResolvedValueOnce("newest text")
+      .mockResolvedValueOnce(" \n")
+      .mockResolvedValueOnce("x" + " ".repeat(50_000));
+    const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { readText } });
+    try {
+      const { store } = createStore(gateway);
+      const first = store.getState().importClipboard();
+      await store.getState().importClipboard();
+      finish("older text");
+      await first;
+      expect(store.getState().text).toBe("newest text");
+      expect(store.getState().pendingIncomingText).toBeNull();
+      await store.getState().importClipboard();
+      expect(store.getState().error).toBe("Clipboard contains no text");
+      await store.getState().importClipboard();
+      expect(store.getState().error).toBe("Clipboard text exceeds the 50,000-character translation limit");
+      expect(store.getState().text).toBe("newest text");
+      expect(gateway.translate).not.toHaveBeenCalled();
+    } finally {
+      if (original) Object.defineProperty(navigator, "clipboard", original);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
+  it("transfers clipboard result and languages only after confirmation and without another translation", () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    store.getState().setText("Existing workbench draft");
+    store.getState().stageClipboardTranslation({
+      text: "Original", sourceLang: "English", targetLang: "Chinese",
+      result: { ...RESULT, sourceLang: "English", targetLang: "Chinese" },
+    });
+    expect(store.getState().text).toBe("Existing workbench draft");
+    expect(store.getState().result).toBeNull();
+    store.getState().acceptIncomingText();
+    expect(store.getState()).toMatchObject({
+      text: "Original", sourceLang: "English", targetLang: "Chinese", editedText: "你好",
+    });
+    store.getState().swap();
+    expect(store.getState().text).toBe("你好");
+    expect(gateway.translate).not.toHaveBeenCalled();
+  });
+
+  it("preserves reviewed browser provenance and clears it when source text changes", async () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    const source = { title: "A", url: "https://example.invalid/a", capturedAt: "2026-11-16T10:00:00Z", documentRevision: "doc-1" };
+    store.getState().stageBrowserSelection("Original text", source);
+    expect(store.getState().browserSource).toEqual(source);
+    const next = { ...source, url: "https://example.invalid/b", documentRevision: "doc-2" };
+    store.getState().stageBrowserSelection("Original text", next);
+    expect(store.getState().browserSource).toEqual(source);
+    expect(store.getState().pendingIncomingText?.provenance).toEqual(next);
+    store.getState().acceptIncomingText();
+    expect(store.getState().browserSource).toEqual(next);
+    await store.getState().run();
+    expect(gateway.translate).toHaveBeenCalledWith(expect.anything(),
+      expect.not.objectContaining({ provenance: expect.anything() }), expect.any(AbortSignal));
+    expect(store.getState().browserSource).toEqual(next);
+    store.getState().setText("Edited text");
+    expect(store.getState().browserSource).toBeNull();
   });
 
   it("does not translate empty text", async () => {
@@ -49,11 +158,12 @@ describe("translation store", () => {
     expect(gateway.translate).not.toHaveBeenCalled();
   });
 
-  it("swaps languages and uses the previous result as new source", () => {
+  it("swaps languages and uses the previous result as new source", async () => {
     const gateway = stubGateway();
     const { store } = createStore(gateway);
     store.getState().setTargetLang("Chinese");
-    store.setState({ result: RESULT, editedText: RESULT.translated });
+    store.getState().setText("Hello");
+    await store.getState().run();
     store.getState().swap();
     expect(store.getState().targetLang).toBe("English");
     expect(store.getState().text).toBe("你好");
@@ -81,7 +191,7 @@ describe("translation store", () => {
     const { store } = createStore(gateway);
     store.getState().setText("Hello");
     await store.getState().run();
-    expect(store.getState().error).toBe("当前场景尚未配置翻译模型。");
+    expect(store.getState().error).toBe("尚未配置翻译模型，请在设置中选择模型。");
   });
 
   it("downloads the translation as a text file", async () => {

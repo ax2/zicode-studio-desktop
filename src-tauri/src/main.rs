@@ -1,6 +1,22 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod workspace_mode;
 mod app_paths;
+mod visual_assets;
+use visual_assets::visual_assets_control;
+mod browser;
+use browser::browser_control;
+use browser::bookmark_files::browser_bookmark_file;
+use browser::{capture::browser_capture_page, reader::browser_read_article, selection::browser_read_selection};
+#[path = "browser/store.rs"]
+mod browser_store;
+#[path = "browser/state_commands.rs"]
+mod browser_state_commands;
+mod browser_windows;
+mod browser_private;
+use browser_state_commands::browser_list_profiles;
+use browser_windows::browser_window_command;
+use browser_state_commands::{browser_set_search_engine, browser_get_state, browser_set_startup_mode, browser_set_vertical_tabs, browser_save_session, browser_bookmarks, browser_history};
 mod application_context;
 mod article_markdown;
 mod articles;
@@ -11,15 +27,31 @@ mod automation_login_start;
 mod automation_persistence;
 mod automation_worker;
 mod backup_store;
+mod restore_startup;
 mod blog_deploy;
 mod clipboard_inbox;
 mod credential_broker;
+mod desktop_window_controls;
+use desktop_window_controls::desktop_window_control;
 mod desktop_profile;
 mod desktop_single_instance;
 mod desktop_startup_gate;
+mod desktop_tool_shortcuts;
 mod desktop_tray;
+mod desktop_system_tray;
+mod system_information;
+mod desktop_updates;
+#[cfg(all(windows, target_arch = "x86_64"))]
+mod stable_update;
+#[cfg(all(windows, target_arch = "x86_64"))]
+mod desktop_update_handoff;
+mod system_temperature;
+use system_information::get_system_information;
+use system_temperature::{start_system_temperature_monitor, stop_system_temperature_monitor};
+use desktop_updates::{check_desktop_update, install_desktop_update, restart_desktop_after_update, cancel_desktop_update, take_desktop_update_result};
+use desktop_tool_shortcuts::set_desktop_tool_shortcuts;
 use desktop_tray::set_desktop_tray_locale;
-use explorer_entry::desktop_entry_mode;
+use explorer_entry::{desktop_entry_mode, take_notes_widget_action};
 mod desktop_tools;
 use desktop_tools::open_desktop_tool_center;
 mod document_import;
@@ -27,6 +59,8 @@ mod e2ee;
 mod explorer_entry;
 mod explorer_launch_state;
 mod explorer_menu;
+mod gmail;
+use gmail::mail_gmail;
 mod habit_tracker;
 mod host_data;
 mod host_router;
@@ -36,25 +70,38 @@ mod image_tools;
 mod metadata_store;
 mod model_tools;
 mod native_pi_manager;
+#[cfg_attr(not(test), allow(dead_code))] // Some conflict-resolution APIs remain staged for a later UI.
+mod notes_sync;
+mod mail_local;
+use mail_local::mail_local;
+mod notes_sync_task;
+mod notes_sync_conflicts;
+use notes_sync_conflicts::notes_sync_conflicts;
+use notes_sync_task::notes_sync_task;
 mod notes_vault;
+mod notes_sync_settings;
+use notes_sync_settings::notes_sync_settings;
 mod ocr;
 mod p2p;
 mod pi_launch;
 mod pi_rpc_bridge;
 #[cfg_attr(not(test), allow(dead_code))]
 mod plugin_archive_cursor;
-#[allow(dead_code)] // Internal store; task routes stay disabled until handler conformance.
-mod plugin_task_store;
 #[cfg_attr(not(test), allow(dead_code))]
 mod plugin_archive_events;
 #[cfg_attr(not(test), allow(dead_code))]
 mod plugin_archive_transport;
 mod plugin_capabilities;
 mod plugin_json_decode;
+mod plugin_json_file_numbers;
 mod plugin_output_types;
 mod plugin_package;
 mod plugin_registry;
 mod plugin_resource_execution;
+mod plugin_resource_regex;
+mod plugin_regex_review;
+#[allow(dead_code)] // Internal store; task routes stay disabled until handler conformance.
+mod plugin_task_store;
 mod plugin_worker;
 mod portable_path;
 mod process_command;
@@ -69,12 +116,15 @@ mod remote_access_config;
 mod remote_auth;
 mod remote_enrollment;
 mod remote_tls;
+mod runtime_assets;
 mod runtime_coordinator;
 mod runtime_isolation;
 mod scene_profiles;
 mod settings_store;
 mod summary;
 mod translation;
+mod desktop_clipboard_translation;
+use desktop_clipboard_translation::clipboard_translation;
 mod turn_probe;
 mod web_extract;
 mod web_watch;
@@ -97,7 +147,19 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::image::Image;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+mod alibaba_mail;
+use alibaba_mail::mail_alibaba;
+mod checksum_folder_picker;
 mod project_file_picker;
+mod resource_export_picker;
+mod result_text_export_picker;
+use checksum_folder_picker::{
+    cancel_checksum_folder, cancel_digest_file, checksum_folder_progress, commit_checksum_folder,
+    commit_digest_file, select_checksum_files, select_checksum_folder, select_digest_files,
+    cancel_digest_stream, digest_stream_progress, prepare_digest_stream_original, run_digest_stream_files, select_digest_stream_files,
+};
+use result_text_export_picker::{select_result_text_export, commit_result_text_export, cancel_result_text_export, verify_result_text_export};
+use resource_export_picker::{select_resource_export, commit_resource_export, cancel_resource_export, verify_resource_export};
 use project_file_picker::{
     get_project_directory_entry, get_project_resource_entries, get_project_resource_entry,
     select_project_resource_directory, select_project_resource_file,
@@ -315,6 +377,7 @@ async fn open_folder_as_workspace(
     window: WebviewWindow,
     plugin_id: Option<String>,
 ) -> Result<Option<String>, String> {
+    if workspace_mode::single_default() { return Ok(None); }
     let picker_app = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
         picker_app.dialog().file().blocking_pick_folder()
@@ -459,7 +522,7 @@ async fn open_new_session_in_workspace(
     scene_id: Option<String>,
     plugin_id: Option<String>,
 ) -> Result<(), String> {
-    let cwd = PathBuf::from(&project_path);
+    let cwd = if workspace_mode::single_default() { app_paths::global_workspace_root()? } else { PathBuf::from(&project_path) };
     if !cwd.is_dir() {
         return Err(format!("Project folder no longer exists: {project_path}"));
     }
@@ -513,6 +576,7 @@ fn list_workspaces(app: AppHandle) -> Result<Vec<WorkspaceInfo>, String> {
     Ok(metadata
         .list_workspaces()?
         .into_iter()
+        .filter(|(_,path)| workspace_mode::context_allowed(Path::new(path)))
         .map(|(id, path)| WorkspaceInfo { id, path })
         .collect())
 }
@@ -1002,16 +1066,24 @@ fn delete_workspace_backup(workspace_id: String, backup_id: String) -> Result<()
     crate::backup_store::delete_workspace_backup(&workspace_id, &backup_id)
 }
 
-/// Replace the workspace's app data from a snapshot; the current state is
-/// snapshotted first.
+/// Queue a confirmed restore for the next startup, before workspace writers open.
 #[tauri::command]
 fn restore_workspace_backup(
     app: AppHandle,
     workspace_id: String,
     backup_id: String,
-) -> Result<crate::backup_store::RestoreReport, String> {
-    let workspace_root = resolve_workspace_root(&app, &workspace_id)?;
-    crate::backup_store::restore_workspace_backup(&workspace_id, &workspace_root, &backup_id)
+) -> Result<crate::backup_store::RestoreRequest, String> {
+    resolve_workspace_root(&app, &workspace_id)?;
+    crate::backup_store::enqueue_workspace_restore(&workspace_id, &backup_id)
+}
+
+#[tauri::command]
+fn workspace_restore_outcome(
+    app: AppHandle,
+    workspace_id: String,
+) -> Result<Option<crate::backup_store::RestoreOutcome>, String> {
+    resolve_workspace_root(&app, &workspace_id)?;
+    crate::backup_store::workspace_restore_outcome(&workspace_id)
 }
 
 /// Switch the focused ZiCode Studio Desktop window to `projectPath` and resume the given saved
@@ -1395,22 +1467,22 @@ fn open_native_workspace_window_named(
         .title("ZiCode Studio Desktop")
         .enable_clipboard_access()
         .inner_size(1440.0, 900.0)
-        .min_inner_size(800.0, 600.0)
+        .min_inner_size(f64::from(MIN_WINDOW_WIDTH), f64::from(MIN_WINDOW_HEIGHT))
         .icon(icon)
         .map_err(|error| error.to_string())?;
 
-    // Plain native title bar on every platform. The overlay title bar
-    // (`TitleBarStyle::Overlay` + `hidden_title(true)`) extended the WebView
-    // under the traffic lights so the custom header/sidebar could render
-    // there, but it also made three-finger/click-drag window moves
-    // unreliable — reverted in favor of the guaranteed-to-work native title
-    // bar drag behavior.
-    let builder = builder.decorations(true);
+    // Shared workspace chrome owns drag and window controls on every view.
+    let builder = builder.decorations(false);
     let window = builder.build().map_err(|error| error.to_string())?;
     if let Some(state) = load_window_state() {
         apply_window_state(&window, app, &state);
     }
     set_window_workspace(app, window.label(), &target.workspace_id);
+    if !browser_windows::secondary(label) {
+        if let Err(error) = browser_windows::restore(app, host, target, label) {
+            log::warn!("Cannot restore additional browser windows: {error}");
+        }
+    }
     Ok(())
 }
 
@@ -1437,7 +1509,7 @@ fn open_bootstrap_window(app: &AppHandle, startup_error: &str) -> Result<(), Str
 }
 
 const WINDOW_STATE_FILE: &str = "window-state.json";
-const MIN_WINDOW_WIDTH: u32 = 800;
+const MIN_WINDOW_WIDTH: u32 = 360;
 const MIN_WINDOW_HEIGHT: u32 = 600;
 
 #[derive(Default, Debug, PartialEq)]
@@ -1540,17 +1612,27 @@ fn visible_position(
 ) -> Option<(i32, i32)> {
     let right = x + width as i32;
     let bottom = y + height as i32;
-    let visible = work_areas
-        .iter()
-        .any(|(area_x, area_y, area_width, area_height)| {
+    work_areas.iter()
+        .filter(|(area_x, area_y, area_width, area_height)| {
             let area_right = area_x + *area_width as i32;
             let area_bottom = area_y + *area_height as i32;
             x < area_right - MIN_VISIBLE_WINDOW_EDGE
                 && right > area_x + MIN_VISIBLE_WINDOW_EDGE
                 && y < area_bottom - MIN_VISIBLE_WINDOW_EDGE
                 && bottom > area_y + MIN_VISIBLE_WINDOW_EDGE
-        });
-    visible.then_some((x, y))
+        })
+        .max_by_key(|(ax, ay, aw, ah)| {
+            i64::from(right.min(ax + *aw as i32) - x.max(*ax))
+                * i64::from(bottom.min(ay + *ah as i32) - y.max(*ay))
+        })
+        .map(|(ax, ay, aw, ah)| {
+            // Frameless controls live in the top right of the client area.
+            // Old native-frame offsets and partially offscreen restores must
+            // not leave the close button above or beyond the chosen monitor.
+            let max_x = ax + aw.saturating_sub(width) as i32;
+            let max_y = ay + ah.saturating_sub(height) as i32;
+            (x.clamp(*ax, max_x), y.clamp(*ay, max_y))
+        })
 }
 
 fn centered_position(app: &AppHandle, width: u32, height: u32) -> (i32, i32) {
@@ -1567,51 +1649,8 @@ fn centered_position(app: &AppHandle, width: u32, height: u32) -> (i32, i32) {
     }
 }
 
-fn canonical_if_exists(dir: PathBuf) -> Option<PathBuf> {
-    if dir.join("index.html").exists() {
-        Some(fs::canonicalize(&dir).unwrap_or(dir))
-    } else {
-        None
-    }
-}
-
-fn resolve_static_dir(
-    resource_dir: Option<PathBuf>,
-    workspace_public: PathBuf,
-    current_dir: Option<PathBuf>,
-    debug_assertions: bool,
-) -> PathBuf {
-    let bundled_public = resource_dir.as_ref().map(|dir| dir.join("public"));
-    let current_public = current_dir.unwrap_or_default().join("public");
-
-    if debug_assertions {
-        if let Some(dir) = canonical_if_exists(workspace_public) {
-            return dir;
-        }
-        if let Some(dir) = canonical_if_exists(current_public.clone()) {
-            return dir;
-        }
-        return current_public;
-    }
-
-    if let Some(dir) = bundled_public.and_then(canonical_if_exists) {
-        return dir;
-    }
-
-    resource_dir
-        .map(|dir| dir.join("public"))
-        .unwrap_or_else(|| PathBuf::from("public"))
-}
-
 fn static_dir_for_resource(resource_dir: Option<PathBuf>) -> PathBuf {
-    resolve_static_dir(
-        resource_dir,
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("public"),
-        std::env::current_dir().ok(),
-        cfg!(debug_assertions),
-    )
+    runtime_assets::public_dir(resource_dir)
 }
 
 fn find_static_dir(app: &tauri::App) -> PathBuf {
@@ -1808,13 +1847,11 @@ fn select_fresh_startup_target(
     home_cwd: String,
     latest_session: Option<(String, String)>,
 ) -> (String, Option<String>) {
-    let cwd = latest_session
-        .map(|(session_cwd, _session_path)| session_cwd)
-        .unwrap_or(home_cwd);
-    (cwd, None)
+    workspace_mode::default_startup(home_cwd, latest_session)
 }
 
 fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(), String> {
+    runtime_assets::validate(&static_dir)?;
     configure_bundled_tool_path(&static_dir)?;
     notes_vault::configure_bundled_bun(&static_dir)?;
     let system_root = app_paths::system_root()?;
@@ -1873,9 +1910,15 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         // switcher always offers it as the default workspace.
         metadata.workspace_id_for_path(&default_cwd)?;
     }
+    let restore_workspaces = metadata
+        .lock()
+        .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?
+        .list_workspaces()?;
+    restore_startup::apply(app.handle(), &restore_workspaces)?;
     // Include every registered workspace's `.zicode/sessions` when resuming
     // the most recently used session (legacy app-data roots still apply).
-    let tools_only = explorer_entry::tools_only();
+    let initial_app = browser::startup::initial_app()?;
+    let tools_only = matches!(initial_app, Some("core.tools" | "com.zicode.browser"));
     let workspace_session_roots: Vec<PathBuf> = if tools_only {
         Vec::new()
     } else {
@@ -1994,7 +2037,7 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         app.handle(),
         &host,
         &target,
-        tools_only.then_some("core.tools"),
+        initial_app,
     ) {
         runtimes.stop_all();
         return Err(error);
@@ -2024,9 +2067,14 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
 }
 
 fn main() {
+    #[cfg(windows)]
+    if visual_assets::is_worker_argument(std::env::args().nth(1).as_deref()) {
+        std::process::exit(visual_assets::run_worker());
+    }
     if std::env::args().nth(1).as_deref() == Some("--zicode-plugin-worker") {
         std::process::exit(plugin_worker::run_stdio());
     }
+    workspace_mode::initialize_desktop();
     if std::env::args().nth(1).as_deref() == Some("--zicode-automation-worker") {
         let arguments: Vec<std::ffi::OsString> = std::env::args_os().skip(2).collect();
         if let Err(error) = automation_worker::run(&arguments) {
@@ -2088,15 +2136,41 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
+            visual_assets_control,
             open_desktop_tool_center,
             set_desktop_tray_locale,
+            set_desktop_tool_shortcuts,
+            mail_gmail,
+            clipboard_translation,
             desktop_explorer_menu,
             select_project_resource_file,
+            select_result_text_export,
+            commit_result_text_export,
+            cancel_result_text_export,
+            verify_result_text_export,
+            select_resource_export,
+            commit_resource_export,
+            cancel_resource_export,
+            verify_resource_export,
             select_project_resource_directory,
+            select_checksum_folder,
+            select_checksum_files,
+            select_digest_files,
+            commit_digest_file,
+            cancel_digest_file,
+            select_digest_stream_files,
+            run_digest_stream_files,
+            digest_stream_progress,
+            prepare_digest_stream_original,
+            cancel_digest_stream,
+            commit_checksum_folder,
+            checksum_folder_progress,
+            cancel_checksum_folder,
             get_project_resource_entry,
             get_project_resource_entries,
             get_project_directory_entry,
             desktop_entry_mode,
+            take_notes_widget_action,
             open_folder_as_workspace,
             select_developer_plugin_package,
             install_previewed_developer_plugin,
@@ -2126,6 +2200,7 @@ fn main() {
             list_workspace_backups,
             delete_workspace_backup,
             restore_workspace_backup,
+            workspace_restore_outcome,
             ensure_agent_inbox_session,
             list_scene_profiles,
             save_scene_profile,
@@ -2135,6 +2210,34 @@ fn main() {
             scene_credential_status,
             send_desktop_notification,
             publish_notes_notebook,
+            notes_sync_settings,
+            mail_local,
+            notes_sync_task,
+            notes_sync_conflicts,
+            get_system_information,
+            browser_control,
+            mail_alibaba,
+            desktop_window_control,
+            browser_capture_page,
+            browser_read_article,
+            browser_read_selection,
+            browser_get_state,
+            browser_list_profiles,
+            browser_window_command,
+            browser_set_startup_mode,
+            browser_set_search_engine,
+            browser_set_vertical_tabs,
+            browser_save_session,
+            browser_bookmarks,
+            browser_bookmark_file,
+            browser_history,
+            start_system_temperature_monitor,
+            stop_system_temperature_monitor,
+            check_desktop_update,
+            install_desktop_update,
+            restart_desktop_after_update,
+            cancel_desktop_update,
+            take_desktop_update_result,
             check_beta_update,
             install_beta_update
         ])
@@ -2191,6 +2294,7 @@ fn main() {
                         .kind(MessageDialogKind::Error)
                         .show(|_| {});
                 }
+                restore_startup::offer_cancellation(app.handle());
             } else if !desktop_profile::is_isolated() {
                 let login_app = app.handle().clone();
                 tauri::async_runtime::spawn_blocking(move || {
@@ -2210,10 +2314,21 @@ fn main() {
         .on_window_event(|window, event| {
             let label = window.label();
             match event {
+                tauri::WindowEvent::CloseRequested { api, .. } if browser_windows::secondary(label) => {
+                    if let Some(shell) = window.app_handle().get_webview_window(label) {
+                        if require_workspace_window(&shell).is_ok() {
+                            // Let the active Studio application finish or cancel its edits before
+                            // retiring this particular window. Browser windows never close siblings.
+                            let request = "if (dispatchEvent(new Event('zicode:browser-window-close',{cancelable:true}))) window.__TAURI__.core.invoke('browser_window_command',{action:'close'});";
+                            if shell.eval(request).is_ok() { api.prevent_close(); }
+                        }
+                    }
+                }
                 tauri::WindowEvent::CloseRequested { api, .. }
                     if label.starts_with("native-workspace-") =>
                 {
-                    if let Ok(size) = window.inner_size() {
+                    // Fullscreen dimensions must not replace the saved normal restore size.
+                    if let Some(size) = window.inner_size().ok().filter(|_| matches!(window.is_fullscreen(), Ok(false))) {
                         let state = WindowState {
                             width: size.width,
                             height: size.height,
@@ -2263,6 +2378,9 @@ fn main() {
                     }
                 }
                 tauri::WindowEvent::Destroyed if label.starts_with("native-workspace-") => {
+                    #[cfg(all(windows, target_arch = "x86_64"))]
+                    stable_update::forget_window(label);
+                    browser::forget_window(label);
                     desktop_tray::forget_window(window.app_handle(), label);
                     if let Some(entries) =
                         window.try_state::<explorer_launch_state::ExplorerLaunchState>()
@@ -2280,6 +2398,13 @@ fn main() {
                         })
                         .or_else(|| label.strip_prefix("native-workspace-").map(str::to_string));
                     if let Some(workspace_id) = workspace_id {
+                        // Additional windows reuse the trusted workspace runtime. Only the final
+                        // owner may retire its write gate and stop Pi.
+                        if window.try_state::<WindowWorkspaceState>().is_some_and(|state| {
+                            state.0.lock().map_or(true, |owners| owners.values().any(|id| id == &workspace_id))
+                        }) {
+                            return;
+                        }
                         if let Some(state) = window.try_state::<FocusedWorkspaceState>() {
                             if let Ok(mut focused_workspace) = state.0.lock() {
                                 if focused_workspace.as_deref() == Some(workspace_id.as_str()) {
@@ -2300,6 +2425,10 @@ fn main() {
                 tauri::WindowEvent::Focused(true) if label == "bootstrap" => {
                     desktop_tray::remember_focus(window.app_handle(), label);
                 }
+                #[cfg(windows)]
+                tauri::WindowEvent::Destroyed if label == desktop_clipboard_translation::POPUP_LABEL => {
+                    desktop_clipboard_translation::destroyed(window.app_handle());
+                }
                 tauri::WindowEvent::Destroyed if label == "bootstrap" => {
                     desktop_tray::forget_window(window.app_handle(), label);
                 }
@@ -2319,6 +2448,10 @@ fn main() {
             // Re-apply the remembered size once all windows are ready so
             // restore works deterministically on every launch.
             tauri::RunEvent::Ready => {
+                #[cfg(windows)]
+                if let Err(error) = desktop_clipboard_translation::install(app_handle) {
+                    log::warn!("[clipboard-translation] {error}");
+                }
                 if let Some(state) = load_window_state() {
                     for window in app_handle.webview_windows().values() {
                         if window.label().starts_with("native-workspace-") {
@@ -2328,6 +2461,12 @@ fn main() {
                 }
             }
             tauri::RunEvent::Exit => {
+                #[cfg(windows)]
+                desktop_clipboard_translation::shutdown(app_handle);
+                #[cfg(windows)]
+                browser::shutdown_downloads();
+                if let Err(error) = browser::history_worker::flush() { log::warn!("[browser-history] {error}"); }
+
                 if let Some(host) = app_handle.try_state::<HostServer>() {
                     host.request_shutdown();
                     if let Err(error) = tauri::async_runtime::block_on(host.wait_for_shutdown()) {
@@ -2348,7 +2487,7 @@ mod tests {
     use super::{
         format_window_state, move_workspace_app_data_to_trash, parse_window_state,
         protected_workspace_reason, purge_all_workspace_trash, purge_expired_workspace_trash,
-        remove_workspace_trash_entry, resolve_static_dir, restore_app_data_from_trash,
+        remove_workspace_trash_entry, restore_app_data_from_trash,
         select_fresh_startup_target, session_dir_name, visible_position, WindowState,
         WORKSPACE_TRASH_RETENTION_SECS,
     };
@@ -2569,36 +2708,6 @@ mod tests {
         assert!(long_name.chars().count() <= 124);
     }
 
-    fn unique_temp_dir(label: &str) -> PathBuf {
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("picot-{label}-{suffix}"))
-    }
-
-    #[test]
-    fn debug_build_prefers_workspace_public_over_bundled_copy() {
-        let root = unique_temp_dir("static-dir-debug");
-        let workspace_public = root.join("workspace").join("public");
-        let bundled_public = root.join("bundled").join("public");
-
-        fs::create_dir_all(&workspace_public).unwrap();
-        fs::create_dir_all(&bundled_public).unwrap();
-        fs::write(workspace_public.join("index.html"), "workspace").unwrap();
-        fs::write(bundled_public.join("index.html"), "bundled").unwrap();
-
-        let resolved = resolve_static_dir(
-            Some(root.join("bundled")),
-            workspace_public.clone(),
-            Some(root.join("workspace")),
-            true,
-        );
-
-        assert_eq!(resolved, fs::canonicalize(&workspace_public).unwrap());
-        let _ = fs::remove_dir_all(root);
-    }
-
     #[test]
     fn window_state_round_trips_and_rejects_undersized_sizes() {
         let state = WindowState {
@@ -2625,6 +2734,11 @@ mod tests {
         .unwrap();
         assert_eq!((minimal.width, minimal.height), (800, 600));
         assert!(!minimal.maximized);
+        // Compact layouts must survive restart at the physical size we saved.
+        let narrow = WindowState { width: 738, height: 1400, x: Some(-12), y: Some(-12), maximized: false };
+        assert_eq!(parse_window_state(&format_window_state(&narrow)), Some(narrow));
+        assert!(parse_window_state(r#"{"width":360,"height":600}"#).is_some());
+        assert_eq!(parse_window_state(r#"{"width":359,"height":600}"#), None);
     }
 
     #[test]
@@ -2638,17 +2752,20 @@ mod tests {
         assert_eq!(visible_position(-2000, 0, 1600, 1000, &monitors), None);
         // Completely off to the right (left edge beyond the work area).
         assert_eq!(visible_position(2000, 0, 800, 600, &monitors), None);
-        // A partial sliver on the right edge stays put (48px visible).
+        // Keep the top-right controls accessible on a partially visible restore.
         assert_eq!(
             visible_position(1700, 0, 800, 600, &monitors),
-            Some((1700, 0)),
+            Some((1120, 0)),
         );
+        assert_eq!(visible_position(-12, -12, 738, 800, &monitors), Some((0, 0)));
+        let dual = vec![(-1920, 0, 1920, 1080), (0, 0, 1920, 1080)];
+        assert_eq!(visible_position(-1700, 80, 800, 600, &dual), Some((-1700, 80)));
         // Off below the work area.
         assert_eq!(visible_position(100, 2000, 800, 600, &monitors), None);
     }
 
     #[test]
-    fn keeps_the_latest_workspace_but_never_resumes_its_session_on_app_start() {
+    fn always_starts_in_default_workspace_without_resuming_a_session() {
         let selected = select_fresh_startup_target(
             "/home/user".to_string(),
             Some((
@@ -2656,6 +2773,6 @@ mod tests {
                 "/sessions/old-session.jsonl".to_string(),
             )),
         );
-        assert_eq!(selected, ("/work/project".to_string(), None));
+        assert_eq!(selected, ("/home/user".to_string(), None));
     }
 }

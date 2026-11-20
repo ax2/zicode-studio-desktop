@@ -1,0 +1,879 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.image.metadata",
+  "name": "ZiDevTools Image Metadata",
+  "displayName": "ZiDevTools Image Metadata",
+  "description": "Inspect metadata and clean static PNG, JPEG or WebP images. Original files are preserved.",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.1.0 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.wasi.image.metadata.v1": "=1.0.0-preview.1",
+    "resource.wasi.output.draft2": "=1.0.0-preview.1",
+    "resource.save.image-metadata.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.image.metadata.inspect",
+    "onCapability:devtools.image.metadata.clean"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.image.metadata.inspect",
+        "title": "Inspect image metadata",
+        "description": "Count metadata blocks and preview image orientation without exposing metadata values.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "inspect",
+                    "clean"
+                  ]
+                },
+                "report": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "integer",
+                      "const": 2
+                    },
+                    "material": {
+                      "type": "string",
+                      "const": "image-metadata-report"
+                    },
+                    "generatedBy": {
+                      "type": "object",
+                      "properties": {
+                        "toolId": {
+                          "type": "string",
+                          "const": "image-metadata"
+                        },
+                        "toolVersion": {
+                          "type": "string",
+                          "maxLength": 32
+                        },
+                        "runtimeFingerprint": {
+                          "type": "object",
+                          "properties": {
+                            "schema": {
+                              "type": "integer",
+                              "const": 1
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "os": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "architecture": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "buildProfile": {
+                              "type": "string",
+                              "enum": [
+                                "debug",
+                                "release"
+                              ]
+                            },
+                            "sha256": {
+                              "type": "string",
+                              "minLength": 64,
+                              "maxLength": 64
+                            }
+                          },
+                          "required": [
+                            "schema",
+                            "appVersion",
+                            "os",
+                            "architecture",
+                            "buildProfile",
+                            "sha256"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "toolId",
+                        "toolVersion",
+                        "runtimeFingerprint"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "origin": {
+                      "type": "object",
+                      "properties": {
+                        "toolId": {
+                          "type": "string",
+                          "const": "image-metadata"
+                        },
+                        "version": {
+                          "type": "string",
+                          "maxLength": 32
+                        },
+                        "utc": {
+                          "type": "string",
+                          "maxLength": 32
+                        }
+                      },
+                      "required": [
+                        "toolId",
+                        "version",
+                        "utc"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "bytes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 33554432
+                        },
+                        "displayWidth": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 12000
+                        },
+                        "displayHeight": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 12000
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "properties": {
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "PNG",
+                                "JPEG",
+                                "WebP"
+                              ]
+                            },
+                            "exif": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "hasExifGpsDirectory": {
+                              "type": "boolean"
+                            },
+                            "icc": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "xmp": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "text": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "iptc": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "other": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "animation": {
+                              "type": "boolean",
+                              "const": false
+                            },
+                            "hasRecognizedMetadata": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "format",
+                            "exif",
+                            "hasExifGpsDirectory",
+                            "icc",
+                            "xmp",
+                            "text",
+                            "iptc",
+                            "other",
+                            "animation",
+                            "hasRecognizedMetadata"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "bytes",
+                        "displayWidth",
+                        "displayHeight",
+                        "metadata"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "cleanedPreview": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "bytes": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 134217728
+                            },
+                            "metadata": {
+                              "type": "object",
+                              "properties": {
+                                "format": {
+                                  "type": "string",
+                                  "enum": [
+                                    "PNG",
+                                    "JPEG",
+                                    "WebP"
+                                  ]
+                                },
+                                "exif": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "hasExifGpsDirectory": {
+                                  "type": "boolean"
+                                },
+                                "icc": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "xmp": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "text": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "iptc": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "other": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "animation": {
+                                  "type": "boolean",
+                                  "const": false
+                                },
+                                "hasRecognizedMetadata": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "format",
+                                "exif",
+                                "hasExifGpsDirectory",
+                                "icc",
+                                "xmp",
+                                "text",
+                                "iptc",
+                                "other",
+                                "animation",
+                                "hasRecognizedMetadata"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "jpegQuality": {
+                              "oneOf": [
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "integer",
+                                  "minimum": 35,
+                                  "maximum": 95
+                                }
+                              ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "const": "encoded-preview"
+                            },
+                            "saved": {
+                              "type": "null"
+                            }
+                          },
+                          "required": [
+                            "bytes",
+                            "metadata",
+                            "jpegQuality",
+                            "kind",
+                            "saved"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "notes": {
+                      "type": "string",
+                      "maxLength": 1024
+                    }
+                  },
+                  "required": [
+                    "schemaVersion",
+                    "material",
+                    "generatedBy",
+                    "origin",
+                    "source",
+                    "cleanedPreview",
+                    "notes"
+                  ],
+                  "additionalProperties": false
+                },
+                "previewIndex": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "required": [
+                "ok",
+                "operation",
+                "report",
+                "previewIndex"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "IMAGE_METADATA_FAILED"
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "executionProfile": "resource.wasi.image.metadata.v1",
+        "resourceInputMimeTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/webp"
+        ],
+        "directory": {
+          "categoryId": "media",
+          "aliases": [
+            "image metadata",
+            "EXIF",
+            "GPS",
+            "ICC",
+            "XMP",
+            "图片元数据",
+            "图片隐私",
+            "Inspect image metadata",
+            "检查图片元数据"
+          ],
+          "description": "Count metadata blocks and preview image orientation without exposing metadata values."
+        }
+      },
+      {
+        "id": "devtools.image.metadata.clean",
+        "title": "Clean image metadata",
+        "description": "Remove recognized metadata, apply image orientation and create a separate image copy. Check colors and quality before saving.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "quality": {
+              "type": "integer",
+              "minimum": 35,
+              "maximum": 95,
+              "title": "JPEG quality (35–95)",
+              "default": 85
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "inspect",
+                    "clean"
+                  ]
+                },
+                "report": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "integer",
+                      "const": 2
+                    },
+                    "material": {
+                      "type": "string",
+                      "const": "image-metadata-report"
+                    },
+                    "generatedBy": {
+                      "type": "object",
+                      "properties": {
+                        "toolId": {
+                          "type": "string",
+                          "const": "image-metadata"
+                        },
+                        "toolVersion": {
+                          "type": "string",
+                          "maxLength": 32
+                        },
+                        "runtimeFingerprint": {
+                          "type": "object",
+                          "properties": {
+                            "schema": {
+                              "type": "integer",
+                              "const": 1
+                            },
+                            "appVersion": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "os": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "architecture": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "buildProfile": {
+                              "type": "string",
+                              "enum": [
+                                "debug",
+                                "release"
+                              ]
+                            },
+                            "sha256": {
+                              "type": "string",
+                              "minLength": 64,
+                              "maxLength": 64
+                            }
+                          },
+                          "required": [
+                            "schema",
+                            "appVersion",
+                            "os",
+                            "architecture",
+                            "buildProfile",
+                            "sha256"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "toolId",
+                        "toolVersion",
+                        "runtimeFingerprint"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "origin": {
+                      "type": "object",
+                      "properties": {
+                        "toolId": {
+                          "type": "string",
+                          "const": "image-metadata"
+                        },
+                        "version": {
+                          "type": "string",
+                          "maxLength": 32
+                        },
+                        "utc": {
+                          "type": "string",
+                          "maxLength": 32
+                        }
+                      },
+                      "required": [
+                        "toolId",
+                        "version",
+                        "utc"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "bytes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 33554432
+                        },
+                        "displayWidth": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 12000
+                        },
+                        "displayHeight": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 12000
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "properties": {
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "PNG",
+                                "JPEG",
+                                "WebP"
+                              ]
+                            },
+                            "exif": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "hasExifGpsDirectory": {
+                              "type": "boolean"
+                            },
+                            "icc": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "xmp": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "text": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "iptc": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "other": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "animation": {
+                              "type": "boolean",
+                              "const": false
+                            },
+                            "hasRecognizedMetadata": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "format",
+                            "exif",
+                            "hasExifGpsDirectory",
+                            "icc",
+                            "xmp",
+                            "text",
+                            "iptc",
+                            "other",
+                            "animation",
+                            "hasRecognizedMetadata"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "bytes",
+                        "displayWidth",
+                        "displayHeight",
+                        "metadata"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "cleanedPreview": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "bytes": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 134217728
+                            },
+                            "metadata": {
+                              "type": "object",
+                              "properties": {
+                                "format": {
+                                  "type": "string",
+                                  "enum": [
+                                    "PNG",
+                                    "JPEG",
+                                    "WebP"
+                                  ]
+                                },
+                                "exif": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "hasExifGpsDirectory": {
+                                  "type": "boolean"
+                                },
+                                "icc": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "xmp": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "text": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "iptc": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "other": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "animation": {
+                                  "type": "boolean",
+                                  "const": false
+                                },
+                                "hasRecognizedMetadata": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "format",
+                                "exif",
+                                "hasExifGpsDirectory",
+                                "icc",
+                                "xmp",
+                                "text",
+                                "iptc",
+                                "other",
+                                "animation",
+                                "hasRecognizedMetadata"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "jpegQuality": {
+                              "oneOf": [
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "integer",
+                                  "minimum": 35,
+                                  "maximum": 95
+                                }
+                              ]
+                            },
+                            "kind": {
+                              "type": "string",
+                              "const": "encoded-preview"
+                            },
+                            "saved": {
+                              "type": "null"
+                            }
+                          },
+                          "required": [
+                            "bytes",
+                            "metadata",
+                            "jpegQuality",
+                            "kind",
+                            "saved"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "notes": {
+                      "type": "string",
+                      "maxLength": 1024
+                    }
+                  },
+                  "required": [
+                    "schemaVersion",
+                    "material",
+                    "generatedBy",
+                    "origin",
+                    "source",
+                    "cleanedPreview",
+                    "notes"
+                  ],
+                  "additionalProperties": false
+                },
+                "previewIndex": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "required": [
+                "ok",
+                "operation",
+                "report",
+                "previewIndex"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "IMAGE_METADATA_FAILED"
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "executionProfile": "resource.wasi.image.metadata.v1",
+        "resourceInputMimeTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/webp"
+        ],
+        "directory": {
+          "categoryId": "media",
+          "aliases": [
+            "image metadata",
+            "EXIF",
+            "GPS",
+            "ICC",
+            "XMP",
+            "图片元数据",
+            "图片隐私",
+            "Clean image metadata",
+            "清理图片元数据"
+          ],
+          "description": "Remove recognized metadata, apply image orientation and create a separate image copy. Check colors and quality before saving."
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "Read only the image explicitly selected and confirmed for this operation."
+      }
+    ],
+    "optional": []
+  }
+}

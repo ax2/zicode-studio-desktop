@@ -1,3 +1,4 @@
+import { resourceReadLimit } from "./image-metadata-output.js";
 const MAX_CHUNK = 32 * 1024;
 const KEYS = new Set(["capabilityId", "resourceId", "contentVersion", "offset", "length"]);
 const CODES = new Set([
@@ -32,6 +33,7 @@ export async function readPluginViewResource({ instance, gateway, target, params
   )
     fail("resource_request_invalid");
   const { capabilityId, resourceId, contentVersion, offset = 0, length = MAX_CHUNK } = params;
+  const limit = resourceReadLimit(instance, capabilityId);
   if (
     typeof capabilityId !== "string" ||
     !capabilityId.trim() ||
@@ -42,7 +44,7 @@ export async function readPluginViewResource({ instance, gateway, target, params
     !/^[0-9a-f]{64}$/.test(contentVersion) ||
     !Number.isSafeInteger(offset) ||
     offset < 0 ||
-    offset > 32 * 1024 * 1024 ||
+    offset > limit ||
     !Number.isSafeInteger(length) ||
     length < 1 ||
     length > MAX_CHUNK
@@ -74,7 +76,7 @@ export async function readPluginViewResource({ instance, gateway, target, params
     !Number.isSafeInteger(result.byteLength) ||
     result.byteLength < 0 ||
     result.byteLength > length ||
-    offset + result.byteLength > 32 * 1024 * 1024 ||
+    offset + result.byteLength > limit ||
     (!result.eof && result.byteLength !== length) ||
     typeof result.dataBase64 !== "string" ||
     result.dataBase64.length > Math.ceil(MAX_CHUNK / 3) * 4

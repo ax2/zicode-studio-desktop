@@ -84,7 +84,6 @@ describe("composer React shell", () => {
       "mic-btn",
       "send-btn",
       "abort-btn",
-      "composer-mode",
     ];
     for (const id of expectedIds) {
       expect(document.getElementById(id), `missing #${id}`).toBeTruthy();
@@ -105,19 +104,16 @@ describe("composer React shell", () => {
     ).toBe("listbox");
   });
 
-  it("defaults the work mode to Craft and offers Ask and Plan", () => {
+  it("uses one composer without an unexplained work-mode selector", () => {
     mountComposer();
-    const select = document.getElementById("composer-mode") as HTMLSelectElement | null;
-    expect(select?.value).toBe("craft");
-    const options = Array.from(select?.options ?? []).map((option) => option.value);
-    expect(options).toEqual(["ask", "craft", "plan"]);
+    expect(document.getElementById("composer-mode")).toBeNull();
+    expect(document.getElementById("message-input")).toBeTruthy();
   });
 
-  it("respects a saved default work mode", () => {
-    localStorage.setItem("picot-work-mode", "plan");
-    mountComposer();
-    const select = document.getElementById("composer-mode") as HTMLSelectElement | null;
-    expect(select?.value).toBe("plan");
+  it("preserves a legacy preference without bringing back the mode selector", () => {
+    localStorage.setItem("picot-work-mode", "plan"); mountComposer();
+    expect(document.getElementById("composer-mode")).toBeNull();
+    expect(localStorage.getItem("picot-work-mode")).toBe("plan");
   });
 
   it("clears the draft with the clear button", async () => {
