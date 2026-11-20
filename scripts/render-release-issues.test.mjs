@@ -27,3 +27,16 @@ test("empty versions keep both sections", () => {
   assert.match(result, /## 已完成 Issue\n\n本次无。/);
   assert.match(result, /## 已知问题\n\n本次未登记已知问题。/);
 });
+
+test("the release page supplies its own title", () => {
+  const tag = "v1.1.0";
+  const heading = "# ZiCode Studio Desktop " + tag;
+  const output = notes => render(notes, { ...plan, extraCompleted: [], known: [], exclude: {} }, [], tag);
+  for (const newline of ["\n", "\r\n"]) {
+    assert.equal(output([heading, "", "## 浏览器", "更新"].join(newline)), output("## 浏览器"+newline+"更新"));
+  }
+  assert.equal(output(heading), output(""));
+  for (const text of ["# 新功能", "# ZiCode Studio Desktop v1.0.0", "介绍\n\n"+heading]) {
+    assert.ok(output(text).startsWith(text+"\n\n"));
+  }
+});

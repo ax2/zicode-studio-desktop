@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-export function render(notes, plan, issues) {
+export function render(notes, plan, issues, tag) {
   if (!Array.isArray(plan.milestones) || !plan.milestones.length || !Array.isArray(plan.known)
       || !Array.isArray(plan.extraCompleted) || !plan.exclude || Array.isArray(plan.exclude))
     throw Error("Incomplete release issue plan");
@@ -17,7 +17,11 @@ export function render(notes, plan, issues) {
   for (const id of Object.keys(plan.knownNotes ?? {})) if (!known.has(Number(id))) throw Error("Unlisted known issue: "+id);
   const open = [...known].map(id=>{const i=byId.get(id);if(i?.state!=="open")throw Error("Review stale known issue: "+id);return {...i,title:plan.knownNotes?.[id] || i.title};});
   const lines = rows => rows.sort((a,b)=>a.number-b.number).map(i=>"- [#"+i.number+"](https://github.com/ax2/zicode-studio-desktop/issues/"+i.number+") "+i.title.replace(/[\r\n]/g," ")).join("\n");
-  return notes.trimEnd()+"\n\n## 已完成 Issue\n\n"+(lines(completed)||"本次无。")+"\n\n## 已知问题\n\n"+(lines(open)||"本次未登记已知问题。")+"\n";
+  const body = notes.replace(
+    /^# ZiCode Studio Desktop (v\S+)[ \t]*(?:\r?\n|$)(?:[ \t]*\r?\n)*/,
+    (heading, version) => version === tag ? "" : heading,
+  ).trimEnd();
+  return (body ? body+"\n\n" : "")+"## 已完成 Issue\n\n"+(lines(completed)||"本次无。")+"\n\n## 已知问题\n\n"+(lines(open)||"本次未登记已知问题。")+"\n";
 }
 
 if (process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
@@ -26,5 +30,5 @@ if (process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
   const plan=JSON.parse(readFileSync("docs/releases/"+tag+".issues.json","utf8"));
   if(!plan.milestones.includes(tag))throw Error("Release milestone missing");
   const pages=JSON.parse(execFileSync("gh",["api","--paginate","--slurp","repos/ax2/zicode-studio-desktop/issues?state=all&per_page=100"],{encoding:"utf8",maxBuffer:32*1024*1024}));
-  writeFileSync(output,render(readFileSync(source,"utf8"),plan,pages.flat()));
+  writeFileSync(output,render(readFileSync(source,"utf8"),plan,pages.flat(),tag));
 }
