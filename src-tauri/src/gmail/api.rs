@@ -129,17 +129,31 @@ pub async fn list(
         .await?;
     Ok(json!({"items":items,"nextCursor":data["nextPageToken"].as_str()}))
 }
-fn plain(p: &Value, depth: u8) -> Result<Option<String>> {
+fn body_part(p: &Value, mime: &str, depth: u8) -> Result<Option<String>> {
     if depth > 20 {
         return Err("gmail_message_too_complex");
     }
-    if p.get("filename")
+    if p["headers"].as_array().is_some_and(|headers| {
+        headers.iter().any(|header| {
+            header["name"]
+                .as_str()
+                .is_some_and(|name| name.eq_ignore_ascii_case("Content-Disposition"))
+                && header["value"]
+                    .as_str()
+                    .and_then(|v| v.split(';').next())
+                    .is_some_and(|v| v.trim().eq_ignore_ascii_case("attachment"))
+        })
+    }) || p
+        .get("filename")
         .and_then(Value::as_str)
         .is_some_and(|v| !v.is_empty())
     {
         return Ok(None);
     }
-    if p["mimeType"] == "text/plain" {
+    if p["mimeType"]
+        .as_str()
+        .is_some_and(|kind| kind.eq_ignore_ascii_case(mime))
+    {
         if let Some(encoded) = p["body"]["data"].as_str() {
             let body = URL_SAFE_NO_PAD
                 .decode(encoded.trim_end_matches('='))
@@ -150,9 +164,13 @@ fn plain(p: &Value, depth: u8) -> Result<Option<String>> {
             return Ok(Some(String::from_utf8_lossy(&body).into_owned()));
         }
     }
-    if let Some(parts) = p["parts"].as_array() {
+    if let Some(parts) = p["parts"].as_array().filter(|_| {
+        p["mimeType"]
+            .as_str()
+            .is_some_and(|kind| kind.starts_with("multipart/"))
+    }) {
         for part in parts {
-            if let Some(v) = plain(part, depth + 1)? {
+            if let Some(v) = body_part(part, mime, depth + 1)? {
                 return Ok(Some(v));
             }
         }
@@ -175,7 +193,13 @@ pub async fn read(client: &Client, base: &str, token: &str, id: &str) -> Result<
         return Err("gmail_invalid_response");
     }
     let mut result = summary(&m)?;
-    let body = plain(&m["payload"], 0)?;
+    let body = body_part(&m["payload"], "text/plain", 0)?;
+    let html = match body_part(&m["payload"], "text/html", 0) {
+        Ok(html) => html,
+        Err(_) if body.is_some() => None,
+        Err(error) => return Err(error),
+    };
+    result["html"] = json!(html);
     result["plainText"] = json!(body);
     Ok(result)
 }

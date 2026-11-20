@@ -148,7 +148,7 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
         .await
         .unwrap();
     assert_eq!(msg["plainText"], "plain");
-    assert!(!msg.to_string().contains("tracker"));
+    assert_eq!(msg["html"], "tracker");
     let path = std::env::temp_dir().join(format!("gmail-test-{}.sqlite", uuid::Uuid::new_v4()));
     {
         let db = rusqlite::Connection::open(&path).unwrap();
