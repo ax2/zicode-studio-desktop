@@ -1,3 +1,4 @@
+import { MailBody } from "./MailBody";
 import {MailDisconnect} from "./MailDisconnect";
 import {useEffect,useRef,useState} from "react";
 import {t} from "../../shared/i18n";
@@ -7,7 +8,7 @@ export type MessageRef={uidValidity:number,uid:number};
 type Cursor={uidValidity:number,before:number};
 type Summary={uid:number,subject:string,sender:string,replyTo:string};
 type Page={uidValidity:number,messages:Summary[],next:Cursor|null};
-type Body={summary:Summary,text:string};
+type Body={summary:Summary,text:string,html?:string|null};
 export function mailError(error:unknown) {
   const code=String(error);
   const messages:Record<string,string>={
@@ -95,7 +96,7 @@ export function AlibabaInbox({id,invoke,discard,onReply,onConfigured,onBusy}:{id
         {page.next&&<button type="button" disabled={online&&!configured} onClick={()=>load(online,page.next)}>{t("Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {selected&&chosen&&<article aria-label={t("Selected message")}><h3 translate="no">{chosen.subject||t("No subject")}</h3><p translate="no">{chosen.sender}</p>
-        {body?<pre className="mail-read-body" translate="no">{body.text||t("Empty message")}</pre>:!online&&!busy&&<p role="status">{t("This message is not available offline. Download it explicitly to read it.")}</p>}
+        {body?<MailBody text={body.text} html={body.html}/>:!online&&!busy&&<p role="status">{t("This message is not available offline. Download it explicitly to read it.")}</p>}
         {!body&&<button type="button" disabled={!configured} onClick={()=>void run(()=>req<Body>("read",selected),setBody)}>{t("Download message body")}</button>}
         <button type="button" disabled={!chosen.replyTo} onClick={()=>{void run(async()=>await discard()?await req<Draft>("replyDraft",selected):null,d=>{if(d)onReply(d)})}}>{t("Create reply draft")}</button>
       </article>}

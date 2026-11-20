@@ -1,6 +1,8 @@
 import { t } from "../../i18n.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print, userAgentSettings, websiteShortcuts } = {}) {
+import { decorateBrowserCommands } from "./browser-menu-icons.js";
+
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, downloads, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print, userAgentSettings, websiteShortcuts } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -8,12 +10,23 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
   trigger.setAttribute("data-i18n-aria-label", "Browser options");
   trigger.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
   const panel = document.createElement("div"); panel.className = "browser-options-panel ui-panel";
+  function group() {
+    const section = document.createElement("div");
+    section.className = "browser-menu-group";
+    panel.append(section);
+    return section;
+  }
+  const tabs = group();
+  const library = group();
+  const page = group();
+  const settings = group();
+  settings.classList.add("browser-menu-settings");
   if (websiteShortcuts) {
     const shortcuts = document.createElement("div");
     shortcuts.hidden = true;
     shortcuts.setAttribute("role", "group");
     shortcuts.setAttribute("aria-label", t("Website shortcuts"));
-    panel.append(shortcuts);
+    library.append(shortcuts);
     let revision = 0;
     menu.addEventListener("toggle", async () => {
       const request = ++revision;
@@ -59,7 +72,7 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
       button.dataset.i18nText = label;
       button.textContent = t(label);
       button.addEventListener("click", () => { menu.open = false; windows(action); });
-      panel.append(button);
+      tabs.append(button);
       return button;
     };
     addWindowButton("New browser window", "new");
@@ -67,21 +80,21 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     addWindowButton("New private window", "private").classList.add("browser-regular-option");
     const privacy=document.createElement("p");privacy.className="browser-private-notice";
     privacy.textContent=t("Private tabs, browsing history and site data are discarded when this window closes. Files you choose to save are kept.");
-    panel.append(privacy);
+    tabs.append(privacy);
     const reopenWindow = addWindowButton("Reopen closed window", "reopen");
     reopenWindow.disabled = true;
     menu.addEventListener("toggle", async () => {
       if (menu.open) reopenWindow.disabled = !await windows("canReopen");
     });
   }
-  if (pageControls) { panel.append(pageControls.element); menu.addEventListener("toggle", () => { if (menu.open) void pageControls.refresh(); }); }
+  if (pageControls) { page.append(pageControls.element); menu.addEventListener("toggle", () => { if (menu.open) void pageControls.refresh(); }); }
   if (find) {
     const search = document.createElement("button"); search.type = "button"; search.className = "ui-button ui-button--secondary browser-find-open"; search.textContent = t("Find in page"); search.setAttribute("aria-keyshortcuts", "Control+f");
     search.dataset.i18nText = "Find in page";
-    search.addEventListener("click", () => { menu.open = false; find(); }); panel.append(search);
+    search.addEventListener("click", () => { menu.open = false; find(); }); page.append(search);
   }
-  if (fullscreen) { panel.append(fullscreen.element); menu.addEventListener("toggle", () => { if (menu.open) void fullscreen.refresh(); }); }
-  panel.append(select, restore);
+  if (fullscreen) { page.append(fullscreen.element); menu.addEventListener("toggle", () => { if (menu.open) void fullscreen.refresh(); }); }
+  page.append(select); tabs.append(restore);
   if (pin) {
     const button = document.createElement("button");
     button.type = "button"; button.className = "ui-button ui-button--secondary browser-pin-tab";
@@ -94,9 +107,9 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     };
     button.addEventListener("click", () => { menu.open = false; pin.toggle(); });
     menu.addEventListener("toggle", () => { if (menu.open) refresh(); });
-    refresh(); panel.append(button);
+    refresh(); tabs.append(button);
   }
-  for (const [name, open] of [["Search tabs", searchTabs], ["Bookmarks", bookmarks], ["Browsing history", history], ["Site permissions and storage", siteSettings]]) {
+  for (const [name, open] of [["Search tabs", searchTabs], ["Bookmarks", bookmarks], ["Downloads", downloads], ["Browsing history", history], ["Site permissions and storage", siteSettings]]) {
     if (!open) continue;
     const button = document.createElement("button");
     button.type = "button";
@@ -106,12 +119,14 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     if (name === "Search tabs") {
       button.setAttribute("aria-keyshortcuts", "Control+Shift+a");
       button.title = `${t(name)} (Ctrl+Shift+A)`;
+    } else if (name === "Downloads") {
+      button.setAttribute("aria-keyshortcuts", "Control+j");
     } else if (name === "Browsing history") {
       button.setAttribute("aria-keyshortcuts", "Control+h");
       button.title = `${t(name)} (Ctrl+H)`;
     }
     button.addEventListener("click", async () => { await open(); menu.open = false; });
-    panel.append(button);
+    (name === "Site permissions and storage" ? settings : library).append(button);
   }
   for (const [name, action] of [["Reading mode", reader], ["Translate selected text", translateSelection], ["Save viewport PNG to Downloads", screenshot], ["Print page…", print], ["Save page PDF to Downloads", savePdf]]) {
     if (!action) continue;
@@ -122,11 +137,12 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     button.dataset.i18nText = name;
     if (action === print) { button.title = `${t(name)} (Ctrl+P)`; button.setAttribute("aria-keyshortcuts", "Control+p"); }
     button.addEventListener("click", () => { menu.open = false; action(); });
-    panel.append(button);
+    page.append(button);
   }
-  if (userAgentSettings) panel.append(userAgentSettings);
-  if (searchSettings) panel.append(searchSettings.element);
-  panel.append(label); menu.append(trigger, panel);
+  if (userAgentSettings) settings.append(userAgentSettings);
+  if (searchSettings) settings.append(searchSettings.element);
+  settings.append(label); menu.append(trigger, panel);
+  decorateBrowserCommands(panel);
   menu.addEventListener("keydown", event => {
     if (event.key === "Escape" && menu.open && !event.isComposing) { event.preventDefault(); event.stopPropagation(); menu.open = false; trigger.focus(); }
   });

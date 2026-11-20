@@ -59,6 +59,7 @@ try {
     $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($executable).ProductVersion
     if ($version -ne $handoff.version -and $version -ne "$($handoff.version).0") { throw 'Installed application version does not match the update' }
     Write-Result 'installed' ''
+    if ($handoff.PSObject.Properties['relaunch'] -and !$handoff.relaunch) { return }
     $restart = @{ FilePath=$executable; WorkingDirectory=$target }
     if ($handoff.arguments.Count) { $restart.ArgumentList = ($handoff.arguments | ForEach-Object { Quote-Path $_ }) -join ' ' }
     try { Start-Process @restart }

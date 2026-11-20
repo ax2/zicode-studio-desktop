@@ -160,6 +160,12 @@ async function run() {
     plugins: [{
       name: "external-directory-resource-controller",
       setup(builder) {
+        // Settings loads release notes through the renderer already shipped with the app.
+        builder.onResolve({ filter: /public\/ui\/markdown\.js$/ }, ({ importer }) =>
+          path.basename(importer) === "ReleaseNotes.tsx"
+            ? { path: "../../ui/markdown.js", external: true }
+            : undefined,
+        );
         builder.onResolve({ filter: /directory-resource-runner\.js$/ }, () => ({
           path: "../plugins/directory-resource-runner.js", external: true,
         }));

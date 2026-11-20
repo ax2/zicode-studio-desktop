@@ -96,8 +96,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   });
   async function hide(preserve = false, stillNeeded = () => true) {
     if (preserve && selected() && pageAvailable(active) && lastSurface) {
-      try { await preview.show(active); } catch (error) { report(error); }
-      if (!stillNeeded()) { preview.clear(); return; }
+      try { if (!await preview.show(active)) return; } catch (error) { report(error); }
+      if (!stillNeeded()) {
+        void preview.releaseWhenPresented(() => !blocked() && Boolean(lastSurface));
+        return;
+      }
+      if (!lastSurface) return;
     } else if (!preserve) preview.clear();
     lastSurface = "";
     if (invoke) await surface.send({ kind: "hide" });
@@ -133,7 +137,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (!current()) return;
       if (surfaceError && statusMessage === surfaceError) setStatus("");
       surfaceError = "";
-      preview.clear();
+      void preview.releaseWhenPresented(() => current() && lastSurface === key);
       finishStartup();
     } catch (error) {
       // Minimize can win the race before its resize notification reaches JS.
@@ -784,7 +788,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           const profiles=await invoke("browser_list_profiles");await hide(true);
           if(visible)tabSearch=showBrowserProfiles(profiles,params=>invoke("browser_window_command",params),()=>{tabSearch=null;void run(syncSurface)});
         }) : act(() => invoke("browser_window_command", { action })),
-      bookmarks: () => act(() => openBookmarks(false)), history: () => act(() => openHistory()), siteSettings: () => act(openSiteSettings), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
+      bookmarks: () => act(() => openBookmarks(false)), downloads: () => act(() => openDownloads()), history: () => act(() => openHistory()), siteSettings: () => act(openSiteSettings), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
       reader: () => act(openReader),
       translateSelection: onTranslateSelection && (() => {
         const source = active;
@@ -807,7 +811,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     layoutText.dataset.i18nText = "Vertical tabs";
     layoutText.textContent = t("Vertical tabs");
     layoutLabel.append(layoutText, tabLayoutInput);
-    options.querySelector(".browser-options-panel").append(layoutLabel);
+    options.querySelector(".browser-menu-settings").append(layoutLabel);
     tabLayoutInput.addEventListener("change", () => run(async () => {
       tabLayoutInput.disabled = true;
       const vertical = tabLayoutInput.checked;

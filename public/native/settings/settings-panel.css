@@ -33,13 +33,6 @@
   gap: var(--space-1-5);
 }
 
-.settings-nav-title {
-  font-size: var(--font-size-lg);
-  color: var(--text-primary);
-  margin-bottom: 6px;
-  padding: 0 var(--space-2);
-}
-
 .settings-nav-item,
 .settings-nav-back {
   border: 1px solid transparent;
@@ -492,15 +485,6 @@
     -webkit-backdrop-filter: blur(var(--blur-heavy));
   }
 
-  .settings-nav-title {
-    flex: 0 0 auto;
-    margin-bottom: 0;
-    padding: 0 var(--space-1-5) 0 var(--space-0-5);
-    font-size: var(--font-size-md);
-    line-height: 1;
-    opacity: 0.9;
-  }
-
   .settings-nav-item {
     flex: 0 0 auto;
     white-space: nowrap;
@@ -609,11 +593,6 @@
     min-height: 34px;
     padding: var(--space-1-5) var(--space-2);
     font-size: var(--font-size-sm);
-  }
-
-  .settings-nav-title {
-    font-size: var(--font-size-sm);
-    padding-right: var(--space-1);
   }
 
   .settings-section-title {

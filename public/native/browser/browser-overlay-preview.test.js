@@ -29,3 +29,25 @@ it("includes the actual command palette and ignores its closed state", () => {
   document.body.innerHTML = '<div id="command-palette" class="hidden"></div><div id="command-palette-overlay" class="hidden"></div>';
   expect(browserOverlayOpen()).toBe(false);document.getElementById("command-palette").classList.remove("hidden");expect(browserOverlayOpen()).toBe(true);
 });
+it("keeps the painted preview through native restoration and an immediately reopened overlay", async () => {
+  let frame;
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => { frame = callback; return 1; });
+  const f = fixture(async () => "data:image/jpeg;base64,AQ==");
+  const shown = f.preview.show("first");
+  await Promise.resolve();
+  expect(f.host.firstChild).toBeTruthy();
+  frame(); frame();
+  await expect(shown).resolves.toBe(true);
+
+  const restoring = f.preview.releaseWhenPresented(() => true);
+  frame();
+  await f.preview.show("first");
+  frame();
+  await restoring;
+  expect(f.host.firstChild).toBeTruthy();
+
+  const finished = f.preview.releaseWhenPresented(() => true);
+  frame(); frame();
+  await finished;
+  expect(f.host.firstChild).toBeNull();
+});

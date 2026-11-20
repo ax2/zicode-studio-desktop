@@ -191,7 +191,12 @@
 .browser-tab-group-form > div { display: flex; justify-content: flex-end; gap: var(--space-2); }
 .browser-tab { position: relative; display: flex; flex: 1 1 calc(var(--space-12) * 3); min-width: calc(var(--space-12) + var(--space-6)); max-width: calc(var(--space-12) * 4); }
 .browser-tab-title { display: block; text-align: start; flex: 1; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.browser-tab-title[aria-selected="true"] { background: var(--bg-glass-active); color: var(--text-primary); border-color: var(--accent); box-shadow: inset 0 calc(-1 * var(--space-0-5)) 0 var(--accent); font-weight: 600; }
+.browser-tab-title[aria-selected="false"] { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.browser-tab-title[aria-selected="false"]:hover { background: var(--bg-glass-hover); color: var(--text-primary); }
+.browser-tab-title[aria-selected="true"] { background: var(--bg-glass-active); color: var(--text-primary); border-color: var(--border); font-weight: 600; }
+.browser-tab:has([aria-selected="false"]) + .browser-tab:has([aria-selected="false"])::before { content: ""; position: absolute; inset-inline-start: 0; inset-block: 25%; border-inline-start: 1px solid var(--border); pointer-events: none; }
+.browser-tab-strip--vertical .browser-tab:has([aria-selected="false"]) + .browser-tab:has([aria-selected="false"])::before { inset-inline: var(--space-2); inset-block: 0 auto; border-inline-start: 0; border-block-start: 1px solid var(--border); }
+@media (forced-colors: active) { .browser-tab-title[aria-selected="true"] { border-color: Highlight; } }
 .browser-tab .browser-tab-close, .browser-tab .browser-tab-unmute { position: absolute; top: 50%; transform: translateY(-50%); width: var(--control-height-xs); height: var(--control-height-xs); min-height: var(--control-height-xs); padding: var(--space-1); }
 .browser-tab .browser-tab-close { inset-inline-end: var(--space-0-5); opacity: 0; pointer-events: none; }
 .browser-tab .browser-tab-unmute { inset-inline-start: var(--space-0-5); }
@@ -424,6 +429,11 @@
 .browser-bookmark-toggle svg { width: var(--space-4); height: var(--space-4); }
 @media (max-width: 600px) { .browser-bookmark-editor, .browser-bookmark-filters { grid-template-columns: minmax(0, 1fr); } }
 
+.browser-bookmarks-dialog:has(> .browser-library-heading) { width: min(92vw, 46rem); }
+.browser-bookmark-row { padding: var(--space-2); }
+.browser-bookmark-row:hover, .browser-downloads-row:hover { background: var(--bg-glass-hover); }
+.browser-bookmark-details { gap: var(--space-1); }
+
 /* Keep the native page wide enough for WebView2 file selection (400 × 300 minimum). */
 body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-inline: var(--space-0-5); padding-bottom: var(--space-0-5); }
 .browser-file-picker-space { display: none; }
@@ -528,7 +538,7 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-options > summary { list-style: none; cursor: pointer; }
 .browser-options > summary::-webkit-details-marker { display: none; }
 .browser-options > summary svg { width: var(--space-4); height: var(--space-4); }
-.browser-options-panel { position: absolute; inset-inline-end: 0; top: calc(100% + var(--space-1)); z-index: 20; display: grid; gap: var(--space-2); width: min(18rem, calc(100vw - var(--space-8))); padding: var(--space-3); max-height: 70vh; overflow: auto; background: var(--bg-solid); box-shadow: var(--shadow-lg); }
+.browser-options-panel { position: absolute; inset-inline-end: 0; top: calc(100% + var(--space-1)); z-index: 20; display: grid; gap: var(--space-2); width: min(21rem, calc(100vw - var(--space-8))); padding: var(--space-3); max-height: 70vh; overflow: auto; background: var(--bg-solid); box-shadow: var(--shadow-lg); }
 .browser-options-panel [role="group"]:has(.browser-site-shortcut) { display: grid; gap: var(--space-1); max-height: 32vh; overflow: auto; }
 .browser-site-shortcut { display: block; overflow: hidden; text-align: start; text-overflow: ellipsis; white-space: nowrap; }
 .browser-user-agent-fields { display: grid; gap: var(--space-1); }
@@ -560,6 +570,21 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 
 .browser-fullscreen-exit[hidden] { display: none; }
 .browser-fullscreen-exit svg { width: var(--space-4); height: var(--space-4); }
+
+.browser-menu-group { display: grid; gap: var(--space-0-5); min-width: 0; }
+.browser-menu-group + .browser-menu-group { border-block-start: 1px solid var(--border); padding-block-start: var(--space-2); }
+.browser-menu-group .browser-menu-command { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); text-align: start; padding-inline: var(--space-2); background: transparent; border-color: transparent; }
+.browser-menu-group .browser-menu-command:not(:disabled):hover, .browser-menu-group .browser-menu-command:focus-visible { background: var(--bg-glass-hover); }
+.browser-menu-group .browser-menu-command[hidden] { display: none; }
+.browser-menu-command::before { content: ""; inline-size: var(--space-4); block-size: var(--space-4); background: currentColor; mask: var(--browser-command-icon) center / contain no-repeat; }
+.browser-menu-command[data-shortcut]::after { content: attr(data-shortcut); color: var(--text-secondary); font-size: var(--font-size-sm); white-space: nowrap; }
+.browser-menu-settings label { padding: var(--space-1) var(--space-2); color: var(--text-secondary); }
+.browser-library-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border-block-end: 1px solid var(--border); padding-block-end: var(--space-2); margin-block-end: var(--space-3); }
+.browser-library-heading h2 { margin: 0; font-size: var(--font-size-lg); }
+.browser-assistant h2 { margin-block: 0 var(--space-2); font-size: var(--font-size-lg); }
+.browser-assistant details { border-block-start: 1px solid var(--border); padding-block: var(--space-2); }
+.browser-assistant summary { cursor: pointer; font-weight: 600; }
+.browser-assistant label { color: var(--text-secondary); }
 
 
 /* --- inlined: native/instance-swap.css --- */
@@ -7085,6 +7110,7 @@ code {
    views, command-palette contributions, and the built-in Plugin Manager. */
 
 .plugin-activity-bar {
+  --activity-icon-color: color-mix(in srgb, var(--text-primary) 70%, var(--text-secondary));
   width: calc(var(--control-height-lg) + var(--space-3));
   min-width: calc(var(--control-height-lg) + var(--space-3));
   height: 100%;
@@ -7175,7 +7201,7 @@ code {
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
-  color: var(--text-dim);
+  color: var(--activity-icon-color, var(--text-primary));
   cursor: pointer;
   transition:
     background var(--duration) var(--ease),
@@ -7196,6 +7222,15 @@ code {
 .plugin-activity-button svg {
   width: var(--control-height-xs);
   height: var(--control-height-xs);
+}
+
+.plugin-activity-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plugin-activity-button, .plugin-activity-button::before { transition: none; }
 }
 
 .plugin-activity-button:hover {
@@ -7264,6 +7299,28 @@ code {
   pointer-events: none;
   transition: opacity var(--duration) var(--ease);
   z-index: 110;
+}
+
+@media (min-width: 769px) {
+  .plugin-activity-button[data-plugin-id="com.zicode.mail"] {
+    align-content: center;
+    gap: var(--space-0-5);
+  }
+  .plugin-activity-button[data-plugin-id="com.zicode.mail"] .plugin-activity-tooltip {
+    position: static;
+    transform: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    box-shadow: none;
+    font-size: var(--font-size-sm);
+    line-height: 1;
+    opacity: 1;
+  }
+  .plugin-activity-button[data-plugin-id="com.zicode.mail"] .plugin-activity-shortcut {
+    display: none;
+  }
 }
 
 .plugin-activity-button:hover .plugin-activity-tooltip,
@@ -17325,13 +17382,6 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   gap: var(--space-1-5);
 }
 
-.settings-nav-title {
-  font-size: var(--font-size-lg);
-  color: var(--text-primary);
-  margin-bottom: 6px;
-  padding: 0 var(--space-2);
-}
-
 .settings-nav-item,
 .settings-nav-back {
   border: 1px solid transparent;
@@ -17784,15 +17834,6 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
     -webkit-backdrop-filter: blur(var(--blur-heavy));
   }
 
-  .settings-nav-title {
-    flex: 0 0 auto;
-    margin-bottom: 0;
-    padding: 0 var(--space-1-5) 0 var(--space-0-5);
-    font-size: var(--font-size-md);
-    line-height: 1;
-    opacity: 0.9;
-  }
-
   .settings-nav-item {
     flex: 0 0 auto;
     white-space: nowrap;
@@ -17901,11 +17942,6 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
     min-height: 34px;
     padding: var(--space-1-5) var(--space-2);
     font-size: var(--font-size-sm);
-  }
-
-  .settings-nav-title {
-    font-size: var(--font-size-sm);
-    padding-right: var(--space-1);
   }
 
   .settings-section-title {
@@ -18942,7 +18978,7 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   .plugin-activity-list:not(.plugin-activity-list--system)
     > .plugin-activity-button:not([data-plugin-id="core.chat"]):not(
       [data-plugin-id="com.zicode.projects"]
-    ):not([data-plugin-id="core.tools"]) {
+    ):not([data-plugin-id="core.tools"]):not([data-plugin-id="com.zicode.mail"]) {
     display: none;
   }
 
@@ -19746,8 +19782,10 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
 .activity-utilities .status-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .activity-utilities .status-indicator { width: var(--space-4); height: var(--space-4); background: none; border-radius: 0; box-shadow: none; }
 .activity-utilities .status-indicator svg { display: block; width: 100%; height: 100%; }
-.activity-utilities .status-indicator.connected { color: var(--text-dim); }
-.activity-utilities .status-indicator.disconnected { color: var(--text-dim); }
+.activity-utilities .status-indicator.connected,
+.activity-utilities .status-indicator.disconnected,
+.activity-utilities .quick-tools-menu > summary { color: var(--activity-icon-color); }
+.activity-utilities .quick-tools-menu > summary:hover { color: var(--text-primary); }
 .quick-tools-menu > summary svg { width: var(--space-4); height: var(--space-4); }
 #page-header-actions .browser-tab-strip { flex: 1; padding: 0; overflow: hidden; }
 #page-header-actions .browser-tab-title { min-width: 0; }

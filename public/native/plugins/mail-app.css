@@ -6,3 +6,4 @@
 .mail-local form,.mail-list{display:flex;flex-wrap:wrap;gap:.4rem;align-items:end}
 .mail-local form label{flex:1 1 12rem}.mail-list{max-height:12rem;overflow:auto}
 .mail-inbox-list{list-style:none;padding:0;max-height:15rem;overflow:auto}.mail-inbox-list button{display:grid;gap:.2rem;width:100%;text-align:start}.mail-inbox-list small{opacity:.7}.mail-read-body{white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto;font:inherit}.mail-send-review{border-inline-start:2px solid currentColor;padding-inline-start:.75rem}.mail-send-review dd{margin-inline-start:0;overflow-wrap:anywhere}
+div.mail-read-body{white-space:normal}div.mail-read-body pre{white-space:pre-wrap}
