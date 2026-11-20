@@ -326,17 +326,16 @@ jobs:
           $candidate = [version]($env:RELEASE_TAG.Substring(1).Split('-')[0])
           $argsForBaseline = @{ RequireUpgrade = ($candidate -ge [version]'0.6.8' -and $env:PUBLISHING -eq 'true') }
           if ($candidate -gt [version]'0.6.2') {
-            # Pin a strictly older public release, including when an old tag is rerun.
-            if ($candidate -ge [version]'0.6.9') {
-              $previous = '0.6.8'
-              $digest = 'c87460f36705d7f95e4959a9d70c3672498b8e7c44e66023e6b1d0b3d1f8032f'
-            } elseif ($candidate -ge [version]'0.6.8') {
-              $previous = '0.6.7'
-              $digest = 'a1cee55fc1c30eb803257a5431b26a6a4031618756ffacbad206c6777369ef47'
-            } else {
-              $previous = '0.6.2'
-              $digest = 'e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c'
+            # Record verified public Windows packages. Historical reruns select the same predecessor.
+            $publicDigests = @{
+              '0.6.2' = 'e6f18ac3d4de6dfab123755ff75cb3ca7cd6486ed4a11619c5269d8760abdb9c'
+              '0.6.7' = 'a1cee55fc1c30eb803257a5431b26a6a4031618756ffacbad206c6777369ef47'
+              '0.6.8' = 'c87460f36705d7f95e4959a9d70c3672498b8e7c44e66023e6b1d0b3d1f8032f'
+              '0.6.9' = '799dc8822ceb94a582c13d56de922b73cb611a949e6d70839dc36419112692ff'
             }
+            $previous = $publicDigests.Keys | Where-Object { [version]$_ -lt $candidate } |
+              Sort-Object { [version]$_ } -Descending | Select-Object -First 1
+            $digest = $publicDigests[$previous]
             $baseline = Join-Path $env:RUNNER_TEMP "studio-upgrade-baseline-$previous.exe"
             $url = "https://github.com/ax2/zicode-studio-desktop/releases/download/v$previous/ZiCode.Studio.Desktop_${previous}_x64-setup.exe"
             curl.exe --fail --location --proto '=https' --proto-redir '=https' --silent --show-error --retry 2 --max-time 300 --output $baseline $url
