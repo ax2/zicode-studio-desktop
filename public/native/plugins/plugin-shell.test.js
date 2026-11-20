@@ -731,6 +731,9 @@ describe("setupPluginShell", () => {
     expect(document.querySelector('[data-plugin-id="com.zicode.projects"]')).toBeNull();
     expect(document.querySelector('[data-plugin-id="com.zicode.notes"]')).not.toBeNull();
     expect(document.querySelector('[data-plugin-id="core.files"]')).not.toBeNull();
+    const mail = document.querySelector('[data-plugin-id="com.zicode.mail"]');
+    expect(mail?.getAttribute("aria-label")).toBe("Mail");
+    expect(menu.querySelector('[data-mobile-plugin-id="com.zicode.mail"]')).toBeNull();
     expect(menuLabels).toEqual(
       expect.arrayContaining([
         "Tasks",
