@@ -1,0 +1,37 @@
+name: Windows browser panel frame capture
+on:
+  push:
+    branches: [qa/panel-frames-222]
+permissions:
+  contents: read
+jobs:
+  read-pdf:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/qa/panel-frames
+            public/native/browser
+      - name: Install the verified Studio Windows release on the disposable runner
+        shell: pwsh
+        run: |
+          $archive=Join-Path $env:RUNNER_TEMP studio-install.exe
+          curl.exe -fsSL --retry 2 --output $archive https://github.com/ax2/zicode-studio-desktop/releases/download/v0.7.0/ZiCode.Studio.Desktop_0.7.0_x64-setup.exe
+          if($LASTEXITCODE -or (Get-FileHash $archive).Hash.ToLowerInvariant() -cne 'abaf829686980ac954fcc7a34a4fdb88ba1e3dd0d4f9038b0d8befcd777c8606'){throw 'Incorrect installer digest'}
+          $runtime=Join-Path $env:RUNNER_TEMP StudioPdfFixture
+          $process=Start-Process $archive -ArgumentList "/S /NS /D=$runtime" -WindowStyle Hidden -PassThru
+          if(!$process.WaitForExit(180000) -or $process.ExitCode){throw 'Installation failed'}
+          $exe=Join-Path $runtime zicode-studio-desktop.exe
+          if(!(Test-Path -LiteralPath $exe)){throw 'Studio executable missing'}
+          Copy-Item -LiteralPath public/native/browser/browser-overlay-preview.js,public/native/browser/browser-app.js -Destination "$runtime/public/native/browser" -Force
+          "STUDIO_PDF_EXE=$exe" >> $env:GITHUB_ENV
+      - name: Sample compositor frames during browser panel transitions
+        working-directory: scripts/qa/panel-frames
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          node qa.mjs
+
