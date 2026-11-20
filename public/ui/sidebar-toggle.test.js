@@ -75,6 +75,19 @@ describe("mobile function area", () => {
     }
   });
 
+  it("keeps the selected settings category when closing a narrow drawer", async () => {
+    history.replaceState(null, "", "/app/#/settings");
+    controller = render();
+    document.getElementById("sidebar-toggle").click();
+    const tab = document.querySelector(".content-action");
+    tab.addEventListener("click", () => history.replaceState(history.state, "", "#/settings/updates"));
+    tab.click();
+    await Promise.resolve();
+    expect(document.getElementById("sidebar").classList.contains("collapsed")).toBe(true);
+    expect(location.hash).toBe("#/settings/updates");
+    expect(history.state?.zicodeMobileLayer).toBeUndefined();
+  });
+
   it("lets the mobile Back gesture close the open function area before leaving the app", () => {
     controller = render();
     document.getElementById("sidebar-toggle").click();

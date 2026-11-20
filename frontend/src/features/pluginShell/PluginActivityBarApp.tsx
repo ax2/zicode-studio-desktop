@@ -9,6 +9,7 @@ import type {
 type SvgShape = ["path" | "circle", Record<string, string>];
 
 const ICON_PATHS: Record<string, SvgShape[]> = {
+  toolbox: [["path", { d: "M4 8h16v12H4z M8 8V5h8v3 M4 12h16 M10 12v2h4v-2" }]],
   mail: [
     ["path", { d: "M3 5h18v14H3z M3 6l9 7 9-7" }],
   ],
@@ -21,8 +22,8 @@ const ICON_PATHS: Record<string, SvgShape[]> = {
     ["path", { d: "M8 9h8M8 13h5" }],
   ],
   notes: [
-    ["path", { d: "M6 3h9l3 3v15H6z" }],
-    ["path", { d: "M14 3v4h4M9 11h6M9 15h6" }],
+    ["path", { d: "M7 3h12v18H7z M4 7h4 M4 12h4 M4 17h4" }],
+    ["path", { d: "M11 8h5 M11 12h4" }],
   ],
   finance: [
     ["path", { d: "M4 19V9M10 19V5M16 19v-7M22 19H2" }],
@@ -83,10 +84,7 @@ const ICON_PATHS: Record<string, SvgShape[]> = {
     ["circle", { cx: "12", cy: "12", r: "8" }],
     ["path", { d: "m8.5 12 2.5 2.5 4.5-5" }],
   ],
-  translate: [
-    ["circle", { cx: "12", cy: "12", r: "9" }],
-    ["path", { d: "M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18" }],
-  ],
+  translate: [["path", { d: "M3 6h12 M9 3v3 M6 9c1 3 3 5 6 7 M13 6c-1 5-4 9-9 12 M14 21l4-10 4 10 M16 17h4" }]],
   watch: [
     ["circle", { cx: "12", cy: "12", r: "8" }],
     ["circle", { cx: "12", cy: "12", r: "3" }],
@@ -107,7 +105,7 @@ const ICON_PATHS: Record<string, SvgShape[]> = {
   command: [
     [
       "path",
-      { d: "M9 6H7a3 3 0 1 0 3 3V7a3 3 0 1 0-3 3H5M15 18h2a3 3 0 1 0-3-3v2a3 3 0 1 0 3-3h2" },
+      { d: "M3 5h18v14H3z M7 9l3 3-3 3 M13 15h4" },
     ],
   ],
   settings: [
