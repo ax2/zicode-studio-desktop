@@ -109,7 +109,7 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-options > summary { list-style: none; cursor: pointer; }
 .browser-options > summary::-webkit-details-marker { display: none; }
 .browser-options > summary svg { width: var(--space-4); height: var(--space-4); }
-.browser-options-panel { position: absolute; inset-inline-end: 0; top: calc(100% + var(--space-1)); z-index: 20; display: grid; gap: var(--space-2); width: min(18rem, calc(100vw - var(--space-8))); padding: var(--space-3); max-height: 70vh; overflow: auto; background: var(--bg-solid); box-shadow: var(--shadow-lg); }
+.browser-options-panel { position: absolute; inset-inline-end: 0; top: calc(100% + var(--space-1)); z-index: 20; display: grid; gap: var(--space-2); width: min(21rem, calc(100vw - var(--space-8))); padding: var(--space-3); max-height: 70vh; overflow: auto; background: var(--bg-solid); box-shadow: var(--shadow-lg); }
 .browser-options-panel [role="group"]:has(.browser-site-shortcut) { display: grid; gap: var(--space-1); max-height: 32vh; overflow: auto; }
 .browser-site-shortcut { display: block; overflow: hidden; text-align: start; text-overflow: ellipsis; white-space: nowrap; }
 .browser-user-agent-fields { display: grid; gap: var(--space-1); }
@@ -141,3 +141,18 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 
 .browser-fullscreen-exit[hidden] { display: none; }
 .browser-fullscreen-exit svg { width: var(--space-4); height: var(--space-4); }
+
+.browser-menu-group { display: grid; gap: var(--space-0-5); min-width: 0; }
+.browser-menu-group + .browser-menu-group { border-block-start: 1px solid var(--border); padding-block-start: var(--space-2); }
+.browser-menu-group .browser-menu-command { display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); text-align: start; padding-inline: var(--space-2); background: transparent; border-color: transparent; }
+.browser-menu-group .browser-menu-command:not(:disabled):hover, .browser-menu-group .browser-menu-command:focus-visible { background: var(--bg-glass-hover); }
+.browser-menu-group .browser-menu-command[hidden] { display: none; }
+.browser-menu-command::before { content: ""; inline-size: var(--space-4); block-size: var(--space-4); background: currentColor; mask: var(--browser-command-icon) center / contain no-repeat; }
+.browser-menu-command[data-shortcut]::after { content: attr(data-shortcut); color: var(--text-secondary); font-size: var(--font-size-sm); white-space: nowrap; }
+.browser-menu-settings label { padding: var(--space-1) var(--space-2); color: var(--text-secondary); }
+.browser-library-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border-block-end: 1px solid var(--border); padding-block-end: var(--space-2); margin-block-end: var(--space-3); }
+.browser-library-heading h2 { margin: 0; font-size: var(--font-size-lg); }
+.browser-assistant h2 { margin-block: 0 var(--space-2); font-size: var(--font-size-lg); }
+.browser-assistant details { border-block-start: 1px solid var(--border); padding-block: var(--space-2); }
+.browser-assistant summary { cursor: pointer; font-weight: 600; }
+.browser-assistant label { color: var(--text-secondary); }
