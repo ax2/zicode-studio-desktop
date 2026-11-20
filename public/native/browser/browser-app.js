@@ -784,7 +784,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           const profiles=await invoke("browser_list_profiles");await hide(true);
           if(visible)tabSearch=showBrowserProfiles(profiles,params=>invoke("browser_window_command",params),()=>{tabSearch=null;void run(syncSurface)});
         }) : act(() => invoke("browser_window_command", { action })),
-      bookmarks: () => act(() => openBookmarks(false)), history: () => act(() => openHistory()), siteSettings: () => act(openSiteSettings), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
+      bookmarks: () => act(() => openBookmarks(false)), downloads: () => act(() => openDownloads()), history: () => act(() => openHistory()), siteSettings: () => act(openSiteSettings), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
       reader: () => act(openReader),
       translateSelection: onTranslateSelection && (() => {
         const source = active;
@@ -807,7 +807,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     layoutText.dataset.i18nText = "Vertical tabs";
     layoutText.textContent = t("Vertical tabs");
     layoutLabel.append(layoutText, tabLayoutInput);
-    options.querySelector(".browser-options-panel").append(layoutLabel);
+    options.querySelector(".browser-menu-settings").append(layoutLabel);
     tabLayoutInput.addEventListener("change", () => run(async () => {
       tabLayoutInput.disabled = true;
       const vertical = tabLayoutInput.checked;
