@@ -172,7 +172,9 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
   search.addEventListener("search", () => { if (!search.value) applyQuery(); });
   const more = button("Show older downloads", () => load(nextBefore)); more.hidden = true;
   const close = button("Close", () => dialog.close());
-  dialog.append(el("h2", "", t("Downloads")), directory, form, list, more, message, close);
+  const header = el("header", "browser-library-heading");
+  header.append(el("h2", "", t("Downloads")), close);
+  dialog.append(header, directory, form, list, more, message);
   const unsubscribe = subscribe?.(download => {
     // Existing native events keep loaded rows current even after a completed
     // download falls outside the first history page. Never revive removed rows

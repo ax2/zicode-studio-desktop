@@ -12,9 +12,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          sparse-checkout-cone-mode: false
           sparse-checkout: |
             scripts/qa/panel-frames
             public/native/browser
+            public/style.bundle.css
       - name: Install the verified Studio Windows release on the disposable runner
         shell: pwsh
         run: |
@@ -26,7 +28,8 @@ jobs:
           if(!$process.WaitForExit(180000) -or $process.ExitCode){throw 'Installation failed'}
           $exe=Join-Path $runtime zicode-studio-desktop.exe
           if(!(Test-Path -LiteralPath $exe)){throw 'Studio executable missing'}
-          Copy-Item -LiteralPath public/native/browser/browser-overlay-preview.js,public/native/browser/browser-app.js -Destination "$runtime/public/native/browser" -Force
+          Copy-Item -Path public/native/browser/*.js -Destination "$runtime/public/native/browser" -Force
+          Copy-Item -LiteralPath public/style.bundle.css -Destination "$runtime/public/style.bundle.css" -Force
           "STUDIO_PDF_EXE=$exe" >> $env:GITHUB_ENV
       - name: Sample compositor frames during browser panel transitions
         working-directory: scripts/qa/panel-frames
@@ -34,4 +37,3 @@ jobs:
           npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
           if($LASTEXITCODE){exit $LASTEXITCODE}
           node qa.mjs
-

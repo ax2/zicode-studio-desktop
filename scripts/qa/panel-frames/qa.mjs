@@ -104,11 +104,26 @@ try{
       if(panel==='bookmark'||panel==='downloads'){
         const dialog=ui.locator('dialog[open]').last();
         await dialog.waitFor();
+        assert.ok(await dialog.locator('.browser-library-heading h2').isVisible());
+        assert.ok(await dialog.locator('.browser-library-heading button').isVisible());
         await sleep(150);
         await dialog.press('Escape');
         await dialog.waitFor({state:'detached'});
       }else{
         await sleep(250);
+        if(panel==='menu'){
+          const style=await ui.locator('.browser-options[open]').evaluate(menu=>{
+            const downloads=menu.querySelector('[data-i18n-text="Downloads"]');
+            const bookmarks=menu.querySelector('[data-i18n-text="Bookmarks"]');
+            const tab=document.querySelector('.browser-tab-title[aria-selected="true"]');
+            const icon=getComputedStyle(downloads,'::before');
+            return {grouped:downloads.parentElement===bookmarks.parentElement,shortcut:downloads.dataset.shortcut,
+              icon:icon.maskImage.includes('image/svg+xml'),iconWidth:parseFloat(icon.width),weight:getComputedStyle(tab).fontWeight};
+          });
+          assert.ok(style.grouped && style.icon && style.iconWidth>0);
+          assert.equal(style.shortcut,'Ctrl+J');assert.equal(style.weight,'600');
+          console.log('VISUAL CONTROLS',width,JSON.stringify(style));
+        }
         if(panel==='sidebar'){
           const dock=ui.locator('#browser-page-assistant'); await dock.waitFor(); await dock.getByRole('button',{name:/^Close$|^关闭$/}).click(); await dock.waitFor({state:'hidden'});
         }else if(panel==='activity'){
@@ -124,12 +139,11 @@ try{
       assert.equal(await child.locator('#draft').inputValue(),'retain-222');
       assert.equal(await child.evaluate(()=>scrollY),280);
       assert.equal(child.url(),site);
-      console.log('focus',width,panel,await ui.evaluate(()=>[document.activeElement.id,document.activeElement.className]),await child.evaluate(()=>document.activeElement.id));
+      assert.equal(await child.evaluate(()=>document.activeElement.id),'draft');
+      assert.ok(await trigger.evaluate(el=>document.activeElement===el),'toolbar focus '+panel);
     }
   }
   assert.ok(checks.every(c=>c.blank===0&&c.frames>=15),JSON.stringify(checks));
   }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message,JSON.stringify(await describe()));}
   if(pageFailure)throw pageFailure;
 }finally{await nativeBrowser?.close().catch(()=>{});await browser?.close().catch(()=>{});app?.kill();served.server.closeAllConnections();served.server.close();}
-
-
