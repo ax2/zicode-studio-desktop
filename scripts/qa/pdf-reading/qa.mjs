@@ -107,7 +107,7 @@ try{
   const enlarged=await wait('expanded scale marker',async()=>{const px=await marker();console.log('scale width',px,before);return px>before*1.08 && px},15000);
   await native('zoomout',...pt);
   const restored=await wait('restored scale marker',async()=>{const px=await marker();return Math.abs(px-before)<=2 && px},15000);
-  record('native PDF toolbar zoom changes the painted size and restores it',{before,enlarged,restored});
+  record('Ctrl+wheel over the native PDF changes the painted size and restores it',{before,enlarged,restored});
   await native('pdfend',...pt);
   await wait('last physical page',async()=>dominant(await color(),2),16000);
   await native('pdfhome',...pt);
@@ -117,4 +117,5 @@ try{
   }catch(e){pageFailure=e;console.error('PAGE CHECK:',e.message,JSON.stringify(await describe()));}
   if(pageFailure)throw pageFailure;
 }finally{await nativeBrowser?.close().catch(()=>{});await browser?.close().catch(()=>{});app?.kill();served.server.closeAllConnections();served.server.close();}
+
 

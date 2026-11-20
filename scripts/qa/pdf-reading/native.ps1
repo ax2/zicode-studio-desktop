@@ -78,12 +78,10 @@ if($Mode -in @('pagedown','pageup','pdfend','pdfhome')){
  if($ctrl){[Q35]::keybd_event(17,0,2,[UIntPtr]::Zero)}
 }
 if($Mode -in @('zoomin','zoomout')){
- $root=[Windows.Automation.AutomationElement]::FromHandle($h)
- $controls=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)
- $pattern=if($Mode -eq 'zoomin'){'^Zoom in\b|^放大'}else{'^Zoom out\b|^缩小'}
- $button=$controls | Where-Object { !$_.Current.IsOffscreen -and $_.Current.ControlType -eq [Windows.Automation.ControlType]::Button -and $_.Current.Name -match $pattern } | Select-Object -First 1
- if(!$button){throw ('Missing viewer zoom button: '+(($controls | ForEach-Object {$_.Current.Name} | Where-Object {$_}) -join ', '))}
- $result.button=$button.Current.Name
- Click $button $false
+ [void][Q35]::SetCursorPos(($pt.x+[int]($X*$rect.right)),($pt.y+[int]($Y*$rect.bottom)))
+ [Q35]::keybd_event(17,0,0,[UIntPtr]::Zero)
+ $delta=if($Mode -eq 'zoomin'){120}else{[uint32]::MaxValue-119}
+ try {[Q35]::mouse_event(2048,0,0,$delta,[UIntPtr]::Zero);Start-Sleep -Milliseconds 150}
+ finally {[Q35]::keybd_event(17,0,2,[UIntPtr]::Zero)}
 }
 $result|ConvertTo-Json -Compress
