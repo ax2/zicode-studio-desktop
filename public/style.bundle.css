@@ -7291,6 +7291,28 @@ code {
   z-index: 110;
 }
 
+@media (min-width: 769px) {
+  .plugin-activity-button[data-plugin-id="com.zicode.mail"] {
+    align-content: center;
+    gap: var(--space-0-5);
+  }
+  .plugin-activity-button[data-plugin-id="com.zicode.mail"] .plugin-activity-tooltip {
+    position: static;
+    transform: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    box-shadow: none;
+    font-size: var(--font-size-sm);
+    line-height: 1;
+    opacity: 1;
+  }
+  .plugin-activity-button[data-plugin-id="com.zicode.mail"] .plugin-activity-shortcut {
+    display: none;
+  }
+}
+
 .plugin-activity-button:hover .plugin-activity-tooltip,
 .plugin-activity-button:focus-visible .plugin-activity-tooltip {
   opacity: 1;
@@ -18967,7 +18989,7 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   .plugin-activity-list:not(.plugin-activity-list--system)
     > .plugin-activity-button:not([data-plugin-id="core.chat"]):not(
       [data-plugin-id="com.zicode.projects"]
-    ):not([data-plugin-id="core.tools"]) {
+    ):not([data-plugin-id="core.tools"]):not([data-plugin-id="com.zicode.mail"]) {
     display: none;
   }
 

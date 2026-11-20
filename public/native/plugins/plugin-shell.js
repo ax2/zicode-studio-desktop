@@ -22,6 +22,7 @@ const HELP_VIEW_ID = "core.help";
 const MANAGER_FILTER_STORAGE_KEY = "zicode.plugin-manager.filter";
 const SHELL_VIEW_IDS = new Set([MANAGER_VIEW_ID, SETTINGS_VIEW_ID, HELP_VIEW_ID, TOOL_CENTER_ID]);
 const MOBILE_PRIMARY_ACTIVITY_IDS = new Set([
+  "com.zicode.mail",
   CHAT_PLUGIN_ID,
   "com.zicode.projects",
   TOOL_CENTER_ID,

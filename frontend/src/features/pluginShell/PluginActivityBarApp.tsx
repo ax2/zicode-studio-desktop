@@ -9,6 +9,9 @@ import type {
 type SvgShape = ["path" | "circle", Record<string, string>];
 
 const ICON_PATHS: Record<string, SvgShape[]> = {
+  mail: [
+    ["path", { d: "M3 5h18v14H3z M3 6l9 7 9-7" }],
+  ],
   globe: [
     ["circle", { cx: "12", cy: "12", r: "9" }],
     ["path", { d: "M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18Z" }],
