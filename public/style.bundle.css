@@ -7200,7 +7200,7 @@ code {
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
-  color: var(--text-dim);
+  color: color-mix(in srgb, var(--text-primary) 70%, var(--text-secondary));
   cursor: pointer;
   transition:
     background var(--duration) var(--ease),
@@ -7221,6 +7221,15 @@ code {
 .plugin-activity-button svg {
   width: var(--control-height-xs);
   height: var(--control-height-xs);
+}
+
+.plugin-activity-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plugin-activity-button, .plugin-activity-button::before { transition: none; }
 }
 
 .plugin-activity-button:hover {
@@ -17372,13 +17381,6 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   gap: var(--space-1-5);
 }
 
-.settings-nav-title {
-  font-size: var(--font-size-lg);
-  color: var(--text-primary);
-  margin-bottom: 6px;
-  padding: 0 var(--space-2);
-}
-
 .settings-nav-item,
 .settings-nav-back {
   border: 1px solid transparent;
@@ -17831,15 +17833,6 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
     -webkit-backdrop-filter: blur(var(--blur-heavy));
   }
 
-  .settings-nav-title {
-    flex: 0 0 auto;
-    margin-bottom: 0;
-    padding: 0 var(--space-1-5) 0 var(--space-0-5);
-    font-size: var(--font-size-md);
-    line-height: 1;
-    opacity: 0.9;
-  }
-
   .settings-nav-item {
     flex: 0 0 auto;
     white-space: nowrap;
@@ -17948,11 +17941,6 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
     min-height: 34px;
     padding: var(--space-1-5) var(--space-2);
     font-size: var(--font-size-sm);
-  }
-
-  .settings-nav-title {
-    font-size: var(--font-size-sm);
-    padding-right: var(--space-1);
   }
 
   .settings-section-title {

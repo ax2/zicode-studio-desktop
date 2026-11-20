@@ -95,7 +95,7 @@
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
-  color: var(--text-dim);
+  color: color-mix(in srgb, var(--text-primary) 70%, var(--text-secondary));
   cursor: pointer;
   transition:
     background var(--duration) var(--ease),
@@ -116,6 +116,15 @@
 .plugin-activity-button svg {
   width: var(--control-height-xs);
   height: var(--control-height-xs);
+}
+
+.plugin-activity-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plugin-activity-button, .plugin-activity-button::before { transition: none; }
 }
 
 .plugin-activity-button:hover {

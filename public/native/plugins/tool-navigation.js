@@ -11,7 +11,7 @@ export const PRIMARY_ACTIVITY_IDS = Object.freeze([
 export function primaryActivities(plugins, isAvailable) {
   const byId = new Map(plugins.map(plugin => [plugin.id, plugin]));
   return PRIMARY_ACTIVITY_IDS.filter(isWorkspaceApplicationVisible).flatMap(id => {
-    if (id === TOOL_CENTER_ID) return [{ id, name: "Tools", description: "Applications and tools", icon: "plugins" }];
+    if (id === TOOL_CENTER_ID) return [{ id, name: "Tools", description: "Applications and tools", icon: "toolbox" }];
     const plugin = byId.get(id);
     return plugin?.enabled && isAvailable(plugin) ? [plugin] : [];
   });

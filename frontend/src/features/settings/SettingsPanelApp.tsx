@@ -93,8 +93,7 @@ export function SettingsNav({ store }: { store: SettingsStore }) {
   const activeTab = store((state) => state.activeTab);
   const navigateTab = store((state) => state.navigateTab);
   return (
-    <aside className="settings-nav">
-      <div className="settings-nav-title">{t("Settings")}</div>
+    <aside className="settings-nav" aria-label={t("Settings")}>
       {SETTINGS_TABS.map((tab) => (
         <button
           key={tab.key}
