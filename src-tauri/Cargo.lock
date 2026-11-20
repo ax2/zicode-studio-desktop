@@ -8047,6 +8047,7 @@ name = "studio-alibaba-mail"
 version = "0.1.0"
 dependencies = [
  "imap",
+ "imap-proto",
  "lettre",
  "mail-parser",
  "native-tls",
@@ -11713,6 +11714,7 @@ dependencies = [
  "flate2",
  "indexmap 2.14.0",
  "memchr",
+ "tempfile",
  "thiserror 2.0.20",
  "zopfli",
 ]

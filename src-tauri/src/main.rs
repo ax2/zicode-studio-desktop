@@ -73,6 +73,7 @@ mod native_pi_manager;
 #[cfg_attr(not(test), allow(dead_code))] // Some conflict-resolution APIs remain staged for a later UI.
 mod notes_sync;
 mod mail_local;
+mod mail_attachment;
 use mail_local::mail_local;
 mod notes_sync_task;
 mod notes_sync_conflicts;
