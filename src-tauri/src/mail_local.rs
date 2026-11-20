@@ -161,7 +161,7 @@ fn search_cache(db: &Connection, scope: &str, account: Option<&str>, query: &str
     if sources.is_empty() {
         return Ok(json!({"items": [], "more": false}));
     }
-    let sql = format!("SELECT DISTINCT account, address, provider, id, epoch, subject, sender FROM ({}) ORDER BY address, account, id, epoch LIMIT 41 OFFSET ?4", sources.join(" UNION ALL "));
+    let sql = format!("SELECT account, address, provider, id, epoch, subject, sender FROM ({}) ORDER BY address, account, id, epoch LIMIT 41 OFFSET ?4", sources.join(" UNION ALL "));
     let mut statement = db.prepare(&sql).map_err(|_| "mail_storage")?;
     let mut items = statement.query_map(params![scope, account, query, offset], |r| Ok(json!({
         "account": r.get::<_, String>(0)?, "address": r.get::<_, String>(1)?,
@@ -196,9 +196,10 @@ mod tests {
           CREATE TABLE alibaba_epoch(scope TEXT,account TEXT,epoch INTEGER);
           INSERT INTO alibaba_epoch VALUES ('main','a',7);
           INSERT INTO alibaba_inbox VALUES ('main','a',7,42,'{"subject":"same","sender":"Alice"}','中文 %_'),('main','a',3,42,'{"subject":"stale","sender":"Alice"}','中文 %_');
-          INSERT INTO gmail_cache VALUES ('main','b','page','one','{"items":[{"id":"42","subject":"same","from":"Bob","snippet":"preview"}]}'),('main','b','body','42','{"id":"42","subject":"same","from":"Bob","plainText":"中文 %_"}'),('other','b','body','42','{"id":"42","subject":"private","from":"Bob","plainText":"other"}');"#).unwrap();
+          INSERT INTO gmail_cache VALUES ('main','b','page','one','{"items":[{"id":"42","subject":"same prior title","from":"Bob","snippet":"preview"}]}'),('main','b','body','42','{"id":"42","subject":"same","from":"Bob","plainText":"中文 %_"}'),('other','b','body','42','{"id":"42","subject":"private","from":"Bob","plainText":"other"}');"#).unwrap();
         drop(db);
         assert_eq!(search("main", None, "SAME").len(), 2);
+        assert_eq!(search("main", Some("b"), "SAME")[0]["subject"], "same");
         assert_eq!(search("main", None, "中文").len(), 2);
         assert_eq!(search("main", Some("a"), "%_")[0]["epoch"], 7);
         assert_eq!(search("main", Some("b"), "preview")[0]["id"], "42");
