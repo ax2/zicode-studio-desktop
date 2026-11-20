@@ -53,7 +53,7 @@
     "typecheck:extensions-source": "tsc -p tsconfig.extensions-source.json --noEmit",
     "release": "bash scripts/release.sh",
     "release:mac:dmg": "bash scripts/release-macos-dmg.sh",
-    "test": "vitest run && bun run scripts/check-tauri-permissions.js && bun run scripts/check-windows-subprocesses.js && bun run scripts/check-windows-installer-safety.mjs && node scripts/check-i18n-coverage.mjs",
+    "test": "node ./node_modules/vitest/vitest.mjs run && bun run scripts/check-tauri-permissions.js && bun run scripts/check-windows-subprocesses.js && bun run scripts/check-windows-installer-safety.mjs && node scripts/check-i18n-coverage.mjs",
     "test:watch": "vitest",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write . --unsafe",
