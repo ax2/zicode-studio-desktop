@@ -8,6 +8,7 @@ import {
   NovelChapterPicker,
 } from "./NovelChapterPicker";
 import { NovelDraftReview, needsReview, type ReviewCheck } from "./NovelDraftReview";
+import { ArchivedSuggestion, NovelModelHistory } from "./NovelModelHistory";
 import { type CharacterRequest, type RecordPage, useCharacterRecords } from "./useCharacterRecords";
 
 type Props = {
@@ -23,6 +24,7 @@ type Draft = {
   facet: CharacterFacet;
   baseVersion: number | null;
   approvedVersion: number | null;
+  model?: { edited: boolean } | null;
   evidence: ManuscriptEvidence;
   text: string;
 };
@@ -121,6 +123,12 @@ function DraftHistory({ characterId, characterName, request, disabled, onApprove
         disabled={disabled || busy}
         onSaved={records.reload}
       />
+      <NovelModelHistory
+        characterId={characterId}
+        request={request}
+        disabled={blocked}
+        onSaved={records.reload}
+      />
       {!!records.page?.entries.length && (
         <button
           type="button"
@@ -147,7 +155,11 @@ function DraftHistory({ characterId, characterName, request, disabled, onApprove
             <p>
               {t("Based on character version")} · {draft.baseVersion ?? t("None")}
             </p>
+            {draft.model && <h4>{t("Author's reviewed text")}</h4>}
             <p className="visual-assets-backup-path">{draft.text}</p>
+            {draft.model && (
+              <ArchivedSuggestion id={draft.id} request={request} disabled={blocked} />
+            )}
             <NovelDraftReview
               check={check}
               notebookId={draft.evidence.notebookId}

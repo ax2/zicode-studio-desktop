@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { t } from "../../shared/i18n";
 import { type CharacterFacet, characterFacets } from "./characterFacets";
+import { NovelModelPlan } from "./NovelModelPlan";
 import type { CharacterRequest } from "./useCharacterRecords";
 
 export type ManuscriptEvidence = {
@@ -299,6 +300,17 @@ export function NovelChapterPicker({
             {t("Save character draft")}
           </button>
         </form>
+      )}
+      {preview && evidence && (
+        <NovelModelPlan
+          key={draftId}
+          characterId={characterId}
+          facet={facet}
+          baseVersion={preview.baseVersion}
+          evidence={evidence}
+          request={request}
+          disabled={blocked}
+        />
       )}
       {busy && <p role="status">{t("Loading…")}</p>}
       {error && <p role="alert">{error}</p>}
