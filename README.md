@@ -1,28 +1,22 @@
 # ZiCode Studio Desktop
 
-ZiCode Studio Desktop 是一款面向 Windows、macOS 和 Linux 的本地优先开发者桌面应用。它把浏览器、笔记、AI 协作和开发工具放在同一个工作台中，使用 Tauri 2、Rust Host、React 和内嵌 [Pi](https://github.com/earendil-works/pi)。
+ZiCode Studio Desktop 是一款优先支持 Windows 的本地开发者工作台，集成浏览器、笔记、邮箱、视觉资产、AI 协作和开发工具。应用使用 Tauri 2、Rust Host、React 和内嵌 [Pi](https://github.com/earendil-works/pi)。
 
 ## 下载与安装
 
-在 [GitHub Releases](https://github.com/ax2/zicode-studio-desktop/releases/latest) 下载对应系统的安装包。[v0.5.6 发布说明](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.5.6)记录了浏览器下载管理、书签导入导出和网页剪藏等改进。
+Windows 10/11 x64 用户可在最新正式版页面下载名称以 `_x64-setup.exe` 结尾的安装包。安装包内置 Pi、Bun、PortableGit 和 WebView2 离线安装器。默认只发布 Windows 版本。每个版本的源码可从对应发行页的标签查看。[下载最新正式版](https://github.com/ax2/zicode-studio-desktop/releases/latest) · [历史版本](https://github.com/ax2/zicode-studio-desktop/releases)
 
-| 平台 | 安装包 | 运行环境 |
-| --- | --- | --- |
-| Windows 10/11 x64 | NSIS `.exe` | 内置 Pi、Bun、PortableGit（Git 与 Bash）和 WebView2 离线安装器 |
-| macOS | Apple Silicon 和 Intel `.dmg` | 内置 Pi、Bun，使用系统 Git 与 Shell |
-| Linux x64 | `.AppImage` 或 `.deb` | 内置 Pi、Bun，使用系统 Git 与 Shell |
-
-签名自动更新仍待配置，正式版本通过 GitHub 安装包更新。开发源码的内嵌 Pi 版本见 [Pi 版本锁](scripts/pi-version.json)，安装包使用对应发布标签锁定的运行时。
+已安装的 Windows 正式版可从「设置 → 软件更新」检查更新。下载安装包并完成校验后，保存工作，选择「安装并退出」。升级会沿用已选择的资料目录。旧版本缺少此入口时，可从正式版页面下载并覆盖安装。
 
 ## 主要功能
 
 - **浏览器** · Windows 默认进入浏览器，也可在设置中选择工作台。支持多标签、网站图标、地址栏搜索、书签与 HTML 导入导出、历史、下载、页面查找、缩放和恢复标签。浏览器网页在单独的 WebView2 中运行。macOS 和 Linux 的内置网页引擎仍待交付。[浏览器需求与验收](docs/browser/requirements.md)
 - **笔记** · 通过笔记本整理文稿、附件和网页剪藏。剪藏保留来源网址和采集信息，笔记资料随工作区保存。
+- **邮箱** · 在工具中心搜索「邮箱」，可打开或固定入口。v0.6.8 支持账号管理与本地草稿。v0.6.9 的 Windows 实测覆盖离线阅读、按账号恢复草稿和本机协议交互；阿里邮箱和 Gmail 的线上登录及投递验收分别跟踪。[阿里邮箱](https://github.com/ax2/zicode-studio-desktop/issues/115) · [Gmail](https://github.com/ax2/zicode-studio-desktop/issues/116)
+- **视觉资产** · 从左侧「视觉资产」打开本地图库，导入和预览图片。生成图片或人物换装前，可在该模块选择图像模型并确认提交。版本与备份、加工导出及角色工作流按路线图推进。[模块架构](docs/adr/0008-visual-asset-studio.md) · [视觉资产路线图](https://github.com/ax2/zicode-studio-desktop/issues/38)
 - **AI 协作** · 使用内嵌 Pi 管理对话和工具调用，支持自定义模型渠道、API 地址和协议。可以先审阅网页正文、选区和多标签内容，再放入对话草稿。Agent Inbox 支持飞书和企业微信智能机器人的官方长连接。
 - **工具与桌面入口** · 常用工具可从主界面和 Windows 托盘快速打开。工具中心支持独立插件、文件校验与导出。ZiDevTools 逐项接入和验收范围以清单为准。[ZiDevTools 接入清单](docs/plugins/devtools-all-tools.md)
 - **工作台** · 默认工作区提供会话、文件、任务、终端和产物管理。日常界面使用简化导航，内部保留工作区、会话和权限边界。
-
-视觉资产中心是与浏览器、笔记并列的长期核心模块，目前在开发。阶段计划覆盖本地图库、版本与备份、加工导出、角色与生成工作流。[视觉资产中心架构决定](docs/adr/0008-visual-asset-studio.md)
 
 ## 数据与凭据
 
