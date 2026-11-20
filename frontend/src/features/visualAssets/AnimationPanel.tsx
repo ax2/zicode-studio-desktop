@@ -1,7 +1,14 @@
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { AnimationInstall, type AnimationInstallActions } from "./AnimationInstall";
 import { AnimationPlayback } from "./AnimationPlayback";
+
+import {
+  rasterizeCaption,
+  type AnimationCaption,
+  type CaptionPosition,
+  type CaptionSize,
+} from "./animation-caption";
 
 export interface AnimationAsset {
   id: number;
@@ -14,7 +21,7 @@ type AnimationExportFormat = "godot" | "pngSequence" | "gif";
 export interface AnimationIntent {
   libraryId: string;
   source: AnimationSource;
-  recipe: { looped: boolean; frames: Record<string, number>[] };
+  recipe: { looped: boolean; frames: Record<string, number>[]; caption?: AnimationCaption };
   format?: AnimationExportFormat;
 }
 
@@ -60,6 +67,14 @@ export function AnimationPanel({
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [looped, setLooped] = useState(true);
   const [format, setFormat] = useState<AnimationExportFormat>("godot");
+  const [captionText, setCaptionText] = useState("");
+  const [captionPosition, setCaptionPosition] = useState<CaptionPosition>("bottom");
+  const [captionSize, setCaptionSize] = useState<CaptionSize>("medium");
+  const captionPng = useMemo(
+    () => (captionText.trim() ? rasterizeCaption(captionText) : null),
+    [captionText],
+  );
+  const invalidCaption = Boolean(captionText.trim() && !captionPng);
   const nextKey = useRef(0);
   const atlas = mode === "atlas";
   const fields = atlas ? [...cropFields, ...timingFields] : timingFields;
@@ -99,7 +114,7 @@ export function AnimationPanel({
   }
 
   function buildIntent(): AnimationIntent | null {
-    if (!valid || !drafts.length || (atlas && !selected)) return null;
+    if (invalidCaption || !valid || !drafts.length || (atlas && !selected)) return null;
     const source: AnimationSource =
       atlas && selected
         ? { kind: "atlas", assetId: selected.id, revision: 1 }
@@ -110,7 +125,10 @@ export function AnimationPanel({
       );
       return draft.asset ? { ...values, assetId: draft.asset.id, revision: 1 } : values;
     });
-    return { libraryId, source, recipe: { looped, frames } };
+    const caption = captionPng
+      ? { text: captionText, position: captionPosition, size: captionSize, rasterPng: captionPng }
+      : undefined;
+    return { libraryId, source, recipe: { looped, frames, ...(caption ? { caption } : {}) } };
   }
   const intent = buildIntent();
 
@@ -259,6 +277,52 @@ export function AnimationPanel({
               </div>
             </fieldset>
           ))}
+          <label>
+            {t("Meme caption")}
+            <textarea
+              className="ui-input"
+              value={captionText}
+              rows={2}
+              maxLength={240}
+              disabled={disabled}
+              onChange={(event) => setCaptionText(event.target.value)}
+            />
+          </label>
+          {captionText.trim() && (
+            <div className="ui-toolbar">
+              <label>
+                {t("Caption placement")}{" "}
+                <select
+                  className="ui-select"
+                  value={captionPosition}
+                  disabled={disabled}
+                  onChange={(event) => setCaptionPosition(event.target.value as CaptionPosition)}
+                >
+                  <option value="top">{t("Caption at top")}</option>
+                  <option value="center">{t("Caption in center")}</option>
+                  <option value="bottom">{t("Caption at bottom")}</option>
+                </select>
+              </label>
+              <label>
+                {t("Caption size")}{" "}
+                <select
+                  className="ui-select"
+                  value={captionSize}
+                  disabled={disabled}
+                  onChange={(event) => setCaptionSize(event.target.value as CaptionSize)}
+                >
+                  <option value="small">{t("Small caption")}</option>
+                  <option value="medium">{t("Medium caption")}</option>
+                  <option value="large">{t("Large caption")}</option>
+                </select>
+              </label>
+            </div>
+          )}
+          {invalidCaption && (
+            <p role="alert">
+              {t("Shorten the caption to fit three lines, 120 characters and the image budget.")}
+            </p>
+          )}
           <AnimationPlayback
             key={JSON.stringify(intent)}
             intent={intent}
@@ -272,16 +336,20 @@ export function AnimationPanel({
                 className="ui-select"
                 value={format}
                 disabled={disabled}
-                onChange={(event) =>
-                  setFormat(event.target.value as AnimationExportFormat)
-                }
+                onChange={(event) => setFormat(event.target.value as AnimationExportFormat)}
               >
                 <option value="godot">{t("Godot project")}</option>
                 <option value="gif">{t("Animated GIF")}</option>
                 <option value="pngSequence">{t("PNG frame sequence")}</option>
               </select>
             </label>
-            {format === "gif" && <p className="ui-muted">{t("GIF rounds frame durations to 10 ms (minimum 10 ms). Pixels below 50% opacity become transparent.")}</p>}
+            {format === "gif" && (
+              <p className="ui-muted">
+                {t(
+                  "GIF rounds frame durations to 10 ms (minimum 10 ms). Pixels below 50% opacity become transparent.",
+                )}
+              </p>
+            )}
             <button
               type="submit"
               className="ui-button ui-button--primary"

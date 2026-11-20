@@ -44,7 +44,13 @@ export function AnimationRetry({
             {t("Animation folder")} {review.destination.replace(/^\\\\\?\\/, "")}
           </p>
           <p>
-            {t(review.intent.format === "gif" ? "Animated GIF" : review.intent.format === "pngSequence" ? "PNG frame sequence" : "Godot project")}
+            {t(
+              review.intent.format === "gif"
+                ? "Animated GIF"
+                : review.intent.format === "pngSequence"
+                  ? "PNG frame sequence"
+                  : "Godot project",
+            )}
           </p>
           <SavedRecipe intent={review.intent} />
           <div className="ui-toolbar">
@@ -85,6 +91,11 @@ function SavedRecipe({ intent: { source, recipe } }: { intent: AnimationIntent }
         {t(atlas ? "Sprite atlas" : "Image sequence")} ·{" "}
         {t(recipe.looped ? "Loop animation" : "Play once")}
       </p>
+      {recipe.caption && (
+        <p>
+          {t("Meme caption")} · {recipe.caption.text}
+        </p>
+      )}
       <details>
         <summary>
           {t("Saved frame settings")} ({recipe.frames.length})

@@ -19,6 +19,7 @@ fn places_each_crop_relative_to_the_same_anchor_and_preserves_alpha() {
     let right = Rgba([19, 127, 255, 0]);
     let atlas = RgbaImage::from_fn(5, 2, |x, _| if x < 2 { left } else { right });
     let recipe = Recipe {
+        caption: None,
         looped: true,
         frames: vec![frame(0, 2, 2), frame(2, 3, 0)],
     };
@@ -44,6 +45,7 @@ fn places_each_crop_relative_to_the_same_anchor_and_preserves_alpha() {
 #[test]
 fn rejects_overflowing_crops_invalid_anchors_and_excessive_output() {
     let mut recipe = Recipe {
+        caption: None,
         looped: false,
         frames: vec![frame(u32::MAX, 2, 1)],
     };
@@ -69,6 +71,7 @@ fn rejects_overflowing_crops_invalid_anchors_and_excessive_output() {
 #[test]
 fn godot_resources_keep_durations_order_and_relative_resource_paths() {
     let recipe = Recipe {
+        caption: None,
         looped: false,
         frames: vec![
             frame(0, 2, 2),
