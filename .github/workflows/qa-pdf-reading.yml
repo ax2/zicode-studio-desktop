@@ -1,0 +1,33 @@
+name: Windows PDF reading acceptance
+on:
+  push:
+    branches: [qa/v072-pdf-reading]
+permissions:
+  contents: read
+jobs:
+  read-pdf:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/qa/pdf-reading
+      - name: Install the verified Studio Windows release on the disposable runner
+        shell: pwsh
+        run: |
+          $archive=Join-Path $env:RUNNER_TEMP studio-install.exe
+          curl.exe -fsSL --retry 2 --output $archive https://github.com/ax2/zicode-studio-desktop/releases/download/v0.7.0/ZiCode.Studio.Desktop_0.7.0_x64-setup.exe
+          if($LASTEXITCODE -or (Get-FileHash $archive).Hash.ToLowerInvariant() -cne 'abaf829686980ac954fcc7a34a4fdb88ba1e3dd0d4f9038b0d8befcd777c8606'){throw 'Incorrect installer digest'}
+          $runtime=Join-Path $env:RUNNER_TEMP StudioPdfFixture
+          $process=Start-Process $archive -ArgumentList "/S /NS /D=$runtime" -WindowStyle Hidden -PassThru
+          if(!$process.WaitForExit(180000) -or $process.ExitCode){throw 'Installation failed'}
+          $exe=Join-Path $runtime zicode-studio-desktop.exe
+          if(!(Test-Path -LiteralPath $exe)){throw 'Studio executable missing'}
+          "STUDIO_PDF_EXE=$exe" >> $env:GITHUB_ENV
+      - name: Check three rendered pages and measure the native zoom controls
+        working-directory: scripts/qa/pdf-reading
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts --no-save playwright-core@1.56.1
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          node qa.mjs
