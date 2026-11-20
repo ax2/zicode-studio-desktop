@@ -9,7 +9,7 @@ export interface AnimationAsset {
 }
 
 type AnimationSource = { kind: "sequence" } | { kind: "atlas"; assetId: number; revision: number };
-type AnimationExportFormat = "godot" | "pngSequence";
+type AnimationExportFormat = "godot" | "pngSequence" | "gif";
 
 export interface AnimationIntent {
   libraryId: string;
@@ -130,7 +130,7 @@ export function AnimationPanel({
           onSubmit={(event) => {
             event.preventDefault();
             if (!disabled && intent) {
-              onExport(format === "pngSequence" ? { ...intent, format } : intent);
+              onExport(format === "godot" ? intent : { ...intent, format });
             }
           }}
         >
@@ -273,13 +273,15 @@ export function AnimationPanel({
                 value={format}
                 disabled={disabled}
                 onChange={(event) =>
-                  setFormat(event.target.value === "pngSequence" ? "pngSequence" : "godot")
+                  setFormat(event.target.value as AnimationExportFormat)
                 }
               >
                 <option value="godot">{t("Godot project")}</option>
+                <option value="gif">{t("Animated GIF")}</option>
                 <option value="pngSequence">{t("PNG frame sequence")}</option>
               </select>
             </label>
+            {format === "gif" && <p className="ui-muted">{t("GIF rounds frame durations to 10 ms (minimum 10 ms). Pixels below 50% opacity become transparent.")}</p>}
             <button
               type="submit"
               className="ui-button ui-button--primary"

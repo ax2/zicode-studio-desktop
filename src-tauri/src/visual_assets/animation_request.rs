@@ -17,6 +17,7 @@ pub(super) enum AnimationFormat {
     #[default]
     Godot,
     PngSequence,
+    Gif,
 }
 
 impl AnimationFormat {
@@ -29,6 +30,7 @@ impl AnimationFormat {
         match self {
             Self::Godot => "godot-animation",
             Self::PngSequence => "png-animation",
+            Self::Gif => "gif-animation",
         }
     }
 }

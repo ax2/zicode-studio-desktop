@@ -44,7 +44,7 @@ export function AnimationRetry({
             {t("Animation folder")} {review.destination.replace(/^\\\\\?\\/, "")}
           </p>
           <p>
-            {t(review.intent.format === "pngSequence" ? "PNG frame sequence" : "Godot project")}
+            {t(review.intent.format === "gif" ? "Animated GIF" : review.intent.format === "pngSequence" ? "PNG frame sequence" : "Godot project")}
           </p>
           <SavedRecipe intent={review.intent} />
           <div className="ui-toolbar">
