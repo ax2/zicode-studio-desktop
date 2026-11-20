@@ -617,6 +617,8 @@ const zhCN = {
   Animation: "动画",
   "Animation export format": "动画导出格式",
   "Godot project": "Godot 工程",
+  "Animated GIF": "GIF 动图",
+  "GIF rounds frame durations to 10 ms (minimum 10 ms). Pixels below 50% opacity become transparent.": "GIF 帧时长取整到 10 毫秒，最短 10 毫秒。不透明度低于 50% 的像素将变为透明。",
   "PNG frame sequence": "PNG 帧序列",
   "Godot project installation": "安装到 Godot 工程",
   "Animation name": "动画名称",

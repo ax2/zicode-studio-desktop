@@ -11,6 +11,8 @@ use std::{
     path::Path,
 };
 
+#[path = "animation_gif.rs"]
+mod animated_gif;
 #[path = "animation_godot.rs"]
 mod godot;
 #[path = "animation_preview_frames.rs"]
@@ -22,6 +24,7 @@ pub(super) use preview_frames::read_preview;
 pub(super) const WORKER: &str = "--zicode-visual-assets-animation-worker";
 pub(super) const PREVIEW_ARGUMENT: &str = "preview";
 pub(super) const ASSET_ARGUMENT: &str = "asset";
+pub(super) const GIF_ARGUMENT: &str = "gif";
 pub(super) const PNG_ARGUMENT: &str = "png-sequence";
 pub(super) const MAX_RECIPE_BYTES: u64 = 64 * 1024;
 const MAX_FRAMES: usize = 128;
@@ -175,6 +178,7 @@ pub(super) enum Output {
     Preview,
     Asset,
     PngSequence,
+    Gif,
 }
 
 impl From<AnimationFormat> for Output {
@@ -182,6 +186,7 @@ impl From<AnimationFormat> for Output {
         match format {
             AnimationFormat::Godot => Self::Export,
             AnimationFormat::PngSequence => Self::PngSequence,
+            AnimationFormat::Gif => Self::Gif,
         }
     }
 }
@@ -191,6 +196,7 @@ pub(super) fn run_if_requested(args: &[OsString]) -> Option<Result<()>> {
         [mode, stage] => (mode, stage, Output::Export),
         [mode, stage, output] if output == PREVIEW_ARGUMENT => (mode, stage, Output::Preview),
         [mode, stage, output] if output == ASSET_ARGUMENT => (mode, stage, Output::Asset),
+        [mode, stage, output] if output == GIF_ARGUMENT => (mode, stage, Output::Gif),
         [mode, stage, output] if output == PNG_ARGUMENT => (mode, stage, Output::PngSequence),
         _ => return None,
     };
@@ -254,6 +260,24 @@ fn render(
     }
     let root = stage.join("project");
     fs::create_dir(&root)?;
+    if matches!(output, Output::Gif) {
+        let path = root.join("animation.gif");
+        animated_gif::write(&path, recipe, canvas, frame_image)?;
+        let manifest = Manifest {
+            schema_version: 1,
+            engine: None,
+            format: Some(AnimationFormat::Gif),
+            provenance,
+            recipe,
+            canvas,
+            frame_files: None,
+            file_sha256: BTreeMap::from([("animation.gif".into(), snapshot::hash(&path)?)]),
+        };
+        return write_new(
+            &root.join("manifest.json"),
+            &serde_json::to_vec_pretty(&manifest)?,
+        );
+    }
     fs::create_dir(root.join("frames"))?;
     let mut files = BTreeMap::new();
     for (index, frame) in recipe.frames.iter().enumerate() {

@@ -88,6 +88,8 @@ bytes = "1"
 webrtc = "0.13"
 russh = "0.62.7"
 russh-sftp = "2.4.0"
+gif = "0.13.3"
+color_quant = "1.1"
 
 [profile.dev]
 # Keep one reusable dev/test artifact set instead of accumulating large
