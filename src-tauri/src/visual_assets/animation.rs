@@ -13,6 +13,8 @@ use std::{
 
 #[path = "animation_gif.rs"]
 mod animated_gif;
+#[path = "animation_caption.rs"]
+mod caption;
 #[path = "animation_godot.rs"]
 mod godot;
 #[path = "animation_preview_frames.rs"]
@@ -35,6 +37,8 @@ const MAX_DURATION_MS: u32 = 60_000;
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Recipe {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    caption: Option<caption::Caption>,
     looped: bool,
     frames: Vec<Frame>,
 }
@@ -87,6 +91,9 @@ fn validate_frame_count(count: usize) -> Result<()> {
 
 pub(super) fn validate_atlas_recipe(bytes: &[u8]) -> Result<()> {
     let recipe: Recipe = serde_json::from_slice(bytes)?;
+    if let Some(caption) = &recipe.caption {
+        caption.validate()?;
+    }
     Canvas::layout(&recipe.frames)?;
     if recipe.frames.iter().any(|frame| {
         frame
@@ -255,6 +262,18 @@ fn render(
     provenance: Provenance,
     mut frame_image: impl FnMut(usize, &Frame) -> Result<RgbaImage>,
 ) -> Result<()> {
+    let overlay = recipe
+        .caption
+        .as_ref()
+        .map(|c| c.prepare(canvas))
+        .transpose()?;
+    let mut frame_image = |index: usize, frame: &Frame| -> Result<RgbaImage> {
+        let mut image = frame_image(index, frame)?;
+        if let Some(overlay) = &overlay {
+            overlay.apply(&mut image);
+        }
+        Ok(image)
+    };
     if matches!(output, Output::Preview) {
         return preview_frames::render(stage, recipe, canvas, frame_image);
     }

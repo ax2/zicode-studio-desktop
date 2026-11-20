@@ -49,6 +49,8 @@ impl FrameSelection {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Selection {
+    #[serde(default)]
+    caption: Option<super::caption::Caption>,
     looped: bool,
     frames: Vec<FrameSelection>,
 }
@@ -57,6 +59,9 @@ impl Selection {
     pub(crate) fn parse(bytes: &[u8]) -> Result<Self> {
         let selection: Self = serde_json::from_slice(bytes)?;
         validate_frame_count(selection.frames.len())?;
+        if let Some(caption) = &selection.caption {
+            caption.validate()?;
+        }
         if selection.frames.iter().any(|frame| {
             frame.asset_id <= 0
                 || frame.revision <= 0
@@ -87,6 +92,7 @@ pub(super) fn run_worker(stage: &Path, output: Output) -> Result<()> {
     let mut encoded_bytes = 0;
     let mut decoded_pixels = 0;
     let mut recipe = Recipe {
+        caption: selection.caption,
         looped: selection.looped,
         frames: Vec::with_capacity(selection.frames.len()),
     };
