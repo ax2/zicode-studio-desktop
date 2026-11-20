@@ -44,6 +44,7 @@ $candidatePath = Join-Path $PSScriptRoot 'candidate.txt'
 $receipt = Join-Path $PSScriptRoot 'receipt.json'
 [IO.File]::WriteAllText($candidatePath, 'synthetic; never executed')
 $matrix = @(
+  (Select-Baseline v0.7.0 'true' 0)
   (Select-Baseline v0.6.9 'true' 0)
   (Select-Baseline v0.6.9-rc.1 'false' 22)
   (Select-Baseline v0.6.8 'true' 0)
@@ -74,6 +75,11 @@ catch { $badDigest = $_.Exception.Message -eq 'Unverified or identical upgrade b
       const historical = current.replaceAll("0.6.7", "0.6.2");
       const latest = current.replaceAll("0.6.7", "0.6.8");
       expect(result.matrix).toEqual([
+        {
+          url: current.replaceAll("0.6.7", "0.6.9"),
+          required: true,
+          digest: "799dc8822ceb94a582c13d56de922b73cb611a949e6d70839dc36419112692ff",
+        },
         {
           url: latest,
           required: true,
