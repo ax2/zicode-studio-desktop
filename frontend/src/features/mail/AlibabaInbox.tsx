@@ -1,3 +1,4 @@
+import {MailDisconnect} from "./MailDisconnect";
 import {useEffect,useRef,useState} from "react";
 import {t} from "../../shared/i18n";
 import type {Draft,Invoke} from "./index";
@@ -79,7 +80,11 @@ export function AlibabaInbox({id,invoke,discard,onReply,onConfigured,onBusy}:{id
       <form onSubmit={e=>{e.preventDefault();const value=secret;setSecret("");void run(()=>req<{configured:boolean}>("setPassword",{password:value}),v=>{setConfigured(v.configured);onConfig.current(v.configured)})}}>
         <label>{t("Client password")}<input type="password" autoComplete="new-password" maxLength={1024} disabled={!enabled} value={secret} onChange={e=>setSecret(e.target.value)}/></label>
         <button disabled={!enabled||!secret}>{t("Save client password")}</button>
-        {configured&&<button type="button" onClick={()=>{void (async()=>{if(await window.confirm(t("Remove this account’s saved client password?")))await run(()=>req("forgetPassword"),()=>{setSecret("");setConfigured(false);onConfig.current(false)})})()}}>{t("Remove client password")}</button>}
+        <MailDisconnect connected={configured} label={t("Remove client password")} prompt={t("Remove this account’s saved client password?")}
+          disconnect={clear=>run(()=>req("forgetPassword",{clearCache:clear}),()=>{
+            setSecret("");setConfigured(false);setOnline(false);onConfig.current(false);
+            if(clear){setPage(null);setSelected(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
+          })}/>
       </form>
     </fieldset>
     <fieldset disabled={busy}><legend>{t("Inbox")}</legend>

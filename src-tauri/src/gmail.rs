@@ -104,7 +104,7 @@ pub(crate) enum Request {
         send: bool,
     },
     Cancel,
-    Disconnect,
+    Disconnect { #[serde(default,rename="clearCache")] clear_cache: bool },
     List {
         cursor: Option<String>,
         limit: u8,
@@ -156,6 +156,10 @@ pub(crate) async fn mail_gmail(
     }
     let path = root.join("mail").join("mail.sqlite3");
     let address = store::address(&path, &scope, &account_id)?;
+    let cache_epoch = match request {
+        Request::List{..} | Request::Read{..} => store::cache_generation(&path,&scope,&account_id)?,
+        _ => 0,
+    };
     let key = format!(
         "{:x}",
         Sha256::digest(format!(
@@ -211,12 +215,12 @@ pub(crate) async fn mail_gmail(
         }
         _ => {}
     }
-    if !crate::desktop_profile::system_credentials_enabled() {
+    if !crate::desktop_profile::system_credentials_enabled() && !matches!(request, Request::Disconnect {..}) {
         return Err("gmail_credentials_disabled".into());
     }
     let (generation, stop) = {
         let mut g = gate.state.lock().map_err(|_| "gmail_unavailable")?;
-        if matches!(request, Request::Connect { .. } | Request::Disconnect) {
+        if matches!(request, Request::Connect { .. } | Request::Disconnect { .. }) {
             g.invalidate()
         }
         (g.generation, g.stop.clone())
@@ -241,11 +245,10 @@ pub(crate) async fn mail_gmail(
     };
     drop(current()?);
     let client = oauth::client()?;
-    if matches!(request, Request::Disconnect) {
+    if let Request::Disconnect {clear_cache} = request {
         let previous = {
             let _g = current()?;
-            let v = read_secret(&key)?;
-            clear_secret(&key)?;
+            let v = if crate::desktop_profile::system_credentials_enabled() {let saved=read_secret(&key)?; clear_secret(&key)?;saved} else {None}; if clear_cache {store::clear_cache(&path,&scope,&account_id)?;}
             v
         };
         let revoked = match previous {
@@ -374,13 +377,13 @@ pub(crate) async fn mail_gmail(
             let key = key_for(&cursor, limit)?;
             let data = api::list(&client, api::BASE, &access, cursor.as_deref(), limit).await?;
             let _g = current()?;
-            store::cache(&path, &scope, &account_id, "page", &key, &data)?;
+            store::cache(&path, &scope, &account_id, cache_epoch, "page", &key, &data)?;
             data
         }
         Request::Read { id } => {
             let data = api::read(&client, api::BASE, &access, &id).await?;
             let _g = current()?;
-            store::cache(&path, &scope, &account_id, "body", &id, &data)?;
+            store::cache(&path, &scope, &account_id, cache_epoch, "body", &id, &data)?;
             data
         }
         Request::Send {
