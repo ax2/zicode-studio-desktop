@@ -1,0 +1,33 @@
+--- a/src-tauri/src/model_tools/tests.rs
++++ b/src-tauri/src/model_tools/tests.rs
+@@ -65,4 +65,30 @@ fn local_endpoint(base: &str, auth: bool) -> ModelEndpoint {
+ }
+ 
++#[test]
++fn request_identity_includes_path_model_provider_and_auth_but_not_display_name() {
++    let first = local_endpoint("http://127.0.0.1:1/v1", true);
++    let expected = first.request_identity();
++    assert_eq!(
++        expected,
++        local_endpoint("http://127.0.0.1:1/v1/", true).request_identity()
++    );
++    assert_ne!(
++        expected,
++        local_endpoint("http://127.0.0.1:1/other/v1", true).request_identity()
++    );
++    assert_ne!(
++        expected,
++        local_endpoint("http://127.0.0.1:1/v1", false).request_identity()
++    );
++    let mut changed = local_endpoint("http://127.0.0.1:1/v1", true);
++    changed.choice.name = "New label".into();
++    assert_eq!(expected, changed.request_identity());
++    changed.choice.model = "other-model".into();
++    assert_ne!(expected, changed.request_identity());
++    let mut changed = local_endpoint("http://127.0.0.1:1/v1", true);
++    changed.choice.provider = "other-provider".into();
++    assert_ne!(expected, changed.request_identity());
++}
++
+ #[test]
+ fn translates_and_summarizes_through_an_explicit_local_service_without_credentials() {

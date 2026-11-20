@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "frozenAt": null,
+  "workloadIndexSha256": null,
+  "scope": "Windows 16 distinct 3072x3072 JPEG managed imports, one decoder Worker, local HTTPS browser pages; same machine and viewport",
+  "machine": {
+    "cpu": null,
+    "logicalProcessors": null,
+    "memoryKiB": null,
+    "osBuild": null
+  },
+  "viewports": {
+    "wide": {
+      "width": null,
+      "height": null,
+      "dpr": null
+    },
+    "narrow": {
+      "width": null,
+      "height": null,
+      "dpr": null
+    }
+  },
+  "firstPageMs": 1000,
+  "tabP95Ms": 300,
+  "overlayP95Ms": 400,
+  "overlayHideP95Ms": 300,
+  "overlayRestoreP95Ms": 150,
+  "maxOperationMs": 1000,
+  "loadedP95Ratio": 1.5,
+  "loadedP95DeltaMs": 100,
+  "loadedFirstPageDeltaMs": 300,
+  "privateCheckpointMiB": 1280,
+  "loadedPrivateDeltaMiB": 256,
+  "minOverlapFraction": 0.8,
+  "minWorkerCheckpoints": 2,
+  "widePairs": 2,
+  "narrowPairs": 1
+}

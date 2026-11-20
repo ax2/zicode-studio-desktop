@@ -1,0 +1,17 @@
+--- a/public/native/plugins/tool-navigation.test.js
++++ b/public/native/plugins/tool-navigation.test.js
+@@ -1,4 +1,14 @@
+ import { expect, it, vi } from "vitest";
+ import { applicationDirectory, primaryActivities, PRIMARY_ACTIVITY_IDS } from "./tool-navigation.js";
++import { BuiltinPluginRegistry } from "./plugin-registry.js";
++
++it("shows the visual library beside Notes while retaining Browser as the first activity", () => {
++  const registry = new BuiltinPluginRegistry({ storage: { getItem: () => null, setItem: vi.fn() } });
++  const activities = primaryActivities(registry.list(), () => true);
++  const ids = activities.map(plugin => plugin.id);
++  expect(ids[0]).toBe("com.zicode.browser");
++  expect(ids[ids.indexOf("com.zicode.notes") + 1]).toBe("com.zicode.visual-assets");
++  expect(activities.find(plugin => plugin.id === "com.zicode.visual-assets").icon).toBe("imagetools");
++});
+ 
+ it.each([10, 100, 1000])("keeps primary navigation constant for %i additional plugins", count => {
