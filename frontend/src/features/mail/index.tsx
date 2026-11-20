@@ -6,6 +6,7 @@ import { t } from "../../shared/i18n";
 
 import {AlibabaInbox} from "./AlibabaInbox";
 import {GmailInbox} from "./GmailInbox";
+import {CachedMailSearch} from './CachedMailSearch';
 import {MailDelivery} from "./MailDelivery";
 
 type Account={id:string,address:string,provider:string};
@@ -61,6 +62,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     })}}><label>{t("Mail provider")}<select value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
     <label>{t("Email address")}<input required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button type="submit">{t("Add local account")}</button></form></fieldset>
+    {account&&<CachedMailSearch key={"search-"+account} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport}/>}
     {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}/>}
     {alibaba&&<AlibabaInbox key={account} id={account} invoke={alibaba} discard={discard} onBusy={setMailBusy}
       onConfigured={v=>setPasswordOwner(v?account:"")} onReply={d=>{setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);setEdit(d);setDirty(false);requestAnimationFrame(()=>document.getElementById("studio-mail-compose-body")?.focus())}}/>}

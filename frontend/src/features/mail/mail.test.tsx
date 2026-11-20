@@ -27,6 +27,7 @@ it("keeps composing local, saves explicitly, reopens and deletes without sending
   view.unmount();render(<Mail invoke={invoke}/>);
   const reopened=await screen.findByRole("button",{name:"New idea"});await act(async()=>fireEvent.click(reopened));
   expect((screen.getByLabelText("Message body") as HTMLTextAreaElement).value).toBe("正文");
+  expect(screen.getAllByRole("searchbox",{name:"Search cached mail"})).toHaveLength(1);
   const confirmation=vi.spyOn(window,"confirm").mockReturnValue(Promise.resolve(false) as unknown as boolean);
   await act(async()=>fireEvent.click(screen.getByRole("button",{name:"Delete draft"})));expect(calls).not.toContain("delete");
   confirmation.mockReturnValue(true);fireEvent.click(screen.getByRole("button",{name:"Delete draft"}));

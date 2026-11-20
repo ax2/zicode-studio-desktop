@@ -9,6 +9,7 @@ use uuid::Uuid;
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Request {
     Accounts,
+    Search { account: Option<String>, query: String, offset: u32 },
     Add {
         provider: String,
         address: String,
@@ -61,6 +62,7 @@ fn operate(file: &Path, scope: &str, req: Request) -> Result<Value, String> {
       CREATE TABLE IF NOT EXISTS accounts(scope TEXT NOT NULL,id TEXT NOT NULL,provider TEXT NOT NULL,address TEXT NOT NULL,PRIMARY KEY(scope,id),UNIQUE(scope,provider,address));
       CREATE TABLE IF NOT EXISTS drafts(scope TEXT NOT NULL,account TEXT NOT NULL,id TEXT NOT NULL,revision INTEGER NOT NULL,recipient TEXT NOT NULL,subject TEXT NOT NULL,body TEXT NOT NULL,PRIMARY KEY(scope,account,id),FOREIGN KEY(scope,account) REFERENCES accounts(scope,id));").map_err(|_|"mail_storage")?;
     match req {
+        Request::Search { account, query, offset } => search_cache(&db, scope, account.as_deref(), &query, offset),
         Request::Accounts => {
             let mut q=db.prepare("SELECT id,provider,address FROM accounts WHERE scope=? ORDER BY address,provider").map_err(|_|"mail_storage")?;
             let rows=q.query_map([scope],|r| Ok(json!({"id":r.get::<_,String>(0)?,"provider":r.get::<_,String>(1)?,"address":r.get::<_,String>(2)?}))).map_err(|_|"mail_storage")?.collect::<Result<Vec<_>,_>>().map_err(|_|"mail_storage")?;
@@ -143,9 +145,71 @@ fn operate(file: &Path, scope: &str, req: Request) -> Result<Value, String> {
     }
 }
 
+fn search_cache(db: &Connection, scope: &str, account: Option<&str>, query: &str, offset: u32) -> Result<Value, String> {
+    let query = query.trim();
+    if query.is_empty() || query.len() > 512 {
+        return Err("mail_invalid".into());
+    }
+    let mut sources = Vec::new();
+    for (table, sql) in [
+        ("gmail_cache", include_str!("mail_search_gmail.sql")),
+        ("alibaba_inbox", include_str!("mail_search_alibaba.sql")),
+    ] {
+        let present: bool = db.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)", [table], |row| row.get(0)).map_err(|_| "mail_storage")?;
+        if present { sources.push(sql); }
+    }
+    if sources.is_empty() {
+        return Ok(json!({"items": [], "more": false}));
+    }
+    let sql = format!("SELECT account, address, provider, id, epoch, subject, sender FROM ({}) ORDER BY address, account, id, epoch LIMIT 41 OFFSET ?4", sources.join(" UNION ALL "));
+    let mut statement = db.prepare(&sql).map_err(|_| "mail_storage")?;
+    let mut items = statement.query_map(params![scope, account, query, offset], |r| Ok(json!({
+        "account": r.get::<_, String>(0)?, "address": r.get::<_, String>(1)?,
+        "provider": r.get::<_, String>(2)?, "id": r.get::<_, String>(3)?,
+        "epoch": r.get::<_, Option<u32>>(4)?, "subject": r.get::<_, String>(5)?,
+        "sender": r.get::<_, String>(6)?,
+    }))).map_err(|_| "mail_storage")?.collect::<Result<Vec<_>,_>>().map_err(|_| "mail_storage")?;
+    let more = items.len() > 40;
+    items.truncate(40);
+    Ok(json!({"items":items, "more":more}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn search_reopens_both_provider_caches_with_workspace_and_uidvalidity_boundaries() {
+        let temp = std::env::temp_dir().join(format!("mail-search-{}", Uuid::new_v4()));
+        std::fs::create_dir(&temp).unwrap();
+        let file = temp.join("mail.sqlite3");
+        operate(&file, "main", Request::Accounts).unwrap();
+        let search = |scope: &str, account: Option<&str>, query: &str| {
+            operate(&file, scope, Request::Search {
+                account: account.map(str::to_owned), query: query.into(), offset: 0
+            }).unwrap()["items"].as_array().unwrap().clone()
+        };
+        assert!(search("main", None, "%_").is_empty());
+        let db = Connection::open(&file).unwrap();
+        db.execute_batch(r#"INSERT INTO accounts VALUES ('main','a','alibaba','a@example.test'),('main','b','gmail','b@example.test'),('other','b','gmail','hidden@example.test');
+          CREATE TABLE gmail_cache(workspace TEXT, account TEXT, kind TEXT, cache_key TEXT,value TEXT);
+          CREATE TABLE alibaba_inbox(scope TEXT,account TEXT,epoch INTEGER,uid INTEGER,meta TEXT,body TEXT);
+          CREATE TABLE alibaba_epoch(scope TEXT,account TEXT,epoch INTEGER);
+          INSERT INTO alibaba_epoch VALUES ('main','a',7);
+          INSERT INTO alibaba_inbox VALUES ('main','a',7,42,'{"subject":"same","sender":"Alice"}','中文 %_'),('main','a',3,42,'{"subject":"stale","sender":"Alice"}','中文 %_');
+          INSERT INTO gmail_cache VALUES ('main','b','page','one','{"items":[{"id":"42","subject":"same prior title","from":"Bob","snippet":"preview"}]}'),('main','b','body','42','{"id":"42","subject":"same","from":"Bob","plainText":"中文 %_"}'),('other','b','body','42','{"id":"42","subject":"private","from":"Bob","plainText":"other"}');"#).unwrap();
+        drop(db);
+        assert_eq!(search("main", None, "SAME").len(), 2);
+        assert_eq!(search("main", Some("b"), "SAME")[0]["subject"], "same");
+        assert_eq!(search("main", None, "中文").len(), 2);
+        assert_eq!(search("main", Some("a"), "%_")[0]["epoch"], 7);
+        assert_eq!(search("main", Some("b"), "preview")[0]["id"], "42");
+        assert_eq!(search("main", None, "bob").len(), 1);
+        assert!(search("main", None, "private").is_empty());
+        assert!(search("main", None, "stale").is_empty());
+        assert!(search("other", Some("a"), "same").is_empty());
+        std::fs::remove_file(file).unwrap();
+        std::fs::remove_dir(temp).unwrap();
+    }
     #[test]
     fn independent_accounts_restart_conflict_delete_and_profile() {
         let dir = std::env::temp_dir().join(format!("studio-mail-test-{}", Uuid::new_v4()));

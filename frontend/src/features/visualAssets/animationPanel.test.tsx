@@ -116,7 +116,7 @@ describe("animation tasks", () => {
     });
   });
 
-  it("keeps PNG export format and atlas settings when the folder picker is cancelled", async () => {
+  it.each(["pngSequence", "gif"])("keeps %s and atlas settings when the folder picker is cancelled", async (selectedFormat) => {
     const invoke = vi.fn<Invoke>(async (_command, args) => {
       const kind = (args.request as { kind: string }).kind;
       if (kind === "list")
@@ -141,7 +141,7 @@ describe("animation tasks", () => {
     const format = screen.getByRole<HTMLSelectElement>("combobox", {
       name: "Animation export format",
     });
-    fireEvent.change(format, { target: { value: "pngSequence" } });
+    fireEvent.change(format, { target: { value: selectedFormat } });
     const button = screen.getByRole<HTMLButtonElement>("button", {
       name: "Choose folder and export",
     });
@@ -150,7 +150,7 @@ describe("animation tasks", () => {
     expect(screen.getByRole<HTMLInputElement>("spinbutton", { name: "Width (px)" }).value).toBe(
       "32",
     );
-    expect(format.value).toBe("pngSequence");
+    expect(format.value).toBe(selectedFormat);
     expect(screen.queryByText("Animation exported.")).toBeNull();
     expect(invoke).toHaveBeenCalledWith("visual_assets_control", {
       workspaceId: "workspace",
@@ -158,7 +158,7 @@ describe("animation tasks", () => {
         kind: "startAnimation",
         intent: {
           libraryId: "library",
-          format: "pngSequence",
+          format: selectedFormat,
           source: { kind: "atlas", assetId: 1, revision: 1 },
           recipe: {
             looped: false,

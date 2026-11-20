@@ -41,6 +41,14 @@ pub(super) fn hash(path: &Path) -> Result<String> {
     hash_file(&mut read_file(path)?)
 }
 
+pub(super) fn bounded_hash(path: &Path, maximum: u64) -> Result<String> {
+    let mut file = read_file(path)?;
+    if file.metadata()?.len() > maximum {
+        return Err("file exceeds verification budget".into());
+    }
+    hash_file(&mut file)
+}
+
 fn hash_file(file: &mut File) -> Result<String> {
     let mut digest = Sha256::new();
     let mut buffer = [0; 64 * 1024];

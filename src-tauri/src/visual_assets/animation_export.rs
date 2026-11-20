@@ -104,7 +104,7 @@ pub(super) fn export_staged(
     let project = stage.path.join("project");
     let manifest = fs::read_to_string(project.join("manifest.json"))?;
     let digest = format!("{:x}", Sha256::digest(manifest.as_bytes()));
-    if format == AnimationFormat::PngSequence {
+    if format != AnimationFormat::Godot {
         verify_publication(&project, &digest, format)?;
     }
     before_publish(&digest)?;
@@ -136,6 +136,7 @@ pub(super) fn verify_publication(
     let resources = match format {
         AnimationFormat::Godot => &["project.godot", "preview.tscn", "clip.tscn", "clip.tres"][..],
         AnimationFormat::PngSequence => &[],
+        AnimationFormat::Gif => &["animation.gif"],
     };
     verify_inventory(destination, digest, format, resources)
 }
@@ -159,8 +160,14 @@ fn verify_inventory(
     const MAX_PACKAGE_BYTES: usize = 160 * 1024 * 1024;
     let (resolved, _project_handles) = backup_destination::hold(destination)?;
     let frames = destination.join("frames");
-    let (resolved_frames, _frame_handles) = backup_destination::hold(&frames)?;
-    if resolved != destination || resolved_frames != frames {
+    let held_frames = (format != AnimationFormat::Gif)
+        .then(|| backup_destination::hold(&frames))
+        .transpose()?;
+    if resolved != destination
+        || held_frames
+            .as_ref()
+            .is_some_and(|(path, _)| path != &frames)
+    {
         return Err("animation publication changed directories".into());
     }
     let bytes = worker::read_input(&destination.join("manifest.json"))?;
@@ -170,6 +177,24 @@ fn verify_inventory(
     let inventory: Inventory = serde_json::from_slice(&bytes)?;
     let mut package_bytes = bytes.len();
     let count = inventory.recipe.frames.len();
+    if format == AnimationFormat::Gif {
+        let path = destination.join("animation.gif");
+        if inventory.format != format
+            || inventory.schema_version != 1
+            || !(1..=128).contains(&count)
+            || inventory.frame_files.is_some()
+            || !has_entry_count(destination, 2)?
+            || inventory.file_sha256.len() != 1
+            || inventory.file_sha256.get("animation.gif")
+                != Some(&super::snapshot::bounded_hash(
+                    &path,
+                    MAX_PACKAGE_BYTES as u64,
+                )?)
+        {
+            return Err("invalid GIF publication inventory".into());
+        }
+        return Ok(());
+    }
     if inventory.format != format
         || !(1..=128).contains(&count)
         || inventory.file_sha256.len() != count + resources.len()
@@ -276,6 +301,7 @@ impl Stage {
             animation::Output::Export => None,
             animation::Output::Preview => Some(animation::PREVIEW_ARGUMENT),
             animation::Output::Asset => Some(animation::ASSET_ARGUMENT),
+            animation::Output::Gif => Some(animation::GIF_ARGUMENT),
             animation::Output::PngSequence => Some(animation::PNG_ARGUMENT),
         });
         worker::run_single_with_checkpoint(command, time_limit, checkpoint)
