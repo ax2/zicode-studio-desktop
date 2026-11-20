@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
     thread,
 };
-const MSG:&str="From: Fixture <sender@example.test>\r\nReply-To: reply@example.test\r\nSubject: =?UTF-8?B?5rWL6K+V?=\r\nMessage-ID: <original@example.test>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n5L2g5aW9\r\n";
+const MSG:&str="From: Fixture <sender@example.test>\r\nReply-To: reply@example.test\r\nSubject: =?UTF-8?B?5rWL6K+V?=\r\nMessage-ID: <original@example.test>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=fixture\r\n\r\n--fixture\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n5L2g5aW9\r\n--fixture\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>HTML fixture</p>\r\n--fixture--\r\n";
 type Server = BufReader<rustls::StreamOwned<rustls::ServerConnection, TcpStream>>;
 struct Fixture {
     adapter: Alibaba,
@@ -257,6 +257,10 @@ fn tls_imap_local_pagination_cache_and_identity() {
     let l = mail.read(&f.adapter, "synthetic", 7, 30).unwrap();
     f.thread.join().unwrap();
     assert_eq!(l.text.trim(), "你好");
+    assert_eq!(
+        l.html.as_deref().map(str::trim),
+        Some("<p>HTML fixture</p>")
+    );
     assert_eq!(l.summary.reply_to, "reply@example.test");
     assert!(matches!(
         mail.sync(
@@ -275,7 +279,12 @@ fn tls_imap_local_pagination_cache_and_identity() {
     let mut db = Connection::open(&file).unwrap();
     let mail = Mailbox::open(&mut db, "one", "a").unwrap();
     assert_eq!(mail.cached_page(None, 1).unwrap().messages[0].uid, 30);
-    assert_eq!(mail.cached_body(7, 30).unwrap().text.trim(), "你好");
+    let cached = mail.cached_body(7, 30).unwrap();
+    assert_eq!(cached.text.trim(), "你好");
+    assert_eq!(
+        cached.html.as_deref().map(str::trim),
+        Some("<p>HTML fixture</p>")
+    );
     assert!(Mailbox::open(&mut db, "two", "b")
         .unwrap()
         .cached_body(7, 30)

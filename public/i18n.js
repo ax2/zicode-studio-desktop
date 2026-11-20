@@ -140,6 +140,7 @@ const zhCN = {
   "Cancel sign-in": "取消登录",
   "Sign-in canceled.": "已取消登录。",
   "No older cached page is available.": "更早的邮件尚未缓存在本机。",
+  "Image blocked": "图片已屏蔽",
   "This email has no plain-text body. Remote content is not loaded.": "这封邮件没有纯文本正文。未加载远程内容。",
   "Delivery is unknown. Check Gmail Sent before composing another copy. Studio will not resend this revision.": "投递结果未知。请先检查 Gmail 的“已发送”再决定是否另写一封；Studio 不会重投此版本。",
   "Read and send Alibaba Mail or write Gmail drafts": "收发阿里邮箱邮件或撰写 Gmail 本地草稿",

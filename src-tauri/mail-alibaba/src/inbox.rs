@@ -28,6 +28,7 @@ pub struct Summary {
 pub struct Letter {
     pub summary: Summary,
     pub text: String,
+    pub html: Option<String>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -204,8 +205,14 @@ impl Alibaba {
         let m = MessageParser::new()
             .parse(bytes)
             .ok_or("mail_mime_invalid")?;
+        let html = m
+            .html_body()
+            .find(|part| part.is_content_type("text", "html"))
+            .and_then(|part| part.text())
+            .map(|html| html.into_owned());
         Ok(Letter {
             summary: metadata(&m, uid, size),
+            html,
             text: m.body_text(0).unwrap_or_default().into_owned(),
         })
     }

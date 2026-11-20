@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import { MailBody } from "./MailBody";
 import type { Invoke } from "./index";
 
 type Account = { id: string; address: string; provider: string };
@@ -13,7 +14,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState<Page | null>(null);
   const [offset, setOffset] = useState(0);
-  const [reading, setReading] = useState<{hit: Hit; text?: string | null} | null>(null);
+  const [reading, setReading] = useState<{hit: Hit; text?: string | null; html?: string | null} | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const generation = useRef(0);
@@ -58,14 +59,17 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
     setBusy(true);
     try {
       let text: string | null = null;
+      let html: string | null = null;
       if (hit.provider === "gmail" && gmail) {
-        const body = await gmail<{plainText:string | null} | null>({kind:"cachedBody", accountId:hit.account, id:hit.id});
+        const body = await gmail<{plainText:string | null;html?:string} | null>({kind:"cachedBody", accountId:hit.account, id:hit.id});
         text = body?.plainText ?? null;
+        html = body?.html ?? null;
       } else if (hit.provider === "alibaba" && alibaba) {
-        const body = await alibaba<{text:string}>({kind:"cachedBody", accountId:hit.account, uidValidity:hit.epoch, uid:Number(hit.id)});
+        const body = await alibaba<{text:string;html?:string}>({kind:"cachedBody", accountId:hit.account, uidValidity:hit.epoch, uid:Number(hit.id)});
         text = body.text;
+        html = body.html ?? null;
       }
-      if (version === generation.current) setReading({hit,text});
+      if (version === generation.current) setReading({hit,text,html});
     } catch(e) {
       if (version === generation.current) {
         setReading({hit,text:null});
@@ -93,8 +97,8 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
     </>}
     {reading && <article aria-label={t("Cached message")}><h3 translate="no">{reading.hit.subject||t("No subject")}</h3>
       <p translate="no">{reading.hit.sender} · {reading.hit.address}</p>
-      {reading.text===null && <p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
-      {typeof reading.text==="string" && <pre translate="no" className="mail-read-body">{reading.text||t("Empty message")}</pre>}
+      {reading.text===null && !reading.html && <p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
+      {(typeof reading.text==="string" || reading.html) && <MailBody text={reading.text ?? null} html={reading.html}/>}
     </article>}
   </fieldset>;
 }
