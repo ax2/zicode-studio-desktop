@@ -1,9 +1,9 @@
 // @vitest-environment node
 
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import {
   buildRemoteOperationsSnapshot,
   formatRemoteModels,
@@ -13,6 +13,7 @@ import {
 
 async function fixture(): Promise<RemoteOperationsPaths> {
   const root = await mkdtemp(join(tmpdir(), "pi-chat-operations-"));
+  onTestFinished(() => rm(root, { recursive: true, force: true }));
   const agentRoot = join(root, ".pi", "agent");
   const instancesDir = join(root, ".pi", "pistudio-instances");
   const workersDir = join(agentRoot, "chat", "worker-status");
