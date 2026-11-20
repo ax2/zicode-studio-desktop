@@ -1406,7 +1406,7 @@ messagesElement.addEventListener("organizechattonotes", async (event) => {
     if (button?.isConnected) button.disabled = false;
   }
 });
-setupAppUpdater({ settingsPanel, enabled: Boolean(globalThis.__TAURI__?.core?.invoke) });
+setupAppUpdater({ settingsPanel, notify: notifications.notify, enabled: Boolean(globalThis.__TAURI__?.core?.invoke) });
 setupNewSessionButton({
   data,
   workspaceId: target.workspaceId,

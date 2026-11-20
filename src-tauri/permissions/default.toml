@@ -443,6 +443,7 @@ permissions = [
   "allow-start-system-temperature-monitor",
   "allow-stop-system-temperature-monitor",
   "allow-check-desktop-update",
+  "allow-desktop-update-preference",
   "allow-install-desktop-update",
   "allow-restart-desktop-after-update",
   "allow-cancel-desktop-update",
@@ -534,6 +535,11 @@ commands.allow = ["get_system_information"]
 identifier = "allow-check-desktop-update"
 description = "Allow the trusted desktop window to check desktop update using the official Windows installer or configured signed feed."
 commands.allow = ["check_desktop_update"]
+
+[[permission]]
+identifier = "allow-desktop-update-preference"
+description = "Read or set the trusted workspace's update preference in its active profile."
+commands.allow = ["desktop_update_preference"]
 
 [[permission]]
 identifier = "allow-install-desktop-update"

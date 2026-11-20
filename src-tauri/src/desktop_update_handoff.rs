@@ -19,6 +19,7 @@ struct Handoff<'a> {
     version: &'a str,
     updates_dir: &'a Path,
     arguments: Vec<String>,
+    relaunch: bool,
 }
 
 pub(crate) fn restart_arguments(tools_only: bool) -> Result<Vec<String>, String> {
@@ -41,6 +42,7 @@ pub(crate) fn start(
     expected_sha256: &str,
     expected_version: &str,
     updates_dir: &Path,
+    relaunch: bool,
 ) -> Result<(), String> {
     let executable = std::env::current_exe().map_err(|e| e.to_string())?;
     let arguments = restart_arguments(std::env::args_os().any(|arg| arg == "--tools-only"))?;
@@ -52,6 +54,7 @@ pub(crate) fn start(
         version: expected_version,
         updates_dir,
         arguments,
+        relaunch,
     };
     let json = serde_json::to_vec(&data).map_err(|e| e.to_string())?;
     let script = include_str!("desktop_update_handoff.ps1");

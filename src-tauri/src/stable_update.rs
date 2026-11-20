@@ -367,9 +367,22 @@ pub(super) fn forget_window(label: &str) {
         }
     }
 }
+pub(super) fn pending_quit_update() -> Option<(String, String)> {
+    if crate::desktop_updates::update_mode(None).ok()?
+        != crate::desktop_updates::UpdateMode::Download
+    {
+        return None;
+    }
+    match &state().ok()?.stage {
+        Stage::Ready(owner, ready) => Some((owner.clone(), ready.candidate.version.clone())),
+        _ => None,
+    }
+}
+
 pub(super) async fn handoff(
     app: &tauri::AppHandle,
     window: &WebviewWindow,
+    relaunch: bool,
 ) -> Result<bool, String> {
     let dir = directory()?;
     let ready = {
@@ -390,7 +403,7 @@ pub(super) async fn handoff(
         let path = ready.path.clone();
         let c = ready.candidate.clone();
         let r = tauri::async_runtime::spawn_blocking(move || {
-            crate::desktop_update_handoff::start(&path, &c.sha, &c.version, &dir)
+            crate::desktop_update_handoff::start(&path, &c.sha, &c.version, &dir, relaunch)
         })
         .await
         .map_err(|_| "Installer helper stopped unexpectedly".to_string())
