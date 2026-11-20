@@ -5,6 +5,7 @@
    views, command-palette contributions, and the built-in Plugin Manager. */
 
 .plugin-activity-bar {
+  --activity-icon-color: color-mix(in srgb, var(--text-primary) 70%, var(--text-secondary));
   width: calc(var(--control-height-lg) + var(--space-3));
   min-width: calc(var(--control-height-lg) + var(--space-3));
   height: 100%;
@@ -95,7 +96,7 @@
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
-  color: color-mix(in srgb, var(--text-primary) 70%, var(--text-secondary));
+  color: var(--activity-icon-color, var(--text-primary));
   cursor: pointer;
   transition:
     background var(--duration) var(--ease),
