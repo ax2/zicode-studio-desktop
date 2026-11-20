@@ -11,6 +11,7 @@ fn source(store: &mut Store) -> Access {
         .prepare(
             Prepare {
                 catalog_revision: None,
+                file_name: None,
                 schema_version: 1,
                 owner: owner.clone(),
                 mime_type: "text/plain".into(),

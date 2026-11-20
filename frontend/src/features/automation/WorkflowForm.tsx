@@ -1,3 +1,4 @@
+import { MULTI_PROJECT_UI_ENABLED, resolveDefaultWorkspacePath } from "../../shared/workspaceMode";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { randomId } from "../../../../public/native/utils/random-id.js";
 import { t } from "../../shared/i18n.js";
@@ -39,7 +40,7 @@ export function WorkflowForm({
   const listProjects = store((state) => state.listProjects);
   const [title, setTitle] = useState(source?.title ?? "");
   const [targetProject, setTargetProject] = useState(
-    source?.targetProject ?? initialProject ?? getTarget()?.cwd ?? "",
+    MULTI_PROJECT_UI_ENABLED ? source?.targetProject ?? initialProject ?? getTarget()?.cwd ?? "" : getTarget()?.cwd ?? "",
   );
   const [prompt, setPrompt] = useState(source?.prompt ?? "");
   const [schedule, setSchedule] = useState(source?.schedule ?? "manual");
@@ -56,13 +57,17 @@ export function WorkflowForm({
 
   useEffect(() => {
     let cancelled = false;
+    if (!MULTI_PROJECT_UI_ENABLED) {
+      void resolveDefaultWorkspacePath(getTarget()?.cwd ?? "").then(path => { if (!cancelled) setTargetProject(path); });
+      return () => { cancelled = true; };
+    }
     void listProjects().then((paths) => {
       if (!cancelled) setProjectPaths(paths);
     });
     return () => {
       cancelled = true;
     };
-  }, [listProjects]);
+  }, [listProjects, getTarget]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,7 +100,7 @@ export function WorkflowForm({
       await saveWorkflow(workflow);
       if (!isCurrent()) return;
       setTitle("");
-      setTargetProject(getTarget()?.cwd ?? "");
+      setTargetProject(MULTI_PROJECT_UI_ENABLED ? getTarget()?.cwd ?? "" : targetProject);
       setPrompt("");
       setSchedule("manual");
       setIntervalMinutes("60");
@@ -213,7 +218,8 @@ export function WorkflowForm({
           onChange={(e) => setTitle(e.target.value)}
         />
       </LabeledField>
-      <LabeledField label={t("Target project")} htmlFor="automation-target">
+      {MULTI_PROJECT_UI_ENABLED ? (
+<LabeledField label={t("Target project")} htmlFor="automation-target">
         <input
           id="automation-target"
           className="ui-input"
@@ -233,6 +239,7 @@ export function WorkflowForm({
           ))}
         </datalist>
       </LabeledField>
+      ) : null}
       <LabeledField label={t("Task instructions")} htmlFor="automation-prompt">
         <textarea
           id="automation-prompt"

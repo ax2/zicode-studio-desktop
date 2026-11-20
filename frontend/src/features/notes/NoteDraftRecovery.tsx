@@ -1,6 +1,8 @@
+import { DraftSaveAttempt } from "./DraftSaveAttempt";
 import { useEffect, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { NotesStore } from "./notesStore";
+import { IncomingDraftEditor } from "./IncomingDraftEditor";
 
 export function NoteDraftRecovery({ store }: { store: NotesStore }) {
   const drafts = store((state) => state.recoveryDrafts);
@@ -17,7 +19,8 @@ export function NoteDraftRecovery({ store }: { store: NotesStore }) {
     const timer = setTimeout(() => setArmed(null), 4000);
     return () => clearTimeout(timer);
   }, [armed]);
-  if (!drafts.length && !error && !pending) return null;
+  // Keep the collapsed recovery row mounted while typing and autosaving.
+  // Transient writes must not insert/remove content above the editor.
   return (
     <section className="ui-card" aria-label={t("Local note recovery")}>
       <details>
@@ -40,6 +43,7 @@ export function NoteDraftRecovery({ store }: { store: NotesStore }) {
         {drafts.map((draft) => (
           <article key={draft.id}>
             <h3>{draft.title || t("Untitled note")}</h3>
+            {draft.incoming && <IncomingDraftEditor draft={draft} store={store} busy={busy} pending={pending} />}
             {draft.attachmentMarkdown && (
               <p className="ui-muted">
                 {t(
@@ -50,8 +54,9 @@ export function NoteDraftRecovery({ store }: { store: NotesStore }) {
             <p className="ui-muted">
               <time dateTime={draft.updatedAt}>{new Date(draft.updatedAt).toLocaleString()}</time>
             </p>
+            {!draft.incoming && <DraftSaveAttempt key={draft.revision} draft={draft} store={store} busy={busy} pending={pending} />}
             <div className="ui-toolbar">
-              <button
+              {!draft.incoming && <button
                 type="button"
                 className="ui-button ui-button--secondary"
                 disabled={
@@ -63,12 +68,12 @@ export function NoteDraftRecovery({ store }: { store: NotesStore }) {
                 onClick={() => void store.getState().recoverDraft(draft.id)}
               >
                 {draft.attachmentMarkdown ? t("Insert attachment link") : t("Open recovered draft")}
-              </button>
-              {!draft.attachmentMarkdown && (
+              </button>}
+              {!draft.attachmentMarkdown && !draft.incoming && (
                 <button
                   type="button"
                   className="ui-button ui-button--secondary"
-                  disabled={busy}
+                  disabled={busy || pending || !!draft.saveAttemptNotebookId}
                   onClick={() => void store.getState().recoverDraft(draft.id, true)}
                 >
                   {t("Save draft as new note")}
@@ -85,7 +90,7 @@ export function NoteDraftRecovery({ store }: { store: NotesStore }) {
                 type="button"
                 className="ui-button ui-button--danger"
                 disabled={
-                  busy ||
+                  busy || (draft.incoming && pending) ||
                   (current?.id === draft.note.id && current.notebookId === draft.note.notebookId)
                 }
                 onClick={() => {
@@ -102,12 +107,12 @@ export function NoteDraftRecovery({ store }: { store: NotesStore }) {
             </div>
           </article>
         ))}
+        {pending && (
+          <p role="status">
+            {t("Local recovery copy is pending. Keep this window open until it finishes.")}
+          </p>
+        )}
       </details>
-      {pending && (
-        <p role="status">
-          {t("Local recovery copy is pending. Keep this window open until it finishes.")}
-        </p>
-      )}
       {error && <p role="alert">{error}</p>}
     </section>
   );

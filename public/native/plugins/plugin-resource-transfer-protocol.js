@@ -4,8 +4,10 @@ const fail = () => { throw new Error("resource_transfer_response_invalid"); };
 export function resourceAccess(owner, resource) {
   return { schemaVersion: 1, owner: { ...owner }, resourceId: resource.resourceId, contentVersion: resource.contentVersion };
 }
+const profile = originalFile => originalFile ? "resource.transfer.original-file.draft1" : "resource.transfer.draft1";
 export function transferGrant(value, source, target, resource, version) {
-  if (value?.schemaVersion !== 1 || value.profile !== "resource.transfer.draft1" ||
+  if (value?.schemaVersion !== 1 || value.profile !== profile(resource.originalFile) ||
+      (resource.originalFile && (value.fileName !== resource.fileName || value.contentRead !== false)) ||
       !UUID.test(value.grantId ?? "") || value.requiresConfirmation !== true || value.saved !== false ||
       !Number.isInteger(value.expiresInSeconds) || value.expiresInSeconds < 1 || value.expiresInSeconds > 60 ||
       value.source?.pluginId !== source.owner.pluginId || value.source?.capabilityId !== source.owner.capabilityId ||
@@ -15,8 +17,9 @@ export function transferGrant(value, source, target, resource, version) {
       typeof value.target?.toolTitle !== "string" || value.mimeType !== resource.mimeType || value.byteLength !== resource.byteLength) fail();
   return value;
 }
-export function transferredReference(value, target) {
-  if (value?.schemaVersion !== 1 || value.profile !== "resource.transfer.draft1" || value.status !== "committed" ||
+export function transferredReference(value, target, originalFile = false) {
+  if (value?.schemaVersion !== 1 || value.profile !== profile(originalFile) || value.status !== "committed" ||
+      (originalFile && value.contentRead !== false) ||
       value.saved !== false || typeof value.replayed !== "boolean" || value.reference?.capabilityId !== target.capabilityId ||
       !UUID.test(value.reference?.resourceId ?? "") || !HASH.test(value.reference?.contentVersion ?? "")) fail();
   return resourceAccess(target, value.reference);

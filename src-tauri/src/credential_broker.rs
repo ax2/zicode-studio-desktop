@@ -7,6 +7,14 @@ use std::path::{Path, PathBuf};
 const SERVICE_NAME: &str = "ZiCode Studio Desktop";
 const INDEX_VERSION: u32 = 1;
 
+#[cfg(test)]
+#[path = "credential_broker_acceptance.rs"]
+mod acceptance;
+
+#[cfg(test)]
+#[path = "credential_broker_named_tests.rs"]
+mod named_tests;
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 struct CredentialIndex {
@@ -50,18 +58,18 @@ pub struct CredentialMigrationReport {
 }
 
 pub fn store_scene_credential(scene_id: &str, provider: &str, secret: &str) -> Result<(), String> {
-    if crate::desktop_profile::is_isolated() {
+    if !crate::desktop_profile::system_credentials_enabled() {
         return Err("System credentials are disabled in isolated desktop profiles".into());
     }
-    let root = crate::app_paths::data_root()?;
+    let root = crate::app_paths::system_root()?;
     store_scene_credential_at(&root, scene_id, provider, secret)
 }
 
 pub fn delete_scene_credential(scene_id: &str, provider: &str) -> Result<(), String> {
-    if crate::desktop_profile::is_isolated() {
+    if !crate::desktop_profile::system_credentials_enabled() {
         return Err("System credentials are disabled in isolated desktop profiles".into());
     }
-    let root = crate::app_paths::data_root()?;
+    let root = crate::app_paths::system_root()?;
     validate_identifier("scene", scene_id)?;
     validate_identifier("provider", provider)?;
     let mut index = read_index(&root)?;
@@ -81,8 +89,14 @@ pub fn delete_scene_credential(scene_id: &str, provider: &str) -> Result<(), Str
 pub fn scene_credential_status(scene_id: &str, provider: &str) -> Result<CredentialStatus, String> {
     validate_identifier("scene", scene_id)?;
     validate_identifier("provider", provider)?;
-    if crate::desktop_profile::is_isolated() {
-        return Ok(CredentialStatus { scene_id: scene_id.into(), provider: provider.into(), configured: false, storage: "disabled", prefix: None });
+    if !crate::desktop_profile::system_credentials_enabled() {
+        return Ok(CredentialStatus {
+            scene_id: scene_id.into(),
+            provider: provider.into(),
+            configured: false,
+            storage: "disabled",
+            prefix: None,
+        });
     }
     let account = credential_account(scene_id, provider);
     let password = keyring::Entry::new(SERVICE_NAME, &account)
@@ -110,7 +124,7 @@ pub fn scene_credential_status(scene_id: &str, provider: &str) -> Result<Credent
 pub fn model_tool_credential(scene_id: &str, provider: &str) -> Result<Option<String>, String> {
     validate_identifier("scene", scene_id)?;
     validate_identifier("provider", provider)?;
-    if crate::desktop_profile::is_isolated() {
+    if !crate::desktop_profile::system_credentials_enabled() {
         return Ok(None);
     }
     let account = credential_account(scene_id, provider);
@@ -129,7 +143,7 @@ pub fn migrate_registered_scene_credentials<'a>(
     root: &Path,
     scene_ids: impl IntoIterator<Item = &'a str>,
 ) -> Result<CredentialMigrationReport, String> {
-    if crate::desktop_profile::is_isolated() {
+    if !crate::desktop_profile::system_credentials_enabled() {
         return Ok(CredentialMigrationReport::default());
     }
     let mut report = CredentialMigrationReport::default();
@@ -194,7 +208,7 @@ pub fn prepare_scene_credentials(
     scene_id: &str,
     agent_dir: &Path,
 ) -> Result<(), String> {
-    if crate::desktop_profile::is_isolated() {
+    if !crate::desktop_profile::system_credentials_enabled() {
         return Ok(());
     }
     let auth_path = agent_dir.join("auth.json");
@@ -202,6 +216,11 @@ pub fn prepare_scene_credentials(
         migrate_legacy_auth(root, scene_id, &auth_path)?;
     }
 
+    // Explicit personal profiles use only the registered provider environment
+    // references. Do not materialize secrets into a plaintext auth document.
+    if crate::desktop_profile::root().is_some() {
+        return remove_file_if_present(&auth_path);
+    }
     let index = read_index(root)?;
     let mut auth = Map::new();
     for item in index
@@ -243,7 +262,7 @@ pub fn scene_provider_credentials(
     root: &Path,
     scene_id: &str,
 ) -> Result<Vec<(String, String)>, String> {
-    if crate::desktop_profile::is_isolated() {
+    if !crate::desktop_profile::system_credentials_enabled() {
         return Ok(Vec::new());
     }
     let index = read_index(root)?;
@@ -330,7 +349,40 @@ fn migrate_legacy_auth(root: &Path, scene_id: &str, auth_path: &Path) -> Result<
 }
 
 fn credential_account(scene_id: &str, provider: &str) -> String {
-    let digest = Sha256::digest(format!("{scene_id}\0{provider}").as_bytes());
+    credential_account_in_scope(
+        crate::desktop_profile::root(),
+        crate::desktop_profile::test_profile_name(),
+        scene_id,
+        provider,
+    )
+}
+
+#[cfg(test)]
+fn credential_account_in(profile: Option<&Path>, scene_id: &str, provider: &str) -> String {
+    credential_account_in_scope(profile, None, scene_id, provider)
+}
+
+fn credential_account_in_scope(
+    profile: Option<&Path>,
+    test_name: Option<&str>,
+    scene_id: &str,
+    provider: &str,
+) -> String {
+    let namespace = profile
+        .map(|path| {
+            let value = path.to_string_lossy().into_owned();
+            #[cfg(windows)]
+            let value = value.to_lowercase();
+            format!("profile:{value}\0")
+        })
+        .unwrap_or_default();
+    // Domain separation preserves existing personal accounts and excludes them
+    // from every named test, even when scene/provider identifiers are identical.
+    let namespace = match test_name {
+        Some(name) => format!("named-test:{name}\0{namespace}"),
+        None => namespace,
+    };
+    let digest = Sha256::digest(format!("{namespace}{scene_id}\0{provider}").as_bytes());
     format!(
         "scene-provider-{}",
         digest[..20]
@@ -354,7 +406,14 @@ fn validate_identifier(label: &str, value: &str) -> Result<(), String> {
 }
 
 fn index_path(root: &Path) -> PathBuf {
-    root.join("credentials").join("index.json")
+    let directory = root.join("credentials");
+    match crate::desktop_profile::test_profile_name() {
+        Some(name) => directory
+            .join("test-profiles")
+            .join(name)
+            .join("index.json"),
+        None => directory.join("index.json"),
+    }
 }
 
 fn read_index(root: &Path) -> Result<CredentialIndex, String> {
@@ -371,6 +430,13 @@ fn read_index(root: &Path) -> Result<CredentialIndex, String> {
             "Unsupported credential index version {}",
             index.version
         ));
+    }
+    for entry in &index.entries {
+        validate_identifier("scene", &entry.scene_id)?;
+        validate_identifier("provider", &entry.provider)?;
+        if entry.account != credential_account(&entry.scene_id, &entry.provider) {
+            return Err("Credential index belongs to a different profile".into());
+        }
     }
     Ok(index)
 }
@@ -430,6 +496,12 @@ mod tests {
         assert_ne!(first, credential_account("programming", "qveris"));
         assert!(!first.contains("finance"));
         assert!(!first.contains("qveris"));
+        let personal = credential_account_in(Some(Path::new("personal-a")), "finance", "qveris");
+        assert_ne!(first, personal);
+        assert_ne!(
+            personal,
+            credential_account_in(Some(Path::new("personal-b")), "finance", "qveris")
+        );
     }
 
     #[test]

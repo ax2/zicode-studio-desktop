@@ -49,7 +49,7 @@ impl Receipts {
 
 impl Grants {
     pub(super) fn finish(&mut self, id: &str) {
-        if let Some(active) = self.1.remove(id) {
+        if let Some(active) = self.1.remove(id).filter(|active| active.context.is_none()) {
             let outcome = active.control.outcome();
             self.2.record(
                 id.into(),
@@ -70,7 +70,7 @@ impl Grants {
         if let Some(pending) = self
             .0
             .get(&request.grant_id)
-            .filter(|g| g.owner == request.owner)
+            .filter(|g| g.owner == request.owner && g.picked.is_none())
         {
             return Ok(
                 json!({"schemaVersion":1,"phase":"prepared","executionFinished":false,
@@ -81,7 +81,7 @@ impl Grants {
         if let Some(active) = self
             .1
             .get(&request.grant_id)
-            .filter(|g| g.owner == request.owner)
+            .filter(|g| g.owner == request.owner && g.context.is_none())
         {
             return Ok(
                 json!({"schemaVersion":1,"phase":"reading","executionFinished":false,

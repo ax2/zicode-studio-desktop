@@ -27,6 +27,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Validate release notes and issue plans
+        shell: bash
+        run: |
+          current=v$(node -p 'require("./package.json").version')
+          if [[ -f "docs/releases/$current.md" && ! -f "docs/releases/$current.issues.json" ]]; then
+            echo "::error::Missing issue plan for $current"
+            exit 1
+          fi
+          for plan in docs/releases/v*.*.*.issues.json; do
+            name=${plan##*/}
+            node scripts/check-release-notes-inputs.mjs "${name%.issues.json}"
+          done
+          node --test scripts/render-release-issues.test.mjs
+
       - name: Setup Python
         uses: actions/setup-python@v6
         with:

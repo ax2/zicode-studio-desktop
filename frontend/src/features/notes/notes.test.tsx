@@ -1,3 +1,4 @@
+import { referenceKey } from "./shortcut-repository";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
@@ -2783,7 +2784,7 @@ describe("notes React components", () => {
         ?.getAttribute("role"),
     ).toBe("menuitem");
     expect(document.querySelector(".notes-more-menu .notes-attach")).toBeTruthy();
-    expect(document.querySelector(".notes-more-menu .notes-delete")).toBeTruthy();
+    expect(document.querySelector(".notes-more-menu .notes-delete")).toBeNull();
 
     moreButton.click();
     await waitFor(() =>
@@ -3398,8 +3399,8 @@ describe("notes React components", () => {
     });
     await store.getState().load();
     store.getState().toggleSelectMode();
-    store.getState().toggleNoteSelected("note-1");
-    store.getState().toggleNoteSelected("note-2");
+    store.getState().toggleNoteSelected({ id: "note-1", notebookId: "book-1" });
+    store.getState().toggleNoteSelected({ id: "note-2", notebookId: "book-1" });
     await store.getState().moveSelectedNotes("book-2");
     expect(moveNote).toHaveBeenCalledTimes(2);
     expect(moveNote.mock.calls[0][2]).toMatchObject({
@@ -3450,12 +3451,12 @@ describe("notes React components", () => {
     });
     await store.getState().load();
     store.getState().toggleSelectMode();
-    store.getState().toggleNoteSelected("note-1");
-    store.getState().toggleNoteSelected("note-2");
+    store.getState().toggleNoteSelected({ id: "note-1", notebookId: "book-1" });
+    store.getState().toggleNoteSelected({ id: "note-2", notebookId: "book-1" });
     await store.getState().moveSelectedNotes("book-2");
     expect(moveNote).toHaveBeenCalledTimes(2);
     expect(store.getState().selectMode).toBe(true);
-    expect(store.getState().selectedNoteIds).toEqual(["note-2"]);
+    expect(store.getState().selectedNoteIds).toEqual([referenceKey({ id: "note-2", notebookId: "book-1" })]);
     expect(notify).toHaveBeenCalled();
     expect(store.getState().error?.message).toBe("move failed");
   });
@@ -3494,8 +3495,8 @@ describe("notes React components", () => {
     });
     await store.getState().load();
     store.getState().toggleSelectMode();
-    store.getState().toggleNoteSelected("note-1");
-    store.getState().toggleNoteSelected("note-2");
+    store.getState().toggleNoteSelected({ id: "note-1", notebookId: "book-1" });
+    store.getState().toggleNoteSelected({ id: "note-2", notebookId: "book-1" });
     await store.getState().deleteSelectedNotes();
     expect(del).toHaveBeenCalledTimes(2);
     expect(del.mock.calls[0][2]).toMatchObject({ id: "note-1" });
@@ -3543,12 +3544,12 @@ describe("notes React components", () => {
     });
     await store.getState().load();
     store.getState().toggleSelectMode();
-    store.getState().toggleNoteSelected("note-1");
-    store.getState().toggleNoteSelected("note-2");
+    store.getState().toggleNoteSelected({ id: "note-1", notebookId: "book-1" });
+    store.getState().toggleNoteSelected({ id: "note-2", notebookId: "book-1" });
     await store.getState().deleteSelectedNotes();
     expect(del).toHaveBeenCalledTimes(2);
     expect(store.getState().selectMode).toBe(true);
-    expect(store.getState().selectedNoteIds).toEqual(["note-2"]);
+    expect(store.getState().selectedNoteIds).toEqual([referenceKey({ id: "note-2", notebookId: "book-1" })]);
     expect(notify).toHaveBeenCalled();
     expect(store.getState().error?.message).toBe("delete failed");
   });
@@ -3592,9 +3593,12 @@ describe("notes React components", () => {
     const store = storeWithGateway();
     await store.getState().load();
     const { container } = render(<NotesNav store={store} />);
-    const moveBtn = container.querySelector(".notes-move-btn") as HTMLButtonElement | null;
+    const moveBtn = container.querySelector(".notes-manage-btn") as HTMLButtonElement | null;
     expect(moveBtn).toBeTruthy();
     moveBtn?.click();
+    await waitFor(() => expect(document.querySelector(".notes-manage-popover")).toBeTruthy());
+    const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
+    moveAction?.click();
     await waitFor(() => expect(container.querySelector(".notes-move-popover")).toBeTruthy());
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -3606,11 +3610,14 @@ describe("notes React components", () => {
     await store.getState().load();
     const { container } = render(<NotesNav store={store} />);
     const moveBtn = container.querySelector(
-      ".notes-move-btn",
+      ".notes-manage-btn",
     ) as HTMLButtonElement | null;
     expect(moveBtn).toBeTruthy();
     moveBtn?.focus();
     moveBtn?.click();
+    await waitFor(() => expect(document.querySelector(".notes-manage-popover")).toBeTruthy());
+    const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
+    moveAction?.click();
     await waitFor(() =>
       expect(container.querySelector(".notes-move-popover")).toBeTruthy(),
     );
@@ -3646,10 +3653,13 @@ describe("notes React components", () => {
     await store.getState().load();
     const { container } = render(<NotesNav store={store} />);
     const moveBtn = container.querySelector(
-      ".notes-move-btn",
+      ".notes-manage-btn",
     ) as HTMLButtonElement | null;
     expect(moveBtn).toBeTruthy();
     moveBtn?.click();
+    await waitFor(() => expect(document.querySelector(".notes-manage-popover")).toBeTruthy());
+    const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
+    moveAction?.click();
     await waitFor(() =>
       expect(container.querySelector(".notes-move-popover")).toBeTruthy(),
     );
@@ -3754,7 +3764,7 @@ describe("notes React components", () => {
     store.setState({
       error: Object.assign(new Error("conflict"), { code: "version_conflict" }),
     });
-    const selectSpy = vi.spyOn(store.getState(), "selectNote");
+    const reloadSpy = vi.spyOn(store.getState(), "reloadConflictedNote");
     const { container } = render(<NotesContent store={store} />);
     await waitFor(() =>
       expect(container.querySelector(".notes-error-banner")).toBeTruthy(),
@@ -3764,7 +3774,7 @@ describe("notes React components", () => {
     ) as HTMLButtonElement | null;
     expect(refresh).toBeTruthy();
     refresh?.click();
-    expect(selectSpy).toHaveBeenCalled();
+    expect(reloadSpy).toHaveBeenCalled();
   });
 
   it("keeps nested note action buttons independent from the row Enter handler", async () => {
@@ -3834,7 +3844,7 @@ describe("notes React components", () => {
       }),
     );
     expect(selectSpy).not.toHaveBeenCalled();
-    expect(store.getState().selectedNoteIds).toContain("note-1");
+    expect(store.getState().selectedNoteIds).toContain(referenceKey({ id: "note-1", notebookId: "book-1" }));
     selectSpy.mockRestore();
   });
 

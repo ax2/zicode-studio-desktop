@@ -60,6 +60,16 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["public/native/app.js"],
+      "linter": {
+        "rules": {
+          "correctness": { "noUndeclaredVariables": "error" }
+        }
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "double",

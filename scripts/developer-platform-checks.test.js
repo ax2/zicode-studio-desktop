@@ -12,6 +12,24 @@ import {
   workerBinaryPath,
 } from "./developer-platform-checks.mjs";
 
+it("runs strict Rust lint before integration tests and identifies a blocking probe in the live log", () => {
+  const ids = CHECKS.map((step) => step.id);
+  expect(ids.slice(ids.indexOf("rust-check"), ids.indexOf("rust-tests") + 1))
+    .toEqual(["rust-check", "clippy", "rust-tests"]);
+  const directory = mkdtempSync(join(tmpdir(), "studio-platform-feedback-"));
+  const error = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const step = { id: "fixture", command: "fixture", args: [] };
+    for (const [exitCode, advisory] of [[0, false], [1, true], [1, false]]) {
+      runStep({ ...step, advisory }, { cwd: directory, directory, env: {}, spawn: () => ({ status: exitCode }) });
+    }
+    expect(error.mock.calls).toEqual([["Platform check failed: fixture. See fixture.log in the platform report."]]);
+  } finally {
+    error.mockRestore();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 describe("developer platform evidence", () => {
   it("checks every frontend feature and treats missing native permissions as a failure", () => {
     const full = CHECKS.find((step) => step.id === "javascript-full-suite");

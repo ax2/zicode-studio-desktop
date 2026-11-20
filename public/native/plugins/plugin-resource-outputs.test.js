@@ -1,10 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { normalizeResourceOutputs } from "./plugin-resource-outputs.js";
+import { normalizeResourceOutputs, normalizeHostReport } from "./plugin-resource-outputs.js";
 const source = { resourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", contentVersion: "a".repeat(64) };
 const row = () => ({ index: 0, resourceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", contentVersion: "b".repeat(64),
   mimeType: "image/png", byteLength: 42, expiresInSeconds: 900, origin: "worker-output", saved: false, derivedFrom: { ...source } });
 const reply = (resources = [row()]) => ({ outputProfile: "resource.wasi.output.draft1", resources });
 describe("resource output reference boundary", () => {
+  it("accepts only bounded Host-generated metadata reports tied to the exact input", () => {
+    const output = { ...row(), resourceId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc" };
+    const report = { ...row(), profile: "resource.host.image-metadata-report.draft1", mimeType: "application/json", origin: "host-report" };
+    const response = { result: { ok: true }, resources: [output], reportResource: report };
+    expect(normalizeHostReport(response, source, "resource.wasi.image.metadata.v1")).toMatchObject({ mimeType: "application/json", resourceId: report.resourceId });
+    expect(normalizeHostReport({ result: { ok: true } }, source, "resource.wasi.image.metadata.v1")).toBeNull();
+    for (const extra of [{ resourceId: output.resourceId }, { origin: "worker-output" }, { mimeType: "text/plain" }, { byteLength: 48 * 1024 + 1 },
+      { derivedFrom: { ...source, contentVersion: "c".repeat(64) } }, { saved: true }])
+      expect(() => normalizeHostReport({ ...response, reportResource: { ...report, ...extra } }, source, "resource.wasi.image.metadata.v1")).toThrow("resource_response_invalid");
+    expect(() => normalizeHostReport(response, source, "resource.wasi.input.draft2")).toThrow("resource_response_invalid");
+  });
+  it("accepts only a bounded digest report with every exact parent in order", () => {
+    const profile = "resource.wasi.file-digest.v1";
+    const second = { resourceId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", contentVersion: "c".repeat(64) };
+    const owner = { ...source, capabilityId: "devtools.files.hash", additionalResources: [second] };
+    const report = { ...row(), profile: "resource.host.file-digest-report.draft1", mimeType: "application/json",
+      origin: "host-report", derivedFromAll: [source, second], path: "private" };
+    const response = { result: { ok: true }, resources: [], reportResource: report };
+    expect(normalizeHostReport(response, owner, profile)).toMatchObject({ origin: "host-report", resourceId: report.resourceId });
+    expect(normalizeHostReport(response, owner, profile)).not.toHaveProperty("path");
+    for (const fields of [{ derivedFromAll: [second, source] }, { derivedFromAll: [source] },
+      { derivedFromAll: undefined }, { resourceId: second.resourceId }, { byteLength: 8193 },
+      { profile: "resource.host.image-metadata-report.draft1" }])
+      expect(() => normalizeHostReport({ ...response, reportResource: { ...report, ...fields } }, owner, profile)).toThrow("resource_response_invalid");
+    expect(() => normalizeHostReport(response, { ...owner, capabilityId: "other" }, profile)).toThrow("resource_response_invalid");
+  });
+  it("binds Markdown success to one complete HTML output and rejects missing negotiation, mismatched length and partial failures", () => {
+    const owner={...source,capabilityId:"devtools.markdown.render"},profile="resource.wasi.markdown.v1";
+    const html={...row(),mimeType:"text/html",byteLength:10486640};
+    const success={...reply([html]),result:{ok:true,inputBytes:2097152,utf8Bytes:2097152,htmlBytes:10486640,eventCount:3,mimeType:"text/html",sourceUnchanged:true}};
+    expect(normalizeResourceOutputs(success,owner,profile)[0]).toMatchObject({mimeType:"text/html",byteLength:10486640,outputLabel:"HTML document"});
+    for(const value of [{result:success.result},{...success,resources:[]},{...success,resources:[{...html,mimeType:"text/plain"}]},
+      {...success,result:{...success.result,htmlBytes:1}},{...success,result:{...success.result,eventCount:200001}},
+      {...success,result:{...success.result,ok:false}},{...success,result:{...success.result,sourceUnchanged:false}}])
+      expect(()=>normalizeResourceOutputs(value,owner,profile)).toThrow("resource_response_invalid");
+    expect(normalizeResourceOutputs({result:{ok:false,error:{code:"MARKDOWN_FAILED"}}},owner,profile)).toBeNull();
+  });
   it("preserves legacy and strips every unknown field from valid references", () => {
     expect(normalizeResourceOutputs({}, source)).toBeNull();
     const value = row(); value.path = "private"; value.derivedFrom.token = "secret";

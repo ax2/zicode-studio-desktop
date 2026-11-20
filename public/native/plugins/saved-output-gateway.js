@@ -1,11 +1,11 @@
-const MAX_BYTES = 32 * 1024 * 1024;
+import { savedResourceLimit } from "./resource-save-policy.js";
 export function createSavedOutputGateway({ fetchImpl, location, timeoutMs = 30000 }) {
   function url(path, sceneId, workspaceId) {
     const result = new URL(path, location?.origin ?? globalThis.location?.origin);
     for (const [key, value] of Object.entries({ schemaVersion: 1, sceneId, workspaceId })) result.searchParams.set(key, value);
     return result;
   }
-  async function request(target, binary, signal, expectedLength = 0) {
+  async function request(target, binary, signal, expectedLength = 0, limit = 32 * 1024 * 1024) {
     const controller = new AbortController(), abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true }); if (signal?.aborted) abort();
     const timer = setTimeout(abort, timeoutMs);
@@ -17,7 +17,7 @@ export function createSavedOutputGateway({ fetchImpl, location, timeoutMs = 3000
       }
       if (!binary) return await response.json();
       if (response.headers.get("content-type") !== "application/octet-stream") throw new Error("Saved output unavailable");
-      if (!Number.isSafeInteger(expectedLength) || expectedLength < 0 || expectedLength > MAX_BYTES) throw new Error("Saved output unavailable");
+      if (!limit || !Number.isSafeInteger(expectedLength) || expectedLength < 0 || expectedLength > limit) throw new Error("Saved output unavailable");
       const reader = response.body.getReader(), bytes = new Uint8Array(expectedLength); let size = 0;
       try {
         for (;;) { const { done, value } = await reader.read(); if (done) break;
@@ -41,7 +41,7 @@ export function createSavedOutputGateway({ fetchImpl, location, timeoutMs = 3000
     read(sceneId, workspaceId, item, signal) {
       const target = url("/v2/plugin-resources/saved-output", sceneId, workspaceId);
       target.searchParams.set("saveId", item.receipt.saveId); target.searchParams.set("receiptVersion", item.receiptVersion);
-      return request(target, true, signal, item.receipt.byteLength);
+      return request(target, true, signal, item.receipt.byteLength, savedResourceLimit(item.receipt));
     },
   };
 }

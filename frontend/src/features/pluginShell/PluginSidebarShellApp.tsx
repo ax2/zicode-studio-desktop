@@ -1,3 +1,4 @@
+import { MULTI_PROJECT_UI_ENABLED } from "../../shared/workspaceMode";
 import { useState } from "react";
 import { t } from "../../shared/i18n";
 import { PluginIcon } from "./PluginActivityBarApp";
@@ -67,7 +68,7 @@ export function PluginSidebarShell({
 }) {
   return (
     <>
-      {project ? (
+      {MULTI_PROJECT_UI_ENABLED && project ? (
         <button
           type="button"
           className="plugin-sidebar-project"
@@ -88,7 +89,7 @@ export function PluginSidebarShell({
   );
 }
 
-export function pluginOverviewCards(pluginId: string, target: { sceneId?: string; sceneName?: string } | null) {
+export function pluginOverviewCards(pluginId: string) {
   if (pluginId === "com.zicode.notes") {
     return [
       [t("Local Markdown"), t("Readable files remain the source of truth.")],
@@ -98,7 +99,7 @@ export function pluginOverviewCards(pluginId: string, target: { sceneId?: string
   }
   if (pluginId === "com.zicode.finance") {
     return [
-      [t("Current scene"), target?.sceneName || target?.sceneId || t("Unknown")],
+      [t("Separate session"), t("Open the Finance Workbench in its dedicated session.")],
       [t("Deterministic engine"), t("Existing screening, backtests, and ledgers are preserved.")],
       [t("Workbench"), t("The current Finance Workbench remains available.")],
     ];
@@ -112,7 +113,7 @@ export function pluginOverviewCards(pluginId: string, target: { sceneId?: string
 
 export function pluginPreviewStatusText(pluginId: string, target: { sceneId?: string } | null) {
   return pluginId === "com.zicode.finance" && target?.sceneId !== "finance"
-    ? t("Open a Finance scene to use the existing workbench.")
+    ? t("Open the Finance Workbench in its dedicated session.")
     : t("This area is ready for plugin data and actions.");
 }
 
@@ -129,7 +130,7 @@ export function PluginMainShell({
   onOpenWorkbench(): void;
   onOpenConfiguration(): void;
 }) {
-  const cards = pluginOverviewCards(plugin.id, target);
+  const cards = pluginOverviewCards(plugin.id);
   return (
     <>
       <section className="plugin-main-hero">

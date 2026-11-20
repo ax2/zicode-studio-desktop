@@ -89,7 +89,9 @@ pub(super) fn execute(
     super::authority::check_ancestors(state, &request.access, &proof)?;
     super::output::validate_result(&capability, &result)?;
     Ok(Execution {
+        profile: crate::plugin_worker::resource_output::Profile::Draft1,
         result,
         resources: None,
+        report_resource: None,
     })
 }

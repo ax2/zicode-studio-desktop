@@ -1,3 +1,4 @@
+import { MULTI_PROJECT_UI_ENABLED } from "../../shared/workspaceMode";
 import { useEffect, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 // @ts-expect-error plain JS module without type declarations
@@ -142,7 +143,7 @@ export function TaskMain({
 
   const doneCount = filteredTasks(tasks, "done").length;
   const formTask = editing ?? (creating ? ({} as SuperAgentTask) : null);
-  const groups = grouped ? groupTasksByWorkspace(visible) : null;
+  const groups = MULTI_PROJECT_UI_ENABLED && grouped ? groupTasksByWorkspace(visible) : null;
   if (runtimeMode === "tools") {
     return (
       <div className="task-center-main">
@@ -191,6 +192,7 @@ export function TaskMain({
               </option>
             ))}
           </select>
+          {MULTI_PROJECT_UI_ENABLED ? (
           <button
             type="button"
             className={`ui-button ui-button--ghost ui-button--sm${grouped ? " is-active" : ""}`}
@@ -200,6 +202,7 @@ export function TaskMain({
           >
             {grouped ? t("By workspace") : t("Group by workspace")}
           </button>
+          ) : null}
           <button
             type="button"
             className="ui-button ui-button--primary"
@@ -750,7 +753,7 @@ function TaskCard({
           ) : null}
         </div>
       </header>
-      {!scheduledTemplate && task.status === "pending" && !task.targetProject ? (
+      {MULTI_PROJECT_UI_ENABLED && !scheduledTemplate && task.status === "pending" && !task.targetProject ? (
         <p className="task-center-runtime-hint" role="note">
           {t("Set a target project to run this manual task.")}
         </p>
@@ -798,7 +801,7 @@ function TaskCard({
         </div>
       ) : null}
       <dl>
-        <Detail term={t("Project")} value={taskProject(task)} />
+        {MULTI_PROJECT_UI_ENABLED ? <Detail term={t("Project")} value={taskProject(task)} /> : null}
         {scheduledTemplate ? (
           <>
             <Detail term={t("Schedule")} value={scheduleDescription(task)} />

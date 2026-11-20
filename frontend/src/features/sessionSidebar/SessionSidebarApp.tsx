@@ -1,3 +1,4 @@
+import { MULTI_PROJECT_UI_ENABLED } from "../../shared/workspaceMode";
 import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 // @ts-expect-error plain JS modules without type declarations (public/)
@@ -646,7 +647,12 @@ export function SessionSidebarApp({
         </div>
       ) : null}
 
-      {projectGroups.map(renderProjectGroup)}
+      {MULTI_PROJECT_UI_ENABLED ? projectGroups.map(renderProjectGroup) : (
+        <div className="default-session-list">
+          {projectGroups.flatMap(group => group.sessions).slice(0, searchQuery ? undefined : visibleCount).map(session => renderSessionItem(session, { hidden: !titleMatches(session) }))}
+          {!searchQuery ? renderToggleRow(Math.min(visibleCount, regular.length), regular.length) : null}
+        </div>
+      )}
 
       {archivedSessions.length > 0 ? (
         <div

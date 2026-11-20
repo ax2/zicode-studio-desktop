@@ -11,12 +11,15 @@ import type { PluginManagerFilter } from "./pluginManagerLogic";
 
 let activeRoot: Root | null = null;
 let activeWrapper: HTMLElement | null = null;
+let activeRegistry: PluginManagerRegistry | null = null;
+let activeScope: string | null = null;
 
 export interface PluginManagerViewOptions {
   container: HTMLElement;
   registry: PluginManagerRegistry;
   canManagePlugins?: boolean;
-  getTarget?(): { sceneId?: string } | null;
+  getTarget?(): { sceneId?: string; workspaceId?: string } | null;
+  preserveState?: boolean;
   notify?(message: string): void;
   renderIcon?(icon: string | undefined): HTMLElement;
   selectDeveloperPlugin?: (() => Promise<DeveloperPluginPreview | null | undefined>) | null;
@@ -38,20 +41,25 @@ export interface PluginManagerViewOptions {
 
 export function renderPluginManagerView(options: PluginManagerViewOptions): void {
   const { container, ...rest } = options;
-  if (activeRoot) {
-    // Mount into a dedicated wrapper so an earlier plugin-shell
-    // replaceChildren() (which detaches the wrapper, not its children) never
-    // leaves React unable to unmount its own nodes.
-    activeRoot.unmount();
-    activeRoot = null;
+  const target = rest.getTarget?.();
+  const scope = JSON.stringify([target?.sceneId ?? "programming", target?.workspaceId ?? null]);
+  const retain = rest.preserveState && activeRoot && activeWrapper?.parentNode === container &&
+    activeRegistry === rest.registry && activeScope === scope;
+  if (!retain) {
+    // Keep the dedicated wrapper so unmount is safe after the shell detaches it.
+    activeRoot?.unmount();
+    activeWrapper?.remove();
+    container.replaceChildren();
+    const wrapper = document.createElement("div");
+    wrapper.dataset.pluginManagerRoot = "";
+    container.append(wrapper);
+    activeWrapper = wrapper;
+    activeRoot = createRoot(wrapper);
+    activeRegistry = rest.registry;
+    activeScope = scope;
   }
-  activeWrapper?.remove();
-  const wrapper = document.createElement("div");
-  wrapper.dataset.pluginManagerRoot = "";
-  container.append(wrapper);
-  activeWrapper = wrapper;
-  const root = createRoot(wrapper);
-  activeRoot = root;
+  const root = activeRoot;
+  if (!root) return;
   flushSync(() => {
     root.render(
       createElement(PluginManagerViewApp, {

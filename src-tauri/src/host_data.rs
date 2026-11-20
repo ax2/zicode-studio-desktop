@@ -252,6 +252,8 @@ impl HostDataPlane {
                 collect_session_files(&app_dir, &mut files)?;
             }
         }
+        files.sort();
+        files.dedup();
         Ok(files)
     }
 

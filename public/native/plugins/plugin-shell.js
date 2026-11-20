@@ -1,4 +1,6 @@
+import { isWorkspaceApplicationVisible, MULTI_PROJECT_UI_ENABLED } from "../workspace/workspace-mode.js";
 import { t } from "../../i18n.js";
+import { createPluginSidebarAvailability } from "./plugin-sidebar-availability.js";
 import { mountToolCenter } from "../react/tool-center.js";
 import { createRetainedToolCenter } from "./retained-tool-center.js";
 import { applicationDirectory, primaryActivities, TOOL_CENTER_ID } from "./tool-navigation.js";
@@ -8,7 +10,7 @@ import {
   setupPluginActivityBar,
   setupPluginShellSurfaces,
 } from "../react/plugin-shell.js";
-import { setupMobileHistoryLayer } from "../utils/mobile-history-layer.js";
+import { MOBILE_HISTORY_LAYER_KEY, setupMobileHistoryLayer } from "../utils/mobile-history-layer.js";
 import { pluginCommandEntries } from "./plugin-command-entries.js";
 import { createBuiltinPluginRegistry } from "./plugin-registry.js";
 import { resourceViewTarget } from "./plugin-view-resource.js";
@@ -58,6 +60,7 @@ export function setupPluginShell({
   const main = document.querySelector(".main");
   const header = main?.querySelector(".header");
   if (!appLayout || !sidebar || !main || !header) return null;
+  const sidebarAvailability = createPluginSidebarAvailability(sidebar);
 
   const chatSidebarElements = [
     sidebar.querySelector(".sidebar-header"),
@@ -137,7 +140,9 @@ export function setupPluginShell({
       onBackdropClick: () => closeMobileActivityMenu({ restoreFocus: true }),
       onMenuClose: () => closeMobileActivityMenu({ restoreFocus: true }),
       onMenuItemClick: (item) => {
-        closeMobileActivityMenu({ discardHistory: true });
+        if (item.id === "core.files" || item.id === "core.commands") {
+          closeMobileActivityMenu({ discardHistory: true });
+        }
         if (item.onClick) item.onClick();
         else activateFromNavigation(item.id);
       },
@@ -154,6 +159,8 @@ export function setupPluginShell({
   main.append(pluginMain);
 
   let activePluginId = CHAT_PLUGIN_ID;
+  const receiveNoteDraft = notesApp?.receiveIncomingDraft
+    ? (input, isCurrent, verify) => notesApp.receiveIncomingDraft(input, isCurrent, verify) : undefined;
   const toolCenter = createRetainedToolCenter(mountToolCenter);
   let catalogRevision = 0;
   let pendingUnavailablePluginId = null;
@@ -173,23 +180,20 @@ export function setupPluginShell({
     return value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
   }
 
-  function historyUrl() {
-    const { pathname = "", search = "", hash = "" } = globalThis.location || {};
-    return `${pathname}${search}${hash}` || "/";
+  function requestedAppPluginId() {
+    return new URLSearchParams(globalThis.location?.search || "").get("app");
   }
 
   function writePluginHistory(pluginId, mode = "replace") {
     if (!globalThis.history) return;
     const state = { ...historyState(), [PLUGIN_HISTORY_STATE_KEY]: pluginId };
-    globalThis.history[mode === "push" ? "pushState" : "replaceState"](
-      state,
-      "",
-      historyUrl(),
-    );
+    const url = new URL(globalThis.location.href);
+    if (pluginId !== CHAT_PLUGIN_ID || url.searchParams.has("app")) url.searchParams.set("app", pluginId);
+    globalThis.history[mode === "push" ? "pushState" : "replaceState"](state, "", url);
   }
 
   const handlePluginPopState = (event) => {
-    const pluginId = event.state?.[PLUGIN_HISTORY_STATE_KEY] || CHAT_PLUGIN_ID;
+    const pluginId = event.state?.[PLUGIN_HISTORY_STATE_KEY] || requestedAppPluginId() || CHAT_PLUGIN_ID;
     activate(pluginId, { focus: false });
   };
   globalThis.addEventListener?.("popstate", handlePluginPopState);
@@ -271,6 +275,7 @@ export function setupPluginShell({
   }
 
   async function activateInner(pluginId, { focus = true, historyMode = "none" } = {}) {
+    if (!isWorkspaceApplicationVisible(pluginId)) pluginId = TOOL_CENTER_ID;
     const previousPluginId = activePluginId;
     if (
       !SHELL_VIEW_IDS.has(pluginId) &&
@@ -307,6 +312,7 @@ export function setupPluginShell({
     closeMobileActivityMenu();
     if (pluginId === CHAT_PLUGIN_ID) activityBadges.delete(CHAT_PLUGIN_ID);
     const isChat = pluginId === CHAT_PLUGIN_ID;
+    sidebarAvailability.sync(registry.get(pluginId));
     document.body.dataset.activePlugin = pluginId;
     for (const element of chatSidebarElements) toggleSurface(element, isChat);
     for (const element of chatMainElements) toggleSurface(element, isChat);
@@ -330,8 +336,8 @@ export function setupPluginShell({
     document.dispatchEvent(
       new CustomEvent("zicode:active-plugin-changed", { detail: { pluginId } }),
     );
-    if (historyMode === "push" && previousPluginId !== pluginId) {
-      writePluginHistory(pluginId, "push");
+    if (historyMode !== "none") {
+      writePluginHistory(pluginId, previousPluginId === pluginId ? "replace" : historyMode);
     }
   }
 
@@ -420,9 +426,7 @@ export function setupPluginShell({
     if (settingsApp && (hash === "#/settings" || hash.startsWith("#/settings/"))) {
       return SETTINGS_VIEW_ID;
     }
-    const requested = new URLSearchParams(globalThis.location?.search || "").get(
-      "app",
-    );
+    const requested = requestedAppPluginId();
     if (!requested) return CHAT_PLUGIN_ID;
     if (SHELL_VIEW_IDS.has(requested)) return requested;
     if (registry.isEnabled(requested)) {
@@ -437,8 +441,11 @@ export function setupPluginShell({
   }
 
   async function activateFromNavigation(pluginId) {
+    // The open More menu already has its own history entry. Turn it into
+    // the destination entry so Back returns directly to the prior application.
+    const fromMenu = !mobileActivityMenu?.hidden && globalThis.history?.state?.[MOBILE_HISTORY_LAYER_KEY] === "application-menu";
     closeMobileActivityMenu({ discardHistory: true });
-    await activate(pluginId, { historyMode: "push" });
+    await activate(pluginId, { historyMode: fromMenu ? "replace" : "push" });
     if (activePluginId === pluginId) requestFunctionArea();
     return activePluginId === pluginId && failedRenderPluginId !== pluginId;
   }
@@ -489,6 +496,7 @@ export function setupPluginShell({
   function renderSidebar(pluginId) {
     pluginSidebar.replaceChildren();
     const plugin = registry.get(pluginId);
+    sidebarAvailability.sync(plugin);
     const application = applicationViews.get(pluginId);
     const hasOwnNavigation =
       pluginId === SETTINGS_VIEW_ID ||
@@ -501,7 +509,7 @@ export function setupPluginShell({
           ? t("Help")
           : t(plugin?.name ?? "Plugins");
     const accordions = [];
-    const project = getProject();
+    const project = MULTI_PROJECT_UI_ENABLED ? getProject() : null;
     if (pluginId === MANAGER_VIEW_ID) {
       accordions.push(
         {
@@ -565,20 +573,20 @@ export function setupPluginShell({
     }
   }
 
-  function renderMain(pluginId) {
+  function renderMain(pluginId, preserveState = false) {
     // App views may add their own classes to the shared main container
     // (e.g. finance adds `finance-plugin-main`); without a reset they leak
     // into every subsequent app and alter its layout.
     const wasHidden = pluginMain.classList.contains("plugin-surface-hidden");
     pluginMain.className = "plugin-main-view";
     pluginMain.classList.toggle("plugin-surface-hidden", wasHidden);
-    pluginMain.replaceChildren();
+    if (pluginId !== MANAGER_VIEW_ID || !preserveState) pluginMain.replaceChildren();
     if (pluginId === TOOL_CENTER_ID) {
       const target = getTarget();
       const directoryTarget = resourceViewTarget(target);
       const directoryRevision = catalogRevision;
       toolCenter.show(pluginMain, {
-        entries: applicationDirectory(registry.list(), pluginAvailableOnClient, t, activateFromNavigation),
+        entries: getApplicationDirectory(),
         onOpenViewOperation: openViewOperationFromDirectory,
         onOpenToolApplication: async (pluginId, capabilityId, version, entry) => {
           try {
@@ -610,8 +618,9 @@ export function setupPluginShell({
         toolApi: capabilityGateway,
         catalogRevision,
         getResourceTarget: getTarget,
+        receiveNoteDraft,
         scope: target ? { sceneId: target.sceneId, workspaceId: target.workspaceId } : undefined,
-        workspaceApi: globalThis.__TAURI__?.core?.invoke ? {
+        workspaceApi: MULTI_PROJECT_UI_ENABLED && globalThis.__TAURI__?.core?.invoke ? {
           list: () => globalThis.__TAURI__.core.invoke("list_workspaces"),
           switchTo: projectPath => globalThis.__TAURI__.core.invoke("switch_window_workspace", { projectPath, pluginId: TOOL_CENTER_ID }),
           openFolder: () => globalThis.__TAURI__.core.invoke("open_folder_as_workspace", { pluginId: TOOL_CENTER_ID }),
@@ -651,6 +660,7 @@ export function setupPluginShell({
     if (pluginId === MANAGER_VIEW_ID) {
       renderPluginManagerView({
         container: pluginMain,
+        preserveState,
         registry,
         canManagePlugins,
         getTarget,
@@ -696,7 +706,7 @@ export function setupPluginShell({
       target: financeTarget,
       previewStatus:
         plugin.id === "com.zicode.finance" && financeTarget?.sceneId !== "finance"
-          ? t("Open a Finance scene to use the existing workbench.")
+          ? t("Open the Finance Workbench in its dedicated session.")
           : t("This area is ready for plugin data and actions."),
       onOpenWorkbench: () => executeCommand("finance.openWorkbench"),
       onOpenConfiguration: () => executeCommand("finance.configuration"),
@@ -763,7 +773,7 @@ export function setupPluginShell({
     booted = true;
     renderActivities();
     const initialPlugin = initialAppPluginId();
-    activate(initialPlugin, { focus: false });
+    void activate(initialPlugin, { focus: false }).then(() => writePluginHistory(activePluginId));
     if (pendingDisabledPluginId) {
       const plugin = registry.get(pendingDisabledPluginId);
       notify({
@@ -787,7 +797,6 @@ export function setupPluginShell({
       });
       pendingUnavailablePluginId = null;
     }
-    writePluginHistory(initialPlugin);
   }
 
   function setTarget(nextTarget = getTarget?.()) {
@@ -822,6 +831,10 @@ export function setupPluginShell({
     } else {
       completeHydration();
     }
+  }
+
+  function getApplicationDirectory() {
+    return applicationDirectory(registry.list(), pluginAvailableOnClient, t, activateFromNavigation);
   }
 
   function getCommandPaletteEntries() {
@@ -862,7 +875,7 @@ export function setupPluginShell({
       return;
     }
     renderActivities();
-    if (activePluginId === MANAGER_VIEW_ID || activePluginId === TOOL_CENTER_ID) renderMain(activePluginId);
+    if (activePluginId === MANAGER_VIEW_ID || activePluginId === TOOL_CENTER_ID) renderMain(activePluginId, true);
     updateActivitySelection(activePluginId);
   });
   const handleLocaleChange = () => {
@@ -945,6 +958,7 @@ export function setupPluginShell({
       return true;
     },
     getCommandPaletteEntries,
+    getApplicationDirectory,
     getActivePluginId: () => activePluginId,
     registry,
     listCapabilities: () => {
@@ -981,6 +995,7 @@ export function setupPluginShell({
       activityBarApi.destroy();
       shellSurfaces.destroy();
       activityBarHost.remove();
+      sidebarAvailability.destroy();
       pluginSidebar.remove();
       pluginMain.remove();
       for (const element of [...chatSidebarElements, ...chatMainElements])
@@ -1106,6 +1121,7 @@ function iconSvg(name) {
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
   const paths = {
+    mail: [["path",{d:"M3 5h18v14H3z M3 6l9 7 9-7"}]],
     chat: [
       ["path", { d: "M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" }],
       ["path", { d: "M8 9h8M8 13h5" }],

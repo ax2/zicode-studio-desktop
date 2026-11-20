@@ -1,3 +1,4 @@
+import { MULTI_PROJECT_UI_ENABLED, resolveDefaultWorkspacePath } from "../../shared/workspaceMode";
 import { useEffect, useState } from "react";
 import { t } from "../../shared/i18n.js";
 import type { SuperAgentTask } from "./logic";
@@ -23,7 +24,7 @@ export function TaskForm({
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
   const [target, setTarget] = useState(
-    task?.targetProject ?? initialProject ?? store.getState().getCurrentProjectPath() ?? "",
+    MULTI_PROJECT_UI_ENABLED ? task?.targetProject ?? initialProject ?? store.getState().getCurrentProjectPath() ?? "" : store.getState().getCurrentProjectPath() ?? "",
   );
   const [schedule, setSchedule] = useState<"manual" | "interval" | "daily">(
     template ? (task.schedule as "interval" | "daily") : "manual",
@@ -37,13 +38,17 @@ export function TaskForm({
 
   useEffect(() => {
     let cancelled = false;
+    if (!MULTI_PROJECT_UI_ENABLED) {
+      void resolveDefaultWorkspacePath(store.getState().getCurrentProjectPath() ?? "").then(path => { if (!cancelled) setTarget(path); });
+      return () => { cancelled = true; };
+    }
     void listProjects().then((paths) => {
       if (!cancelled) setProjectPaths(paths);
     });
     return () => {
       cancelled = true;
     };
-  }, [listProjects]);
+  }, [listProjects, store]);
 
   const save = async (saveAsDraft: boolean) => {
     if (!title.trim() || saving) return;
@@ -104,7 +109,8 @@ export function TaskForm({
           onChange={(event) => setDescription(event.target.value)}
         />
       </label>
-      <label className="task-form-field">
+      {MULTI_PROJECT_UI_ENABLED ? (
+<label className="task-form-field">
         <span>{t("Target project")}</span>
         <input
           className="ui-input"
@@ -120,7 +126,8 @@ export function TaskForm({
           ))}
         </datalist>
       </label>
-      {schedule === "manual" && !target.trim() ? (
+      ) : null}
+      {MULTI_PROJECT_UI_ENABLED && schedule === "manual" && !target.trim() ? (
         <p className="task-form-hint" role="note">
           {t("Manual tasks need a target project before they can be run.")}
         </p>

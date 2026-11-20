@@ -37,6 +37,7 @@ impl NotesVault {
             .iter()
             .map(|note| (format!("{}/{}", note.notebook_id, note.id), note))
             .collect();
+        let mut relocated: HashMap<(String, String), Option<String>> = HashMap::new();
         let mut links = Vec::new();
         let mut seen_links = BTreeSet::new();
         for source in &summaries {
@@ -47,9 +48,25 @@ impl NotesVault {
                         "wikilink",
                         unique_title(&title, &source.notebook_id, &by_title),
                     ),
-                    super::references::Reference::Resource { book, note, .. } => {
-                        ("reference", by_ref.get(&format!("{book}/{note}")).copied())
-                    }
+                    super::references::Reference::Resource { book, note, .. } => (
+                        "reference",
+                        by_ref.get(&format!("{book}/{note}")).copied().or_else(|| {
+                            let target = relocated
+                                .entry((book.clone(), note.clone()))
+                                .or_insert_with(|| match self.resolve_note(&book, &note) {
+                                    Ok(document) => Some(document.summary.notebook_id),
+                                    Err(error) => {
+                                        if error.code != "note_not_found" {
+                                            incomplete = true;
+                                        }
+                                        None
+                                    }
+                                });
+                            target.as_ref().and_then(|current| {
+                                by_ref.get(&format!("{current}/{note}")).copied()
+                            })
+                        }),
+                    ),
                     _ => return,
                 };
                 let Some(target) = target else {

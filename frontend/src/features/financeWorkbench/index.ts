@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import type { Root } from "react-dom/client";
 import { friendlyPluginError } from "../../shared/hostErrors";
 import { t } from "../../shared/i18n";
+import { createFinanceSessionEntry } from "./finance-session-entry";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import {
   FinanceContentApp,
@@ -62,6 +63,7 @@ export function setupFinanceWorkbench({
 }: FinanceWorkbenchOptions): FinanceWorkbenchHandle | null {
   if (!configGateway) return null;
   const store = createFinanceWorkbenchStore();
+  const sessionEntry = createFinanceSessionEntry(createFinanceSession);
   let navigationContainer: HTMLElement | null = null;
   let contentContainer: HTMLElement | null = null;
   let navRoot: Root | null = null;
@@ -185,6 +187,7 @@ export function setupFinanceWorkbench({
   }
 
   const controller: FinanceWorkbenchController = {
+    sessionEntry,
     selectView(viewId) {
       if (FINANCE_VIEW_IDS.has(viewId)) {
         commit({ activeViewId: viewId });
@@ -197,7 +200,7 @@ export function setupFinanceWorkbench({
     },
     openConfiguration: () => openConfiguration?.(),
     openSceneSettings: () => openSceneSettings?.(),
-    createFinanceSession: () => createFinanceSession(),
+    createFinanceSession: () => sessionEntry.getState().open(),
     async runUsage() {
       setBusy("usage", true);
       setResult("usage", { ok: false, error: t("Loading usage audit…") });
@@ -422,6 +425,7 @@ export function setupFinanceWorkbench({
     renderNavigation,
     renderContent,
     destroy() {
+      sessionEntry.getState().destroy();
       window.removeEventListener("zicode:locale-changed", handleLocaleChange);
       navRoot?.unmount();
       contentRoot?.unmount();

@@ -8,10 +8,16 @@ export function NoteRelationshipStatus({ store }: { store: NotesStore }) {
   const dirty = store((state) => state.dirty);
   return (
     <>
-      {dirty ? (
-        <p>{t("Relationships reflect saved notes. Save your edits to refresh them.")}</p>
-      ) : null}
-      {loading ? <p role="status">{t("Loading note relationships…")}</p> : null}
+      {/* Reserve both message sizes so routine save/refresh state changes
+          cannot resize the flexing editor above this row. */}
+      <p className="notes-relationship-status" role="status">
+        <span data-active={dirty && !loading} aria-hidden={!dirty || loading}>
+          {t("Relationships reflect saved notes. Save your edits to refresh them.")}
+        </span>
+        <span data-active={loading} aria-hidden={!loading}>
+          {t("Loading note relationships…")}
+        </span>
+      </p>
       {incomplete ? (
         <p role="status">
           {t(

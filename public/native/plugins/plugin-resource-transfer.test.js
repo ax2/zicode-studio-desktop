@@ -60,7 +60,7 @@ describe("trusted resource transfer", () => {
     }));
     await f.click("Run receiving tool");
     expect(f.container.textContent).toContain("Tool reported an error. Inputs are kept and no result was saved.");
-    expect(f.container.textContent).not.toContain("Receiving tool finished. Results have not been saved.");
+    expect(f.container.textContent).not.toContain("Tool finished. Review the result and save any output files explicitly.");
     expect(f.container.textContent).toContain("Run receiving tool");
     expect(f.onReceiverExecuted).toHaveBeenCalledOnce();
     f.controller.destroy();
@@ -73,6 +73,54 @@ describe("trusted resource transfer", () => {
     expect(f.container.textContent).not.toContain("Image receiver · Tools · 0.1.0");
     expect(f.container.textContent).toContain("No compatible receiving tools on this page.");
     expect(f.gateway.loadTool).not.toHaveBeenCalled();
+    f.controller.destroy();
+  });
+
+  it.each([
+    { operation: "inspect", title: "Encoding check", executionProfile: undefined, byteLength: 5, formattedBytes: "5" },
+    { operation: "convert", title: "Encoding conversion", executionProfile: "resource.wasi.encoding-convert.v1", byteLength: 8 * 1024 * 1024, formattedBytes: "8,388,608" },
+  ])("shares an original file with $operation and executes only on the explicit run action", async ({ operation, title, executionProfile, byteLength, formattedBytes }) => {
+    const f = fixture();
+    const original = { ...resource, byteLength, originalFile: true, fileName: "样本.txt", mimeType: "application/octet-stream" };
+    const encoding = { ...tool, pluginId: "com.zicode.devtools.encoding", capabilityId: `devtools.encoding.${operation}`, title,
+      resourceInputMimeTypes: [original.mimeType] };
+    const other = { ...encoding, capabilityId: "devtools.encoding.to_utf8", title: "Convert encoding" };
+    f.gateway.searchTools.mockResolvedValue({ schemaVersion: 1, revision: hash, items: [encoding, other], offset: 0, nextOffset: null });
+    f.gateway.loadTool.mockResolvedValue({ schemaVersion: 1, ...encoding, revision: hash, resourceInputProfile: "resource.wasi.input.draft2",
+      capability: { id: encoding.capabilityId, resourceInputMimeTypes: encoding.resourceInputMimeTypes, inputSchema: {}, executionProfile },
+      permissions: [{ name: "resource.read", granted: true }] });
+    const profile = "resource.transfer.original-file.draft1";
+    f.gateway.prepareResourceTransfer.mockResolvedValue({ schemaVersion: 1, profile, grantId: id, saved: false, contentRead: false, requiresConfirmation: true,
+      expiresInSeconds: 60, source: { pluginId: owner.pluginId, capabilityId: owner.capabilityId, resourceId: id, contentVersion: hash },
+      target: { pluginId: encoding.pluginId, capabilityId: encoding.capabilityId, pluginName: "Encoding", pluginVersion: encoding.version, toolTitle: encoding.title },
+      mimeType: original.mimeType, byteLength: original.byteLength, fileName: original.fileName });
+    f.gateway.commitResourceTransfer.mockResolvedValue({ schemaVersion: 1, profile, status: "committed", saved: false, contentRead: false,
+      replayed: false, reference: { capabilityId: encoding.capabilityId, resourceId: id, contentVersion: hash } });
+    f.gateway.invokeResource.mockResolvedValue({ schemaVersion: 1, operationId: id, source: { pluginId: encoding.pluginId,
+      capabilityId: encoding.capabilityId, packageVersion: encoding.version, profile: "resource.wasi.input.draft2", contentVersion: hash }, result: { ok: true } });
+    const input = operation === "convert" ? { sourceEncoding: "utf8", targetEncoding: "utf16le" } : {};
+    f.form.prepare.mockReturnValue({ input });
+    if (operation === "convert") {
+      const call = f.gateway.invokeResource.getMockImplementation();
+      f.gateway.invokeResource.mockImplementation(async (...args) => ({ ...await call(...args),
+        outputProfile: "resource.wasi.output.draft1", resources: [{ index: 0, resourceId: "22222222-2222-4222-8222-222222222222", contentVersion: hash,
+          mimeType: "application/x-zicode-encoded-text", byteLength: 16 * 1024 * 1024, origin: "worker-output", saved: false,
+          expiresInSeconds: 900, derivedFrom: { resourceId: id, contentVersion: hash } }],
+      }));
+    }
+    f.controller.open(original, owner, f.container);
+    await flush();
+    expect(f.container.textContent).not.toContain(other.title);
+    await f.click(`${title} · Tools · 0.1.0`);
+    await f.click("Review sharing");
+    expect(f.container.textContent).toContain(`样本.txt · ${formattedBytes} bytes`);
+    expect(f.gateway.prepareResourceTransfer).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ capabilityId: encoding.capabilityId }), true);
+    await f.click("Confirm sharing");
+    expect(f.gateway.invokeResourceCall).not.toHaveBeenCalled();
+    await f.click("Run receiving tool");
+    expect(f.gateway.invokeResourceCall).toHaveBeenCalledOnce();
+    expect(f.gateway.invokeResourceCall.mock.calls[0][1].input).toEqual(input);
+    if (operation === "convert") expect(f.container.textContent).toContain(`SHA-256 ${hash}`);
     f.controller.destroy();
   });
 
@@ -107,7 +155,7 @@ describe("trusted resource transfer", () => {
     expect(f.gateway.prepareResourceTransfer.mock.calls[0][1]).toMatchObject({ pluginId: receiver.pluginId, capabilityId: receiver.capabilityId });
     expect(f.gateway.invokeResourceCall).toHaveBeenCalledOnce();
     expect(f.container.textContent).toContain('"width": 4');
-    expect(f.container.textContent).toContain("Results have not been saved");
+    expect(f.container.textContent).toContain("Tool finished. Review the result and save any output files explicitly.");
     f.controller.destroy();
   });
 

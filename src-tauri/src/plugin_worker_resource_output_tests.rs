@@ -1,10 +1,36 @@
 use super::*;
+
+#[test]
+fn explicit_metadata_frame_does_not_change_legacy_output_limits() {
+    let bundle = Bundle { profile: Profile::ImageMetadata2, binary:true, result:serde_json::json!({}),
+        resources:vec![Blob{mime_type:"image/png".into(),bytes:vec![17;MAX_BYTES+1]}] };
+    let mut frame=Vec::new();write(&mut frame,&bundle).unwrap();
+    assert!(decode(&frame).is_err());
+    assert_eq!(decode_with_profile(&frame,Profile::ImageMetadata2).unwrap().resources[0].bytes.len(),MAX_BYTES+1);
+    let mut legacy=frame.clone();legacy[..8].copy_from_slice(Profile::Draft1.magic());
+    assert!(decode_with_profile(&legacy,Profile::ImageMetadata2).is_err());
+    assert!(decode(&legacy).is_err());
+    assert_eq!(Profile::Draft1.max_file(),32*1024*1024);
+    assert_eq!(Profile::ImageMetadata2.max_file(),128*1024*1024);
+}
+
+#[test]
+fn metadata_output_requires_its_execution_profile_and_cannot_downgrade() {
+    assert_eq!(Profile::negotiate(Some(Profile::METADATA_NAME),Some(Profile::METADATA_EXECUTION)).unwrap(),Some(Profile::ImageMetadata2));
+    assert!(Profile::negotiate(Some(Profile::METADATA_NAME),None).is_err());
+    assert!(Profile::negotiate(Some(PROFILE),Some(Profile::METADATA_EXECUTION)).is_err());
+    assert!(Profile::negotiate(None,Some(Profile::METADATA_EXECUTION)).is_err());
+    assert!(Profile::negotiate(Some(Profile::METADATA_NAME),Some("resource.wasi.image.resize.v1")).is_err());
+    assert_eq!(Profile::negotiate(Some(PROFILE),None).unwrap(),Some(Profile::Draft1));
+    let bundle=Bundle{profile:Profile::ImageMetadata2,binary:true,result:serde_json::json!({}),resources:vec![Blob{mime_type:"text/plain".into(),bytes:b"rejected".to_vec()}]};
+    assert!(write(Vec::new(),&bundle).is_err());
+}
 use serde_json::json;
 
 #[test]
 fn binary_frame_roundtrips_large_raw_bytes_and_rejects_corruption_or_trailing_data() {
     let bundle = Bundle {
-        binary: true,
+        profile: crate::plugin_worker::resource_output::Profile::Draft1, binary: true,
         result: json!({"text":"ready"}),
         resources: vec![
             Blob {
@@ -67,7 +93,7 @@ fn output_header_enforces_metadata_lengths_versions_and_escaping_before_writing(
     frame.extend_from_slice(&((MAX_HEADER + 1) as u32).to_le_bytes());
     assert!(decode(&frame).is_err());
     let bundle = Bundle {
-        binary: true,
+        profile: crate::plugin_worker::resource_output::Profile::Draft1, binary: true,
         result: json!("\0".repeat(MAX_HEADER / 5)),
         resources: Vec::new(),
     };
@@ -84,7 +110,7 @@ fn archive_output_frame_preserves_format_without_a_caller_filename() {
         ("application/x-zicode-archive-cab", "cab"),
     ] {
         let bundle = Bundle {
-            binary: true,
+            profile: crate::plugin_worker::resource_output::Profile::Draft1, binary: true,
             result: json!({"created": true}),
             resources: vec![Blob { mime_type: mime.into(), bytes: b"archive".to_vec() }],
         };
@@ -102,7 +128,7 @@ fn document_output_frame_keeps_fixed_type_without_a_caller_filename() {
         ("text/csv", "csv"), ("text/markdown", "md"),
         ("text/html", "html"), ("application/x-zicode-sqlite", "sqlite"),
     ] {
-        let bundle = Bundle { binary: true, result: json!({}),
+        let bundle = Bundle { profile: crate::plugin_worker::resource_output::Profile::Draft1, binary: true, result: json!({}),
             resources: vec![Blob { mime_type: mime.into(), bytes: b"untrusted content".to_vec() }] };
         let mut frame = Vec::new();
         write(&mut frame, &bundle).unwrap();

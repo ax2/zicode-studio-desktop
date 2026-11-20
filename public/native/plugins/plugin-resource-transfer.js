@@ -13,6 +13,14 @@ const HOST_OCR_INPUT_PROFILE = "resource.host.ocr-input.v1";
 const HOST_OCR_RECEIVER = { pluginId: "com.zicode.ocr", capabilityId: "ocr.resource-text" };
 const HOST_TEXT_INPUT_PROFILE = "resource.host.text-input.v1";
 const HOST_TEXT_RECEIVER = { pluginId: "com.zicode.text-inspector", capabilityId: "text.inspect" };
+const ENCODING_PLUGIN = "com.zicode.devtools.encoding";
+const ENCODING_INSPECT = "devtools.encoding.inspect";
+const ENCODING_CONVERT = "devtools.encoding.convert";
+const ENCODING_CONVERT_PROFILE = "resource.wasi.encoding-convert.v1";
+
+function isOriginalFileReceiver(tool) {
+  return tool.pluginId === ENCODING_PLUGIN && [ENCODING_INSPECT, ENCODING_CONVERT].includes(tool.capabilityId);
+}
 
 const defaultInputs = async (container, schema) => {
   const { mountResourceInputs } = await import("../react/tool-center.js");
@@ -30,6 +38,8 @@ const button = (text, action) => {
 };
 function executionMessage(error) {
   const code = error?.message;
+  if (["[resource_file_changed]", "[resource_file_unavailable]", "[resource_file_path_invalid]"].includes(code))
+    return t("The original file moved or changed. Share it again before retrying.");
   if (code === "[resource_input_invalid]") return t("This resource is invalid or exceeds the receiver's format or size limits.");
   if (code === "[resource_ocr_failed]") return t("Local OCR could not recognize this image. Check that a Windows OCR language pack is installed.");
   if (code === "[worker_timeout]") return t("Tool timed out. Inputs are kept; review before running again.");
@@ -48,6 +58,7 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
     clear();
     if (!active || !isCurrent()) return;
     const source = resourceAccess(owner, resource), originalTarget = resourceViewTarget(getTarget());
+    const originalFile = resource.originalFile === true;
     const panel = node("dialog", null, "plugin-resource-transfer");
     panel.setAttribute("aria-label", t("Send output to a tool")); container.append(panel);
     let disposed = false, request = 0, page = null, chosen = null, chosenProfile = null, form = null;
@@ -144,7 +155,7 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
         const response = await gateway.searchTools(getTarget()?.sceneId ?? "programming", {
           resourceOnly: true, resourceMimeType: resource.mimeType, query: search.value, offset, revision: offset ? page?.revision : null,
           excludePluginId: owner.pluginId, excludeCapabilityId: owner.capabilityId,
-          ...(sourceFilter ? { pluginId: sourceFilter } : {}), ...(categoryFilter ? { categoryId: categoryFilter } : {}),
+          ...(originalFile ? { pluginId: ENCODING_PLUGIN } : sourceFilter ? { pluginId: sourceFilter } : {}), ...(categoryFilter ? { categoryId: categoryFilter } : {}),
           ...(view !== "all" && workspaceId ? { view, workspaceId, accessRevision: offset ? page?.accessRevision : null } : {}),
         }, controller.signal);
         if (!valid() || request !== token) return;
@@ -158,6 +169,7 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
             ((tool.pluginId === HOST_IMAGE_RECEIVER.pluginId && tool.capabilityId === HOST_IMAGE_RECEIVER.capabilityId) ||
               (tool.pluginId === HOST_OCR_RECEIVER.pluginId && tool.capabilityId === HOST_OCR_RECEIVER.capabilityId) ||
               (tool.pluginId === HOST_TEXT_RECEIVER.pluginId && tool.capabilityId === HOST_TEXT_RECEIVER.capabilityId)));
+          if (originalFile && !isOriginalFileReceiver(tool)) continue;
           if (!tool.enabled || !supportedRuntime || typeof tool.pluginId !== "string" ||
               typeof tool.capabilityId !== "string" || typeof tool.title !== "string" || typeof tool.version !== "string" ||
               !Array.isArray(tool.resourceInputMimeTypes) || !tool.resourceInputMimeTypes.includes(resource.mimeType) ||
@@ -196,6 +208,17 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
           (detail.resourceInputProfile === HOST_TEXT_INPUT_PROFILE && tool.runtime === "builtin" &&
             tool.pluginId === HOST_TEXT_RECEIVER.pluginId && tool.capabilityId === HOST_TEXT_RECEIVER.capabilityId);
         if (!validProfile) throw new Error();
+        if (originalFile) {
+          const profile = detail.capability.executionProfile;
+          const namedProfile = tool.capabilityId === ENCODING_INSPECT ? "resource.wasi.encoding-inspect.v1" : ENCODING_CONVERT_PROFILE;
+          const legacyInspection = tool.capabilityId === ENCODING_INSPECT && profile == null;
+          if (profile !== namedProfile && !legacyInspection) throw new Error();
+          if (legacyInspection && resource.byteLength > 128 * 1024) {
+            resetChosen();
+            status.textContent = t("This encoding checker supports files up to 128 KiB.");
+            return;
+          }
+        }
         chosenProfile = detail.resourceInputProfile;
         details.append(node("h3", `${tool.title} · ${tool.version}`));
         const inputs = node("div"); details.append(inputs);
@@ -215,12 +238,12 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
       const target = { runtimeId: owner.runtimeId, sessionId: owner.sessionId, pluginId: tool.pluginId, capabilityId: tool.capabilityId };
       grant = "pending"; controls.replaceChildren();
       try {
-        const response = await gateway.prepareResourceTransfer(source, target);
+        const response = await (originalFile ? gateway.prepareResourceTransfer(source, target, true) : gateway.prepareResourceTransfer(source, target));
         if (!valid() || request !== token) return;
         grant = transferGrant(response, source, target, resource, tool.version);
         confirmation.append(node("p", `${grant.target.pluginName} · ${grant.target.toolTitle} · ${grant.target.pluginVersion}`),
-          node("p", `${grant.mimeType} · ${grant.byteLength.toLocaleString()} ${t("bytes")}`),
-          node("p", t("Confirm access to this output only. This does not approve saving or running the tool.")),
+          node("p", `${originalFile ? grant.fileName : grant.mimeType} · ${grant.byteLength.toLocaleString()} ${t("bytes")}`),
+          node("p", t(originalFile ? "Confirm the file reference. Its contents are read only when you run the receiving tool." : "Confirm access to this output only. This does not approve saving or running the tool.")),
           button("Confirm sharing", () => void commit(target, token)),
           button("Cancel sharing", () => { grant = null; confirmation.replaceChildren(); controls.replaceChildren(button("Review sharing", () => void prepare())); }));
         status.textContent = t("Sharing confirmation expires in 60 seconds.");
@@ -231,7 +254,7 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
       if (!valid() || request !== token || !grant || typeof grant !== "object") return;
       const id = grant.grantId; grant = "pending"; confirmation.replaceChildren();
       try {
-        const committed = transferredReference(await gateway.commitResourceTransfer(source, id), target);
+        const committed = transferredReference(await gateway.commitResourceTransfer(source, id), target, originalFile);
         if (!valid() || request !== token) { revoke(committed); return; }
         reference = committed;
         const instance = { plugin: { id: target.pluginId }, resourceTarget: originalTarget, resourceInputProfile: chosenProfile,
@@ -239,6 +262,7 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
         downstreamTransfer = createResourceTransfer({ gateway, getTarget, isCurrent: valid, mountInputs,
           onSave, onSaveClear, onReceiverExecuted });
         preview = createResourcePreview({ container: outputs, plugin: { capabilities: [chosen] }, isCurrent: valid,
+          executionProfile: originalFile && chosen.capabilityId === ENCODING_CONVERT ? ENCODING_CONVERT_PROFILE : undefined,
           onTransfer: (...args) => downstreamTransfer?.open(...args),
           onSave, onClear: () => { downstreamTransfer?.clear(); onSaveClear?.(); },
           read: (scope, output, offset, length, current) => readPluginViewResource({ instance, gateway, target: getTarget(),
@@ -247,7 +271,7 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
         computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid, recoverable: true,
           onOutputs: (items, scope) => preview.show(items, scope) });
         controls.replaceChildren(button("Run receiving tool", () => void run()));
-        status.textContent = t("Output shared. Review parameters, then run the tool separately.");
+        status.textContent = t(originalFile ? "File reference shared. Run the receiving tool to read it." : "Output shared. Review parameters, then run the tool separately.");
       } catch { if (valid() && request === token) { grant = null; error(); controls.replaceChildren(button("Review sharing", () => void prepare())); } }
     }
     function recoverControls(executor) {
@@ -297,13 +321,16 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
             : JSON.stringify(response.result, null, 2);
           status.textContent = t(response.result?.ok === false
             ? "Tool reported an error. Inputs are kept and no result was saved."
-            : "Receiving tool finished. Results have not been saved.");
+            : "Tool finished. Review the result and save any output files explicitly.");
           result.tabIndex = -1; result.focus();
           const token = request;
           const verify = async () => {
             if (!valid() || token !== request) return;
             try {
-              await readPluginViewResource({ instance: { plugin: { id: access.owner.pluginId } }, gateway, target: getTarget(),
+              if (originalFile) {
+                const check = await gateway.readResource(access.owner, { resourceId: access.resourceId, contentVersion: access.contentVersion, offset: 0, length: 0 });
+                if (check?.contentRead !== false || check.resourceId !== access.resourceId || check.contentVersion !== access.contentVersion) throw new Error();
+              } else await readPluginViewResource({ instance: { plugin: { id: access.owner.pluginId } }, gateway, target: getTarget(),
                 isCurrent: () => valid() && token === request,
                 params: { capabilityId: access.owner.capabilityId, resourceId: access.resourceId,
                   contentVersion: access.contentVersion, offset: 0, length: 1 } });

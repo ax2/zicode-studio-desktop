@@ -1,5 +1,9 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
+#[cfg(test)]
+mod notes_backup_recovery_tests;
+#[cfg(test)]
+mod browser_artifact_tests;
 mod automation_dispatch;
 mod automation_leader;
 mod automation_orphans;
@@ -38,6 +42,12 @@ mod lifecycle_service;
 mod manual_tool_calls;
 mod manual_tool_catalog;
 mod model_tools_http;
+mod notes_create;
+mod notes_sync_task;
+mod notes_sync_repository;
+mod notes_sync_review;
+#[cfg(windows)]
+mod novel_notes;
 mod plugin_call_lifecycle;
 mod plugin_desktop_execution;
 mod plugin_resources;
@@ -47,6 +57,7 @@ mod plugin_task_center;
 mod plugin_tool_auth;
 mod plugin_tool_catalog;
 mod plugin_tool_execution;
+pub(crate) use plugin_resources::export::Context as ResourceExportContext;
 #[cfg(test)]
 mod trace_pi_tests;
 #[cfg(test)]
@@ -180,6 +191,7 @@ struct HostState {
     plugin_resource_operations: plugin_resources::Operations,
     plugin_resource_workers: plugin_resources::worker::Workers,
     notes: Mutex<NotesVault>,
+    notes_sync_runs: crate::notes_sync_task::Runs,
     artifacts: Mutex<ArtifactStore>,
     plugin_tokens: Mutex<HashMap<String, RuntimePluginToken>>,
     workspace_write_gates: WorkspaceWriteGates,
@@ -227,6 +239,18 @@ enum HostMode {
 }
 
 impl HostServer {
+    #[cfg(windows)]
+    pub(crate) fn clipboard_translation_model(
+        &self, scene: &str, provider: &str, model: &str,
+    ) -> Result<crate::model_tools::ModelEndpoint, String> {
+        ensure_translate_authorized(&self.state, scene).map_err(|(_, value)| {
+            value.get("error").and_then(|error| error.get("message")).and_then(Value::as_str)
+                .filter(|message| !message.is_empty())
+                .unwrap_or("Clipboard translation is unavailable").to_string()
+        })?;
+        crate::model_tools::resolve(&crate::app_paths::system_root()?, scene, Some(provider), Some(model))
+    }
+
     pub fn notes_vault(&self) -> Result<NotesVault, String> {
         self.state
             .notes
@@ -511,6 +535,7 @@ impl HostServer {
             plugin_resource_operations: plugin_resources::Operations::default(),
             plugin_resource_workers: plugin_resources::worker::Workers::default(),
             notes: Mutex::new(notes),
+            notes_sync_runs: crate::notes_sync_task::Runs::default(),
             artifacts: Mutex::new(artifacts),
             plugin_tokens: Mutex::new(HashMap::new()),
             workspace_write_gates: WorkspaceWriteGates::default(),
@@ -524,7 +549,7 @@ impl HostServer {
             ),
             remote_access,
         });
-        let automation_roots = state.data.workspace_roots();
+        let automation_roots = crate::workspace_mode::automation_roots(state.data.workspace_roots())?;
         let automation_runtimes = state.runtimes.clone();
         let automation_state = Arc::downgrade(&state);
         let automation_lifecycle = state.lifecycle.clone();
@@ -912,10 +937,11 @@ impl HostServer {
             .route("/v2/notes/changes", get(list_note_changes))
             .route("/v2/notes/notebooks", post(create_notebook))
             .route("/v2/notes/notebooks/update", post(update_notebook))
+            .route("/v2/notes/notebooks/order", post(save_notebook_order))
             .route("/v2/notes/notebooks/delete", post(delete_notebook))
             .route("/v2/notes/move", post(move_note))
             .route("/v2/notes/note", get(get_note))
-            .route("/v2/notes/create", post(create_note))
+            .route("/v2/notes/create", post(notes_create::create_note))
             .route("/v2/notes/save", post(save_note))
             .route("/v2/notes/delete", post(delete_note))
             .route("/v2/notes/trash", get(list_trash))
@@ -2310,20 +2336,13 @@ struct DeleteNotebookRequest {
     scene_id: String,
     notebook_id: String,
 }
-
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct CreateNoteRequest {
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct NotebookOrderRequest {
     workspace_id: String,
     scene_id: String,
-    notebook_id: String,
-    title: String,
-    #[serde(default)]
-    content: String,
-    #[serde(default)]
-    tags: Vec<String>,
-    #[serde(default)]
-    icon: Option<String>,
+    expected_order: Option<Vec<String>>,
+    order: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -2747,6 +2766,19 @@ async fn update_notebook(
     Ok(Json(json!({ "notebook": notebook })))
 }
 
+async fn save_notebook_order(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<NotebookOrderRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes.scoped(&request.workspace_id).map_err(notes_api_error)?;
+    scoped
+        .save_notebook_order(request.expected_order.as_deref(), &request.order)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "saved": true })))
+}
+
 async fn delete_notebook(
     State(state): State<Arc<HostState>>,
     Json(request): Json<DeleteNotebookRequest>,
@@ -2772,29 +2804,7 @@ async fn get_note(
     let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
     let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
     let note = scoped
-        .get_note(&query.notebook_id, &query.note_id)
-        .map_err(notes_api_error)?;
-    Ok(Json(json!({ "note": note })))
-}
-
-async fn create_note(
-    State(state): State<Arc<HostState>>,
-    Json(request): Json<CreateNoteRequest>,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    ensure_notes_authorized(&state, &request.scene_id, true)?;
-    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
-    let scoped = notes
-        .scoped(&request.workspace_id)
-        .map_err(notes_api_error)?;
-    let note = scoped
-        .create_note(
-            &request.notebook_id,
-            &request.title,
-            &request.content,
-            request.tags,
-            request.icon,
-            None,
-        )
+        .resolve_note(&query.notebook_id, &query.note_id)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "note": note })))
 }
@@ -2902,6 +2912,7 @@ async fn capture_note(
             tags,
             Some("🌐".to_string()),
             Some(NoteSource {
+                document_revision: None,
                 url: captured.final_url,
                 captured_at: now_iso(),
                 content_hash: hash,
@@ -6509,7 +6520,7 @@ fn notes_api_error(error: NotesError) -> (StatusCode, Json<Value>) {
     let status = match error.code {
         "invalid_parameters" => StatusCode::BAD_REQUEST,
         "notebook_not_found" | "note_not_found" | "attachment_not_found" => StatusCode::NOT_FOUND,
-        "version_conflict" | "conflict" | "notes_storage_busy" => StatusCode::CONFLICT,
+        "version_conflict" | "conflict" | "notes_storage_busy" | "notebook_order_changed" => StatusCode::CONFLICT,
         "payload_too_large" | "quota_exceeded" => StatusCode::PAYLOAD_TOO_LARGE,
         "permission_denied" => StatusCode::FORBIDDEN,
         "capture_blocked" => StatusCode::FORBIDDEN,
@@ -7252,7 +7263,11 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 19);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 22);
+        assert!(before["plugins"].as_array().unwrap().iter().any(|p| p["id"] == "com.zicode.mail" && p["enabled"] == true));
+        assert!(before["plugins"].as_array().unwrap().iter().any(|plugin|
+            plugin["id"] == "com.zicode.visual-assets" && plugin["enabled"] == true && plugin["core"] == true));
+        assert!(before["plugins"].as_array().unwrap().iter().any(|plugin| plugin["id"] == "com.zicode.browser"));
         assert!(before["plugins"]
             .as_array()
             .unwrap()

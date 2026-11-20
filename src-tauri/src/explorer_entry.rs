@@ -4,9 +4,10 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tauri::Manager;
 
-use crate::explorer_launch_state::{EntryIntent, ExplorerLaunchState};
+use crate::explorer_launch_state::{EntryIntent, ExplorerLaunchState, WidgetAction};
 
 static FOLDER: OnceLock<PathBuf> = OnceLock::new();
+static WIDGET: OnceLock<WidgetAction> = OnceLock::new();
 static TOOLS_ONLY: OnceLock<bool> = OnceLock::new();
 static FILE: OnceLock<PathBuf> = OnceLock::new();
 static SELECTION: OnceLock<Vec<PathBuf>> = OnceLock::new();
@@ -21,6 +22,7 @@ pub enum MenuAction {
 }
 
 struct ParsedEntry {
+    widget: Option<WidgetAction>,
     folder: Option<PathBuf>,
     action: Option<MenuAction>,
     tools: bool,
@@ -64,6 +66,9 @@ pub fn selection() -> Option<&'static [PathBuf]> {
 }
 
 pub fn initial_intent() -> Option<EntryIntent> {
+    if let Some(action) = WIDGET.get() {
+        return Some(EntryIntent::NotesWidget(*action));
+    }
     if let Some(paths) = selection() {
         Some(EntryIntent::Selection(paths.to_vec()))
     } else if let Some(path) = file() {
@@ -96,9 +101,13 @@ pub fn forwarded_intent(args: &[String]) -> Result<Option<EntryIntent>, String> 
     }
     let mut entry_args = Vec::with_capacity(arguments.len());
     let mut profile_seen = false;
+    let mut test_name_seen = false;
     let mut remaining = arguments.iter();
     while let Some(argument) = remaining.next() {
         if argument == "--isolated-profile" {
+            if !crate::desktop_profile::requires_explicit_argument() {
+                return Err("A test launch cannot attach to a personal Studio profile".into());
+            }
             if profile_seen {
                 return Err("Duplicate isolated profile in secondary launch".into());
             }
@@ -112,15 +121,28 @@ pub fn forwarded_intent(args: &[String]) -> Result<Option<EntryIntent>, String> 
                 return Err("Secondary launch belongs to another isolated profile".into());
             }
             profile_seen = true;
+        } else if argument == "--test-profile" {
+            let name = remaining.next().ok_or("Missing test profile name")?;
+            if test_name_seen || crate::desktop_profile::test_profile_name() != Some(name.as_str())
+            {
+                return Err("Secondary launch belongs to another test profile".into());
+            }
+            test_name_seen = true;
         } else {
             entry_args.push(argument.as_str());
         }
     }
-    if crate::desktop_profile::is_isolated() && !profile_seen {
+    if crate::desktop_profile::requires_explicit_argument() && !profile_seen {
         return Err("Secondary launch omitted its isolated profile".into());
+    }
+    if crate::desktop_profile::test_profile_name().is_some() && !test_name_seen {
+        return Err("Secondary launch omitted its test profile name".into());
     }
     match entry_args.as_slice() {
         [] => Ok(None),
+        [flag, action] if *flag == "--notes-widget" => {
+            Ok(Some(EntryIntent::NotesWidget(WidgetAction::parse(action)?)))
+        }
         [flag] if *flag == "--tools-only" => Ok(Some(EntryIntent::Tools)),
         [flag, path] if *flag == "--open-file" => {
             Ok(Some(EntryIntent::File(local_file(PathBuf::from(*path))?)))
@@ -153,8 +175,20 @@ pub fn desktop_entry_mode(window: tauri::WebviewWindow) -> Result<&'static str, 
         .map_or("regular", EntryIntent::mode))
 }
 
+#[tauri::command]
+pub fn take_notes_widget_action(
+    window: tauri::WebviewWindow,
+) -> Result<Option<WidgetAction>, String> {
+    crate::require_workspace_window(&window)?;
+    let route = window.url().map_err(|e| e.to_string())?;
+    window
+        .state::<ExplorerLaunchState>()
+        .take_widget(window.label(), route.path())
+}
+
 pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<MenuAction>, String> {
     let ParsedEntry {
+        widget,
         folder: path,
         action,
         tools,
@@ -162,8 +196,13 @@ pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<Menu
         selection,
     } = parse(args)?;
     TOOLS_ONLY
-        .set(tools)
+        .set(tools || widget.is_some())
         .map_err(|_| "Desktop entry already configured")?;
+    if let Some(action) = widget {
+        WIDGET
+            .set(action)
+            .map_err(|_| "Widget already configured")?;
+    }
     if let Some(path) = path {
         FOLDER
             .set(path)
@@ -189,8 +228,18 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
     let mut file = None;
     let mut selection = None;
     let mut unknown = false;
+    let mut widget = None;
     while let Some(arg) = args.next() {
         match arg.to_str() {
+            Some("--notes-widget") => {
+                if widget.is_some() {
+                    return Err("Repeated widget action".into());
+                }
+                let action = args.next().ok_or("Missing widget action")?;
+                widget = Some(WidgetAction::parse(
+                    action.to_str().ok_or("Invalid widget action")?,
+                )?);
+            }
             Some("--open-file") => {
                 if file.is_some() {
                     return Err("Only one file may be opened".into());
@@ -209,7 +258,9 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
                 let paths = (0..length)
                     .map(|_| args.next().ok_or("Missing selected file"))
                     .collect::<Result<Vec<_>, _>>()?;
-                let paths = paths.iter().map(|path| path.to_str().ok_or("Selected path must be Unicode"))
+                let paths = paths
+                    .iter()
+                    .map(|path| path.to_str().ok_or("Selected path must be Unicode"))
                     .collect::<Result<Vec<_>, _>>()?;
                 selection = Some(selection_paths(count, &paths)?);
             }
@@ -245,8 +296,8 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
                     _ => MenuAction::Status,
                 });
             }
-            Some("--isolated-profile") => {
-                args.next().ok_or("Missing isolated profile")?;
+            Some("--isolated-profile" | "--test-profile") => {
+                args.next().ok_or("Missing profile argument value")?;
             }
             _ => unknown = true,
         }
@@ -266,7 +317,18 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
     if selection.is_some() && unknown {
         return Err("Unexpected selection launch argument".into());
     }
+    if widget.is_some()
+        && (unknown
+            || tools
+            || folder.is_some()
+            || action.is_some()
+            || file.is_some()
+            || selection.is_some())
+    {
+        return Err("Widget launch must be separate from other operations".into());
+    }
     Ok(ParsedEntry {
+        widget,
         folder,
         action,
         tools,
@@ -276,7 +338,9 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
 }
 
 fn selection_count(count: &str) -> Result<usize, String> {
-    let parsed = count.parse::<usize>().map_err(|_| "Invalid selection count")?;
+    let parsed = count
+        .parse::<usize>()
+        .map_err(|_| "Invalid selection count")?;
     if !(2..=MAX_SELECTION).contains(&parsed) || parsed.to_string() != count {
         return Err("Selection must contain two to four files".into());
     }
@@ -287,14 +351,19 @@ fn selection_paths(count: &str, paths: &[&str]) -> Result<Vec<PathBuf>, String> 
     if selection_count(count)? != paths.len() {
         return Err("Selection count does not match the selected files".into());
     }
-    let selected = paths.iter().map(|path| local_file(PathBuf::from(path)))
+    let selected = paths
+        .iter()
+        .map(|path| local_file(PathBuf::from(path)))
         .collect::<Result<Vec<_>, _>>()?;
     let parent = selected[0].parent();
     if selected.iter().any(|path| path.parent() != parent) {
         return Err("Selected files must share one project directory".into());
     }
     let mut unique = std::collections::HashSet::new();
-    if selected.iter().any(|path| !unique.insert(path.to_string_lossy().to_lowercase())) {
+    if selected
+        .iter()
+        .any(|path| !unique.insert(path.to_string_lossy().to_lowercase()))
+    {
         return Err("Selected files must be distinct".into());
     }
     Ok(selected)
@@ -349,6 +418,22 @@ fn local_file(path: PathBuf) -> Result<PathBuf, String> {
 mod tests {
     use super::*;
     #[test]
+    fn widget_only_accepts_explicit_notes_actions() {
+        for (name, action) in [
+            ("new", WidgetAction::New),
+            ("recent", WidgetAction::Recent),
+            ("pinned", WidgetAction::Pinned),
+        ] {
+            assert_eq!(
+                parse(args(&["--notes-widget", name])).unwrap().widget,
+                Some(action)
+            );
+        }
+        assert!(parse(args(&["--notes-widget", "file:///private"])).is_err());
+        assert!(parse(args(&["--notes-widget", "new", "--tools-only"])).is_err());
+        assert!(parse(args(&["--notes-widget", "new", "--other"])).is_err());
+    }
+    #[test]
     fn forwarded_launch_revalidates_executable_and_selected_file() {
         let executable = std::env::current_exe()
             .unwrap()
@@ -361,7 +446,10 @@ mod tests {
         std::fs::create_dir(&directory).unwrap();
         let file = directory.join("中文 空格&.zip");
         std::fs::write(&file, b"archive").unwrap();
-        assert_eq!(forwarded_intent(std::slice::from_ref(&executable)).unwrap(), None);
+        assert_eq!(
+            forwarded_intent(std::slice::from_ref(&executable)).unwrap(),
+            None
+        );
         assert_eq!(
             forwarded_intent(&[
                 executable.clone(),
@@ -439,10 +527,27 @@ mod tests {
         let one_text = one.to_str().unwrap();
         let two_text = two.to_str().unwrap();
         let expected = vec![one.canonicalize().unwrap(), two.canonicalize().unwrap()];
-        assert_eq!(parse(args(&["--open-selection", "2", one_text, two_text])).unwrap().selection, Some(expected.clone()));
-        let executable = std::env::current_exe().unwrap().to_string_lossy().into_owned();
-        assert_eq!(forwarded_intent(&[executable.clone(), "--open-selection".into(), "2".into(),
-            one_text.into(), two_text.into()]).unwrap(), Some(EntryIntent::Selection(expected)));
+        assert_eq!(
+            parse(args(&["--open-selection", "2", one_text, two_text]))
+                .unwrap()
+                .selection,
+            Some(expected.clone())
+        );
+        let executable = std::env::current_exe()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(
+            forwarded_intent(&[
+                executable.clone(),
+                "--open-selection".into(),
+                "2".into(),
+                one_text.into(),
+                two_text.into()
+            ])
+            .unwrap(),
+            Some(EntryIntent::Selection(expected))
+        );
         for input in [
             vec!["--open-selection", "1", one_text],
             vec!["--open-selection", "02", one_text, two_text],
@@ -450,12 +555,20 @@ mod tests {
             vec!["--open-selection", "2", one_text, one_text],
             vec!["--open-selection", "2", one_text, two_text, "extra.txt"],
             vec!["--open-selection", "2", one_text, two_text, "--tools-only"],
-        ] { assert!(parse(args(&input)).is_err()); }
+        ] {
+            assert!(parse(args(&input)).is_err());
+        }
         let other = root.join("other");
         std::fs::create_dir(&other).unwrap();
         let outside = other.join("third.txt");
         std::fs::write(&outside, b"third").unwrap();
-        assert!(parse(args(&["--open-selection", "2", one_text, outside.to_str().unwrap()])).is_err());
+        assert!(parse(args(&[
+            "--open-selection",
+            "2",
+            one_text,
+            outside.to_str().unwrap()
+        ]))
+        .is_err());
         std::fs::remove_file(&outside).unwrap();
         std::fs::remove_dir(other).unwrap();
         std::fs::remove_file(&one).unwrap();
@@ -475,7 +588,9 @@ mod tests {
             Some(MenuAction::Install)
         );
         assert_eq!(
-            parse(args(&["--remove-explorer-menu-current"])).unwrap().action,
+            parse(args(&["--remove-explorer-menu-current"]))
+                .unwrap()
+                .action,
             Some(MenuAction::RemoveCurrent)
         );
         assert!(parse(args(&["--install-explorer-menu", "--remove-explorer-menu"])).is_err());

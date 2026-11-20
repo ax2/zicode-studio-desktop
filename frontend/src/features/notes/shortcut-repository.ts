@@ -10,6 +10,7 @@ export interface NoteShortcuts {
 export type ShortcutChange =
   | { kind: "clear"; list: "recent" | "pinned" }
   | { kind: "recent"; note: NoteReference }
+  | { kind: "move"; note: NoteReference; targetNotebookId: string }
   | { kind: "toggle"; note: NoteReference; pinned: boolean }
   | { kind: "import"; recent: NoteReference[]; pinned: NoteReference[] };
 export interface ShortcutRepository {
@@ -31,6 +32,13 @@ function unique(notes: NoteReference[], limit: number) {
 }
 export function applyShortcutChange(record: NoteShortcuts, action: ShortcutChange): NoteShortcuts {
   if (action.kind === "clear") return { ...record, [action.list]: [] };
+  if (action.kind === "move") {
+    const source = referenceKey(action.note);
+    const relocate = (notes: NoteReference[], limit: number) => unique(notes.map(note =>
+      referenceKey(note) === source ? { id: note.id, notebookId: action.targetNotebookId } : note,
+    ), limit);
+    return { version: 1, recent: relocate(record.recent, 8), pinned: relocate(record.pinned, 16) };
+  }
   if (action.kind === "import")
     return {
       version: 1,

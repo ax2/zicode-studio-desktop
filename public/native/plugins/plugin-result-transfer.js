@@ -127,7 +127,7 @@ export function createPluginResultTransfer({
       views,
       filters,
       element("p", t("Filter counts cover all compatible mappings in this view; the result list applies every selected filter.")),
-      element("p", t("Favorites and recent use this project's tool history and show only compatible receivers.")),
+      element("p", t("Favorites and recent tools show only compatible receivers.")),
       searchInput,
       button(t("Search tools"), submit),
       button(t("Cancel transfer"), () => { if (valid(token)) cancel(); }),
@@ -354,10 +354,9 @@ export function createPluginResultTransfer({
         ),
         element(
           "p",
-          t("Field: {field} · {bytes} bytes · workspace: {workspace}")
+          t("Field: {field} · {bytes} bytes")
             .replace("{field}", preview.field)
-            .replace("{bytes}", preview.byteLength)
-            .replace("{workspace}", preview.workspaceId),
+            .replace("{bytes}", preview.byteLength),
         ),
         text,
         ...(preview.mimeType === "application/json" ? [element("p", t("JSON object will be passed to an object input field."))] : []),

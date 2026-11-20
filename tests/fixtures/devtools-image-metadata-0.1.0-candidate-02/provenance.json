@@ -1,0 +1,63 @@
+{
+  "sourceRevision": "97fa495b481971abef0abc67b901bed9e8f843ba",
+  "dirty": true,
+  "builtAt": "2026-10-29T08:25:09.419704+00:00",
+  "signature": "unsigned",
+  "sourceToolVersion": "1.4.1",
+  "core": "zi-image-core/0.1.0",
+  "adapter": "zi-image-metadata-wasi/0.1.0",
+  "sources": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "ce399e2d0eff27724004a4481a6aee28bb19c6e4a0a1c89176a12e20e636c9b7"
+    },
+    {
+      "path": "crates/zi-image-core/src/lib.rs",
+      "sha256": "b4727ed465d61d0fa6d6704d26c5ded804dd84f5b9af8b833c90b833126d75f2"
+    },
+    {
+      "path": "crates/zi-image-core/src/metadata.rs",
+      "sha256": "1ac211f78a7a7c1a93a488779d0a5931a738d356824c5032fc4ae7c0159d30dc"
+    },
+    {
+      "path": "crates/zi-image-metadata-wasi/build.rs",
+      "sha256": "83efcacfd4953938d5064f6c379dbf94c96a88d1a4b7d6a69ffe23e2fbe9fe22"
+    },
+    {
+      "path": "crates/zi-image-metadata-wasi/Cargo.toml",
+      "sha256": "e5df575b13b7a003e0f98cef41b8b779d6afc812d3181b3762b8110673e9ea48"
+    },
+    {
+      "path": "crates/zi-image-metadata-wasi/src/lib.rs",
+      "sha256": "370504907e698120e248c72ecfbb19c17f67d8f48fb3f77c65b56c25b9d4d891"
+    },
+    {
+      "path": "crates/zi-image-metadata-wasi/src/main.rs",
+      "sha256": "f047e567304e7c1ec4c37416f846f94151d37e3543445f141db6e8cf0d7bebdc"
+    },
+    {
+      "path": "crates/zi-image-metadata-wasi/src/native.rs",
+      "sha256": "bc6e07031327aed3084060b235adc6b00f37598ad84fe8c711181e0f5f01bb7c"
+    },
+    {
+      "path": "crates/zi-image-metadata-wasi/src/output.rs",
+      "sha256": "f3ce67c32e38bc25e1d7119781b021ffa628874eb5098c1cc7558e3128b9c4b0"
+    },
+    {
+      "path": "crates/zi-image-metadata-wasi/src/tests.rs",
+      "sha256": "51677b66fefa89ac0f2bc5256e4a827cd6a877c51d5f964bef21ccc1bf31f10b"
+    },
+    {
+      "path": "crates/zi-image-metadata-wasi/src/wasi.rs",
+      "sha256": "9f85fb803a1dc36819dfb396e65c0040a893bdf3e78f4c02867daeaedbb3595f"
+    }
+  ],
+  "contractSha256": "262f0c1d1eda89e8adc28817ce3d732f154eed7872b5e483253ec5db71876ce1",
+  "preFreezeProofSha256": "e555f41f8924b8d9582f7d093e47f136692c04a0685e2e29790915cf011e61e2",
+  "conformanceVectors": 40,
+  "memory": {
+    "minimumPages": 34,
+    "maximumPages": 10240
+  },
+  "installedHostAcceptance": false
+}

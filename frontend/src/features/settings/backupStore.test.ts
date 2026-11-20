@@ -127,15 +127,14 @@ describe("workspace backup store", () => {
     });
   });
 
-  it("restores a backup and reports the result", async () => {
+  it("queues a restore and reports that it will apply on restart", async () => {
     const invoke = vi.fn(async (command: string) => {
       if (command === "list_workspace_backups") return [];
       if (command === "restore_workspace_backup") {
         return {
           backupId: "b1",
-          preRestoreBackupId: "b0",
-          apps: ["notes", "sessions"],
-          sizeBytes: 42,
+          workspaceId: "ws-1",
+          requestId: "0123456789abcdef0123456789abcdef",
         };
       }
       return undefined;
@@ -149,12 +148,26 @@ describe("workspace backup store", () => {
       workspaceId: "ws-1",
       backupId: "b1",
     });
-    expect(store.getState().status).toBeTruthy();
+    expect(store.getState().status).toMatch(/Restore queued|恢复请求已排队/);
   });
 
   it("formats backup sizes", () => {
     expect(formatBackupSize(0)).toBe("0 B");
     expect(formatBackupSize(2048)).toBe("2.0 KB");
     expect(formatBackupSize(5 * 1024 * 1024)).toBe("5.0 MB");
+  });
+
+  it("reports completion from the persisted outcome after restart", async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "list_workspace_backups") return [];
+      return {
+        workspaceId: "ws-1",
+        requestId: "0123456789abcdef0123456789abcdef",
+        report: { backupId: "b1", preRestoreBackupId: "b0", apps: ["notes"], sizeBytes: 42 },
+      };
+    });
+    const store = createBackupStore({ invoke, getWorkspaceId: () => "ws-1" });
+    await store.getState().load();
+    expect(store.getState().status).toMatch(/Workspace restored from backup|已从备份恢复工作区/);
   });
 });

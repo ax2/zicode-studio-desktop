@@ -27,6 +27,26 @@ pub struct ModelEndpoint {
     url: reqwest::Url,
 }
 
+impl ModelEndpoint {
+    pub(crate) fn is_loopback(&self) -> bool {
+        let host = self.url.host_str().unwrap_or_default().trim_matches(['[', ']']);
+        host.eq_ignore_ascii_case("localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
+    }
+
+    /// Binds a reviewed request to its complete destination, including a path
+    /// change on the same origin. No credential material participates.
+    #[cfg(any(windows, test))]
+    pub(crate) fn request_identity(&self) -> String {
+        let identity = json!({
+            "url": self.url.as_str(),
+            "provider": self.choice.provider,
+            "model": self.choice.model,
+            "requiresKey": self.choice.requires_key,
+        });
+        format!("{:x}", Sha256::digest(identity.to_string().as_bytes()))
+    }
+}
+
 fn document(root: &Path, scene: &str) -> Result<Value, String> {
     let digest = Sha256::digest(scene.as_bytes());
     let key: String = digest[..16]
@@ -175,16 +195,7 @@ pub async fn complete_limited_cancellable(
     let mut builder = reqwest::Client::builder()
         .timeout(timeout)
         .redirect(reqwest::redirect::Policy::none());
-    let host = endpoint
-        .url
-        .host_str()
-        .unwrap_or_default()
-        .trim_matches(['[', ']']);
-    if host.eq_ignore_ascii_case("localhost")
-        || host
-            .parse::<std::net::IpAddr>()
-            .is_ok_and(|ip| ip.is_loopback())
-    {
+    if endpoint.is_loopback() {
         builder = builder.no_proxy();
     }
     let client = builder.build().map_err(|_| "model_client_unavailable")?;
@@ -240,16 +251,7 @@ fn complete_inner(
     let mut builder = reqwest::blocking::Client::builder()
         .timeout(timeout)
         .redirect(reqwest::redirect::Policy::none());
-    let host = endpoint
-        .url
-        .host_str()
-        .unwrap_or_default()
-        .trim_matches(['[', ']']);
-    if host.eq_ignore_ascii_case("localhost")
-        || host
-            .parse::<std::net::IpAddr>()
-            .is_ok_and(|ip| ip.is_loopback())
-    {
+    if endpoint.is_loopback() {
         builder = builder.no_proxy();
     }
     let client = builder.build().map_err(|_| "model_client_unavailable")?;

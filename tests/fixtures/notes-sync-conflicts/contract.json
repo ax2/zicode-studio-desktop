@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "requests": {
+    "list": {"kind":"list","workspaceId":"workspace-a","sceneId":"programming","runId":"run-owned","revision":"revision-a","cursor":0},
+    "detail": {"kind":"detail","workspaceId":"workspace-a","sceneId":"programming","runId":"run-owned","revision":"revision-a","id":"note/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222"},
+    "apply": {"kind":"apply","workspaceId":"workspace-a","sceneId":"programming","runId":"run-owned","revision":"revision-a","confirmed":true,"locale":"en","choices":[{"id":"note/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222","choice":"both"}]}
+  },
+  "responses": {
+    "list": {"runId":"run-owned","revision":"revision-a","total":1,"nextCursor":null,"rows":[{"id":"note/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222","kind":"note","notebookTitle":"Synthetic notebook","allowedChoices":["local","remote","both"],"local":{"exists":true,"deleted":false,"title":"Local title","byteLength":200,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"remote":{"exists":true,"deleted":false,"title":"Cloud title","byteLength":210,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}]},
+    "detail": {"runId":"run-owned","revision":"revision-a","item":{"id":"note/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222","kind":"note","notebookTitle":"Synthetic notebook","allowedChoices":["local","remote","both"],"local":{"exists":true,"deleted":false,"title":"Local title","byteLength":200,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","text":"Local synthetic body\n","properties":"tags: [\"local\"]"},"remote":{"exists":true,"deleted":false,"title":"Cloud title","byteLength":210,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","text":"Cloud synthetic body\n","properties":"tags: [\"cloud\"]"}}},
+    "apply": {"runId":"run-owned","revision":"revision-a","state":"savedLocally","copiedNotes":1,"copiedNotebooks":1,"pendingUpload":true}
+  },
+  "rejectedRequests": [
+    {"kind":"apply","workspaceId":"workspace-a","sceneId":"programming","runId":"run-owned","revision":"revision-a","choices":[],"locale":"en"},
+    {"kind":"list","workspaceId":"workspace-a","sceneId":"programming","runId":"run-owned","revision":"revision-a","endpoint":"https://untrusted.invalid/"},
+    {"kind":"apply","workspaceId":"workspace-a","sceneId":"programming","runId":"run-owned","revision":"revision-a","confirmed":true,"locale":"en","choices":[],"password":"must-not-cross-this-interface"}
+  ]
+}

@@ -1,10 +1,11 @@
 import { savedOutputExtension } from "./saved-output-formats";
+import { savedResourceLimit } from "../../../../public/native/plugins/resource-save-policy.js";
 
 export interface SavedOutput {
   receiptVersion: string;
   integrity: "not_checked";
   receipt: {
-    schemaVersion: 1; profile: "resource.save.draft1"; saveId: string; workspaceId: string;
+    schemaVersion: 1; profile: "resource.save.draft1" | "resource.save.image-metadata.v1"; saveId: string; workspaceId: string;
     relativePath: string; mimeType: string; byteLength: number; contentVersion: string; preparedAt: string;
     source: { pluginId: string; capabilityId: string; resourceId: string; packageVersion: string };
   };
@@ -36,9 +37,9 @@ export function validSaveAttemptPage(page: SaveAttemptPage, workspace: string, o
 export function validSavedOutput(item: SavedOutput, workspace: string): boolean {
   const r = item?.receipt;
   const extension = savedOutputExtension(r?.mimeType);
-  return !!extension && r.schemaVersion === 1 && r.profile === "resource.save.draft1" && r.workspaceId === workspace &&
+  return !!extension && r.schemaVersion === 1 && savedResourceLimit(r) > 0 && r.workspaceId === workspace &&
     /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(r.saveId) && r.relativePath === `.zicode/outputs/${r.saveId}/result.${extension}` &&
-    Number.isSafeInteger(r.byteLength) && r.byteLength >= 0 && r.byteLength <= 32 * 1024 * 1024 &&
+    Number.isSafeInteger(r.byteLength) && r.byteLength >= 0 && r.byteLength <= savedResourceLimit(r) &&
     /^[0-9a-f]{64}$/.test(r.contentVersion) && /^[0-9a-f]{64}$/.test(item.receiptVersion) && item.integrity === "not_checked" &&
     [r.source?.pluginId, r.source?.capabilityId, r.source?.resourceId, r.source?.packageVersion].every(value => typeof value === "string" && value.length > 0 && value.length <= 256);
 }

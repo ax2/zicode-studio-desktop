@@ -10,7 +10,7 @@ const runs = [];
 afterEach(() => {
   for (const root of runs.splice(0)) rmSync(root, { recursive: true, force: true });
 });
-function repo() {
+function repo(testCommand) {
   const root = mkdtempSync(join(tmpdir(), "studio-release-entry-"));
   runs.push(root);
   const source = join(root, "source"),
@@ -47,7 +47,10 @@ function repo() {
       name: "fixture",
       version: "0.6.7",
       scripts: Object.fromEntries(
-        ["test", "typecheck", "lint", "check:design"].map((k) => [k, 'node -e "console.log(123)"']),
+        ["test", "typecheck", "lint", "check:design"].map((k) => [
+          k,
+          (k === "test" && testCommand) || 'node -e "console.log(123)"',
+        ]),
       ),
     }),
   );
@@ -56,7 +59,10 @@ function repo() {
   put("src-tauri/Cargo.lock", '[[package]]\nname = "zicode-studio-desktop"\nversion = "0.6.7"\n');
   put("bun.lock", "");
   put("docs/releases/v0.6.7.md", "Frozen release notes");
-  put("docs/releases/v0.6.7.issues.json", '{"milestones":["v0.6.7"]}');
+  put(
+    "docs/releases/v0.6.7.issues.json",
+    JSON.stringify({ milestones: ["v0.6.7"], extraCompleted: [], known: [], exclude: {} }),
+  );
   git("add", ".");
   git("commit", "--quiet", "-m", "Freeze candidate");
   let bash = "bash";
@@ -91,5 +97,17 @@ it.each([
   expect(result.status).not.toBe(0);
   expect(result.stderr + result.stdout).toContain("Missing release input");
   expect(result.stdout).not.toContain("Running release gates");
+  expect(git("ls-remote", "--tags", "origin")).toBe("");
+}, 65000);
+
+it("a failed test gate leaves the local and file-only remote without a tag", () => {
+  const { git, run } = repo('node -e "process.exit(23)"');
+  const before = git("rev-parse", "HEAD");
+  const result = run();
+  expect(result.status).toBe(23);
+  expect(result.stdout).toContain("Running release gates");
+  expect(result.stdout).not.toContain("Release gates passed");
+  expect(git("rev-parse", "HEAD")).toBe(before);
+  expect(git("tag", "--list")).toBe("");
   expect(git("ls-remote", "--tags", "origin")).toBe("");
 }, 65000);

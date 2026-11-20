@@ -24,6 +24,12 @@ describe("release dependency cache reuse", () => {
     }
   });
 
+  it("restores without saving Rust caches on Windows release tag pushes", () => {
+    const step = release.split("      - name: Cache Rust build\n")[1]?.split("\n      - name:")[0];
+    expect(step).toContain("uses: Swatinem/rust-cache@v2");
+    expect(step).toContain("save-if: ${{ runner.os != 'Windows' || github.event_name != 'push' || github.ref_type != 'tag' }}");
+  });
+
   it("keeps download retry settings out of the global compiler cache identity", () => {
     const globalSettings = release.split(/^jobs:/m)[0];
     expect(globalSettings).not.toContain("CARGO_HTTP_MULTIPLEXING");

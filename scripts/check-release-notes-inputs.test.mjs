@@ -14,7 +14,7 @@ test("checks the selected product inputs without consulting the tag workflow", t
   const check = platform => spawnSync(process.execPath, [script, "v1.2.3", platform], {cwd:root, encoding:"utf8"});
   assert.match(check("windows").stderr, /Missing release input/);
   writeFileSync(join(root, "docs/releases/v1.2.3.md"), "Version notes");
-  writeFileSync(join(root, "docs/releases/v1.2.3.issues.json"), '{"milestones":["v1.2.3"]}');
+  writeFileSync(join(root, "docs/releases/v1.2.3.issues.json"), '{"milestones":["v1.2.3"],"extraCompleted":[],"known":[],"exclude":{}}');
   assert.equal(check("macos-intel").status, 0);
   assert.match(check("windows").stderr, /export-windows-candidate/);
   writeFileSync(join(root, "scripts/export-windows-candidate.ps1"), "# fixture");

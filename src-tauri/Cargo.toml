@@ -1,6 +1,6 @@
 [package]
 name = "zicode-studio-desktop"
-version = "0.5.3"
+version = "0.7.0"
 description = "Local-first cross-platform personal developer platform for projects, AI collaboration, knowledge, and automation"
 authors = ["Alex Xiang and contributors"]
 edition = "2021"
@@ -18,6 +18,7 @@ path = "src/bin/relay.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+studio-alibaba-mail = { path = "mail-alibaba" }
 fs2 = "=0.4.3"
 tauri = { version = "2", features = ["image-png", "devtools", "macos-private-api", "tray-icon"] }
 tauri-plugin-dialog = "2"
@@ -29,7 +30,7 @@ tauri-plugin-log = "2"
 tauri-plugin-single-instance = "=2.4.0"
 notify-rust = "=4.11.5"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["unbounded_depth"] }
 cap-std = "3.4.5"
 cap-fs-ext = "3.4.5"
 jsonc-parser = { version = "=0.34.0", features = ["serde"] }
@@ -52,6 +53,8 @@ tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
 percent-encoding = "2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 sha2 = "0.10"
+chacha20poly1305 = "=0.10.1"
+zeroize = "1"
 sha1 = "0.10"
 md-5 = "0.10"
 hmac = "0.12"
@@ -85,6 +88,8 @@ bytes = "1"
 webrtc = "0.13"
 russh = "0.62.7"
 russh-sftp = "2.4.0"
+gif = "0.13.3"
+color_quant = "1.1"
 
 [profile.dev]
 # Keep one reusable dev/test artifact set instead of accumulating large
@@ -116,5 +121,16 @@ x509-parser = "0.16"
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_UI_Shell"] }
+# Reuse the exact engine already used by Tauri; independent children have no Tauri IPC.
+wry = "=0.55.1"
+dunce = "=1.0.5"
+raw-window-handle = "0.6"
+webview2-com = "=0.38.2"
+whatlang = "=0.18.0"
+windows = { version = "=0.61.3", features = ["Win32_Foundation", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_SystemInformation", "Win32_System_Power", "Win32_UI_Shell", "Win32_UI_Shell_Common", "Win32_System_Registry", "Win32_System_Com", "Win32_System_Pipes"] }
 winreg = "0.55"
+
+# Narrow Windows cbSize fix; provenance and removal condition in vendor/tray-icon/STUDIO-PATCH.md.
+[patch.crates-io]
+tray-icon = { path = "../vendor/tray-icon" }

@@ -1,11 +1,40 @@
 // Whitelist Host-produced references before they enter the opaque View or parent preview.
 import { outputExtension } from "./plugin-output-formats.js";
+import { imageMetadataOutputPolicy } from "./image-metadata-output.js";
+import { IMAGE_METADATA_EXECUTION } from "./resource-save-policy.js";
+import { markdownOutputPolicy } from "./markdown-output-policy.js";
 const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const HASH = /^[0-9a-f]{64}$/;
-export function normalizeResourceOutputs(response, source) {
+export function normalizeHostReport(response, source, executionProfile) {
+  const row = response.reportResource;
+  if (row === undefined) return null;
+  const sources = [source, ...(source.additionalResources ?? [])];
+  const digest = executionProfile === "resource.wasi.file-digest.v1" && source.capabilityId === "devtools.files.hash";
+  const profile = digest ? "resource.host.file-digest-report.draft1" : "resource.host.image-metadata-report.draft1";
+  if ((!digest && executionProfile !== IMAGE_METADATA_EXECUTION) || response.result?.ok !== true || row?.profile !== profile ||
+      row.index !== 0 || !UUID.test(row.resourceId ?? "") || sources.some(item => item.resourceId === row.resourceId) ||
+      response.resources?.some(item => item.resourceId === row.resourceId) ||
+      !HASH.test(row.contentVersion ?? "") || row.mimeType !== "application/json" ||
+      !Number.isSafeInteger(row.byteLength) || row.byteLength < 1 || row.byteLength > (digest ? 8 : 48) * 1024 ||
+      !Number.isSafeInteger(row.expiresInSeconds) || row.expiresInSeconds < 1 || row.expiresInSeconds > 900 ||
+      row.origin !== "host-report" || row.saved !== false ||
+      row.derivedFrom?.resourceId !== source.resourceId || row.derivedFrom?.contentVersion !== source.contentVersion)
+    throw new Error("[resource_response_invalid]");
+  if (sources.length > 1 ? !digest || !Array.isArray(row.derivedFromAll) || row.derivedFromAll.length !== sources.length ||
+      row.derivedFromAll.some((item, index) => item?.resourceId !== sources[index].resourceId ||
+        item?.contentVersion !== sources[index].contentVersion) : row.derivedFromAll !== undefined)
+    throw new Error("[resource_response_invalid]");
+  return { index: 0, resourceId: row.resourceId, contentVersion: row.contentVersion,
+    mimeType: row.mimeType, byteLength: row.byteLength, origin: row.origin, saved: false };
+}
+export function normalizeResourceOutputs(response, source, executionProfile = null) {
   const fail = () => { throw new Error("[resource_response_invalid]"); };
-  if (response.outputProfile === undefined && response.resources === undefined) return null;
-  if (response.outputProfile !== "resource.wasi.output.draft1" || !Array.isArray(response.resources) || response.resources.length > 4) fail();
+  if (response.outputProfile === undefined && response.resources === undefined) {
+    if ([IMAGE_METADATA_EXECUTION, "resource.wasi.markdown.v1"].includes(executionProfile) && response.result?.ok !== false) fail();
+    return null;
+  }
+  const metadata = imageMetadataOutputPolicy(response, executionProfile, source.capabilityId) ?? markdownOutputPolicy(response, executionProfile, source.capabilityId);
+  if ((!metadata && response.outputProfile !== "resource.wasi.output.draft1") || !Array.isArray(response.resources) || response.resources.length > (metadata?.maxRecords ?? 4)) fail();
   const sources = [source, ...(source.additionalResources ?? [])];
   const ids = new Set(sources.map(item => item.resourceId));
   let total = 0;
@@ -22,11 +51,13 @@ export function normalizeResourceOutputs(response, source) {
             item?.contentVersion !== sources[position].contentVersion)) fail();
     } else if (row.derivedFromAll !== undefined) fail();
     total += row.byteLength;
-    if (total > 32 * 1024 * 1024) fail();
+    if (total > (metadata?.maxBytes ?? 32 * 1024 * 1024)) fail();
+    metadata?.validate(row, index);
     ids.add(row.resourceId);
     return { index, resourceId: row.resourceId, contentVersion: row.contentVersion,
       mimeType: row.mimeType, byteLength: row.byteLength, expiresInSeconds: row.expiresInSeconds,
       origin: "worker-output", saved: false,
+      ...(metadata ? { outputProfile: response.outputProfile, outputLabel: metadata.label(index) } : {}),
       derivedFrom: { resourceId: source.resourceId, contentVersion: source.contentVersion },
       ...(sources.length > 1 ? { derivedFromAll: sources.map(item => ({ resourceId: item.resourceId,
         contentVersion: item.contentVersion })) } : {}) };

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "issue": "https://github.com/ax2/zicode-studio-desktop/issues/8",
+  "checkedAt": "2026-11-18T06:15:44.796449+00:00",
+  "fixTarget": "v0.6.6",
+  "targetBranch": "integration/v0.6.6",
+  "sourceBase": "fe9b5b44",
+  "platform": "Windows, ordinary user; own hidden no-activate tool HWND and hidden Wry child only",
+  "runtime": "Actual installed WebView2, Wry=0.55.1, webview2-com=0.38.2; no simulated COM getter",
+  "productionChange": "Explicit with_general_autofill_enabled(false) on untrusted page construction",
+  "before": {
+    "generalAutofill": true,
+    "hostObjects": false,
+    "passwordAutosave": false,
+    "visible": false,
+    "webMessages": false
+  },
+  "after": {
+    "generalAutofill": false,
+    "hostObjects": false,
+    "passwordAutosave": false,
+    "visible": false,
+    "webMessages": false
+  },
+  "ordinaryForm": {
+    "disabled": false,
+    "readOnly": false,
+    "value": "Synthetic ordinary edit",
+    "method": "harmless input DOM value assignment; not physical keyboard acceptance"
+  },
+  "sameTemporaryProfileOverride": {
+    "setGeneralAutofillTrue": true,
+    "secondCreatedPageResetsFalseForProfile": true
+  },
+  "checks": {
+    "allTargetCheck": true,
+    "strictAllTargetClippy": true,
+    "explicitHiddenNativeTestPassed": 1,
+    "nativeTestIgnoredThisRun": 0,
+    "existingNoNetworkUrlPolicyTestsPassed": 4,
+    "newRustModuleFormat": true,
+    "fullRepositoryFormat": "existing advisory differences retained"
+  },
+  "officialReferences": [
+    "https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2settings4",
+    "https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2permissionrequestedeventargs",
+    "https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2permissionrequestedeventargs3"
+  ],
+  "lockedWryAudit": {
+    "file": "wry-0.55.1/src/lib.rs",
+    "generalAutofillDefault": true,
+    "windowsImplementation": "src/webview2/mod.rs forwards the builder attribute to ICoreWebView2Settings4"
+  },
+  "unchangedDefensiveDefaults": [
+    "Web messages disabled before navigation",
+    "Host objects disabled before navigation",
+    "Wry clipboard auto-grant disabled",
+    "PermissionRequested unconditionally denied, user gesture is not an authorization",
+    "No new permission grant, model tool or external submission path"
+  ],
+  "failureEvidence": [
+    {
+      "log": "issue8-native-defaults-red.log",
+      "kind": "actual default-value regression",
+      "testFailed": 1,
+      "generalAutofill": true
+    },
+    {
+      "log": "issue8-native-initial-test.log",
+      "kind": "fixture compile error; tempfile absent, fixed using existing scratch/UUID pattern without adding dependencies"
+    },
+    {
+      "log": "issue8-native-initial.log",
+      "kind": "Windows wrapper relative path error, corrected to absolute path"
+    }
+  ],
+  "logs": {
+    "final": "issue8-native-final.log",
+    "newFormat": "issue8-new-test-fmt.log",
+    "formatBaseline": "issue8-full-fmt-baseline.log"
+  },
+  "sourceLfSha256": {
+    "src-tauri/src/browser/engine.rs": "26706bed69738f2187a614781ca9b55ff15975fdeb509ba8152de6c2394a5f61",
+    "src-tauri/src/browser/native_privacy_tests.rs": "2d3f3e34d6914c91b2905f331b62bbc2b59967373b7b3a0bb2f500fcbf06c66b"
+  },
+  "limits": [
+    "general autofill excludes password and credit-card autofill",
+    "does not delete existing profile data or claim stored password suggestions are blocked",
+    "no website/network navigation, exploit reproduction, DNS rebinding or target scanning was run",
+    "no user desktop operation, daily profile access, real credentials/model calls or scheduling",
+    "not full frame/worker/private-network or permission UI acceptance; Issue 8 remains open"
+  ]
+}

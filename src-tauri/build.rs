@@ -1,4 +1,5 @@
 use std::{fs, path::PathBuf};
+mod build_sensor;
 
 /// Hard guarantee: a ZiCode Studio Desktop release build CANNOT be produced without the
 /// embedded pi binary inside `src-tauri/resources/pi/`.
@@ -20,6 +21,7 @@ use std::{fs, path::PathBuf};
 /// don't require a network round-trip.
 fn main() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    build_sensor::build(&manifest_dir);
     let extension_dist_dir = manifest_dir.join("..").join("extensions").join("dist");
     let resources_dir = manifest_dir.join("resources");
 

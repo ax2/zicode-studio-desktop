@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { ActivityUtilities } from "./ActivityUtilities";
 import { t } from "../../shared/i18n";
 import type {
   PluginActivityItem,
@@ -8,6 +9,10 @@ import type {
 type SvgShape = ["path" | "circle", Record<string, string>];
 
 const ICON_PATHS: Record<string, SvgShape[]> = {
+  globe: [
+    ["circle", { cx: "12", cy: "12", r: "9" }],
+    ["path", { d: "M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18Z" }],
+  ],
   chat: [
     ["path", { d: "M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" }],
     ["path", { d: "M8 9h8M8 13h5" }],
@@ -294,12 +299,10 @@ export function PluginActivityBarApp({
       <div className="plugin-activity-spacer"></div>
       <div className="plugin-activity-list plugin-activity-list--system" data-system-activities>
         {systemItems.map((item) => (
-          <ActivityButton
-            key={item.id}
-            item={item}
-            isActive={item.id === activePluginId}
-            onActivate={onSystemActivate}
-          />
+          <Fragment key={item.id}>
+            {item.id === "core.commands" && <ActivityUtilities />}
+            <ActivityButton item={item} isActive={item.id === activePluginId} onActivate={onSystemActivate} />
+          </Fragment>
         ))}
       </div>
       <button

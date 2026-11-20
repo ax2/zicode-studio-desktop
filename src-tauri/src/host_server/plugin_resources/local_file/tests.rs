@@ -68,6 +68,7 @@ fn grant(root: &Path) -> Grant {
         relative: "file".into(),
         stamp: "stamp".into(),
         expires: Instant::now() + TTL,
+        picked: None,
     }
 }
 fn request(id: String) -> FileGrant {
@@ -152,12 +153,12 @@ fn grants_are_bounded_expiring_one_use_and_wrong_owner_cannot_consume_them() {
     let id = grants.insert(grant(&f.0)).unwrap();
     let mut wrong = request(id.clone());
     wrong.owner.plugin_id = "other".into();
-    assert!(grants.take(&wrong).is_err());
-    assert!(grants.take(&request(id.clone())).is_ok());
-    assert!(grants.take(&request(id)).is_err());
+    assert!(grants.take(&wrong, None).is_err());
+    assert!(grants.take(&request(id.clone()), None).is_ok());
+    assert!(grants.take(&request(id), None).is_err());
     let id = grants.insert(grant(&f.0)).unwrap();
     grants.0.get_mut(&id).unwrap().expires = Instant::now();
-    assert!(grants.take(&request(id)).is_err());
+    assert!(grants.take(&request(id), None).is_err());
     for _ in 0..8 {
         grants.insert(grant(&f.0)).unwrap();
     }

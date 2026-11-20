@@ -29,6 +29,7 @@ pub fn scan_registered_workspaces(
     workspaces.sort_by(|left, right| left.1.cmp(&right.1));
     workspaces
         .into_iter()
+        .filter(|(_,path)| crate::workspace_mode::context_allowed(Path::new(path)))
         .map(|(workspace_id, path)| scan_workspace(workspace_id, path))
         .collect()
 }

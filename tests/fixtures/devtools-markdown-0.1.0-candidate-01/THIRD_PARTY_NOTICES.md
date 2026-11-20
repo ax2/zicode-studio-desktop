@@ -1,0 +1,30 @@
+# Production dependencies
+
+- zi-markdown-core 0.1.0: MIT; see licenses/zi-markdown-core-0.1.0/
+- zi-markdown-wasi 0.1.0: MIT; see licenses/zi-markdown-wasi-0.1.0/
+- anyhow 1.0.104: MIT OR Apache-2.0; see licenses/anyhow-1.0.104/
+- bitflags 2.13.2: MIT OR Apache-2.0; see licenses/bitflags-2.13.2/
+- block-buffer 0.10.4: MIT OR Apache-2.0; see licenses/block-buffer-0.10.4/
+- cfg-if 1.0.5: MIT OR Apache-2.0; see licenses/cfg-if-1.0.5/
+- crypto-common 0.1.7: MIT OR Apache-2.0; see licenses/crypto-common-0.1.7/
+- digest 0.10.7: MIT OR Apache-2.0; see licenses/digest-0.10.7/
+- generic-array 0.14.7: MIT; see licenses/generic-array-0.14.7/
+- getopts 0.2.24: MIT OR Apache-2.0; see licenses/getopts-0.2.24/
+- itoa 1.0.18: MIT OR Apache-2.0; see licenses/itoa-1.0.18/
+- memchr 2.8.3: Unlicense OR MIT; see licenses/memchr-2.8.3/
+- proc-macro2 1.0.107: MIT OR Apache-2.0; see licenses/proc-macro2-1.0.107/
+- pulldown-cmark-escape 0.11.0: MIT; see licenses/pulldown-cmark-escape-0.11.0/
+- pulldown-cmark 0.12.2: MIT; see licenses/pulldown-cmark-0.12.2/
+- quote 1.0.47: MIT OR Apache-2.0; see licenses/quote-1.0.47/
+- serde 1.0.229: MIT OR Apache-2.0; see licenses/serde-1.0.229/
+- serde_core 1.0.229: MIT OR Apache-2.0; see licenses/serde_core-1.0.229/
+- serde_derive 1.0.229: MIT OR Apache-2.0; see licenses/serde_derive-1.0.229/
+- serde_json 1.0.151: MIT OR Apache-2.0; see licenses/serde_json-1.0.151/
+- sha2 0.10.9: MIT OR Apache-2.0; see licenses/sha2-0.10.9/
+- syn 3.0.6: MIT OR Apache-2.0; see licenses/syn-3.0.6/
+- typenum 1.20.1: MIT OR Apache-2.0; see licenses/typenum-1.20.1/
+- unicase 2.9.0: MIT OR Apache-2.0; see licenses/unicase-2.9.0/
+- unicode-ident 1.0.26: (MIT OR Apache-2.0) AND Unicode-3.0; see licenses/unicode-ident-1.0.26/
+- unicode-width 0.2.2: MIT OR Apache-2.0; see licenses/unicode-width-0.2.2/
+- version_check 0.9.5: MIT/Apache-2.0; see licenses/version_check-0.9.5/
+- zmij 1.0.23: MIT; see licenses/zmij-1.0.23/

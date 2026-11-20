@@ -3,7 +3,7 @@ use super::*;
 fn rewrite_content(
     content: &str,
     mapping: &HashMap<String, String>,
-    known: &BTreeSet<(String, String)>,
+    known: &HashMap<(String, String), Option<String>>,
 ) -> String {
     let mut output = String::new();
     let mut copied = 0;
@@ -14,9 +14,10 @@ fn rewrite_content(
             book_range,
         } = reference
         {
-            if let Some(new) = mapping
-                .get(&book)
-                .filter(|_| known.contains(&(book.clone(), note)))
+            if let Some(new) = known
+                .get(&(book, note))
+                .and_then(Option::as_ref)
+                .and_then(|current| mapping.get(current))
             {
                 output.push_str(&content[copied..book_range.start]);
                 output.push_str(new);
@@ -31,7 +32,7 @@ fn rewrite_content(
 pub(super) fn rewrite_staged(
     vault: &NotesVault,
     mapping: &HashMap<String, String>,
-    known: &BTreeSet<(String, String)>,
+    known: &HashMap<(String, String), Option<String>>,
 ) -> Result<(), NotesError> {
     for new in mapping.values() {
         let root = vault.vault_root(new)?;

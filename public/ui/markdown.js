@@ -5,9 +5,11 @@
  * task lists, images, paragraphs.
  */
 
+import { protectMarkdownLiterals } from "./markdown-literals.js";
 import { t } from "../i18n.js";
 import remend from "../vendor/remend.js";
 import { copyText } from "./copy.js";
+import { setCopyLabel } from "./localized-copy-label.js";
 
 /**
  * Streaming-tolerant renderer for partial markdown. remend closes unterminated
@@ -75,12 +77,23 @@ export function renderMarkdown(text) {
 
   // Check if a line is a table separator (e.g. |---|---|)
   function isTableSeparator(line) {
-    return /^\|?(\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/.test(line);
+    return /^\|\s*:?-{3,}:?\s*\|\s*$/.test(line) || /^\|?(\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/.test(line);
   }
 
   // Check if a line looks like a table row
   function isTableRow(line) {
     return line.trim().startsWith("|") && line.trim().endsWith("|");
+  }
+
+  function splitTableCells(line) {
+    const cells = [""];
+    let escaped = false;
+    for (const char of line.trim().slice(1, -1)) {
+      if (char === "|" && !escaped) cells.push("");
+      else cells[cells.length - 1] += char;
+      escaped = char === "\\" && !escaped;
+    }
+    return cells;
   }
 
   // Parse alignment from separator row
@@ -110,7 +123,7 @@ export function renderMarkdown(text) {
       const block = codeBlocks[parseInt(codeMatch[1], 10)];
       const langLabel = block.lang || "code";
       html += `<div class="code-block-wrapper">`;
-      html += `<div class="code-block-header"><span class="code-language">${escapeHtml(langLabel)}</span><div class="code-copy-actions"><span class="code-copy-status" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="copy-btn" data-copy-code aria-label="${t("Copy code")}" title="${t("Copy code")}">${t("Copy")}</button></div></div>`;
+      html += `<div class="code-block-header"><span class="code-language">${escapeHtml(langLabel)}</span><div class="code-copy-actions" translate="yes"><span class="code-copy-status" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="copy-btn" data-copy-code data-i18n-text="Copy" data-i18n-aria-label="Copy code" data-i18n-title="Copy code" aria-label="${t("Copy code")}" title="${t("Copy code")}">${t("Copy")}</button></div></div>`;
       html += `<pre><code>${highlightCode(block.code, block.lang)}</code></pre></div>`;
       continue;
     }
@@ -123,9 +136,7 @@ export function renderMarkdown(text) {
       const alignments = parseAlignments(lines[i + 1]);
 
       // Parse header
-      const _headerCells = line.split("|").filter((c) => c.trim() !== "" || line.trim() === "|");
-      // More robust: split between first and last pipe
-      const headerRow = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+      const headerRow = splitTableCells(line);
 
       html += `<div class="table-wrapper" tabindex="0" role="region" aria-label="${t("Scrollable table")}"><table><thead><tr>`;
       headerRow.forEach((cell, idx) => {
@@ -139,7 +150,7 @@ export function renderMarkdown(text) {
 
       // Parse body rows
       while (i < lines.length && isTableRow(lines[i])) {
-        const rowCells = lines[i].trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+        const rowCells = splitTableCells(lines[i]);
         html += "<tr>";
         rowCells.forEach((cell, idx) => {
           const align = alignments[idx] || "left";
@@ -292,6 +303,8 @@ export function renderUserMarkdown(text) {
 }
 
 function renderInline(text) {
+  const literals = protectMarkdownLiterals(text, escapeHtml);
+  text = literals.text;
   // Escape HTML entities up front so raw `<script>` / `<img onerror>` text
   // cannot be injected through the rendered preview. Markdown syntax (`*`,
   // `_`, `~`, `` ` ``, `[]()`, `!`) does not use these characters, so the
@@ -310,7 +323,7 @@ function renderInline(text) {
   text = text.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_, alt, src) =>
-      `<img src="${safeUrl(src)}" alt="${alt}" class="inline-image" loading="lazy" decoding="async" referrerpolicy="no-referrer">`,
+      `<img src="${safeUrl(literals.restore(src))}" alt="${alt}" class="inline-image" loading="lazy" decoding="async" referrerpolicy="no-referrer">`,
   );
 
   // Bold + italic
@@ -331,7 +344,7 @@ function renderInline(text) {
   text = text.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
     (_, label, href) =>
-      `<a href="${safeUrl(href)}" target="_blank" rel="noopener">${label}</a>`,
+      `<a href="${safeUrl(literals.restore(href))}" target="_blank" rel="noopener">${label}</a>`,
   );
 
   // Auto-link bare URLs
@@ -344,7 +357,7 @@ function renderInline(text) {
   // Restore inline code
   text = text.replace(/%%ICODE(\d+)%%/g, (_, idx) => codeSpans[parseInt(idx, 10)]);
 
-  return text;
+  return literals.restore(text);
 }
 
 function escapeHtml(text) {
@@ -613,30 +626,26 @@ export function initCodeCopyDelegation(container) {
     if (!codeBlock) return;
     const status = btn.closest(".code-copy-actions")?.querySelector(".code-copy-status");
     btn.disabled = true;
-    btn.textContent = t("Copying…");
+    setCopyLabel(btn, "Copying…");
     btn.classList.remove("copied", "failed");
-    if (status) status.textContent = "";
+    setCopyLabel(status, "");
     try {
       const ok = await copyText(codeBlock.textContent);
       if (!ok) throw new Error("Clipboard unavailable");
-      btn.textContent = t("Copied");
+      setCopyLabel(btn, "Copied");
       btn.classList.add("copied");
-      if (status) status.textContent = t("Code copied");
+      setCopyLabel(status, "Code copied");
     } catch {
-      btn.textContent = t("Copy failed");
+      setCopyLabel(btn, "Copy failed");
       btn.classList.add("failed");
-      if (status) {
-        status.textContent = t(
-          "Unable to copy code. Check browser clipboard permission.",
-        );
-      }
+      setCopyLabel(status, "Unable to copy code. Check browser clipboard permission.");
     }
     const resetDelay = btn.classList.contains("failed") ? 5000 : 2400;
     setTimeout(() => {
-      btn.textContent = t("Copy");
+      setCopyLabel(btn, "Copy");
       btn.classList.remove("copied", "failed");
       btn.disabled = false;
-      if (status) status.textContent = "";
+      setCopyLabel(status, "");
     }, resetDelay);
   });
 }

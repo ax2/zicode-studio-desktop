@@ -213,6 +213,8 @@ fn capability(schema: Value) -> PluginCapabilityDescriptor {
         title: "Output".into(),
         input_schema: json!({}),
         resource_input_max: None,
+        resource_input_min: None,
+        resource_input_labels: None,
         resource_input_mime_types: None,
         execution_profile: None,
         output_schema: Some(schema),

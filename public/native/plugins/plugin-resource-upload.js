@@ -1,4 +1,5 @@
 import { outputExtension } from "./plugin-output-formats.js";
+import { isResourceFileName } from "./project-file-resource.js";
 
 const MAX_BYTES = 32 * 1024 * 1024;
 const CHUNK_BYTES = 65536;
@@ -34,7 +35,10 @@ export async function uploadConfirmedResource({
     const contentVersion = Array.from(hash, (byte) => byte.toString(16).padStart(2, "0")).join("");
     if (file.expectedContentVersion !== undefined && file.expectedContentVersion !== contentVersion)
       throw new Error("saved_output_changed");
-    const mimeType = outputExtension(file.type) ? file.type : "application/octet-stream";
+    // Only a validated Host output or derived report gets the application/json type.
+    const mimeType = file.type !== "application/json" && outputExtension(file.type)
+      ? file.type : "application/octet-stream";
+    const digestFile = owner.pluginId === "com.zicode.devtools.files" && owner.capabilityId === "devtools.files.hash";
     const prepared = await gateway.prepareResource({
       schemaVersion: 1,
       owner,
@@ -42,6 +46,7 @@ export async function uploadConfirmedResource({
       byteLength: bytes.length,
       contentVersion,
       ...(catalogRevision ? { catalogRevision } : {}),
+      ...(digestFile && isResourceFileName(file.name) ? { fileName: file.name } : {}),
     });
     if (
       typeof prepared?.resourceId !== "string" ||

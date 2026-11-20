@@ -176,6 +176,24 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
           if (isCurrent(workspaceId, epoch) && request === loadRequest) {
             set({ backups: result });
           }
+          const outcome = await invoke("workspace_restore_outcome", { workspaceId });
+          if (
+            outcome &&
+            typeof outcome === "object" &&
+            "workspaceId" in outcome &&
+            outcome.workspaceId === workspaceId &&
+            "report" in outcome &&
+            outcome.report &&
+            typeof outcome.report === "object" &&
+            "backupId" in outcome.report &&
+            typeof outcome.report.backupId === "string" &&
+            isRestoreReport(outcome.report, outcome.report.backupId) &&
+            isCurrent(workspaceId, epoch) &&
+            request === loadRequest &&
+            !get().status
+          ) {
+            set({ status: t("Workspace restored from backup.") });
+          }
         } catch (error) {
           if (isCurrent(workspaceId, epoch) && request === loadRequest)
             set({ error: friendlyBackupError(error) });
@@ -256,7 +274,17 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
             workspaceId,
             backupId: id,
           });
-          if (!isRestoreReport(report, id)) {
+          if (
+            !report ||
+            typeof report !== "object" ||
+            !("requestId" in report) ||
+            typeof report.requestId !== "string" ||
+            !/^[a-f\d]{32}$/i.test(report.requestId) ||
+            !("workspaceId" in report) ||
+            report.workspaceId !== workspaceId ||
+            !("backupId" in report) ||
+            report.backupId !== id
+          ) {
             throw new Error(
               t(
                 "Restore result could not be confirmed. Inspect workspace data before trying again.",
@@ -265,7 +293,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
           }
           if (isCurrent(workspaceId, epoch)) {
             set({
-              status: t("Workspace restored from backup — restart ZiCode Studio to load the data."),
+              status: t("Restore queued. Restart ZiCode Studio to apply the backup."),
             });
             await get().load();
           }

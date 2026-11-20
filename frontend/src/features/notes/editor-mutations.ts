@@ -1,3 +1,4 @@
+import { referenceKey } from "./shortcut-repository";
 import { t } from "../../shared/i18n";
 import type { EditorTransition, EditorTransitionGuard } from "./editor-transition";
 import type { NoteSummary } from "./notesLogic";
@@ -12,6 +13,7 @@ export function createEditorMutations({
   capture,
   notify,
   confirmDelete,
+  moveShortcuts,
   localize,
 }: {
   get(): NotesState;
@@ -21,9 +23,10 @@ export function createEditorMutations({
   capture(): NotesOperationScope;
   notify(message: string): void;
   confirmDelete(message: string): boolean | Promise<boolean>;
+  moveShortcuts(scope: NotesOperationScope, note: NoteSummary, target: string): Promise<void>;
   localize(error: unknown): Error;
 }) {
-  const key = (note: NoteSummary) => `${note.notebookId}/${note.id}`;
+  const key = referenceKey;
   async function mutate(
     ticket: EditorTransition,
     notes: NoteSummary[],
@@ -49,6 +52,7 @@ export function createEditorMutations({
             });
           else await gateway.delete(ticket.sceneId, ticket.workspaceId, note);
           succeeded.add(key(note));
+          if (target) await moveShortcuts(ticket, note, target);
         } catch (error) {
           firstError ??= localize(error);
         }
@@ -58,7 +62,7 @@ export function createEditorMutations({
       if (current && succeeded.has(key(current))) set({ selectedNote: null, dirty: false });
       if (batch) {
         const completedIds = new Set(
-          notes.filter((note) => succeeded.has(key(note))).map((note) => note.id),
+          notes.filter((note) => succeeded.has(key(note))).map(key),
         );
         const remaining = get().selectedNoteIds.filter((id) => !completedIds.has(id));
         set({ selectedNoteIds: remaining, selectMode: remaining.length > 0 });
@@ -91,6 +95,12 @@ export function createEditorMutations({
     );
   }
   return {
+    async deleteNoteFromList(summary: NoteSummary) {
+      const ticket = await guard.prepare();
+      if (!ticket) return;
+      const note = summaries(ticket).find(item => key(item) === key(summary));
+      if (note) await mutate(ticket, [note]);
+    },
     async deleteSelectedNote() {
       const ticket = await guard.prepare();
       if (ticket?.state.selectedNote) await mutate(ticket, [ticket.state.selectedNote]);
@@ -110,7 +120,7 @@ export function createEditorMutations({
       if (!ticket) return;
       const notes = summaries(ticket).filter(
         (note) =>
-          ticket.state.selectedNoteIds.includes(note.id) && note.notebookId !== targetNotebookId,
+          ticket.state.selectedNoteIds.includes(key(note)) && note.notebookId !== targetNotebookId,
       );
       await mutate(ticket, notes, targetNotebookId, true);
     },
@@ -119,7 +129,7 @@ export function createEditorMutations({
       if (!ticket) return;
       await mutate(
         ticket,
-        summaries(ticket).filter((note) => ticket.state.selectedNoteIds.includes(note.id)),
+        summaries(ticket).filter((note) => ticket.state.selectedNoteIds.includes(key(note))),
         undefined,
         true,
       );

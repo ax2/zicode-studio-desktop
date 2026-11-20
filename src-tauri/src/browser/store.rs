@@ -1,0 +1,306 @@
+//! Browser metadata only. Native engine profiles own cookies and site storage.
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+use serde::{Deserialize, Serialize};
+use std::{collections::HashSet, path::Path, time::Duration};
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum StartupMode {
+    Browser,
+    Workspace,
+}
+pub fn default_zoom() -> f64 { 1.0 }
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SavedTab {
+    pub id: String,
+    pub url: String,
+    pub title: String,
+    #[serde(default = "default_zoom")]
+    pub zoom: f64,
+    #[serde(default)]
+    pub muted: bool,
+    #[serde(default, skip_serializing_if = "pins::is_unpinned")]
+    pub pinned: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<groups::TabGroup>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Session {
+    #[serde(default)]
+    pub closed_tabs: Vec<ClosedTab>,
+    pub revision: i64,
+    pub tabs: Vec<SavedTab>,
+    pub active_tab: Option<String>,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct State {
+    pub profile_name: Option<String>,
+    pub private: bool,
+    pub vertical_tabs: bool,
+    pub search_engine: SearchEngine,
+    pub startup_mode: StartupMode,
+    pub profile_id: String,
+    pub session: Session,
+}
+#[path = "store_closed.rs"]
+mod closed;
+pub use closed::ClosedTab;
+#[path = "store_pins.rs"]
+mod pins;
+#[path = "store_groups.rs"]
+mod groups;
+#[path = "store_windows.rs"]
+mod windows;
+#[path = "store_profiles.rs"]
+pub(crate) mod profiles;
+#[path = "bookmarks.rs"]
+pub mod bookmarks;
+#[path = "history.rs"]
+pub mod history;
+#[path = "search_preferences.rs"]
+mod search_preferences;
+pub use search_preferences::SearchEngine;
+pub struct Store(Connection);
+impl Store {
+    pub fn open(root: &Path) -> Result<Self, String> {
+        std::fs::create_dir_all(root).map_err(|e| e.to_string())?;
+        Self::initialize(Connection::open(root.join("metadata.sqlite3")).map_err(|e| e.to_string())?)
+    }
+    pub(crate) fn memory()->Result<Self,String>{
+        Self::initialize(Connection::open_in_memory().map_err(|e|e.to_string())?)
+    }
+    fn initialize(mut db:Connection)->Result<Self,String>{
+        db.busy_timeout(Duration::from_secs(5))
+            .map_err(|e| e.to_string())?;
+        db.pragma_update(None, "synchronous", "FULL")
+            .map_err(|e| e.to_string())?;
+        let tx = db
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let version: i64 = tx
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .map_err(|e| e.to_string())?;
+        if version > 6 {
+            return Err("Browser metadata requires a newer Studio version".into());
+        }
+        if version == 0 {
+            tx.execute_batch("CREATE TABLE browser_preferences (id INTEGER PRIMARY KEY CHECK(id=1), startup TEXT NOT NULL CHECK(startup IN ('browser','workspace')), profile TEXT NOT NULL);
+                CREATE TABLE browser_sessions (owner TEXT PRIMARY KEY, revision INTEGER NOT NULL, payload TEXT NOT NULL);
+                PRAGMA user_version=1;").map_err(|e| e.to_string())?;
+            tx.execute(
+                "INSERT INTO browser_preferences VALUES(1,'browser',?1)",
+                [uuid::Uuid::new_v4().to_string()],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+        if version < 2 {
+            // Version 2 adds closedTabs to session JSON; old payloads default empty.
+            tx.pragma_update(None, "user_version", 2)
+                .map_err(|e| e.to_string())?;
+        }
+        if version < 3 {
+            tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_bookmarks (owner TEXT PRIMARY KEY, revision INTEGER NOT NULL, payload TEXT NOT NULL); PRAGMA user_version=3;")
+                .map_err(|e| e.to_string())?;
+        }
+        if version < 4 {
+            tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_history (id INTEGER PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, url TEXT NOT NULL, title TEXT NOT NULL, visited_at TEXT NOT NULL); CREATE INDEX IF NOT EXISTS browser_history_owner ON browser_history(owner,id DESC); PRAGMA user_version=4;")
+                .map_err(|e|e.to_string())?;
+        }
+        if version < 5 { tx.pragma_update(None, "user_version", 5).map_err(|e|e.to_string())?; }
+        if version < 6 {
+            tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_search_preferences (id INTEGER PRIMARY KEY CHECK(id=1), engine TEXT NOT NULL CHECK(engine IN ('bing','baidu','google','duckDuckGo'))); INSERT OR IGNORE INTO browser_search_preferences VALUES(1,'bing'); PRAGMA user_version=6;").map_err(|e| e.to_string())?;
+        }
+        // Additive side table. Keep the version and session JSON readable by builds without pinning.
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_pinned_tabs (owner TEXT NOT NULL, tab TEXT NOT NULL, PRIMARY KEY(owner,tab));")
+            .map_err(|err| err.to_string())?;
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_tab_layout (
+            id INTEGER PRIMARY KEY CHECK(id=1), vertical INTEGER NOT NULL CHECK(vertical IN (0,1))
+        );").map_err(|err| err.to_string())?;
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_user_agents(profile TEXT PRIMARY KEY, value TEXT NOT NULL);").map_err(|e| e.to_string())?;
+        groups::create(&tx)?;
+        windows::create(&tx)?;
+        profiles::create(&tx)?;
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(Self(db))
+    }
+    pub(crate) fn user_agent(&self, profile: &str) -> Result<Option<String>, String> {
+        self.0.query_row("SELECT value FROM browser_user_agents WHERE profile=?1", [profile], |r| r.get(0))
+            .optional().map_err(|e| e.to_string())
+    }
+    pub(crate) fn set_user_agent(&self, profile: &str, value: Option<&str>) -> Result<(), String> {
+        if let Some(value) = value {
+            if value.is_empty() || value.len() > 512 || value.trim() != value
+                || !value.bytes().all(|b| (0x20..=0x7e).contains(&b)) {
+                return Err("Use 1–512 printable ASCII characters without surrounding spaces".into());
+            }
+            self.0.execute("INSERT INTO browser_user_agents(profile,value) VALUES(?1,?2) ON CONFLICT(profile) DO UPDATE SET value=excluded.value", [profile,value]).map_err(|e| e.to_string())?;
+        } else {
+            self.0.execute("DELETE FROM browser_user_agents WHERE profile=?1", [profile]).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+    pub fn state(&self, owner: &str) -> Result<State, String> {
+        let (mode, default_profile): (String, String) = self
+            .0
+            .query_row(
+                "SELECT startup,profile FROM browser_preferences WHERE id=1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .map_err(|e| e.to_string())?;
+        uuid::Uuid::parse_str(&default_profile).map_err(|_| "Invalid browser profile identity")?;
+        let startup_mode = match mode.as_str() {
+            "browser" => StartupMode::Browser,
+            "workspace" => StartupMode::Workspace,
+            _ => return Err("Invalid browser startup preference".into()),
+        };
+        let read = self.0.unchecked_transaction().map_err(|err| err.to_string())?;
+        let saved: Option<(i64, String)> = read
+            .query_row(
+                "SELECT revision,payload FROM browser_sessions WHERE owner=?1",
+                [owner],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?;
+        let mut session = if let Some((revision, payload)) = saved {
+            decode_session(revision, &payload)?
+        } else {
+            Session::default()
+        };
+        pins::restore(&read, owner, &mut session)?;
+        groups::restore(&read, owner, &mut session)?;
+        read.commit().map_err(|err| err.to_string())?;
+        let named=self.profile_for_window(owner)?;
+        let profile_id=named.as_ref().map(|p|p.id.clone()).unwrap_or(default_profile);
+        // Profile IDs are directory components, including IDs recovered from older metadata.
+        uuid::Uuid::parse_str(&profile_id).map_err(|_|"Invalid browser profile identity")?;
+        Ok(State {
+            profile_name:named.map(|p|p.name),private:crate::browser_windows::private(owner),
+            vertical_tabs: self.0.query_row("SELECT COALESCE((SELECT vertical FROM browser_tab_layout WHERE id=1),0)", [], |row| row.get(0))
+                .map_err(|err| err.to_string())?,
+            search_engine: self.search_engine()?,
+            startup_mode,
+            profile_id,
+            session,
+        })
+    }
+    pub fn set_startup(&self, mode: StartupMode) -> Result<(), String> {
+        let value = match mode {
+            StartupMode::Browser => "browser",
+            StartupMode::Workspace => "workspace",
+        };
+        self.0
+            .execute(
+                "UPDATE browser_preferences SET startup=?1 WHERE id=1",
+                [value],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    pub fn set_vertical_tabs(&self, vertical: bool) -> Result<(), String> {
+        self.0.execute(
+            "INSERT INTO browser_tab_layout(id,vertical) VALUES(1,?1)
+             ON CONFLICT(id) DO UPDATE SET vertical=excluded.vertical",
+            [vertical],
+        ).map_err(|err| err.to_string())?;
+        Ok(())
+    }
+    pub fn save(
+        &mut self,
+        owner: &str,
+        expected: i64,
+        tabs: Vec<SavedTab>,
+        active_tab: Option<String>,
+    ) -> Result<Session, String> {
+        validate(&tabs, active_tab.as_deref())?;
+        pins::validate(&tabs)?;
+        groups::validate(&tabs)?;
+        let revision = expected
+            .checked_add(1)
+            .filter(|_| expected >= 0)
+            .ok_or("Invalid browser revision")?;
+        let tx = self
+            .0
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let current: Option<(i64, String)> = tx
+            .query_row(
+                "SELECT revision,payload FROM browser_sessions WHERE owner=?1",
+                [owner],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?;
+        if current.as_ref().map_or(0, |row| row.0) != expected {
+            return Err("Browser session changed; reload before saving".into());
+        }
+        let mut previous = current
+            .map(|(revision, payload)| decode_session(revision, &payload))
+            .transpose()?
+            .unwrap_or_default();
+        let previous_pins = pins::restore(&tx, owner, &mut previous)?;
+        let previous_groups = groups::restore(&tx, owner, &mut previous)?;
+        let closed_tabs = closed::transition(previous, &tabs);
+        let mut next = Session {
+            revision,
+            tabs,
+            active_tab,
+            closed_tabs,
+        };
+        closed::validate(&next)?;
+        let legacy = groups::persist(&tx, owner, &mut next, previous_groups)?;
+        let payload = pins::persist(&tx, owner, &legacy, &previous_pins)?;
+        if payload.len() > 4 * 1024 * 1024 {
+            return Err("Browser session exceeds storage limit".into());
+        }
+        tx.execute("INSERT INTO browser_sessions(owner,revision,payload) VALUES(?1,?2,?3) ON CONFLICT(owner) DO UPDATE SET revision=excluded.revision,payload=excluded.payload", params![owner, revision, payload]).map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(next)
+    }
+}
+fn decode_session(revision: i64, payload: &str) -> Result<Session, String> {
+    let session: Session = serde_json::from_str(payload)
+        .map_err(|_| "Browser session is damaged; existing data retained")?;
+    if session.revision != revision {
+        return Err("Browser session revision mismatch".into());
+    }
+    validate(&session.tabs, session.active_tab.as_deref())?;
+    closed::validate(&session)?;
+    Ok(session)
+}
+fn validate(tabs: &[SavedTab], active: Option<&str>) -> Result<(), String> {
+    let mut ids = HashSet::new();
+    for tab in tabs {
+        if uuid::Uuid::parse_str(&tab.id).is_err()
+            || !ids.insert(tab.id.as_str())
+            || tab.title.len() > 4096
+            || tab.url.len() > 16384
+            || !tab.zoom.is_finite() || !(0.25..=5.0).contains(&tab.zoom)
+        {
+            return Err("Invalid saved browser tab".into());
+        }
+        if tab.url == "about:blank" {
+            continue;
+        }
+        let url = reqwest::Url::parse(&tab.url).map_err(|_| "Invalid saved browser URL")?;
+        if !matches!(url.scheme(), "https" | "http")
+            || url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+        {
+            return Err("Unsupported or credential-bearing saved browser URL".into());
+        }
+    }
+    if active.is_some_and(|id| !ids.contains(id)) || (active.is_none() && !tabs.is_empty()) {
+        return Err("Active browser tab does not match saved tabs".into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "store_tests.rs"]
+mod tests;

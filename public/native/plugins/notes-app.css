@@ -6,6 +6,8 @@
 }
 
 .notes-save-state {
+  /* Reserve the longest save label so autosave cannot reflow the toolbar. */
+  min-inline-size: 16ch;
   align-self: center;
   color: var(--text-dim);
   font-size: var(--font-size-xs);
@@ -341,11 +343,6 @@
   opacity: 0;
 }
 
-.notes-notebook-summary:hover .notes-notebook-actions,
-.notes-notebook-summary.active .notes-notebook-actions,
-.notes-notebook-actions:focus-within {
-  opacity: 1;
-}
 
 .notes-icon-action {
   width: var(--control-height-sm);
@@ -962,6 +959,7 @@
 }
 
 .notes-editor-toolbar {
+  flex-wrap: wrap;
   justify-content: space-between;
   margin-bottom: var(--space-4);
 }
@@ -1027,7 +1025,13 @@
   height: 16px;
 }
 
+.notes-editor-actions {
+  flex-wrap: wrap;
+}
+
 .notes-editor-toolbar .ui-button {
+  flex-shrink: 0;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1994,4 +1998,18 @@ body.notes-dragging .notes-result-item {
 
 .notes-capture-summary .ui-button {
   margin-right: var(--space-2);
+}
+
+/* Overlay the normal relationship messages in one reserved row. Hidden text
+   still measures its wrapped height at narrow widths, without being announced. */
+.notes-relationship-status {
+  display: grid;
+}
+
+.notes-relationship-status > span {
+  grid-area: 1 / 1;
+}
+
+.notes-relationship-status > [data-active="false"] {
+  visibility: hidden;
 }

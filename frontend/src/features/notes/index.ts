@@ -1,3 +1,5 @@
+import { t } from "../../shared/i18n";
+import { watchNotesSyncLocalChanges } from "../../shared/notes-sync-refresh";
 import { createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { NotesContent, NotesNav } from "./NotesApp";
@@ -14,8 +16,10 @@ export interface NotesAppHandle {
   setProject(project: ProjectInfo | null): void;
   openNote(notebookId: string, noteId: string): Promise<void>;
   newNote(): Promise<void>;
+  openWidgetShortcut(kind: "new" | "pinned" | "recent"): Promise<void>;
   startCapture(): Promise<void>;
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<unknown>;
+  receiveIncomingDraft(input: { title: string; content: string }, isCurrent: () => boolean, verify?: () => Promise<void>): Promise<void>;
   canDeactivate(): Promise<boolean>;
   destroy(): void;
 }
@@ -23,6 +27,7 @@ export interface NotesAppHandle {
 export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null {
   if (!options.gateway) return null;
   const store = createNotesStore(options);
+  const stopSyncRefresh = watchNotesSyncLocalChanges(() => options.getTarget?.()?.workspaceId, () => store.getState().load({ preserveSelection: true }));
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
 
@@ -149,6 +154,19 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
     openNote(notebookId, noteId) {
       return store.getState().openNote(notebookId, noteId);
     },
+    async openWidgetShortcut(kind) {
+      await store.getState().load();
+      if (store.getState().error) return;
+      if (kind === "new") return store.getState().newNote();
+      await store.getState().refreshShortcuts(true);
+      const state = store.getState();
+      const shortcut = (kind === "pinned" ? state.pinnedNotes : state.recentNotes)[0];
+      if (!shortcut) {
+        options.notify?.(t(kind === "pinned" ? "No pinned notes yet." : "No recent notes yet."));
+        return;
+      }
+      await state.openNote(shortcut.notebookId, shortcut.id);
+    },
     newNote() {
       return store.getState().newNote();
     },
@@ -158,10 +176,14 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
     captureChatExchange(input) {
       return store.getState().captureChatExchange(input);
     },
+    receiveIncomingDraft(input, isCurrent, verify) {
+      return store.getState().receiveIncomingDraft(input, isCurrent, verify);
+    },
     canDeactivate() {
       return store.getState().canDeactivate();
     },
     destroy() {
+      stopSyncRefresh();
       document.removeEventListener("keydown", handleKeydown);
       store.getState().destroy();
       navRoot?.unmount();

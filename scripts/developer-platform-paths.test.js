@@ -29,6 +29,7 @@ const documentation = [
   "docs/adr/0001-plugin-host.md",
   "docs/iterations/2026-11-18-ci.md",
   "docs/releases/v0.6.5.md",
+  "docs/releases/v0.6.9.issues.json",
   "docs/reviews/windows-ci.md",
 ];
 const platformInputs = [
@@ -38,6 +39,8 @@ const platformInputs = [
   "docs/agents/policy.json",
   "docs/agents/fixtures/example.md",
   "docs/iterations/fixtures/request.md",
+  "docs/releases/v0.6.9.inventory.json",
+  "docs/releases/fixtures/v0.6.9.issues.json",
   "docs/plugins/devtools-all-tools-matrix.md",
   "docs/plugins/devtools-all-tools-matrix.json",
   "docs/plugins/catalog-snapshots/dev.105/tools.json",
@@ -59,7 +62,7 @@ const platformInputs = [
 
 describe("developer platform documentation filters", () => {
   for (const name of ["pull_request", "push"]) {
-    it(`skips only reviewed explanation paths for ${name}`, () => {
+    it(`skips only reviewed documentation and release plan paths for ${name}`, () => {
       const patterns = ignoredPaths(name);
       const ignored = (file) => patterns.some((pattern) => posix.matchesGlob(file, pattern));
       for (const file of documentation) expect(ignored(file), file).toBe(true);

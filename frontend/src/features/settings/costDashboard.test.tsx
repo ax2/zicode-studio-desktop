@@ -129,6 +129,8 @@ describe("cost dashboard store + React tab", () => {
     expect(document.querySelectorAll(".cost-dash-stat-card").length).toBeGreaterThan(0);
     expect(screen.getByText("Fix bug")).toBeTruthy();
     expect(document.querySelector(".cost-dash-sessions-table-wrap")).toBeTruthy();
+    expect(document.querySelector(".cost-dash-sessions-workspace")).toBeNull();
+    expect(document.querySelector(".cost-dash-projects-chart")).toBeNull();
     expect(document.querySelector(".cost-dash-activity-calendar")).toBeTruthy();
   });
 

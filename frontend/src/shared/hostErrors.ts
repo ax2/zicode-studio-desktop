@@ -66,7 +66,7 @@ export function friendlyPluginError(error: unknown): string {
   if (lowered === "model_network_permission_required") return t("Grant Notes network permission in Settings before sending text to a model service.");
   if (/^model_selection_/.test(lowered)) return t("Choose a configured model. Refresh the model list if the configuration changed.");
   if (lowered === "model_credential_unavailable") return t("Add the selected channel's API key in Settings, or disable authentication for a local service that does not require it.");
-  if (/^model_config_/.test(lowered)) return t("Could not read this scene's model channels. Check Settings and refresh the model list.");
+  if (/^model_config_/.test(lowered)) return t("Could not read model channels. Open model settings and refresh the model list.");
   if (/^model_(request|client|worker)_/.test(lowered)) return t("The selected model service could not complete the request. Check its address, credentials and availability.");
   if (/^model_response_/.test(lowered)) return t("The selected model service returned an invalid or oversized response.");
   // Web Watch / Notes capture: URL validation.
@@ -101,7 +101,7 @@ export function friendlyPluginError(error: unknown): string {
   }
   // Translation: missing model key.
   if (/translation model key is not configured/.test(lowered)) {
-    return t("The translation model is not configured for this scene.");
+    return t("The translation model is not configured. Choose a model in settings.");
   }
   // Translation: the gateway could not be reached at the network level. This is
   // almost always a proxy/offline problem, so point the user there instead of
@@ -126,7 +126,7 @@ export function friendlyPluginError(error: unknown): string {
   }
   // Finance: QVeris backend errors surface through the workbench gateway.
   if (/qveris api key is not configured/.test(lowered)) {
-    return t("The QVeris API key is not configured for this scene.");
+    return t("The QVeris API key is not configured. Add it in model settings.");
   }
   if (/qveris request timed out/.test(lowered)) {
     return t("The QVeris request timed out. Please try again.");

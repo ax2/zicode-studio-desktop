@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3" xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" IgnorableNamespaces="uap uap3 com rescap">
+  <Identity Name="ZiCode.Studio.QuickNotes" Publisher="CN=ZiCode Studio" Version="0.6.9.0" ProcessorArchitecture="x64"/>
+  <Properties><DisplayName>ZiCode Quick Notes</DisplayName><PublisherDisplayName>ZiCode Studio</PublisherDisplayName><Logo>Assets\StoreLogo.png</Logo></Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22000.0" MaxVersionTested="10.0.26100.0"/>
+    <PackageDependency Name="Microsoft.WindowsAppRuntime.2" MinVersion="2.7.0.0" Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"/>
+  </Dependencies>
+  <Resources><Resource Language="en-us"/><Resource Language="zh-cn"/></Resources>
+  <Applications>
+    <Application Id="QuickNotes" Executable="QuickNotes.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements AppListEntry="none" DisplayName="ZiCode Quick Notes" Description="Open notes in ZiCode Studio" BackgroundColor="transparent" Square44x44Logo="Assets\Square44x44Logo.png" Square150x150Logo="Assets\Square150x150Logo.png"/>
+      <Extensions>
+        <com:Extension Category="windows.comServer"><com:ComServer><com:ExeServer Executable="QuickNotes.exe" Arguments="-ActivateNotesWidget" DisplayName="ZiCode Quick Notes"><com:Class Id="7f455b49-267d-445f-82b4-11b14469cda1" DisplayName="ZiCode Quick Notes"/></com:ExeServer></com:ComServer></com:Extension>
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension Name="com.microsoft.windows.widgets" Id="StudioQuickNotes" DisplayName="ZiCode Quick Notes" PublicFolder="Public">
+            <uap3:Properties>
+              <WidgetProvider>
+                <ProviderIcons><Icon Path="Assets\Square44x44Logo.png"/></ProviderIcons>
+                <Activation><CreateInstance ClassId="7f455b49-267d-445f-82b4-11b14469cda1"/></Activation>
+                <Definitions><Definition Id="QuickNotes" DisplayName="ZiCode Quick Notes" Description="New, recent and pinned Studio notes" AllowMultiple="false"><Capabilities><Capability><Size Name="medium"/></Capability></Capabilities><ThemeResources><Icons><Icon Path="Assets\Square44x44Logo.png"/></Icons></ThemeResources></Definition></Definitions>
+              </WidgetProvider>
+            </uap3:Properties>
+          </uap3:AppExtension>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+  <Capabilities><rescap:Capability Name="runFullTrust"/></Capabilities>
+</Package>

@@ -1,3 +1,12 @@
+import { setupVisualAssetsApp } from "./visual-assets/visual-assets-loader.js";
+import { setupWindowChrome } from "./workspace/window-chrome.js";
+import { setupBrowserWindowClose } from "./browser/browser-window-close.js";
+import { setupCompactHeader } from "./workspace/compact-header.js";
+import { setupBrowserApp } from "./browser/browser-app.js";
+import { setupSystemInformationShortcut } from "./features/system-information-shortcuts.js";
+import { setupTranslationShortcuts } from "./features/translation-shortcuts.js";
+import { MULTI_PROJECT_UI_ENABLED } from "./workspace/workspace-mode.js";
+import { setupQuickTools } from "./features/quick-tools.js";
 import { getLocale, initializeI18n, t } from "../i18n.js";
 import { reconcileSnapshotTarget } from "../session/bootstrap-target.js";
 import {
@@ -53,7 +62,7 @@ import { setupPluginViewHost } from "./plugins/plugin-view-host.js";
 import { setupArticlesApp } from "./react/articles.js";
 import { setupArtifactApp } from "./react/artifacts.js";
 import { setupAutomationApp } from "./react/automation.js";
-import { MessageRenderer, ToolCardRenderer } from "./react/chat.js";
+import { MessageRenderer, ToolCardRenderer, mountQuickTools } from "./react/chat.js";
 import { setupClipboardApp } from "./react/clipboard.js";
 import { manualToolError, setupCommandPalette } from "./react/command-palette.js";
 import {
@@ -72,6 +81,7 @@ import { setupDocumentsApp } from "./react/documents.js";
 import { NativeFileBrowser } from "./react/file-browser.js";
 import { setupFinanceWorkbench } from "./react/finance-workbench.js";
 import { setupGraphApp } from "./react/graph.js";
+import { setupMailApp } from "./react/mail.js";
 import { HabitsHttpGateway, setupHabitsApp } from "./react/habits.js";
 import { setupHelpCenter } from "./react/help.js";
 import { createHistoryWindow } from "./react/history-window.js";
@@ -701,6 +711,7 @@ mobileDrafts
 const toolAccessStore =
   remoteAuth.clientType === "desktop" ? createToolAccessStore(control) : undefined;
 function openVisibleWorkspaceSwitcher() {
+  if (!MULTI_PROJECT_UI_ENABLED) return;
   const toolCenterPicker = document.querySelector(".tool-workspace-picker > summary");
   if (toolCenterPicker?.getClientRects().length) {
     if (!toolCenterPicker.parentElement.open) toolCenterPicker.click();
@@ -746,6 +757,7 @@ const commandPaletteHandle = setupCommandPalette({
       desc: t("Start a new conversation"),
       action: () => document.getElementById("new-session-btn")?.click(),
     },
+    ...(MULTI_PROJECT_UI_ENABLED ? [
     {
       icon: "⇄",
       id: "studio:switch-workspace",
@@ -757,7 +769,8 @@ const commandPaletteHandle = setupCommandPalette({
         // opened (target would be the palette item, not the switcher button).
         setTimeout(openVisibleWorkspaceSwitcher, 0);
       },
-    },
+    }
+    ] : []),
     {
       icon: "🗜️",
       id: "studio:compact",
@@ -1142,7 +1155,11 @@ const habitsApp = setupHabitsApp({
   }),
   notify: notifications.notify,
 });
+const clipboardTranslation = globalThis.__TAURI__?.core?.invoke && navigator.platform.startsWith("Win")
+  ? request => globalThis.__TAURI__.core.invoke("clipboard_translation", { request })
+  : undefined;
 const translationApp = setupTranslationApp({
+  clipboardTranslation,
   getTarget: () => ({
     sceneId: target.sceneId,
     workspaceId: target.workspaceId,
@@ -1191,6 +1208,35 @@ const articlesApp = setupArticlesApp({
   notify: notifications.notify,
   openSettings: (tab) => settingsPanel?.openSettings(tab ?? "articles"),
 });
+setupCompactHeader();
+setupWindowChrome({ report: error => notifications.notify({ type: "error", message: String(error?.message ?? error) }) });
+async function canOpenBrowserDraftConversation() {
+  const invoke = globalThis.__TAURI__?.core?.invoke;
+  return remoteAuth.clientType === "desktop" && invoke &&
+    (await invoke("desktop_entry_mode").catch(() => null)) === "regular";
+}
+
+async function openBrowserDraftConversation({ target: source, isCurrent }) {
+  const changed = () => new Error(t("Page or conversation changed. Read the page again."));
+  if (!await canOpenBrowserDraftConversation() || !isCurrent()) throw changed();
+  const sceneId = source.sceneId || "programming";
+  const session = await spawnSessionViaHost(source.workspaceId, sceneId, hostFetch);
+  if (!isCurrent() || session.workspaceId !== source.workspaceId) throw changed();
+  await switchSession(session.sessionId, { waitForDraft: true });
+  // Pi can bind the temporary route to its durable session ID while booting.
+  if (target.instanceId !== session.instanceId || target.workspaceId !== source.workspaceId) throw changed();
+  configGatewayTargetReady = true;
+  signalConfigGatewayReady();
+  void loadCommands().then(() => slashMenu.update()).catch(showError);
+  void loadAvailableModels().catch(showError);
+}
+
+const browserApp = setupBrowserApp({
+  modelGateway: config,
+  notify: notifications.notify, getTarget: () => target, onPrepareDraft: projectChatDraftHandoff,
+  canOpenDraftConversation: canOpenBrowserDraftConversation, openDraftConversation: openBrowserDraftConversation,
+  onTranslateSelection: (text, provenance) => translationNavigation.open(text, { historyMode: "push" }, undefined, provenance),
+});
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
   toolAccessStore,
@@ -1207,6 +1253,8 @@ pluginShell = setupPluginShell({
   financeApp: financeWorkbench,
   artifactApp,
   builtinApps: {
+    "com.zicode.browser": browserApp,
+    "com.zicode.visual-assets": setupVisualAssetsApp({ invoke: globalThis.__TAURI__?.core?.invoke, getTarget: () => target }),
     "com.zicode.projects": projectWorkspaceApp,
     "com.zicode.tasks": taskCenterApp,
     "com.zicode.automation": automationApp,
@@ -1215,6 +1263,11 @@ pluginShell = setupPluginShell({
     "com.zicode.documents": documentsApp,
     "com.zicode.clipboard": clipboardApp,
     "com.zicode.graph": graphApp,
+    "com.zicode.mail": setupMailApp(
+      request => globalThis.__TAURI__.core.invoke("mail_local", { request }),
+      request => globalThis.__TAURI__.core.invoke("mail_alibaba", { workspaceId: target.workspaceId, request }),
+      ({accountId,...request}) => globalThis.__TAURI__.core.invoke("mail_gmail", {accountId,request}),
+    ),
     "com.zicode.habits": habitsApp,
     "com.zicode.translate": translationApp,
     "com.zicode.watch": watchApp,
@@ -1257,6 +1310,33 @@ pluginShell = setupPluginShell({
     : null,
   notify: notifications.notify,
 });
+setupBrowserWindowClose({ shell: pluginShell, browser: browserApp, invoke: globalThis.__TAURI__?.core?.invoke, report: showError });
+setupSystemInformationShortcut({ listen: globalThis.__TAURI__?.event?.listen, openSettings: tab => settingsPanel.openSettings(tab), onError: showError });
+const translationNavigation = setupTranslationShortcuts({
+  activate: (id, options) => pluginShell.activate(id, options),
+  getActivePluginId: () => pluginShell.getActivePluginId(), getTarget: () => target,
+  stageSelection: (text, provenance) => translationApp.stageBrowserSelection(text, provenance),
+  takeHandoff: clipboardTranslation ? () => clipboardTranslation({ kind: "takeHandoff" }) : undefined,
+  stageHandoff: draft => translationApp.stageClipboardTranslation(draft),
+  listenHandoff: clipboardTranslation ? (event, callback) =>
+    globalThis.__TAURI__.window.getCurrentWindow().listen(event, callback) : undefined,
+  recordRecent: (scope, mutation) => toolAccessStore?.mutate(scope, mutation),
+  focusInput: () => translationApp.focusInput(), listen: globalThis.__TAURI__?.event?.listen,
+  onError: showError,
+});
+const quickToolsAnchor = document.getElementById("quick-tools-anchor");
+const quickTools = setupQuickTools({
+  applications: pluginShell.getApplicationDirectory,
+  api: pluginCapabilityGateway, accessStore: toolAccessStore, getTarget: () => target,
+  openTool: (tool, revision, scope) => pluginShell.openManualTool(tool, revision, scope),
+  manage: async () => {
+    await pluginShell.activate("core.tools");
+    window.dispatchEvent(new CustomEvent("zicode:tray-tool-view", { detail: "all" }));
+  },
+  invoke: globalThis.__TAURI__?.core?.invoke,
+  onError: error => console.warn("[quick-tools]", error?.message ?? error),
+});
+if (quickToolsAnchor) mountQuickTools(quickToolsAnchor, quickTools.launcher);
 // The automation scheduler must run for the whole page lifetime, not only
 // while the Automation center is open, so scheduled workflows fire while the
 // user stays in Chat or another app.
@@ -1326,7 +1406,7 @@ messagesElement.addEventListener("organizechattonotes", async (event) => {
     if (button?.isConnected) button.disabled = false;
   }
 });
-setupAppUpdater({ settingsPanel });
+setupAppUpdater({ settingsPanel, enabled: Boolean(globalThis.__TAURI__?.core?.invoke) });
 setupNewSessionButton({
   data,
   workspaceId: target.workspaceId,
@@ -1350,10 +1430,10 @@ setupAppKeyboardShortcuts({
   openModelDropdown: () => openModelDropdown(),
   cycleThinking: () => thinkingBtn?.click(),
   newSession: () => document.getElementById("new-session-btn")?.click(),
-  switchWorkspace: () => {
+  switchWorkspace: MULTI_PROJECT_UI_ENABLED ? () => {
     if (!commandPalette?.classList.contains("hidden")) commandPaletteHandle.close({ restoreFocus: false });
     openVisibleWorkspaceSwitcher();
-  },
+  } : undefined,
   openSettings: () => settingsPanel?.openSettings("general"),
   toggleFiles: () => {
     const toggle = document.querySelector("[data-file-toggle], #file-sidebar-toggle");
@@ -1495,6 +1575,17 @@ try {
   }
 
   await hydrateSnapshot();
+  if (target.runtimeMode === "tools" && globalThis.__TAURI__?.core?.invoke) {
+    const openWidgetNote = async () => {
+      const action = await globalThis.__TAURI__.core.invoke("take_notes_widget_action");
+      if (!action) return;
+      await pluginShell.activate("com.zicode.notes", { focus: false });
+      if (pluginShell.getActivePluginId() !== "com.zicode.notes") return;
+      await notesApp.openWidgetShortcut(action);
+    };
+    window.addEventListener("zicode:entry-changed", () => { void openWidgetNote().catch(showError); });
+    await openWidgetNote();
+  }
   await Promise.all([
     loadCommands()
       .then(() => slashMenu.update())
@@ -1681,7 +1772,7 @@ function setupSessionSidebar() {
   });
 }
 
-async function switchSession(sessionId, { updateHistory = true } = {}) {
+async function switchSession(sessionId, { updateHistory = true, waitForDraft = false } = {}) {
   if (!sessionId || sessionId === target.sessionId) return;
   const generation = ++navigationGeneration;
 
@@ -1698,7 +1789,8 @@ async function switchSession(sessionId, { updateHistory = true } = {}) {
   ]);
   if (generation !== navigationGeneration) return;
 
-  await adoptTarget(nextTarget, { updateRoute: false });
+  await adoptTarget(nextTarget, { updateRoute: false, waitForDraft });
+  if (generation !== navigationGeneration) return;
   if (updateHistory) {
     // Keep the current query string (the plugin shell's `?app=` deep link)
     // when rewriting the session route, so switching/upgrading the session
@@ -2982,7 +3074,7 @@ function upsertActiveSessionFromUserMessage(message = null) {
   pendingBoundSessionFirstMessage = null;
 }
 
-async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
+async function adoptTarget(nextTarget, { updateRoute = true, waitForDraft = false } = {}) {
   const previousTarget = target;
   const sessionChanged = nextTarget.sessionId !== previousTarget.sessionId;
   const targetChanged =
@@ -3041,7 +3133,7 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
     previousTarget.workspaceId === nextTarget.workspaceId &&
     previousTarget.sessionId?.startsWith("temporary-");
   if (sessionChanged && !migrateTemporaryDraft) imageAttachments?.clear();
-  void mobileDrafts
+  const draftReady = mobileDrafts
     ?.setTarget(target, { preserveInput: migrateTemporaryDraft })
     .then(() => mobileSendLater?.setTarget())
     .catch(() => {});
@@ -3060,6 +3152,7 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   adapter.subscribeTarget(target);
   sidebar?.setActive(target.sessionId);
   await extensionUi.setForegroundSession(target.sessionId, { flush: false });
+  if (waitForDraft) await draftReady;
 }
 
 function projectNameFromPath(path, fallback) {

@@ -372,8 +372,12 @@ impl PluginRegistry {
             }
         }
         entries.sort_by(|(a_file_rank, a_rank, a), (b_file_rank, b_rank, b)| {
-            if request.view == CatalogView::Recent {
-                let ranks = ranks.as_ref().expect("recent view has ranks");
+            // File-intent recommendations still prefer explicitly supported formats.
+            if request.view == CatalogView::Favorites && a_file_rank != b_file_rank {
+                return a_file_rank.cmp(b_file_rank);
+            }
+            if request.view != CatalogView::All {
+                let ranks = ranks.as_ref().expect("saved view has ranks");
                 ranks[a["accessId"].as_str().unwrap()].cmp(&ranks[b["accessId"].as_str().unwrap()])
             } else {
                 a_file_rank.cmp(b_file_rank).then_with(|| a_rank.cmp(b_rank))
@@ -438,6 +442,14 @@ impl PluginRegistry {
                     .find(|c| c["id"].as_str() == Some(&request.capability_id))
             })
             .ok_or("tool_unavailable")?;
+        let mut capability = crate::plugin_resource_regex::manual_capability(capability);
+        use crate::plugin_resource_execution::json_compare;
+        if capability["executionProfile"] == json_compare::PROFILE
+            && json_compare::input_count(&request.plugin_id, Some(&request.capability_id)) == Some(2)
+        {
+            capability["resourceInputMin"] = json!(2);
+            capability["resourceInputLabels"] = json!(["Left JSON file", "Right JSON file"]);
+        }
         let permissions: Vec<_> = plugin.manifest.permissions.required.iter()
             .chain(plugin.manifest.permissions.optional.iter()).map(|permission| {
                 let granted = self.state.scenes.get(&request.scene_id)
@@ -448,8 +460,12 @@ impl PluginRegistry {
             }).collect();
         let resource_input_profile = capability.get("resourceInputProfile").and_then(Value::as_str)
             .or_else(|| plugin.manifest.runtime.get("resourceInputProfile").and_then(Value::as_str));
+        use crate::plugin_resource_execution::file_digest as digest;
+        let native_digest_stream = cfg!(windows) && request.plugin_id == digest::PLUGIN && request.capability_id == digest::CAPABILITY
+            && plugin.manifest.required_profiles[digest::STREAM_PROFILE] == "=1.0.0-preview.1";
         Ok(
             json!({"schemaVersion":1,"sceneId":request.scene_id,"revision":revision,
+            "nativeDigestStream":native_digest_stream,
             "pluginId":request.plugin_id,"version":plugin.manifest.version,
             "resourceInputProfile":resource_input_profile,
             "enabled":self.manual_enabled(&request.scene_id,plugin),

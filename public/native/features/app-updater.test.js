@@ -22,7 +22,7 @@ describe("app updater sidebar action", () => {
     Reflect.deleteProperty(globalThis, "__TAURI__");
   });
 
-  it("installs the available update directly from the sidebar pill", async () => {
+  it("opens update review from the sidebar without installing immediately", async () => {
     const downloadAndInstall = vi.fn(async () => undefined);
     const relaunch = vi.fn(async () => undefined);
     const openSettings = vi.fn();
@@ -41,9 +41,9 @@ describe("app updater sidebar action", () => {
 
     sidebarButton.click();
 
-    await vi.waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
-    expect(relaunch).toHaveBeenCalledTimes(1);
-    expect(openSettings).not.toHaveBeenCalled();
+    expect(openSettings).toHaveBeenCalledWith("updates");
+    expect(downloadAndInstall).not.toHaveBeenCalled();
+    expect(relaunch).not.toHaveBeenCalled();
   });
 
   it("does not contact an unsigned update feed by default", () => {

@@ -28,10 +28,13 @@ impl Store {
             return Err(rejected("resource_save_busy"));
         }
         let record = &self.records[&source.resource_id];
+        if record.is_file_reference() {
+            return Err(rejected("resource_file_reference_requires_run"));
+        }
         let extension = crate::plugin_output_types::extension(&record.mime)
             .ok_or_else(|| rejected("resource_metadata_invalid"))?;
         let id = uuid::Uuid::new_v4().to_string();
-        let receipt = json!({"schemaVersion":1,"profile":"resource.save.draft1","saveId":id,"workspaceId":workspace_id,
+        let receipt = json!({"schemaVersion":1,"profile":record.output_profile.save_name(),"saveId":id,"workspaceId":workspace_id,
             "relativePath":format!(".zicode/outputs/{id}/result.{extension}"),"mimeType":record.mime,"byteLength":record.expected,
             "contentVersion":record.version,"preparedAt":chrono::Utc::now().to_rfc3339(),
             "source":{"pluginId":source.owner.plugin_id,"capabilityId":source.owner.capability_id,"resourceId":source.resource_id,"packageVersion":package_version}});
@@ -82,7 +85,11 @@ impl Store {
         proof: &str,
     ) -> Result<Vec<Arc<[u8]>>, ApiError> {
         self.check(source, proof)?;
-        Ok(self.records[&source.resource_id].chunks.clone())
+        let record = &self.records[&source.resource_id];
+        if record.is_file_reference() {
+            return Err(rejected("resource_file_reference_requires_run"));
+        }
+        Ok(record.chunks.clone())
     }
     pub(in crate::host_server::plugin_resources) fn mark_saved(&mut self, id: &str) {
         self.saves.get_mut(id).unwrap().saved = true;

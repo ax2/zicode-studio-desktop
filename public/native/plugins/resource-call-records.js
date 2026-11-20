@@ -31,7 +31,7 @@ export function createResourceCallRecords({ container, gateway, getTarget, scope
     try {
       const records = await gateway.resourceCalls.list(scope);
       if (!valid() || token !== sequence) return;
-      status.textContent = records.length ? t("Stored calls are not proof of completion or saved results.") : t("No stored tool calls in this project.");
+      status.textContent = records.length ? t("Stored calls are not proof of completion or saved results.") : t("No stored tool calls.");
       for (const record of records) {
         const card = node("article", "", "ui-card"), actions = node("div", "", "ui-toolbar");
         actions.append(button("Stop and recover call", () => void recover(record, card)),

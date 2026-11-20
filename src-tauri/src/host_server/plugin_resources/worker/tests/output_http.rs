@@ -32,8 +32,23 @@ pub(super) async fn material_with_mime(
     mime_type: &str,
     bytes: &[u8],
 ) -> Value {
+    material_with_name(host, client, owner, mime_type, bytes, None).await
+}
+
+pub(super) async fn material_with_name(
+    host: &HostServer,
+    client: &reqwest::Client,
+    owner: &Value,
+    mime_type: &str,
+    bytes: &[u8],
+    name: Option<&str>,
+) -> Value {
     let version = sha256_hex(bytes);
-    let response=post(host,client,"prepare",json!({"schemaVersion":1,"owner":owner,"mimeType":mime_type,"byteLength":bytes.len(),"contentVersion":version})).await;
+    let mut request = json!({"schemaVersion":1,"owner":owner,"mimeType":mime_type,"byteLength":bytes.len(),"contentVersion":version});
+    if let Some(name) = name {
+        request["fileName"] = json!(name);
+    }
+    let response = post(host, client, "prepare", request).await;
     assert_eq!(response.status(), StatusCode::OK);
     let resource = response.json::<Value>().await.unwrap();
     let access = json!({"schemaVersion":1,"owner":owner,"resourceId":resource["resourceId"],"contentVersion":version});

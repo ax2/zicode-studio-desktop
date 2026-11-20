@@ -7,11 +7,7 @@ export function ProjectProfilePreview({ profile }: { profile: ProjectProfile }) 
       <dl>
         <div>
           <dt>{t("Project instructions")}</dt>
-          <dd>{profile.instructions || "—"}</dd>
-        </div>
-        <div>
-          <dt>{t("Default scene")}</dt>
-          <dd>{profile.defaultScene || "—"}</dd>
+          <dd translate="no">{profile.instructions || "—"}</dd>
         </div>
         <div>
           <dt>{t("Session budget")}</dt>

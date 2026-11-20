@@ -6,6 +6,10 @@ export const BETA_SETTINGS_KEY = "picot-settings-beta-updates";
 
 export interface UpdateInfo {
   version?: string;
+  date?: string;
+  body?: string;
+  nativeManaged?: boolean;
+  fullInstaller?: boolean;
   downloadAndInstall?: (
     handler?: (event: unknown) => void,
   ) => Promise<unknown>;
@@ -17,6 +21,7 @@ export interface UpdateProgressEvent {
 }
 
 type TauriUpdater = {
+  event?: { listen: (name: string, callback: (event: { payload: { phase: string; downloaded: number; total: number } }) => void) => Promise<() => void> };
   process?: { relaunch?: () => Promise<unknown> };
   updater?: { check?: () => Promise<unknown> };
   core?: { invoke?: (..._args: unknown[]) => Promise<unknown> };
@@ -36,6 +41,9 @@ export interface AppUpdaterState {
   sidebarVisible: boolean;
   checking: boolean;
   installing: boolean;
+  installerReady: boolean;
+  canCancel: boolean;
+  lastInstallResult: string;
   totalBytes: number;
   downloadedBytes: number;
   lastCheckMs: number;
@@ -48,7 +56,13 @@ export interface AppUpdaterState {
   showAvailable(nextUpdate: UpdateInfo | null | undefined): void;
   checkNow(options?: { silent?: boolean }): Promise<unknown>;
   installUpdate(): Promise<void>;
-  formatProgress(): string;
+  cancelDownload(): Promise<void>;
+}
+
+function formatProgress(downloadedBytes: number, totalBytes: number): string {
+  if (!totalBytes) return t("Downloading…");
+  const percent = Math.min(99, Math.floor((downloadedBytes / totalBytes) * 100));
+  return t("Downloading {percent}%…").replace("{percent}", String(percent));
 }
 
 export function betaUpdatesEnabled(): boolean {
@@ -58,6 +72,8 @@ export function betaUpdatesEnabled(): boolean {
     return false;
   }
 }
+
+let checkGeneration = 0;
 
 export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   enabled: false,
@@ -69,17 +85,23 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   sidebarVisible: false,
   checking: false,
   installing: false,
+  installerReady: false,
+  canCancel: false,
+  lastInstallResult: "",
   totalBytes: 0,
   downloadedBytes: 0,
   lastCheckMs: 0,
   logger: console,
   configure(enabled, logger = console) {
+    checkGeneration++;
     set({
       enabled,
       logger,
       update: null,
       checking: false,
       installing: false,
+      installerReady: false,
+      canCancel: false,
       totalBytes: 0,
       downloadedBytes: 0,
     });
@@ -96,7 +118,10 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     get().showIdle();
   },
   showIdle() {
+    checkGeneration++;
     set({
+      checking: false,
+      update: null,
       status: t("Click to check"),
       button: t("Check now"),
       disabled: false,
@@ -111,7 +136,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       status: version
         ? t("Version {version} available").replace("{version}", version)
         : t("Update available"),
-      button: t("Download & install"),
+      button: nextUpdate?.fullInstaller ? t("Download update") : t("Download & install"),
       disabled: false,
       canInstall: true,
       sidebarVisible: true,
@@ -119,9 +144,13 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   },
   async checkNow({ silent = false } = {}) {
     const state = get();
-    if (state.checking || state.installing) return state.update;
-    set({ checking: true, lastCheckMs: Date.now() });
-    if (!silent) {
+    if (!state.enabled) return null;
+    if (state.checking || state.installing || state.installerReady) return state.update;
+    const generation = ++checkGeneration;
+    const beta = betaUpdatesEnabled();
+    const current = () => generation === checkGeneration && get().enabled && beta === betaUpdatesEnabled();
+    set({ checking: true, lastCheckMs: Date.now(), update: null, canInstall: false, sidebarVisible: false, disabled: true });
+    if (!silent || state.canInstall) {
       set({
         status: t("Checking…"),
         button: t("Checking…"),
@@ -130,30 +159,22 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     }
     try {
       const tauri = (globalThis as unknown as TauriGlobal).__TAURI__;
-      const beta = betaUpdatesEnabled();
       let result: unknown = null;
-      if (beta) {
-        const invoke = tauri?.core?.invoke;
-        if (typeof invoke !== "function") {
-          throw new Error("Tauri core API is unavailable");
-        }
-        result = await invoke("check_beta_update");
-      } else {
-        const check = tauri?.updater?.check;
-        if (typeof check === "function") result = await check();
-      }
-      const update = result
-        ? beta
-          ? {
-              ...(result as UpdateInfo),
-              downloadAndInstall: () => get().installUpdate(),
-            }
-          : (result as UpdateInfo)
-        : null;
+      const invoke = tauri?.core?.invoke;
+      const native = typeof invoke === "function";
+      if (native) result = await invoke("check_desktop_update", { beta });
+      else if (!beta && typeof tauri?.updater?.check === "function") result = await tauri.updater.check();
+      else throw new Error("Desktop updater is unavailable");
+      if (!current()) return null;
+      const update = result ? native ? {
+        ...(result as UpdateInfo), nativeManaged: true,
+        downloadAndInstall: () => invoke?.("install_desktop_update", { expectedVersion: (result as UpdateInfo).version, beta }),
+      } : result as UpdateInfo : null;
       if (update) {
         get().showAvailable(update);
       } else {
         set({
+          update: null,
           status: t("Up to date"),
           button: t("Check now"),
           disabled: false,
@@ -163,35 +184,48 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       }
       return update;
     } catch (error) {
-      if (!silent) {
-        set({
-          status: t("Update check unavailable"),
-          button: t("Check now"),
-          disabled: false,
-        });
-      }
-      get().logger.warn?.("[Updater] Check failed:", error);
+      if (!current()) return null;
+      set({
+        update: null,
+        status: t("Update check unavailable"),
+        button: t("Check now"),
+        disabled: false,
+        canInstall: false,
+        sidebarVisible: false,
+      });
+      if (!silent) get().logger.warn?.("[Updater] Check failed:", error);
       return null;
     } finally {
-      set({ checking: false });
+      if (generation === checkGeneration) set({ checking: false });
     }
   },
-  formatProgress() {
-    const { totalBytes, downloadedBytes } = get();
-    if (!totalBytes) return t("Downloading…");
-    const percent = Math.min(
-      99,
-      Math.floor((downloadedBytes / totalBytes) * 100),
-    );
-    return t("Downloading {percent}%…").replace("{percent}", String(percent));
+  async cancelDownload() {
+    const { installerReady, canCancel, installing, update } = get();
+    if (!canCancel && !(installerReady && !installing)) return;
+    if (installerReady) set({ disabled: true, installing: true });
+    try {
+      const invoke = (globalThis as unknown as TauriGlobal).__TAURI__?.core?.invoke;
+      if (!invoke) throw new Error("Desktop updater is unavailable");
+      await invoke("cancel_desktop_update");
+      if (installerReady) {
+        set({ installerReady: false });
+        get().showAvailable(update);
+      }
+    } catch (error) {
+      get().logger.warn?.("[Updater] Cancel failed:", error);
+      if (installerReady) set({ status: t("Could not discard the downloaded installer.") });
+    } finally {
+      if (installerReady) set({ disabled: false, installing: false });
+    }
   },
   async installUpdate() {
     const state = get();
-    if (state.installing) return;
+    if (!state.enabled || state.checking || state.installing) return;
     if (!state.update) {
       await get().checkNow();
       if (!get().update) return;
     }
+    const selectedUpdate = get().update;
 
     set({
       installing: true,
@@ -204,43 +238,77 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     });
 
     const tauri = (globalThis as unknown as TauriGlobal).__TAURI__;
+    if (selectedUpdate?.fullInstaller) {
+      let unlisten: (() => void) | undefined;
+      let cancelled = false;
+      try {
+        if (!tauri?.core?.invoke) throw new Error("Desktop updater is unavailable");
+        if (state.installerReady) {
+          set({ status: t("Closing Studio to install…") });
+          await tauri.core.invoke("restart_desktop_after_update");
+          return;
+        }
+        if (tauri.event) {
+          unlisten = await tauri.event.listen("desktop-update-progress", ({ payload }) => {
+            if (payload.phase === "downloading") {
+              set({ canCancel: true, downloadedBytes: payload.downloaded, totalBytes: payload.total,
+                status: formatProgress(payload.downloaded, payload.total) });
+            } else if (payload.phase === "verifying") {
+              set({ canCancel: false, status: t("Verifying installer…") });
+            } else if (payload.phase === "cancelled") {
+              cancelled = true;
+            }
+          });
+        }
+        const download = selectedUpdate.downloadAndInstall;
+        if (!download) throw new Error("Desktop update download is unavailable");
+        await download();
+        set({ installerReady: true, status: t("Installer verified"), button: t("Install and exit"),
+          disabled: false, canInstall: true, sidebarVisible: true });
+      } catch (error) {
+        get().logger.warn?.("[Updater] Update failed:", error);
+        cancelled ||= String(error).includes("UPDATE_CANCELLED");
+        let failureStatus = state.installerReady ? t("Install failed") : t("Download failed");
+        if (String(error).includes("Close other Studio instances")) failureStatus = t("Close other Studio instances and try again.");
+        if (String(error).includes("Start the installed copy")) failureStatus = t("Open the installed copy of Studio to update it.");
+        set({ status: cancelled ? t("Download cancelled") : failureStatus,
+          button: state.installerReady ? t("Install and exit") : t("Download update"),
+          disabled: false, canInstall: true, sidebarVisible: true });
+      } finally {
+        unlisten?.();
+        set({ canCancel: false, installing: false });
+      }
+      return;
+    }
     let updateLeaseHeld = false;
     let restartOnFailure = true;
     try {
-      const beta = betaUpdatesEnabled();
-      if (beta) {
-        const invoke = tauri?.core?.invoke;
-        if (typeof invoke !== "function") {
-          throw new Error("Tauri core API is unavailable");
-        }
-        await invoke("install_beta_update");
-        updateLeaseHeld = true;
-      } else {
-        const update = get().update;
-        if (typeof update?.downloadAndInstall !== "function") {
-          throw new Error("Updater API is unavailable");
-        }
+      const update = get().update;
+      if (typeof update?.downloadAndInstall !== "function") throw new Error("Updater API is unavailable");
+      if (!update.nativeManaged) {
         const invoke = tauri?.core?.invoke;
         if (typeof invoke === "function") {
           await invoke("prepare_background_automation_worker_for_update");
           updateLeaseHeld = true;
         }
+      }
         await update.downloadAndInstall(
           (rawEvent: unknown) => {
             const event = rawEvent as UpdateProgressEvent;
             if (event?.event === "Started") {
+              const totalBytes = event.data?.contentLength || 0;
               set({
-                totalBytes: event.data?.contentLength || 0,
+                totalBytes,
                 downloadedBytes: 0,
-                status: get().formatProgress(),
+                status: formatProgress(0, totalBytes),
                 button: t("Installing…"),
                 disabled: true,
               });
             } else if (event?.event === "Progress") {
+              const downloadedBytes = get().downloadedBytes + (event.data?.chunkLength || 0);
               set({
-                downloadedBytes:
-                  get().downloadedBytes + (event.data?.chunkLength || 0),
-                status: get().formatProgress(),
+                downloadedBytes,
+                status: formatProgress(downloadedBytes, get().totalBytes),
                 button: t("Installing…"),
                 disabled: true,
               });
@@ -253,25 +321,24 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
             }
           },
         );
-      }
       set({
         status: t("Installed. Relaunching…"),
         button: t("Relaunching…"),
         disabled: true,
       });
       const relaunch = tauri?.process?.relaunch;
-      if (typeof relaunch !== "function") {
-        throw new Error("Tauri process plugin is unavailable");
-      }
-      await relaunch();
+      if (typeof relaunch === "function") await relaunch();
+      else if (update.nativeManaged && tauri?.core?.invoke) await tauri.core.invoke("restart_desktop_after_update");
+      else throw new Error("Tauri process plugin is unavailable");
       restartOnFailure = false;
     } catch (error) {
       get().logger.warn?.("[Updater] Install failed:", error);
       set({
         status: t("Install failed"),
-        button: t("Try again"),
+        button: t("Check now"),
         disabled: false,
-        canInstall: true,
+        update: null,
+        canInstall: false,
         sidebarVisible: true,
       });
     } finally {

@@ -1,0 +1,27 @@
+{
+  "pluginId": "com.zicode.artifacts",
+  "kind": "report",
+  "title": "Page summary · Synthetic page · 中文",
+  "mimeType": "text/plain",
+  "content": "Page summary\nSynthetic page · 中文\nhttps://example.org/synthetic?view=analysis\nCaptured at: 2026-11-18T06:00:00Z\nGenerated at: 2026-11-18T06:01:00Z\n\n合成摘要\n<script>inert</script>",
+  "provenance": {
+    "producer": "browser.analysis",
+    "sourceTrust": "untrusted-web-content",
+    "contentTrust": "untrusted-model-output",
+    "source": {
+      "url": "https://example.org/synthetic?view=analysis",
+      "title": "Synthetic page · 中文",
+      "capturedAt": "2026-11-18T06:00:00Z",
+      "documentRevision": "doc-synthetic-1"
+    },
+    "analysis": {
+      "kind": "summary",
+      "generatedAt": "2026-11-18T06:01:00Z",
+      "question": "",
+      "model": {
+        "provider": "fixture",
+        "modelId": "synthetic-model"
+      }
+    }
+  }
+}

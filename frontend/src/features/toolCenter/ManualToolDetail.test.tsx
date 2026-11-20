@@ -12,7 +12,7 @@ afterEach(async () => { for (const root of roots.splice(0)) await act(async () =
 const tool: ManualTool = { toolId: "tool", accessId: "access", pluginId: "fixture", capabilityId: "decode", title: "Decode",
   applicationName: "Fixture", publisher: "Studio", version: "0.1.0", enabled: true, runtime: "wasi" };
 const envelope = (text: string) => ({ contractVersion: "1.0.0-rc.1", ok: true, data: { text }, error: null });
-async function mount(activeTool: ManualTool = tool, resourceInputProfile?: string, inputSchema: unknown = { type: "object", properties: { text: { type: "string" } } }) {
+async function mount(activeTool: ManualTool = tool, resourceInputProfile?: string, inputSchema: unknown = { type: "object", properties: { text: { type: "string" } } }, onOpenApplication?: () => void) {
   setLocale("zh-CN");
   const api: ManualToolApi = {
     searchTools: vi.fn(),
@@ -25,7 +25,7 @@ async function mount(activeTool: ManualTool = tool, resourceInputProfile?: strin
   const container = document.createElement("div"); document.body.append(container);
   const root = createRoot(container); roots.push(root);
   await act(async () => root.render(<ManualToolDetail tool={activeTool} revision="revision" api={api}
-    scope={{ sceneId: "programming", workspaceId: "workspace" }} accessStore={store} />));
+    scope={{ sceneId: "programming", workspaceId: "workspace" }} accessStore={store} onOpenApplication={onOpenApplication} />));
   const submit = async () => { await act(async () => container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))); };
   return { container, api, store, submit };
 }
@@ -81,4 +81,48 @@ it("clears stale output on Host failure and preserves success when history canno
   store.mutate.mockRejectedValue(new Error("history unavailable")); await submit();
   expect((container.querySelector("[data-tool-result]") as HTMLTextAreaElement).value).toBe("success");
   expect(container.querySelector('[role="alert"]')?.textContent).toContain("未能保存使用记录");
+});
+
+it("keeps tool information and the alternate application route in a collapsed disclosure", async () => {
+  const open = vi.fn();
+  const { container } = await mount({ ...tool, description: "Tool explanation" }, undefined, undefined, open);
+  const info = container.querySelector("details.tool-information") as HTMLDetailsElement;
+  expect(info).toBeTruthy(); expect(info.open).toBe(false);
+  expect(info.textContent).toContain("Fixture"); expect(info.textContent).toContain("Tool explanation");
+  const application = [...container.querySelectorAll("button")].find(button => button.textContent === "打开工具界面");
+  expect(application?.closest("details")).toBe(info);
+  await act(async () => application?.click()); expect(open).toHaveBeenCalledTimes(1);
+});
+
+it("keeps result navigation beside Run instead of inserting it before the input", async () => {
+  const { container, submit } = await mount();
+  expect(container.textContent).not.toContain("切换页面后工具继续运行");
+  await submit();
+  const form = container.querySelector("form") as HTMLFormElement;
+  const button = [...form.querySelectorAll("button")].find(node => node.textContent === "查看最近执行结果");
+  expect(button?.parentElement).toBe(form.querySelector('button[type="submit"]')?.parentElement);
+  expect((form.querySelector("textarea")?.compareDocumentPosition(button as Node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(container.textContent).not.toContain("切换页面后工具继续运行");
+});
+
+it("shows the background-running warning only while the issued call is pending", async () => {
+  const { container, api, submit } = await mount();
+  let finish!: (value: { result: ReturnType<typeof envelope> }) => void;
+  vi.mocked(api.invoke).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  await submit();
+  expect(container.textContent).toContain("切换页面后工具继续运行");
+  expect(container.querySelector('button[type="submit"]')?.hasAttribute("disabled")).toBe(true);
+  await act(async () => finish({ result: envelope("done") }));
+  expect(container.textContent).not.toContain("切换页面后工具继续运行");
+});
+
+it("keeps the interface as the single primary action when the tool needs its own UI", async () => {
+  const open = vi.fn();
+  const { container, api } = await mount({ ...tool, runtime: "builtin" }, undefined, undefined, open);
+  const button = [...container.querySelectorAll("button")].find(node => node.textContent === "打开工具界面");
+  expect(button).toBeTruthy(); expect(button?.closest("details")).toBeNull();
+  expect(button?.classList.contains("ui-button--primary")).toBe(true);
+  expect(container.querySelector("form")).toBeNull();
+  await act(async () => button?.click());
+  expect(open).toHaveBeenCalledTimes(1); expect(api.invoke).not.toHaveBeenCalled();
 });

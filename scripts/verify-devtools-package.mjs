@@ -116,6 +116,9 @@ export async function verifyDevtoolsPackage(packageDirectory, verificationFile) 
       const path = join(directory, entry);
       const stat = await lstat(path);
       if (stat.isSymbolicLink()) reject("package_link_forbidden");
+      const resolved = await realpath(path).catch(() => reject("package_link_forbidden"));
+      const identity = (value) => process.platform === "win32" ? value.toLowerCase() : value;
+      if (identity(resolved) !== identity(path)) reject("package_link_forbidden");
       if (stat.isDirectory()) await walk(path, `${name}/`);
       else if (stat.isFile()) {
         if (actual.has(key)) reject("package_duplicate_path");

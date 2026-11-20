@@ -1,9 +1,13 @@
 //! Read-only imports for the internal resource-input candidate, without filesystem access.
-use super::resource_input::Resource;
+use super::{
+    digest_stream::Stream,
+    resource_input::{Descriptor, Resource},
+};
 use wasmtime::{Caller, Linker};
 
 pub(super) struct Reads {
-    pub resources: Vec<Resource>,
+    resources: Vec<Resource>,
+    stream: Option<Stream>,
     remaining_bytes: usize,
     remaining_calls: usize,
 }
@@ -12,9 +16,52 @@ impl Reads {
     pub fn new(resources: Vec<Resource>) -> Self {
         Self {
             resources,
+            stream: None,
             remaining_bytes: 64 * 1024 * 1024,
             remaining_calls: 4096,
         }
+    }
+
+    pub(super) fn stream(stream: Stream) -> Self {
+        Self {
+            stream: Some(stream),
+            ..Self::new(Vec::new())
+        }
+    }
+
+    pub(super) fn descriptors(&self) -> Vec<(&Descriptor, usize)> {
+        match &self.stream {
+            Some(stream) => stream
+                .descriptors()
+                .iter()
+                .map(|item| (item, item.byte_length))
+                .collect(),
+            None => self
+                .resources
+                .iter()
+                .map(|resource| (&resource.descriptor, resource.bytes.len()))
+                .collect(),
+        }
+    }
+
+    pub(super) fn stream_fuel(&self) -> Option<u64> {
+        self.stream.as_ref().map(Stream::fuel)
+    }
+
+    pub(super) fn finish(&mut self) -> Result<(), String> {
+        self.stream.as_mut().map_or(Ok(()), Stream::finish)
+    }
+
+    fn size(&self, index: usize) -> Option<usize> {
+        if let Some(stream) = &self.stream {
+            return stream
+                .descriptors()
+                .get(index)
+                .map(|descriptor| descriptor.byte_length);
+        }
+        self.resources
+            .get(index)
+            .map(|resource| resource.bytes.len())
     }
 }
 
@@ -28,9 +75,8 @@ pub(super) fn link<T: 'static>(
             "size",
             move |mut caller: Caller<'_, T>, index: i32| -> i64 {
                 state(caller.data_mut())
-                    .resources
-                    .get(index as usize)
-                    .map(|r| r.bytes.len() as i64)
+                    .size(index as usize)
+                    .map(|length| length as i64)
                     .unwrap_or(-1)
             },
         )
@@ -46,10 +92,12 @@ pub(super) fn link<T: 'static>(
                   length: i32|
                   -> i32 {
                 let reads = state(caller.data_mut());
-                if reads.remaining_calls == 0 {
-                    return -3;
+                if reads.stream.is_none() {
+                    if reads.remaining_calls == 0 {
+                        return -3;
+                    }
+                    reads.remaining_calls -= 1;
                 }
-                reads.remaining_calls -= 1;
                 let Ok(offset) = usize::try_from(offset) else {
                     return -1;
                 };
@@ -59,6 +107,24 @@ pub(super) fn link<T: 'static>(
                 let Ok(destination) = usize::try_from(destination) else {
                     return -2;
                 };
+                let reads = state(caller.data_mut());
+                if let Some(stream) = &mut reads.stream {
+                    let bytes = match stream.chunk(index as usize, offset, length) {
+                        Ok(bytes) => bytes,
+                        Err(code) => return code,
+                    };
+                    let Some(memory) = caller
+                        .get_export("memory")
+                        .and_then(|export| export.into_memory())
+                    else {
+                        return -2;
+                    };
+                    return if memory.write(&mut caller, destination, &bytes).is_ok() {
+                        bytes.len() as i32
+                    } else {
+                        -2
+                    };
+                }
                 let Some(resource) = reads.resources.get(index as usize) else {
                     return -1;
                 };

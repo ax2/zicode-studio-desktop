@@ -7,6 +7,7 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   delete window.visualViewport;
   document.body.className = "";
   document.body.replaceChildren();
@@ -75,6 +76,7 @@ describe("syncMessagesInsets", () => {
   });
 
   test("does not mistake initial composer focus for an open software keyboard", () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
     const main = document.createElement("div");
     const messages = document.createElement("div");
     const header = document.createElement("div");

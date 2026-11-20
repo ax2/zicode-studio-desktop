@@ -194,14 +194,14 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
-  it("opens the visible workspace switcher after closing the palette", () => {
+  it("retains the workspace switcher behind the explicit multi-project policy", () => {
     expect(appJs).toMatch(/function openVisibleWorkspaceSwitcher\(\)[\s\S]*?\.tool-workspace-picker > summary/);
     expect(appJs).toMatch(/sidebarToggleController\?\.setCollapsed\(false\)/);
     expect(appJs).toMatch(/if \(!switcher \|\| getComputedStyle\(switcher\)\.display === "none"\)/);
     expect(appJs).toMatch(
       /label: t\("Switch workspace"\)[\s\S]{0,600}setTimeout\(openVisibleWorkspaceSwitcher, 0\)/,
     );
-    expect(appJs).toMatch(/switchWorkspace: \(\) => \{[\s\S]{0,250}commandPaletteHandle\.close\([\s\S]{0,120}openVisibleWorkspaceSwitcher\(\)/);
+    expect(appJs).toMatch(/switchWorkspace: MULTI_PROJECT_UI_ENABLED \? \(\) => \{[\s\S]{0,250}commandPaletteHandle\.close\([\s\S]{0,120}openVisibleWorkspaceSwitcher\(\)/);
   });
 
   it("documents the workspace switcher and per-workspace data layout in Help", () => {

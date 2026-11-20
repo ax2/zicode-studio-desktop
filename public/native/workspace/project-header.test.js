@@ -7,7 +7,7 @@ describe("project header", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows the full workspace path in the header pill", async () => {
+  it("keeps workspace paths out of text, title and the visible header", async () => {
     document.body.innerHTML = '<div id="workspace-indicator" class="hidden"></div>';
     const fullPath = "/Users/ShixinGuo/code/pi/pi-web-ui";
     const data = {
@@ -18,8 +18,8 @@ describe("project header", () => {
 
     const indicator = document.getElementById("workspace-indicator");
     expect(data.workspaceInfo).toHaveBeenCalledWith("workspace-a");
-    expect(indicator.textContent).toBe(fullPath);
-    expect(indicator.title).toBe(fullPath);
-    expect(indicator.classList.contains("hidden")).toBe(false);
+    expect(indicator.textContent).toBe("");
+    expect(indicator.title).toBe("");
+    expect(indicator.classList.contains("hidden")).toBe(true);
   });
 });

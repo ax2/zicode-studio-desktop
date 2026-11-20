@@ -6,6 +6,8 @@ import { createAttachmentUpload } from "./attachment-uploads";
 import { createChatNoteCapture } from "./chat-note-capture";
 import { createNoteDraftRecovery, type NoteRecoveryState } from "./draft-recovery";
 import { createNoteDraftRepository, type NoteDraftRepository } from "./draft-repository";
+import { createEditorConflict } from "./editor-conflict";
+import { orderNotebooks, readNotebookLayout, reorderNotebooks, writeNotebookLayout } from "./notebook-layout";
 import { createEditorMutations } from "./editor-mutations";
 import { createEditorNavigation } from "./editor-navigation";
 import { createNoteEditorSave, editorFingerprint } from "./editor-save";
@@ -28,7 +30,7 @@ import {
 } from "./notesLogic";
 import type { NotesOperationScope } from "./operation-scope";
 import { createNotesOperationScope } from "./operation-scope";
-import { createShortcutRepository, type ShortcutRepository } from "./shortcut-repository";
+import { createShortcutRepository, referenceKey, type NoteReference, type ShortcutRepository } from "./shortcut-repository";
 import { defaultChooseFile, defaultDownloadFile, defaultFileToBase64 } from "./transfer-files";
 import { createTrashActions, type TrashExpectation } from "./trash-actions";
 import { type CapturePreview, createWebCapture } from "./web-capture";
@@ -62,6 +64,7 @@ export interface NotesGatewayLike {
     };
   }>;
   createNotebook(sceneId: string, workspaceId: string, params: { title: string; icon?: string; parentId?: string | null }): Promise<{ notebook: Notebook }>;
+  saveNotebookOrder?(sceneId: string, workspaceId: string, expectedOrder: string[] | null, order: string[]): Promise<unknown>;
   updateNotebook(sceneId: string, workspaceId: string, params: { notebookId: string; title: string; icon: string; parentId?: string | null }): Promise<unknown>;
   deleteNotebook(sceneId: string, workspaceId: string, notebookId: string): Promise<unknown>;
   create(sceneId: string, workspaceId: string, notebookId: string, params: { title: string; content?: string; tags?: string[]; icon?: string }): Promise<{ note: Note }>;
@@ -182,6 +185,9 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   selectMode: boolean;
   selectedNoteIds: string[];
   expandedNotebookIds: Set<string>;
+  notebookOrder: string[];
+  reorderNotebook(sourceId: string, targetId: string, after?: boolean): void;
+  deleteNoteFromList(note: NoteSummary): Promise<void>;
   expandedNavSections: Map<string, boolean>;
   draftTitle: string;
   draftIcon: string;
@@ -189,7 +195,6 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   draftTags: string[];
   backlinks: NoteBacklink[];
   similarNotes: SimilarNote[];
-  deleteArmed: boolean;
   saveDisabled: boolean;
   load(options?: { preserveSelection?: boolean }): Promise<void>;
   applyFilter(options?: { tag?: string | null; sourceOnly?: boolean }): Promise<void>;
@@ -217,6 +222,7 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   purgeFromTrash(entry: TrashEntry): Promise<void>;
   emptyTrash(): Promise<void>;
   saveEditor(silent?: boolean): Promise<void>;
+  reloadConflictedNote(): Promise<void>;
   saveIfDirty(): Promise<void>;
   markDirty(): void;
   scheduleAutosave(): void;
@@ -235,7 +241,7 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   closeMovePopover(): void;
   moveNoteTo(sourceNotebookId: string, noteId: string, targetNotebookId: string): Promise<void>;
   toggleSelectMode(): void;
-  toggleNoteSelected(noteId: string): void;
+  toggleNoteSelected(note: NoteReference): void;
   clearNoteSelection(): void;
   moveSelectedNotes(targetNotebookId: string): Promise<void>;
   deleteSelectedNotes(): Promise<void>;
@@ -255,8 +261,6 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   invalidateCaptureView(clearSource?: boolean): void;
   setTarget(): Promise<void>;
   setProject(project: ProjectInfo | null): void;
-  resetDeleteArmed(): void;
-  setDeleteArmed(): void;
   destroy(): void;
 }
 
@@ -282,14 +286,45 @@ export function createNotesStore(options: NotesStoreOptions) {
   let stopDraftWatch = () => {};
   let stopDraftLifecycle = () => {};
   let stopShortcutWatch = () => {};
+  let stopLayoutWatch = () => {};
+  const layoutScope = () => JSON.stringify([sceneId(), workspaceId()]);
   let shortcuts!: ReturnType<typeof createNoteShortcuts>;
   let recovery!: ReturnType<typeof createNoteDraftRecovery>;
   const operationScope = createNotesOperationScope(getTarget);
   let activeTarget = JSON.stringify([sceneId(), workspaceId()]);
+  const orderSession = () => ({ saved: undefined as string[] | null | undefined, pending: 0, revision: 0, triedMigration: false, tail: Promise.resolve() });
+  let ordering = orderSession();
 
   const store = create<NotesState>()((set, get) => {
     const guard = createEditorTransition({ get, set, capture: operationScope.capture, localize: localizeNotesHostError });
+    function persistOrder(ids: string[]) {
+      const session = ordering;
+      const scope = operationScope.capture();
+      const save = gateway.saveNotebookOrder;
+      if (!save || session.saved === undefined) return;
+      const revision = ++session.revision;
+      session.pending++;
+      session.tail = session.tail.then(async () => {
+        try {
+          if (session.saved === undefined) return;
+          await save.call(gateway, scope.sceneId, scope.workspaceId, session.saved, ids);
+          session.saved = ids;
+          if (scope.isCurrent()) writeNotebookLayout(layoutScope(), [], get().expandedNotebookIds);
+        } catch (error) {
+          // A second window or sync may have won this write. Reload its order;
+          // queued drags must never overwrite it using a newly fetched baseline.
+          session.saved = undefined;
+          if (scope.isCurrent()) {
+            notify(localizeNotesHostError(error).message);
+          }
+        } finally {
+          session.pending--;
+          if (scope.isCurrent() && revision === session.revision && session.saved === undefined) await get().load();
+        }
+      });
+    }
     recovery = createNoteDraftRecovery({ get, set, capture: operationScope.capture, repository: options.draftRepository ?? createNoteDraftRepository(), guard, gateway, download: downloadFile, notify });
+    const editorSave = createNoteEditorSave({ get, set, gateway, capture: operationScope.capture, notify, localize: localizeNotesHostError });
     shortcuts = createNoteShortcuts({ get, set, capture: operationScope.capture, gateway, repository: options.shortcutRepository ?? createShortcutRepository(), notify });
     return {
     ...recovery.actions,
@@ -301,7 +336,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     attachmentBusy: false,
     editorLocked: false,
     ...createEditorNavigation({ get, set, gateway, guard, notify, localize: localizeNotesHostError }),
-    ...createEditorMutations({ get, set, gateway, guard, capture: operationScope.capture, notify, confirmDelete, localize: localizeNotesHostError }),
+    ...createEditorMutations({ get, set, gateway, guard, capture: operationScope.capture, notify, confirmDelete, moveShortcuts: shortcuts.moved, localize: localizeNotesHostError }),
     transferBusy: false,
     summaryModel: null,
     getSceneId: sceneId,
@@ -339,7 +374,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     dragTargetId: null,
     selectMode: false,
     selectedNoteIds: [],
-    expandedNotebookIds: new Set(),
+    ...readNotebookLayout(layoutScope()),
     expandedNavSections: new Map(),
     draftTitle: "",
     draftIcon: "",
@@ -348,13 +383,14 @@ export function createNotesStore(options: NotesStoreOptions) {
     relationshipLoading: false, relationshipError: null, relationshipIncomplete: false,
     backlinks: [],
     similarNotes: [],
-    deleteArmed: false,
     saveDisabled: true,
 
     async load({ preserveSelection = true } = {}) {
       const state = get();
       const scope = operationScope.capture();
       const request = ++loadSequence;
+      const orderRevision = ordering.revision;
+      const orderIdleAtStart = ordering.pending === 0;
       const current = () => scope.isCurrent() && request === loadSequence;
       set({ loading: true, error: null });
       try {
@@ -380,15 +416,18 @@ export function createNotesStore(options: NotesStoreOptions) {
         if (!((preserveSelection || selectionChanged) && selectedNote)) {
           if (!live.dirty) selectedNote = null;
         }
-        let expandedNotebookIds = get().expandedNotebookIds;
-        if (expandedNotebookIds.size === 0) {
-          expandedNotebookIds = new Set(
-            snapshot.notebooks
-              .filter((notebook) => notebook.parentId == null)
-              .map((notebook) => notebook.id),
-          );
+        let ranks = live.notebookOrder;
+        const freshOrder = orderIdleAtStart && !ordering.pending && orderRevision === ordering.revision && snapshot.notebookOrder !== undefined;
+        if (freshOrder) {
+          ordering.saved = snapshot.notebookOrder;
+          ranks = snapshot.notebookOrder ?? readNotebookLayout(layoutScope()).notebookOrder;
         }
-        set({ snapshot, selectedNotebookId, selectedNote, expandedNotebookIds });
+        snapshot.notebooks = orderNotebooks(snapshot.notebooks, ranks);
+        set({ snapshot, selectedNotebookId, selectedNote, notebookOrder: ranks });
+        if (freshOrder && ordering.saved === null && !ordering.triedMigration && ranks.some(id => snapshot.notebooks.some(book => book.id === id))) {
+          ordering.triedMigration = true;
+          persistOrder(snapshot.notebooks.map(book => book.id));
+        }
       } catch (error) {
         if (current()) set({ error: localizeNotesHostError(error) });
       } finally {
@@ -490,7 +529,8 @@ export function createNotesStore(options: NotesStoreOptions) {
 
     ...createTrashActions({ get, set, gateway, capture: operationScope.capture, notify, localize: localizeNotesHostError }),
 
-    saveEditor: createNoteEditorSave({ get, set, gateway, capture: operationScope.capture, notify, localize: localizeNotesHostError }),
+    saveEditor: editorSave.saveEditor,
+    ...createEditorConflict({ get, set, gateway, capture: operationScope.capture, waitForSave: editorSave.waitForPending, retain: recovery.retainEditorCopy, notify }),
 
     async saveIfDirty() {
       if (get().dirty) {
@@ -569,6 +609,15 @@ export function createNotesStore(options: NotesStoreOptions) {
       });
     },
 
+    reorderNotebook(sourceId, targetId, after = false) {
+      const snapshot = get().snapshot;
+      const notebooks = reorderNotebooks(snapshot.notebooks, sourceId, targetId, after);
+      if (notebooks !== snapshot.notebooks) {
+        const ids = notebooks.map(book => book.id);
+        set({ snapshot: { ...snapshot, notebooks }, notebookOrder: ids });
+        persistOrder(ids);
+      }
+    },
     toggleNotebookExpanded(id, force) {
       const expanded = new Set(get().expandedNotebookIds);
       const next = typeof force === "boolean" ? force : !expanded.has(id);
@@ -597,8 +646,9 @@ export function createNotesStore(options: NotesStoreOptions) {
       set({ selectMode, selectedNoteIds: selectMode ? get().selectedNoteIds : [] });
     },
 
-    toggleNoteSelected(noteId) {
+    toggleNoteSelected(note) {
       if (get().editorLocked) return;
+      const noteId = referenceKey(note);
       const selected = new Set(get().selectedNoteIds);
       if (selected.has(noteId)) selected.delete(noteId);
       else selected.add(noteId);
@@ -623,6 +673,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       const nextTarget = JSON.stringify([sceneId(), workspaceId()]);
       if (nextTarget === activeTarget) return;
       activeTarget = nextTarget;
+      ordering = orderSession();
       operationScope.invalidate();
       get().invalidateCaptureView();
       recovery.switchTarget();
@@ -633,7 +684,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       set({
         backlinks: [], similarNotes: [], relationshipLoading: false, relationshipError: null, relationshipIncomplete: false,
         mode: "library", summaryModel: null, capturing: false,
-        query: "", selectedTag: null, sourceOnly: false, expandedNotebookIds: new Set(),
+        query: "", selectedTag: null, sourceOnly: false, ...readNotebookLayout(layoutScope()),
         trash: [], trashLoading: false, trashBusy: false, trashLoaded: false, trashError: null,
         workflowBusy: null, attachmentBusy: false, editorLocked: false, transferBusy: false, saveState: "idle", saveDisabled: true,
         selectedNote: null, selectedNotebookId: null, selectedNoteIds: [], selectMode: false, snapshot: { notebooks: [], notes: [], tags: [] },
@@ -649,20 +700,13 @@ export function createNotesStore(options: NotesStoreOptions) {
       set({ project: normalizeProject(project) });
     },
 
-    resetDeleteArmed() {
-      set({ deleteArmed: false });
-    },
-
-    setDeleteArmed() {
-      set({ deleteArmed: true });
-    },
-
     destroy() {
       recovery.destroy();
       stopDraftLifecycle();
       stopDraftWatch();
       stopRelationshipWatch();
       stopShortcutWatch();
+      stopLayoutWatch();
       operationScope.destroy();
       loadSequence += 1;
       if (searchTimer) clearTimeout(searchTimer);
@@ -670,6 +714,10 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
   }; });
 
+  stopLayoutWatch = store.subscribe((state, previous) => {
+    if (state.expandedNotebookIds !== previous.expandedNotebookIds || state.notebookOrder !== previous.notebookOrder)
+      writeNotebookLayout(layoutScope(), Array.isArray(ordering.saved) ? [] : state.notebookOrder, state.expandedNotebookIds);
+  });
   stopDraftWatch = store.subscribe((state, previous) => recovery.observe(state, previous));
   stopDraftLifecycle = recovery.listen();
   stopShortcutWatch = shortcuts.listen();
@@ -702,6 +750,8 @@ export function localizeNotesHostError(error: unknown): Error {
   const importError = notesImportError(error);
   if (importError) return importError;
   const code = (error as Error & { code?: string }).code;
+  if (code === "notebook_order_changed") return new Error(t("Notebook order changed. Reload the notebooks before trying again."));
+  if (code === "version_conflict") return Object.assign(new Error(t("This note changed elsewhere. Reload the saved version; your edits will stay in local recovery.")), { code });
   if (code === "permission_denied" && /network/i.test(error.message)) {
     return new Error(
       t(

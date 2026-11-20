@@ -1,0 +1,43 @@
+.browser-reader-dialog {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  inline-size: min(56rem, calc(100vw - var(--space-4)));
+  block-size: min(56rem, calc(100dvh - var(--space-4)));
+  max-inline-size: none;
+  max-block-size: none;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg-solid);
+  color: var(--text-primary);
+}
+.browser-reader-dialog[open] { display: flex; flex-direction: column; }
+.browser-reader-header, .browser-reader-header > div { display: flex; align-items: center; gap: var(--space-1); }
+.browser-reader-header {
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-block-end: 1px solid var(--border);
+  font-size: var(--font-size-sm);
+}
+.browser-reader-scroll { flex: 1; min-block-size: 0; overflow: auto; overscroll-behavior: contain; }
+.browser-reader-scroll article {
+  max-inline-size: 66ch;
+  margin-inline: auto;
+  padding: var(--space-4) clamp(var(--space-3), 4vw, var(--space-8));
+  font-size: var(--reader-font-size, 1rem);
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.browser-reader-dialog[data-reader-size="0"] { --reader-font-size: 0.875rem; }
+.browser-reader-dialog[data-reader-size="2"] { --reader-font-size: 1.125rem; }
+.browser-reader-dialog[data-reader-size="3"] { --reader-font-size: 1.25rem; }
+.browser-reader-scroll article > * { margin-block: 0 var(--space-3); }
+.browser-reader-scroll article :is(h1, h2, h3, h4, h5, h6) { line-height: 1.35; }
+.browser-reader-scroll article h1 { font-size: 1.65em; }
+.browser-reader-scroll article h2 { font-size: 1.3em; }
+.browser-reader-scroll article :is(h3, h4, h5, h6) { font-size: 1.12em; }
+.browser-reader-scroll article :is(ol, ul) { padding-inline-start: var(--space-5); }
+.browser-reader-scroll article blockquote { border-inline-start: 2px solid var(--border); padding-inline-start: var(--space-3); }
+.browser-reader-scroll article pre { padding: var(--space-2); border: 1px solid var(--border); white-space: pre-wrap; }
+.browser-reader-source { color: var(--text-secondary); font-size: var(--font-size-sm); }

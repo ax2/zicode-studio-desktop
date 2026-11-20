@@ -22,6 +22,14 @@ function setup(onOutputs, recoverable = false) {
   return { computation, gateway, reply, change: () => { target = { ...target, sessionId: "new" }; } };
 }
 describe("isolated View resource computation", () => {
+  it("passes result labels to the parent without changing legacy callback arguments",async()=>{
+    const outputs=vi.fn(),c=setup(outputs);
+    await c.computation.invoke(params);expect(outputs.mock.calls[0]).toHaveLength(2);
+    c.reply.result.resourceLabels=["Matched text","Captured text"];
+    await c.computation.invoke(params);
+    expect(outputs.mock.calls[1]).toHaveLength(3);
+    expect(outputs.mock.calls[1][2]).toEqual(["Matched text","Captured text"]);
+  });
   it("snapshots ordered additional sources for strict calls and rejects them on legacy calls", async () => {
     const extra = { resourceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", contentVersion: "b".repeat(64) };
     const c = setup(undefined, true);

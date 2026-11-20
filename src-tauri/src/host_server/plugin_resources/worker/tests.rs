@@ -3,8 +3,13 @@ use std::sync::mpsc;
 mod admission_http;
 mod archive_save_http;
 mod cross_plugin_http;
+mod file_report_http;
 mod host_text_http;
+mod image_metadata_http;
+mod json_file_http;
 mod lifecycle_http;
+mod original_file_http;
+mod markdown_http;
 mod output_admission_http;
 mod output_http;
 mod preview_browser;
@@ -1102,3 +1107,10 @@ async fn actual_http_devtools_image_resize_candidate_host_flow() {
         .starts_with(scratch.canonicalize().unwrap()));
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[cfg(windows)]
+#[path = "tests/digest_stream_http.rs"]
+mod digest_stream_http;
+
+#[path = "tests/json_format_http.rs"]
+mod json_format_http;

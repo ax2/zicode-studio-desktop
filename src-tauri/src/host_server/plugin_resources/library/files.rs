@@ -1,7 +1,8 @@
 use super::*;
 use std::{fs, io::Read, path::Path};
-const PROFILE: &str = "resource.save.draft1";
-const MAX_BYTES: u64 = 32 * 1024 * 1024;
+fn receipt_limit(profile: &str, mime: &str) -> Option<u64> {
+    crate::plugin_worker::resource_output::Profile::saved_limit(profile, mime)
+}
 fn uuid(value: &str) -> bool {
     uuid::Uuid::parse_str(value).is_ok_and(|id| id.to_string() == value)
 }
@@ -83,11 +84,11 @@ fn recorded(root: &Path, workspace: &str, id: &str, name: &str) -> Result<Entry,
         .ok_or_else(|| rejected("saved_output_unsafe"))?;
     let filename = format!("result.{extension}");
     if receipt.schema_version != 1
-        || receipt.profile != PROFILE
+        || receipt_limit(&receipt.profile, &receipt.mime_type).is_none()
         || receipt.save_id != id
         || receipt.workspace_id != workspace
         || receipt.relative_path != format!(".zicode/outputs/{id}/{filename}")
-        || receipt.byte_length > MAX_BYTES
+        || receipt.byte_length > receipt_limit(&receipt.profile,&receipt.mime_type).ok_or_else(||rejected("saved_output_unsafe"))?
         || !hash(&receipt.content_version)
         || chrono::DateTime::parse_from_rfc3339(&receipt.prepared_at).is_err()
         || !uuid(&receipt.source.resource_id)
@@ -198,7 +199,7 @@ pub(super) fn read(
     if entry.version != version {
         return Err(rejected("saved_output_changed"));
     }
-    let bytes = bounded(&root.join(id).join(&entry.filename), MAX_BYTES)?;
+    let bytes = bounded(&root.join(id).join(&entry.filename), receipt_limit(&entry.receipt.profile,&entry.receipt.mime_type).ok_or_else(||rejected("saved_output_unsafe"))?)?;
     if bytes.len() as u64 != entry.receipt.byte_length
         || sha256_hex(&bytes) != entry.receipt.content_version
     {
