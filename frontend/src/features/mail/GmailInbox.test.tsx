@@ -97,3 +97,17 @@ it("keeps the Gmail grant when the desktop confirmation resolves to cancel",asyn
   await act(async()=>fireEvent.click(button));
   expect(v.calls.mock.calls.some(([r])=>r.kind==="disconnect")).toBe(false);
 });
+it("offers Gmail sign-out with cache retention by default and account-scoped removal on approval", async()=>{
+  const confirm=vi.spyOn(window,"confirm").mockReturnValue(true);
+  for(const clearCache of [false,true]){
+    const mail=fixture(async r=>r.kind==="status"?{connected:true,read:true}:r.kind==="cachedPage"?{items:[entry]}:{revoked:true});
+    const action=await screen.findByRole("button",{name:"Disconnect Gmail"});
+    if(clearCache) fireEvent.click(screen.getByRole("checkbox",{name:"Clear cached messages for this account"}));
+    fireEvent.click(action);
+    await waitFor(()=>expect(mail.calls).toHaveBeenCalledWith({kind:"disconnect",accountId:"one",clearCache}));
+    if(clearCache) expect(confirm).toHaveBeenCalledWith("Disconnect this account and clear its cached messages? Drafts and delivery records will be kept.");
+    expect(Boolean(screen.queryByRole("button",{name:/Inbox fixture/}))).toBe(!clearCache);
+    expect(screen.getByRole("button",{name:"Saved subject"})).toBeTruthy();
+    mail.unmount();
+  }
+});

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { Invoke } from "./index";
 
@@ -17,26 +17,40 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const generation = useRef(0);
+  const submitted = useRef(false);
 
   function clear() {
+    submitted.current = false;
     ++generation.current;
     setBusy(false);
     setPage(null);
     setReading(null);
     setError(false);
   }
-  async function search(start: number) {
+  const search = useCallback(async (start: number, clearedAccount?: string) => {
+    submitted.current = true;
     const version = ++generation.current;
     setBusy(true);
     setError(false);
-    setReading(null);
+    if (clearedAccount) {
+      setPage(previous=>previous && {...previous,items:previous.items.filter(hit=>hit.account!==clearedAccount)});
+      setReading(previous=>previous?.hit.account===clearedAccount ? null : previous);
+    } else setReading(null);
     try {
       const results = await invoke<Page>({kind:"search", account:scope || null, query:query.trim(), offset:start});
       if (version === generation.current) { setPage(results); setOffset(start); }
     } catch {
       if (version === generation.current) { setError(true); setPage(null); }
     } finally { if (version === generation.current) setBusy(false); }
-  }
+  }, [invoke, scope, query]);
+  useEffect(()=>{
+    function cacheCleared(event:Event) {
+      const account=(event as CustomEvent<string>).detail;
+      if (submitted.current && account && (!scope || scope===account)) void search(0,account);
+    }
+    window.addEventListener("studio-mail-cache-cleared",cacheCleared);
+    return ()=>window.removeEventListener("studio-mail-cache-cleared",cacheCleared);
+  },[scope,search]);
   async function open(hit: Hit) {
     const version = ++generation.current;
     setReading({hit});

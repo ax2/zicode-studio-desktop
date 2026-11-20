@@ -29,6 +29,8 @@ pub(crate) enum Request {
     },
     ForgetPassword {
         account_id: String,
+        #[serde(default)]
+        clear_cache: bool,
     },
     Sync {
         account_id: String,
@@ -75,7 +77,7 @@ impl Request {
             Self::ReplyDraft { account_id, .. }
             | Self::CredentialStatus { account_id }
             | Self::SetPassword { account_id, .. }
-            | Self::ForgetPassword { account_id }
+            | Self::ForgetPassword { account_id, .. }
             | Self::Sync { account_id, .. }
             | Self::CachedPage { account_id, .. }
             | Self::Read { account_id, .. }
@@ -146,7 +148,13 @@ pub(crate) async fn mail_alibaba(
             if value.is_empty()||value.len()>1024||value.contains(['\0','\r','\n']){return Err("mail_invalid_password".into())}
             vault()?.set_password(&value).map_err(|_|"mail_vault_unavailable")?;Ok(json!({"configured":true}))
           }
-          Request::ForgetPassword{..}=>{match vault()?.delete_credential(){Ok(())|Err(keyring::Error::NoEntry)=>{},Err(_)=>return Err("mail_vault_unavailable".into())}Ok(json!({"configured":false}))}
+          Request::ForgetPassword{clear_cache,..}=>{
+            if crate::desktop_profile::system_credentials_enabled(){
+                match vault()?.delete_credential(){Ok(())|Err(keyring::Error::NoEntry)=>{},Err(_)=>return Err("mail_vault_unavailable".into())}
+            }
+            if clear_cache {mailbox.clear_cache()?}
+            Ok(json!({"configured":false}))
+          }
           Request::Sync{cursor,limit,..}=>Ok(json!(mailbox.sync(&adapter,pwd()?.as_str(),cursor,limit)?)),
           Request::CachedPage{cursor,limit,..}=>Ok(json!(mailbox.cached_page(cursor,limit)?)),
           Request::Read{uid_validity,uid,..}=>Ok(json!(mailbox.read(&adapter,pwd()?.as_str(),uid_validity,uid)?)),

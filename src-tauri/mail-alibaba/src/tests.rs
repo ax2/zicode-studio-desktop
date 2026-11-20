@@ -376,3 +376,51 @@ fn saved_reply_keeps_original_message_id_after_database_reopen() {
         .unwrap();
     assert_eq!(links, 0);
 }
+
+#[test]
+fn disconnect_cache_rejects_stale_sync_and_preserves_drafts_and_journal() {
+    let temp = tempfile::tempdir().unwrap();
+    let file = temp.path().join("mail.sqlite3");
+    let mut db = Connection::open(&file).unwrap();
+    seed(&db);
+    let mut old = Mailbox::open(&mut db, "one", "a").unwrap();
+    let mut other = Connection::open(&file).unwrap();
+    other.execute_batch("INSERT INTO alibaba_epoch VALUES ('one','a',2),('two','b',2);
+        INSERT INTO alibaba_inbox VALUES ('one','a',2,42,'{}','selected'),('two','b',2,42,'{}','other');
+        INSERT INTO alibaba_send VALUES ('one','a','d',1,'unknown');").unwrap();
+    Mailbox::open(&mut other, "one", "a")
+        .unwrap()
+        .clear_cache()
+        .unwrap();
+    let remote = fixture(false, false);
+    assert_eq!(
+        old.sync(&remote.adapter, "synthetic", None, 2)
+            .err()
+            .unwrap(),
+        "mail_inbox_changed"
+    );
+    remote.thread.join().unwrap();
+    drop(other);
+    drop(db);
+    let reopened = Connection::open(&file).unwrap();
+    for (sql, expected) in [
+        ("SELECT count(*) FROM alibaba_inbox WHERE scope='one'", 0),
+        ("SELECT count(*) FROM alibaba_epoch WHERE scope='one'", 0),
+        ("SELECT count(*) FROM alibaba_inbox WHERE scope='two'", 1),
+        (
+            "SELECT count(*) FROM drafts WHERE scope='one' AND account='a'",
+            1,
+        ),
+        (
+            "SELECT count(*) FROM alibaba_send WHERE status='unknown'",
+            1,
+        ),
+    ] {
+        assert_eq!(
+            reopened
+                .query_row(sql, [], |row| row.get::<_, i64>(0))
+                .unwrap(),
+            expected
+        );
+    }
+}

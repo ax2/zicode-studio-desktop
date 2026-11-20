@@ -15,6 +15,7 @@ pub struct Mailbox<'a> {
     db: &'a mut Connection,
     scope: String,
     account: Account,
+    generation: i64,
 }
 fn db_err(_: rusqlite::Error) -> &'static str {
     "mail_storage"
@@ -37,15 +38,31 @@ impl<'a> Mailbox<'a> {
             .map_err(db_err)?
             .ok_or("mail_account_not_found")?;
         db.execute_batch("CREATE TABLE IF NOT EXISTS alibaba_inbox(scope TEXT,account TEXT,epoch INTEGER,uid INTEGER,meta TEXT NOT NULL,body TEXT,PRIMARY KEY(scope,account,epoch,uid));
+          CREATE TABLE IF NOT EXISTS alibaba_cache_generation(scope TEXT NOT NULL,account TEXT NOT NULL,generation INTEGER NOT NULL,PRIMARY KEY(scope,account));
           CREATE TABLE IF NOT EXISTS alibaba_epoch(scope TEXT,account TEXT,epoch INTEGER NOT NULL,PRIMARY KEY(scope,account));
           CREATE TABLE IF NOT EXISTS alibaba_reply(scope TEXT,account TEXT,draft TEXT,parent TEXT,PRIMARY KEY(scope,account,draft));
           CREATE TRIGGER IF NOT EXISTS alibaba_delete_reply AFTER DELETE ON drafts BEGIN DELETE FROM alibaba_reply WHERE scope=OLD.scope AND account=OLD.account AND draft=OLD.id; END;
           CREATE TABLE IF NOT EXISTS alibaba_send(scope TEXT,account TEXT,draft TEXT,revision INTEGER,status TEXT NOT NULL,PRIMARY KEY(scope,account,draft,revision));").map_err(db_err)?;
+        let generation=db.query_row("SELECT COALESCE((SELECT generation FROM alibaba_cache_generation WHERE scope=? AND account=?),0)",params![scope,id],|r| r.get(0)).map_err(db_err)?;
         Ok(Self {
+            generation,
             db,
             scope: scope.into(),
             account,
         })
+    }
+    pub fn clear_cache(&mut self) -> Result<()> {
+        let tx = self.db.transaction().map_err(db_err)?;
+        tx.execute("INSERT INTO alibaba_cache_generation VALUES(?,?,1) ON CONFLICT(scope,account) DO UPDATE SET generation=generation+1",
+            params![self.scope,self.account.id]).map_err(db_err)?;
+        for table in ["alibaba_inbox", "alibaba_epoch"] {
+            tx.execute(
+                &format!("DELETE FROM {table} WHERE scope=? AND account=?"),
+                params![self.scope, self.account.id],
+            )
+            .map_err(db_err)?;
+        }
+        tx.commit().map_err(db_err)
     }
     pub fn address(&self) -> &str {
         &self.account.address
@@ -57,6 +74,7 @@ impl<'a> Mailbox<'a> {
         cursor: Option<Cursor>,
         limit: u8,
     ) -> Result<Page> {
+        let generation = self.generation;
         let observed: Option<u32> = self
             .db
             .query_row(
@@ -71,6 +89,10 @@ impl<'a> Mailbox<'a> {
         }
         let page = adapter.list(self.address(), password, cursor, limit)?;
         let tx = self.db.transaction().map_err(db_err)?;
+        let current_generation:i64=tx.query_row("SELECT COALESCE((SELECT generation FROM alibaba_cache_generation WHERE scope=? AND account=?),0)",params![self.scope,self.account.id],|r|r.get(0)).map_err(db_err)?;
+        if current_generation != generation {
+            return Err("mail_inbox_changed");
+        }
         // A delayed older page must not switch the active cache back to a stale UIDVALIDITY.
         let current: Option<u32> = tx
             .query_row(
@@ -157,14 +179,18 @@ impl<'a> Mailbox<'a> {
         epoch: u32,
         uid: u32,
     ) -> Result<Letter> {
+        let generation = self.generation;
         self.meta(epoch, uid)?;
         let letter = adapter.letter(self.address(), password, epoch, uid)?;
-        self.db
+        let updated=self.db
             .execute(
-                "UPDATE alibaba_inbox SET body=? WHERE scope=? AND account=? AND epoch=? AND uid=?",
-                params![letter.text, self.scope, self.account.id, epoch, uid],
+                "UPDATE alibaba_inbox SET body=? WHERE scope=? AND account=? AND epoch=? AND uid=? AND ?=COALESCE((SELECT generation FROM alibaba_cache_generation WHERE scope=? AND account=?),0)",
+                params![letter.text, self.scope, self.account.id, epoch, uid,generation,self.scope,self.account.id],
             )
             .map_err(db_err)?;
+        if updated != 1 {
+            return Err("mail_inbox_changed");
+        }
         Ok(letter)
     }
     fn meta(&self, epoch: u32, uid: u32) -> Result<Summary> {

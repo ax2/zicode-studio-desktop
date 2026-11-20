@@ -1,3 +1,4 @@
+import {MailDisconnect} from "./MailDisconnect";
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { Invoke } from "./index";
@@ -79,7 +80,12 @@ export function GmailInbox({id,address,invoke,onGrant}:{id:string;address:string
       {disconnected&&<button type="button" onClick={()=>connect(false)}>{t("Sign in to read Gmail")}</button>}
       {!disconnected&&<button type="button" onClick={()=>connect(grant.send===true)}>{t("Reconnect Gmail")}</button>}
       {!disconnected&&!grant.send&&<button type="button" onClick={()=>connect(true)}>{t("Authorize sending with Gmail")}</button>}
-      {!disconnected&&<button type="button" onClick={()=>{void (async()=>{if(await window.confirm(t("Disconnect Gmail on this device? Saved drafts will remain.")))await run("disconnect",()=>invoke<{revoked:boolean}>({kind:"disconnect",accountId:id}),r=>{saveGrant(none);setOnline(false);setNotice(t(r.revoked?"Gmail disconnected.":"Disconnected on this device. Review Google account permissions to confirm revocation."))})})()}}>{t("Disconnect Gmail")}</button>}
+      <MailDisconnect connected={!disconnected} label={t("Disconnect Gmail")} prompt={t("Disconnect Gmail on this device? Saved drafts will remain.")}
+        disconnect={clear=>run("disconnect",()=>invoke<{revoked:boolean}>({kind:"disconnect",accountId:id,clearCache:clear}),r=>{
+          saveGrant(none);setOnline(false);
+          if(clear){setPage(null);setMessage(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
+          setNotice(t(r.revoked?"Gmail disconnected.":"Disconnected on this device. Review Google account permissions to confirm revocation."))
+        })}/>
     </fieldset>
     {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button type="button" onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
     <fieldset disabled={Boolean(busy)}><legend>{t("Inbox")}</legend>

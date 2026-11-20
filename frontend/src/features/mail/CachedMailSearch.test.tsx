@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { CachedMailSearch } from "./CachedMailSearch";
 import { setLocale } from "../../shared/i18n";
@@ -30,4 +30,25 @@ it("opens an identically numbered result through its owning account without requ
   expect(screen.queryByText("Gmail offline fixture")).toBeNull();
   fireEvent.change(screen.getByLabelText("Search scope"),{target:{value:"b"}});
   expect(screen.queryByText("Alibaba offline fixture")).toBeNull();
+});
+
+it("immediately removes the cleared account, refreshes the retained results and rejects a late body",async()=>{
+  setLocale("en");
+  const accounts=[{id:"a",address:"first@example.test",provider:"gmail"},{id:"b",address:"second@example.test",provider:"gmail"}];
+  const items=accounts.map(a=>({account:a.id,address:a.address,provider:"gmail",id:"42",epoch:null,subject:a.address,sender:"synthetic"}));
+  const invoke=vi.fn().mockResolvedValueOnce({items,more:true}).mockResolvedValueOnce({items:items.slice(1),more:false});
+  let finish:(value:unknown)=>void=()=>{};
+  const gmail=vi.fn(()=>new Promise(resolve=>{finish=resolve}));
+  render(<CachedMailSearch accounts={accounts} current="a" invoke={invoke as Invoke} gmail={gmail as Invoke}/>);
+  fireEvent.change(screen.getByLabelText("Search scope"),{target:{value:""}});
+  fireEvent.change(screen.getByLabelText("Search cached mail"),{target:{value:"fixture"}});
+  fireEvent.click(screen.getByRole("button",{name:"Search"}));
+  fireEvent.click(await screen.findByRole("button",{name:/first@example/}));
+  await act(async()=>window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:"a"})));
+  expect(screen.queryByRole("button",{name:/first@example/})).toBeNull();
+  expect(screen.queryByRole("button",{name:/second@example/})).toBeTruthy();
+  await act(async()=>finish({plainText:"stale content"}));
+  expect(screen.queryByText("stale content")).toBeNull();
+  expect(screen.queryByRole("article")).toBeNull();
+  expect(screen.queryByRole("button",{name:"Next"})).toBeNull();
 });

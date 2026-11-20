@@ -11,6 +11,7 @@ fn db(p: &Path) -> Result<Connection> {
     db.busy_timeout(std::time::Duration::from_secs(3))
         .map_err(|_| "gmail_storage")?;
     db.execute_batch("CREATE TABLE IF NOT EXISTS gmail_cache(workspace TEXT NOT NULL, account TEXT NOT NULL, kind TEXT NOT NULL, cache_key TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(workspace,account,kind,cache_key));
+    CREATE TABLE IF NOT EXISTS gmail_cache_generation(workspace TEXT,account TEXT,generation INTEGER NOT NULL,PRIMARY KEY(workspace,account));
     CREATE TABLE IF NOT EXISTS gmail_delivery(workspace TEXT NOT NULL,account TEXT NOT NULL,draft TEXT NOT NULL,revision INTEGER NOT NULL,status TEXT NOT NULL,message_id TEXT,PRIMARY KEY(workspace,account,draft,revision));").map_err(|_|"gmail_storage")?;
     Ok(db)
 }
@@ -23,9 +24,35 @@ pub fn address(p: &Path, scope: &str, account: &str) -> Result<String> {
         )
         .map_err(|_| "gmail_account_unavailable")
 }
-pub fn cache(p: &Path, scope: &str, a: &str, kind: &str, key: &str, value: &Value) -> Result<()> {
-    db(p)?.execute("INSERT INTO gmail_cache VALUES(?,?,?,?,?) ON CONFLICT(workspace,account,kind,cache_key) DO UPDATE SET value=excluded.value",params![scope,a,kind,key,value.to_string()]).map_err(|_|"gmail_storage")?;
+pub fn cache_generation(p: &Path, scope: &str, account: &str) -> Result<i64> {
+    db(p)?.query_row("SELECT COALESCE((SELECT generation FROM gmail_cache_generation WHERE workspace=? AND account=?),0)",params![scope,account],|r|r.get(0)).map_err(|_|"gmail_storage")
+}
+pub fn cache(
+    p: &Path,
+    scope: &str,
+    account: &str,
+    epoch: i64,
+    kind: &str,
+    key: &str,
+    value: &Value,
+) -> Result<()> {
+    let written=db(p)?.execute("INSERT INTO gmail_cache SELECT ?1,?2,?3,?4,?5 WHERE ?6=COALESCE((SELECT generation FROM gmail_cache_generation WHERE workspace=?1 AND account=?2),0) ON CONFLICT(workspace,account,kind,cache_key) DO UPDATE SET value=excluded.value",
+        params![scope,account,kind,key,value.to_string(),epoch]).map_err(|_|"gmail_storage")?;
+    if written == 0 {
+        return Err("gmail_cancelled");
+    }
     Ok(())
+}
+pub fn clear_cache(p: &Path, scope: &str, account: &str) -> Result<()> {
+    let mut db = db(p)?;
+    let tx = db.transaction().map_err(|_| "gmail_storage")?;
+    tx.execute("INSERT INTO gmail_cache_generation VALUES(?,?,1) ON CONFLICT(workspace,account) DO UPDATE SET generation=generation+1",params![scope,account]).map_err(|_|"gmail_storage")?;
+    tx.execute(
+        "DELETE FROM gmail_cache WHERE workspace=? AND account=?",
+        params![scope, account],
+    )
+    .map_err(|_| "gmail_storage")?;
+    tx.commit().map_err(|_| "gmail_storage")
 }
 pub fn cached(p: &Path, scope: &str, a: &str, kind: &str, key: &str) -> Result<Value> {
     let text:Option<String>=db(p)?.query_row("SELECT value FROM gmail_cache WHERE workspace=? AND account=? AND kind=? AND cache_key=?",params![scope,a,kind,key],|r|r.get(0)).optional().map_err(|_|"gmail_storage")?;
