@@ -30,7 +30,11 @@ $driver=@'
         std::thread::spawn(move || loop {
             if std::fs::remove_file(&trigger).is_ok() {
                 let target = handle.clone();
-                let _ = handle.run_on_main_thread(move || confirm_exit(&target));
+                let evidence = std::path::PathBuf::from(&trigger).with_extension("state");
+                let _ = handle.run_on_main_thread(move || {
+                    let _ = std::fs::write(evidence, format!("tray={} offered={:?}", target.try_state::<DesktopTray>().is_some(), crate::stable_update::pending_quit_update()));
+                    confirm_exit(&target);
+                });
             }
             std::thread::sleep(std::time::Duration::from_millis(200));
         });

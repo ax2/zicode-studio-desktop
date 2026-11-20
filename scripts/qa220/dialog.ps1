@@ -54,4 +54,6 @@ do {
   }
   Start-Sleep -Milliseconds 200
 }while([DateTime]::UtcNow -lt $deadline)
+$triggerState=Get-Content ([IO.Path]::ChangeExtension($env:Q220_TRIGGER,"state")) -ErrorAction SilentlyContinue
+Write-Output "Tray dispatch state: $triggerState"
 throw "Missing owned quit dialog action $Choice; observed dialogs: $diagnostics"
