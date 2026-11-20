@@ -67,6 +67,15 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: Use crates.io on the Windows runner
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Omit the developer mirror from this checkout while keeping Git provenance clean.
+          git sparse-checkout set --no-cone '/*' '!/.cargo/config.toml'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "CARGO_TARGET_DIR=$env:GITHUB_WORKSPACE/target" >> $env:GITHUB_ENV
+
       - name: Linux system libraries
         if: runner.os == 'Linux'
         run: |
@@ -90,7 +99,7 @@ jobs:
           python-version: '3.12'
       - uses: Swatinem/rust-cache@v2
         with:
-          # .cargo/config.toml places Cargo output at the repository root.
+          # Cargo output is shared at the repository root.
           workspaces: "src-tauri -> ../target"
           key: developer-platform-${{ matrix.os }}
           cache-on-failure: true
