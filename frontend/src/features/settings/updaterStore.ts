@@ -3,6 +3,16 @@ import { t } from "../../shared/i18n";
 
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 export const BETA_SETTINGS_KEY = "picot-settings-beta-updates";
+const MODE_KEY = "studio-desktop-update-mode";
+export type UpdateMode = "manual" | "notify" | "download";
+
+function savedMode(): UpdateMode {
+  try {
+    const value = localStorage.getItem(MODE_KEY);
+    if (value === "manual" || value === "download") return value;
+  } catch { /* Storage may be unavailable in a restricted profile. */ }
+  return "notify";
+}
 
 export interface UpdateInfo {
   version?: string;
@@ -32,6 +42,12 @@ type TauriGlobal = {
 };
 
 export interface AppUpdaterState {
+  mode: UpdateMode;
+  modeBusy: boolean;
+  modeError: string;
+  restoreMode(): Promise<void>;
+  setMode(mode: UpdateMode): Promise<void>;
+  backgroundCheck(): Promise<void>;
   enabled: boolean;
   update: UpdateInfo | null;
   status: string;
@@ -76,6 +92,44 @@ export function betaUpdatesEnabled(): boolean {
 let checkGeneration = 0;
 
 export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
+  mode: "notify",
+  modeBusy: false,
+  modeError: "",
+  async restoreMode() {
+    const invoke = (globalThis as unknown as TauriGlobal).__TAURI__?.core?.invoke;
+    if (!invoke) return;
+    set({ modeBusy: true, modeError: "" });
+    try {
+      const mode = await invoke("desktop_update_preference");
+      if (mode !== "manual" && mode !== "notify" && mode !== "download") throw Error("Unknown mode");
+      set({ mode });
+    } catch {
+      set({ mode: "manual", modeError: t("Could not load update preferences.") });
+    } finally { set({ modeBusy: false }); }
+  },
+  async setMode(mode) {
+    if (get().modeBusy) return;
+    set({ modeBusy: true, modeError: "" });
+    try {
+      const invoke = (globalThis as unknown as TauriGlobal).__TAURI__?.core?.invoke;
+      if (invoke) await invoke("desktop_update_preference", { mode });
+      else localStorage.setItem(MODE_KEY, mode);
+      set({ mode });
+    } catch {
+      set({ modeError: t("Could not save update preferences.") });
+      return;
+    } finally { set({ modeBusy: false }); }
+    if (mode !== "manual") void get().backgroundCheck();
+  },
+  async backgroundCheck() {
+    const state = get();
+    if (!state.enabled || state.modeBusy || state.mode === "manual" || state.checking || state.installing || state.installerReady) return;
+    const found = await state.checkNow({ silent: true });
+    const latest = get();
+    // Only stage an explicitly selected stable full installer. Restart remains a user action.
+    if (latest.mode === "download" && found && latest.update === found && latest.update.fullInstaller &&
+        !betaUpdatesEnabled() && !latest.installerReady && !latest.installing) await latest.installUpdate();
+  },
   enabled: false,
   update: null,
   status: "",
@@ -96,6 +150,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     checkGeneration++;
     set({
       enabled,
+      mode: savedMode(),
       logger,
       update: null,
       checking: false,

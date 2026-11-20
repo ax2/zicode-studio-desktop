@@ -270,7 +270,9 @@ export function setupAppUpdater({
   logger = console,
   enabled = false,
   settingsPanel = null,
+  notify,
 }: {
+  notify?: (input: { title: string; action: { label: string; run: () => void } }) => unknown;
   logger?: { warn?: (..._args: unknown[]) => void };
   enabled?: boolean;
   settingsPanel?: { openSettings?: (tab?: string) => void } | null;
@@ -281,6 +283,7 @@ export function setupAppUpdater({
   const checkBtn = document.getElementById("btn-check-updates") as HTMLButtonElement | null;
   const sidebarBtn = document.getElementById("sidebar-update-btn") as HTMLButtonElement | null;
 
+  let notifiedVersion = "";
   function syncDom() {
     const state = useAppUpdaterStore.getState();
     if (statusEl) statusEl.textContent = state.status || "Click to check";
@@ -292,6 +295,13 @@ export function setupAppUpdater({
       checkBtn.setAttribute("aria-busy", state.disabled ? "true" : "false");
     }
     if (sidebarBtn) sidebarBtn.classList.toggle("hidden", !state.sidebarVisible);
+    if (notify && state.mode !== "manual" && state.update?.version && state.update.version !== notifiedVersion) {
+      notifiedVersion = state.update.version;
+      notify({
+        title: t("Version {version} available").replace("{version}", `v${notifiedVersion}`),
+        action: { label: t("Software updates"), run: () => settingsPanel?.openSettings?.("updates") },
+      });
+    }
   }
 
   useAppUpdaterStore.subscribe(syncDom);
@@ -319,18 +329,18 @@ export function setupAppUpdater({
       silentTimer = setInterval(() => {
         const state = useAppUpdaterStore.getState();
         if (Date.now() - state.lastCheckMs >= CHECK_INTERVAL_MS) {
-          void state.checkNow({ silent: true });
+          void state.backgroundCheck();
         }
       }, CHECK_INTERVAL_MS);
     }
 
     window.addEventListener("picot-update-channel-changed", () => {
       useAppUpdaterStore.getState().showIdle();
-      void useAppUpdaterStore.getState().checkNow({ silent: true });
+      void useAppUpdaterStore.getState().backgroundCheck();
     });
 
     scheduleSilentChecks();
-    void useAppUpdaterStore.getState().checkNow({ silent: true });
+    void useAppUpdaterStore.getState().restoreMode().then(() => useAppUpdaterStore.getState().backgroundCheck());
   }
 
   return {

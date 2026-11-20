@@ -8,6 +8,51 @@ import { useAppUpdaterStore } from "./updaterStore";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+it("renders release Markdown formatting and only web links without embedded content", () => {
+  setLocale("en");
+  useAppUpdaterStore.getState().configure(true);
+  useAppUpdaterStore.getState().showAvailable({ version: "1.0.0", body:
+    "## Changes\n\n- **Search** [details](https://example.org/notes)\n- [local](file:///notes)\n\n![preview](https://example.org/image.png)\n\n<iframe>example</iframe>" });
+  const view = render(<UpdatesTab store={createSettingsStore()} widgets={createSettingsWidgetsStore()} />);
+  const notes = view.container.querySelector("details")!;
+  expect(notes.querySelector("h2")?.textContent).toBe("Changes");
+  expect(notes.querySelector("li strong")?.textContent).toBe("Search");
+  expect(Array.from(notes.querySelectorAll("a"), a => a.href)).toEqual(["https://example.org/notes"]);
+  expect(notes.querySelector("img,iframe")).toBeNull();
+});
+
+it("persists the selected mode and prepares a verified stable installer without exiting", async () => {
+  setLocale("en");
+  localStorage.clear();
+  let saved = "notify";
+  const invoke = vi.fn(async (command: string, args?: { mode?: string }) => {
+    if (command === "desktop_update_preference") {
+      saved = args?.mode ?? saved;
+      return saved;
+    }
+    if (command === "check_desktop_update") return { version: "9.0.0", fullInstaller: true };
+  });
+  vi.stubGlobal("__TAURI__", { core: { invoke } });
+  const state = useAppUpdaterStore.getState;
+  state().configure(true);
+  const view = render(<UpdatesTab store={createSettingsStore()} widgets={createSettingsWidgetsStore()} />);
+  const select = view.getByLabelText("Automatic updates");
+  await act(async () => { fireEvent.change(select, { target: { value: "manual" } }); });
+  await act(async () => { state().configure(true); await state().restoreMode(); });
+  await act(async () => { await state().backgroundCheck(); });
+  expect(state().mode).toBe("manual");
+  expect(invoke.mock.calls.every(([name]) => name === "desktop_update_preference")).toBe(true);
+  await act(async () => { fireEvent.change(select, { target: { value: "download" } }); });
+  expect(invoke.mock.calls.map(([name]) => name).filter(name => name !== "desktop_update_preference")).toEqual(["check_desktop_update", "install_desktop_update"]);
+  expect(state().installerReady).toBe(true);
+  expect(view.getByText("Install and exit")).toBeTruthy();
+  await act(async () => { await state().backgroundCheck(); });
+  expect(invoke.mock.calls.some(([name]) => name === "restart_desktop_after_update")).toBe(false);
+  await act(async () => { state().configure(true); await state().restoreMode(); });
+  expect(state().mode).toBe("download");
+  localStorage.clear();
+});
+
 it.each(["en", "zh-CN"])("shows the native installed version and an honest manual stable-release entry (%s)", async locale => {
   setLocale(locale);
   const getVersion = vi.fn(async () => "0.6.5");

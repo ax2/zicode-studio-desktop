@@ -37,6 +37,33 @@ fn exit_prompt_labels(locale: &str) -> (&'static str, &'static str, &'static str
     }
 }
 
+#[cfg(all(windows, target_arch = "x86_64"))]
+fn finish_confirmed_quit(app: AppHandle, offered: Option<(String, String)>) {
+    // The preference or staged version can change while the confirmation is open.
+    let window = offered
+        .filter(|value| crate::stable_update::pending_quit_update().as_ref() == Some(value))
+        .and_then(|(owner, _)| app.get_webview_window(&owner));
+    let Some(window) = window else {
+        app.exit(0);
+        return;
+    };
+    tauri::async_runtime::spawn(async move {
+        match crate::stable_update::handoff(&app, &window, false).await {
+            Ok(true) => (),
+            Ok(false) => app.exit(0),
+            Err(error) => {
+                log::warn!("Update on quit failed: {error}");
+                let exiting = app.clone();
+                app.dialog()
+                    .message(error)
+                    .title("ZiCode Studio Desktop")
+                    .kind(MessageDialogKind::Error)
+                    .show(move |_| exiting.exit(0));
+            }
+        }
+    });
+}
+
 fn confirm_exit(app: &AppHandle) {
     let Some(tray) = app.try_state::<DesktopTray>() else {
         return;
@@ -50,6 +77,18 @@ fn confirm_exit(app: &AppHandle) {
         .map(|value| value.clone())
         .unwrap_or_default();
     let (message, quit, keep) = exit_prompt_labels(&locale);
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    let offered = crate::stable_update::pending_quit_update();
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    let message = if let Some((_, version)) = &offered {
+        if locale == "en" {
+            format!("{message} Verified update v{version} will install after you quit.")
+        } else {
+            format!("{message} 退出后将安装已校验的 v{version} 更新。")
+        }
+    } else {
+        message.to_owned()
+    };
     let callback_app = app.clone();
     app.dialog()
         .message(message)
@@ -61,6 +100,9 @@ fn confirm_exit(app: &AppHandle) {
         ))
         .show(move |confirmed| {
             if confirmed {
+                #[cfg(all(windows, target_arch = "x86_64"))]
+                finish_confirmed_quit(callback_app, offered);
+                #[cfg(not(all(windows, target_arch = "x86_64")))]
                 callback_app.exit(0);
             } else if let Some(tray) = callback_app.try_state::<DesktopTray>() {
                 tray.exit_prompt_open.store(false, Ordering::Release);
@@ -97,7 +139,13 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
     let tray = window
         .try_state::<DesktopTray>()
         .ok_or("Desktop tray is unavailable")?;
-    tray.translation.set_text(if locale == "en" { "Translate" } else { "翻译" }).map_err(|error| error.to_string())?;
+    tray.translation
+        .set_text(if locale == "en" {
+            "Translate"
+        } else {
+            "翻译"
+        })
+        .map_err(|error| error.to_string())?;
     tray.tools
         .set_text(labels[0])
         .map_err(|error| error.to_string())?;
@@ -208,11 +256,25 @@ pub(crate) fn show_workspaces(app: &AppHandle) {
 
 fn open_workspace_feature(app: &AppHandle, event: &'static str) {
     show_workspaces(app);
-    let focused = app.try_state::<DesktopTray>().and_then(|tray| tray.focused_window.lock().ok().and_then(|value| value.clone()));
-    let window = focused.and_then(|label| app.get_webview_window(&label)).filter(|window| window.label().starts_with("native-workspace-"))
-        .or_else(|| app.webview_windows().into_iter().find(|(label, _)| label.starts_with("native-workspace-")).map(|(_, window)| window));
+    let focused = app.try_state::<DesktopTray>().and_then(|tray| {
+        tray.focused_window
+            .lock()
+            .ok()
+            .and_then(|value| value.clone())
+    });
+    let window = focused
+        .and_then(|label| app.get_webview_window(&label))
+        .filter(|window| window.label().starts_with("native-workspace-"))
+        .or_else(|| {
+            app.webview_windows()
+                .into_iter()
+                .find(|(label, _)| label.starts_with("native-workspace-"))
+                .map(|(_, window)| window)
+        });
     if let Some(window) = window {
-        if let Err(error) = window.emit(event, ()) { log::warn!("Could not open workspace feature from tray: {error}"); }
+        if let Err(error) = window.emit(event, ()) {
+            log::warn!("Could not open workspace feature from tray: {error}");
+        }
     }
 }
 
@@ -246,22 +308,37 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     let separator = PredefinedMenuItem::separator(app)?;
     let exit = MenuItem::with_id(app, "studio.exit", "退出 ZiCode Studio", true, None::<&str>)?;
     let menu = if crate::workspace_mode::single_default() {
-        Menu::with_items(app, &[&translation, &system_information, &tools, &favorite_tools, &recent_tools, &show, &hide, &separator, &exit])?
-    } else { Menu::with_items(
-        app,
-        &[
-            &translation,
-            &system_information,
-            &project_tools,
-            &tools,
-            &favorite_tools,
-            &recent_tools,
-            &show,
-            &hide,
-            &separator,
-            &exit,
-        ],
-    )? };
+        Menu::with_items(
+            app,
+            &[
+                &translation,
+                &system_information,
+                &tools,
+                &favorite_tools,
+                &recent_tools,
+                &show,
+                &hide,
+                &separator,
+                &exit,
+            ],
+        )?
+    } else {
+        Menu::with_items(
+            app,
+            &[
+                &translation,
+                &system_information,
+                &project_tools,
+                &tools,
+                &favorite_tools,
+                &recent_tools,
+                &show,
+                &hide,
+                &separator,
+                &exit,
+            ],
+        )?
+    };
     let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
     let tray = TrayIconBuilder::with_id("zicode-studio-desktop")
         .icon(icon)
@@ -278,7 +355,9 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             }
             match event.id.as_ref() {
                 "studio.translation" => open_workspace_feature(app, "studio-open-translation"),
-                "studio.system.open" => open_workspace_feature(app, "studio-open-system-information"),
+                "studio.system.open" => {
+                    open_workspace_feature(app, "studio-open-system-information")
+                }
                 "studio.project.tools" => {
                     let focused = app.try_state::<DesktopTray>().and_then(|tray| {
                         tray.focused_window
@@ -407,4 +486,3 @@ mod tests {
         assert_ne!(english.1, english.2);
     }
 }
-
