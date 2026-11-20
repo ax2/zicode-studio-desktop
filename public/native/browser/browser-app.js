@@ -96,8 +96,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   });
   async function hide(preserve = false, stillNeeded = () => true) {
     if (preserve && selected() && pageAvailable(active) && lastSurface) {
-      try { await preview.show(active); } catch (error) { report(error); }
-      if (!stillNeeded()) { preview.clear(); return; }
+      try { if (!await preview.show(active)) return; } catch (error) { report(error); }
+      if (!stillNeeded()) {
+        void preview.releaseWhenPresented(() => !blocked() && Boolean(lastSurface));
+        return;
+      }
+      if (!lastSurface) return;
     } else if (!preserve) preview.clear();
     lastSurface = "";
     if (invoke) await surface.send({ kind: "hide" });
@@ -133,7 +137,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (!current()) return;
       if (surfaceError && statusMessage === surfaceError) setStatus("");
       surfaceError = "";
-      preview.clear();
+      void preview.releaseWhenPresented(() => current() && lastSurface === key);
       finishStartup();
     } catch (error) {
       // Minimize can win the race before its resize notification reaches JS.
