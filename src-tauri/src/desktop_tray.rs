@@ -37,6 +37,33 @@ fn exit_prompt_labels(locale: &str) -> (&'static str, &'static str, &'static str
     }
 }
 
+#[cfg(all(windows, target_arch = "x86_64"))]
+fn finish_confirmed_quit(app: AppHandle, offered: Option<(String, String)>) {
+    // The preference or staged version can change while the confirmation is open.
+    let window = offered
+        .filter(|value| crate::stable_update::pending_quit_update().as_ref() == Some(value))
+        .and_then(|(owner, _)| app.get_webview_window(&owner));
+    let Some(window) = window else {
+        app.exit(0);
+        return;
+    };
+    tauri::async_runtime::spawn(async move {
+        match crate::stable_update::handoff(&app, &window, false).await {
+            Ok(true) => (),
+            Ok(false) => app.exit(0),
+            Err(error) => {
+                log::warn!("Update on quit failed: {error}");
+                let exiting = app.clone();
+                app.dialog()
+                    .message(error)
+                    .title("ZiCode Studio Desktop")
+                    .kind(MessageDialogKind::Error)
+                    .show(move |_| exiting.exit(0));
+            }
+        }
+    });
+}
+
 fn confirm_exit(app: &AppHandle) {
     let Some(tray) = app.try_state::<DesktopTray>() else {
         return;
@@ -50,6 +77,18 @@ fn confirm_exit(app: &AppHandle) {
         .map(|value| value.clone())
         .unwrap_or_default();
     let (message, quit, keep) = exit_prompt_labels(&locale);
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    let offered = crate::stable_update::pending_quit_update();
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    let message = if let Some((_, version)) = &offered {
+        if locale == "en" {
+            format!("{message} Verified update v{version} will install after you quit.")
+        } else {
+            format!("{message} 退出后将安装已校验的 v{version} 更新。")
+        }
+    } else {
+        message.to_owned()
+    };
     let callback_app = app.clone();
     app.dialog()
         .message(message)
@@ -61,6 +100,9 @@ fn confirm_exit(app: &AppHandle) {
         ))
         .show(move |confirmed| {
             if confirmed {
+                #[cfg(all(windows, target_arch = "x86_64"))]
+                finish_confirmed_quit(callback_app, offered);
+                #[cfg(not(all(windows, target_arch = "x86_64")))]
                 callback_app.exit(0);
             } else if let Some(tray) = callback_app.try_state::<DesktopTray>() {
                 tray.exit_prompt_open.store(false, Ordering::Release);

@@ -9,6 +9,12 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Automatic updates": "自动更新",
+  "Check manually": "手动检查",
+  "Notify me about new versions": "发现新版本时提醒我",
+  "Automatically install stable updates when I quit Studio": "自动下载稳定版，在我退出 Studio 时安装",
+  "Could not load update preferences.": "无法读取更新设置。",
+  "Could not save update preferences.": "无法保存更新设置。",
   "No pinned notes yet.": "还没有置顶笔记。",
   "No recent notes yet.": "还没有最近打开的笔记。",
   "Resolve sync conflicts": "处理同步冲突",

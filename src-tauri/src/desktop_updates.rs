@@ -4,6 +4,50 @@ use tauri::{AppHandle, WebviewWindow};
 use tauri_plugin_updater::UpdaterExt;
 static INSTALLED: AtomicBool = AtomicBool::new(false);
 
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum UpdateMode {
+    Manual,
+    Notify,
+    Download,
+}
+
+fn preference_at(path: &std::path::Path, mode: Option<UpdateMode>) -> Result<UpdateMode, String> {
+    if let Some(mode) = mode {
+        std::fs::create_dir_all(path.parent().ok_or("Invalid update preference path")?)
+            .map_err(|error| error.to_string())?;
+        let temp = path.with_extension(format!("{}.tmp", uuid::Uuid::new_v4()));
+        let bytes = serde_json::to_vec(&mode).map_err(|error| error.to_string())?;
+        std::fs::write(&temp, bytes).map_err(|error| error.to_string())?;
+        if let Err(error) = std::fs::rename(&temp, path) {
+            let _ = std::fs::remove_file(temp);
+            return Err(error.to_string());
+        }
+        return Ok(mode);
+    }
+    match std::fs::read(path) {
+        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|error| error.to_string()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(UpdateMode::Notify),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+pub(crate) fn update_mode(mode: Option<UpdateMode>) -> Result<UpdateMode, String> {
+    preference_at(
+        &crate::app_paths::data_root()?.join("desktop-update-mode.json"),
+        mode,
+    )
+}
+
+#[tauri::command]
+pub(crate) fn desktop_update_preference(
+    window: WebviewWindow,
+    mode: Option<UpdateMode>,
+) -> Result<UpdateMode, String> {
+    crate::require_workspace_window(&window)?;
+    update_mode(mode)
+}
+
 const BETA_ENDPOINT: &str =
     "https://github.com/ax2/zicode-studio-desktop/releases/download/beta/latest.json";
 #[derive(serde::Serialize)]
@@ -125,7 +169,7 @@ pub(crate) async fn restart_desktop_after_update(
 ) -> Result<(), String> {
     crate::require_workspace_window(&window)?;
     #[cfg(all(windows, target_arch = "x86_64"))]
-    if crate::stable_update::handoff(&app, &window).await? {
+    if crate::stable_update::handoff(&app, &window, true).await? {
         return Ok(());
     }
     if !INSTALLED.load(Ordering::Acquire) {
@@ -154,6 +198,25 @@ pub(crate) fn take_desktop_update_result(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn persists_the_choice_per_profile_and_defaults_to_notifications() {
+        let root = std::env::temp_dir().join(format!("studio-pref-{}", uuid::Uuid::new_v4()));
+        let file = root.join("first/update.json");
+        assert!(matches!(preference_at(&file, None), Ok(UpdateMode::Notify)));
+        preference_at(&file, Some(UpdateMode::Download)).unwrap();
+        assert!(matches!(
+            preference_at(&file, None),
+            Ok(UpdateMode::Download)
+        ));
+        let other = root.join("second/update.json");
+        assert!(matches!(
+            preference_at(&other, None),
+            Ok(UpdateMode::Notify)
+        ));
+        preference_at(&file, Some(UpdateMode::Manual)).unwrap();
+        assert!(matches!(preference_at(&file, None), Ok(UpdateMode::Manual)));
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn installs_only_the_version_reviewed_by_the_user() {
         assert!(require_checked_version("0.5.4", "0.5.4").is_ok());

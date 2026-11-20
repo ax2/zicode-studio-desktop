@@ -3,6 +3,7 @@ import { SettingsToggle } from "./SettingsToggle";
 import type { SettingsStore } from "./store";
 import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
 import { useAppUpdaterStore } from "./updaterStore";
+import { ReleaseNotes } from "./ReleaseNotes";
 
 export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: SettingsWidgetsStore }) {
   const piVersion = store(state => state.piVersion), appVersion = store(state => state.appVersion);
@@ -70,6 +71,18 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
               </button>}
           </span>
         </div>
+        {updater.enabled && <div className="settings-row">
+          <label className="settings-label" htmlFor="desktop-update-mode">{t("Automatic updates")}</label>
+          <select id="desktop-update-mode" disabled={updater.modeBusy} value={updater.mode} onChange={event => {
+            const mode = event.target.value;
+            if (mode === "manual" || mode === "notify" || mode === "download") updater.setMode(mode);
+          }}>
+            <option value="manual">{t("Check manually")}</option>
+            <option value="notify">{t("Notify me about new versions")}</option>
+            <option value="download">{t("Automatically install stable updates when I quit Studio")}</option>
+          </select>
+        </div>}
+        {updater.modeError && <p role="status">{updater.modeError}</p>}
         <div className={`settings-row${updater.enabled ? "" : " hidden"}`}>
           <span className="settings-label settings-label-stack">
             <span className="settings-label-main">{t("Beta updates")}</span>
@@ -85,7 +98,7 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
         </div>
       </div>
     {updater.lastInstallResult && <p role="status">{updater.lastInstallResult}</p>}
-    {updater.update?.body && <details className="ui-card"><summary>{t("Release notes")}</summary><p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }} translate="no">{updater.update.body}</p></details>}
+    {updater.update?.body && <details className="ui-card"><summary>{t("Release notes")}</summary><ReleaseNotes body={updater.update.body} /></details>}
     {!updater.enabled && <p className="ui-muted">{t("Check the latest version, release notes and Windows installer on GitHub.")}</p>}
     {updater.enabled && <a href="https://github.com/ax2/zicode-studio-desktop/releases/latest" target="_blank" rel="noopener noreferrer">{t("View releases on GitHub")}</a>}
     {updater.update?.fullInstaller
