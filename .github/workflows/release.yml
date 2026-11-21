@@ -128,7 +128,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/studio-release-verifier"
           cp scripts/verify-release-artifacts.mjs scripts/release-draft-assets.mjs \
             scripts/release-artifact-policy.mjs scripts/release-candidate-files.mjs scripts/release-build-matrix.mjs scripts/verify-release-inventory.mjs scripts/executable-architecture.mjs \
-            scripts/macos-bundle-signing.mjs scripts/verify-macos-dmg.mjs scripts/verify-windows-installer-runtime.ps1 \
+            scripts/macos-bundle-signing.mjs scripts/verify-macos-dmg.mjs scripts/verify-windows-installer-runtime.ps1 scripts/verify-windows-installed-startup.ps1 \
             "$RUNNER_TEMP/studio-release-verifier/"
           echo "Verification workflow source: ${{ github.workflow_sha }}"
 

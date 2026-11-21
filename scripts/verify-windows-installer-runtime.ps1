@@ -24,6 +24,11 @@ $setup=(Get-Item -LiteralPath $Installer -ErrorAction Stop).FullName
 $report.installerSha256=(Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
 $report.installerBytes=(Get-Item -LiteralPath $setup).Length
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$') {throw 'Invalid candidate version'}
+$checkStartup = [version]($Version.Split('-')[0]) -ge [version]'0.7.2'
+if ($checkStartup) {
+  $report.cases['installedStartup'] = @{status='notRun';reason='Installation did not complete'}
+  Save-Receipt
+}
 if (!$PreviousInstaller) {
   if ($RequireUpgrade) {Case 'baselineInstall' {throw 'A verified previous installer is required for publication'}}
   foreach ($id in @('baselineInstall','blockedUpgrade','upgradeAndData')) {$report.cases[$id]=@{status='skipped';reason='No verified previous installer supplied'}}
@@ -220,6 +225,13 @@ if (!$PreviousInstaller) {
   Case 'upgradeAndData' {
     Run-Installer $setup '/S' 0; Check-Version
     if ((Get-FileHash $note).Hash -ne $noteHash -or (Get-FileHash $attachment).Hash -ne $attachmentHash) {throw 'Synthetic user data changed'}
+  }
+}
+if ($checkStartup) {
+  Case 'installedStartup' {
+    $installed = Join-Path $testDir 'zicode-studio-desktop.exe'
+    & "$PSScriptRoot/verify-windows-installed-startup.ps1" -Executable $installed -ProfileDirectory (Join-Path $testRoot 'startup-profile')
+    $report.startup = @{executableSha256=(Get-FileHash -LiteralPath $installed).Hash; mode='tools-only'; visibleEnabledEntry='Mail'}
   }
 }
 if ((Get-FileHash -LiteralPath $setup).Hash -ne $report.installerSha256) {throw 'Candidate installer changed during verification'}
