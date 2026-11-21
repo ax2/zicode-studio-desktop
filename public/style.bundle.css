@@ -469,6 +469,11 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
   .browser-tab-strip--vertical .browser-tab .browser-tab-label { display: none; }
 }
 .browser-viewport { flex: 1; min-width: 0; min-height: 0; overflow: hidden; text-align: center; }
+.browser-viewport:not(:empty):not(:has(> *)) {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+}
 .browser-assistant {
   flex: 0 0 clamp(15rem, 36%, 25rem);
   min-width: 0;
@@ -19838,6 +19843,7 @@ body:not([data-active-plugin="core.chat"]) .session-header .header-left > .mobil
   .activity-utilities { flex-direction: row; }
   .activity-utilities .status, .activity-utilities .quick-tools-menu > summary { width: var(--control-height-sm); height: var(--control-height-sm); min-height: var(--control-height-sm); }
   .plugin-activity-list--system { flex: 0 0 auto; }
+  .plugin-activity-list--system > [data-plugin-id="core.files"] { min-width: var(--space-12); }
   .activity-utilities .quick-tools-popover { inset-inline-start: var(--space-2); bottom: calc(var(--mobile-nav-height) + var(--space-2)); }
 }
 
