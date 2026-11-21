@@ -27,7 +27,7 @@ it("keeps selection explicit and closes options before requesting it", () => {
   const startup = document.createElement("select");
   const menu = createBrowserOptions(startup, action); document.body.append(menu);
   menu.open = true; expect(action).not.toHaveBeenCalled();
-  menu.querySelector("button").click(); expect(action).toHaveBeenCalledOnce();
+  menu.querySelector('[data-i18n-text="Select all page text"]').click(); expect(action).toHaveBeenCalledOnce();
   expect(menu.contains(startup)).toBe(true);
 });
 it("dismisses with Escape or outside focus and retains composition keystrokes", () => {
@@ -56,4 +56,15 @@ it("keeps the options overlay until the bookmark or history dialog takes over", 
     expect(menu.open).toBe(false);
     menu.remove();
   }
+});
+
+it("groups library commands and displays the configured Downloads shortcut", () => {
+  const downloads = vi.fn();
+  const menu = createBrowserOptions(document.createElement("select"), vi.fn(), { downloads, bookmarks: vi.fn() });
+  const command = menu.querySelector('[data-i18n-text="Downloads"]');
+  expect(command.parentElement).toBe(menu.querySelector('[data-i18n-text="Bookmarks"]').parentElement);
+  expect(command.dataset.shortcut).toBe("Ctrl+J");
+  expect(command.style.getPropertyValue("--browser-command-icon")).toContain("image/svg+xml");
+  command.click();
+  expect(downloads).toHaveBeenCalledOnce();
 });

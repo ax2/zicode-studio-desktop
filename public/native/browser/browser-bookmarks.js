@@ -191,7 +191,10 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
     renderLocation();
     renderList();
   }
-  dialog.append(heading, content, message, close);
+  const header = document.createElement("header");
+  header.className = "browser-library-heading";
+  header.append(heading, close);
+  dialog.append(header, content, message);
   dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
   document.body.append(dialog); dialog.showModal(); close.focus();
   void run(async () => {

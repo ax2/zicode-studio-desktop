@@ -17,6 +17,7 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
 
   const sidebarAvailable = () => !sidebar.hidden && window.getComputedStyle(sidebar).display !== "none";
   let drawerHistory = null;
+  let drawerUrl;
   const setCollapsed = (collapsed, { fromHistory = false, discardHistory = false } = {}) => {
     // A hidden function area must never leave a standalone backdrop over the main view.
     collapsed = collapsed || (isMobile() && !sidebarAvailable());
@@ -26,9 +27,13 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
     overlay?.setAttribute("aria-hidden", String(collapsed || !isMobile()));
     toggle.setAttribute("aria-expanded", String(!collapsed));
     if (!isMobile()) return;
-    if (!collapsed && changed) drawerHistory?.enter();
-    else if (collapsed && !fromHistory && (changed || discardHistory))
-      drawerHistory?.leave({ replace: discardHistory });
+    if (!collapsed && changed) {
+      drawerUrl = window.location.href;
+      drawerHistory?.enter();
+    } else if (collapsed && !fromHistory && (changed || discardHistory)) {
+      // A selected destination can replace the drawer entry before it closes.
+      drawerHistory?.leave({ replace: discardHistory || window.location.href !== drawerUrl });
+    }
   };
 
   drawerHistory = setupMobileHistoryLayer({

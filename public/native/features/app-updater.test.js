@@ -34,13 +34,19 @@ describe("app updater sidebar action", () => {
       },
     };
 
-    setupAppUpdater({ settingsPanel: { openSettings }, enabled: true });
+    const notify = vi.fn();
+    const handle = setupAppUpdater({ settingsPanel: { openSettings }, enabled: true, notify });
 
     const sidebarButton = document.getElementById("sidebar-update-btn");
     await vi.waitFor(() => expect(sidebarButton.classList.contains("hidden")).toBe(false));
 
     sidebarButton.click();
 
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0][0].title).toContain("9.9.9");
+    notify.mock.calls[0][0].action.run();
+    await handle.checkNow();
+    expect(notify).toHaveBeenCalledTimes(1);
     expect(openSettings).toHaveBeenCalledWith("updates");
     expect(downloadAndInstall).not.toHaveBeenCalled();
     expect(relaunch).not.toHaveBeenCalled();

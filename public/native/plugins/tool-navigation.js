@@ -4,14 +4,14 @@ import { toolCategoryName } from "./tool-category-title.js";
 export const TOOL_CENTER_ID = "core.tools";
 export const PRIMARY_ACTIVITY_IDS = Object.freeze([
   "com.zicode.browser",
-  "core.chat", "com.zicode.projects", "com.zicode.tasks", "com.zicode.notes", "com.zicode.visual-assets",
+  "core.chat", "com.zicode.mail", "com.zicode.projects", "com.zicode.tasks", "com.zicode.notes", "com.zicode.visual-assets",
   TOOL_CENTER_ID, "com.zicode.automation",
 ]);
 
 export function primaryActivities(plugins, isAvailable) {
   const byId = new Map(plugins.map(plugin => [plugin.id, plugin]));
   return PRIMARY_ACTIVITY_IDS.filter(isWorkspaceApplicationVisible).flatMap(id => {
-    if (id === TOOL_CENTER_ID) return [{ id, name: "Tools", description: "Applications and tools", icon: "plugins" }];
+    if (id === TOOL_CENTER_ID) return [{ id, name: "Tools", description: "Applications and tools", icon: "toolbox" }];
     const plugin = byId.get(id);
     return plugin?.enabled && isAvailable(plugin) ? [plugin] : [];
   });

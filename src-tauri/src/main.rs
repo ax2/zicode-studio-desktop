@@ -48,7 +48,7 @@ mod desktop_update_handoff;
 mod system_temperature;
 use system_information::get_system_information;
 use system_temperature::{start_system_temperature_monitor, stop_system_temperature_monitor};
-use desktop_updates::{check_desktop_update, install_desktop_update, restart_desktop_after_update, cancel_desktop_update, take_desktop_update_result};
+use desktop_updates::{check_desktop_update, desktop_update_preference, install_desktop_update, restart_desktop_after_update, cancel_desktop_update, take_desktop_update_result};
 use desktop_tool_shortcuts::set_desktop_tool_shortcuts;
 use desktop_tray::set_desktop_tray_locale;
 use explorer_entry::{desktop_entry_mode, take_notes_widget_action};
@@ -2234,6 +2234,7 @@ fn main() {
             start_system_temperature_monitor,
             stop_system_temperature_monitor,
             check_desktop_update,
+            desktop_update_preference,
             install_desktop_update,
             restart_desktop_after_update,
             cancel_desktop_update,
