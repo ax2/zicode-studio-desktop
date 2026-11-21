@@ -100,7 +100,10 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
             Json(json!({"messages":[{"id":"ab23"}],"nextPageToken":"next"}))
         }))
         .route("/me/messages/{id}",get(|Path(id):Path<String>|async move{
-            Json(json!({"id":id,"payload":{"headers":[{"name":"Subject","value":"fixture"}],"mimeType":"multipart/alternative","parts":[{"mimeType":"text/html","body":{"data":"dHJhY2tlcg"}},{"mimeType":"text/plain","body":{"data":"cGxhaW4"}}]}}))
+            Json(json!({"id":id,"payload":{"headers":[{"name":"Subject","value":"fixture"}],"mimeType":"multipart/alternative","parts":[{"mimeType":"text/html","body":{"data":"dHJhY2tlcg"}},{"mimeType":"text/plain","body":{"data":"cGxhaW4"}},{"mimeType":"application/octet-stream","filename":"fixture.bin","body":{"attachmentId":"fixture_key","size":4}},{"filename":"small.bin","body":{"data":"AQI","size":2}}]}}))
+        }))
+        .route("/me/messages/{id}/attachments/fixture_key",get(|Path(id):Path<String>,headers:axum::http::HeaderMap|async move{
+            assert_eq!(id,"ab23");assert_eq!(headers["authorization"],"Bearer test-access");Json(json!({"size":4,"data":"AP8BAg"}))
         }))
         .route("/me/messages/send",post(move|Json(m):Json<serde_json::Value>|{let count=count.clone();async move{
             count.fetch_add(1,Ordering::SeqCst);let msg=String::from_utf8(base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(m["raw"].as_str().unwrap()).unwrap()).unwrap();
@@ -149,6 +152,11 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
         .unwrap();
     assert_eq!(msg["plainText"], "plain");
     assert_eq!(msg["html"], "tracker");
+    let listed=&msg["attachments"];
+    assert_eq!(listed[0],json!({"id":0,"name":"fixture.bin","size":4}));
+    assert_eq!(api::attachment(&client,&base,&tok.access_token,"ab23",0,&listed[0]).await.unwrap(),[0,255,1,2]);
+    assert_eq!(api::attachment(&client,&base,&tok.access_token,"ab23",1,&listed[1]).await.unwrap(),[1,2]);
+    assert!(api::attachment(&client,&base,&tok.access_token,"ab23",1,&listed[0]).await.is_err());
     let path = std::env::temp_dir().join(format!("gmail-test-{}.sqlite", uuid::Uuid::new_v4()));
     {
         let db = rusqlite::Connection::open(&path).unwrap();

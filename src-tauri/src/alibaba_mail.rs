@@ -47,6 +47,12 @@ pub(crate) enum Request {
         uid_validity: u32,
         uid: u32,
     },
+    DownloadAttachment {
+        account_id: String,
+        uid_validity: u32,
+        uid: u32,
+        part: usize,
+    },
     CachedBody {
         account_id: String,
         uid_validity: u32,
@@ -81,6 +87,7 @@ impl Request {
             | Self::Sync { account_id, .. }
             | Self::CachedPage { account_id, .. }
             | Self::Read { account_id, .. }
+            | Self::DownloadAttachment { account_id, .. }
             | Self::CachedBody { account_id, .. }
             | Self::Send { account_id, .. }
             | Self::Delivery { account_id, .. } => account_id,
@@ -159,6 +166,18 @@ pub(crate) async fn mail_alibaba(
           Request::CachedPage{cursor,limit,..}=>Ok(json!(mailbox.cached_page(cursor,limit)?)),
           Request::Read{uid_validity,uid,..}=>Ok(json!(mailbox.read(&adapter,pwd()?.as_str(),uid_validity,uid)?)),
           Request::CachedBody{uid_validity,uid,..}=>Ok(json!(mailbox.cached_body(uid_validity,uid)?)),
+          Request::DownloadAttachment{uid_validity,uid,part,..}=>{
+              mailbox.attachment_is_current(uid_validity)?;
+              let body=mailbox.cached_body(uid_validity,uid)?;
+              let attachment=body.attachments.get(part).filter(|a| a.id==part).ok_or("mail_attachment_missing")?;
+              let Some(target)=crate::mail_attachment::choose(&window,&attachment.name)? else { return Ok(json!({"saved":false})); };
+              crate::resource_export_picker::context(&window,&workspace_id)?;
+              let bytes=adapter.attachment(mailbox.address(),pwd()?.as_str(),uid_validity,uid,attachment)?;
+              crate::resource_export_picker::context(&window,&workspace_id)?;
+              mailbox.attachment_is_current(uid_validity)?;
+              crate::mail_attachment::save(&target,&bytes)?;
+              Ok(json!({"saved":true}))
+          }
           Request::Send{draft_id,revision,confirmed,reply,..}=>{
               if !confirmed {return Err("mail_confirmation_required".into())}
               Ok(json!({"status":mailbox.send(&adapter,pwd()?.as_str(),&draft_id,revision,true,reply.map(|r|(r.uid_validity,r.uid)))?}))
