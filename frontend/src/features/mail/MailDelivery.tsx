@@ -13,7 +13,7 @@ function DraftPreview({text}:{text:string}){
   return <section aria-label={t("Message body preview")}>
     <p>{t("Message body")}</p>
     <pre id={id} className="mail-read-body" translate="no">{!long||expanded?text||t("Empty message"):text.slice(0,cut)+"…"}</pre>
-    {long&&<button type="button" aria-controls={id} aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>
+    {long&&<button className="ui-button" type="button" aria-controls={id} aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>
       {t(expanded?"Show less":"Show full message body")}
     </button>}
   </section>;
@@ -53,7 +53,7 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
     }}finally{if(active.current)setBusy(false);locked.current=false}
   }
   return <section aria-label={t("Send saved draft")}>
-    {!outcome&&<button type="button" disabled={!configured||!ready||busy||!draft.recipient.trim()} onClick={()=>setReview(true)}>{t("Review before sending")}</button>}
+    {!outcome&&<button className="ui-button" type="button" disabled={!configured||!ready||busy||!draft.recipient.trim()} onClick={()=>setReview(true)}>{t("Review before sending")}</button>}
     {review&&!outcome&&<section className="mail-send-review" aria-label={t("Confirm sending email")}>
       <p>{t("Send this saved draft now?")}</p><dl>
         <dt>{t("Mail account")}</dt><dd translate="no">{address}</dd><dt>{t("Recipient")}</dt><dd translate="no">{draft.recipient}</dd>
@@ -62,8 +62,8 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
       {Boolean(draft.attachments?.length)&&<ul aria-label={t("Attachments")}>
         {draft.attachments?.map(file=><li key={file.id} translate="no">{file.name} ({file.size} B)</li>)}
       </ul>}
-      <button type="button" disabled={!configured||busy} onClick={()=>void submit()}>{t("Confirm and send email")}</button>
-      <button type="button" onClick={()=>setReview(false)}>{t("Cancel")}</button>
+      <button className="ui-button" type="button" disabled={!configured||busy} onClick={()=>void submit()}>{t("Confirm and send email")}</button>
+      <button className="ui-button" type="button" onClick={()=>setReview(false)}>{t("Cancel")}</button>
     </section>}
     {busy&&<p role="status">{t("Sending saved draft…")}</p>}
     {outcome&&<p role="status">{t(outcome==="accepted"?"The mail server accepted this message.":outcome==="rejected"

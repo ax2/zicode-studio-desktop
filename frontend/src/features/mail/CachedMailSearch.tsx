@@ -95,22 +95,22 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
   }
   return <fieldset><legend>{t("Search cached inboxes")}</legend>
     <form onSubmit={e=>{e.preventDefault(); if(query.trim()) void search(0)}}>
-      <label>{t("Search scope")}<select value={scope} onChange={e=>{clear();setLabelOnly(false);setScope(e.target.value)}}>
+      <label>{t("Search scope")}<select className="ui-select" value={scope} onChange={e=>{clear();setLabelOnly(false);setScope(e.target.value)}}>
         {accounts.map(a=><option key={a.id} value={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}
         <option value="">{t("All local mail accounts")}</option>
       </select></label>
       {label && scope===current && <label><input type="checkbox" checked={labelOnly} onChange={e=>{clear();setLabelOnly(e.target.checked)}}/>{t(accounts.find(a=>a.id===current)?.provider==="gmail"?"Search only the selected Gmail label":"Search only the selected folder")}</label>}
-      <label>{t("Search cached mail")}<input type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
-      <button type="submit" disabled={busy || !query.trim()}>{t("Search")}</button>
+      <label>{t("Search cached mail")}<input className="ui-input" type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
+      <button className="ui-button" type="submit" disabled={busy || !query.trim()}>{t("Search")}</button>
     </form>
     {error && <p role="alert">{t("Could not access local mail data.")}</p>}
     {page && <>
       {!page.items.length && <p role="status">{t("No matching cached messages.")}</p>}
       <ul className="mail-inbox-list">{page.items.map(hit=><li key={JSON.stringify([hit.account,hit.folder,hit.epoch,hit.id])}>
-        <button type="button" onClick={()=>void open(hit)}><strong translate="no">{hit.subject || t("No subject")}</strong>
+        <button className="ui-button" type="button" onClick={()=>void open(hit)}><strong translate="no">{hit.subject || t("No subject")}</strong>
           <small translate="no">{hit.sender} · {hit.address}</small></button></li>)}</ul>
-      {offset>0 && <button type="button" disabled={busy} onClick={()=>void search(offset-40)}>{t("Previous")}</button>}
-      {page.more && <button type="button" disabled={busy} onClick={()=>void search(offset+40)}>{t("Next")}</button>}
+      {offset>0 && <button className="ui-button" type="button" disabled={busy} onClick={()=>void search(offset-40)}>{t("Previous")}</button>}
+      {page.more && <button className="ui-button" type="button" disabled={busy} onClick={()=>void search(offset+40)}>{t("Next")}</button>}
     </>}
     {reading && <article aria-label={t("Cached message")}><h3 translate="no">{reading.hit.subject||t("No subject")}</h3>
       <p translate="no">{reading.hit.sender} · {reading.hit.address}</p>
