@@ -67,14 +67,7 @@ pub(crate) async fn mail_local(window: WebviewWindow, request: Request) -> Resul
             file.take(MAX_DRAFT_BYTES + 1).read_to_end(&mut bytes).map_err(|_| "mail_attachment_read")?;
             if bytes.len() as u64 > MAX_DRAFT_BYTES { return Err("mail_attachment_too_large".into()); }
             crate::resource_export_picker::context(&window, &scope)?;
-            let mut db = open_mail(&path)?;
-            let tx = db.transaction().map_err(|_| "mail_storage")?;
-            advance_revision(&tx, &scope, &account, &id, revision)?;
-            let total: u64 = tx.query_row("SELECT COALESCE(SUM(length(content)),0) FROM draft_attachments WHERE scope=? AND account=? AND draft=?", params![scope,account,id], |row| row.get(0)).map_err(|_| "mail_storage")?;
-            if total + bytes.len() as u64 > MAX_DRAFT_BYTES { return Err("mail_attachment_too_large".into()); }
-            tx.execute("INSERT INTO draft_attachments(scope,account,draft,id,name,content) VALUES(?,?,?,?,?,?)",params![scope,account,id,Uuid::new_v4().to_string(),name,bytes]).map_err(|_| "mail_storage")?;
-            tx.commit().map_err(|_| "mail_storage")?;
-            return Ok(json!({"changed":true,"revision":revision+1}));
+            return attach_file(&path, &scope, &account, &id, revision, &name, bytes);
         }
         operate(&path, &scope, request)
     })
@@ -83,6 +76,17 @@ pub(crate) async fn mail_local(window: WebviewWindow, request: Request) -> Resul
 }
 
 const MAX_DRAFT_BYTES: u64 = 16 * 1024 * 1024;
+
+fn attach_file(path: &Path, scope: &str, account: &str, id: &str, revision: i64, name: &str, bytes: Vec<u8>) -> Result<Value, String> {
+    let mut db = open_mail(path)?;
+    let tx = db.transaction().map_err(|_| "mail_storage")?;
+    advance_revision(&tx, scope, account, id, revision)?;
+    let total: u64 = tx.query_row("SELECT COALESCE(SUM(length(content)),0) FROM draft_attachments WHERE scope=? AND account=? AND draft=?", params![scope,account,id], |row| row.get(0)).map_err(|_| "mail_storage")?;
+    if total + bytes.len() as u64 > MAX_DRAFT_BYTES { return Err("mail_attachment_too_large".into()); }
+    tx.execute("INSERT INTO draft_attachments(scope,account,draft,id,name,content) VALUES(?,?,?,?,?,?)",params![scope,account,id,Uuid::new_v4().to_string(),name,bytes]).map_err(|_| "mail_storage")?;
+    tx.commit().map_err(|_| "mail_storage")?;
+    Ok(json!({"changed":true,"revision":revision+1}))
+}
 
 fn advance_revision(db: &Connection, scope: &str, account: &str, id: &str, revision: i64) -> Result<(), String> {
     if db.execute("UPDATE drafts SET revision=revision+1 WHERE scope=? AND account=? AND id=? AND revision=?",params![scope,account,id,revision]).map_err(|_| "mail_storage")? != 1 {
@@ -343,7 +347,22 @@ mod tests {
         };
         assert!(delete(1).is_err());
         assert_eq!(list("one", &a)[0]["body"], "updated");
-        delete(2).unwrap();
+        attach_file(&p, "one", &a, &id, 2, "proof.bin", vec![0, 255]).unwrap();
+        let reopened = list("one", &a);
+        let file = &reopened[0]["attachments"][0];
+        assert_eq!(file["name"], "proof.bin");
+        assert_eq!(file["size"], 2);
+        let remove = |account: &str, revision, attachment: &str| operate(&p, "one", Request::RemoveAttachment {
+            account:account.into(), id:id.clone(), revision, attachment:attachment.into()
+        });
+        let attachment = file["id"].as_str().unwrap();
+        assert!(remove(&b, 3, attachment).is_err());
+        assert!(remove(&a, 2, attachment).is_err());
+        assert!(remove(&a, 3, "missing").is_err());
+        assert_eq!(list("one", &a), reopened);
+        assert_eq!(remove(&a, 3, attachment).unwrap()["revision"], 4);
+        assert_eq!(list("one", &a)[0]["attachments"], json!([]));
+        delete(4).unwrap();
         assert_eq!(list("one", &a), json!([]));
         assert_eq!(
             operate(
