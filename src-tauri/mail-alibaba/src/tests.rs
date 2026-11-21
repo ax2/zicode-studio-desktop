@@ -240,7 +240,7 @@ fn database() -> Connection {
     db
 }
 fn seed(db: &Connection) {
-    db.execute_batch("CREATE TABLE accounts(scope TEXT,id TEXT,provider TEXT,address TEXT);CREATE TABLE drafts(scope TEXT,account TEXT,id TEXT,revision INTEGER,recipient TEXT,subject TEXT,body TEXT);
+    db.execute_batch("CREATE TABLE accounts(scope TEXT,id TEXT,provider TEXT,address TEXT);CREATE TABLE drafts(scope TEXT,account TEXT,id TEXT,revision INTEGER,recipient TEXT,subject TEXT,body TEXT,PRIMARY KEY(scope,account,id));
     INSERT INTO accounts VALUES ('one','a','alibaba','user@example.test'),('two','b','alibaba','other@example.test'),('one','g','gmail','gmail@example.test');
     INSERT INTO drafts VALUES ('one','a','d',1,'reply@example.test','reply','synthetic reply');").unwrap();
 }
@@ -343,6 +343,8 @@ fn imap_rejects_untrusted_fixture_and_hostname_mismatch() {
 fn smtp_confirm_revision_reply_and_no_retry_after_ambiguous_delivery() {
     for (dropped, result) in [(false, "accepted"), (true, "unknown")] {
         let mut db = database();
+        db.execute_batch(DRAFT_ATTACHMENT_SCHEMA).unwrap();
+        db.execute("INSERT INTO draft_attachments VALUES('one','a','d','x','proof.bin',?)", [vec![0u8,255,13,10]]).unwrap();
         let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
         assert_eq!(
             mail.send(&Alibaba::default(), "synthetic", "d", 1, false, None),
@@ -367,6 +369,11 @@ fn smtp_confirm_revision_reply_and_no_retry_after_ambiguous_delivery() {
             body.contains("In-Reply-To: <original@example.test>")
                 && body.contains("synthetic reply")
         );
+        let parsed = mail_parser::MessageParser::new().parse(body.as_bytes()).unwrap();
+        let files: Vec<_> = parsed.attachments().collect();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].decoded().as_ref(), &[0, 255, 13, 10]);
+        assert_eq!(files[0].attachment_name(), Some("proof.bin"));
         // Re-open from disk state; no additional SMTP connection is possible after fixture has stopped.
         let mut reopened = Mailbox::open(&mut db, "one", "a").unwrap();
         assert_eq!(

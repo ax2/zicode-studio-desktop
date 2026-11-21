@@ -2,6 +2,8 @@
 mod inbox;
 mod journal;
 mod outbox;
+pub use outbox::{compose_attached, draft_attachments};
+pub const DRAFT_ATTACHMENT_SCHEMA: &str = include_str!("draft_attachments.sql");
 
 pub use inbox::{Attachment, Cursor, Letter, Page, Summary};
 pub use journal::{Account, Mailbox, StoredDraft};

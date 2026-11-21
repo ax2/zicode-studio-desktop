@@ -59,6 +59,9 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
         <dt>{t("Mail account")}</dt><dd translate="no">{address}</dd><dt>{t("Recipient")}</dt><dd translate="no">{draft.recipient}</dd>
         <dt>{t("Mail subject")}</dt><dd translate="no">{draft.subject||t("No subject")}</dd></dl>
       <DraftPreview text={draft.body}/>
+      {Boolean(draft.attachments?.length)&&<ul aria-label={t("Attachments")}>
+        {draft.attachments?.map(file=><li key={file.id} translate="no">{file.name} ({file.size} B)</li>)}
+      </ul>}
       <button type="button" disabled={!configured||busy} onClick={()=>void submit()}>{t("Confirm and send email")}</button>
       <button type="button" onClick={()=>setReview(false)}>{t("Cancel")}</button>
     </section>}
