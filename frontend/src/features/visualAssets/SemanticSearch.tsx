@@ -109,7 +109,7 @@ export function SemanticSearch({
           >
             <option value="">{t("Select a model")}</option>
             {models.map((m, i) => (
-              <option key={i} value={String(i)}>
+              <option key={JSON.stringify([m.provider, m.model])} value={String(i)}>
                 {m.provider} · {m.name} · {m.endpoint}
               </option>
             ))}
