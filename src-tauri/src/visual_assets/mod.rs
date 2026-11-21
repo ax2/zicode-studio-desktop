@@ -103,7 +103,7 @@ pub(crate) fn manifest() -> serde_json::Value {
             "activities": [{"id": "visual-assets", "title": "Visual assets", "order": 125}],
             "views": [{"id": "visual-assets.library", "activity": "visual-assets", "location": "main", "title": "Visual assets"}]
         },
-        "permissions": {"required": [], "optional": ["network.fetch"]}
+        "permissions": {"required": [], "optional": [{"name":"network.fetch","reason":"Send a reviewed search phrase to the selected model"}]}
     })
 }
 
