@@ -59,6 +59,9 @@ pub fn open(library: &Path) -> rusqlite::Result<Connection> {
     let tx = db.transaction_with_behavior(TransactionBehavior::Immediate)?;
     tx.execute_batch(SCHEMA)?;
     name_search::ensure(&tx)?;
+    if tags::vision::present(&tx)? {
+        tags::vision::ensure_index(&tx)?;
+    }
     tx.execute_batch(tags::SCHEMA)?;
     tx.execute_batch(collections::SCHEMA)?;
     tx.execute_batch(DUPLICATE_INDEX)?;
@@ -91,7 +94,7 @@ pub fn has_managed_schema(db: &Connection) -> rusqlite::Result<bool> {
         reference.execute_batch(tags::local_preview::SCHEMA)?;
     }
     if tags::vision::present(db)? {
-        reference.execute_batch(tags::vision::SCHEMA)?;
+        tags::vision::ensure_schema(&reference)?;
     }
     let actual = entries(db)?;
     if actual == entries(&reference)? {

@@ -4,15 +4,14 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::Serialize;
 use uuid::Uuid;
 
-pub const SCHEMA:&str="CREATE TABLE IF NOT EXISTS vision_annotation(
+const SCHEMA:&str="CREATE TABLE IF NOT EXISTS vision_annotation(
     id TEXT PRIMARY KEY, asset INTEGER NOT NULL REFERENCES asset(id) ON DELETE CASCADE,
     digest TEXT NOT NULL, preview_sha TEXT NOT NULL, provider TEXT NOT NULL, model TEXT NOT NULL,
     endpoint_origin TEXT NOT NULL, reviewed_at INTEGER NOT NULL CHECK(reviewed_at>0), approved INTEGER NOT NULL CHECK(approved IN(0,1)),
     UNIQUE(asset,digest,approved));
     CREATE TABLE IF NOT EXISTS vision_annotation_label(
     annotation TEXT NOT NULL REFERENCES vision_annotation(id) ON DELETE CASCADE,
-    label TEXT NOT NULL CHECK(length(label) BETWEEN 1 AND 64), PRIMARY KEY(annotation,label)) WITHOUT ROWID;
-    CREATE INDEX IF NOT EXISTS vision_by_label ON vision_annotation_label(label,annotation);";
+    label TEXT NOT NULL CHECK(length(label) BETWEEN 1 AND 64), PRIMARY KEY(annotation,label)) WITHOUT ROWID;";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,6 +24,18 @@ pub struct Record {
     approved: bool,
     reviewed_at: i64,
     labels: Vec<String>,
+}
+
+/// Approved and pending label records are authoritative; this lookup index is rebuildable.
+pub fn ensure_index(db: &Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
+        "CREATE INDEX IF NOT EXISTS vision_by_label ON vision_annotation_label(label,annotation)",
+    )
+}
+
+pub fn ensure_schema(db: &Connection) -> rusqlite::Result<()> {
+    db.execute_batch(SCHEMA)?;
+    ensure_index(db)
 }
 
 pub fn present(db: &Connection) -> rusqlite::Result<bool> {
@@ -104,7 +115,7 @@ pub fn draft(tx: &Transaction, d: Draft, previous: Option<&str>) -> rusqlite::Re
     {
         return Err(rusqlite::Error::InvalidQuery);
     }
-    tx.execute_batch(SCHEMA)?;
+    ensure_schema(tx)?;
     if slot(tx, d.asset, d.digest, false)?.as_deref() != previous {
         return Err(rusqlite::Error::InvalidQuery);
     }

@@ -292,7 +292,21 @@ fn approved_vision_labels_round_trip_v12_without_changing_originals_or_manual_ta
     )
     .unwrap();
     assert_eq!(m.version, 12);
+    let damaged = Connection::open(restored.join("catalog.sqlite")).unwrap();
+    damaged
+        .execute_batch("DROP INDEX vision_by_label; DROP TABLE asset_name_gram;")
+        .unwrap();
+    drop(damaged);
     let mut reopened = super::super::catalog::open(&restored).unwrap();
+    assert!(reopened
+        .prepare("SELECT 1 FROM sqlite_schema WHERE name='vision_by_label' AND type='index'")
+        .unwrap()
+        .exists([])
+        .unwrap());
+    assert_eq!(
+        super::super::semantic_search::ranked(&reopened, "城市", &[]).unwrap()[0].id,
+        1
+    );
     let tx = reopened.transaction().unwrap();
     vision::review(&tx, 1, &digest, &id, None, Some(&id)).unwrap();
     tx.commit().unwrap();

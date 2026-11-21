@@ -143,7 +143,7 @@ export function VisionLabels({
           >
             <option value="">{t("Select a model")}</option>
             {models.map((m, i) => (
-              <option key={i} value={String(i)}>
+              <option key={JSON.stringify([m.provider, m.model, m.endpoint])} value={String(i)}>
                 {m.provider} · {m.model} · {m.endpoint}
               </option>
             ))}
