@@ -2,19 +2,13 @@ param(
     [Parameter(Mandatory)][string]$Probe,
     [Parameter(Mandatory)][string]$Corpus,
     [Parameter(Mandatory)][string]$Inventory,
-    [string]$Query = ''
+    [string]$Query = '',
+    [string]$EvidenceParent
 )
 $ErrorActionPreference = 'Stop'
 $Probe = (Resolve-Path -LiteralPath $Probe).Path
 $Corpus = (Resolve-Path -LiteralPath $Corpus).Path
 $Inventory = (Resolve-Path -LiteralPath $Inventory).Path
-$workspace = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
-$drive = [IO.DriveInfo]::new([IO.Path]::GetPathRoot($workspace))
-$freeBefore = $drive.AvailableFreeSpace
-$root = (New-Item -ItemType Directory -Path (
-    Join-Path $workspace ".cache/task-scratch/visual-assets-corpus-$([guid]::NewGuid())"
-)).FullName
-
 function Assert-RegularPath([string]$Path) {
     $item = Get-Item -LiteralPath $Path -Force
     if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
@@ -26,6 +20,19 @@ function Assert-RegularPath([string]$Path) {
 for ($parent = [IO.DirectoryInfo]::new($Corpus); $null -ne $parent; $parent = $parent.Parent) {
     Assert-RegularPath $parent.FullName | Out-Null
 }
+if ($PSBoundParameters.ContainsKey('EvidenceParent')) {
+    $parentDirectory = Get-Item -LiteralPath $EvidenceParent -Force
+    if ($parentDirectory -isnot [IO.DirectoryInfo]) { throw 'EvidenceParent must be an existing directory' }
+} else {
+    $parentDirectory = New-Item -ItemType Directory -Force -Path (Join-Path $PSScriptRoot '../../.cache/task-scratch')
+}
+for ($parent = $parentDirectory; $null -ne $parent; $parent = $parent.Parent) {
+    if ($parent.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        throw "Cannot measure the output volume through a reparse point: $($parent.FullName)"
+    }
+}
+$drive = [IO.DriveInfo]::new($parentDirectory.Root.FullName)
+$freeBefore = $drive.AvailableFreeSpace
 $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 $inputs = @(foreach ($line in Get-Content -LiteralPath $Inventory -Encoding utf8) {
     $parts = $line -split '[\\/]'
@@ -46,6 +53,9 @@ $inputs = @(foreach ($line in Get-Content -LiteralPath $Inventory -Encoding utf8
     }
 })
 if ($inputs.Count -eq 0) { throw 'The corpus inventory is empty' }
+$root = (New-Item -ItemType Directory -Path (
+    Join-Path $parentDirectory.FullName "visual-assets-corpus-$([guid]::NewGuid())"
+)).FullName
 $inputs | Select-Object relative,bytes,sha256 |
     ConvertTo-Json -AsArray -Depth 4 | Set-Content -LiteralPath (Join-Path $root 'inventory.json')
 
@@ -210,7 +220,7 @@ foreach ($source in $inputs) {
     probeSHA256=(Get-FileHash -LiteralPath $Probe).Hash; measuredAt=[DateTimeOffset]::Now.ToString('o')
     importScope='Each batch starts an isolated Windows probe. Memory samples cover that process.'
     queryScope='First Catalog query and 32 repeats in one probe. OS cache state is uncontrolled.'
-    freeBytesBefore=$freeBefore; freeBytesAfter=$drive.AvailableFreeSpace
+    outputVolume=$drive.Name; freeBytesBefore=$freeBefore; freeBytesAfter=$drive.AvailableFreeSpace
     sourceDigestsVerified=$true; modes=@($modes)
 } | ConvertTo-Json -Depth 9 | Set-Content -LiteralPath (Join-Path $root 'receipt.json')
 Write-Output "Passed. Evidence directory: $root"
