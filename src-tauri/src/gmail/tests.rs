@@ -430,7 +430,17 @@ async fn gmail_history_pages_reconcile_label_membership_and_recover_expiry() {
     drop(rusqlite::Connection::open(&path).unwrap());
     let fetch = || {
         sync::fetch(
-            &client, &base, "fixture", &path, "w", "acct", "Label_A", None, 1,
+            &client,
+            &base,
+            "fixture",
+            sync::CachedLabel {
+                path: &path,
+                scope: "w",
+                account: "acct",
+                label: "Label_A",
+            },
+            None,
+            1,
         )
     };
     let save =

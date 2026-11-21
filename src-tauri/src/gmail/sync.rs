@@ -33,17 +33,27 @@ fn saved_ids(path: &Path, scope: &str, account: &str, label: &str) -> Result<BTr
         .map_err(|_| "gmail_storage")
 }
 
+pub struct CachedLabel<'a> {
+    pub path: &'a Path,
+    pub scope: &'a str,
+    pub account: &'a str,
+    pub label: &'a str,
+}
+
 pub async fn fetch(
     client: &Client,
     base: &str,
     token: &str,
-    path: &Path,
-    scope: &str,
-    account: &str,
-    label: &str,
+    folder: CachedLabel<'_>,
     cursor: Option<&str>,
     limit: u8,
 ) -> Result<Snapshot> {
+    let CachedLabel {
+        path,
+        scope,
+        account,
+        label,
+    } = folder;
     let previous = checkpoint(path, scope, account, label)?;
     let mut next = None;
     let mut rebuild = false;

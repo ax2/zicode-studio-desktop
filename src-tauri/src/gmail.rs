@@ -436,7 +436,8 @@ pub(crate) async fn mail_gmail(
         Request::List { label, cursor, limit } => {
             let key = key_for(label.as_deref(), &cursor, limit)?;
             let label=label.as_deref().unwrap_or("INBOX");
-            let snapshot=sync::fetch(&client,api::BASE,&access,&path,&scope,&account_id,label,cursor.as_deref(),limit).await?;
+            let folder = sync::CachedLabel { path: &path, scope: &scope, account: &account_id, label };
+            let snapshot = sync::fetch(&client, api::BASE, &access, folder, cursor.as_deref(), limit).await?;
             let _g=current()?;
             sync::apply(&path,&scope,&account_id,label,cache_epoch,&key,&snapshot)?;
             snapshot.page
