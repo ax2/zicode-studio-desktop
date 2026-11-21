@@ -17,6 +17,7 @@ use zeroize::Zeroizing;
 pub(crate) enum Request {
     ReplyDraft {
         account_id: String,
+        folder: Option<String>,
         uid_validity: u32,
         uid: u32,
     },
@@ -36,27 +37,32 @@ pub(crate) enum Request {
     CachedFolders { account_id: String },
     Sync {
         account_id: String,
+        folder: Option<String>,
         cursor: Option<Cursor>,
         limit: u8,
     },
     CachedPage {
         account_id: String,
+        folder: Option<String>,
         cursor: Option<Cursor>,
         limit: u8,
     },
     Read {
         account_id: String,
+        folder: Option<String>,
         uid_validity: u32,
         uid: u32,
     },
     DownloadAttachment {
         account_id: String,
+        folder: Option<String>,
         uid_validity: u32,
         uid: u32,
         part: usize,
     },
     CachedBody {
         account_id: String,
+        folder: Option<String>,
         uid_validity: u32,
         uid: u32,
     },
@@ -144,6 +150,12 @@ pub(crate) async fn mail_alibaba(
         let id=request.account().to_owned();
         uuid::Uuid::parse_str(&id).map_err(|_|"mail_account_not_found")?;
         let mut mailbox=Mailbox::open(&mut db,&workspace_id,&id)?;
+        match &request {
+            Request::Sync{folder,..} | Request::CachedPage{folder,..} | Request::Read{folder,..}
+            | Request::CachedBody{folder,..} | Request::ReplyDraft{folder,..} | Request::DownloadAttachment{folder,..}
+                => mailbox.select_folder(folder.as_deref().unwrap_or("INBOX"))?,
+            _ => {}
+        }
         let adapter=Alibaba::default();
         let vault=||credential(&workspace_id,&id);
         let pwd=||password(&workspace_id,&id);
@@ -178,7 +190,7 @@ pub(crate) async fn mail_alibaba(
               let attachment=body.attachments.get(part).filter(|a| a.id==part).ok_or("mail_attachment_missing")?;
               let Some(target)=crate::mail_attachment::choose(&window,&attachment.name)? else { return Ok(json!({"saved":false})); };
               crate::resource_export_picker::context(&window,&workspace_id)?;
-              let bytes=adapter.attachment(mailbox.address(),pwd()?.as_str(),uid_validity,uid,attachment)?;
+              let bytes=adapter.attachment(mailbox.address(),pwd()?.as_str(),mailbox.folder(),uid_validity,uid,attachment)?;
               crate::resource_export_picker::context(&window,&workspace_id)?;
               mailbox.attachment_is_current(uid_validity)?;
               crate::mail_attachment::save(&target,&bytes)?;

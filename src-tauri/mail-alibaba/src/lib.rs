@@ -4,7 +4,7 @@ mod journal;
 mod outbox;
 
 pub use inbox::{Attachment, Cursor, Folder, Letter, Page, Summary};
-pub use journal::{Account, Mailbox, StoredDraft};
+pub use journal::{initialize_cache, Account, Mailbox, StoredDraft};
 use std::time::Duration;
 
 pub type Result<T> = std::result::Result<T, &'static str>;

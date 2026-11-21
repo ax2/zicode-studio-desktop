@@ -17,7 +17,8 @@ function setup(provider="alibaba",initiallyConfigured=true){
     case "credentialStatus":return {enabled:true,configured};
     case "setPassword":configured=true;return {configured};
     case "forgetPassword":configured=false;return {configured};
-    case "cachedPage":return {uidValidity:7,messages:[summary],next:null};
+    case "cachedFolders":return [{id:"Archive",name:"Archive"}];
+    case "cachedPage":return {uidValidity:7,messages:[r.folder==="Archive"?{...summary,subject:"Archive fixture"}:summary],next:null};
     case "sync":return r.cursor
       ?{uidValidity:7,messages:[{...summary,uid:10,subject:"Older fixture"}],next:null}
       :{uidValidity:7,messages:[summary],next:{uidValidity:7,before:30}};
@@ -33,9 +34,19 @@ function setup(provider="alibaba",initiallyConfigured=true){
   return {remote,local,view,kinds:()=>remote.mock.calls.map(c=>c[0].kind)};
 }
 const button=(name:string)=>screen.getByRole("button",{name});
+it("switches to an offline folder and reads the same UID in that folder",async()=>{
+  const a=setup();
+  const select=await screen.findByLabelText("IMAP folder");
+  await screen.findByText("Inbox fixture");
+  fireEvent.change(select,{target:{value:"Archive"}});
+  fireEvent.click(await screen.findByRole("button",{name:/Archive fixture/}));
+  expect(a.remote).toHaveBeenCalledWith({kind:"cachedBody",accountId:"a",folder:"Archive",uid:30,uidValidity:7});
+  expect(screen.queryByText("Inbox fixture")).toBeNull();
+  expect(a.kinds()).not.toContain("sync");
+});
 it("reads cached headers without network, paginates only on demand, and creates an offline reply",async()=>{
   const a=setup();await screen.findByRole("button",{name:/Inbox fixture/});
-  expect(a.kinds()).toEqual(["credentialStatus","cachedPage"]);
+  expect(a.kinds()).toEqual(["credentialStatus","cachedPage","cachedFolders"]);
   fireEvent.click(screen.getByRole("button",{name:/Inbox fixture/}));
   await screen.findByText(/not available offline/);
   expect(a.kinds()).not.toContain("read");

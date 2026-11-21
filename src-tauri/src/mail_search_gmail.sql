@@ -1,4 +1,4 @@
-SELECT account,address,provider,id,epoch,subject,sender FROM (
+SELECT account,address,provider,id,epoch,subject,sender,NULL AS folder FROM (
 SELECT a.id AS account, a.address, a.provider, json_extract(hit.value,'$.id') AS id, NULL AS epoch,
        json_extract(hit.value,'$.subject') AS subject, json_extract(hit.value,'$.from') AS sender,
        row_number() OVER (PARTITION BY a.id,json_extract(hit.value,'$.id')

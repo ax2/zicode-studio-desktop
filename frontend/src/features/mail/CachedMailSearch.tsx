@@ -5,7 +5,7 @@ import { MailBody } from "./MailBody";
 import type { Invoke } from "./index";
 
 type Account = { id: string; address: string; provider: string };
-type Hit = { account: string; address: string; provider: string; id: string; epoch: number | null; subject: string; sender: string };
+type Hit = { folder?:string; account: string; address: string; provider: string; id: string; epoch: number | null; subject: string; sender: string };
 type Page = { items: Hit[]; more: boolean };
 
 export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, label}: {
@@ -75,7 +75,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
         html = body?.html ?? null;
         attachments = body?.attachments;
       } else if (hit.provider === "alibaba" && alibaba) {
-        const body = await alibaba<{text:string;html?:string;attachments?:Attachment[];bodyLimited?:boolean}>({kind:"cachedBody", accountId:hit.account, uidValidity:hit.epoch, uid:Number(hit.id)});
+        const body = await alibaba<{text:string;html?:string;attachments?:Attachment[];bodyLimited?:boolean}>({kind:"cachedBody", accountId:hit.account, ...(hit.folder?{folder:hit.folder}:{}), uidValidity:hit.epoch, uid:Number(hit.id)});
         text = body.text;
         html = body.html ?? null;
         attachments = body.attachments;
@@ -95,14 +95,14 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
         {accounts.map(a=><option key={a.id} value={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}
         <option value="">{t("All local mail accounts")}</option>
       </select></label>
-      {label && scope===current && <label><input type="checkbox" checked={labelOnly} onChange={e=>{clear();setLabelOnly(e.target.checked)}}/>{t("Search only the selected Gmail label")}</label>}
+      {label && scope===current && <label><input type="checkbox" checked={labelOnly} onChange={e=>{clear();setLabelOnly(e.target.checked)}}/>{t(accounts.find(a=>a.id===current)?.provider==="gmail"?"Search only the selected Gmail label":"Search only the selected folder")}</label>}
       <label>{t("Search cached mail")}<input type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
       <button type="submit" disabled={busy || !query.trim()}>{t("Search")}</button>
     </form>
     {error && <p role="alert">{t("Could not access local mail data.")}</p>}
     {page && <>
       {!page.items.length && <p role="status">{t("No matching cached messages.")}</p>}
-      <ul className="mail-inbox-list">{page.items.map(hit=><li key={JSON.stringify([hit.account,hit.epoch,hit.id])}>
+      <ul className="mail-inbox-list">{page.items.map(hit=><li key={JSON.stringify([hit.account,hit.folder,hit.epoch,hit.id])}>
         <button type="button" onClick={()=>void open(hit)}><strong translate="no">{hit.subject || t("No subject")}</strong>
           <small translate="no">{hit.sender} · {hit.address}</small></button></li>)}</ul>
       {offset>0 && <button type="button" disabled={busy} onClick={()=>void search(offset-40)}>{t("Previous")}</button>}
@@ -113,10 +113,10 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
       {reading.text===null && !reading.html && <p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
       {(typeof reading.text==="string" || reading.html) && <MailBody text={reading.text ?? null} html={reading.html}/>}
       {reading.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}
-      <MailAttachments key={JSON.stringify([reading.hit.account,reading.hit.epoch,reading.hit.id])} items={reading.attachments}
+      <MailAttachments key={JSON.stringify([reading.hit.account,reading.hit.folder,reading.hit.epoch,reading.hit.id])} items={reading.attachments}
         invoke={reading.hit.provider==="gmail"?gmail:alibaba} message={reading.hit.provider==="gmail"
           ? {accountId:reading.hit.account,id:reading.hit.id}
-          : {accountId:reading.hit.account,uidValidity:reading.hit.epoch!,uid:Number(reading.hit.id)}}/>
+          : {accountId:reading.hit.account,folder:reading.hit.folder,uidValidity:reading.hit.epoch!,uid:Number(reading.hit.id)}}/>
     </article>}
   </fieldset>;
 }

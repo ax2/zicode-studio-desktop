@@ -7,9 +7,11 @@ use std::{
     net::{TcpStream, ToSocketAddrs},
     time::Instant,
 };
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Cursor {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
     pub uid_validity: u32,
     pub before: u32,
 }
@@ -99,12 +101,12 @@ impl Write for Bounded {
     }
 }
 impl Alibaba {
-    fn inbox(&self, address: &str, password: &str) -> Result<(imap::Session<Bounded>, u32, u32)> {
-        self.inbox_with_limit(address, password, 8 * 1024 * 1024)
+    fn inbox(&self, address: &str, password: &str, folder: &str) -> Result<(imap::Session<Bounded>, u32, u32)> {
+        self.inbox_with_limit(address, password, folder, 8 * 1024 * 1024)
     }
-    fn inbox_with_limit(&self, address: &str, password: &str, limit: usize) -> Result<(imap::Session<Bounded>, u32, u32)> {
+    fn inbox_with_limit(&self, address: &str, password: &str, folder: &str, limit: usize) -> Result<(imap::Session<Bounded>, u32, u32)> {
         let mut session = self.login(address, password, limit)?;
-        let book = session.examine("INBOX").map_err(|_| "mail_inbox_unavailable")?;
+        let book = session.examine(folder).map_err(|_| "mail_inbox_unavailable")?;
         let validity = book.uid_validity.filter(|n| *n > 0).ok_or("mail_uid_validity")?;
         Ok((session, validity, book.exists))
     }
@@ -169,19 +171,20 @@ impl Alibaba {
         &self,
         address: &str,
         password: &str,
+        folder: &str,
         cursor: Option<Cursor>,
         limit: u8,
     ) -> Result<Page> {
-        if !(1..=40).contains(&limit) || cursor.is_some_and(|c| c.before == 0) {
+        if !(1..=40).contains(&limit) || cursor.as_ref().is_some_and(|c| c.before == 0) {
             return Err("mail_invalid_page");
         }
-        let (mut session, validity, exists) = self.inbox(address, password)?;
-        if cursor.is_some_and(|c| c.uid_validity != validity) {
+        let (mut session, validity, exists) = self.inbox(address, password, folder)?;
+        if cursor.as_ref().is_some_and(|c| c.uid_validity != validity) {
             return Err("mail_inbox_changed");
         }
         // Sequence positions are contiguous even when UIDs span billions. The exact UID cursor
         // normally costs one small lookup; if it was expunged, find its predecessor in <=32 probes.
-        let end = match cursor {
+        let end = match cursor.as_ref() {
             None => exists,
             Some(c) => older_end(&mut session, exists, c.before)?,
         };
@@ -198,7 +201,7 @@ impl Alibaba {
                 // Servers can deliver unsolicited flag-only FETCH responses.
                 let Some(header) = r.header() else { continue };
                 let uid = r.uid.filter(|u| *u > 0).ok_or("mail_protocol")?;
-                if !(start..=end).contains(&r.message) || cursor.is_some_and(|c| uid >= c.before) {
+                if !(start..=end).contains(&r.message) || cursor.as_ref().is_some_and(|c| uid >= c.before) {
                     return Err("mail_inbox_changed");
                 }
                 if header.len() >= MAX_HEADER {
@@ -215,6 +218,7 @@ impl Alibaba {
         }
         let next = if start > 1 {
             messages.last().map(|m| Cursor {
+                folder: (folder != "INBOX").then(|| folder.to_owned()),
                 before: m.uid,
                 uid_validity: validity,
             })
