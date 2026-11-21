@@ -34,6 +34,7 @@ export function setupPluginViewHost({
   const recoveryByView = new Map();
   let generation = 0;
   let toolOpenSequence = 0;
+  let dismissToolNavigationNotice;
   const warnPendingCalls = (event) => {
     if (![...recoveryByView.values()].some(({ calls }) =>
       [...calls.values()].some(call => call.locked))) return;
@@ -112,7 +113,8 @@ export function setupPluginViewHost({
     if (!plugin?.toolOpenProfile || !plugin.enabled ||
       !(plugin.capabilities ?? []).some((capability) => capability.id === capabilityId) ||
       !(plugin.views ?? []).some((view) => view.location === "main")) {
-      notify(t("This application does not support opening that tool directly."));
+      dismissToolNavigationNotice?.();
+      dismissToolNavigationNotice = notify(t("This application does not support opening that tool directly."))?.dismiss;
       return false;
     }
     const target = getTarget();
@@ -726,6 +728,7 @@ export function setupPluginViewHost({
     renderNavigation,
     setTarget,
     destroy() {
+      dismissToolNavigationNotice?.();
       setTarget();
       recoveryByView.clear();
       window.removeEventListener("message", onMessage);

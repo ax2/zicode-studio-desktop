@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { createServer, type Server } from "node:http";
 import { expect, it, vi } from "vitest";
 import { createTranslationStore, TranslationHttpGateway } from "./translationStore";

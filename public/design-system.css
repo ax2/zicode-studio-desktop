@@ -8,7 +8,7 @@
   font: inherit;
   color: inherit;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   transition:
     background var(--duration) var(--ease),
     border-color var(--duration) var(--ease),
@@ -24,6 +24,8 @@
   min-height: var(--control-height-md);
   font-size: var(--font-size-md);
   cursor: pointer;
+  background: var(--bg-glass);
+  color: var(--text-primary);
 }
 
 .ui-button {
@@ -68,8 +70,8 @@
 
 .ui-button--primary,
 .ui-icon-button--primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--action-fill);
+  border-color: var(--action-fill);
   color: var(--bg-solid);
 }
 
@@ -83,7 +85,7 @@
 .ui-icon-button--ghost {
   background: transparent;
   border-color: transparent;
-  color: var(--text-dim);
+  color: var(--text-secondary);
 }
 
 .ui-button--danger,
@@ -102,12 +104,11 @@
   background-color: var(--bg-glass-hover);
 }
 
-/* Primary variant keeps accent background on hover; use brightness to indicate interaction. */
+/* Keep primary labels legible when a light theme darkens its hover surface. */
 .ui-button--primary:hover:not(:disabled),
 .ui-icon-button--primary:hover:not(:disabled) {
-  background-color: var(--accent);
-  border-color: var(--accent);
-  filter: brightness(1.15);
+  background-color: var(--action-fill-hover);
+  border-color: var(--action-fill-hover);
 }
 
 .ui-button:active:not(:disabled),
@@ -120,9 +121,8 @@
 .ui-input:focus-visible,
 .ui-textarea:focus-visible,
 .ui-select:focus-visible {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--accent-glow);
+  outline: var(--space-0-5) solid var(--accent-text);
+  outline-offset: var(--space-0-5);
 }
 
 .ui-button:disabled,
@@ -154,6 +154,12 @@
   padding: 0 var(--space-3);
   background: var(--bg-glass);
   font-size: var(--font-size-md);
+}
+
+.ui-input::placeholder,
+.ui-textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
 }
 
 .ui-textarea {

@@ -21,7 +21,7 @@ export function MailDisconnect({ connected, label, prompt, disconnect }: {
   return <>
     <label><input type="checkbox" checked={clear} onChange={e=>setClear(e.target.checked)}/>
       {t("Clear cached messages for this account")}</label>
-    {(connected || clear) && <button type="button" onClick={()=>void confirmChoice()}>
+    {(connected || clear) && <button className="ui-button" type="button" onClick={()=>void confirmChoice()}>
       {connected ? label : t("Clear offline messages")}</button>}
   </>;
 }

@@ -5,13 +5,14 @@
   margin: var(--space-2) auto var(--space-4);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
-  text-align: center;
+  text-align: start;
+  overflow-wrap: anywhere;
 }
 
 .history-window-notice {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3);
   border: 1px solid var(--border);

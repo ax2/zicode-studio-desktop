@@ -80,7 +80,7 @@ export function SemanticSearch({
     }
   }
   return (
-    <details className="ui-card">
+    <details className="visual-assets-tool visual-assets-search-results">
       <summary>{t("Semantic search")}</summary>
       <p>
         {t(

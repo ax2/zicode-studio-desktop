@@ -11,7 +11,7 @@ export function CreationWorkspace({
   onOpenLibrary: () => void;
 }) {
   return (
-    <section className="ui-panel" aria-label={t(workflow.title)}>
+    <section className="ui-panel visual-assets-task" aria-label={t(workflow.title)}>
       <h3>{t(workflow.title)}</h3>
       <p>{t(workflow.description)}</p>
       <dl>

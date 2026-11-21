@@ -1,5 +1,5 @@
 .finance-workbench-btn {
-  border-color: color-mix(in srgb, #d97706 42%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
   color: var(--text-primary);
 }
 
@@ -25,7 +25,7 @@
 }
 
 .finance-workbench-kicker {
-  color: #d97706;
+  color: var(--accent-text);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;

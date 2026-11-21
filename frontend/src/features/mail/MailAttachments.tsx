@@ -29,6 +29,6 @@ export function MailAttachments({ items, invoke, message }: { items?: Attachment
   }
   return <section aria-label={t("Attachments")}><h4>{t("Attachments")}</h4><ul>
     {items.map(item=><li key={item.id}><span translate="no">{item.name} · {item.size.toLocaleString()} B</span>{"uid" in message && <> ({t("transfer size")})</>}{" "}
-      <button type="button" disabled={busy} aria-label={t("Download attachment")+" "+item.name} onClick={()=>void save(item.id)}>{t("Download attachment")}</button></li>)}
+      <button className="ui-button" type="button" disabled={busy} aria-label={t("Download attachment")+" "+item.name} onClick={()=>void save(item.id)}>{t("Download attachment")}</button></li>)}
   </ul>{status && <p role="status">{status}</p>}</section>;
 }

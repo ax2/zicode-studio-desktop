@@ -75,34 +75,34 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   return <section className="mail-local"><h2>{t("Mail")}</h2>
     {!alibaba&&!gmail&&<p>{t("Local drafts only. No mailbox is connected.")}</p>}
     <fieldset disabled={busy||mailBusy}><legend>{t("Mail accounts")}</legend>
-    {accounts.length>0&&<label>{t("Mail account")}<select value={account} onChange={e=>{const id=e.target.value;void run(async()=>{if(await discard())await load(id)})}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}</select></label>}
+    {accounts.length>0&&<label>{t("Mail account")}<select className="ui-select" value={account} onChange={e=>{const id=e.target.value;void run(async()=>{if(await discard())await load(id)})}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}</select></label>}
     <form onSubmit={e=>{e.preventDefault();void run(async()=>{if(!await discard())return;
       const added=await invoke<{id:string}>({kind:"add",provider,address});
       setAccounts(await invoke<Account[]>({kind:"accounts"}));setAddress("");await load(added.id);
-    })}}><label>{t("Mail provider")}<select value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
-    <label>{t("Email address")}<input required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
-    <button type="submit">{t("Add local account")}</button></form></fieldset>
+    })}}><label>{t("Mail provider")}<select className="ui-select" value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
+    <label>{t("Email address")}<input className="ui-input" required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
+    <button className="ui-button ui-button--primary" type="submit">{t("Add local account")}</button></form></fieldset>
     {account&&<CachedMailSearch key={"search-"+account} label={gmail||alibaba?label:undefined} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport}/>}
     {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}/>}
     {alibaba&&<AlibabaInbox key={account} id={account} folder={label} setFolder={setLabel} invoke={alibaba} discard={discard} onBusy={setMailBusy}
       onConfigured={v=>setPasswordOwner(v?account:"")} onReply={d=>{setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);setEdit(d);setDirty(false);requestAnimationFrame(()=>document.getElementById("studio-mail-compose-body")?.focus())}}/>}
     {account&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
-    <div className="mail-list"><button type="button" onClick={()=>void run(async()=>{if(await discard()){setEdit(blank());setDirty(false)}})}>{t("New draft")}</button>
-    <button type="button" onClick={()=>void run(async()=>{if(await discard())await load(account)})}>{t("Reload drafts")}</button>
-    {drafts.map(d=><button key={d.id} type="button" aria-pressed={edit.id===d.id} onClick={()=>void run(async()=>{if(await discard()){setEdit(d);setDirty(false)}})}>{d.subject||d.recipient||t("Untitled draft")}</button>)}</div>
-    <label>{t("Recipient")}<input value={edit.recipient} onChange={e=>change("recipient",e.target.value)} /></label>
-    <label>{t("Mail subject")}<input value={edit.subject} onChange={e=>change("subject",e.target.value)} /></label>
-    <label>{t("Message body")}<textarea id="studio-mail-compose-body" rows={8} value={edit.body} onChange={e=>change("body",e.target.value)} /></label>
-    <button type="button" disabled={!dirty} onClick={()=>void run(async()=>{
+    <div className="mail-list"><button className="ui-button" type="button" onClick={()=>void run(async()=>{if(await discard()){setEdit(blank());setDirty(false)}})}>{t("New draft")}</button>
+    <button className="ui-button" type="button" onClick={()=>void run(async()=>{if(await discard())await load(account)})}>{t("Reload drafts")}</button>
+    {drafts.map(d=><button className="ui-button" key={d.id} type="button" aria-pressed={edit.id===d.id} onClick={()=>void run(async()=>{if(await discard()){setEdit(d);setDirty(false)}})}>{d.subject||d.recipient||t("Untitled draft")}</button>)}</div>
+    <label>{t("Recipient")}<input className="ui-input" value={edit.recipient} onChange={e=>change("recipient",e.target.value)} /></label>
+    <label>{t("Mail subject")}<input className="ui-input" value={edit.subject} onChange={e=>change("subject",e.target.value)} /></label>
+    <label>{t("Message body")}<textarea className="ui-textarea" id="studio-mail-compose-body" rows={8} value={edit.body} onChange={e=>change("body",e.target.value)} /></label>
+    <button className="ui-button" type="button" disabled={!dirty} onClick={()=>void run(async()=>{
       const saved=await invoke<{id:string,revision:number}>({kind:"save",account,id:edit.id,revision:edit.revision,recipient:edit.recipient,subject:edit.subject,body:edit.body});const d={...edit,...saved};setEdit(d);setDirty(false);setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);
     })}>{t("Save draft")}</button>
     {edit.id && <div>
-      <button type="button" disabled={dirty} onClick={()=>void run(()=>changeAttachment())}>{t("Add attachment")}</button>
-      {edit.attachments?.map(file=><div key={file.id}>{file.name} ({file.size} B) <button type="button" disabled={dirty} onClick={()=>void run(()=>changeAttachment(file.id))}>{t("Remove attachment")}</button></div>)}
+      <button className="ui-button" type="button" disabled={dirty} onClick={()=>void run(()=>changeAttachment())}>{t("Add attachment")}</button>
+      {edit.attachments?.map(file=><div key={file.id}>{file.name} ({file.size} B) <button className="ui-button" type="button" disabled={dirty} onClick={()=>void run(()=>changeAttachment(file.id))}>{t("Remove attachment")}</button></div>)}
     </div>}
     {gmail&&owner&&edit.id&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} provider="gmail" invoke={gmail} id={account} address={owner.address} draft={edit} configured={gmailSendOwner===account}/>}
     {alibaba&&owner&&edit.id&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} invoke={alibaba} id={account} address={owner.address} draft={edit} configured={passwordOwner===account}/>}
-    {edit.id&&<button type="button" onClick={()=>{void run(async()=>{if(!await window.confirm(t("Delete this local draft?")))return;
+    {edit.id&&<button className="ui-button" type="button" onClick={()=>{void run(async()=>{if(!await window.confirm(t("Delete this local draft?")))return;
       await invoke({kind:"delete",account,id:edit.id,revision:edit.revision});setDrafts(old=>old.filter(item=>item.id!==edit.id));setEdit(blank());setDirty(false);
     })}}>{t("Delete draft")}</button>}</fieldset>}
     {error&&<p role="alert">{error}</p>}</section>;

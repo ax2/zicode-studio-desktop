@@ -166,6 +166,10 @@
     opacity: 0.82;
   }
 
+  .plugin-activity-tooltip .plugin-activity-shortcut {
+    display: none;
+  }
+
   .plugin-activity-button.active .plugin-activity-tooltip {
     opacity: 1;
   }
@@ -719,6 +723,24 @@
 }
 
 @media (max-width: 420px) {
+  .plugin-mobile-activity-menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .plugin-mobile-activity-menu-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--space-2);
+    min-height: var(--space-12);
+    padding: var(--space-2);
+    text-align: start;
+  }
+
+  .plugin-mobile-activity-menu-item svg { flex-shrink: 0; }
+  .plugin-mobile-activity-menu-label { min-width: 0; align-items: flex-start; }
+  .plugin-mobile-activity-menu-description { max-width: 100%; text-align: start; }
+
+
   .workspace-bar-text span {
     display: none;
   }
