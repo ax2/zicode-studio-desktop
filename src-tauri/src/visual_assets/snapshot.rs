@@ -131,6 +131,7 @@ fn inventory(db: &Connection, catalog_sha256: String) -> Result<Manifest> {
         super::tags::local_preview::validate_snapshot(db)?;
         11
     } else { version };
+    let version = if super::tags::vision::present(db)? {super::tags::vision::validate_snapshot(db)?;12} else {version};
     Ok(Manifest {
         version,
         library_id: db.query_row("SELECT id FROM library", [], |row| row.get(0))?,
@@ -315,7 +316,7 @@ pub fn restore(
         return Err("restore requires an absolute snapshot and a new library directory".into());
     }
     let manifest: Manifest = serde_json::from_slice(&read_manifest(source)?)?;
-    if !matches!(manifest.version, 1..=11) {
+    if !matches!(manifest.version, 1..=12) {
         return Err("unsupported snapshot version".into());
     }
     let parent = library.parent().ok_or("missing restore parent")?;

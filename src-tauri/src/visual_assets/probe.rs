@@ -413,6 +413,41 @@ pub fn run() -> Result<()> {
             println!("{}", serde_json::to_string(&page)?);
             tx.commit()?;
         }
+        // Deterministic recognition result for isolated persistence and restore acceptance.
+        // This command never contacts a provider and always records its fixture identity.
+        (Some("vision-fixture"), [asset, digest, preview, labels]) => {
+            let labels: Vec<String> =
+                serde_json::from_str(labels.to_str().ok_or("invalid labels")?)?;
+            tags::vision::draft(
+                &tx,
+                tags::vision::Draft {
+                    asset: asset.to_str().ok_or("invalid asset")?.parse()?,
+                    digest: digest.to_str().ok_or("invalid digest")?,
+                    preview_sha: preview.to_str().ok_or("invalid preview")?,
+                    provider: "acceptance-fixture",
+                    model: "fixture",
+                    origin: "http://localhost",
+                    labels: &labels,
+                },
+                None,
+            )?;
+            tx.commit()?;
+        }
+        (Some("vision-review"), [asset, digest, id, selected, approved]) => {
+            let selected: Option<Vec<String>> =
+                serde_json::from_str(selected.to_str().ok_or("invalid labels")?)?;
+            let previous: Option<String> =
+                serde_json::from_str(approved.to_str().ok_or("invalid record")?)?;
+            tags::vision::review(
+                &tx,
+                asset.to_str().ok_or("invalid asset")?.parse()?,
+                digest.to_str().ok_or("invalid digest")?,
+                id.to_str().ok_or("invalid record")?,
+                selected.as_deref(),
+                previous.as_deref(),
+            )?;
+            tx.commit()?;
+        }
         (Some("semantic-search"), [query, concepts]) => {
             let query = query.to_str().ok_or("invalid query")?;
             let concepts: Vec<String> =

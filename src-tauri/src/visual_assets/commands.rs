@@ -70,6 +70,17 @@ pub(crate) enum Request {
         query: String,
         concepts: Vec<String>,
     },
+    ReviewVision {
+        #[serde(rename = "libraryId")]
+        library_id: String,
+        #[serde(rename = "assetId")]
+        asset_id: i64,
+        digest: String,
+        id: String,
+        selected: Option<Vec<String>>,
+        #[serde(rename = "approvedId")]
+        approved_id: Option<String>,
+    },
     SetPreviewLabels {
         #[serde(rename = "libraryId")]
         library_id: String,
@@ -504,6 +515,11 @@ pub(crate) async fn visual_assets_control(
             Request::SearchConcepts{library_id:expected,query,concepts} => {
                 if expected != library_id {return Err("visual_assets_library_changed".into());}
                 json!({"matches":super::semantic_search::ranked(&tx,&query,&concepts).map_err(|_| "visual_assets_query_failed")?})
+            }
+            Request::ReviewVision{library_id:expected,asset_id,digest,id,selected,approved_id}=>{
+                if expected!=library_id{return Err("visual_assets_library_changed".into());}
+                super::tags::vision::review(&tx,asset_id,&digest,&id,selected.as_deref(),approved_id.as_deref()).map_err(|_|"visual_assets_tags_changed")?;
+                json!({})
             }
             Request::SetPreviewLabels {
                 library_id: expected,

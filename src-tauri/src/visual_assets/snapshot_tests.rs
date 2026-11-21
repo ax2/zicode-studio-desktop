@@ -251,3 +251,71 @@ fn a_matching_digest_does_not_authorize_extra_catalog_objects() {
     drop(db);
     clean(root);
 }
+
+#[test]
+fn approved_vision_labels_round_trip_v12_without_changing_originals_or_manual_tags() {
+    use super::super::tags::{self, vision};
+    let (root, library, mut db, digest) = fixture();
+    let tx = db.transaction().unwrap();
+    tags::replace(&tx, 1, &[], &["城市".into()]).unwrap();
+    vision::draft(
+        &tx,
+        vision::Draft {
+            asset: 1,
+            digest: &digest,
+            preview_sha: &"a".repeat(64),
+            provider: "local",
+            model: "vision-test",
+            origin: "http://localhost",
+            labels: &["城市".into(), "人物".into()],
+        },
+        None,
+    )
+    .unwrap();
+    let id: String = tx
+        .query_row("SELECT id FROM vision_annotation", [], |r| r.get(0))
+        .unwrap();
+    vision::review(&tx, 1, &digest, &id, Some(&["城市".into()]), None).unwrap();
+    tx.commit().unwrap();
+    let backup = root.join("backup");
+    fs::create_dir(&backup).unwrap();
+    let snap = create(&mut db, &library, &backup, None, &|_| Ok(()), &|_| Ok(())).unwrap();
+    let restored = root.join("restored");
+    let m = restore(
+        &snap,
+        &restored,
+        |_, target| {
+            fs::write(target, b"rebuilt-preview")?;
+            Ok(())
+        },
+        &|_| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(m.version, 12);
+    let damaged = Connection::open(restored.join("catalog.sqlite")).unwrap();
+    damaged
+        .execute_batch("DROP INDEX vision_by_label; DROP TABLE asset_name_gram;")
+        .unwrap();
+    drop(damaged);
+    let mut reopened = super::super::catalog::open(&restored).unwrap();
+    assert!(reopened
+        .prepare("SELECT 1 FROM sqlite_schema WHERE name='vision_by_label' AND type='index'")
+        .unwrap()
+        .exists([])
+        .unwrap());
+    assert_eq!(
+        super::super::semantic_search::ranked(&reopened, "城市", &[]).unwrap()[0].id,
+        1
+    );
+    let tx = reopened.transaction().unwrap();
+    vision::review(&tx, 1, &digest, &id, None, Some(&id)).unwrap();
+    tx.commit().unwrap();
+    assert_eq!(tags::read(&reopened, 1).unwrap(), ["城市"]);
+    assert_eq!(
+        fs::read(restored.join(format!("{digest}.blob"))).unwrap(),
+        b"original"
+    );
+    drop(reopened);
+    drop(db);
+    clean(root);
+}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { t } from "../../shared/i18n";
 import { SemanticSearch } from "./SemanticSearch";
+import { VisionLabels, type VisionRecord } from "./VisionLabels";
 import { PreviewLabels } from "./PreviewLabels";
 import { AssetTags } from "./AssetTags";
 import { BackupPanel } from "./BackupPanel";
@@ -21,6 +22,7 @@ interface Asset {
   name: string;
   digest: string;
   tags?: string[];
+  vision?:VisionRecord[];
   previewLabels?: string[];
   collectionIds?: string[];
   referenced?: boolean;
@@ -405,6 +407,9 @@ export function AssetLibrary({
               </details>
             )}
             {asset.creationJobId && <CreationSource id={asset.creationJobId} invoke={invoke} workspaceId={workspaceId} sceneId={sceneId} libraryId={listing.libraryId} />}
+            {sceneId && <VisionLabels key={JSON.stringify([listing.libraryId,asset.id,asset.digest,sceneId,asset.vision?.map(r=>r.id)])} invoke={invoke}
+                workspaceId={workspaceId} sceneId={sceneId} libraryId={listing.libraryId} assetId={asset.id} digest={asset.digest}
+                preview={previews[asset.id]?.url??""} records={asset.vision??[]} refresh={()=>setRefresh(value=>value+1)} />}
             <PreviewLabels key={listing.libraryId + asset.digest}
               saved={asset.previewLabels ?? []} available={Boolean(previews[asset.id]?.url)} disabled={busy || backupBusy}
               onSave={async labels => {

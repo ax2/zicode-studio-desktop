@@ -52,11 +52,17 @@ pub fn ranked(db: &Connection, query: &str, concepts: &[String]) -> rusqlite::Re
     } else {
         ""
     };
+    let vision = if super::tags::vision::present(db)? {
+        "UNION SELECT j.asset,t.term,t.weight FROM terms t JOIN vision_annotation_label l ON l.label=t.term
+         JOIN vision_annotation j ON j.id=l.annotation AND j.approved=1 JOIN revision r ON r.asset=j.asset AND r.version=1 AND r.digest=j.digest"
+    } else {
+        ""
+    };
     let sql = format!("WITH terms(term,gram,weight,label) AS (VALUES {placeholders}),
         hits(id,term,weight) AS (
             SELECT g.asset,t.term,t.weight FROM terms t JOIN asset_name_gram g ON g.gram IN (t.gram,'')
             JOIN asset a ON a.id=g.asset WHERE instr(a.name,t.term)>0
-            UNION SELECT l.asset,t.term,t.weight FROM terms t JOIN asset_tag l ON t.term=l.tag {labels})
+            UNION SELECT l.asset,t.term,t.weight FROM terms t JOIN asset_tag l ON t.term=l.tag {labels} {vision})
         SELECT a.id,a.name,group_concat(h.term,char(31)),sum(h.weight) AS score
         FROM hits h JOIN asset a ON a.id=h.id GROUP BY a.id ORDER BY score DESC,a.id LIMIT 50");
     let mut statement = db.prepare(&sql)?;

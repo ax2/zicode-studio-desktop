@@ -102,3 +102,48 @@ fn reviewing_and_revoking_preview_labels_preserves_matching_manual_tags() {
         0
     );
 }
+
+#[test]
+fn model_drafts_are_invisible_to_search_until_reviewed_and_revocation_keeps_manual_labels() {
+    let mut db = catalog();
+    db.execute_batch(
+        "INSERT INTO asset VALUES(1,'sample');INSERT INTO revision VALUES(1,1,'digest');",
+    )
+    .unwrap();
+    let tx = db.transaction().unwrap();
+    let labels = vec!["天空".into(), "云".into()];
+    let d = vision::Draft {
+        asset: 1,
+        digest: "digest",
+        preview_sha: &"a".repeat(64),
+        provider: "local",
+        model: "fixture",
+        origin: "http://localhost:1234",
+        labels: &labels,
+    };
+    vision::draft(&tx, d, None).unwrap();
+    vision::validate_snapshot(&tx).unwrap();
+    let id: String = tx
+        .query_row(
+            "SELECT id FROM vision_annotation WHERE approved=0",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    tx.execute_batch(super::super::name_search::SCHEMA).unwrap();
+    assert!(super::super::semantic_search::ranked(&tx, "云", &[])
+        .unwrap()
+        .is_empty());
+    assert!(vision::review(&tx, 1, "digest", &id, Some(&["错误".into()]), None).is_err());
+    vision::review(&tx, 1, "digest", &id, Some(&["云".into()]), None).unwrap();
+    assert_eq!(
+        super::super::semantic_search::ranked(&tx, "云", &[]).unwrap()[0].id,
+        1
+    );
+    replace(&tx, 1, &[], &["天空".into()]).unwrap();
+    vision::review(&tx, 1, "digest", &id, None, Some(&id)).unwrap();
+    assert_eq!(read(&tx, 1).unwrap(), ["天空"]);
+    assert!(super::super::semantic_search::ranked(&tx, "云", &[])
+        .unwrap()
+        .is_empty());
+}
