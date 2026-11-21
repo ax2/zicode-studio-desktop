@@ -42,6 +42,7 @@ impl<'a> Mailbox<'a> {
           CREATE TRIGGER IF NOT EXISTS alibaba_delete_attachments AFTER DELETE ON alibaba_inbox BEGIN DELETE FROM alibaba_attachments WHERE scope=OLD.scope AND account=OLD.account AND epoch=OLD.epoch AND uid=OLD.uid; END;
           CREATE TABLE IF NOT EXISTS alibaba_html(scope TEXT,account TEXT,epoch INTEGER,uid INTEGER,html TEXT NOT NULL,PRIMARY KEY(scope,account,epoch,uid));
           CREATE TRIGGER IF NOT EXISTS alibaba_delete_html AFTER DELETE ON alibaba_inbox BEGIN DELETE FROM alibaba_html WHERE scope=OLD.scope AND account=OLD.account AND epoch=OLD.epoch AND uid=OLD.uid; END;
+          CREATE TABLE IF NOT EXISTS alibaba_folders(scope TEXT,account TEXT,folders TEXT NOT NULL,PRIMARY KEY(scope,account));
           CREATE TABLE IF NOT EXISTS alibaba_cache_generation(scope TEXT NOT NULL,account TEXT NOT NULL,generation INTEGER NOT NULL,PRIMARY KEY(scope,account));
           CREATE TABLE IF NOT EXISTS alibaba_epoch(scope TEXT,account TEXT,epoch INTEGER NOT NULL,PRIMARY KEY(scope,account));
           CREATE TABLE IF NOT EXISTS alibaba_reply(scope TEXT,account TEXT,draft TEXT,parent TEXT,PRIMARY KEY(scope,account,draft));
@@ -64,7 +65,7 @@ impl<'a> Mailbox<'a> {
         let tx = self.db.transaction().map_err(db_err)?;
         tx.execute("INSERT INTO alibaba_cache_generation VALUES(?,?,1) ON CONFLICT(scope,account) DO UPDATE SET generation=generation+1",
             params![self.scope,self.account.id]).map_err(db_err)?;
-        for table in ["alibaba_inbox", "alibaba_epoch"] {
+        for table in ["alibaba_inbox", "alibaba_epoch", "alibaba_folders"] {
             tx.execute(
                 &format!("DELETE FROM {table} WHERE scope=? AND account=?"),
                 params![self.scope, self.account.id],
@@ -72,6 +73,20 @@ impl<'a> Mailbox<'a> {
             .map_err(db_err)?;
         }
         tx.commit().map_err(db_err)
+    }
+    pub fn folders(&self, adapter: &Alibaba, password: &str) -> Result<Vec<Folder>> {
+        let folders = adapter.folders(self.address(), password)?;
+        let rows = self.db.execute("INSERT INTO alibaba_folders SELECT ?1,?2,?3 WHERE ?4=COALESCE((SELECT generation FROM alibaba_cache_generation WHERE scope=?1 AND account=?2),0) ON CONFLICT(scope,account) DO UPDATE SET folders=excluded.folders",
+            params![self.scope,self.account.id,serde_json::to_string(&folders).map_err(|_| "mail_storage")?,self.generation]).map_err(db_err)?;
+        if rows == 0 { return Err("mail_cache_changed"); }
+        Ok(folders)
+    }
+    pub fn cached_folders(&self) -> Result<Vec<Folder>> {
+        let data: Option<String> = self.db.query_row("SELECT folders FROM alibaba_folders WHERE scope=? AND account=?",params![self.scope,self.account.id],|row|row.get(0)).optional().map_err(db_err)?;
+        match data {
+            Some(text) => serde_json::from_str(&text).map_err(|_| "mail_storage"),
+            None => Ok(Vec::new()),
+        }
     }
     pub fn address(&self) -> &str {
         &self.account.address

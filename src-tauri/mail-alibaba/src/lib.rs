@@ -3,7 +3,7 @@ mod inbox;
 mod journal;
 mod outbox;
 
-pub use inbox::{Attachment, Cursor, Letter, Page, Summary};
+pub use inbox::{Attachment, Cursor, Folder, Letter, Page, Summary};
 pub use journal::{Account, Mailbox, StoredDraft};
 use std::time::Duration;
 

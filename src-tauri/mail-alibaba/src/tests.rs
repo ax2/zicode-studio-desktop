@@ -102,6 +102,12 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, trace: std::sync::mpsc::S
         if upper.starts_with("LOGIN ") {
             assert!(cmd.contains("synthetic"));
             emit(s, &format!("{tag} OK authenticated\r\n"));
+        } else if upper.starts_with("LIST ") {
+            trace.send(upper.clone()).unwrap();
+            emit(s, &format!("* LIST () \"/\" inbox\r\n* LIST (\\Noselect) \"/\" Parent\r\n* LIST () \"/\" \"Parent/&bUuL1Q- &- Notes\"\r\n{tag} OK folders\r\n"));
+        } else if upper == "LOGOUT" {
+            emit(s, &format!("* BYE\r\n{tag} OK logout\r\n"));
+            break;
         } else if upper.starts_with("EXAMINE ") {
             emit(s,&format!("* {count} EXISTS\r\n* OK [UIDVALIDITY 7] stable\r\n{tag} OK [READ-ONLY] examined\r\n"));
         } else if upper.starts_with("FETCH ") || upper.starts_with("UID FETCH ") {
@@ -154,6 +160,34 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, trace: std::sync::mpsc::S
             panic!("Unexpected synthetic IMAP command")
         }
     }
+}
+#[test]
+fn folders_survive_restart_decode_names_and_clear_with_the_account() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mail = Mailbox::open(&mut db, "one", "a").unwrap();
+        assert!(mail.cached_folders().unwrap().is_empty());
+        let f = fixture(false, false);
+        let list = mail.folders(&f.adapter, "synthetic").unwrap();
+        f.thread.join().unwrap();
+        assert_eq!(f.rx.try_iter().count(), 1);
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].id, "INBOX");
+        assert_eq!(list[1].id, "Parent/&bUuL1Q- &- Notes");
+        assert_eq!(list[1].name, "Parent/测试 & Notes");
+    }
+    let mut db = Connection::open(path).unwrap();
+    let mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    assert_eq!(mail.cached_folders().unwrap().len(), 2);
+    let mut second = Connection::open(temp.path().join("mail.sqlite3")).unwrap();
+    Mailbox::open(&mut second, "one", "a").unwrap().clear_cache().unwrap();
+    let f = fixture(false, false);
+    assert!(matches!(mail.folders(&f.adapter, "synthetic"), Err("mail_cache_changed")));
+    f.thread.join().unwrap();
+    assert!(mail.cached_folders().unwrap().is_empty());
 }
 #[test]
 fn million_sparse_uids_use_one_header_window_and_bounded_cursor_probes() {

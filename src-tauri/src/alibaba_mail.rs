@@ -32,6 +32,8 @@ pub(crate) enum Request {
         #[serde(default)]
         clear_cache: bool,
     },
+    Folders { account_id: String },
+    CachedFolders { account_id: String },
     Sync {
         account_id: String,
         cursor: Option<Cursor>,
@@ -84,6 +86,8 @@ impl Request {
             | Self::CredentialStatus { account_id }
             | Self::SetPassword { account_id, .. }
             | Self::ForgetPassword { account_id, .. }
+            | Self::Folders { account_id }
+            | Self::CachedFolders { account_id }
             | Self::Sync { account_id, .. }
             | Self::CachedPage { account_id, .. }
             | Self::Read { account_id, .. }
@@ -162,6 +166,8 @@ pub(crate) async fn mail_alibaba(
             if clear_cache {mailbox.clear_cache()?}
             Ok(json!({"configured":false}))
           }
+          Request::Folders{..}=>Ok(json!(mailbox.folders(&adapter,pwd()?.as_str())?)),
+          Request::CachedFolders{..}=>Ok(json!(mailbox.cached_folders()?)),
           Request::Sync{cursor,limit,..}=>Ok(json!(mailbox.sync(&adapter,pwd()?.as_str(),cursor,limit)?)),
           Request::CachedPage{cursor,limit,..}=>Ok(json!(mailbox.cached_page(cursor,limit)?)),
           Request::Read{uid_validity,uid,..}=>Ok(json!(mailbox.read(&adapter,pwd()?.as_str(),uid_validity,uid)?)),

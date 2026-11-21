@@ -48,6 +48,32 @@ pub struct Page {
     pub messages: Vec<Summary>,
     pub next: Option<Cursor>,
 }
+#[derive(Serialize, Deserialize)]
+pub struct Folder {
+    pub id: String,
+    pub name: String,
+}
+
+// IMAP modified UTF-7 uses UTF-16BE runs after '&', with ',' in place of '/'.
+fn folder_name(mut wire: &str) -> Option<String> {
+    use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine};
+    let mut name = String::new();
+    while let Some((plain, tail)) = wire.split_once('&') {
+        name.push_str(plain);
+        let (encoded, rest) = tail.split_once('-')?;
+        if encoded.is_empty() {
+            name.push('&');
+        } else {
+            let bytes = STANDARD_NO_PAD.decode(encoded.replace(',', "/")).ok()?;
+            if bytes.len() % 2 != 0 { return None; }
+            let units = bytes.chunks_exact(2).map(|b| u16::from_be_bytes([b[0], b[1]]));
+            for letter in char::decode_utf16(units) { name.push(letter.ok()?); }
+        }
+        wire = rest;
+    }
+    name.push_str(wire);
+    Some(name)
+}
 struct Bounded {
     stream: TlsStream<TcpStream>,
     left: usize,
@@ -77,6 +103,12 @@ impl Alibaba {
         self.inbox_with_limit(address, password, 8 * 1024 * 1024)
     }
     fn inbox_with_limit(&self, address: &str, password: &str, limit: usize) -> Result<(imap::Session<Bounded>, u32, u32)> {
+        let mut session = self.login(address, password, limit)?;
+        let book = session.examine("INBOX").map_err(|_| "mail_inbox_unavailable")?;
+        let validity = book.uid_validity.filter(|n| *n > 0).ok_or("mail_uid_validity")?;
+        Ok((session, validity, book.exists))
+    }
+    fn login(&self, address: &str, password: &str, limit: usize) -> Result<imap::Session<Bounded>> {
         let mut tls = TlsConnector::builder();
         tls.min_protocol_version(Some(native_tls::Protocol::Tlsv12));
         if let Some(der) = &self.extra_root {
@@ -107,20 +139,31 @@ impl Alibaba {
             deadline: Instant::now() + TIMEOUT * 2,
         });
         client.read_greeting().map_err(|_| "mail_protocol")?;
-        let mut session = client
+        client
             .login(address, password)
             .map_err(|(error, _)| match error {
                 imap::error::Error::No(_) => "mail_client_password_or_admin_policy",
                 _ => "mail_connect",
-            })?;
-        let book = session
-            .examine("INBOX")
-            .map_err(|_| "mail_inbox_unavailable")?;
-        let validity = book
-            .uid_validity
-            .filter(|n| *n > 0)
-            .ok_or("mail_uid_validity")?;
-        Ok((session, validity, book.exists))
+            })
+    }
+    pub(crate) fn folders(&self, address: &str, password: &str) -> Result<Vec<Folder>> {
+        use imap::types::NameAttribute;
+        let mut session = self.login(address, password, 2 * 1024 * 1024)?;
+        let names = session.list(Some(""), Some("*")).map_err(|_| "mail_protocol")?;
+        let mut folders = std::collections::BTreeMap::new();
+        for entry in names.iter() {
+            if entry.attributes().iter().any(|attr| match attr {
+                NameAttribute::NoSelect => true,
+                NameAttribute::Custom(s) => s.eq_ignore_ascii_case("\\noselect") || s.eq_ignore_ascii_case("\\nonexistent"),
+                _ => false,
+            }) { continue; }
+            let name = entry.name();
+            if name.is_empty() || name.chars().any(char::is_control) { continue; }
+            let id = if name.eq_ignore_ascii_case("INBOX") { "INBOX" } else { name };
+            folders.entry(id.to_owned()).or_insert_with(|| folder_name(id).unwrap_or_else(|| id.to_owned()));
+        }
+        let _ = session.logout();
+        Ok(folders.into_iter().map(|(id,name)| Folder { id, name }).collect())
     }
     pub(crate) fn list(
         &self,
