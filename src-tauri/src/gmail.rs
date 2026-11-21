@@ -1,5 +1,6 @@
 mod api;
 mod oauth;
+mod sync;
 mod store;
 #[cfg(test)]
 mod tests;
@@ -202,13 +203,9 @@ pub(crate) async fn mail_gmail(
     match &request {
         Request::CachedLabels => return Ok(store::cached(&path, &scope, &account_id, "labels", "")?),
         Request::CachedPage { label, cursor, limit } => {
-            return Ok(store::cached(
-                &path,
-                &scope,
-                &account_id,
-                "page",
-                &key_for(label.as_deref(), cursor, *limit)?,
-            )?)
+            let key = key_for(label.as_deref(), cursor, *limit)?;
+            return Ok(sync::offline_page(&path,&scope,&account_id,label.as_deref().unwrap_or("INBOX"),cursor.as_deref(),*limit,&key)?);
+
         }
         Request::CachedBody { id } => {
             return Ok(store::cached(&path, &scope, &account_id, "body", id)?)
@@ -438,10 +435,12 @@ pub(crate) async fn mail_gmail(
         }
         Request::List { label, cursor, limit } => {
             let key = key_for(label.as_deref(), &cursor, limit)?;
-            let data = api::list(&client, api::BASE, &access, label.as_deref().unwrap_or("INBOX"), cursor.as_deref(), limit).await?;
-            let _g = current()?;
-            store::cache(&path, &scope, &account_id, cache_epoch, "page", &key, &data)?;
-            data
+            let label=label.as_deref().unwrap_or("INBOX");
+            let snapshot=sync::fetch(&client,api::BASE,&access,&path,&scope,&account_id,label,cursor.as_deref(),limit).await?;
+            let _g=current()?;
+            sync::apply(&path,&scope,&account_id,label,cache_epoch,&key,&snapshot)?;
+            snapshot.page
+
         }
         Request::Read { id } => {
             let data = api::read(&client, api::BASE, &access, &id).await?;

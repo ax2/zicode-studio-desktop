@@ -101,7 +101,7 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
             Json(json!({"messages":[{"id":"ab23"}],"nextPageToken":"next"}))
         }))
         .route("/me/messages/{id}",get(|Path(id):Path<String>|async move{
-            Json(json!({"id":id,"payload":{"headers":[{"name":"Subject","value":"fixture"}],"mimeType":"multipart/alternative","parts":[{"mimeType":"text/html","body":{"data":"dHJhY2tlcg"}},{"mimeType":"text/plain","body":{"data":"cGxhaW4"}},{"mimeType":"application/octet-stream","filename":"fixture.bin","body":{"attachmentId":"fixture_key","size":4}},{"filename":"small.bin","body":{"data":"AQI","size":2}}]}}))
+            Json(json!({"id":id,"labelIds":["INBOX","Label_42"],"payload":{"headers":[{"name":"Subject","value":"fixture"}],"mimeType":"multipart/alternative","parts":[{"mimeType":"text/html","body":{"data":"dHJhY2tlcg"}},{"mimeType":"text/plain","body":{"data":"cGxhaW4"}},{"mimeType":"application/octet-stream","filename":"fixture.bin","body":{"attachmentId":"fixture_key","size":4}},{"filename":"small.bin","body":{"data":"AQI","size":2}}]}}))
         }))
         .route("/me/messages/{id}/attachments/fixture_key",get(|Path(id):Path<String>,headers:axum::http::HeaderMap|async move{
             assert_eq!(id,"ab23");assert_eq!(headers["authorization"],"Bearer test-access");Json(json!({"size":4,"data":"AP8BAg"}))
@@ -365,4 +365,121 @@ fn disconnect_cache_keeps_scopes_and_rejects_late_gmail_writes() {
         );
     }
     std::fs::remove_file(file).unwrap();
+}
+
+#[tokio::test]
+async fn gmail_history_pages_reconcile_label_membership_and_recover_expiry() {
+    use super::sync;
+    use axum::{
+        extract::{Path, Query},
+        http::StatusCode,
+        response::IntoResponse,
+        routing::get,
+        Json, Router,
+    };
+    use std::{
+        collections::HashMap,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
+    };
+    let phase = Arc::new(AtomicUsize::new(0));
+    let profiles = phase.clone();
+    let pages = phase.clone();
+    let metadata = phase.clone();
+    let history = phase.clone();
+    let app=Router::new()
+        .route("/profile",get(move ||async move { Json(json!({"historyId": if profiles.load(Ordering::SeqCst)==0 {"10"} else {"80"}})) }))
+        .route("/messages",get(move |Query(q):Query<HashMap<String,String>>|async move {
+            assert_eq!(q["labelIds"],"Label_A");
+            let state=pages.load(Ordering::SeqCst);
+            let id=if state==0 {"a"} else if state==3 && q.contains_key("pageToken") {"e"} else {"c"};
+            if state==3 && !q.contains_key("pageToken") {Json(json!({"messages":[{"id":id}],"nextPageToken":"tail"}))}
+            else {Json(json!({"messages":[{"id":id}]}))}
+        }))
+        .route("/messages/{id}",get(move |Path(id):Path<String>|async move {
+            if id=="gone" {return StatusCode::NOT_FOUND.into_response()}
+            Json(json!({"id":id,"internalDate":match id.as_str(){"a"=>"11","b"=>"22","c"=>"33","d"=>"44",_=>"5"},
+                 "labelIds":if id=="a" && metadata.load(Ordering::SeqCst)>0 {vec!["Label_B"]} else {vec!["Label_A"]},
+                 "payload":{"headers":[{"name":"Subject","value":id}]}})).into_response()
+        }))
+        .route("/history",get(move |Query(q):Query<HashMap<String,String>>|async move {
+            let state=history.load(Ordering::SeqCst);
+            if state==3 {return StatusCode::NOT_FOUND.into_response()}
+            assert_eq!(q["startHistoryId"],"10");
+            if q.contains_key("pageToken") {
+                if state==1 {return StatusCode::SERVICE_UNAVAILABLE.into_response()}
+                return Json(json!({"historyId":"50","history":[{"labelsAdded":[{"message":{"id":"d"},"labelIds":["Label_A"]}]}]})).into_response()
+            }
+            Json(json!({"historyId":"50","nextPageToken":"second","history":[{
+                "messagesAdded":[{"message":{"id":"b"}}],"labelsRemoved":[{"message":{"id":"a"},"labelIds":["Label_A"]}],
+                "messagesDeleted":[{"message":{"id":"gone"}}]}]})).into_response()
+        }));
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let path = std::env::temp_dir().join(format!("gmail-sync-{}.sqlite", uuid::Uuid::new_v4()));
+    drop(rusqlite::Connection::open(&path).unwrap());
+    let fetch = || {
+        sync::fetch(
+            &client, &base, "fixture", &path, "w", "acct", "Label_A", None, 1,
+        )
+    };
+    let save =
+        |s: &sync::Snapshot| sync::apply(&path, "w", "acct", "Label_A", 0, "label:Label_A:1:", s);
+    let offline = |cursor: Option<&str>| {
+        sync::offline_page(&path, "w", "acct", "Label_A", cursor, 2, "legacy").unwrap()
+    };
+    store::cache(
+        &path,
+        "w",
+        "acct",
+        0,
+        "page",
+        "label:Label_B:1:",
+        &json!({"items":[{"id":"a"},{"id":"gone"}]}),
+    )
+    .unwrap();
+    save(&fetch().await.unwrap()).unwrap();
+    assert_eq!(offline(None)["items"][0]["id"], "a");
+    store::cache(&path, "w", "acct", 0, "body", "gone", &json!({"id":"gone"})).unwrap();
+    phase.store(1, Ordering::SeqCst);
+    assert!(fetch().await.is_err());
+    assert_eq!(
+        store::cached(&path, "w", "acct", "history", "Label_A").unwrap(),
+        "10"
+    );
+    phase.store(2, Ordering::SeqCst);
+    save(&fetch().await.unwrap()).unwrap();
+    let head = offline(None);
+    assert_eq!(head["items"][0]["id"], "d");
+    assert_eq!(head["items"][1]["id"], "c");
+    assert_eq!(offline(head["nextCursor"].as_str())["items"][0]["id"], "b");
+    assert!(store::cached(&path, "w", "acct", "body", "gone")
+        .unwrap()
+        .is_null());
+    assert_eq!(
+        store::cached(&path, "w", "acct", "page", "label:Label_B:1:").unwrap()["items"],
+        json!([{"id":"a"}])
+    );
+    phase.store(3, Ordering::SeqCst);
+    save(&fetch().await.unwrap()).unwrap();
+    assert_eq!(
+        store::cached(&path, "w", "acct", "history", "Label_A").unwrap(),
+        "80"
+    );
+    assert_eq!(
+        offline(offline(None)["nextCursor"].as_str())["items"][1]["id"],
+        "e"
+    );
+    let stale = fetch().await.unwrap();
+    store::clear_cache(&path, "w", "acct").unwrap();
+    assert!(save(&stale).is_err());
+    assert!(offline(None).is_null());
+    server.abort();
+    std::fs::remove_file(path).unwrap();
 }

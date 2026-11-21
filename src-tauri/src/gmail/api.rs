@@ -31,8 +31,10 @@ async fn get(
         .map_err(|_| "gmail_network")?;
     if !res.status().is_success() {
         return Err(match res.status().as_u16() {
+            400 => "gmail_bad_request",
             401 => "gmail_reauthorize",
             403 => "gmail_permission_denied",
+            404 => "gmail_not_found",
             429 => "gmail_rate_limited",
             _ => "gmail_api_failed",
         });
@@ -65,16 +67,29 @@ fn summary(m: &Value) -> Result<Value> {
             .unwrap_or("")
     };
     Ok(
-        json!({"id":id,"from":header("From"),"subject":header("Subject"),"date":header("Date"),"snippet":m["snippet"].as_str().unwrap_or("")}),
+        json!({"id":id,"internalDate":m["internalDate"].as_str().and_then(|s|s.parse::<i64>().ok()).unwrap_or(0),"from":header("From"),"subject":header("Subject"),"date":header("Date"),"snippet":m["snippet"].as_str().unwrap_or("")}),
     )
 }
 pub async fn labels(client: &Client, base: &str, token: &str) -> Result<Value> {
-    let data = get(client, &format!("{base}/labels"), token, &[], 2 * 1024 * 1024).await?;
+    let data = get(
+        client,
+        &format!("{base}/labels"),
+        token,
+        &[],
+        2 * 1024 * 1024,
+    )
+    .await?;
     let rows = data["labels"].as_array().ok_or("gmail_invalid_response")?;
     let mut labels = Vec::with_capacity(rows.len());
     for row in rows {
-        let id = row["id"].as_str().filter(|id| valid_id(id)).ok_or("gmail_invalid_response")?;
-        let name = row["name"].as_str().filter(|name| !name.is_empty()).ok_or("gmail_invalid_response")?;
+        let id = row["id"]
+            .as_str()
+            .filter(|id| valid_id(id))
+            .ok_or("gmail_invalid_response")?;
+        let name = row["name"]
+            .as_str()
+            .filter(|name| !name.is_empty())
+            .ok_or("gmail_invalid_response")?;
         labels.push(json!({"id":id,"name":name}));
     }
     Ok(json!(labels))
@@ -87,17 +102,29 @@ pub async fn list(
     cursor: Option<&str>,
     limit: u8,
 ) -> Result<Value> {
-    if !valid_id(label) || !(1..=30).contains(&limit)
+    if !valid_id(label)
+        || !(1..=30).contains(&limit)
         || cursor.is_some_and(|p| p.len() > 2048 || p.chars().any(char::is_control))
     {
         return Err("gmail_invalid");
     }
     let max = limit.to_string();
     let mut query = vec![("labelIds", label), ("maxResults", max.as_str())];
+    if matches!(label, "SPAM" | "TRASH") {
+        query.push(("includeSpamTrash", "true"));
+    }
     if let Some(c) = cursor {
         query.push(("pageToken", c))
     }
-    let data = get(client, &format!("{base}/messages"), token, &query, 131072).await?;
+    let data = get(client, &format!("{base}/messages"), token, &query, 131072)
+        .await
+        .map_err(|e| {
+            if cursor.is_some() && e == "gmail_bad_request" {
+                "gmail_page_expired"
+            } else {
+                e
+            }
+        })?;
     let ids = match data.get("messages") {
         None => vec![],
         Some(v) => v
@@ -118,29 +145,171 @@ pub async fn list(
     }
     let items: Vec<_> = stream::iter(ids)
         .map(|id: String| async move {
-            let m = get(
-                client,
-                &format!("{base}/messages/{id}"),
-                token,
-                &[
-                    ("format", "metadata"),
-                    ("metadataHeaders", "From"),
-                    ("metadataHeaders", "Date"),
-                    ("metadataHeaders", "Subject"),
-                ],
-                131072,
-            )
-            .await?;
-            if m["id"] != id {
-                return Err("gmail_invalid_response");
+            match metadata(client, base, token, &id).await {
+                Ok(m) if has_label(&m, label)? => summary(&m).map(Some),
+                Ok(_) | Err("gmail_not_found") => Ok(None),
+                Err(e) => Err(e),
             }
-            summary(&m)
         })
         .buffered(4)
         .try_collect()
         .await?;
-    Ok(json!({"items":items,"nextCursor":data["nextPageToken"].as_str()}))
+    Ok(
+        json!({"items":items.into_iter().flatten().collect::<Vec<_>>(),"nextCursor":data["nextPageToken"].as_str()}),
+    )
 }
+async fn metadata(client: &Client, base: &str, token: &str, id: &str) -> Result<Value> {
+    if !valid_id(id) {
+        return Err("gmail_invalid");
+    }
+    let message = get(
+        client,
+        &format!("{base}/messages/{id}"),
+        token,
+        &[
+            ("format", "metadata"),
+            ("metadataHeaders", "From"),
+            ("metadataHeaders", "Date"),
+            ("metadataHeaders", "Subject"),
+        ],
+        131072,
+    )
+    .await?;
+    if message["id"] != id {
+        return Err("gmail_invalid_response");
+    }
+    Ok(message)
+}
+
+fn has_label(m: &Value, label: &str) -> Result<bool> {
+    match m.get("labelIds") {
+        None => Ok(false),
+        Some(labels) => Ok(labels
+            .as_array()
+            .ok_or("gmail_invalid_response")?
+            .iter()
+            .any(|v| v == label)),
+    }
+}
+
+pub enum Membership {
+    Present(Value),
+    OutsideLabel,
+    Deleted,
+}
+
+pub async fn membership(
+    client: &Client,
+    base: &str,
+    token: &str,
+    label: &str,
+    ids: std::collections::BTreeSet<String>,
+) -> Result<Vec<(String, Membership)>> {
+    stream::iter(ids)
+        .map(|id| async move {
+            match metadata(client, base, token, &id).await {
+                Err("gmail_not_found") => Ok((id, Membership::Deleted)),
+                Err(error) => Err(error),
+                Ok(m) => {
+                    let belongs = has_label(&m, label)?;
+                    Ok((
+                        id,
+                        if belongs {
+                            Membership::Present(summary(&m)?)
+                        } else {
+                            Membership::OutsideLabel
+                        },
+                    ))
+                }
+            }
+        })
+        .buffered(4)
+        .try_collect()
+        .await
+}
+
+fn history_id(data: &Value) -> Result<String> {
+    data["historyId"]
+        .as_str()
+        .filter(|s| s.parse::<u64>().is_ok())
+        .map(str::to_owned)
+        .ok_or("gmail_invalid_response")
+}
+pub async fn latest_history(client: &Client, base: &str, token: &str) -> Result<String> {
+    history_id(&get(client, &format!("{base}/profile"), token, &[], 8192).await?)
+}
+
+// Read unfiltered history: a label filter can omit removals from that label.
+pub async fn changes(
+    client: &Client,
+    base: &str,
+    token: &str,
+    start: &str,
+    label: &str,
+) -> Result<(String, std::collections::BTreeSet<String>)> {
+    let mut ids = std::collections::BTreeSet::new();
+    let mut seen = std::collections::HashSet::new();
+    let mut page = None::<String>;
+    loop {
+        let mut query = vec![("startHistoryId", start), ("maxResults", "100")];
+        if let Some(ref p) = page {
+            query.push(("pageToken", p));
+        }
+        let rows = get(
+            client,
+            &format!("{base}/history"),
+            token,
+            &query,
+            4 * 1024 * 1024,
+        )
+        .await?;
+        if let Some(history) = rows.get("history") {
+            for event in history.as_array().ok_or("gmail_invalid_response")? {
+                for kind in [
+                    "messagesAdded",
+                    "messagesDeleted",
+                    "labelsAdded",
+                    "labelsRemoved",
+                ] {
+                    if let Some(values) = event.get(kind) {
+                        for v in values.as_array().ok_or("gmail_invalid_response")? {
+                            if kind.starts_with("labels")
+                                && !v["labelIds"]
+                                    .as_array()
+                                    .ok_or("gmail_invalid_response")?
+                                    .iter()
+                                    .any(|l| l == label)
+                            {
+                                continue;
+                            }
+                            ids.insert(
+                                v["message"]["id"]
+                                    .as_str()
+                                    .filter(|id| valid_id(id))
+                                    .ok_or("gmail_invalid_response")?
+                                    .to_owned(),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        match rows.get("nextPageToken") {
+            None => return Ok((history_id(&rows)?, ids)),
+            Some(v) => {
+                let next = v
+                    .as_str()
+                    .filter(|s| !s.is_empty() && s.len() <= 2048)
+                    .ok_or("gmail_invalid_response")?;
+                if !seen.insert(next.to_owned()) {
+                    return Err("gmail_invalid_response");
+                }
+                page = Some(next.to_owned());
+            }
+        }
+    }
+}
+
 fn body_part(p: &Value, mime: &str, depth: u8) -> Result<Option<String>> {
     if depth > 20 {
         return Err("gmail_message_too_complex");

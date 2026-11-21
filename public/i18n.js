@@ -79,6 +79,7 @@ const zhCN = {
   "IMAP folder": "IMAP 文件夹",
   "Refresh folder list": "刷新文件夹列表",
   "Search only the selected folder": "仅搜索当前选定的文件夹",
+  "This mail page expired. Refresh from the server to continue.": "此邮件页已过期，请从服务器刷新后继续。",
   "Gmail label": "Gmail 标签",
   "Refresh Gmail labels": "刷新 Gmail 标签",
   "Show saved messages": "查看已缓存的邮件",

@@ -23,6 +23,7 @@ export function gmailError(e: unknown): string {
     case "gmail_identity_unavailable":case "gmail_browser_unavailable":return t("Could not open Google sign-in.");
     case "gmail_invalid_draft":return t("Check the recipient address and saved draft before sending.");
     case "gmail_draft_changed":return t("Draft changed in another window. Reload before editing.");
+    case "gmail_page_expired":return t("This mail page expired. Refresh from the server to continue.");
     case "gmail_rate_limited":return t("Google has limited requests. Try again later.");
     case "gmail_network":return t("Could not connect to the mail server. Your local data is unchanged.");
     default:return t("Mail operation failed. Check the account and try again.");

@@ -62,6 +62,25 @@ it("opens a saved label offline and refreshes only that label on request",async(
   await screen.findByText("Updated invoice");
   expect(v.calls).toHaveBeenCalledWith({kind:"list",accountId:"one",label:"Label_42",cursor:null,limit:20});
 });
+it("recovers an expired server page by refreshing the selected label",async()=>{
+  let refreshes=0;
+  fixture(async r=>{
+    if(r.kind==="status")return {connected:true,read:true};
+    if(r.kind==="cachedLabels")return [];
+    if(r.kind==="cachedPage")return {items:[entry],nextCursor:null};
+    if(r.kind==="list" && r.cursor)throw Error("gmail_page_expired");
+    if(r.kind==="list")return {items:[{...entry,subject:"Refresh "+(++refreshes)}],nextCursor:"p2"};
+    throw Error("Unexpected request");
+  });
+  await screen.findByText("Inbox fixture");
+  const refresh=screen.getByRole("button",{name:"Refresh from server"});
+  fireEvent.click(refresh);
+  await screen.findByText("Refresh 1");
+  fireEvent.click(screen.getByRole("button",{name:"Load older messages"}));
+  await screen.findByText("This mail page expired. Refresh from the server to continue.");
+  fireEvent.click(refresh);
+  await screen.findByText("Refresh 2");
+});
 it("cancels browser authorization; a late successful result cannot grant sending",async()=>{
   let done:((v:unknown)=>void)|undefined;
   const v=fixture(async r=>{
