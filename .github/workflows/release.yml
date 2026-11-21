@@ -128,7 +128,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/studio-release-verifier"
           cp scripts/verify-release-artifacts.mjs scripts/release-draft-assets.mjs \
             scripts/release-artifact-policy.mjs scripts/release-candidate-files.mjs scripts/release-build-matrix.mjs scripts/verify-release-inventory.mjs scripts/executable-architecture.mjs \
-            scripts/macos-bundle-signing.mjs scripts/verify-macos-dmg.mjs scripts/verify-windows-installer-runtime.ps1 \
+            scripts/macos-bundle-signing.mjs scripts/verify-macos-dmg.mjs scripts/verify-windows-installer-runtime.ps1 scripts/verify-windows-installed-startup.ps1 \
             "$RUNNER_TEMP/studio-release-verifier/"
           echo "Verification workflow source: ${{ github.workflow_sha }}"
 
@@ -344,6 +344,7 @@ jobs:
               '0.6.8' = 'c87460f36705d7f95e4959a9d70c3672498b8e7c44e66023e6b1d0b3d1f8032f'
               '0.6.9' = '799dc8822ceb94a582c13d56de922b73cb611a949e6d70839dc36419112692ff'
               '0.7.0' = 'abaf829686980ac954fcc7a34a4fdb88ba1e3dd0d4f9038b0d8befcd777c8606'
+              '0.7.1' = '0f0b5e88bde0815b32c8d0faf5a9da72a86389052dbf87a299ba75de82547937'
             }
             $previous = $publicDigests.Keys | Where-Object { [version]$_ -lt $candidate } |
               Sort-Object { [version]$_ } -Descending | Select-Object -First 1
