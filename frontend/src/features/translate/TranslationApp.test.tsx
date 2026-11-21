@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { transferableAbortController } from "node:util";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
@@ -20,6 +21,7 @@ function stubGateway(
 }
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   document.body.innerHTML = "";
 });
 
@@ -106,6 +108,8 @@ describe("translate composer", () => {
   });
 
   it("keeps the draft through a cancelled HTTP request and a failure, then copies an explicit retry", async () => {
+    // This integration test uses Node fetch, which requires its own realm's signal.
+    vi.stubGlobal("AbortController", transferableAbortController().constructor);
     const requests: Record<string, unknown>[] = [];
     let disconnected = false;
     const server = createServer((request, response) => {
