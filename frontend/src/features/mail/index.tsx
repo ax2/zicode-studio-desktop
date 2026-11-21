@@ -10,9 +10,17 @@ import {CachedMailSearch} from './CachedMailSearch';
 import {MailDelivery} from "./MailDelivery";
 
 type Account={id:string,address:string,provider:string};
-export type Draft={id?:string,revision:number,recipient:string,subject:string,body:string};
+export type Draft={id?:string,revision:number,recipient:string,subject:string,body:string,attachments?:{id:string,name:string,size:number}[]};
 export type Invoke=<T>(request:Record<string,unknown>)=>Promise<T>;
 const blank=():Draft=>({revision:0,recipient:"",subject:"",body:""});
+const localMailErrors: Record<string,string> = {
+  mail_attachment_read: "Could not read the selected file. Check its location and permissions.",
+  mail_attachment_too_large: "Attachments in one draft can total up to 16 MiB.",
+  mail_attachment_missing: "This attachment is no longer in the draft. Reload the draft.",
+  mail_conflict: "Draft changed in another window. Reload before editing.",
+  mail_duplicate: "This account is already listed.",
+  mail_invalid: "Check the address or shorten the draft.",
+};
 
 export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?:Invoke,gmailTransport?:Invoke}) {
   const [accounts,setAccounts]=useState<Account[]>([]), [account,setAccount]=useState("");
@@ -32,7 +40,8 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     lock.current=true;setBusy(true);setError("");
     try{await fn()}catch(e){
       const msg=String(e);
-      setError(t(msg.includes("mail_conflict")?"Draft changed in another window. Reload before editing.":msg.includes("mail_duplicate")?"This account is already listed.":msg.includes("mail_invalid")?"Check the address or shorten the draft.":"Could not access local mail data."));
+      const code = Object.keys(localMailErrors).find(key => msg.includes(key));
+      setError(t(code ? localMailErrors[code] : "Could not access local mail data."));
     }finally{lock.current=false;setBusy(false)}
   }
   async function load(id:string){
@@ -53,6 +62,16 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   },[dirty]);
   const discard=async()=>!dirty||await window.confirm(t("Discard unsaved draft changes?"));
   function change(key:"recipient"|"subject"|"body",value:string){setEdit({...edit,[key]:value});setDirty(true)}
+  async function changeAttachment(attachment?:string) {
+    const result = await invoke<{changed:boolean}>({
+      kind: attachment ? "removeAttachment" : "pickAttachment",
+      account, id:edit.id, revision:edit.revision, ...(attachment ? {attachment} : {})
+    });
+    if (!result.changed) return;
+    const rows = await invoke<Draft[]>({kind:"drafts",account});
+    setDrafts(rows);
+    setEdit(rows.find(d => d.id === edit.id) ?? blank());
+  }
   return <section className="mail-local"><h2>{t("Mail")}</h2>
     {!alibaba&&!gmail&&<p>{t("Local drafts only. No mailbox is connected.")}</p>}
     <fieldset disabled={busy||mailBusy}><legend>{t("Mail accounts")}</legend>
@@ -75,8 +94,12 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     <label>{t("Mail subject")}<input value={edit.subject} onChange={e=>change("subject",e.target.value)} /></label>
     <label>{t("Message body")}<textarea id="studio-mail-compose-body" rows={8} value={edit.body} onChange={e=>change("body",e.target.value)} /></label>
     <button type="button" disabled={!dirty} onClick={()=>void run(async()=>{
-      const saved=await invoke<{id:string,revision:number}>({kind:"save",account,...edit});const d={...edit,...saved};setEdit(d);setDirty(false);setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);
+      const saved=await invoke<{id:string,revision:number}>({kind:"save",account,id:edit.id,revision:edit.revision,recipient:edit.recipient,subject:edit.subject,body:edit.body});const d={...edit,...saved};setEdit(d);setDirty(false);setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);
     })}>{t("Save draft")}</button>
+    {edit.id && <div>
+      <button type="button" disabled={dirty} onClick={()=>void run(()=>changeAttachment())}>{t("Add attachment")}</button>
+      {edit.attachments?.map(file=><div key={file.id}>{file.name} ({file.size} B) <button type="button" disabled={dirty} onClick={()=>void run(()=>changeAttachment(file.id))}>{t("Remove attachment")}</button></div>)}
+    </div>}
     {gmail&&owner&&edit.id&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} provider="gmail" invoke={gmail} id={account} address={owner.address} draft={edit} configured={gmailSendOwner===account}/>}
     {alibaba&&owner&&edit.id&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} invoke={alibaba} id={account} address={owner.address} draft={edit} configured={passwordOwner===account}/>}
     {edit.id&&<button type="button" onClick={()=>{void run(async()=>{if(!await window.confirm(t("Delete this local draft?")))return;

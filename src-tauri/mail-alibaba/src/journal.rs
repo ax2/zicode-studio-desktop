@@ -397,7 +397,8 @@ impl<'a> Mailbox<'a> {
             .optional()
             .map_err(db_err)?;
         let parent = stored_parent.unwrap_or(parent);
-        let msg = adapter.compose(&self.account.address, &saved, parent.as_deref())?;
+        let files = draft_attachments(&tx, &self.scope, &self.account.id, draft)?;
+        let msg = adapter.compose(&self.account.address, &saved, parent.as_deref(), files)?;
         // Unknown is committed *before* any network write. Crashes or lost final replies never cause replay.
         if tx
             .execute(

@@ -67,3 +67,30 @@ it("retains unsaved mail when its tool tab closes and the surface is reattached"
     expect(screen.getByRole("button",{name:"Save draft"}).matches(":disabled")).toBe(false);
   }finally{await act(async()=>app.destroy());one.remove();two.remove()}
 });
+
+it("keeps attachments on picker cancellation and removes only the selected saved attachment",async()=>{
+  setLocale("en");
+  const calls:Record<string,unknown>[]=[];
+  let files=[{id:"first",name:"first.bin",size:3},{id:"second",name:"second.bin",size:7}];
+  const invoke=async <T,>(request:Record<string,unknown>):Promise<T>=>{
+    calls.push(request);
+    switch(request.kind){
+      case "accounts": return [{id:"a",provider:"gmail",address:"me@example.test"}] as T;
+      case "drafts": return [{id:"d",subject:"Files",recipient:"",body:"",revision:files.length===2?4:5,attachments:files}] as T;
+      case "pickAttachment": return {changed:false} as T;
+      case "removeAttachment":
+        files=files.filter(file=>file.id!==request.attachment);
+        return {changed:true,revision:5} as T;
+      default: throw Error("unexpected operation");
+    }
+  };
+  render(<Mail invoke={invoke}/>);
+  const draftButton = await screen.findByRole("button",{name:"Files"});
+  await act(async()=>fireEvent.click(draftButton));
+  await act(async()=>fireEvent.click(screen.getByRole("button",{name:"Add attachment"})));
+  expect(screen.getAllByRole("button",{name:"Remove attachment"})).toHaveLength(2);
+  await act(async()=>fireEvent.click(screen.getAllByRole("button",{name:"Remove attachment"})[1]));
+  expect(calls.find(request=>request.kind==="removeAttachment")).toEqual({kind:"removeAttachment",account:"a",id:"d",revision:4,attachment:"second"});
+  expect(screen.queryByText(/second\.bin/)).toBeNull();
+  expect(screen.getByText(/first\.bin/)).toBeTruthy();
+});

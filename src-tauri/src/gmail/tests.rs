@@ -108,6 +108,8 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
         }))
         .route("/me/messages/send",post(move|Json(m):Json<serde_json::Value>|{let count=count.clone();async move{
             count.fetch_add(1,Ordering::SeqCst);let msg=String::from_utf8(base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(m["raw"].as_str().unwrap()).unwrap()).unwrap();
+            assert!(msg.contains("proof.bin") && msg.contains("multipart/mixed"));
+            assert!(msg.lines().any(|line| line == "AP8NCg=="));
             assert!(msg.contains("To: me@example.test\r\n"));axum::http::StatusCode::SERVICE_UNAVAILABLE
         }}));
     let l = tokio::net::TcpListener::bind(("127.0.0.1", 0))
@@ -165,8 +167,10 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
     let path = std::env::temp_dir().join(format!("gmail-test-{}.sqlite", uuid::Uuid::new_v4()));
     {
         let db = rusqlite::Connection::open(&path).unwrap();
-        db.execute_batch("CREATE TABLE accounts(scope,id,provider,address);CREATE TABLE drafts(scope,account,id,revision INTEGER,recipient,subject,body);
+        db.execute_batch("CREATE TABLE accounts(scope,id,provider,address);CREATE TABLE drafts(scope,account,id,revision INTEGER,recipient,subject,body,PRIMARY KEY(scope,account,id));
         INSERT INTO accounts VALUES('w','a','gmail','me@example.test');INSERT INTO accounts VALUES('w','b','alibaba','other@example.test');INSERT INTO drafts VALUES('w','a','d',1,'me@example.test','中文','草稿');").unwrap();
+        db.execute_batch(studio_alibaba_mail::DRAFT_ATTACHMENT_SCHEMA).unwrap();
+        db.execute("INSERT INTO draft_attachments VALUES('w','a','d','x','proof.bin',?)", [vec![0u8,255,13,10]]).unwrap();
     }
     assert!(store::address(&path, "w", "b").is_err());
     assert!(store::address(&path, "other", "a").is_err());

@@ -503,7 +503,7 @@ fn addr(v: &str) -> bool {
                     .all(|x| x.is_ascii_alphanumeric() || b".-".contains(&x))
         })
 }
-pub fn raw_message(from: &str, to: &str, subject: &str, body: &str) -> Result<String> {
+pub(super) fn validate_message(from: &str, to: &str, subject: &str, body: &str) -> Result<()> {
     if !addr(from)
         || !addr(to)
         || subject.len() > 4096
@@ -512,6 +512,10 @@ pub fn raw_message(from: &str, to: &str, subject: &str, body: &str) -> Result<St
     {
         return Err("gmail_invalid_draft");
     }
+    Ok(())
+}
+pub fn raw_message(from: &str, to: &str, subject: &str, body: &str) -> Result<String> {
+    validate_message(from, to, subject, body)?;
     let mut words = vec![];
     let mut part = String::new();
     for ch in subject.chars() {

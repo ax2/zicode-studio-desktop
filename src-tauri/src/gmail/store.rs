@@ -74,7 +74,16 @@ pub fn begin(
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|_| "gmail_storage")?;
     let (to,subject,body):(String,String,String)=tx.query_row("SELECT recipient,subject,body FROM drafts WHERE scope=? AND account=? AND id=? AND revision=?",params![scope,a,draft,revision],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(|_|"gmail_draft_changed")?;
-    let raw = api::raw_message(from, &to, &subject, &body)?;
+    let files = studio_alibaba_mail::draft_attachments(&tx, scope, a, draft)?;
+    let raw = if files.is_empty() {
+        api::raw_message(from, &to, &subject, &body)?
+    } else {
+        use base64::Engine;
+        api::validate_message(from, &to, &subject, &body)?;
+        let saved = studio_alibaba_mail::StoredDraft { recipient: to, subject, body };
+        let message = studio_alibaba_mail::compose_attached(from, &saved, None, files)?;
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(message.formatted())
+    };
     let n=tx.execute("INSERT INTO gmail_delivery(workspace,account,draft,revision,status) VALUES(?,?,?,?,'unknown') ON CONFLICT DO NOTHING",params![scope,a,draft,revision]).map_err(|_|"gmail_storage")?;
     if n == 0 {
         return Err("gmail_attempt_already_recorded");

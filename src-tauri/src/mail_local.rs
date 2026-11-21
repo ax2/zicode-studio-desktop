@@ -9,6 +9,8 @@ use uuid::Uuid;
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Request {
     Accounts,
+    PickAttachment { account: String, id: String, revision: i64 },
+    RemoveAttachment { account: String, id: String, revision: i64, attachment: String },
     Search { account: Option<String>, label: Option<String>, query: String, offset: u32 },
     Add {
         provider: String,
@@ -48,20 +50,76 @@ pub(crate) async fn mail_local(window: WebviewWindow, request: Request) -> Resul
     let root = crate::app_paths::data_root()?.join("mail");
     tauri::async_runtime::spawn_blocking(move || {
         std::fs::create_dir_all(&root).map_err(|_| "mail_storage")?;
-        operate(&root.join("mail.sqlite3"), &scope, request)
+        let path = root.join("mail.sqlite3");
+        if let Request::PickAttachment { account, id, revision } = request {
+            use std::io::Read;
+            use tauri_plugin_dialog::DialogExt;
+            let Some(selected) = window.app_handle().dialog().file().set_parent(&window).blocking_pick_file() else {
+                return Ok(json!({"changed":false}));
+            };
+            crate::resource_export_picker::context(&window, &scope)?;
+            let source = selected.into_path().map_err(|_| "mail_attachment_read")?;
+            let name = source.file_name().and_then(|n| n.to_str()).ok_or("mail_attachment_read")?.to_owned();
+            if name.chars().any(char::is_control) { return Err("mail_invalid".into()); }
+            let file = std::fs::File::open(source).map_err(|_| "mail_attachment_read")?;
+            if !file.metadata().map_err(|_| "mail_attachment_read")?.is_file() { return Err("mail_attachment_read".into()); }
+            let mut bytes = Vec::new();
+            file.take(MAX_DRAFT_BYTES + 1).read_to_end(&mut bytes).map_err(|_| "mail_attachment_read")?;
+            if bytes.len() as u64 > MAX_DRAFT_BYTES { return Err("mail_attachment_too_large".into()); }
+            crate::resource_export_picker::context(&window, &scope)?;
+            return attach_file(&path, &scope, &account, &id, revision, &name, bytes);
+        }
+        operate(&path, &scope, request)
     })
     .await
     .map_err(|_| "mail_storage")?
 }
 
-fn operate(file: &Path, scope: &str, req: Request) -> Result<Value, String> {
-    let mut db = Connection::open(file).map_err(|_| "mail_storage")?;
+const MAX_DRAFT_BYTES: u64 = 16 * 1024 * 1024;
+
+fn attach_file(path: &Path, scope: &str, account: &str, id: &str, revision: i64, name: &str, bytes: Vec<u8>) -> Result<Value, String> {
+    let mut db = open_mail(path)?;
+    let tx = db.transaction().map_err(|_| "mail_storage")?;
+    advance_revision(&tx, scope, account, id, revision)?;
+    let total: u64 = tx.query_row("SELECT COALESCE(SUM(length(content)),0) FROM draft_attachments WHERE scope=? AND account=? AND draft=?", params![scope,account,id], |row| row.get(0)).map_err(|_| "mail_storage")?;
+    if total + bytes.len() as u64 > MAX_DRAFT_BYTES { return Err("mail_attachment_too_large".into()); }
+    tx.execute("INSERT INTO draft_attachments(scope,account,draft,id,name,content) VALUES(?,?,?,?,?,?)",params![scope,account,id,Uuid::new_v4().to_string(),name,bytes]).map_err(|_| "mail_storage")?;
+    tx.commit().map_err(|_| "mail_storage")?;
+    Ok(json!({"changed":true,"revision":revision+1}))
+}
+
+fn advance_revision(db: &Connection, scope: &str, account: &str, id: &str, revision: i64) -> Result<(), String> {
+    if db.execute("UPDATE drafts SET revision=revision+1 WHERE scope=? AND account=? AND id=? AND revision=?",params![scope,account,id,revision]).map_err(|_| "mail_storage")? != 1 {
+        return Err("mail_conflict".into());
+    }
+    Ok(())
+}
+
+fn open_mail(file: &Path) -> Result<Connection, String> {
+    let db = Connection::open(file).map_err(|_| "mail_storage")?;
     db.busy_timeout(std::time::Duration::from_secs(3))
         .map_err(|_| "mail_storage")?;
     db.execute_batch("PRAGMA foreign_keys=ON;
       CREATE TABLE IF NOT EXISTS accounts(scope TEXT NOT NULL,id TEXT NOT NULL,provider TEXT NOT NULL,address TEXT NOT NULL,PRIMARY KEY(scope,id),UNIQUE(scope,provider,address));
       CREATE TABLE IF NOT EXISTS drafts(scope TEXT NOT NULL,account TEXT NOT NULL,id TEXT NOT NULL,revision INTEGER NOT NULL,recipient TEXT NOT NULL,subject TEXT NOT NULL,body TEXT NOT NULL,PRIMARY KEY(scope,account,id),FOREIGN KEY(scope,account) REFERENCES accounts(scope,id));").map_err(|_|"mail_storage")?;
+    db.execute_batch(studio_alibaba_mail::DRAFT_ATTACHMENT_SCHEMA)
+        .map_err(|_| "mail_storage")?;
+    Ok(db)
+}
+
+fn operate(file: &Path, scope: &str, req: Request) -> Result<Value, String> {
+    let mut db = open_mail(file)?;
     match req {
+        Request::PickAttachment { .. } => Err("mail_invalid".into()),
+        Request::RemoveAttachment { account,id,revision,attachment } => {
+            let tx = db.transaction().map_err(|_| "mail_storage")?;
+            advance_revision(&tx, scope, &account, &id, revision)?;
+            if tx.execute("DELETE FROM draft_attachments WHERE scope=? AND account=? AND draft=? AND id=?", params![scope,account,id,attachment]).map_err(|_| "mail_storage")? != 1 {
+                return Err("mail_attachment_missing".into());
+            }
+            tx.commit().map_err(|_| "mail_storage")?;
+            Ok(json!({"changed":true,"revision":revision+1}))
+        }
         Request::Search { account, label, query, offset } => search_cache(&mut db, scope, account.as_deref(), label.as_deref(), &query, offset),
         Request::Accounts => {
             let mut q=db.prepare("SELECT id,provider,address FROM accounts WHERE scope=? ORDER BY address,provider").map_err(|_|"mail_storage")?;
@@ -88,7 +146,14 @@ fn operate(file: &Path, scope: &str, req: Request) -> Result<Value, String> {
         }
         Request::Drafts { account } => {
             let mut q=db.prepare("SELECT id,revision,recipient,subject,body FROM drafts WHERE scope=? AND account=? ORDER BY rowid DESC").map_err(|_|"mail_storage")?;
-            let rows=q.query_map(params![scope,account],|r| Ok(json!({"id":r.get::<_,String>(0)?,"revision":r.get::<_,i64>(1)?,"recipient":r.get::<_,String>(2)?,"subject":r.get::<_,String>(3)?,"body":r.get::<_,String>(4)?}))).map_err(|_|"mail_storage")?.collect::<Result<Vec<_>,_>>().map_err(|_|"mail_storage")?;
+            let mut attachments = db.prepare("SELECT id,name,length(content) FROM draft_attachments WHERE scope=? AND account=? AND draft=? ORDER BY rowid").map_err(|_| "mail_storage")?;
+            let rows = q.query_map(params![scope, account], |r| {
+                let id: String = r.get(0)?;
+                let files = attachments.query_map(params![scope, account, id], |file| {
+                    Ok(json!({"id": file.get::<_,String>(0)?, "name": file.get::<_,String>(1)?, "size": file.get::<_,i64>(2)?}))
+                })?.collect::<Result<Vec<_>,_>>()?;
+                Ok(json!({"id": id, "revision": r.get::<_,i64>(1)?, "recipient": r.get::<_,String>(2)?, "subject": r.get::<_,String>(3)?, "body": r.get::<_,String>(4)?, "attachments": files}))
+            }).map_err(|_| "mail_storage")?.collect::<Result<Vec<_>,_>>().map_err(|_| "mail_storage")?;
             Ok(json!(rows))
         }
         Request::Save {
@@ -304,7 +369,22 @@ mod tests {
         };
         assert!(delete(1).is_err());
         assert_eq!(list("one", &a)[0]["body"], "updated");
-        delete(2).unwrap();
+        attach_file(&p, "one", &a, &id, 2, "proof.bin", vec![0, 255]).unwrap();
+        let reopened = list("one", &a);
+        let file = &reopened[0]["attachments"][0];
+        assert_eq!(file["name"], "proof.bin");
+        assert_eq!(file["size"], 2);
+        let remove = |account: &str, revision, attachment: &str| operate(&p, "one", Request::RemoveAttachment {
+            account:account.into(), id:id.clone(), revision, attachment:attachment.into()
+        });
+        let attachment = file["id"].as_str().unwrap();
+        assert!(remove(&b, 3, attachment).is_err());
+        assert!(remove(&a, 2, attachment).is_err());
+        assert!(remove(&a, 3, "missing").is_err());
+        assert_eq!(list("one", &a), reopened);
+        assert_eq!(remove(&a, 3, attachment).unwrap()["revision"], 4);
+        assert_eq!(list("one", &a)[0]["attachments"], json!([]));
+        delete(4).unwrap();
         assert_eq!(list("one", &a), json!([]));
         assert_eq!(
             operate(
