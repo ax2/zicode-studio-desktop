@@ -1,0 +1,58 @@
+/* Match the layout to the usable pane even when the Studio sidebar is open. */
+.idphoto-main,
+.imagetools-main,
+.graph-main,
+.translate-main,
+.finance-plugin-main {
+  container: tool-workspace / inline-size;
+  min-width: 0;
+}
+
+.articles-main,
+.clipboard-main,
+.documents-main,
+.habits-main,
+.ocr-main,
+.watch-main {
+  max-width: 64rem;
+  min-width: 0;
+}
+
+.artifacts-document,
+.artifacts-state-panel {
+  max-width: 64rem;
+}
+
+:is(.articles-header, .clipboard-header, .documents-header, .graph-header,
+    .habits-header, .idphoto-header, .imagetools-header, .ocr-header,
+    .translate-header, .watch-header) p {
+  max-inline-size: 68ch;
+  text-wrap: pretty;
+}
+
+.articles-header,
+.translate-result-header,
+.translate-result-actions {
+  flex-wrap: wrap;
+}
+
+.translate-result-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+@container tool-workspace (max-width: 46rem) {
+  .idphoto-workspace,
+  .imagetools-workspace,
+  .graph-workspace,
+  .finance-research-cases {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container tool-workspace (max-width: 32rem) {
+  .translate-controls .settings-field {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}

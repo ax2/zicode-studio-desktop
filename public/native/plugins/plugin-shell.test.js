@@ -665,6 +665,21 @@ describe("setupPluginShell", () => {
     expect(document.querySelector('[data-plugin-id="core.chat"] .plugin-activity-badge')).toBeNull();
   });
 
+  it("opens directory destinations at the top with the mobile drawer closed", async () => {
+    const shell = setupPluginShell({ registry: registry() });
+    await shell.activate("core.tools");
+    const request = vi.fn();
+    document.addEventListener("zicode:function-area-request", request, { once: true });
+    const pane = document.querySelector(".plugin-main-view");
+    pane.scrollTop = 400;
+    const entry = shell.getApplicationDirectory().find(item => item.id === "com.zicode.translate:open");
+    await entry.action();
+    expect(request.mock.calls[0][0].detail).toEqual({ open: false });
+    expect(pane.scrollTop).toBe(0);
+    expect(document.getElementById("sidebar").hidden).toBe(true);
+    await shell.activate("com.zicode.idphoto");
+    expect(document.getElementById("sidebar").hidden).toBe(false);
+  });
   it("requests the mobile function area when an application is selected", async () => {
     const requested = vi.fn();
     document.addEventListener("zicode:function-area-request", requested, { once: true });

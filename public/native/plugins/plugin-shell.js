@@ -327,6 +327,7 @@ export function setupPluginShell({
     if (!isChat) {
       renderSidebar(pluginId);
       renderMain(pluginId);
+      if (previousPluginId !== pluginId) pluginMain.scrollTop = 0;
     }
     updateActivitySelection(pluginId);
     if (focus) {
@@ -441,13 +442,13 @@ export function setupPluginShell({
     return CHAT_PLUGIN_ID;
   }
 
-  async function activateFromNavigation(pluginId) {
+  async function activateFromNavigation(pluginId, { showNavigation = true } = {}) {
     // The open More menu already has its own history entry. Turn it into
     // the destination entry so Back returns directly to the prior application.
     const fromMenu = !mobileActivityMenu?.hidden && globalThis.history?.state?.[MOBILE_HISTORY_LAYER_KEY] === "application-menu";
     closeMobileActivityMenu({ discardHistory: true });
     await activate(pluginId, { historyMode: fromMenu ? "replace" : "push" });
-    if (activePluginId === pluginId) requestFunctionArea();
+    if (activePluginId === pluginId) requestFunctionArea(showNavigation);
     return activePluginId === pluginId && failedRenderPluginId !== pluginId;
   }
 
@@ -488,9 +489,9 @@ export function setupPluginShell({
       }, current);
   }
 
-  function requestFunctionArea() {
+  function requestFunctionArea(open = true) {
     document.dispatchEvent(
-      new CustomEvent("zicode:function-area-request", { detail: { open: true } }),
+      new CustomEvent("zicode:function-area-request", { detail: { open } }),
     );
   }
 
@@ -598,7 +599,7 @@ export function setupPluginShell({
               notify(t("Tool changed. Reload its details before retrying."));
               return;
             }
-            if (!(await activateFromNavigation(pluginId))) return;
+            if (!(await activateFromNavigation(pluginId, { showNavigation: false }))) return;
             if (!currentDirectoryTarget() || !currentPluginVersion() || !currentDirectoryRevision()) {
               notify(t("Tool changed. Reload its details before retrying."));
               return;
@@ -835,7 +836,7 @@ export function setupPluginShell({
   }
 
   function getApplicationDirectory() {
-    return applicationDirectory(registry.list(), pluginAvailableOnClient, t, activateFromNavigation);
+    return applicationDirectory(registry.list(), pluginAvailableOnClient, t, id => activateFromNavigation(id, { showNavigation: false }));
   }
 
   function getCommandPaletteEntries() {
