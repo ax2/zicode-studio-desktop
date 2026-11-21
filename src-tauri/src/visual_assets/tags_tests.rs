@@ -79,3 +79,26 @@ fn exact_tag_and_filename_filter_use_the_cursor_index() {
     assert!(tail.next.is_none());
     assert!(page(&db, 0, "主", "").unwrap().assets.is_empty());
 }
+
+#[test]
+fn reviewing_and_revoking_preview_labels_preserves_matching_manual_tags() {
+    let mut db = catalog();
+    db.execute_batch(
+        "INSERT INTO asset VALUES (1,'sample'); INSERT INTO revision VALUES (1,1,'digest');",
+    )
+    .unwrap();
+    let tx = db.transaction().unwrap();
+    let labels = vec!["Landscape".to_string()];
+    replace(&tx, 1, &[], &labels).unwrap();
+    local_preview::replace(&tx, 1, "digest", vec![], labels.clone()).unwrap();
+    assert!(local_preview::replace(&tx, 1, "stale", labels.clone(), vec![]).is_err());
+    assert!(local_preview::replace(&tx, 1, "digest", vec![], vec![]).is_err());
+    local_preview::replace(&tx, 1, "digest", labels.clone(), vec![]).unwrap();
+    assert_eq!(read(&tx, 1).unwrap(), labels);
+    assert_eq!(
+        tx.query_row("SELECT count(*) FROM local_preview_label_v1", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}

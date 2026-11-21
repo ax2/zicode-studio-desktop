@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { t } from "../../shared/i18n";
+import { PreviewLabels } from "./PreviewLabels";
 import { AssetTags } from "./AssetTags";
 import { BackupPanel } from "./BackupPanel";
 import { CharacterPanel } from "./CharacterPanel";
@@ -19,6 +20,7 @@ interface Asset {
   name: string;
   digest: string;
   tags?: string[];
+  previewLabels?: string[];
   collectionIds?: string[];
   referenced?: boolean;
   archivedReference?: boolean;
@@ -400,6 +402,16 @@ export function AssetLibrary({
               </details>
             )}
             {asset.creationJobId && <CreationSource id={asset.creationJobId} invoke={invoke} workspaceId={workspaceId} sceneId={sceneId} libraryId={listing.libraryId} />}
+            <PreviewLabels key={listing.libraryId + asset.digest}
+              saved={asset.previewLabels ?? []} available={Boolean(previews[asset.id]?.url)} disabled={busy || backupBusy}
+              onSave={async labels => {
+                await invoke("visual_assets_control", { workspaceId, request: {
+                  kind: "setPreviewLabels", libraryId: listing.libraryId, assetId: asset.id,
+                  digest: asset.digest, previous: asset.previewLabels ?? [], labels,
+                } });
+                setRefresh(value => value + 1);
+              }}
+            />
             <AssetTags
               name={asset.name}
               tags={asset.tags ?? []}

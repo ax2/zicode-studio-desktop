@@ -1,4 +1,6 @@
 //! Asset tags are exact, library-local labels. Edits use the caller's read version.
+#[path = "tags/local_preview.rs"]
+pub mod local_preview;
 use super::catalog::{read_page, Page};
 use rusqlite::{params, Connection, Transaction};
 
