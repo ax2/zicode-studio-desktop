@@ -19,6 +19,9 @@ fn fixture(smtp: bool, drop_final: bool) -> Fixture {
     sized_fixture(smtp, drop_final, 3, 10)
 }
 fn sized_fixture(smtp: bool, drop_final: bool, count: u32, stride: u32) -> Fixture {
+    fixture_with_search(smtp,drop_final,count,stride,false)
+}
+fn fixture_with_search(smtp: bool, drop_final: bool, count:u32, stride:u32, reject_search:bool) -> Fixture {
     let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
     ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
@@ -69,7 +72,7 @@ fn sized_fixture(smtp: bool, drop_final: bool, count: u32, stride: u32) -> Fixtu
         if smtp {
             serve_smtp(&mut s, drop_final, tx)
         } else {
-            serve_imap(&mut s, count, stride, tx)
+            serve_imap(&mut s, count, stride, reject_search, tx)
         }
     });
     Fixture {
@@ -90,7 +93,7 @@ fn emit(s: &mut Server, text: &str) {
     stream.write_all(text.as_bytes()).unwrap();
     stream.flush().unwrap();
 }
-fn serve_imap(s: &mut Server, count: u32, stride: u32, trace: std::sync::mpsc::Sender<String>) {
+fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace: std::sync::mpsc::Sender<String>) {
     let mut archive = false;
     emit(s, "* OK local synthetic IMAP\r\n");
     loop {
@@ -112,6 +115,19 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, trace: std::sync::mpsc::S
         } else if upper.starts_with("EXAMINE ") {
             archive = upper.contains("ARCHIVE");
             emit(s,&format!("* {count} EXISTS\r\n* OK [UIDVALIDITY 7] stable\r\n{tag} OK [READ-ONLY] examined\r\n"));
+        } else if let Some(probe) = upper.strip_prefix("UID SEARCH UID ") {
+            trace.send(upper.clone()).unwrap();
+            if reject_search {
+                emit(s,&format!("{tag} NO temporarily unavailable\r\n"));
+                continue;
+            }
+            let mut response = String::from("* SEARCH");
+            for uid in probe.split(',').map(|v| v.parse::<u32>().unwrap()) {
+                if uid > 0 && uid.is_multiple_of(stride) && uid / stride <= count {
+                    response.push_str(&format!(" {uid}"));
+                }
+            }
+            emit(s,&format!("{response}\r\n{tag} OK searched\r\n"));
         } else if upper.starts_with("FETCH ") || upper.starts_with("UID FETCH ") {
             trace.send(upper.clone()).unwrap();
             let is_uid = upper.starts_with("UID ");
@@ -210,6 +226,36 @@ fn folders_survive_restart_decode_names_and_clear_with_the_account() {
     assert!(matches!(mail.folders(&f.adapter, "synthetic"), Err("mail_cache_changed")));
     f.thread.join().unwrap();
     assert!(mail.cached_folders().unwrap().is_empty());
+}
+#[test]
+fn refresh_reconciles_removed_old_uids_without_fetching_old_headers() {
+    let mut db = database();
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    // Initially cache 10,20,30,40, including the body of 30.
+    let f = sized_fixture(false,false,4,10);
+    mail.sync(&f.adapter,"synthetic",None,4).unwrap();
+    f.thread.join().unwrap();
+    let f = fixture(false,false);
+    mail.read(&f.adapter,"synthetic",7,30).unwrap();
+    f.thread.join().unwrap();
+    // New mailbox contains 20,40,60,80. Refreshing just two headers must
+    // preserve surviving older UIDs and evict old cached bodies for 10 and 30.
+    let failed = fixture_with_search(false,false,4,20,true);
+    assert!(matches!(mail.sync(&failed.adapter,"synthetic",None,2), Err("mail_list_failed")));
+    failed.thread.join().unwrap();
+    assert_eq!(mail.cached_page(None,8).unwrap().messages[0].uid,40);
+    assert!(mail.cached_body(7,30).is_ok());
+    for _ in 0..2 {
+        let f = sized_fixture(false,false,4,20);
+        mail.sync(&f.adapter,"synthetic",None,2).unwrap();
+        f.thread.join().unwrap();
+        let commands: Vec<_> = f.rx.try_iter().collect();
+        assert_eq!(commands.iter().filter(|c| c.contains("HEADER")).count(), 1);
+        assert!(commands.iter().any(|c| c.starts_with("UID SEARCH UID ")));
+        let ids: Vec<_> = mail.cached_page(None,8).unwrap().messages.iter().map(|m|m.uid).collect();
+        assert_eq!(ids,[80,60,40,20]);
+        assert!(matches!(mail.cached_body(7,30), Err("mail_cache_empty")));
+    }
 }
 #[test]
 fn million_sparse_uids_use_one_header_window_and_bounded_cursor_probes() {

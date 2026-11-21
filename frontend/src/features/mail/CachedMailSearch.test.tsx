@@ -47,7 +47,7 @@ it("opens an identically numbered result through its owning account without requ
   expect(screen.queryByText("Alibaba offline fixture")).toBeNull();
 });
 
-it("immediately removes the cleared account, refreshes the retained results and rejects a late body",async()=>{
+it.each(["studio-mail-cache-cleared","studio-mail-cache-updated"])("refreshes changed account results and rejects a late body after %s",async(event)=>{
   setLocale("en");
   const accounts=[{id:"a",address:"first@example.test",provider:"gmail"},{id:"b",address:"second@example.test",provider:"gmail"}];
   const items=accounts.map(a=>({account:a.id,address:a.address,provider:"gmail",id:"42",epoch:null,subject:a.address,sender:"synthetic"}));
@@ -59,7 +59,7 @@ it("immediately removes the cleared account, refreshes the retained results and 
   fireEvent.change(screen.getByLabelText("Search cached mail"),{target:{value:"fixture"}});
   fireEvent.click(screen.getByRole("button",{name:"Search"}));
   fireEvent.click(await screen.findByRole("button",{name:/first@example/}));
-  await act(async()=>window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:"a"})));
+  await act(async()=>window.dispatchEvent(new CustomEvent(event,{detail:"a"})));
   expect(screen.queryByRole("button",{name:/first@example/})).toBeNull();
   expect(screen.queryByRole("button",{name:/second@example/})).toBeTruthy();
   await act(async()=>finish({plainText:"stale content"}));

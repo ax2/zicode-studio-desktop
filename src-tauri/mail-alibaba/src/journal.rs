@@ -69,7 +69,8 @@ impl<'a> Mailbox<'a> {
             .map_err(db_err)?
             .ok_or("mail_account_not_found")?;
         initialize_cache(db)?;
-        db.execute_batch("CREATE TABLE IF NOT EXISTS alibaba_folders(scope TEXT,account TEXT,folders TEXT NOT NULL,PRIMARY KEY(scope,account));
+        db.execute_batch("CREATE TABLE IF NOT EXISTS alibaba_sync_revision(scope TEXT,account TEXT,folder TEXT,revision INTEGER NOT NULL,PRIMARY KEY(scope,account,folder));
+          CREATE TABLE IF NOT EXISTS alibaba_folders(scope TEXT,account TEXT,folders TEXT NOT NULL,PRIMARY KEY(scope,account));
           CREATE TABLE IF NOT EXISTS alibaba_cache_generation(scope TEXT NOT NULL,account TEXT NOT NULL,generation INTEGER NOT NULL,PRIMARY KEY(scope,account));
           CREATE TABLE IF NOT EXISTS alibaba_reply(scope TEXT,account TEXT,draft TEXT,parent TEXT,PRIMARY KEY(scope,account,draft));
           CREATE TRIGGER IF NOT EXISTS alibaba_delete_reply AFTER DELETE ON drafts BEGIN DELETE FROM alibaba_reply WHERE scope=OLD.scope AND account=OLD.account AND draft=OLD.id; END;
@@ -98,7 +99,7 @@ impl<'a> Mailbox<'a> {
         let tx = self.db.transaction().map_err(db_err)?;
         tx.execute("INSERT INTO alibaba_cache_generation VALUES(?,?,1) ON CONFLICT(scope,account) DO UPDATE SET generation=generation+1",
             params![self.scope,self.account.id]).map_err(db_err)?;
-        for table in ["alibaba_inbox", "alibaba_epoch", "alibaba_folders"] {
+        for table in ["alibaba_inbox", "alibaba_epoch", "alibaba_folders", "alibaba_sync_revision"] {
             tx.execute(
                 &format!("DELETE FROM {table} WHERE scope=? AND account=?"),
                 params![self.scope, self.account.id],
@@ -132,6 +133,8 @@ impl<'a> Mailbox<'a> {
         limit: u8,
     ) -> Result<Page> {
         let generation = self.generation;
+        let revision: i64 = self.db.query_row("SELECT COALESCE((SELECT revision FROM alibaba_sync_revision WHERE scope=? AND account=? AND folder=?),0)",
+            params![self.scope,self.account.id,self.folder], |row| row.get(0)).map_err(db_err)?;
         let observed: Option<u32> = self
             .db
             .query_row(
@@ -144,12 +147,21 @@ impl<'a> Mailbox<'a> {
         if cursor.as_ref().is_some_and(|c| c.folder.as_deref().unwrap_or("INBOX") != self.folder || Some(c.uid_validity) != observed) {
             return Err("mail_inbox_changed");
         }
-        let page = adapter.list(self.address(), password, &self.folder, cursor, limit)?;
-        let tx = self.db.transaction().map_err(db_err)?;
+        let cached = if cursor.is_none() && observed.is_some() {
+            let mut rows = self.db.prepare("SELECT uid FROM alibaba_inbox WHERE scope=? AND account=? AND folder=? AND epoch=?").map_err(db_err)?;
+            let ids = rows.query_map(params![self.scope,self.account.id,self.folder,observed], |r| r.get(0)).map_err(db_err)?;
+            ids.collect::<std::result::Result<Vec<u32>,_>>().map_err(db_err)?
+        } else { Vec::new() };
+        let (page, removed) = adapter.list(self.address(), password, &self.folder, cursor, limit, &cached)?;
+        let tx = self.db.transaction_with_behavior(TransactionBehavior::Immediate).map_err(db_err)?;
         let current_generation:i64=tx.query_row("SELECT COALESCE((SELECT generation FROM alibaba_cache_generation WHERE scope=? AND account=?),0)",params![self.scope,self.account.id],|r|r.get(0)).map_err(db_err)?;
         if current_generation != generation {
             return Err("mail_inbox_changed");
         }
+        let claimed = tx.execute("INSERT INTO alibaba_sync_revision VALUES(?1,?2,?3,1)
+            ON CONFLICT(scope,account,folder) DO UPDATE SET revision=revision+1 WHERE revision=?4",
+            params![self.scope,self.account.id,self.folder,revision]).map_err(db_err)?;
+        if claimed == 0 { return Err("mail_inbox_changed"); }
         // A delayed older page must not switch the active cache back to a stale UIDVALIDITY.
         let current: Option<u32> = tx
             .query_row(
@@ -167,6 +179,12 @@ impl<'a> Mailbox<'a> {
                 params![self.scope,self.account.id,self.folder,page.uid_validity]).map_err(db_err)?;
         }
         tx.execute("INSERT INTO alibaba_epoch(scope,account,folder,epoch) VALUES(?,?,?,?) ON CONFLICT(scope,account,folder) DO UPDATE SET epoch=excluded.epoch",params![self.scope,self.account.id,self.folder,page.uid_validity]).map_err(db_err)?;
+        if current == Some(page.uid_validity) && !removed.is_empty() {
+            let mut delete = tx.prepare("DELETE FROM alibaba_inbox WHERE scope=? AND account=? AND folder=? AND epoch=? AND uid=?").map_err(db_err)?;
+            for uid in removed {
+                delete.execute(params![self.scope,self.account.id,self.folder,page.uid_validity,uid]).map_err(db_err)?;
+            }
+        }
         for item in &page.messages {
             tx.execute("INSERT INTO alibaba_inbox(scope,account,folder,epoch,uid,meta) VALUES(?,?,?,?,?,?) ON CONFLICT(scope,account,folder,epoch,uid) DO UPDATE SET meta=excluded.meta",
             params![self.scope,self.account.id,self.folder,page.uid_validity,item.uid,serde_json::to_string(item).map_err(|_|"mail_storage")?]).map_err(db_err)?;

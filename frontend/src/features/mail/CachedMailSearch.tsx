@@ -52,12 +52,16 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
     } finally { if (version === generation.current) setBusy(false); }
   }, [invoke, scope, query, labelOnly, current, label]);
   useEffect(()=>{
-    function cacheCleared(event:Event) {
+    function cacheChanged(event:Event) {
       const account=(event as CustomEvent<string>).detail;
       if (submitted.current && account && (!scope || scope===account)) void search(0,account);
     }
-    window.addEventListener("studio-mail-cache-cleared",cacheCleared);
-    return ()=>window.removeEventListener("studio-mail-cache-cleared",cacheCleared);
+    window.addEventListener("studio-mail-cache-cleared",cacheChanged);
+    window.addEventListener("studio-mail-cache-updated",cacheChanged);
+    return ()=>{
+      window.removeEventListener("studio-mail-cache-cleared",cacheChanged);
+      window.removeEventListener("studio-mail-cache-updated",cacheChanged);
+    };
   },[scope,search]);
   async function open(hit: Hit) {
     const version = ++generation.current;

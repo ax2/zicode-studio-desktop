@@ -174,7 +174,8 @@ impl Alibaba {
         folder: &str,
         cursor: Option<Cursor>,
         limit: u8,
-    ) -> Result<Page> {
+        cached: &[u32],
+    ) -> Result<(Page, Vec<u32>)> {
         if !(1..=40).contains(&limit) || cursor.as_ref().is_some_and(|c| c.before == 0) {
             return Err("mail_invalid_page");
         }
@@ -225,11 +226,30 @@ impl Alibaba {
         } else {
             None
         };
-        Ok(Page {
+        let mut removed = Vec::new();
+        if cursor.is_none() && !cached.is_empty() {
+            let page_ids: std::collections::HashSet<_> = messages.iter().map(|m| m.uid).collect();
+            let mut older = Vec::new();
+            for &uid in cached {
+                if next.as_ref().is_some_and(|c| uid < c.before) {
+                    older.push(uid);
+                } else if !page_ids.contains(&uid) {
+                    removed.push(uid);
+                }
+            }
+            // Probe only previously downloaded UIDs outside the refreshed window.
+            // UID SEARCH returns identifiers without downloading old message headers.
+            for batch in older.chunks(128) {
+                let ids = batch.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
+                let present = session.uid_search(format!("UID {ids}")).map_err(|_| "mail_list_failed")?;
+                removed.extend(batch.iter().copied().filter(|uid| !present.contains(uid)));
+            }
+        }
+        Ok((Page {
             uid_validity: validity,
             messages,
             next,
-        })
+        }, removed))
     }
 }
 #[path = "inbox_parts.rs"]

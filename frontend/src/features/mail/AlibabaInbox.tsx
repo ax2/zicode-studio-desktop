@@ -71,6 +71,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
     },p=>{
       if(!p){setPage(null);setSelected(null);setBody(null);setOnline(false);return}
       setPage(old=>cursor&&old&&old.uidValidity===p.uidValidity?{...p,messages:[...old.messages,...p.messages.filter(n=>!old.messages.some(m=>m.uid===n.uid))]}:p);
+      if(network)window.dispatchEvent(new CustomEvent("studio-mail-cache-updated",{detail:id}));
       setOnline(network);if(!cursor){setSelected(null);setBody(null)}
     })
   }

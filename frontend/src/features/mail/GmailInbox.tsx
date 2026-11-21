@@ -72,6 +72,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant}:{id:string
     void run("list",()=>invoke<Page|null>({kind:server?"list":"cachedPage",accountId:id,label:selected,cursor,limit:20}),p=>{
       if(cursor&&p){setPage(old=>({...p,items:[...(old?.items??[]),...p.items.filter(x=>!old?.items.some(i=>i.id===x.id))]}))}
       else if(!cursor){setPage(p);setBody(null);setMessage(null)}else setNotice(t("No older cached page is available."));
+      if(server)window.dispatchEvent(new CustomEvent("studio-mail-cache-updated",{detail:id}));
       setOnline(server);
     });
   }
