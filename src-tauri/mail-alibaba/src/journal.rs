@@ -69,7 +69,8 @@ impl<'a> Mailbox<'a> {
             .map_err(db_err)?
             .ok_or("mail_account_not_found")?;
         initialize_cache(db)?;
-        db.execute_batch("CREATE TABLE IF NOT EXISTS alibaba_sync_revision(scope TEXT,account TEXT,folder TEXT,revision INTEGER NOT NULL,PRIMARY KEY(scope,account,folder));
+        db.execute_batch("CREATE TABLE IF NOT EXISTS alibaba_sync_gap(scope TEXT,account TEXT,folder TEXT,epoch INTEGER,floor INTEGER,resume_before INTEGER NOT NULL,PRIMARY KEY(scope,account,folder,epoch,floor));
+          CREATE TABLE IF NOT EXISTS alibaba_sync_revision(scope TEXT,account TEXT,folder TEXT,revision INTEGER NOT NULL,PRIMARY KEY(scope,account,folder));
           CREATE TABLE IF NOT EXISTS alibaba_folders(scope TEXT,account TEXT,folders TEXT NOT NULL,PRIMARY KEY(scope,account));
           CREATE TABLE IF NOT EXISTS alibaba_cache_generation(scope TEXT NOT NULL,account TEXT NOT NULL,generation INTEGER NOT NULL,PRIMARY KEY(scope,account));
           CREATE TABLE IF NOT EXISTS alibaba_reply(scope TEXT,account TEXT,draft TEXT,parent TEXT,PRIMARY KEY(scope,account,draft));
@@ -99,7 +100,7 @@ impl<'a> Mailbox<'a> {
         let tx = self.db.transaction().map_err(db_err)?;
         tx.execute("INSERT INTO alibaba_cache_generation VALUES(?,?,1) ON CONFLICT(scope,account) DO UPDATE SET generation=generation+1",
             params![self.scope,self.account.id]).map_err(db_err)?;
-        for table in ["alibaba_inbox", "alibaba_epoch", "alibaba_folders", "alibaba_sync_revision"] {
+        for table in ["alibaba_inbox", "alibaba_epoch", "alibaba_folders", "alibaba_sync_revision", "alibaba_sync_gap"] {
             tx.execute(
                 &format!("DELETE FROM {table} WHERE scope=? AND account=?"),
                 params![self.scope, self.account.id],
@@ -132,6 +133,19 @@ impl<'a> Mailbox<'a> {
         cursor: Option<Cursor>,
         limit: u8,
     ) -> Result<Page> {
+        self.sync_page(adapter, password, cursor, limit, None)
+    }
+    pub fn catch_up(&mut self, adapter: &Alibaba, password: &str, limit:u8) -> Result<bool> {
+        let gap: Option<(u32,u32,u32)> = self.db.query_row(
+            "SELECT epoch,floor,resume_before FROM alibaba_sync_gap WHERE scope=? AND account=? AND folder=? ORDER BY floor LIMIT 1",
+            params![self.scope,self.account.id,self.folder], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))
+        ).optional().map_err(db_err)?;
+        let Some((epoch,floor,before)) = gap else { return Ok(false); };
+        let cursor = Cursor { folder: (self.folder != "INBOX").then(|| self.folder.clone()), uid_validity:epoch, before };
+        Ok(self.sync_page(adapter,password,Some(cursor),limit,Some(floor))?.pending)
+    }
+    fn sync_page(&mut self, adapter:&Alibaba, password:&str, cursor:Option<Cursor>, limit:u8, gap_floor:Option<u32>) -> Result<Page> {
+        let before = cursor.as_ref().map(|c|c.before);
         let generation = self.generation;
         let revision: i64 = self.db.query_row("SELECT COALESCE((SELECT revision FROM alibaba_sync_revision WHERE scope=? AND account=? AND folder=?),0)",
             params![self.scope,self.account.id,self.folder], |row| row.get(0)).map_err(db_err)?;
@@ -152,7 +166,7 @@ impl<'a> Mailbox<'a> {
             let ids = rows.query_map(params![self.scope,self.account.id,self.folder,observed], |r| r.get(0)).map_err(db_err)?;
             ids.collect::<std::result::Result<Vec<u32>,_>>().map_err(db_err)?
         } else { Vec::new() };
-        let (page, removed) = adapter.list(self.address(), password, &self.folder, cursor, limit, &cached)?;
+        let (mut page, removed) = adapter.list(self.address(), password, &self.folder, cursor, limit, &cached)?;
         let tx = self.db.transaction_with_behavior(TransactionBehavior::Immediate).map_err(db_err)?;
         let current_generation:i64=tx.query_row("SELECT COALESCE((SELECT generation FROM alibaba_cache_generation WHERE scope=? AND account=?),0)",params![self.scope,self.account.id],|r|r.get(0)).map_err(db_err)?;
         if current_generation != generation {
@@ -175,6 +189,7 @@ impl<'a> Mailbox<'a> {
             return Err("mail_inbox_changed");
         }
         if current != Some(page.uid_validity) {
+            tx.execute("DELETE FROM alibaba_sync_gap WHERE scope=? AND account=? AND folder=?",params![self.scope,self.account.id,self.folder]).map_err(db_err)?;
             tx.execute("DELETE FROM alibaba_inbox WHERE scope=? AND account=? AND folder=? AND epoch<>?",
                 params![self.scope,self.account.id,self.folder,page.uid_validity]).map_err(db_err)?;
         }
@@ -185,10 +200,28 @@ impl<'a> Mailbox<'a> {
                 delete.execute(params![self.scope,self.account.id,self.folder,page.uid_validity,uid]).map_err(db_err)?;
             }
         }
+        if let Some(floor) = gap_floor {
+            // Consume the exact checkpoint read before the network request.
+            let changed = tx.execute("DELETE FROM alibaba_sync_gap WHERE scope=? AND account=? AND folder=? AND epoch=? AND floor=? AND resume_before=?",
+                params![self.scope,self.account.id,self.folder,page.uid_validity,floor,before]).map_err(db_err)?;
+            if changed != 1 { return Err("mail_inbox_changed"); }
+        }
+        if observed == Some(page.uid_validity) {
+            let floor = gap_floor.or_else(|| before.is_none().then(|| cached.iter().copied().max().unwrap_or(0)));
+            if let (Some(floor),Some(next)) = (floor,&page.next) {
+                if next.before.saturating_sub(floor)>1 {
+                    tx.execute("INSERT OR IGNORE INTO alibaba_sync_gap VALUES(?,?,?,?,?,?)",
+                        params![self.scope,self.account.id,self.folder,page.uid_validity,floor,next.before]).map_err(db_err)?;
+                }
+            }
+        }
         for item in &page.messages {
+            if gap_floor.is_some_and(|floor|item.uid<=floor) { continue; }
             tx.execute("INSERT INTO alibaba_inbox(scope,account,folder,epoch,uid,meta) VALUES(?,?,?,?,?,?) ON CONFLICT(scope,account,folder,epoch,uid) DO UPDATE SET meta=excluded.meta",
             params![self.scope,self.account.id,self.folder,page.uid_validity,item.uid,serde_json::to_string(item).map_err(|_|"mail_storage")?]).map_err(db_err)?;
         }
+        page.pending = tx.query_row("SELECT EXISTS(SELECT 1 FROM alibaba_sync_gap WHERE scope=? AND account=? AND folder=?)",
+            params![self.scope,self.account.id,self.folder],|r|r.get(0)).map_err(db_err)?;
         tx.commit().map_err(db_err)?;
         Ok(page)
     }
@@ -240,6 +273,7 @@ impl<'a> Mailbox<'a> {
             None
         };
         Ok(Page {
+            pending: false,
             uid_validity: epoch,
             messages,
             next,

@@ -8,7 +8,7 @@ import type {Draft,Invoke} from "./index";
 export type MessageRef={folder?:string;uidValidity:number,uid:number};
 type Cursor={folder?:string;uidValidity:number,before:number};
 type Summary={uid:number,subject:string,sender:string,replyTo:string};
-type Page={uidValidity:number,messages:Summary[],next:Cursor|null};
+type Page={pending?:boolean;uidValidity:number,messages:Summary[],next:Cursor|null};
 type Body={summary:Summary,text:string,html?:string|null;bodyLimited?:boolean;attachments?:Attachment[]};
 export function mailError(error:unknown) {
   const code=String(error);
@@ -66,7 +66,14 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
   }
   function load(network:boolean,cursor:Cursor|null=null,target=folder){
     void run(async()=>{
-      try {return await req<Page>(network?"sync":"cachedPage",{cursor,limit:20,...(target==="INBOX"?{}:{folder:target})})}
+      const epoch=generation.current;
+      const args={limit:20,...(target==="INBOX"?{}:{folder:target})};
+      try {
+        const page=await req<Page>(network?"sync":"cachedPage",{cursor,...args});
+        let pending=network&&!cursor&&page.pending;
+        while(pending&&live.current&&generation.current===epoch)pending=await req<boolean>("catchUp",args);
+        return page;
+      }
       catch(e){if(!network&&!cursor&&String(e).includes("mail_cache_empty"))return null;throw e}
     },p=>{
       if(!p){setPage(null);setSelected(null);setBody(null);setOnline(false);return}

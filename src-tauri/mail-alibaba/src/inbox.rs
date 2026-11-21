@@ -46,6 +46,8 @@ pub struct Letter {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Page {
+    #[serde(default)]
+    pub pending: bool,
     pub uid_validity: u32,
     pub messages: Vec<Summary>,
     pub next: Option<Cursor>,
@@ -246,6 +248,7 @@ impl Alibaba {
             }
         }
         Ok((Page {
+            pending: false,
             uid_validity: validity,
             messages,
             next,

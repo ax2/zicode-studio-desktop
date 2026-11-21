@@ -228,6 +228,41 @@ fn folders_survive_restart_decode_names_and_clear_with_the_account() {
     assert!(mail.cached_folders().unwrap().is_empty());
 }
 #[test]
+fn burst_of_new_mail_resumes_after_database_reopen_without_fetching_uncached_history() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mail = Mailbox::open(&mut db,"one","a").unwrap();
+        let f = sized_fixture(false,false,5,10);
+        assert!(!mail.sync(&f.adapter,"synthetic",None,2).unwrap().pending);
+        f.thread.join().unwrap();
+        let f = sized_fixture(false,false,12,10);
+        let latest = mail.sync(&f.adapter,"synthetic",None,2).unwrap();
+        f.thread.join().unwrap();
+        assert!(latest.pending);
+        assert_eq!(latest.messages.iter().map(|m|m.uid).collect::<Vec<_>>(),[120,110]);
+        let f = sized_fixture(false,false,12,10);
+        assert!(mail.catch_up(&f.adapter,"synthetic",2).unwrap());
+        f.thread.join().unwrap();
+    }
+    let mut db = Connection::open(&path).unwrap();
+    let mut mail = Mailbox::open(&mut db,"one","a").unwrap();
+    // More mail arrived while the program was closed. A new refresh adds the
+    // second interval and must retain the saved position in the first one.
+    let f = sized_fixture(false,false,16,10);
+    assert!(mail.sync(&f.adapter,"synthetic",None,2).unwrap().pending);
+    f.thread.join().unwrap();
+    for expect_pending in [true,true,true,false] {
+        let f = sized_fixture(false,false,16,10);
+        assert_eq!(mail.catch_up(&f.adapter,"synthetic",2).unwrap(),expect_pending);
+        f.thread.join().unwrap();
+    }
+    let ids:Vec<_> = mail.cached_page(None,40).unwrap().messages.iter().map(|m|m.uid).collect();
+    assert_eq!(ids,[160,150,140,130,120,110,100,90,80,70,60,50,40]);
+}
+#[test]
 fn refresh_reconciles_removed_old_uids_without_fetching_old_headers() {
     let mut db = database();
     let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();

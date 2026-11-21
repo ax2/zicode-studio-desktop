@@ -41,6 +41,7 @@ pub(crate) enum Request {
         cursor: Option<Cursor>,
         limit: u8,
     },
+    CatchUp { account_id: String, folder: Option<String>, limit: u8 },
     CachedPage {
         account_id: String,
         folder: Option<String>,
@@ -94,6 +95,7 @@ impl Request {
             | Self::ForgetPassword { account_id, .. }
             | Self::Folders { account_id }
             | Self::CachedFolders { account_id }
+            | Self::CatchUp { account_id, .. }
             | Self::Sync { account_id, .. }
             | Self::CachedPage { account_id, .. }
             | Self::Read { account_id, .. }
@@ -151,7 +153,7 @@ pub(crate) async fn mail_alibaba(
         uuid::Uuid::parse_str(&id).map_err(|_|"mail_account_not_found")?;
         let mut mailbox=Mailbox::open(&mut db,&workspace_id,&id)?;
         match &request {
-            Request::Sync{folder,..} | Request::CachedPage{folder,..} | Request::Read{folder,..}
+            Request::CatchUp{folder,..} | Request::Sync{folder,..} | Request::CachedPage{folder,..} | Request::Read{folder,..}
             | Request::CachedBody{folder,..} | Request::ReplyDraft{folder,..} | Request::DownloadAttachment{folder,..}
                 => mailbox.select_folder(folder.as_deref().unwrap_or("INBOX"))?,
             _ => {}
@@ -180,6 +182,7 @@ pub(crate) async fn mail_alibaba(
           }
           Request::Folders{..}=>Ok(json!(mailbox.folders(&adapter,pwd()?.as_str())?)),
           Request::CachedFolders{..}=>Ok(json!(mailbox.cached_folders()?)),
+          Request::CatchUp{limit,..}=>Ok(json!(mailbox.catch_up(&adapter,pwd()?.as_str(),limit)?)),
           Request::Sync{cursor,limit,..}=>Ok(json!(mailbox.sync(&adapter,pwd()?.as_str(),cursor,limit)?)),
           Request::CachedPage{cursor,limit,..}=>Ok(json!(mailbox.cached_page(cursor,limit)?)),
           Request::Read{uid_validity,uid,..}=>Ok(json!(mailbox.read(&adapter,pwd()?.as_str(),uid_validity,uid)?)),

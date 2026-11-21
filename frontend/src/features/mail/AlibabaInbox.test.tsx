@@ -4,7 +4,7 @@ import {Mail,type Invoke} from "./index";
 import {setLocale} from "../../shared/i18n";
 afterEach(()=>{cleanup();vi.restoreAllMocks()});
 const summary={uid:30,subject:"Inbox fixture",sender:"from@example.test",replyTo:"reply@example.test"};
-function setup(provider="alibaba",initiallyConfigured=true){
+function setup(provider="alibaba",initiallyConfigured=true,backlog=0){
   setLocale("en");let configured=initiallyConfigured,delivery:string|null=null;
   let draft={id:"draft",revision:2,subject:"Prepared",recipient:"receiver@example.test",body:"Draft body "+"x".repeat(480)+"<img src=fixture>"};
   const local=vi.fn(async (r:Record<string,unknown>)=>{
@@ -19,9 +19,10 @@ function setup(provider="alibaba",initiallyConfigured=true){
     case "forgetPassword":configured=false;return {configured};
     case "cachedFolders":return [{id:"Archive",name:"Archive"}];
     case "cachedPage":return {uidValidity:7,messages:[r.folder==="Archive"?{...summary,subject:"Archive fixture"}:summary],next:null};
+    case "catchUp":return --backlog>0;
     case "sync":return r.cursor
       ?{uidValidity:7,messages:[{...summary,uid:10,subject:"Older fixture"}],next:null}
-      :{uidValidity:7,messages:[summary],next:{uidValidity:7,before:30}};
+      :{uidValidity:7,messages:[summary],pending:backlog>0,next:{uidValidity:7,before:30}};
     case "cachedBody":throw Error("mail_cache_empty");
     case "read":return {summary,text:"<img src='https://invalid.test/x'>"};
     case "replyDraft":draft={id:"reply",revision:1,subject:"Re: Inbox fixture",recipient:summary.replyTo,body:""};return draft;
@@ -34,6 +35,13 @@ function setup(provider="alibaba",initiallyConfigured=true){
   return {remote,local,view,kinds:()=>remote.mock.calls.map(c=>c[0].kind)};
 }
 const button=(name:string)=>screen.getByRole("button",{name});
+it("automatically finishes pending refresh pages without waiting for manual pagination",async()=>{
+  const a=setup("alibaba",true,2);
+  await screen.findByText("Inbox fixture");
+  fireEvent.click(button("Refresh from server"));
+  await screen.findByText("Showing messages retrieved from the server.");
+  expect(a.kinds().filter(kind=>kind==="catchUp")).toHaveLength(2);
+});
 it("switches to an offline folder and reads the same UID in that folder",async()=>{
   const a=setup();
   const select=await screen.findByLabelText("IMAP folder");
