@@ -95,8 +95,8 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
     <fieldset disabled={busy}><legend>{t("Mail connection")}</legend>
       <p>{!enabled&&!busy&&!error?t("System credentials are disabled in this profile."):configured?t("Client password saved on this device."):t("Use your Alibaba Mail third-party client password. Your administrator must allow IMAP and third-party clients.")}</p>
       <form onSubmit={e=>{e.preventDefault();const value=secret;setSecret("");void run(()=>req<{configured:boolean}>("setPassword",{password:value}),v=>{setConfigured(v.configured);onConfig.current(v.configured)})}}>
-        <label>{t("Client password")}<input type="password" autoComplete="new-password" maxLength={1024} disabled={!enabled} value={secret} onChange={e=>setSecret(e.target.value)}/></label>
-        <button disabled={!enabled||!secret}>{t("Save client password")}</button>
+        <label>{t("Client password")}<input className="ui-input" type="password" autoComplete="new-password" maxLength={1024} disabled={!enabled} value={secret} onChange={e=>setSecret(e.target.value)}/></label>
+        <button className="ui-button" disabled={!enabled||!secret}>{t("Save client password")}</button>
         <MailDisconnect connected={configured} label={t("Remove client password")} prompt={t("Remove this account’s saved client password?")}
           disconnect={clear=>run(()=>req("forgetPassword",{clearCache:clear}),()=>{
             setSecret("");setConfigured(false);setOnline(false);onConfig.current(false);
@@ -105,22 +105,22 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       </form>
     </fieldset>
     <fieldset disabled={busy}><legend>{t("Inbox")}</legend>
-      <label>{t("IMAP folder")}<select value={folder} onChange={e=>{
+      <label>{t("IMAP folder")}<select className="ui-select" value={folder} onChange={e=>{
         const next=e.target.value;setFolder(next);setPage(null);setBody(null);setSelected(null);setOnline(false);load(false,null,next);
       }}><option value="INBOX">{t("Inbox")}</option>{folders.filter(f=>f.id!=="INBOX").map(f=><option key={f.id} value={f.id} translate="no">{f.name}</option>)}</select></label>
-      <button type="button" disabled={!configured} onClick={()=>void run(()=>req<{id:string;name:string}[]>("folders"),items=>{
+      <button className="ui-button" type="button" disabled={!configured} onClick={()=>void run(()=>req<{id:string;name:string}[]>("folders"),items=>{
         setFolders(items);if(folder!=="INBOX"&&!items.some(f=>f.id===folder)){setFolder("INBOX");setPage(null);setSelected(null);setBody(null);setOnline(false)}
       })}>{t("Refresh folder list")}</button>
-      <button type="button" onClick={()=>load(false)}>{t(folder==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
-      <button type="button" disabled={!configured} onClick={()=>load(true)}>{t("Refresh from server")}</button>
+      <button className="ui-button" type="button" onClick={()=>load(false)}>{t(folder==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
+      <button className="ui-button" type="button" disabled={!configured} onClick={()=>load(true)}>{t("Refresh from server")}</button>
       {page?<><p>{online?t("Showing messages retrieved from the server."):t("Showing messages saved on this device.")}</p>
-        {page.messages.length===0?<p>{t("No messages on this page.")}</p>:<ul className="mail-inbox-list">{page.messages.map(m=><li key={m.uid}><button type="button" aria-pressed={selected?.uid===m.uid} onClick={()=>pick(m)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.sender}</small></button></li>)}</ul>}
-        {page.next&&<button type="button" disabled={online&&!configured} onClick={()=>load(online,page.next)}>{t("Load older messages")}</button>}
+        {page.messages.length===0?<p>{t("No messages on this page.")}</p>:<ul className="mail-inbox-list">{page.messages.map(m=><li key={m.uid}><button className="ui-button" type="button" aria-pressed={selected?.uid===m.uid} onClick={()=>pick(m)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.sender}</small></button></li>)}</ul>}
+        {page.next&&<button className="ui-button" type="button" disabled={online&&!configured} onClick={()=>load(online,page.next)}>{t("Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {selected&&chosen&&<article aria-label={t("Selected message")}><h3 translate="no">{chosen.subject||t("No subject")}</h3><p translate="no">{chosen.sender}</p>
         {body?<>{body.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}<MailBody text={body.text} html={body.html}/><MailAttachments key={selected.uidValidity+"-"+selected.uid} items={body.attachments} invoke={invoke} message={{accountId:id,...selected}}/></>:!online&&!busy&&<p role="status">{t("This message is not available offline. Download it explicitly to read it.")}</p>}
-        {!body&&<button type="button" disabled={!configured} onClick={()=>void run(()=>req<Body>("read",selected),setBody)}>{t("Download message body")}</button>}
-        <button type="button" disabled={!chosen.replyTo} onClick={()=>{void run(async()=>await discard()?await req<Draft>("replyDraft",selected):null,d=>{if(d)onReply(d)})}}>{t("Create reply draft")}</button>
+        {!body&&<button className="ui-button" type="button" disabled={!configured} onClick={()=>void run(()=>req<Body>("read",selected),setBody)}>{t("Download message body")}</button>}
+        <button className="ui-button" type="button" disabled={!chosen.replyTo} onClick={()=>{void run(async()=>await discard()?await req<Draft>("replyDraft",selected):null,d=>{if(d)onReply(d)})}}>{t("Create reply draft")}</button>
       </article>}
     </fieldset>{error&&<p role="alert">{error}</p>}
   </section>;

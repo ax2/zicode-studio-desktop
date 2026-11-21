@@ -86,9 +86,9 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant}:{id:string
     <fieldset disabled={Boolean(busy)}><legend>{t("Mail connection")}</legend>
       <p translate="no">{address}</p>
       <p>{t(disconnected?"Gmail is not connected. Local drafts are still available.":grant.send?"Gmail is connected for reading and sending.":"Gmail is connected for reading.")}</p>
-      {disconnected&&<button type="button" onClick={()=>connect(false)}>{t("Sign in to read Gmail")}</button>}
-      {!disconnected&&<button type="button" onClick={()=>connect(grant.send===true)}>{t("Reconnect Gmail")}</button>}
-      {!disconnected&&!grant.send&&<button type="button" onClick={()=>connect(true)}>{t("Authorize sending with Gmail")}</button>}
+      {disconnected&&<button className="ui-button" type="button" onClick={()=>connect(false)}>{t("Sign in to read Gmail")}</button>}
+      {!disconnected&&<button className="ui-button" type="button" onClick={()=>connect(grant.send===true)}>{t("Reconnect Gmail")}</button>}
+      {!disconnected&&!grant.send&&<button className="ui-button" type="button" onClick={()=>connect(true)}>{t("Authorize sending with Gmail")}</button>}
       <MailDisconnect connected={!disconnected} label={t("Disconnect Gmail")} prompt={t("Disconnect Gmail on this device? Saved drafts will remain.")}
         disconnect={clear=>run("disconnect",()=>invoke<{revoked:boolean}>({kind:"disconnect",accountId:id,clearCache:clear}),r=>{
           saveGrant(none);setOnline(false);
@@ -96,28 +96,28 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant}:{id:string
           setNotice(t(r.revoked?"Gmail disconnected.":"Disconnected on this device. Review Google account permissions to confirm revocation."))
         })}/>
     </fieldset>
-    {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button type="button" onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
+    {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button className="ui-button" type="button" onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
     <fieldset disabled={Boolean(busy)}><legend>{t("Inbox")}</legend>
-      <label>{t("Gmail label")} <select value={label} onChange={e=>{
+      <label>{t("Gmail label")} <select className="ui-select" value={label} onChange={e=>{
         const next=e.target.value;setLabel(next);setPage(null);setMessage(null);setBody(null);setOnline(false);load(false,null,next);
       }}>
         <option value="INBOX">{t("Inbox")}</option>
         {labels.filter(item=>item.id!=="INBOX").map(item=><option key={item.id} value={item.id} translate="no">{item.name}</option>)}
       </select></label>
-      <button type="button" disabled={!grant.read} onClick={()=>void run("labels",()=>invoke<Label[]>({kind:"labels",accountId:id}),items=>{
+      <button className="ui-button" type="button" disabled={!grant.read} onClick={()=>void run("labels",()=>invoke<Label[]>({kind:"labels",accountId:id}),items=>{
         setLabels(items);
         if(label!=="INBOX"&&!items.some(item=>item.id===label)){setLabel("INBOX");setPage(null);setMessage(null);setBody(null);setOnline(false)}
       })}>{t("Refresh Gmail labels")}</button>
-      <button type="button" onClick={()=>load(false)}>{t(label==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
-      <button type="button" disabled={!grant.read} onClick={()=>load(true)}>{t("Refresh from server")}</button>
+      <button className="ui-button" type="button" onClick={()=>load(false)}>{t(label==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
+      <button className="ui-button" type="button" disabled={!grant.read} onClick={()=>load(true)}>{t("Refresh from server")}</button>
       {page?<><p>{t(online?"Showing messages retrieved from the server.":"Showing messages saved on this device.")}</p>
         {!page.items.length&&<p>{t("No messages on this page.")}</p>}
-        <ul className="mail-inbox-list">{page.items.map(m=><li key={m.id}><button type="button" aria-pressed={message?.id===m.id} onClick={()=>select(m,online&&grant.read===true)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.from}</small></button></li>)}</ul>
-        {page.nextCursor&&<button type="button" onClick={()=>load(online,page.nextCursor)}>{t("Load older messages")}</button>}
+        <ul className="mail-inbox-list">{page.items.map(m=><li key={m.id}><button className="ui-button" type="button" aria-pressed={message?.id===m.id} onClick={()=>select(m,online&&grant.read===true)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.from}</small></button></li>)}</ul>
+        {page.nextCursor&&<button className="ui-button" type="button" onClick={()=>load(online,page.nextCursor)}>{t("Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {message&&<article aria-label={t("Selected message")}><h3 translate="no">{message.subject||t("No subject")}</h3><p translate="no">{message.from}</p>
         {body?<><MailBody text={body.plainText} html={body.html}/><MailAttachments key={message.id} items={body.attachments} invoke={invoke} message={{accountId:id,id:message.id}}/></>:!busy&&<p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
-        {!body&&<button type="button" disabled={!grant.read} onClick={()=>select(message,true)}>{t("Download message body")}</button>}
+        {!body&&<button className="ui-button" type="button" disabled={!grant.read} onClick={()=>select(message,true)}>{t("Download message body")}</button>}
       </article>}
     </fieldset>
     {notice&&<p role="status">{notice}</p>}

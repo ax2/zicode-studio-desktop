@@ -3,7 +3,7 @@
   gap: var(--space-6);
   max-width: var(--app-content-max-width);
   margin: 0 auto;
-  padding: var(--space-8);
+  padding: clamp(var(--space-4), 3vw, var(--space-8));
 }
 
 .automation-workspace-overview {
@@ -285,4 +285,10 @@
     grid-template-columns: 1fr;
     align-items: start;
   }
+}
+
+.automation-header {
+  border-block-end: 1px solid var(--border);
+  padding-block-end: var(--space-4);
+  align-items: baseline;
 }

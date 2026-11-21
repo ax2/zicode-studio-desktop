@@ -1,13 +1,18 @@
-.mail-local{max-width:60rem;margin:auto;padding:1rem;overflow:auto;height:100%;box-sizing:border-box;color:var(--text);overflow-wrap:anywhere}
-.mail-local fieldset{min-inline-size:0;margin:.65rem 0;padding:.7rem;border:1px solid var(--border)}
-.mail-local label{display:grid;gap:.2rem;margin:.35rem 0;min-width:0}
-.mail-local input,.mail-local textarea,.mail-local select{box-sizing:border-box;width:100%;min-width:0;color:inherit;background:var(--panel);font:inherit}
-.mail-local button{margin:.2rem;max-width:100%;overflow-wrap:anywhere}
-.mail-local form,.mail-list{display:flex;flex-wrap:wrap;gap:.4rem;align-items:end}
+.mail-local{max-width:var(--chat-content-max-width);margin-inline:auto;padding:clamp(var(--space-4),3vw,var(--space-8));overflow:auto;height:100%;box-sizing:border-box;color:var(--text-primary);overflow-wrap:anywhere}
+.mail-local fieldset{min-inline-size:0;margin:var(--space-5) 0;padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-glass)}
+.mail-local label{display:grid;gap:var(--space-1);margin:var(--space-1) 0;min-width:0}
+.mail-local input,.mail-local textarea,.mail-local select{box-sizing:border-box;width:100%;min-width:0;color:inherit;}
+.mail-local button{margin:var(--space-1);max-width:100%;overflow-wrap:anywhere}
+.mail-local form,.mail-list{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:end}
 .mail-local form label{flex:1 1 12rem}.mail-list{max-height:12rem;overflow:auto}
 .mail-inbox-list{list-style:none;padding:0;max-height:15rem;overflow:auto}.mail-inbox-list button{display:grid;gap:.2rem;width:100%;text-align:start}.mail-inbox-list small{opacity:.7}.mail-read-body{white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto;font:inherit}.mail-send-review{border-inline-start:2px solid currentColor;padding-inline-start:.75rem}.mail-send-review dd{margin-inline-start:0;overflow-wrap:anywhere}
 div.mail-read-body{white-space:normal}div.mail-read-body pre{white-space:pre-wrap}
 
 .mail-local .mail-inbox-list button{box-sizing:border-box;margin-inline:0}
-.mail-local label:has(>input[type=checkbox]){display:flex;align-items:center;gap:.4rem}
+.mail-local label:has(>input[type=checkbox]){display:flex;align-items:center;gap:var(--space-2)}
 .mail-local label>input[type=checkbox]{width:auto;flex:none}
+
+.mail-local > h2 { margin: 0; font-size: var(--font-size-2xl); }
+.mail-local > p { color: var(--text-secondary); }
+.mail-local legend { padding-inline: var(--space-2); font-size: var(--font-size-lg); font-weight: 600; }
+.mail-local .mail-inbox-list button { align-items: start; justify-items: start; }

@@ -766,8 +766,8 @@
 
 .notes-state-panel {
   width: min(var(--app-content-max-width), 100%);
-  margin: auto;
-  padding: var(--space-6);
+  margin: var(--space-5) auto;
+  padding: clamp(var(--space-4), 3vw, var(--space-6));
 }
 
 .notes-state-panel h1 {
