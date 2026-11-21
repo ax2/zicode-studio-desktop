@@ -305,3 +305,18 @@ fn bounds_and_validates_the_response() {
     );
     worker.join().unwrap();
 }
+
+#[tokio::test]
+async fn thumbnail_requests_use_only_image_capable_models_and_inline_png_content() {
+    let no_image=local_endpoint("http://127.0.0.1:1/v1",false);
+    let token=tokio_util::sync::CancellationToken::new();
+    assert_eq!(complete_thumbnail(&no_image,None,"aW1n".into(),token.clone()).await.unwrap_err(),"visual_assets_vision_model_required");
+    let (url,worker)=mock_server(vec![(200,json!({"choices":[]}).to_string(),String::new())]);
+    let endpoint=endpoint("local",&json!({"baseUrl":url,"api":"openai-completions","authHeader":false}),&json!({"id":"vision-model","input":["image","text"]})).unwrap();
+    complete_thumbnail(&endpoint,None,"aW1n".into(),token).await.unwrap();
+    let wire=worker.join().unwrap().pop().unwrap();
+    let (_,body)=wire.split_once("\r\n\r\n").unwrap();
+    let data:Value=serde_json::from_str(body).unwrap();
+    assert_eq!(data["messages"][0]["content"][1]["image_url"]["url"],"data:image/png;base64,aW1n");
+    assert_eq!(data["model"],"vision-model");
+}

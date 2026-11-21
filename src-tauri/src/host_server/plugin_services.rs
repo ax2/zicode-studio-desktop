@@ -179,6 +179,7 @@ mod tests {
     #[test]
     fn model_projection_hides_connection_and_credentials() {
         let choices = vec![crate::model_tools::ModelChoice {
+            supports_images:false,
             provider: "private-provider".into(),
             model: "private-model".into(),
             name: "Visible model".into(),
