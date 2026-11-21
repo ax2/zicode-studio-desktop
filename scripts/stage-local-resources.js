@@ -7,8 +7,11 @@ function digest(file) {
   const fd = fs.openSync(file, "r");
   const chunk = Buffer.allocUnsafe(256 * 1024);
   try {
-    let length;
-    while ((length = fs.readSync(fd, chunk)) > 0) hash.update(chunk.subarray(0, length));
+    for (;;) {
+      const length = fs.readSync(fd, chunk);
+      if (length === 0) break;
+      hash.update(chunk.subarray(0, length));
+    }
     return hash.digest("hex");
   } finally {
     fs.closeSync(fd);

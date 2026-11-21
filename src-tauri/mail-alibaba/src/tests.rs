@@ -147,7 +147,7 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace
             }
             if upper.starts_with("UID FETCH") && upper.contains("BODY.PEEK[") && !upper.contains("[HEADER]") {
                 let section=upper.split("BODY.PEEK[").nth(1).unwrap().split(']').next().unwrap();
-                let data=match section {"1.1"=>if archive {"T3RoZXI="} else {"5L2g5aW9"}.to_owned(),"1.2"=>"<p>HTML fixture</p>".to_owned(),"2"=>"AP8BAg==".to_owned(),"3"=>"Z".repeat(LARGE_ATTACHMENT),other=>panic!("Unexpected payload fetch {other}")};
+                let data=match section {"1.1"=>if archive {"T3RoZXI="} else {"5L2g5aW9"}.to_owned(),"1.2"=>"<p>HTML fixture</p>".to_owned(),"2"=>if archive {"QkJCQg=="} else {"AP8BAg=="}.to_owned(),"3"=>"Z".repeat(LARGE_ATTACHMENT),other=>panic!("Unexpected payload fetch {other}")};
                 emit(s,&format!("* 3 FETCH (UID {a} BODY[{section}]<0> {{{}}}\r\n{data})\r\n{tag} OK fetched\r\n",data.len()));
                 continue;
             }
@@ -195,6 +195,12 @@ fn same_uid_and_validity_have_independent_folder_bodies() {
     for (folder, expected) in [("Archive","Other"),("INBOX","你好")] {
         mail.select_folder(folder).unwrap();
         assert_eq!(mail.cached_body(7,30).unwrap().text,expected);
+        let attachment=mail.cached_body(7,30).unwrap().attachments.remove(0);
+        let f=fixture(false,false);
+        let bytes=f.adapter.attachment(mail.address(),"synthetic",mail.folder(),7,30,&attachment).unwrap();
+        f.thread.join().unwrap();
+        assert_eq!(bytes,if folder=="Archive" {[66,66,66,66]} else {[0,255,1,2]});
+
         let wrong = if folder == "INBOX" { Some("Archive".into()) } else { None };
         assert!(matches!(mail.cached_page(Some(Cursor {folder:wrong,uid_validity:7,before:30}),2), Err("mail_inbox_changed")));
     }

@@ -54,7 +54,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant}:{id:string
       operation.current="";setBusy("");
     });
     return()=>{epoch.current++;if(operation.current==="connect")void invoke({kind:"cancel",accountId:id}).catch(()=>{})};
-  },[id,invoke]);
+  },[id,invoke,setLabel]);
   async function run<T>(kind:string,task:()=>Promise<T>,apply:(result:T)=>void){
     if(operation.current)return;const gen=++epoch.current;operation.current=kind;setBusy(kind);setNotice("");
     try {const value=await task();if(epoch.current===gen)apply(value)}

@@ -23,18 +23,18 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
   const submitted = useRef(false);
   const previousLabel = useRef(label);
 
-  function clear() {
+  const clear=useCallback(()=>{
     submitted.current = false;
     ++generation.current;
     setBusy(false);
     setPage(null);
     setReading(null);
     setError(false);
-  }
+  },[]);
   useEffect(()=>{
     if(previousLabel.current!==label && labelOnly) clear();
     previousLabel.current=label;
-  },[label,labelOnly]);
+  },[label,labelOnly,clear]);
   const search = useCallback(async (start: number, clearedAccount?: string) => {
     submitted.current = true;
     const version = ++generation.current;
