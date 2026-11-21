@@ -317,11 +317,13 @@ describe("PluginViewHost", () => {
     window.dispatchEvent(afterDestroy);
     expect(afterDestroy.defaultPrevented).toBe(false);
   });
-  it("keeps old Views and undeclared capabilities on the application home", async () => {
-    const notify = vi.fn();
+  it("keeps old Views and undeclared capabilities on the application home with one notice", async () => {
+    const dismiss = vi.fn();
+    const notify = vi.fn(() => ({ dismiss }));
     const { host } = setup({ notify });
     expect(host.openTool({ ...PLUGIN, enabled: true }, "example.echo")).toBe(false);
     expect(host.openTool({ ...PLUGIN, enabled: true, toolOpenProfile: true }, "unknown")).toBe(false);
+    expect(dismiss).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledTimes(2);
     host.destroy();
   });
