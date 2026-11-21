@@ -15,6 +15,8 @@ pub struct AssetSummary {
     pub id: i64,
     pub name: String,
     pub digest: String,
+    #[serde(rename = "previewLabels", skip_serializing_if = "Vec::is_empty")]
+    pub preview_labels: Vec<String>,
     pub tags: Vec<String>,
     #[serde(rename = "collectionIds")]
     pub collection_ids: Vec<String>,
@@ -82,6 +84,9 @@ pub fn has_managed_schema(db: &Connection) -> rusqlite::Result<bool> {
     reference.execute_batch(SCHEMA)?;
     if super::creation_archive::schema_present(db)? {
         reference.execute_batch(super::creation_archive::SCHEMA)?;
+    }
+    if tags::local_preview::present(db)? {
+        reference.execute_batch(tags::local_preview::SCHEMA)?;
     }
     let actual = entries(db)?;
     if actual == entries(&reference)? {
@@ -166,6 +171,7 @@ pub fn listing(
     } else {
         page(db, after)?
     };
+    tags::local_preview::fill(db, &mut page)?;
     tags::fill_page(db, &mut page)?;
     collections::fill_page(db, &mut page)?;
     #[cfg(windows)]
@@ -184,6 +190,7 @@ pub(super) fn read_page(rows: &mut Rows<'_>) -> rusqlite::Result<Page> {
             id: row.get(0)?,
             name: row.get(1)?,
             digest: row.get(2)?,
+            preview_labels: Vec::new(),
             tags: Vec::new(),
             collection_ids: Vec::new(),
             referenced: false,

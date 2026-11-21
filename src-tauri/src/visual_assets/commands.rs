@@ -58,6 +58,15 @@ pub(crate) enum Request {
         scene_id: String,
         action: super::novel_draft_commands::Action,
     },
+    SetPreviewLabels {
+        #[serde(rename = "libraryId")]
+        library_id: String,
+        #[serde(rename = "assetId")]
+        asset_id: i64,
+        digest: String,
+        previous: Vec<String>,
+        labels: Vec<String>,
+    },
     SetTags {
         #[serde(rename = "libraryId")]
         library_id: String,
@@ -153,8 +162,14 @@ pub(crate) async fn visual_assets_control(
         }
     }
     #[cfg(windows)]
-    if let Request::Creation { library_id, scene_id, action } = request {
-        return super::creation_commands::handle(window, context, scene_id, library_id, action).await;
+    if let Request::Creation {
+        library_id,
+        scene_id,
+        action,
+    } = request
+    {
+        return super::creation_commands::handle(window, context, scene_id, library_id, action)
+            .await;
     }
     #[cfg(windows)]
     if let Request::Generation { library_id, action } = request {
@@ -469,6 +484,19 @@ pub(crate) async fn visual_assets_control(
                 }
                 let id = collections::apply(&tx, edit)?;
                 json!({"id": id})
+            }
+            Request::SetPreviewLabels {
+                library_id: expected,
+                asset_id,
+                digest,
+                previous,
+                labels,
+            } => {
+                if library_id != expected {
+                    return Err("visual_assets_library_changed".into());
+                }
+                super::tags::local_preview::replace(&tx, asset_id, &digest, previous, labels)?;
+                json!({})
             }
             Request::SetTags {
                 library_id: expected_library,

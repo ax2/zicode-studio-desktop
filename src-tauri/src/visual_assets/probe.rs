@@ -23,12 +23,6 @@ mod backup_destination;
 mod backup_jobs;
 #[path = "catalog.rs"]
 mod catalog;
-#[path = "creation_types.rs"]
-#[allow(dead_code)]
-mod creation_types;
-#[path = "creation_archive.rs"]
-#[allow(dead_code)]
-mod creation_archive;
 #[path = "character_commands.rs"]
 mod character_commands;
 #[path = "characters.rs"]
@@ -37,6 +31,12 @@ mod characters;
 mod collections;
 #[path = "comfyui.rs"]
 mod comfyui;
+#[path = "creation_archive.rs"]
+#[allow(dead_code)]
+mod creation_archive;
+#[path = "creation_types.rs"]
+#[allow(dead_code)]
+mod creation_types;
 #[path = "duplicates.rs"]
 mod duplicates;
 #[path = "generation_attempts.rs"]
@@ -409,6 +409,17 @@ pub fn run() -> Result<()> {
             }
             let page = catalog::listing(&tx, after, query, tag, None, false)?;
             println!("{}", serde_json::to_string(&page)?);
+            tx.commit()?;
+        }
+        (Some("preview-labels"), [asset, digest, previous, labels]) => {
+            let asset = asset.to_str().ok_or("invalid id")?.parse()?;
+            tags::local_preview::replace(
+                &tx,
+                asset,
+                digest.to_str().ok_or("invalid digest")?,
+                serde_json::from_str(previous.to_str().ok_or("invalid labels")?)?,
+                serde_json::from_str(labels.to_str().ok_or("invalid labels")?)?,
+            )?;
             tx.commit()?;
         }
         (Some("tag"), [asset, labels @ ..]) => {
