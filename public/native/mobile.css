@@ -166,6 +166,10 @@
     opacity: 0.82;
   }
 
+  .plugin-activity-tooltip .plugin-activity-shortcut {
+    display: none;
+  }
+
   .plugin-activity-button.active .plugin-activity-tooltip {
     opacity: 1;
   }
