@@ -88,6 +88,9 @@ mod snapshot;
 #[cfg(windows)]
 mod snapshot_references;
 mod tags;
+mod semantic_search;
+#[cfg(windows)]
+mod semantic_model;
 pub(crate) use commands::visual_assets_control;
 
 pub(crate) fn manifest() -> serde_json::Value {
@@ -100,7 +103,7 @@ pub(crate) fn manifest() -> serde_json::Value {
             "activities": [{"id": "visual-assets", "title": "Visual assets", "order": 125}],
             "views": [{"id": "visual-assets.library", "activity": "visual-assets", "location": "main", "title": "Visual assets"}]
         },
-        "permissions": {"required": [], "optional": []}
+        "permissions": {"required": [], "optional": [{"name":"network.fetch","reason":"Send a reviewed search phrase to the selected model"}]}
     })
 }
 

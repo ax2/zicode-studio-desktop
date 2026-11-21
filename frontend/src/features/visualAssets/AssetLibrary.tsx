@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { t } from "../../shared/i18n";
+import { SemanticSearch } from "./SemanticSearch";
 import { PreviewLabels } from "./PreviewLabels";
 import { AssetTags } from "./AssetTags";
 import { BackupPanel } from "./BackupPanel";
@@ -248,6 +249,8 @@ export function AssetLibrary({
         </button>
       </header>
       <p>{t("Managed originals remain in your local visual library.")}</p>
+      {sceneId && listing && <SemanticSearch key={sceneId+listing.libraryId}
+        invoke={invoke} sceneId={sceneId} workspaceId={workspaceId} libraryId={listing.libraryId} />}
       <form
         className="ui-toolbar"
         aria-label={t("Search image filenames")}

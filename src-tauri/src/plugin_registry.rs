@@ -3144,6 +3144,8 @@ mod tests {
             .find(|plugin| plugin.manifest.id == "com.zicode.visual-assets")
             .expect("visual assets registered");
         assert!(visual.enabled);
+        assert!(visual.manifest.permissions.optional.iter().any(|p|p.name=="network.fetch"));
+
         assert!(registry.set_enabled("programming", "com.zicode.visual-assets", false).is_err());
         let browser = registry.list("programming").into_iter()
             .find(|plugin| plugin.manifest.id == "com.zicode.browser").expect("browser registered");
