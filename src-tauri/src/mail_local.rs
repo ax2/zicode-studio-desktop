@@ -11,7 +11,7 @@ pub(crate) enum Request {
     Accounts,
     PickAttachment { account: String, id: String, revision: i64 },
     RemoveAttachment { account: String, id: String, revision: i64, attachment: String },
-    Search { account: Option<String>, query: String, offset: u32 },
+    Search { account: Option<String>, label: Option<String>, query: String, offset: u32 },
     Add {
         provider: String,
         address: String,
@@ -120,7 +120,7 @@ fn operate(file: &Path, scope: &str, req: Request) -> Result<Value, String> {
             tx.commit().map_err(|_| "mail_storage")?;
             Ok(json!({"changed":true,"revision":revision+1}))
         }
-        Request::Search { account, query, offset } => search_cache(&db, scope, account.as_deref(), &query, offset),
+        Request::Search { account, label, query, offset } => search_cache(&mut db, scope, account.as_deref(), label.as_deref(), &query, offset),
         Request::Accounts => {
             let mut q=db.prepare("SELECT id,provider,address FROM accounts WHERE scope=? ORDER BY address,provider").map_err(|_|"mail_storage")?;
             let rows=q.query_map([scope],|r| Ok(json!({"id":r.get::<_,String>(0)?,"provider":r.get::<_,String>(1)?,"address":r.get::<_,String>(2)?}))).map_err(|_|"mail_storage")?.collect::<Result<Vec<_>,_>>().map_err(|_|"mail_storage")?;
@@ -210,9 +210,9 @@ fn operate(file: &Path, scope: &str, req: Request) -> Result<Value, String> {
     }
 }
 
-fn search_cache(db: &Connection, scope: &str, account: Option<&str>, query: &str, offset: u32) -> Result<Value, String> {
+fn search_cache(db: &mut Connection, scope: &str, account: Option<&str>, label: Option<&str>, query: &str, offset: u32) -> Result<Value, String> {
     let query = query.trim();
-    if query.is_empty() || query.len() > 512 {
+    if label.is_some() && account.is_none() || query.is_empty() || query.len() > 512 {
         return Err("mail_invalid".into());
     }
     let mut sources = Vec::new();
@@ -221,18 +221,21 @@ fn search_cache(db: &Connection, scope: &str, account: Option<&str>, query: &str
         ("alibaba_inbox", include_str!("mail_search_alibaba.sql")),
     ] {
         let present: bool = db.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)", [table], |row| row.get(0)).map_err(|_| "mail_storage")?;
-        if present { sources.push(sql); }
+        if present {
+            if table == "alibaba_inbox" { studio_alibaba_mail::initialize_cache(db)?; }
+            sources.push(sql);
+        }
     }
     if sources.is_empty() {
         return Ok(json!({"items": [], "more": false}));
     }
-    let sql = format!("SELECT account, address, provider, id, epoch, subject, sender FROM ({}) ORDER BY address, account, id, epoch LIMIT 41 OFFSET ?4", sources.join(" UNION ALL "));
+    let sql = format!("SELECT account, address, provider, id, epoch, subject, sender, folder FROM ({}) ORDER BY address, account, folder, id, epoch LIMIT 41 OFFSET ?4", sources.join(" UNION ALL "));
     let mut statement = db.prepare(&sql).map_err(|_| "mail_storage")?;
-    let mut items = statement.query_map(params![scope, account, query, offset], |r| Ok(json!({
+    let mut items = statement.query_map(params![scope, account, query, offset, label], |r| Ok(json!({
         "account": r.get::<_, String>(0)?, "address": r.get::<_, String>(1)?,
         "provider": r.get::<_, String>(2)?, "id": r.get::<_, String>(3)?,
         "epoch": r.get::<_, Option<u32>>(4)?, "subject": r.get::<_, String>(5)?,
-        "sender": r.get::<_, String>(6)?,
+        "sender": r.get::<_, String>(6)?, "folder": r.get::<_, Option<String>>(7)?,
     }))).map_err(|_| "mail_storage")?.collect::<Result<Vec<_>,_>>().map_err(|_| "mail_storage")?;
     let more = items.len() > 40;
     items.truncate(40);
@@ -250,7 +253,7 @@ mod tests {
         operate(&file, "main", Request::Accounts).unwrap();
         let search = |scope: &str, account: Option<&str>, query: &str| {
             operate(&file, scope, Request::Search {
-                account: account.map(str::to_owned), query: query.into(), offset: 0
+                account: account.map(str::to_owned), label: None, query: query.into(), offset: 0
             }).unwrap()["items"].as_array().unwrap().clone()
         };
         assert!(search("main", None, "%_").is_empty());
@@ -272,6 +275,25 @@ mod tests {
         assert!(search("main", None, "private").is_empty());
         assert!(search("main", None, "stale").is_empty());
         assert!(search("other", Some("a"), "same").is_empty());
+        Connection::open(&file).unwrap().execute(
+            "INSERT INTO gmail_cache VALUES ('main','b','page','label:Label_42:20:',?1)",
+            [json!({"items":[{"id":"42","subject":"invoice"}]}).to_string()],
+        ).unwrap();
+        let in_label = |account: &str, label: &str| operate(&file, "main", Request::Search {
+            account: Some(account.into()), label: Some(label.into()), query: "中文".into(), offset: 0,
+        }).unwrap()["items"].as_array().unwrap().clone();
+        assert_eq!(in_label("b", "Label_42")[0]["id"], "42");
+        assert_eq!(in_label("b", "INBOX").len(), 1);
+        assert!(in_label("b", "Label_4").is_empty());
+        assert!(in_label("a", "Label_42").is_empty());
+        let db = Connection::open(&file).unwrap();
+        db.execute_batch("INSERT INTO alibaba_epoch(scope,account,folder,epoch) VALUES ('main','a','Archive',7);
+            INSERT INTO alibaba_inbox(scope,account,folder,epoch,uid,meta,body)
+              SELECT scope,account,'Archive',epoch,uid,meta,body FROM alibaba_inbox WHERE folder='INBOX' AND epoch=7;").unwrap();
+        drop(db);
+        assert_eq!(in_label("a","Archive")[0]["folder"], "Archive");
+        assert_eq!(in_label("a","INBOX")[0]["folder"], "INBOX");
+        assert_eq!(search("main",Some("a"),"中文").len(), 2);
         std::fs::remove_file(file).unwrap();
         std::fs::remove_dir(temp).unwrap();
     }

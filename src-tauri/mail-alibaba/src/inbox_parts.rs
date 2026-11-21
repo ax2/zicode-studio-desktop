@@ -82,9 +82,9 @@ fn fetch_part(session:&mut imap::Session<Bounded>, uid:u32, part:&Part)->Result<
 }
 
 impl Alibaba {
-    pub(crate) fn letter(&self,address:&str,password:&str,validity:u32,uid:u32)->Result<Letter>{
+    pub(crate) fn letter(&self,address:&str,password:&str,folder:&str,validity:u32,uid:u32)->Result<Letter>{
         if uid==0 || validity==0{return Err("mail_invalid_uid");}
-        let (mut session,epoch,_)=self.inbox(address,password)?;
+        let (mut session,epoch,_)=self.inbox(address,password,folder)?;
         if epoch!=validity{return Err("mail_inbox_changed");}
         let (summary,parts)=structure(&mut session,uid)?;
         let mut text=None;let mut html=None;let mut html_as_text=None;
@@ -106,9 +106,9 @@ impl Alibaba {
         }
         Ok(Letter{summary,text:text.or(html_as_text).unwrap_or_default(),html,attachments,body_limited})
     }
-    pub fn attachment(&self,address:&str,password:&str,validity:u32,uid:u32,expected:&Attachment)->Result<Vec<u8>>{
+    pub fn attachment(&self,address:&str,password:&str,folder:&str,validity:u32,uid:u32,expected:&Attachment)->Result<Vec<u8>>{
         if uid==0 || validity==0{return Err("mail_invalid_uid");}
-        let (mut session,epoch,_)=self.inbox_with_limit(address,password,MAX_ENCODED+2*1024*1024)?;
+        let (mut session,epoch,_)=self.inbox_with_limit(address,password,folder,MAX_ENCODED+2*1024*1024)?;
         if epoch!=validity{return Err("mail_inbox_changed");}
         let (_,parts)=structure(&mut session,uid)?;
         let part=parts.iter().filter(|p|p.name.is_some()).nth(expected.id).ok_or("mail_attachment_missing")?;

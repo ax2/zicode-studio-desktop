@@ -2,7 +2,7 @@ use super::{api, oauth::Result};
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension, TransactionBehavior};
 use serde_json::Value;
 use std::path::Path;
-fn db(p: &Path) -> Result<Connection> {
+pub(super) fn db(p: &Path) -> Result<Connection> {
     let db = Connection::open_with_flags(
         p,
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,

@@ -5,6 +5,21 @@ import { setLocale } from "../../shared/i18n";
 import type { Invoke } from "./index";
 
 afterEach(cleanup);
+it("limits offline searches to the selected label and retains the query when switching labels",async()=>{
+  setLocale("en");
+  const accounts=[{id:"a",address:"first@example.test",provider:"gmail"}];
+  const local=vi.fn(async()=>({items:[],more:false}));
+  const view=(label:string)=><CachedMailSearch accounts={accounts} current="a" label={label} invoke={local as Invoke}/>;
+  const rendered=render(view("Label_42"));
+  fireEvent.click(screen.getByLabelText("Search only the selected Gmail label"));
+  fireEvent.change(screen.getByLabelText("Search cached mail"),{target:{value:"invoice"}});
+  fireEvent.click(screen.getByRole("button",{name:"Search"}));
+  await screen.findByText("No matching cached messages.");
+  expect(local).toHaveBeenCalledWith({kind:"search",account:"a",label:"Label_42",query:"invoice",offset:0});
+  rendered.rerender(view("INBOX"));
+  expect(screen.queryByText("No matching cached messages.")).toBeNull();
+  expect(screen.getByDisplayValue("invoice")).toBeTruthy();
+});
 it("opens an identically numbered result through its owning account without requesting mail from a server", async () => {
   setLocale("en");
   const accounts = [
@@ -32,7 +47,7 @@ it("opens an identically numbered result through its owning account without requ
   expect(screen.queryByText("Alibaba offline fixture")).toBeNull();
 });
 
-it("immediately removes the cleared account, refreshes the retained results and rejects a late body",async()=>{
+it.each(["studio-mail-cache-cleared","studio-mail-cache-updated"])("refreshes changed account results and rejects a late body after %s",async(event)=>{
   setLocale("en");
   const accounts=[{id:"a",address:"first@example.test",provider:"gmail"},{id:"b",address:"second@example.test",provider:"gmail"}];
   const items=accounts.map(a=>({account:a.id,address:a.address,provider:"gmail",id:"42",epoch:null,subject:a.address,sender:"synthetic"}));
@@ -44,7 +59,7 @@ it("immediately removes the cleared account, refreshes the retained results and 
   fireEvent.change(screen.getByLabelText("Search cached mail"),{target:{value:"fixture"}});
   fireEvent.click(screen.getByRole("button",{name:"Search"}));
   fireEvent.click(await screen.findByRole("button",{name:/first@example/}));
-  await act(async()=>window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:"a"})));
+  await act(async()=>window.dispatchEvent(new CustomEvent(event,{detail:"a"})));
   expect(screen.queryByRole("button",{name:/first@example/})).toBeNull();
   expect(screen.queryByRole("button",{name:/second@example/})).toBeTruthy();
   await act(async()=>finish({plainText:"stale content"}));

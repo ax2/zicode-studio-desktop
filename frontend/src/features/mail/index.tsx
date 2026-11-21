@@ -31,6 +31,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   const [passwordOwner,setPasswordOwner]=useState("");
   const [mailBusy,setMailBusy]=useState(false);
   const owner=accounts.find(a=>a.id===account);
+  const [label,setLabel]=useState("INBOX");
   const [gmailSendOwner,setGmailSendOwner]=useState("");
   const gmail=owner?.provider==="gmail"&&gmailTransport;
   const alibaba=owner?.provider==="alibaba"&&transport;
@@ -45,7 +46,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   }
   async function load(id:string){
     const rows=id?await invoke<Draft[]>({kind:"drafts",account:id}):[];
-    if(id!==account){setPasswordOwner("");setGmailSendOwner("")};setMailBusy(false);setAccount(id);setDrafts(rows);setEdit(blank());setDirty(false);
+    if(id!==account){setLabel("INBOX");setPasswordOwner("");setGmailSendOwner("")};setMailBusy(false);setAccount(id);setDrafts(rows);setEdit(blank());setDirty(false);
   }
   useEffect(()=>{let live=true;lock.current=true;setBusy(true);void (async()=>{
     try{const rows=await invoke<Account[]>({kind:"accounts"});const id=rows[0]?.id??"";
@@ -81,9 +82,9 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     })}}><label>{t("Mail provider")}<select value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
     <label>{t("Email address")}<input required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button type="submit">{t("Add local account")}</button></form></fieldset>
-    {account&&<CachedMailSearch key={"search-"+account} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport}/>}
-    {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}/>}
-    {alibaba&&<AlibabaInbox key={account} id={account} invoke={alibaba} discard={discard} onBusy={setMailBusy}
+    {account&&<CachedMailSearch key={"search-"+account} label={gmail||alibaba?label:undefined} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport}/>}
+    {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}/>}
+    {alibaba&&<AlibabaInbox key={account} id={account} folder={label} setFolder={setLabel} invoke={alibaba} discard={discard} onBusy={setMailBusy}
       onConfigured={v=>setPasswordOwner(v?account:"")} onReply={d=>{setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);setEdit(d);setDirty(false);requestAnimationFrame(()=>document.getElementById("studio-mail-compose-body")?.focus())}}/>}
     {account&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
     <div className="mail-list"><button type="button" onClick={()=>void run(async()=>{if(await discard()){setEdit(blank());setDirty(false)}})}>{t("New draft")}</button>

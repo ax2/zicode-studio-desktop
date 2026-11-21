@@ -3,7 +3,7 @@ import { t } from "../../shared/i18n";
 import type { Invoke } from "./index";
 
 export type Attachment = { id: number; name: string; size: number };
-type MessageRef = {accountId: string; id: string} | {accountId: string; uidValidity: number; uid: number};
+type MessageRef = {accountId: string; id: string} | {accountId: string; folder?:string; uidValidity: number; uid: number};
 
 export function MailAttachments({ items, invoke, message }: { items?: Attachment[]; invoke?: Invoke; message: MessageRef }) {
   const lock = useRef(false);

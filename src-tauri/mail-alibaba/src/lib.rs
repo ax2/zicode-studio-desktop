@@ -5,8 +5,8 @@ mod outbox;
 pub use outbox::{compose_attached, draft_attachments};
 pub const DRAFT_ATTACHMENT_SCHEMA: &str = include_str!("draft_attachments.sql");
 
-pub use inbox::{Attachment, Cursor, Letter, Page, Summary};
-pub use journal::{Account, Mailbox, StoredDraft};
+pub use inbox::{Attachment, Cursor, Folder, Letter, Page, Summary};
+pub use journal::{initialize_cache, Account, Mailbox, StoredDraft};
 use std::time::Duration;
 
 pub type Result<T> = std::result::Result<T, &'static str>;

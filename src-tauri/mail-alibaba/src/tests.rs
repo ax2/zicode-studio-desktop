@@ -19,6 +19,9 @@ fn fixture(smtp: bool, drop_final: bool) -> Fixture {
     sized_fixture(smtp, drop_final, 3, 10)
 }
 fn sized_fixture(smtp: bool, drop_final: bool, count: u32, stride: u32) -> Fixture {
+    fixture_with_search(smtp,drop_final,count,stride,false)
+}
+fn fixture_with_search(smtp: bool, drop_final: bool, count:u32, stride:u32, reject_search:bool) -> Fixture {
     let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
     ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
@@ -69,7 +72,7 @@ fn sized_fixture(smtp: bool, drop_final: bool, count: u32, stride: u32) -> Fixtu
         if smtp {
             serve_smtp(&mut s, drop_final, tx)
         } else {
-            serve_imap(&mut s, count, stride, tx)
+            serve_imap(&mut s, count, stride, reject_search, tx)
         }
     });
     Fixture {
@@ -90,7 +93,8 @@ fn emit(s: &mut Server, text: &str) {
     stream.write_all(text.as_bytes()).unwrap();
     stream.flush().unwrap();
 }
-fn serve_imap(s: &mut Server, count: u32, stride: u32, trace: std::sync::mpsc::Sender<String>) {
+fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace: std::sync::mpsc::Sender<String>) {
+    let mut archive = false;
     emit(s, "* OK local synthetic IMAP\r\n");
     loop {
         let command = line(s);
@@ -102,8 +106,28 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, trace: std::sync::mpsc::S
         if upper.starts_with("LOGIN ") {
             assert!(cmd.contains("synthetic"));
             emit(s, &format!("{tag} OK authenticated\r\n"));
+        } else if upper.starts_with("LIST ") {
+            trace.send(upper.clone()).unwrap();
+            emit(s, &format!("* LIST () \"/\" inbox\r\n* LIST (\\Noselect) \"/\" Parent\r\n* LIST () \"/\" \"Parent/&bUuL1Q- &- Notes\"\r\n{tag} OK folders\r\n"));
+        } else if upper == "LOGOUT" {
+            emit(s, &format!("* BYE\r\n{tag} OK logout\r\n"));
+            break;
         } else if upper.starts_with("EXAMINE ") {
+            archive = upper.contains("ARCHIVE");
             emit(s,&format!("* {count} EXISTS\r\n* OK [UIDVALIDITY 7] stable\r\n{tag} OK [READ-ONLY] examined\r\n"));
+        } else if let Some(probe) = upper.strip_prefix("UID SEARCH UID ") {
+            trace.send(upper.clone()).unwrap();
+            if reject_search {
+                emit(s,&format!("{tag} NO temporarily unavailable\r\n"));
+                continue;
+            }
+            let mut response = String::from("* SEARCH");
+            for uid in probe.split(',').map(|v| v.parse::<u32>().unwrap()) {
+                if uid > 0 && uid.is_multiple_of(stride) && uid / stride <= count {
+                    response.push_str(&format!(" {uid}"));
+                }
+            }
+            emit(s,&format!("{response}\r\n{tag} OK searched\r\n"));
         } else if upper.starts_with("FETCH ") || upper.starts_with("UID FETCH ") {
             trace.send(upper.clone()).unwrap();
             let is_uid = upper.starts_with("UID ");
@@ -123,7 +147,7 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, trace: std::sync::mpsc::S
             }
             if upper.starts_with("UID FETCH") && upper.contains("BODY.PEEK[") && !upper.contains("[HEADER]") {
                 let section=upper.split("BODY.PEEK[").nth(1).unwrap().split(']').next().unwrap();
-                let data=match section {"1.1"=>"5L2g5aW9".to_owned(),"1.2"=>"<p>HTML fixture</p>".to_owned(),"2"=>"AP8BAg==".to_owned(),"3"=>"Z".repeat(LARGE_ATTACHMENT),other=>panic!("Unexpected payload fetch {other}")};
+                let data=match section {"1.1"=>if archive {"T3RoZXI="} else {"5L2g5aW9"}.to_owned(),"1.2"=>"<p>HTML fixture</p>".to_owned(),"2"=>if archive {"QkJCQg=="} else {"AP8BAg=="}.to_owned(),"3"=>"Z".repeat(LARGE_ATTACHMENT),other=>panic!("Unexpected payload fetch {other}")};
                 emit(s,&format!("* 3 FETCH (UID {a} BODY[{section}]<0> {{{}}}\r\n{data})\r\n{tag} OK fetched\r\n",data.len()));
                 continue;
             }
@@ -156,6 +180,125 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, trace: std::sync::mpsc::S
     }
 }
 #[test]
+fn same_uid_and_validity_have_independent_folder_bodies() {
+    let mut db = database();
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    for (folder, expected) in [("INBOX","你好"), ("Archive","Other")] {
+        mail.select_folder(folder).unwrap();
+        let f = fixture(false,false);
+        mail.sync(&f.adapter,"synthetic",None,2).unwrap();
+        f.thread.join().unwrap();
+        let f = fixture(false,false);
+        assert_eq!(mail.read(&f.adapter,"synthetic",7,30).unwrap().text,expected);
+        f.thread.join().unwrap();
+    }
+    for (folder, expected) in [("Archive","Other"),("INBOX","你好")] {
+        mail.select_folder(folder).unwrap();
+        assert_eq!(mail.cached_body(7,30).unwrap().text,expected);
+        let attachment=mail.cached_body(7,30).unwrap().attachments.remove(0);
+        let f=fixture(false,false);
+        let bytes=f.adapter.attachment(mail.address(),"synthetic",mail.folder(),7,30,&attachment).unwrap();
+        f.thread.join().unwrap();
+        assert_eq!(bytes,if folder=="Archive" {[66,66,66,66]} else {[0,255,1,2]});
+
+        let wrong = if folder == "INBOX" { Some("Archive".into()) } else { None };
+        assert!(matches!(mail.cached_page(Some(Cursor {folder:wrong,uid_validity:7,before:30}),2), Err("mail_inbox_changed")));
+    }
+}
+#[test]
+fn folders_survive_restart_decode_names_and_clear_with_the_account() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mail = Mailbox::open(&mut db, "one", "a").unwrap();
+        assert!(mail.cached_folders().unwrap().is_empty());
+        let f = fixture(false, false);
+        let list = mail.folders(&f.adapter, "synthetic").unwrap();
+        f.thread.join().unwrap();
+        assert_eq!(f.rx.try_iter().count(), 1);
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].id, "INBOX");
+        assert_eq!(list[1].id, "Parent/&bUuL1Q- &- Notes");
+        assert_eq!(list[1].name, "Parent/测试 & Notes");
+    }
+    let mut db = Connection::open(path).unwrap();
+    let mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    assert_eq!(mail.cached_folders().unwrap().len(), 2);
+    let mut second = Connection::open(temp.path().join("mail.sqlite3")).unwrap();
+    Mailbox::open(&mut second, "one", "a").unwrap().clear_cache().unwrap();
+    let f = fixture(false, false);
+    assert!(matches!(mail.folders(&f.adapter, "synthetic"), Err("mail_cache_changed")));
+    f.thread.join().unwrap();
+    assert!(mail.cached_folders().unwrap().is_empty());
+}
+#[test]
+fn burst_of_new_mail_resumes_after_database_reopen_without_fetching_uncached_history() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mail = Mailbox::open(&mut db,"one","a").unwrap();
+        let f = sized_fixture(false,false,5,10);
+        assert!(!mail.sync(&f.adapter,"synthetic",None,2).unwrap().pending);
+        f.thread.join().unwrap();
+        let f = sized_fixture(false,false,12,10);
+        let latest = mail.sync(&f.adapter,"synthetic",None,2).unwrap();
+        f.thread.join().unwrap();
+        assert!(latest.pending);
+        assert_eq!(latest.messages.iter().map(|m|m.uid).collect::<Vec<_>>(),[120,110]);
+        let f = sized_fixture(false,false,12,10);
+        assert!(mail.catch_up(&f.adapter,"synthetic",2).unwrap());
+        f.thread.join().unwrap();
+    }
+    let mut db = Connection::open(&path).unwrap();
+    let mut mail = Mailbox::open(&mut db,"one","a").unwrap();
+    // More mail arrived while the program was closed. A new refresh adds the
+    // second interval and must retain the saved position in the first one.
+    let f = sized_fixture(false,false,16,10);
+    assert!(mail.sync(&f.adapter,"synthetic",None,2).unwrap().pending);
+    f.thread.join().unwrap();
+    for expect_pending in [true,true,true,false] {
+        let f = sized_fixture(false,false,16,10);
+        assert_eq!(mail.catch_up(&f.adapter,"synthetic",2).unwrap(),expect_pending);
+        f.thread.join().unwrap();
+    }
+    let ids:Vec<_> = mail.cached_page(None,40).unwrap().messages.iter().map(|m|m.uid).collect();
+    assert_eq!(ids,[160,150,140,130,120,110,100,90,80,70,60,50,40]);
+}
+#[test]
+fn refresh_reconciles_removed_old_uids_without_fetching_old_headers() {
+    let mut db = database();
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    // Initially cache 10,20,30,40, including the body of 30.
+    let f = sized_fixture(false,false,4,10);
+    mail.sync(&f.adapter,"synthetic",None,4).unwrap();
+    f.thread.join().unwrap();
+    let f = fixture(false,false);
+    mail.read(&f.adapter,"synthetic",7,30).unwrap();
+    f.thread.join().unwrap();
+    // New mailbox contains 20,40,60,80. Refreshing just two headers must
+    // preserve surviving older UIDs and evict old cached bodies for 10 and 30.
+    let failed = fixture_with_search(false,false,4,20,true);
+    assert!(matches!(mail.sync(&failed.adapter,"synthetic",None,2), Err("mail_list_failed")));
+    failed.thread.join().unwrap();
+    assert_eq!(mail.cached_page(None,8).unwrap().messages[0].uid,40);
+    assert!(mail.cached_body(7,30).is_ok());
+    for _ in 0..2 {
+        let f = sized_fixture(false,false,4,20);
+        mail.sync(&f.adapter,"synthetic",None,2).unwrap();
+        f.thread.join().unwrap();
+        let commands: Vec<_> = f.rx.try_iter().collect();
+        assert_eq!(commands.iter().filter(|c| c.contains("HEADER")).count(), 1);
+        assert!(commands.iter().any(|c| c.starts_with("UID SEARCH UID ")));
+        let ids: Vec<_> = mail.cached_page(None,8).unwrap().messages.iter().map(|m|m.uid).collect();
+        assert_eq!(ids,[80,60,40,20]);
+        assert!(matches!(mail.cached_body(7,30), Err("mail_cache_empty")));
+    }
+}
+#[test]
 fn million_sparse_uids_use_one_header_window_and_bounded_cursor_probes() {
     let mut db = database();
     let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
@@ -178,6 +321,7 @@ fn million_sparse_uids_use_one_header_window_and_bounded_cursor_probes() {
             &f.adapter,
             "synthetic",
             Some(Cursor {
+                folder: None,
                 uid_validity: 7,
                 before: 2_000_000_001,
             }),
@@ -280,7 +424,7 @@ fn tls_imap_local_pagination_cache_and_identity() {
     assert!(read_commands.iter().all(|q|!q.contains("BODY.PEEK[2]") && !q.contains("BODY.PEEK[3]") && !q.contains("BODY.PEEK[]")));
     assert_eq!(l.attachments[1].size,LARGE_ATTACHMENT);
     let large=fixture(false,false);
-    let bytes=large.adapter.attachment(mail.address(),"synthetic",7,30,&l.attachments[1]).unwrap();
+    let bytes=large.adapter.attachment(mail.address(),"synthetic","INBOX",7,30,&l.attachments[1]).unwrap();
     large.thread.join().unwrap();
     assert_eq!(bytes.len(),LARGE_ATTACHMENT);
     assert!(bytes.iter().all(|b|*b==b'Z'));
@@ -290,13 +434,14 @@ fn tls_imap_local_pagination_cache_and_identity() {
     let item=&l.attachments[0];
     assert_eq!((&item.name,item.size),(&"proof.bin".to_owned(),8));
     let f=fixture(false,false);
-    assert_eq!(f.adapter.attachment(mail.address(),"synthetic",7,30,item).unwrap(),[0,255,1,2]);
+    assert_eq!(f.adapter.attachment(mail.address(),"synthetic","INBOX",7,30,item).unwrap(),[0,255,1,2]);
     f.thread.join().unwrap();
     assert!(matches!(
         mail.sync(
             &Alibaba::default(),
             "synthetic",
             Some(Cursor {
+                folder: None,
                 uid_validity: 3,
                 before: 10
             }),
@@ -432,8 +577,8 @@ fn disconnect_cache_rejects_stale_sync_and_preserves_drafts_and_journal() {
     seed(&db);
     let mut old = Mailbox::open(&mut db, "one", "a").unwrap();
     let mut other = Connection::open(&file).unwrap();
-    other.execute_batch("INSERT INTO alibaba_epoch VALUES ('one','a',2),('two','b',2);
-        INSERT INTO alibaba_inbox VALUES ('one','a',2,42,'{}','selected'),('two','b',2,42,'{}','other');
+    other.execute_batch("INSERT INTO alibaba_epoch(scope,account,epoch,folder) VALUES ('one','a',2,'INBOX'),('two','b',2,'INBOX');
+        INSERT INTO alibaba_inbox(scope,account,epoch,uid,meta,body,folder) VALUES ('one','a',2,42,'{}','selected','INBOX'),('two','b',2,42,'{}','other','INBOX');
         INSERT INTO alibaba_send VALUES ('one','a','d',1,'unknown');").unwrap();
     Mailbox::open(&mut other, "one", "a")
         .unwrap()

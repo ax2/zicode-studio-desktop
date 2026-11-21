@@ -10,11 +10,12 @@ const root = path.resolve("shell-release-fixture");
 const target = path.join(root, "target");
 
 function invoke(args, { platform = "win32", shellStatus = 0 } = {}) {
+  const stageLocalResources = vi.fn(() => 1);
   const spawn = vi.fn(() => ({ status: shellStatus }));
   const files = { mkdirSync: vi.fn(), copyFileSync: vi.fn(),
     readFileSync: vi.fn(() => JSON.stringify({ build: {
       beforeBuildCommand: "bun run fetch:webview2 && bun run build:react",
-    } })) };
+    }, bundle: { resources: { "../public": "public" } } })) };
   let exit;
   const stopped = {};
   try {
@@ -25,7 +26,8 @@ function invoke(args, { platform = "win32", shellStatus = 0 } = {}) {
         if (name === "node:fs") return files;
         if (name === "node:child_process") return { spawnSync: spawn };
         if (name === "./cargo-path") return { withCargoBin: () => ({ CARGO_TARGET_DIR: target }) };
-        throw new Error("Unexpected module");
+        if (name === "./stage-local-resources") return { stageLocalResources };
+        throw new Error("Unexpected module: " + name);
       },
       process: {
         argv: ["bun", "scripts/build-desktop.js", ...args],
@@ -38,7 +40,7 @@ function invoke(args, { platform = "win32", shellStatus = 0 } = {}) {
   } catch (error) {
     if (error !== stopped) throw error;
   }
-  return { exit, spawn, files };
+  return { exit, spawn, files, stageLocalResources };
 }
 
 it("prepares the release DLL from locked sources in the shared target and stops before the app build", () => {
@@ -71,6 +73,7 @@ it("keeps local builds beside the debug DLL and skips installer-only preparation
   expect(result.spawn).toHaveBeenCalledTimes(2);
   expect(result.spawn.mock.calls[0][1]).not.toContain("--release");
   expect(result.files.copyFileSync).not.toHaveBeenCalled();
+  expect(result.stageLocalResources).toHaveBeenCalledWith(path.join(root, "src-tauri"), path.join(target, "debug"), { "../public": "public" });
   const build = result.spawn.mock.calls[1][1];
   expect(build.slice(0, 6)).toEqual(["run", "tauri", "build", "--debug", "--no-bundle", "--config"]);
   expect(JSON.parse(build[6]).build.beforeBuildCommand).toBe("bun run build:react");
