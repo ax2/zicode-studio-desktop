@@ -210,6 +210,10 @@ bun run format:fix    # auto-fix formatting
 
 Before editing CSS or UI controls, read [`docs/DESIGN.md`](docs/DESIGN.md). Use tokens from `public/style-theme.css` and primitives from `public/design-system.css`; do not add literal design dimensions. After CSS, UI markup, or inline-style changes, run `bun run check` (or focused `bun run check:design`).
 
+Apply the same visual language to every existing and new Studio-owned surface, including standalone windows, plugin shells, mobile views and empty/error states. Start with the user's main task. Give each view one clear title, group related controls on a shared alignment, and reserve the strongest emphasis for the current primary action. Keep the editor, list, preview or result in the largest useful region. Let narrow panes reflow in reading order.
+
+Use the layout patterns and review criteria in [the design guide](docs/DESIGN.md#page-composition). For layout changes, inspect the actual entry point with representative content and save before/after screenshots in the project archive. Record the viewport, theme and any unverified surfaces in the linked Issue. Check keyboard focus, long Chinese and English labels, narrow widths, and the theme variants affected by shared primitives.
+
 ## Module Design
 
 The frontend combines React/TypeScript feature views under `frontend/src/` with vanilla JS shell and protocol modules under `public/`. Keep both modular. See [`docs/MODULE_SPLIT_PLAN.md`](docs/MODULE_SPLIT_PLAN.md) for the current large-file inventory and extraction roadmap.

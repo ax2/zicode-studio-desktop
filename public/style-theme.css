@@ -36,6 +36,9 @@
   --card-padding: var(--space-3);
   --toolbar-gap: var(--space-2);
 
+  --action-fill: var(--accent-text);
+  --action-fill-hover: color-mix(in srgb, var(--action-fill) 90%, var(--text-primary));
+
   /* Shape */
   --radius-xs: 4px;
   --radius-sm: 6px;
@@ -86,7 +89,7 @@
   --bg-frosted: rgba(33, 33, 33, 0.85);
 
   --text-primary: rgba(255, 255, 255, 0.88);
-  --text-secondary: rgba(255, 255, 255, 0.5);
+  --text-secondary: rgba(255, 255, 255, 0.62);
   --text-dim: rgba(255, 255, 255, 0.3);
   --text-ghost: rgba(255, 255, 255, 0.1);
 
@@ -135,7 +138,7 @@
   --bg-frosted: rgba(0, 0, 0, 0.9);
 
   --text-primary: rgba(255, 255, 255, 0.85);
-  --text-secondary: rgba(255, 255, 255, 0.45);
+  --text-secondary: rgba(255, 255, 255, 0.62);
   --text-dim: rgba(255, 255, 255, 0.32);
   --text-ghost: rgba(255, 255, 255, 0.08);
 
@@ -184,7 +187,7 @@
   --bg-frosted: rgba(26, 29, 38, 0.78);
 
   --text-primary: rgba(255, 255, 255, 0.9);
-  --text-secondary: rgba(255, 255, 255, 0.55);
+  --text-secondary: rgba(255, 255, 255, 0.62);
   --text-dim: rgba(255, 255, 255, 0.35);
   --text-ghost: rgba(255, 255, 255, 0.12);
 
@@ -235,7 +238,7 @@
   --bg-frosted: rgba(255, 255, 255, 0.82);
 
   --text-primary: rgba(0, 0, 0, 0.88);
-  --text-secondary: rgba(0, 0, 0, 0.55);
+  --text-secondary: rgba(0, 0, 0, 0.65);
   --text-dim: rgba(0, 0, 0, 0.35);
   --text-ghost: rgba(0, 0, 0, 0.12);
 
@@ -282,14 +285,14 @@
   --bg-frosted: rgba(244, 241, 236, 0.8);
 
   --text-primary: rgba(0, 0, 0, 0.92);
-  --text-secondary: rgba(0, 0, 0, 0.62);
+  --text-secondary: rgba(0, 0, 0, 0.65);
   --text-dim: rgba(0, 0, 0, 0.38);
   --text-ghost: rgba(0, 0, 0, 0.14);
 
   --accent: #b06a48;
   --accent-glow: rgba(176, 106, 72, 0.15);
   --accent-subtle: rgba(176, 106, 72, 0.08);
-  --accent-text: #a05e3e;
+  --accent-text: #965538;
   --header-pill-text: rgba(0, 0, 0, 0.65);
 
   --user-bubble: #b06a48;
@@ -329,7 +332,7 @@
   --bg-frosted: rgba(240, 242, 236, 0.8);
 
   --text-primary: rgba(0, 0, 0, 0.9);
-  --text-secondary: rgba(0, 0, 0, 0.58);
+  --text-secondary: rgba(0, 0, 0, 0.65);
   --text-dim: rgba(0, 0, 0, 0.35);
   --text-ghost: rgba(0, 0, 0, 0.12);
 

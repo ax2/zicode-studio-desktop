@@ -189,9 +189,13 @@ describe("desktop three-region layout contract", () => {
   });
 
   it("gives every ui control a visible keyboard focus ring", () => {
-    expect(designSystemCss).toMatch(
-      /\.ui-button:focus-visible,[\s\S]*?\.ui-icon-button:focus-visible,[\s\S]*?\.ui-input:focus-visible,[\s\S]*?\.ui-select:focus-visible\s*\{[\s\S]*?box-shadow:\s*0\s+0\s+0\s+var\(--focus-ring-width\)\s+var\(--accent-glow\)/,
-    );
+    const rule = designSystemCss.match(/([^{}]*\.ui-select:focus-visible\s*)\{([^}]*)\}/);
+    expect(rule).toBeTruthy();
+    for (const selector of [".ui-button", ".ui-icon-button", ".ui-input", ".ui-textarea", ".ui-select"]) {
+      expect(rule[1].split(",").map((part) => part.trim())).toContain(selector + ":focus-visible");
+    }
+    expect(rule[2]).toContain("outline: var(--space-0-5) solid var(--accent-text)");
+    expect(rule[2]).toContain("outline-offset: var(--space-0-5)");
   });
 
   it("retains the workspace switcher behind the explicit multi-project policy", () => {
