@@ -186,7 +186,8 @@ export function BackupPanel({
 
   return (
     <>
-      <section className="ui-panel" aria-label={t("Visual library backup")}>
+      <details className="visual-assets-tool" open={Boolean(active && !exporting || error) || undefined}><summary>{t("Visual library backup")}</summary>
+      <section aria-label={t("Visual library backup")}>
         <div className="ui-toolbar">
           <button
             type="button"
@@ -260,6 +261,7 @@ export function BackupPanel({
         )}
         {error && <p role="alert">{error}</p>}
       </section>
+      </details>
       {(animation || exporting) && (
         <AnimationPanel
           key={animation?.libraryId ?? "pending-library"}

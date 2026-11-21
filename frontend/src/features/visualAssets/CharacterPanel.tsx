@@ -91,7 +91,7 @@ export function CharacterPanel({
     [invoke, workspaceId, libraryId, sceneId],
   );
   return (
-    <section className="ui-panel" aria-label={t("Characters")}>
+    <section className={open ? "visual-assets-tool visual-assets-tool-expanded" : "visual-assets-tool"} aria-label={t("Characters")}>
       <button
         className="ui-button"
         type="button"

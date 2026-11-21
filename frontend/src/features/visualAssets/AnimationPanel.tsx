@@ -133,7 +133,7 @@ export function AnimationPanel({
   const intent = buildIntent();
 
   return (
-    <section className="ui-panel" aria-label={t("Animation")}>
+    <section className={open ? "visual-assets-tool visual-assets-tool-expanded" : "visual-assets-tool"} aria-label={t("Animation")}>
       <button
         type="button"
         className="ui-button"
