@@ -1,3 +1,4 @@
+import { MailAttachments, type Attachment } from "./MailAttachments";
 import { MailBody } from "./MailBody";
 import {MailDisconnect} from "./MailDisconnect";
 import { useEffect, useRef, useState } from "react";
@@ -7,7 +8,7 @@ import type { Invoke } from "./index";
 type Grant = { connected: boolean; read?: boolean; send?: boolean };
 type Message = { id: string; from: string; subject: string; date: string; snippet: string };
 type Page = { items: Message[]; nextCursor: string | null };
-type Body = Message & { plainText: string | null; html?: string | null };
+type Body = Message & { plainText: string | null; html?: string | null; attachments?: Attachment[] };
 const none: Grant = { connected: false };
 
 export function gmailError(e: unknown): string {
@@ -98,7 +99,7 @@ export function GmailInbox({id,address,invoke,onGrant}:{id:string;address:string
         {page.nextCursor&&<button type="button" onClick={()=>load(online,page.nextCursor)}>{t("Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {message&&<article aria-label={t("Selected message")}><h3 translate="no">{message.subject||t("No subject")}</h3><p translate="no">{message.from}</p>
-        {body?<MailBody text={body.plainText} html={body.html}/>:!busy&&<p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
+        {body?<><MailBody text={body.plainText} html={body.html}/><MailAttachments key={message.id} items={body.attachments} invoke={invoke} message={{accountId:id,id:message.id}}/></>:!busy&&<p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
         {!body&&<button type="button" disabled={!grant.read} onClick={()=>select(message,true)}>{t("Download message body")}</button>}
       </article>}
     </fieldset>

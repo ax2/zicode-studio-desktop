@@ -177,7 +177,43 @@ fn body_part(p: &Value, mime: &str, depth: u8) -> Result<Option<String>> {
     }
     Ok(None)
 }
-pub async fn read(client: &Client, base: &str, token: &str, id: &str) -> Result<Value> {
+fn attachments<'a>(part: &'a Value, depth: u8, found: &mut Vec<&'a Value>) -> Result<()> {
+    if depth > 20 || found.len() >= 1024 {
+        return Err("gmail_message_too_complex");
+    }
+    let named = part["filename"]
+        .as_str()
+        .is_some_and(|name| !name.is_empty());
+    let attached = part["headers"].as_array().is_some_and(|headers| {
+        headers.iter().any(|h| {
+            h["name"]
+                .as_str()
+                .is_some_and(|name| name.eq_ignore_ascii_case("Content-Disposition"))
+                && h["value"]
+                    .as_str()
+                    .and_then(|v| v.split(';').next())
+                    .is_some_and(|v| v.trim().eq_ignore_ascii_case("attachment"))
+        })
+    });
+    if named || attached {
+        found.push(part);
+    } else if part["mimeType"]
+        .as_str()
+        .is_some_and(|mime| mime.starts_with("multipart/"))
+    {
+        for child in part["parts"].as_array().into_iter().flatten() {
+            attachments(child, depth + 1, found)?;
+        }
+    }
+    Ok(())
+}
+fn attachment_name(part: &Value) -> &str {
+    part["filename"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("attachment.bin")
+}
+async fn full_message(client: &Client, base: &str, token: &str, id: &str) -> Result<Value> {
     if !valid_id(id) {
         return Err("gmail_invalid");
     }
@@ -192,7 +228,18 @@ pub async fn read(client: &Client, base: &str, token: &str, id: &str) -> Result<
     if m["id"] != id {
         return Err("gmail_invalid_response");
     }
+    Ok(m)
+}
+pub async fn read(client: &Client, base: &str, token: &str, id: &str) -> Result<Value> {
+    let m = full_message(client, base, token, id).await?;
+    let mut parts = Vec::new();
+    attachments(&m["payload"], 0, &mut parts)?;
     let mut result = summary(&m)?;
+    result["attachments"] = json!(parts
+        .iter()
+        .enumerate()
+        .map(|(id, p)| json!({"id":id,"name":attachment_name(p),"size":p["body"]["size"]}))
+        .collect::<Vec<_>>());
     let body = body_part(&m["payload"], "text/plain", 0)?;
     let html = match body_part(&m["payload"], "text/html", 0) {
         Ok(html) => html,
@@ -202,6 +249,64 @@ pub async fn read(client: &Client, base: &str, token: &str, id: &str) -> Result<
     result["html"] = json!(html);
     result["plainText"] = json!(body);
     Ok(result)
+}
+pub async fn attachment(
+    client: &Client,
+    base: &str,
+    token: &str,
+    id: &str,
+    index: usize,
+    expected: &Value,
+) -> Result<Vec<u8>> {
+    const LIMIT: u64 = 25 * 1024 * 1024;
+    let m = full_message(client, base, token, id).await?;
+    let mut parts = Vec::new();
+    attachments(&m["payload"], 0, &mut parts)?;
+    let part = parts.get(index).ok_or("mail_attachment_missing")?;
+    let body = &part["body"];
+    let size = body["size"].as_u64().ok_or("gmail_invalid_response")?;
+    if expected["name"] != attachment_name(part) || expected["size"].as_u64() != Some(size) {
+        return Err("mail_attachment_changed");
+    }
+    if size > LIMIT {
+        return Err("gmail_response_too_large");
+    }
+    let remote;
+    let encoded = if let Some(key) = body["attachmentId"].as_str() {
+        if key.is_empty()
+            || key.len() > 2048
+            || !key
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        {
+            return Err("gmail_invalid_response");
+        }
+        remote = get(
+            client,
+            &format!("{base}/messages/{id}/attachments/{key}"),
+            token,
+            &[],
+            (size as usize).div_ceil(3) * 4 + 4096,
+        )
+        .await?;
+        if remote["size"].as_u64() != Some(size) {
+            return Err("mail_attachment_changed");
+        }
+        remote["data"].as_str()
+    } else {
+        body["data"].as_str()
+    };
+    let bytes = URL_SAFE_NO_PAD
+        .decode(
+            encoded
+                .ok_or("gmail_invalid_response")?
+                .trim_end_matches('='),
+        )
+        .map_err(|_| "gmail_invalid_response")?;
+    if bytes.len() as u64 != size {
+        return Err("mail_attachment_changed");
+    }
+    Ok(bytes)
 }
 fn addr(v: &str) -> bool {
     v.len() <= 254

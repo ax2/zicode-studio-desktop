@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import { MailAttachments, type Attachment } from "./MailAttachments";
 import { MailBody } from "./MailBody";
 import type { Invoke } from "./index";
 
@@ -14,7 +15,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState<Page | null>(null);
   const [offset, setOffset] = useState(0);
-  const [reading, setReading] = useState<{hit: Hit; text?: string | null; html?: string | null} | null>(null);
+  const [reading, setReading] = useState<{hit: Hit; text?: string | null; html?: string | null; attachments?: Attachment[]; bodyLimited?: boolean} | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const generation = useRef(0);
@@ -60,16 +61,21 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
     try {
       let text: string | null = null;
       let html: string | null = null;
+      let attachments: Attachment[] | undefined;
+      let bodyLimited = false;
       if (hit.provider === "gmail" && gmail) {
-        const body = await gmail<{plainText:string | null;html?:string} | null>({kind:"cachedBody", accountId:hit.account, id:hit.id});
+        const body = await gmail<{plainText:string | null;html?:string;attachments?:Attachment[]} | null>({kind:"cachedBody", accountId:hit.account, id:hit.id});
         text = body?.plainText ?? null;
         html = body?.html ?? null;
+        attachments = body?.attachments;
       } else if (hit.provider === "alibaba" && alibaba) {
-        const body = await alibaba<{text:string;html?:string}>({kind:"cachedBody", accountId:hit.account, uidValidity:hit.epoch, uid:Number(hit.id)});
+        const body = await alibaba<{text:string;html?:string;attachments?:Attachment[];bodyLimited?:boolean}>({kind:"cachedBody", accountId:hit.account, uidValidity:hit.epoch, uid:Number(hit.id)});
         text = body.text;
         html = body.html ?? null;
+        attachments = body.attachments;
+        bodyLimited = !!body.bodyLimited;
       }
-      if (version === generation.current) setReading({hit,text,html});
+      if (version === generation.current) setReading({hit,text,html,attachments,bodyLimited});
     } catch(e) {
       if (version === generation.current) {
         setReading({hit,text:null});
@@ -99,6 +105,11 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
       <p translate="no">{reading.hit.sender} · {reading.hit.address}</p>
       {reading.text===null && !reading.html && <p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
       {(typeof reading.text==="string" || reading.html) && <MailBody text={reading.text ?? null} html={reading.html}/>}
+      {reading.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}
+      <MailAttachments key={JSON.stringify([reading.hit.account,reading.hit.epoch,reading.hit.id])} items={reading.attachments}
+        invoke={reading.hit.provider==="gmail"?gmail:alibaba} message={reading.hit.provider==="gmail"
+          ? {accountId:reading.hit.account,id:reading.hit.id}
+          : {accountId:reading.hit.account,uidValidity:reading.hit.epoch!,uid:Number(reading.hit.id)}}/>
     </article>}
   </fieldset>;
 }

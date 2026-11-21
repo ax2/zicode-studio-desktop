@@ -122,6 +122,10 @@ pub(crate) enum Request {
     CachedBody {
         id: String,
     },
+    DownloadAttachment {
+        id: String,
+        part: usize,
+    },
     #[serde(rename_all = "camelCase")]
     Send {
         draft_id: String,
@@ -160,7 +164,7 @@ pub(crate) async fn mail_gmail(
     let path = root.join("mail").join("mail.sqlite3");
     let address = store::address(&path, &scope, &account_id)?;
     let cache_epoch = match request {
-        Request::List { .. } | Request::Read { .. } => {
+        Request::List { .. } | Request::Read { .. } | Request::DownloadAttachment { .. } => {
             store::cache_generation(&path, &scope, &account_id)?
         }
         _ => 0,
@@ -220,6 +224,33 @@ pub(crate) async fn mail_gmail(
         }
         _ => {}
     }
+    let download = if let Request::DownloadAttachment { id, part } = &request {
+        if !api::valid_id(id) {
+            return Err("gmail_invalid".into());
+        }
+        let body = store::cached(&path, &scope, &account_id, "body", id)?;
+        let item = body["attachments"]
+            .get(*part)
+            .filter(|a| a["id"].as_u64() == Some(*part as u64))
+            .cloned()
+            .ok_or("mail_attachment_missing")?;
+        let name = item["name"]
+            .as_str()
+            .ok_or("mail_attachment_missing")?
+            .to_owned();
+        let parent = window.clone();
+        let target = tauri::async_runtime::spawn_blocking(move || {
+            crate::mail_attachment::choose(&parent, &name)
+        })
+        .await
+        .map_err(|_| "mail_attachment_save_failed")??;
+        let Some(target) = target else {
+            return Ok(json!({"saved":false}));
+        };
+        Some((target, item))
+    } else {
+        None
+    };
     if !crate::desktop_profile::system_credentials_enabled()
         && !matches!(request, Request::Disconnect { .. })
     {
@@ -404,6 +435,17 @@ pub(crate) async fn mail_gmail(
             let _g = current()?;
             store::cache(&path, &scope, &account_id, cache_epoch, "body", &id, &data)?;
             data
+        }
+        Request::DownloadAttachment { id, part } => {
+            let (target, item) = download.ok_or("mail_attachment_missing")?;
+            let bytes = api::attachment(&client, api::BASE, &access, &id, part, &item).await?;
+            let _g = current()?;
+            crate::resource_export_picker::context(&window, &scope)?;
+            if store::cache_generation(&path, &scope, &account_id)? != cache_epoch {
+                return Err("mail_attachment_changed".into());
+            }
+            crate::mail_attachment::save(&target, &bytes)?;
+            json!({"saved":true})
         }
         Request::Send {
             draft_id,

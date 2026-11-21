@@ -19,6 +19,8 @@ use tauri::Manager;
 #[cfg(windows)]
 mod engine;
 #[cfg(windows)]
+pub(crate) use engine::native_downloads::files::filename as download_filename;
+#[cfg(windows)]
 mod policy;
 #[cfg(windows)]
 mod runtime;

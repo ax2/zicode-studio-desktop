@@ -38,6 +38,8 @@ impl<'a> Mailbox<'a> {
             .map_err(db_err)?
             .ok_or("mail_account_not_found")?;
         db.execute_batch("CREATE TABLE IF NOT EXISTS alibaba_inbox(scope TEXT,account TEXT,epoch INTEGER,uid INTEGER,meta TEXT NOT NULL,body TEXT,PRIMARY KEY(scope,account,epoch,uid));
+          CREATE TABLE IF NOT EXISTS alibaba_attachments(scope TEXT,account TEXT,epoch INTEGER,uid INTEGER,items TEXT NOT NULL,PRIMARY KEY(scope,account,epoch,uid));
+          CREATE TRIGGER IF NOT EXISTS alibaba_delete_attachments AFTER DELETE ON alibaba_inbox BEGIN DELETE FROM alibaba_attachments WHERE scope=OLD.scope AND account=OLD.account AND epoch=OLD.epoch AND uid=OLD.uid; END;
           CREATE TABLE IF NOT EXISTS alibaba_html(scope TEXT,account TEXT,epoch INTEGER,uid INTEGER,html TEXT NOT NULL,PRIMARY KEY(scope,account,epoch,uid));
           CREATE TRIGGER IF NOT EXISTS alibaba_delete_html AFTER DELETE ON alibaba_inbox BEGIN DELETE FROM alibaba_html WHERE scope=OLD.scope AND account=OLD.account AND epoch=OLD.epoch AND uid=OLD.uid; END;
           CREATE TABLE IF NOT EXISTS alibaba_cache_generation(scope TEXT NOT NULL,account TEXT NOT NULL,generation INTEGER NOT NULL,PRIMARY KEY(scope,account));
@@ -52,6 +54,11 @@ impl<'a> Mailbox<'a> {
             scope: scope.into(),
             account,
         })
+    }
+    pub fn attachment_is_current(&self, epoch: u32) -> Result<()> {
+        let current: bool = self.db.query_row("SELECT EXISTS(SELECT 1 FROM alibaba_epoch WHERE scope=?1 AND account=?2 AND epoch=?3) AND COALESCE((SELECT generation FROM alibaba_cache_generation WHERE scope=?1 AND account=?2),0)=?4",
+            params![self.scope,self.account.id,epoch,self.generation],|r|r.get(0)).map_err(db_err)?;
+        if current {Ok(())} else {Err("mail_attachment_changed")}
     }
     pub fn clear_cache(&mut self) -> Result<()> {
         let tx = self.db.transaction().map_err(db_err)?;
@@ -169,7 +176,10 @@ impl<'a> Mailbox<'a> {
     pub fn cached_body(&self, epoch: u32, uid: u32) -> Result<Letter> {
         let (meta,body,html):(String,Option<String>,Option<String>)=self.db.query_row("SELECT meta,body,html FROM alibaba_inbox LEFT JOIN alibaba_html USING(scope,account,epoch,uid) WHERE scope=? AND account=? AND epoch=? AND uid=?",params![self.scope,self.account.id,epoch,uid],
           |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional().map_err(db_err)?.ok_or("mail_cache_empty")?;
+        let items: Option<String> = self.db.query_row("SELECT items FROM alibaba_attachments WHERE scope=? AND account=? AND epoch=? AND uid=?",params![self.scope,self.account.id,epoch,uid],|r|r.get(0)).optional().map_err(db_err)?;
+        let (body_limited, attachments) = items.map(|json| serde_json::from_str(&json)).transpose().map_err(|_| "mail_storage")?.unwrap_or_default();
         Ok(Letter {
+            attachments, body_limited,
             summary: serde_json::from_str(&meta).map_err(|_| "mail_storage")?,
             html,
             text: body.ok_or("mail_cache_empty")?,
@@ -195,6 +205,7 @@ impl<'a> Mailbox<'a> {
         if updated != 1 {
             return Err("mail_inbox_changed");
         }
+        tx.execute("INSERT OR REPLACE INTO alibaba_attachments VALUES(?,?,?,?,?)",params![self.scope,self.account.id,epoch,uid,serde_json::to_string(&(letter.body_limited,&letter.attachments)).map_err(|_|"mail_storage")?]).map_err(db_err)?;
         if let Some(html) = &letter.html {
             tx.execute("INSERT OR REPLACE INTO alibaba_html(scope,account,epoch,uid,html) VALUES(?,?,?,?,?)",params![self.scope,self.account.id,epoch,uid,html]).map_err(db_err)?;
         } else {

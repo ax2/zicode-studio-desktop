@@ -7,7 +7,8 @@ use std::{
     sync::Arc,
     thread,
 };
-const MSG:&str="From: Fixture <sender@example.test>\r\nReply-To: reply@example.test\r\nSubject: =?UTF-8?B?5rWL6K+V?=\r\nMessage-ID: <original@example.test>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=fixture\r\n\r\n--fixture\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n5L2g5aW9\r\n--fixture\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>HTML fixture</p>\r\n--fixture--\r\n";
+const MSG:&str="From: Fixture <sender@example.test>\r\nReply-To: reply@example.test\r\nSubject: =?UTF-8?B?5rWL6K+V?=\r\nMessage-ID: <original@example.test>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=fixture\r\n\r\n--fixture\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n5L2g5aW9\r\n--fixture\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>HTML fixture</p>\r\n--fixture\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=proof.bin\r\nContent-Transfer-Encoding: base64\r\n\r\nAP8BAg==\r\n--fixture--\r\n";
+const LARGE_ATTACHMENT: usize = 5*1024*1024 + 13;
 type Server = BufReader<rustls::StreamOwned<rustls::ServerConnection, TcpStream>>;
 struct Fixture {
     adapter: Alibaba,
@@ -114,6 +115,18 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, trace: std::sync::mpsc::S
             let a = a.parse::<u32>().unwrap();
             let b = b.parse::<u32>().unwrap();
             assert!(b >= a && b - a < 40, "page must be bounded");
+            if upper.contains("BODYSTRUCTURE") {
+                let header=&MSG[..MSG.find("\r\n\r\n").unwrap()+4];
+                let tree=format!(r#"((("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "BASE64" 8 1)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "8BIT" 19 1) "ALTERNATIVE")("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BASE64" 8 NIL ("ATTACHMENT" ("FILENAME" "proof.bin")))("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BINARY" {} NIL ("ATTACHMENT" ("FILENAME" "large.bin"))) "MIXED")"#,LARGE_ATTACHMENT);
+                emit(s,&format!("* 3 FETCH (UID {a} RFC822.SIZE {} BODYSTRUCTURE {tree} BODY[HEADER]<0> {{{}}}\r\n{header})\r\n{tag} OK fetched\r\n",MSG.len()+LARGE_ATTACHMENT,header.len()));
+                continue;
+            }
+            if upper.starts_with("UID FETCH") && upper.contains("BODY.PEEK[") && !upper.contains("[HEADER]") {
+                let section=upper.split("BODY.PEEK[").nth(1).unwrap().split(']').next().unwrap();
+                let data=match section {"1.1"=>"5L2g5aW9".to_owned(),"1.2"=>"<p>HTML fixture</p>".to_owned(),"2"=>"AP8BAg==".to_owned(),"3"=>"Z".repeat(LARGE_ATTACHMENT),other=>panic!("Unexpected payload fetch {other}")};
+                emit(s,&format!("* 3 FETCH (UID {a} BODY[{section}]<0> {{{}}}\r\n{data})\r\n{tag} OK fetched\r\n",data.len()));
+                continue;
+            }
             let header = upper.contains("[HEADER]");
             let bytes = if header {
                 &MSG[..MSG.find("\r\n\r\n").unwrap() + 4]
@@ -262,6 +275,23 @@ fn tls_imap_local_pagination_cache_and_identity() {
         Some("<p>HTML fixture</p>")
     );
     assert_eq!(l.summary.reply_to, "reply@example.test");
+    let read_commands: Vec<_>=f.rx.try_iter().collect();
+    assert!(read_commands.iter().any(|q|q.contains("BODYSTRUCTURE")));
+    assert!(read_commands.iter().all(|q|!q.contains("BODY.PEEK[2]") && !q.contains("BODY.PEEK[3]") && !q.contains("BODY.PEEK[]")));
+    assert_eq!(l.attachments[1].size,LARGE_ATTACHMENT);
+    let large=fixture(false,false);
+    let bytes=large.adapter.attachment(mail.address(),"synthetic",7,30,&l.attachments[1]).unwrap();
+    large.thread.join().unwrap();
+    assert_eq!(bytes.len(),LARGE_ATTACHMENT);
+    assert!(bytes.iter().all(|b|*b==b'Z'));
+    let commands:Vec<_>=large.rx.try_iter().collect();
+    assert_eq!(commands.len(),2);
+    assert!(commands[1].contains("BODY.PEEK[3]"));
+    let item=&l.attachments[0];
+    assert_eq!((&item.name,item.size),(&"proof.bin".to_owned(),8));
+    let f=fixture(false,false);
+    assert_eq!(f.adapter.attachment(mail.address(),"synthetic",7,30,item).unwrap(),[0,255,1,2]);
+    f.thread.join().unwrap();
     assert!(matches!(
         mail.sync(
             &Alibaba::default(),
@@ -281,6 +311,7 @@ fn tls_imap_local_pagination_cache_and_identity() {
     assert_eq!(mail.cached_page(None, 1).unwrap().messages[0].uid, 30);
     let cached = mail.cached_body(7, 30).unwrap();
     assert_eq!(cached.text.trim(), "你好");
+    assert_eq!(cached.attachments[0].name,"proof.bin");
     assert_eq!(
         cached.html.as_deref().map(str::trim),
         Some("<p>HTML fixture</p>")

@@ -25,7 +25,18 @@ pub struct Summary {
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct Attachment {
+    pub id: usize,
+    pub name: String,
+    pub size: usize,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Letter {
+    #[serde(default)]
+    pub attachments: Vec<Attachment>,
+    #[serde(default)]
+    pub body_limited: bool,
     pub summary: Summary,
     pub text: String,
     pub html: Option<String>,
@@ -63,6 +74,9 @@ impl Write for Bounded {
 }
 impl Alibaba {
     fn inbox(&self, address: &str, password: &str) -> Result<(imap::Session<Bounded>, u32, u32)> {
+        self.inbox_with_limit(address, password, 8 * 1024 * 1024)
+    }
+    fn inbox_with_limit(&self, address: &str, password: &str, limit: usize) -> Result<(imap::Session<Bounded>, u32, u32)> {
         let mut tls = TlsConnector::builder();
         tls.min_protocol_version(Some(native_tls::Protocol::Tlsv12));
         if let Some(der) = &self.extra_root {
@@ -89,7 +103,7 @@ impl Alibaba {
             .map_err(|_| "mail_tls")?;
         let mut client = imap::Client::new(Bounded {
             stream,
-            left: 8 * 1024 * 1024,
+            left: limit,
             deadline: Instant::now() + TIMEOUT * 2,
         });
         client.read_greeting().map_err(|_| "mail_protocol")?;
@@ -170,53 +184,9 @@ impl Alibaba {
             next,
         })
     }
-    pub(crate) fn letter(
-        &self,
-        address: &str,
-        password: &str,
-        validity: u32,
-        uid: u32,
-    ) -> Result<Letter> {
-        if uid == 0 || validity == 0 {
-            return Err("mail_invalid_uid");
-        }
-        let (mut session, current, _) = self.inbox(address, password)?;
-        if current != validity {
-            return Err("mail_inbox_changed");
-        }
-        let rows = session
-            .uid_fetch(
-                uid.to_string(),
-                format!("(UID RFC822.SIZE BODY.PEEK[]<0.{}>)", MAX_MESSAGE + 1),
-            )
-            .map_err(|_| "mail_read_failed")?;
-        let r = rows
-            .iter()
-            .find(|r| r.uid == Some(uid) && r.body().is_some())
-            .ok_or("mail_message_missing")?;
-        let bytes = r.body().ok_or("mail_protocol")?;
-        let size = r.size.ok_or("mail_protocol")?;
-        if size as usize > MAX_MESSAGE || bytes.len() > MAX_MESSAGE {
-            return Err("mail_message_too_large");
-        }
-        if bytes.len() != size as usize {
-            return Err("mail_partial_message");
-        }
-        let m = MessageParser::new()
-            .parse(bytes)
-            .ok_or("mail_mime_invalid")?;
-        let html = m
-            .html_body()
-            .find(|part| part.is_content_type("text", "html"))
-            .and_then(|part| part.text())
-            .map(|html| html.into_owned());
-        Ok(Letter {
-            summary: metadata(&m, uid, size),
-            html,
-            text: m.body_text(0).unwrap_or_default().into_owned(),
-        })
-    }
 }
+#[path = "inbox_parts.rs"]
+mod parts;
 fn older_end(session: &mut imap::Session<Bounded>, exists: u32, before: u32) -> Result<u32> {
     if before <= 1 || exists == 0 {
         return Ok(0);
