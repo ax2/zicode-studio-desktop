@@ -84,4 +84,11 @@ if (result.error) {
   console.error(`[build-desktop] Failed to start Tauri: ${result.error.message}`);
   process.exit(1);
 }
+if (result.status === 0 && local && process.platform === "win32") {
+  const configDir = path.join(root, "src-tauri");
+  const config = JSON.parse(fs.readFileSync(path.join(configDir, "tauri.conf.json"), "utf8"));
+  const { stageLocalResources } = require("./stage-local-resources");
+  const updated = stageLocalResources(configDir, path.join(env.CARGO_TARGET_DIR, "debug"), config.bundle.resources);
+  console.log("[build-desktop] Local runtime resources updated:", updated);
+}
 process.exit(result.status ?? 1);
