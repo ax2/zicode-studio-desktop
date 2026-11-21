@@ -7,6 +7,13 @@ FROM accounts a JOIN gmail_cache c ON c.workspace=a.scope AND c.account=a.id
 JOIN json_each(CASE c.kind WHEN 'page' THEN json_extract(c.value,'$.items')
                            WHEN 'body' THEN json_array(json(c.value)) ELSE '[]' END) hit
 WHERE a.scope=?1 AND a.provider='gmail' AND (?2 IS NULL OR a.id=?2)
+  AND (?5 IS NULL OR json_extract(hit.value,'$.id') IN (
+    SELECT json_extract(member.value,'$.id')
+    FROM gmail_cache page JOIN json_each(page.value,'$.items') member
+    WHERE page.workspace=?1 AND page.account=?2 AND page.kind='page'
+      AND CASE WHEN ?5='INBOX' THEN page.cache_key NOT GLOB 'label:*'
+               ELSE instr(page.cache_key,'label:' || ?5 || ':')=1 END
+  ))
   AND (instr(lower(json_extract(hit.value,'$.subject')),lower(?3))>0
     OR instr(lower(json_extract(hit.value,'$.from')),lower(?3))>0
     OR instr(lower(json_extract(hit.value,'$.snippet')),lower(?3))>0

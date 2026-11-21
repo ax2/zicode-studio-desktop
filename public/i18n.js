@@ -75,6 +75,7 @@ const zhCN = {
   "Remove this account’s saved client password?": "移除本机保存的这个账号的客户端安全密码？",
   "Inbox": "收件箱",
   "Show offline inbox": "查看离线收件箱",
+  "Search only the selected Gmail label": "仅搜索当前选定的 Gmail 标签",
   "Gmail label": "Gmail 标签",
   "Refresh Gmail labels": "刷新 Gmail 标签",
   "Show saved messages": "查看已缓存的邮件",

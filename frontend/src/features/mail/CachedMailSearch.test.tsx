@@ -5,6 +5,21 @@ import { setLocale } from "../../shared/i18n";
 import type { Invoke } from "./index";
 
 afterEach(cleanup);
+it("limits offline searches to the selected label and retains the query when switching labels",async()=>{
+  setLocale("en");
+  const accounts=[{id:"a",address:"first@example.test",provider:"gmail"}];
+  const local=vi.fn(async()=>({items:[],more:false}));
+  const view=(label:string)=><CachedMailSearch accounts={accounts} current="a" label={label} invoke={local as Invoke}/>;
+  const rendered=render(view("Label_42"));
+  fireEvent.click(screen.getByLabelText("Search only the selected Gmail label"));
+  fireEvent.change(screen.getByLabelText("Search cached mail"),{target:{value:"invoice"}});
+  fireEvent.click(screen.getByRole("button",{name:"Search"}));
+  await screen.findByText("No matching cached messages.");
+  expect(local).toHaveBeenCalledWith({kind:"search",account:"a",label:"Label_42",query:"invoice",offset:0});
+  rendered.rerender(view("INBOX"));
+  expect(screen.queryByText("No matching cached messages.")).toBeNull();
+  expect(screen.getByDisplayValue("invoice")).toBeTruthy();
+});
 it("opens an identically numbered result through its owning account without requesting mail from a server", async () => {
   setLocale("en");
   const accounts = [

@@ -28,9 +28,9 @@ export function gmailError(e: unknown): string {
     default:return t("Mail operation failed. Check the account and try again.");
   }
 }
-export function GmailInbox({id,address,invoke,onGrant}:{id:string;address:string;invoke:Invoke;onGrant:(send:boolean)=>void}) {
+export function GmailInbox({id,address,label,setLabel,invoke,onGrant}:{id:string;address:string;label:string;setLabel:(label:string)=>void;invoke:Invoke;onGrant:(send:boolean)=>void}) {
   const [grant,setGrant]=useState<Grant>(none),[page,setPage]=useState<Page|null>(null);
-  const [labels,setLabels]=useState<Label[]>([]),[label,setLabel]=useState("INBOX");
+  const [labels,setLabels]=useState<Label[]>([]);
   const [message,setMessage]=useState<Message|null>(null),[body,setBody]=useState<Body|null>(null);
   const [online,setOnline]=useState(false),[busy,setBusy]=useState("init"),[notice,setNotice]=useState("");
   const epoch=useRef(0),operation=useRef("init"),grantCallback=useRef(onGrant);

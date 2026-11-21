@@ -8,10 +8,11 @@ type Account = { id: string; address: string; provider: string };
 type Hit = { account: string; address: string; provider: string; id: string; epoch: number | null; subject: string; sender: string };
 type Page = { items: Hit[]; more: boolean };
 
-export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
-  accounts: Account[]; current: string; invoke: Invoke; gmail?: Invoke; alibaba?: Invoke;
+export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, label}: {
+  accounts: Account[]; current: string; invoke: Invoke; gmail?: Invoke; alibaba?: Invoke; label?:string;
 }) {
   const [scope, setScope] = useState(current);
+  const [labelOnly,setLabelOnly]=useState(false);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState<Page | null>(null);
   const [offset, setOffset] = useState(0);
@@ -20,6 +21,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
   const [error, setError] = useState(false);
   const generation = useRef(0);
   const submitted = useRef(false);
+  const previousLabel = useRef(label);
 
   function clear() {
     submitted.current = false;
@@ -29,6 +31,10 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
     setReading(null);
     setError(false);
   }
+  useEffect(()=>{
+    if(previousLabel.current!==label && labelOnly) clear();
+    previousLabel.current=label;
+  },[label,labelOnly]);
   const search = useCallback(async (start: number, clearedAccount?: string) => {
     submitted.current = true;
     const version = ++generation.current;
@@ -39,12 +45,12 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
       setReading(previous=>previous?.hit.account===clearedAccount ? null : previous);
     } else setReading(null);
     try {
-      const results = await invoke<Page>({kind:"search", account:scope || null, query:query.trim(), offset:start});
+      const results = await invoke<Page>({kind:"search", account:scope || null, ...(labelOnly && scope===current && label ? {label} : {}), query:query.trim(), offset:start});
       if (version === generation.current) { setPage(results); setOffset(start); }
     } catch {
       if (version === generation.current) { setError(true); setPage(null); }
     } finally { if (version === generation.current) setBusy(false); }
-  }, [invoke, scope, query]);
+  }, [invoke, scope, query, labelOnly, current, label]);
   useEffect(()=>{
     function cacheCleared(event:Event) {
       const account=(event as CustomEvent<string>).detail;
@@ -85,10 +91,11 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba}: {
   }
   return <fieldset><legend>{t("Search cached inboxes")}</legend>
     <form onSubmit={e=>{e.preventDefault(); if(query.trim()) void search(0)}}>
-      <label>{t("Search scope")}<select value={scope} onChange={e=>{clear();setScope(e.target.value)}}>
+      <label>{t("Search scope")}<select value={scope} onChange={e=>{clear();setLabelOnly(false);setScope(e.target.value)}}>
         {accounts.map(a=><option key={a.id} value={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}
         <option value="">{t("All local mail accounts")}</option>
       </select></label>
+      {label && scope===current && <label><input type="checkbox" checked={labelOnly} onChange={e=>{clear();setLabelOnly(e.target.checked)}}/>{t("Search only the selected Gmail label")}</label>}
       <label>{t("Search cached mail")}<input type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
       <button type="submit" disabled={busy || !query.trim()}>{t("Search")}</button>
     </form>
