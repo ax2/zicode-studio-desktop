@@ -18,7 +18,7 @@
     .card {
       box-sizing: border-box;
       overflow-wrap: anywhere;
-      width: min(680px, calc(100vw - 48px));
+      width: min(680px, calc(100% - 48px));
       border: 1px solid #2b2e33;
       border-radius: 14px;
       background: #16181c;
@@ -103,7 +103,7 @@
     const rawError = new URLSearchParams(window.location.search).get('startupError');
     if (rawError) {
       errorBox.style.display = 'block';
-      errorBox.textContent = decodeURIComponent(rawError);
+      errorBox.textContent = rawError;
     }
 
     retryBtn.addEventListener('click', async () => {
