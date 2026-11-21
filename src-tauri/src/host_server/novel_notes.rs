@@ -27,6 +27,27 @@ fn authorize_model(
 }
 
 impl HostServer {
+    pub(crate) fn authorize_visual_search_model(&self, scene: &str) -> Result<(), String> {
+        let reg = self
+            .state
+            .plugins
+            .lock()
+            .map_err(|_| "visual_assets_busy")?;
+        let plugin = reg
+            .execution_plugin(scene, "com.zicode.visual-assets")
+            .filter(|p| p.enabled)
+            .ok_or("visual_assets_model_network_permission_required")?;
+        if !plugin
+            .permission_grants
+            .get("network.fetch")
+            .copied()
+            .unwrap_or(false)
+        {
+            return Err("visual_assets_model_network_permission_required".into());
+        }
+        Ok(())
+    }
+
     pub(crate) fn authorize_novel_model(&self, scene: &str) -> crate::visual_assets::Result<()> {
         let registry = self
             .state

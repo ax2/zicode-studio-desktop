@@ -58,6 +58,18 @@ pub(crate) enum Request {
         scene_id: String,
         action: super::novel_draft_commands::Action,
     },
+    #[cfg(windows)]
+    QueryModel {
+        #[serde(rename = "sceneId")]
+        scene_id: String,
+        action: super::semantic_model::Action,
+    },
+    SearchConcepts {
+        #[serde(rename = "libraryId")]
+        library_id: String,
+        query: String,
+        concepts: Vec<String>,
+    },
     SetPreviewLabels {
         #[serde(rename = "libraryId")]
         library_id: String,
@@ -150,6 +162,10 @@ pub(crate) async fn visual_assets_control(
             .map_err(|_| "visual_assets_workspace_unavailable")?
     {
         return Err("visual_assets_default_workspace_required".into());
+    }
+    #[cfg(windows)]
+    if let Request::QueryModel { scene_id, action } = request {
+        return super::semantic_model::handle(window, context, scene_id, action).await;
     }
     if let Request::PreviewAnimation { intent } = request {
         #[cfg(windows)]
@@ -371,7 +387,7 @@ pub(crate) async fn visual_assets_control(
         };
         let result = match request {
             #[cfg(windows)]
-            Request::Characters { .. }
+            Request::QueryModel { .. } | Request::Characters { .. }
             | Request::Generation { .. }
             | Request::NovelDrafts { .. }
             | Request::Creation { .. } => unreachable!(),
@@ -484,6 +500,10 @@ pub(crate) async fn visual_assets_control(
                 }
                 let id = collections::apply(&tx, edit)?;
                 json!({"id": id})
+            }
+            Request::SearchConcepts{library_id:expected,query,concepts} => {
+                if expected != library_id {return Err("visual_assets_library_changed".into());}
+                json!({"matches":super::semantic_search::ranked(&tx,&query,&concepts).map_err(|_| "visual_assets_query_failed")?})
             }
             Request::SetPreviewLabels {
                 library_id: expected,

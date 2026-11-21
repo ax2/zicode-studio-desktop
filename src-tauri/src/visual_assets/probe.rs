@@ -85,6 +85,8 @@ mod reference_import;
 mod reference_source;
 #[path = "restore_library.rs"]
 mod restore_library;
+#[path = "semantic_search.rs"]
+mod semantic_search;
 #[path = "snapshot.rs"]
 mod snapshot;
 #[path = "snapshot_references.rs"]
@@ -410,6 +412,15 @@ pub fn run() -> Result<()> {
             let page = catalog::listing(&tx, after, query, tag, None, false)?;
             println!("{}", serde_json::to_string(&page)?);
             tx.commit()?;
+        }
+        (Some("semantic-search"), [query, concepts]) => {
+            let query = query.to_str().ok_or("invalid query")?;
+            let concepts: Vec<String> =
+                serde_json::from_str(concepts.to_str().ok_or("invalid concepts")?)?;
+            println!(
+                "{}",
+                serde_json::to_string(&semantic_search::ranked(&tx, query, &concepts)?)?
+            );
         }
         (Some("preview-labels"), [asset, digest, previous, labels]) => {
             let asset = asset.to_str().ok_or("invalid id")?.parse()?;
