@@ -3651,6 +3651,9 @@ const zhCN = {
   "This account is already listed.": "该邮箱账号已存在。",
   "Check the address or shorten the draft.": "请检查邮箱地址或缩短草稿内容。",
   "Could not access local mail data.": "无法读写本地邮箱数据。",
+  "Could not read the selected file. Check its location and permissions.": "无法读取所选文件。请检查文件位置和读取权限。",
+  "Attachments in one draft can total up to 16 MiB.": "每份草稿的附件总大小最多为 16 MiB。",
+  "This attachment is no longer in the draft. Reload the draft.": "草稿中已没有这个附件。请重新载入草稿。",
   Habits: "习惯",
   "Habit Tracker": "习惯追踪",
   "Track daily habits and metrics with streaks and history.":
