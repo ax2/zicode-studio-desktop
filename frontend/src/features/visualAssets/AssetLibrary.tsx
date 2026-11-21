@@ -220,9 +220,9 @@ export function AssetLibrary({
   }
 
   return (
-    <section className="visual-assets-main" aria-label={t("Visual assets")}>
-      <header className="ui-toolbar">
-        <h2>{t("Visual assets")}</h2>
+    <section className="visual-assets-library" aria-label={t("Visual assets")}>
+      <header className="visual-assets-library-heading">
+        <h3>{t("Materials and library")}</h3><div className="ui-toolbar">
         <button
           type="button"
           className="ui-button ui-button--primary"
@@ -249,12 +249,10 @@ export function AssetLibrary({
         >
           {t("Refresh")}
         </button>
-      </header>
+      </div></header>
       <p>{t("Managed originals remain in your local visual library.")}</p>
-      {sceneId && listing && <SemanticSearch key={sceneId+listing.libraryId}
-        invoke={invoke} sceneId={sceneId} workspaceId={workspaceId} libraryId={listing.libraryId} />}
       <form
-        className="ui-toolbar"
+        className="ui-toolbar visual-assets-query"
         aria-label={t("Search image filenames")}
         onSubmit={(event) => {
           event.preventDefault();
@@ -311,6 +309,10 @@ export function AssetLibrary({
           {t("Clear search")}
         </button>
       </form>
+      <div className="visual-assets-toolstrip">
+      {sceneId && listing && <SemanticSearch key={sceneId+listing.libraryId}
+        invoke={invoke} sceneId={sceneId} workspaceId={workspaceId} libraryId={listing.libraryId} />}
+      <details className="visual-assets-tool"><summary>{t("Collections")}{collectionId && " · "+(listing?.collections?.find(c=>c.id===collectionId)?.name??"")}</summary>
       <CollectionToolbar
         collections={listing?.collections ?? []}
         selected={collectionId}
@@ -321,6 +323,7 @@ export function AssetLibrary({
         }}
         onEdit={changeCollection}
       />
+      </details>
       <BackupPanel
         invoke={invoke}
         workspaceId={workspaceId}
@@ -355,6 +358,7 @@ export function AssetLibrary({
           onChanged={refreshLibrary}
         />
       )}
+      </div>
       {error && <p role="alert">{error}</p>}
       {importItems && <ImportResults items={importItems} />}
       {busy && <p role="status">{t("Loading...")}</p>}
@@ -371,7 +375,8 @@ export function AssetLibrary({
       )}
       <div className="visual-assets-grid">
         {listing?.page.assets.map((asset) => (
-          <figure className="ui-card" key={asset.id}>
+          <figure className="ui-card visual-assets-tile" key={asset.id}>
+            <div className="visual-assets-tile-image">
             {previews[asset.id]?.url ? (
               <img
                 src={previews[asset.id].url}
@@ -388,6 +393,9 @@ export function AssetLibrary({
                 {t(previews[asset.id]?.message ?? "Loading...")}
               </div>
             )}
+            </div>
+            <figcaption title={asset.name}>{asset.name}</figcaption>
+            <div className="visual-assets-tile-controls">
             {asset.referenced && (
               <ReferenceSource
                 name={asset.name}
@@ -452,7 +460,7 @@ export function AssetLibrary({
               disabled={busy || backupBusy}
               onEdit={changeCollection}
             />
-            <figcaption title={asset.name}>{asset.name}</figcaption>
+            </div>
           </figure>
         ))}
       </div>

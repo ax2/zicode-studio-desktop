@@ -33,6 +33,21 @@
   overflow-wrap: anywhere;
 }
 
+.visual-assets-shell .visual-assets-workflows {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+.visual-assets-workflow {
+  align-items: flex-start;
+  padding: var(--space-4);
+  border-block-start: 2px solid var(--border-bright);
+}
+.visual-assets-workflow:first-child {border-block-start-color: var(--accent-text);}
+.visual-assets-workflow > button {max-inline-size: 100%; white-space: normal; text-align: start;}
+.visual-assets-workflow-inputs {
+  font-size: var(--font-size-sm);
+  padding-block-end: var(--space-2);
+}
+
 
 .visual-assets-root {
   height: 100%;
@@ -112,6 +127,181 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-block: var(--space-2);
+}
+
+/* The shell sizes against its workspace pane, including split-window layouts. */
+.visual-assets-root {
+  container-type: inline-size;
+}
+.visual-assets-shell {
+  box-sizing: border-box;
+  max-inline-size: 80rem;
+  margin-inline: auto;
+  padding: clamp(var(--space-3), 3cqi, var(--space-8));
+  color: var(--text);
+}
+.visual-assets-shell :is(h2, h3, h4, p, figure, dl, dd) {
+  margin: 0;
+}
+.visual-assets-masthead,
+.visual-assets-library-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.visual-assets-masthead {
+  padding-block-end: var(--space-4);
+  border-block-end: 1px solid var(--border-bright);
+  margin-block-end: var(--space-5);
+}
+.visual-assets-masthead h2 {font-size: var(--font-size-2xl);}
+.visual-assets-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--bg-glass);
+  border-radius: var(--radius);
+}
+.visual-assets-nav .ui-button {
+  border-color: transparent;
+  background: transparent;
+}
+.visual-assets-nav [aria-current="page"] {
+  border-color: var(--border-bright);
+  background: var(--bg-solid);
+  color: var(--accent-text);
+}
+.visual-assets-intro,
+.visual-assets-library,
+.visual-assets-outfit,
+.visual-assets-task {
+  display: grid;
+  min-inline-size: 0;
+  gap: var(--space-3);
+}
+.visual-assets-intro {gap: var(--space-1);}
+.visual-assets-intro > p,
+.visual-assets-library-heading + p,
+.visual-assets-workflow-inputs {color: var(--text-muted);}
+.visual-assets-query {
+  padding-block: var(--space-2);
+  border-block-end: 1px solid var(--border);
+}
+.visual-assets-query input[type="search"] {
+  flex: 1 1 12rem;
+  inline-size: auto;
+  min-inline-size: 0;
+}
+.visual-assets-query input[type="search"]:first-child {flex-grow: 2;}
+.visual-assets-toolstrip {
+  display: flex;
+  align-items: start;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.visual-assets-toolstrip > .visual-assets-tool {
+  margin: 0;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.visual-assets-toolstrip > details > summary,
+.visual-assets-toolstrip > section > button:first-child {
+  box-sizing: border-box;
+  min-block-size: var(--control-height-md);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius);
+  background: var(--bg-glass);
+  color: inherit;
+}
+.visual-assets-toolstrip > :is(details[open], .visual-assets-tool-expanded) {
+  flex-basis: 100%;
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+}
+.visual-assets-toolstrip > details[open] > summary {
+  inline-size: fit-content;
+  margin-block-end: var(--space-3);
+}
+.visual-assets-toolstrip :is(form,section) {min-inline-size: 0;}
+.visual-assets-search-results img {max-inline-size: 100%; max-block-size: 16rem; object-fit: contain;}
+.visual-assets-search-results li {overflow-wrap: anywhere;}
+.visual-assets-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  align-items: start;
+  gap: var(--space-4);
+  margin-block: var(--space-2);
+}
+.visual-assets-grid .visual-assets-tile {
+  padding: 0;
+  overflow-wrap: anywhere;
+  border-radius: var(--radius-lg);
+}
+.visual-assets-tile-image {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 2;
+  min-inline-size: 0;
+  overflow: hidden;
+  background: var(--bg-glass);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-block-end: 1px solid var(--border);
+}
+.visual-assets-tile-image > :is(img,.visual-assets-placeholder) {
+  display: grid;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 0;
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+.visual-assets-tile > figcaption {
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  font-weight: 600;
+  white-space: normal;
+}
+.visual-assets-tile-controls {
+  display: grid;
+  min-inline-size: 0;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-4);
+}
+.visual-assets-tile-controls details {
+  min-inline-size: 0;
+  border-block-start: 1px solid var(--border);
+  padding-block: var(--space-1);
+}
+.visual-assets-tile-controls summary {
+  cursor: pointer;
+  padding-block: var(--space-1);
+}
+.visual-assets-tile-controls details[open] > :not(summary) {margin-block-start: var(--space-2);}
+.visual-assets-shell :is(input:not([type="checkbox"]),select,textarea,button) {max-inline-size: 100%;}
+.visual-assets-shell :is(summary,button,input,select,textarea):focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+.visual-assets-animation,
+.visual-assets-task,
+.visual-assets-outfit .ui-panel {padding: var(--space-4);}
+.visual-assets-task > dl {display: grid; gap: var(--space-1);}
+.visual-assets-task dt {color: var(--text-muted);}
+.visual-assets-task dd + dt {margin-block-start: var(--space-2);}
+.visual-assets-task > button {justify-self: start;}
+.visual-assets-animation-frame,
+.visual-assets-tool-expanded .ui-panel {overflow-wrap: anywhere;}
+@container (max-width: 38rem) {
+  .visual-assets-masthead {align-items: start; gap: var(--space-2);}
+  .visual-assets-query input[type="search"] {flex: 1 1 8rem;}
+  .visual-assets-query input[type="search"]:first-child {flex-basis: 10rem;}
+  .visual-assets-animation,
+  .visual-assets-task,
+  .visual-assets-outfit .ui-panel {padding: var(--space-2);}
 }
 
 /* ═══════════════════════════════════════════════════════

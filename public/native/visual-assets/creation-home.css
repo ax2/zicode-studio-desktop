@@ -26,3 +26,18 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.visual-assets-shell .visual-assets-workflows {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+.visual-assets-workflow {
+  align-items: flex-start;
+  padding: var(--space-4);
+  border-block-start: 2px solid var(--border-bright);
+}
+.visual-assets-workflow:first-child {border-block-start-color: var(--accent-text);}
+.visual-assets-workflow > button {max-inline-size: 100%; white-space: normal; text-align: start;}
+.visual-assets-workflow-inputs {
+  font-size: var(--font-size-sm);
+  padding-block-end: var(--space-2);
+}

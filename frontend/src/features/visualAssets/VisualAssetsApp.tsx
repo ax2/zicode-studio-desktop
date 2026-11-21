@@ -11,10 +11,10 @@ export function VisualAssetsApp(props: { invoke: Invoke; workspaceId: string; sc
   const [view, setView] = useState<"home" | "library" | CreationWorkflowId>("home");
   const selected = creationWorkflows.find((entry) => entry.id === view);
   return (
-    <section className="visual-assets-main" aria-label={t("Visual creation studio")}>
-      <header className="ui-toolbar">
+    <section className="visual-assets-main visual-assets-shell" aria-label={t("Visual creation studio")}>
+      <header className="visual-assets-masthead">
         <h2>{t("Visual assets")}</h2>
-        <nav className="ui-toolbar" aria-label={t("Visual creation navigation")}>
+        <nav className="visual-assets-nav" aria-label={t("Visual creation navigation")}>
           <button
             type="button"
             className="ui-button"
@@ -35,14 +35,14 @@ export function VisualAssetsApp(props: { invoke: Invoke; workspaceId: string; sc
       </header>
       {view === "home" && (
         <>
-          <h3>{t("What would you like to create?")}</h3>
-          <p>{t("Start with a creative task. Choose or add materials when you need them.")}</p>
+          <div className="visual-assets-intro"><h3>{t("What would you like to create?")}</h3>
+          <p>{t("Start with a creative task. Choose or add materials when you need them.")}</p></div>
           <div className="visual-assets-workflows">
             {creationWorkflows.map((workflow) => (
               <section className="ui-card visual-assets-workflow" key={workflow.id}>
                 <h3>{t(workflow.title)}</h3>
                 <p>{t(workflow.description)}</p>
-                <p>{t(workflow.inputs)}</p>
+                <p className="visual-assets-workflow-inputs">{t(workflow.inputs)}</p>
                 <button
                   type="button"
                   className={`ui-button${workflow.id === "outfit" ? " ui-button--primary" : ""}`}
