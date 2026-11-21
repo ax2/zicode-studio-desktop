@@ -108,11 +108,15 @@ pub(crate) enum Request {
         #[serde(default, rename = "clearCache")]
         clear_cache: bool,
     },
+    CachedLabels,
+    Labels,
     List {
+        label: Option<String>,
         cursor: Option<String>,
         limit: u8,
     },
     CachedPage {
+        label: Option<String>,
         cursor: Option<String>,
         limit: u8,
     },
@@ -164,7 +168,7 @@ pub(crate) async fn mail_gmail(
     let path = root.join("mail").join("mail.sqlite3");
     let address = store::address(&path, &scope, &account_id)?;
     let cache_epoch = match request {
-        Request::List { .. } | Request::Read { .. } | Request::DownloadAttachment { .. } => {
+        Request::Labels | Request::List { .. } | Request::Read { .. } | Request::DownloadAttachment { .. } => {
             store::cache_generation(&path, &scope, &account_id)?
         }
         _ => 0,
@@ -186,21 +190,24 @@ pub(crate) async fn mail_gmail(
         .entry(key.clone())
         .or_default()
         .clone();
-    let key_for = |cursor: &Option<String>, limit: u8| -> Result<String> {
-        if !(1..=30).contains(&limit) || cursor.as_ref().is_some_and(|v| v.len() > 2048) {
+    let key_for = |label: Option<&str>, cursor: &Option<String>, limit: u8| -> Result<String> {
+        let label = label.unwrap_or("INBOX");
+        if !api::valid_id(label) || !(1..=30).contains(&limit) || cursor.as_ref().is_some_and(|v| v.len() > 2048) {
             Err("gmail_invalid")
         } else {
-            Ok(format!("{}:{}", limit, cursor.as_deref().unwrap_or("")))
+            let page = format!("{}:{}", limit, cursor.as_deref().unwrap_or(""));
+            Ok(if label == "INBOX" { page } else { format!("label:{label}:{page}") })
         }
     };
     match &request {
-        Request::CachedPage { cursor, limit } => {
+        Request::CachedLabels => return Ok(store::cached(&path, &scope, &account_id, "labels", "")?),
+        Request::CachedPage { label, cursor, limit } => {
             return Ok(store::cached(
                 &path,
                 &scope,
                 &account_id,
                 "page",
-                &key_for(cursor, *limit)?,
+                &key_for(label.as_deref(), cursor, *limit)?,
             )?)
         }
         Request::CachedBody { id } => {
@@ -423,9 +430,15 @@ pub(crate) async fn mail_gmail(
         return Err("gmail_permission_denied".into());
     }
     let response = match request {
-        Request::List { cursor, limit } => {
-            let key = key_for(&cursor, limit)?;
-            let data = api::list(&client, api::BASE, &access, cursor.as_deref(), limit).await?;
+        Request::Labels => {
+            let labels = api::labels(&client, api::BASE, &access).await?;
+            let _g = current()?;
+            store::cache(&path, &scope, &account_id, cache_epoch, "labels", "", &labels)?;
+            labels
+        }
+        Request::List { label, cursor, limit } => {
+            let key = key_for(label.as_deref(), &cursor, limit)?;
+            let data = api::list(&client, api::BASE, &access, label.as_deref().unwrap_or("INBOX"), cursor.as_deref(), limit).await?;
             let _g = current()?;
             store::cache(&path, &scope, &account_id, cache_epoch, "page", &key, &data)?;
             data

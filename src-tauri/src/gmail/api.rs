@@ -68,20 +68,32 @@ fn summary(m: &Value) -> Result<Value> {
         json!({"id":id,"from":header("From"),"subject":header("Subject"),"date":header("Date"),"snippet":m["snippet"].as_str().unwrap_or("")}),
     )
 }
+pub async fn labels(client: &Client, base: &str, token: &str) -> Result<Value> {
+    let data = get(client, &format!("{base}/labels"), token, &[], 2 * 1024 * 1024).await?;
+    let rows = data["labels"].as_array().ok_or("gmail_invalid_response")?;
+    let mut labels = Vec::with_capacity(rows.len());
+    for row in rows {
+        let id = row["id"].as_str().filter(|id| valid_id(id)).ok_or("gmail_invalid_response")?;
+        let name = row["name"].as_str().filter(|name| !name.is_empty()).ok_or("gmail_invalid_response")?;
+        labels.push(json!({"id":id,"name":name}));
+    }
+    Ok(json!(labels))
+}
 pub async fn list(
     client: &Client,
     base: &str,
     token: &str,
+    label: &str,
     cursor: Option<&str>,
     limit: u8,
 ) -> Result<Value> {
-    if !(1..=30).contains(&limit)
+    if !valid_id(label) || !(1..=30).contains(&limit)
         || cursor.is_some_and(|p| p.len() > 2048 || p.chars().any(char::is_control))
     {
         return Err("gmail_invalid");
     }
     let max = limit.to_string();
-    let mut query = vec![("labelIds", "INBOX"), ("maxResults", max.as_str())];
+    let mut query = vec![("labelIds", label), ("maxResults", max.as_str())];
     if let Some(c) = cursor {
         query.push(("pageToken", c))
     }

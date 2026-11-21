@@ -8,6 +8,7 @@ import type { Invoke } from "./index";
 type Grant = { connected: boolean; read?: boolean; send?: boolean };
 type Message = { id: string; from: string; subject: string; date: string; snippet: string };
 type Page = { items: Message[]; nextCursor: string | null };
+type Label = {id:string; name:string};
 type Body = Message & { plainText: string | null; html?: string | null; attachments?: Attachment[] };
 const none: Grant = { connected: false };
 
@@ -29,6 +30,7 @@ export function gmailError(e: unknown): string {
 }
 export function GmailInbox({id,address,invoke,onGrant}:{id:string;address:string;invoke:Invoke;onGrant:(send:boolean)=>void}) {
   const [grant,setGrant]=useState<Grant>(none),[page,setPage]=useState<Page|null>(null);
+  const [labels,setLabels]=useState<Label[]>([]),[label,setLabel]=useState("INBOX");
   const [message,setMessage]=useState<Message|null>(null),[body,setBody]=useState<Body|null>(null);
   const [online,setOnline]=useState(false),[busy,setBusy]=useState("init"),[notice,setNotice]=useState("");
   const epoch=useRef(0),operation=useRef("init"),grantCallback=useRef(onGrant);
@@ -38,11 +40,14 @@ export function GmailInbox({id,address,invoke,onGrant}:{id:string;address:string
     const gen=++epoch.current;
     operation.current="init"; setBusy("init");setGrant(none);grantCallback.current(false);
     setPage(null);setMessage(null);setBody(null);setOnline(false);setNotice("");
+    setLabels([]);setLabel("INBOX");
     void Promise.allSettled([
       invoke<Grant>({kind:"status",accountId:id}),
       invoke<Page|null>({kind:"cachedPage",accountId:id,cursor:null,limit:20}),
-    ]).then(([s,p])=>{
+      invoke<Label[]|null>({kind:"cachedLabels",accountId:id}),
+    ]).then(([s,p,l])=>{
       if(epoch.current!==gen)return;
+      if(l.status==="fulfilled"&&Array.isArray(l.value))setLabels(l.value);
       if(s.status==="fulfilled"){setGrant(s.value);grantCallback.current(s.value.connected&&s.value.send===true)}else setNotice(gmailError(s.reason));
       if(p.status==="fulfilled")setPage(p.value);else if(s.status==="fulfilled")setNotice(gmailError(p.reason));
       operation.current="";setBusy("");
@@ -63,8 +68,8 @@ export function GmailInbox({id,address,invoke,onGrant}:{id:string;address:string
     catch(e){if(epoch.current===gen)setNotice(gmailError(e))}
     finally{if(epoch.current===gen){operation.current="";setBusy("")}}
   }
-  function load(server:boolean,cursor:string|null=null){
-    void run("list",()=>invoke<Page|null>({kind:server?"list":"cachedPage",accountId:id,cursor,limit:20}),p=>{
+  function load(server:boolean,cursor:string|null=null,selected=label){
+    void run("list",()=>invoke<Page|null>({kind:server?"list":"cachedPage",accountId:id,label:selected,cursor,limit:20}),p=>{
       if(cursor&&p){setPage(old=>({...p,items:[...(old?.items??[]),...p.items.filter(x=>!old?.items.some(i=>i.id===x.id))]}))}
       else if(!cursor){setPage(p);setBody(null);setMessage(null)}else setNotice(t("No older cached page is available."));
       setOnline(server);
@@ -85,13 +90,23 @@ export function GmailInbox({id,address,invoke,onGrant}:{id:string;address:string
       <MailDisconnect connected={!disconnected} label={t("Disconnect Gmail")} prompt={t("Disconnect Gmail on this device? Saved drafts will remain.")}
         disconnect={clear=>run("disconnect",()=>invoke<{revoked:boolean}>({kind:"disconnect",accountId:id,clearCache:clear}),r=>{
           saveGrant(none);setOnline(false);
-          if(clear){setPage(null);setMessage(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
+          if(clear){setLabel("INBOX");setLabels([]);setPage(null);setMessage(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
           setNotice(t(r.revoked?"Gmail disconnected.":"Disconnected on this device. Review Google account permissions to confirm revocation."))
         })}/>
     </fieldset>
     {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button type="button" onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
     <fieldset disabled={Boolean(busy)}><legend>{t("Inbox")}</legend>
-      <button type="button" onClick={()=>load(false)}>{t("Show offline inbox")}</button>
+      <label>{t("Gmail label")} <select value={label} onChange={e=>{
+        const next=e.target.value;setLabel(next);setPage(null);setMessage(null);setBody(null);setOnline(false);load(false,null,next);
+      }}>
+        <option value="INBOX">{t("Inbox")}</option>
+        {labels.filter(item=>item.id!=="INBOX").map(item=><option key={item.id} value={item.id} translate="no">{item.name}</option>)}
+      </select></label>
+      <button type="button" disabled={!grant.read} onClick={()=>void run("labels",()=>invoke<Label[]>({kind:"labels",accountId:id}),items=>{
+        setLabels(items);
+        if(label!=="INBOX"&&!items.some(item=>item.id===label)){setLabel("INBOX");setPage(null);setMessage(null);setBody(null);setOnline(false)}
+      })}>{t("Refresh Gmail labels")}</button>
+      <button type="button" onClick={()=>load(false)}>{t(label==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
       <button type="button" disabled={!grant.read} onClick={()=>load(true)}>{t("Refresh from server")}</button>
       {page?<><p>{t(online?"Showing messages retrieved from the server.":"Showing messages saved on this device.")}</p>
         {!page.items.length&&<p>{t("No messages on this page.")}</p>}

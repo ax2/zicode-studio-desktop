@@ -95,8 +95,9 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
             Json(json!({"access_token":"test-access","scope":oauth::READ}))
         }))
         .route("/me/profile",get(||async{Json(json!({"emailAddress":"me@example.test"}))}))
+        .route("/me/labels",get(||async{Json(json!({"labels":[{"id":"INBOX","name":"Inbox"},{"id":"Label_42","name":"Invoices"}]}))}))
         .route("/me/messages",get(|Query(q):Query<HashMap<String,String>>,headers:axum::http::HeaderMap|async move{
-            assert_eq!(headers["authorization"],"Bearer test-access");assert_eq!(q["labelIds"],"INBOX");assert_eq!(q["maxResults"],"5");assert_eq!(q["pageToken"],"second");
+            assert_eq!(headers["authorization"],"Bearer test-access");assert!(matches!(q["labelIds"].as_str(),"INBOX"|"Label_42"));assert_eq!(q["maxResults"],"5");assert_eq!(q["pageToken"],if q["labelIds"]=="INBOX" {"second"} else {"invoice-page"});
             Json(json!({"messages":[{"id":"ab23"}],"nextPageToken":"next"}))
         }))
         .route("/me/messages/{id}",get(|Path(id):Path<String>|async move{
@@ -142,7 +143,11 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
             .unwrap(),
         "me@example.test"
     );
-    let page = api::list(&client, &base, &tok.access_token, Some("second"), 5)
+    let labels = api::labels(&client, &base, &tok.access_token).await.unwrap();
+    assert_eq!(labels[1], json!({"id":"Label_42","name":"Invoices"}));
+    let invoices = api::list(&client, &base, &tok.access_token, "Label_42", Some("invoice-page"), 5).await.unwrap();
+    assert_eq!(invoices["items"][0]["id"], "ab23");
+    let page = api::list(&client, &base, &tok.access_token, "INBOX", Some("second"), 5)
         .await
         .unwrap();
     assert_eq!(page["items"][0]["subject"], "fixture");

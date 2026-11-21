@@ -29,7 +29,7 @@ it("starts from cache, requests separate read and send grants, and never sends w
     }
   });
   const sign=await screen.findByRole("button",{name:"Sign in to read Gmail"});await waitFor(()=>expect(sign.matches(":disabled")).toBe(false));
-  expect(view.calls.mock.calls.map(([r])=>r.kind)).toEqual(["status","cachedPage"]);
+  expect(view.calls.mock.calls.map(([r])=>r.kind)).toEqual(["status","cachedPage","cachedLabels"]);
   fireEvent.click(sign);await screen.findByText("Gmail is connected for reading.");
   fireEvent.click(screen.getByRole("button",{name:"Refresh from server"}));fireEvent.click(await screen.findByRole("button",{name:/Inbox fixture/}));
   await screen.findByText("<img src='https://invalid.test/tracker'>");expect(view.container.querySelector("img")).toBe(null);
@@ -44,6 +44,23 @@ it("starts from cache, requests separate read and send grants, and never sends w
   await screen.findByText(/Delivery is unknown. Check Gmail Sent/);expect(screen.queryByRole("button",{name:"Review before sending"})).toBe(null);
   fireEvent.click(screen.getByRole("button",{name:"New draft"}));fireEvent.click(screen.getByRole("button",{name:"Saved subject"}));
   await screen.findByText(/Delivery is unknown. Check Gmail Sent/);expect(view.calls.mock.calls.filter(([r])=>r.kind==="send")).toHaveLength(1);
+});
+it("opens a saved label offline and refreshes only that label on request",async()=>{
+  const v=fixture(async r=>{
+    if(r.kind==="status")return {connected:true,read:true};
+    if(r.kind==="cachedLabels")return [{id:"Label_42",name:"Invoices"}];
+    if(r.kind==="cachedPage")return {items:[r.label==="Label_42"?{...entry,subject:"Saved invoice"}:entry],nextCursor:null};
+    if(r.kind==="list")return {items:[{...entry,subject:"Updated invoice"}],nextCursor:null};
+    throw Error("Unexpected request");
+  });
+  await screen.findByText("Inbox fixture");
+  fireEvent.change(screen.getByLabelText("Gmail label"),{target:{value:"Label_42"}});
+  await screen.findByText("Saved invoice");
+  expect(screen.queryByText("Inbox fixture")).toBe(null);
+  expect(v.calls.mock.calls.some(([r])=>r.kind==="list")).toBe(false);
+  fireEvent.click(screen.getByRole("button",{name:"Refresh from server"}));
+  await screen.findByText("Updated invoice");
+  expect(v.calls).toHaveBeenCalledWith({kind:"list",accountId:"one",label:"Label_42",cursor:null,limit:20});
 });
 it("cancels browser authorization; a late successful result cannot grant sending",async()=>{
   let done:((v:unknown)=>void)|undefined;
@@ -71,7 +88,7 @@ it("drops late message bodies from the previously selected account",async()=>{
   fireEvent.change(screen.getByLabelText("Mail account"),{target:{value:"two"}});
   await screen.findByText("No messages on this page.");await act(async()=>finish?.({...entry,plainText:"OLD ACCOUNT CONTENT"}));
   expect(screen.queryByText("OLD ACCOUNT CONTENT")).toBe(null);
-  expect(v.calls.mock.calls.every(([r])=>["cachedBody","cachedPage","status"].includes(String(r.kind)))).toBe(true);
+  expect(v.calls.mock.calls.every(([r])=>["cachedBody","cachedPage","status","cachedLabels"].includes(String(r.kind)))).toBe(true);
 });
 
 it("recovers an interrupted send from the local journal without posting it twice",async()=>{
