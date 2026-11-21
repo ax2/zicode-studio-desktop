@@ -1,15 +1,25 @@
 :root {
   color-scheme: light dark;
-  font-family: "Segoe UI", system-ui, sans-serif;
   font-size: var(--font-size-md);
   color: CanvasText;
   background: Canvas;
   --outline: color-mix(in srgb, CanvasText 22%, Canvas);
 }
 
-body { margin: 0; }
-main { margin: 0 auto; padding: var(--space-3) var(--space-4); display: grid; gap: var(--space-3); }
-h1 { margin: 0; font-size: var(--font-size-lg); }
+body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; }
+main {
+  box-sizing: border-box; max-inline-size: var(--chat-content-max-width); margin: 0 auto;
+  padding: var(--space-4); display: grid; gap: var(--space-4);
+}
+header { display: grid; gap: var(--space-1); padding-bottom: var(--space-3); border-bottom: 1px solid var(--outline); }
+#destination { font-size: var(--font-size-sm); }
+#status:empty { display: none; }
+#translation { padding: var(--space-3); border-radius: var(--radius-md); background: color-mix(in srgb, CanvasText 5%, Canvas); }
+.actions { padding-top: var(--space-3); border-top: 1px solid var(--outline); }
+#original textarea, #translation textarea { inline-size: 100%; }
+#retry { background: Highlight; border-color: Highlight; color: HighlightText; }
+:where(button, textarea, select):focus-visible { outline: var(--space-0-5) solid Highlight; outline-offset: var(--space-0-5); }
+h1 { margin: 0; font-size: var(--font-size-xl); }
 p { margin: 0; overflow-wrap: anywhere; }
 label { display: grid; min-width: 0; gap: var(--space-1); }
 textarea { resize: vertical; }
@@ -25,6 +35,6 @@ textarea, select, button {
 
 .languages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-1-5); }
-button { cursor: pointer; }
+button { min-height: var(--control-height-md); cursor: pointer; }
 button:disabled { cursor: default; opacity: .65; }
 [hidden] { display: none; }

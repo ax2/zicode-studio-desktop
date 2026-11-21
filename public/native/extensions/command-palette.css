@@ -125,10 +125,13 @@
   transition: background var(--duration) var(--ease);
 }
 
-.command-item:hover,
-.command-item:focus-visible {
+.command-item:hover {
   background: var(--bg-glass-hover);
-  outline: none;
+}
+
+.command-item:focus-visible {
+  outline: var(--space-0-5) solid var(--accent);
+  outline-offset: calc(-1 * var(--space-0-5));
 }
 
 .command-item.selected {

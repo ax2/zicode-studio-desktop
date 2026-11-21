@@ -106,8 +106,8 @@
 .plugin-activity-button::before {
   content: "";
   position: absolute;
-  left: calc(var(--space-1-5) * -1);
-  width: 2px;
+  inset-inline-start: 0;
+  width: var(--space-0-5);
   height: 0;
   border-radius: var(--radius-pill);
   background: var(--accent);
@@ -147,7 +147,7 @@
 }
 
 .plugin-activity-button.active::before {
-  height: var(--control-height-md);
+  height: var(--space-5);
 }
 
 .plugin-mobile-activity-more,

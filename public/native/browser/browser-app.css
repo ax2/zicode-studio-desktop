@@ -17,9 +17,14 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-footer button { white-space: nowrap; }
 .browser-navigation > .browser-footer { flex: 0 0 auto; padding: 0; margin-inline-start: auto; max-width: 100%; }
 .browser-footer > [role="status"]:empty { display: none; }
+.browser-navigation { border-bottom: 1px solid var(--border); padding-block-end: var(--space-2); }
 .browser-address { flex: 1; min-width: 0; }
 .browser-startup [hidden] { display: none; }
-.browser-startup { padding: var(--space-4); text-align: start; }
+.browser-startup {
+  align-self: center; margin: auto; padding: var(--space-5); max-inline-size: var(--chat-content-max-width);
+  display: grid; justify-items: start; gap: var(--space-3); overflow-wrap: anywhere;
+  background: var(--bg-glass); border-radius: var(--radius-md);
+}
 .browser-page-area { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .browser-page-body { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .browser-tab-strip--vertical { flex: 0 0 clamp(6rem, 18%, 13rem); align-items: stretch; min-height: 0; }
@@ -35,6 +40,11 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
   .browser-tab-strip--vertical .browser-tab .browser-tab-label { display: none; }
 }
 .browser-viewport { flex: 1; min-width: 0; min-height: 0; overflow: hidden; text-align: center; }
+.browser-viewport:not(:empty):not(:has(> *)) {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+}
 .browser-assistant {
   flex: 0 0 clamp(15rem, 36%, 25rem);
   min-width: 0;
