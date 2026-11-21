@@ -2876,7 +2876,6 @@ const zhCN = {
   Drafts: "草稿",
   "Save draft": "保存草稿",
   "Add attachment": "添加附件",
-  "Attachments": "附件",
   "Remove attachment": "移除附件",
   "Activate task": "启用任务",
   "Delete draft": "删除草稿",
