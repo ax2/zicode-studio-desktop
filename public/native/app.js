@@ -3195,12 +3195,20 @@ function revealEarlierHistory() {
   if (!historyWindow?.revealPrevious()) return;
   const previousScrollHeight = messagesElement.scrollHeight;
   const previousScrollTop = messagesElement.scrollTop;
+  const anchor = messagesElement.querySelector(".message.user[data-entry-id]");
+  const anchorId = anchor?.dataset.entryId;
+  const anchorTop = anchor?.getBoundingClientRect().top;
   historyRevealCompleted = historyWindow.hiddenCount === 0;
   renderHistory(currentHistoryMessages, { preserveScroll: true });
 
   requestAnimationFrame(() => {
-    const addedHeight = Math.max(0, messagesElement.scrollHeight - previousScrollHeight);
-    messagesElement.scrollTop = previousScrollTop + addedHeight;
+    const restoredAnchor = anchorId && messagesElement.querySelector(
+      `.message.user[data-entry-id="${CSS.escape(anchorId)}"]`,
+    );
+    const top = restoredAnchor
+      ? messagesElement.scrollTop + restoredAnchor.getBoundingClientRect().top - anchorTop
+      : previousScrollTop + Math.max(0, messagesElement.scrollHeight - previousScrollHeight);
+    messagesElement.scrollTo({ top, behavior: "instant" });
     const focusTarget = messagesElement.querySelector(
       ".history-window-load, .history-window-loaded",
     );
