@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 
 const read = (relative) => readFileSync(join(process.cwd(), relative), "utf8");
@@ -63,6 +64,20 @@ describe("vanilla UI localization contract", () => {
     expect(html).toContain("zicode-studio-locale");
   });
 
+  it("displays startup error text exactly once and leaves restart guidance usable", () => {
+    const message = "C:\\Studio 100% #1 + & %20\n资料目录无法读取";
+    const url = new URL("https://tauri.localhost/bootstrap.html");
+    url.searchParams.set("startupError", message);
+    const dom = new JSDOM(read("public/bootstrap.html"), { url: url.href, runScripts: "dangerously" });
+    try {
+      const document = dom.window.document;
+      expect(document.getElementById("startup-error").textContent).toBe(message);
+      document.getElementById("retry-btn").click();
+      expect(document.getElementById("hint").textContent).toContain("Quit Studio");
+    } finally {
+      dom.window.close();
+    }
+  });
   it("keeps React feature labels inside the shared t() pipeline", () => {
     const contextLogic = read("frontend/src/features/contextUsage/contextUsageLogic.ts");
     for (const key of ["Cached (reused)", "Uncached", "Available"]) {

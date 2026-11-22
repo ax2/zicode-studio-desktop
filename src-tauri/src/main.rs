@@ -1490,10 +1490,8 @@ fn open_native_workspace_window_named(
 fn open_bootstrap_window(app: &AppHandle, startup_error: &str) -> Result<(), String> {
     let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))
         .map_err(|error| format!("Failed to load window icon: {error}"))?;
-    let encoded_error = startup_error
-        .replace('&', "%26")
-        .replace(' ', "%20")
-        .replace('\n', "%0A");
+    let encoded_error =
+        percent_encoding::utf8_percent_encode(startup_error, percent_encoding::NON_ALPHANUMERIC);
     let url = format!("bootstrap.html?startupError={encoded_error}");
     let builder = WebviewWindowBuilder::new(app, "bootstrap", WebviewUrl::App(url.into()))
         .data_directory(app_paths::webview_root()?)
