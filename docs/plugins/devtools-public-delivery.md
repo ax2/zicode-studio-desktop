@@ -67,3 +67,5 @@ Zi DevTools 的 [JSON 文件插件 PR](https://github.com/ax2/zi-devtools/pull/1
 
 - <code>release/plugin-candidates/json-file-0.1.0-candidate-02/</code> 的完整目录，预期 7 个文件共 189,064 字节。
 - <code>release/plugin-candidates/json-file-0.1.0-candidate-02-verification.json</code>。此前记录目录索引 SHA-256 为 <code>2bfa0a11291d4c291f50b2ecca042b42256817a5ff33b24861d5f4040107e2ad</code>。若重新构建导致字节变化，请分配新的候选标识，并发布匹配的独立收据。
+
+Studio 另从提供方已固定的源码提交 <code>8476912755c0373660296aae358380df4f261689</code> 在隔离目录重建验收包 candidate-90。重建包 7 个文件、207,080 字节，目录索引 SHA-256 为 <code>756189d0e2f14e234caa3d2d28637f0c9e93cd6e94d8e5bceb005ae8c5e9ae75</code>。Windows 真实 Host/Worker 通过三项操作、结果确认另存和恰好 8 MiB 的输出回读。使用本机 Rust 1.88 和既有 WASI 目标，产物字节与 candidate-02 不同。跨机安装待提供方交付，桌面原生选择和另存也仍待验收。
