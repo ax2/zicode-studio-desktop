@@ -45,8 +45,15 @@ fn concepts(response: &Value) -> Result<Vec<String>, String> {
         .as_str()
         .filter(|s| s.len() <= 4096)
         .ok_or("visual_assets_model_response_unusable")?;
+    let text = text.trim();
+    // Some providers wrap an otherwise valid array in a Markdown JSON block.
+    let payload = text
+        .strip_prefix("```json")
+        .and_then(|block| block.strip_prefix('\n').or_else(|| block.strip_prefix("\r\n")))
+        .and_then(|block| block.strip_suffix("\n```"))
+        .unwrap_or(text);
     let words: Vec<String> =
-        serde_json::from_str(text.trim()).map_err(|_| "visual_assets_model_response_unusable")?;
+        serde_json::from_str(payload).map_err(|_| "visual_assets_model_response_unusable")?;
     if words.len() > 8
         || words
             .iter()
@@ -183,4 +190,40 @@ pub async fn handle(
         return Ok(json!({"ready":true}));
     }
     Ok(json!({"concepts":labels}))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn response(content: &str) -> Value {
+        json!({"choices":[{"finish_reason":"stop","message":{"content":content}}]})
+    }
+
+    #[test]
+    fn parses_raw_and_fenced_chinese_concepts() {
+        for text in [
+            r#"["费用","成本"]"#,
+            "```json\n[\"费用\",\"成本\"]\n```",
+            "```json\r\n[\"费用\",\"成本\"]\r\n```",
+        ] {
+            assert_eq!(concepts(&response(text)).unwrap(), ["费用", "成本"]);
+        }
+    }
+
+    #[test]
+    fn rejects_extra_content_and_unusable_fenced_concepts() {
+        for text in [
+            "说明\n```json\n[\"费用\"]\n```",
+            "```json\n[\"费用\"]\n```\n说明",
+            "```json\n[\" 费用\"]\n```",
+            "```json\n{\"query\":\"费用\"}\n```",
+            "```json\n[\"费用\"]",
+        ] {
+            assert!(concepts(&response(text)).is_err(), "{text}");
+        }
+        let mut refused = response(r#"["费用"]"#);
+        refused["choices"][0]["message"]["refusal"] = json!("refused");
+        assert!(concepts(&refused).is_err());
+    }
 }
