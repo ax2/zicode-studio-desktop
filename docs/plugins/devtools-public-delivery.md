@@ -56,3 +56,14 @@ $result | Select-Object fileCount,logicalBytes,directoryIndex,signatureVerified
 历史 Windows 候选曾在运行目录旁放置文件摘要、校验清单、编码转换、JSON 文件查询与对比、JSON 文件格式化与校验五个包，共 38 个文件。上表的 JSON Object 是另一个包。这五个包的公开下载位置仍待提供方交付。Studio v0.7.1 与 ZiDevTools v0.82.0 的 Release 附件清单均未列出这五个独立包。[历史交付回执](https://github.com/ax2/zicode-studio-desktop/issues/28#issuecomment-6969557942)
 
 提供方交付每个新包时，请给出不可变的公开下载位置、插件 ID、版本、完整包目录和独立的逐文件收据（相对路径、字节数、SHA-256、目录索引哈希及其编码）。Studio 可用同一核验工具接收，再验证实际运行。包在提供方独立构建；用户安装、启用和授权分别进行。[跨机交付跟踪](https://github.com/ax2/zicode-studio-desktop/issues/241)
+
+## 2026-11-22 复核 JSON 文件插件交付
+
+Zi DevTools 的 [JSON 文件插件 PR](https://github.com/ax2/zi-devtools/pull/1) 已合入。复核[上游目录](https://github.com/ax2/zi-devtools/blob/0b5a2b76c9a38205bda7f00b5dec7283d706ba45/docs/tools.json)及[迁移表](https://github.com/ax2/zi-devtools/blob/0b5a2b76c9a38205bda7f00b5dec7283d706ba45/docs/studio-plugin-migration.json)，与 Studio 的 [Windows 验收矩阵](devtools-windows-current.json)对照，154 个源 ID 一致。上游列 JSON 源工具为 1.3.1，Studio 矩阵的 Windows 验收基线为 1.3.0。另有 10 个源版本不同，涉及 timestamp、uuid、color、http、random、curl-import、image-metadata、markdown、time-zone、regex-replace。curl-import 的源实现状态也不同。Windows 的完整 6、部分 51、未映射 97 是该矩阵日期和版本范围的记录。
+
+上游迁移表列出 <code>com.zicode.devtools.json-file@0.1.0</code> candidate-02 的格式化、压缩和校验。Studio 已在隔离 Host 和真实 Worker 核验运行能力，原生文件选择及保存界面仍待本版复核。接入范围和历史输出边界见[专项记录](../iterations/2026-11-18-json-file-transform.md)。
+
+上游的公开提交包含打包脚本，候选目录及外部收据未随该提交发布。v0.82.0 Release 无独立包，公开 Actions 也未找到仍可获取的对应文件。为接入 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28)，请提供方发布以下两项并给出固定链接：
+
+- <code>release/plugin-candidates/json-file-0.1.0-candidate-02/</code> 的完整目录，预期 7 个文件共 189,064 字节。
+- <code>release/plugin-candidates/json-file-0.1.0-candidate-02-verification.json</code>。此前记录目录索引 SHA-256 为 <code>2bfa0a11291d4c291f50b2ecca042b42256817a5ff33b24861d5f4040107e2ad</code>。若重新构建导致字节变化，请分配新的候选标识，并发布匹配的独立收据。
