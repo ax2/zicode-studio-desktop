@@ -180,6 +180,32 @@ export function PluginIcon({ name }: { name: string }) {
   );
 }
 
+const ACTIVITY_IMAGES: Record<string, string> = {
+  "com.zicode.browser": "browser",
+  "core.chat": "chat",
+  "com.zicode.mail": "mail",
+  "com.zicode.projects": "files",
+  "com.zicode.tasks": "tasks",
+  "com.zicode.notes": "notes",
+  "com.zicode.visual-assets": "gallery",
+  "com.zicode.blog": "blog",
+  "core.tools": "tools",
+  "com.zicode.automation": "automation",
+  "core.files": "files",
+  "core.commands": "commands",
+  "core.settings": "settings",
+  "core.help": "help",
+};
+
+function ActivityIcon({ item }: { item: PluginActivityItem }) {
+  const image = ACTIVITY_IMAGES[item.id];
+  return image ? (
+    <img className="plugin-activity-image" src={`icons/activity/${image}.png`} alt="" draggable={false} />
+  ) : (
+    <PluginIcon name={item.icon} />
+  );
+}
+
 function ActivityButton({
   item,
   isActive,
@@ -209,7 +235,7 @@ function ActivityButton({
       aria-current={isActive ? "page" : undefined}
       onClick={() => onActivate(item)}
     >
-      <PluginIcon name={item.icon} />
+      <ActivityIcon item={item} />
       <span className="plugin-activity-tooltip">
         {item.label}
         {shortcut ? <span className="plugin-activity-shortcut">{shortcut}</span> : null}
@@ -367,7 +393,7 @@ export function PluginActivityBarApp({
                 key={item.id}
                 onClick={() => onMenuItemClick(item)}
               >
-                <PluginIcon name={item.icon} />
+                <ActivityIcon item={item} />
                 <span className="plugin-mobile-activity-menu-label">
                   <span>{item.label}</span>
                   {item.description ? (

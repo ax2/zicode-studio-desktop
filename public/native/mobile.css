@@ -144,7 +144,8 @@
     height: 2px;
   }
 
-  .plugin-activity-button svg {
+  .plugin-activity-button svg,
+  .plugin-activity-button .plugin-activity-image {
     width: var(--space-5);
     height: var(--space-5);
   }
