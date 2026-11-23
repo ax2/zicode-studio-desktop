@@ -7435,7 +7435,7 @@ code {
 .plugin-activity-button:is([data-plugin-id="core.chat"], [data-plugin-id="com.zicode.tasks"], [data-plugin-id="com.zicode.finance"], [data-plugin-id="com.zicode.habits"]) { --activity-icon-color: var(--nav-teal); }
 .plugin-activity-button:is([data-plugin-id="com.zicode.notes"], [data-plugin-id="com.zicode.projects"], [data-plugin-id="core.files"], [data-plugin-id="com.zicode.clipboard"]) { --activity-icon-color: var(--nav-gold); }
 .plugin-activity-button:is([data-plugin-id="com.zicode.visual-assets"], [data-plugin-id="com.zicode.graph"], [data-plugin-id="com.zicode.imagetools"], [data-plugin-id="core.commands"]) { --activity-icon-color: var(--nav-purple); }
-.plugin-activity-button:is([data-plugin-id="com.zicode.mail"], [data-plugin-id="com.zicode.automation"], [data-plugin-id="com.zicode.articles"]) { --activity-icon-color: var(--nav-rose); }
+.plugin-activity-button:is([data-plugin-id="com.zicode.mail"], [data-plugin-id="com.zicode.automation"], [data-plugin-id="com.zicode.articles"], [data-plugin-id="com.zicode.blog"]) { --activity-icon-color: var(--nav-rose); }
 .plugin-activity-button:is([data-plugin-id="core.settings"], [data-plugin-id="core.help"]) { --activity-icon-color: var(--nav-slate); }
 
 .plugin-activity-button > svg {

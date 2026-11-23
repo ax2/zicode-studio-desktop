@@ -20,14 +20,14 @@ it("keeps an unsaved edit when switching is declined and prevents pulling", asyn
   const view = render(<Blog invoke={invoke} />);
   fireEvent.change(await view.findByRole("searchbox"), { target: { value: "Rust" } });
   fireEvent.click(view.getByText("API notes"));
-  fireEvent.change(await view.findByLabelText("Markdown"), {
+  fireEvent.change(await view.findByLabelText("Markdown text"), {
     target: { value: "draft-in-progress" },
   });
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
   try {
     fireEvent.click(view.getByText("New article"));
     expect(confirm).toHaveBeenCalledTimes(1);
-    expect((view.getByLabelText("Markdown") as HTMLTextAreaElement).value).toBe(
+    expect((view.getByLabelText("Markdown text") as HTMLTextAreaElement).value).toBe(
       "draft-in-progress",
     );
     expect((view.getByText("Pull changes") as HTMLButtonElement).disabled).toBe(true);
@@ -59,7 +59,7 @@ it("writes locally, then pushes only the article the author selects", async () =
   fireEvent.click(await view.findByText("New article"));
   fireEvent.change(await view.findByLabelText("Title"), { target: { value: "Example" } });
   fireEvent.change(view.getByLabelText("Article slug"), { target: { value: "sample" } });
-  fireEvent.change(view.getByLabelText("Markdown"), { target: { value: "This is the body." } });
+  fireEvent.change(view.getByLabelText("Markdown text"), { target: { value: "This is the body." } });
   fireEvent.click(view.getByText("Save article"));
   await view.findByText("Article saved locally");
   expect(requests.find((r) => r.action === "save")).toMatchObject({

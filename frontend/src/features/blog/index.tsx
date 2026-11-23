@@ -353,9 +353,9 @@ export function Blog({ invoke }: { invoke: Invoke }) {
                   </label>
                 </div>
                 <label className="blog-body">
-                  Markdown
+                  {t("Markdown text")}
                   <textarea
-                    aria-label="Markdown"
+                    aria-label={t("Markdown text")}
                     spellCheck={false}
                     value={article.body}
                     onChange={(e) => field("body", e.target.value)}
