@@ -1,0 +1,67 @@
+{
+  "model": "qwen2.5:7b",
+  "transport": "localhost",
+  "firstPreview": "费用明细.webp",
+  "positiveRecall": "5/5",
+  "unexpectedResults": 0,
+  "queries": [
+    {
+      "query": "开销",
+      "expected": [
+        "费用明细.webp",
+        "费用总览.webp"
+      ],
+      "actual": [
+        "费用明细.webp",
+        "费用总览.webp"
+      ],
+      "expandedTerms": "支出 · 费用 · 成本 · 开支",
+      "providerReceipt": "[GIN] 2026/11/22 - 12:22:31",
+      "providerSeconds": 5.0133508
+    },
+    {
+      "query": "警示",
+      "expected": [
+        "权限警告.webp"
+      ],
+      "actual": [
+        "权限警告.webp"
+      ],
+      "expandedTerms": "警告 · 注意 · 提示 · 警戒 · 提醒 · 警示牌 · 告诫 · 示警",
+      "providerReceipt": "[GIN] 2026/11/22 - 20:00:32",
+      "providerSeconds": 3.6662039
+    },
+    {
+      "query": "移动端",
+      "expected": [
+        "手机界面.webp"
+      ],
+      "actual": [
+        "手机界面.webp"
+      ],
+      "expandedTerms": "手机 · 移动 · 端",
+      "providerReceipt": "[GIN] 2026/11/22 - 20:01:59",
+      "providerSeconds": 2.4163866
+    },
+    {
+      "query": "偏好配置",
+      "expected": [
+        "应用设置.webp"
+      ],
+      "actual": [
+        "应用设置.webp"
+      ],
+      "expandedTerms": "偏好 · 配置 · 设置 · 参数 · 选项 · 调整 · 定制 · 选择",
+      "providerReceipt": "[GIN] 2026/11/22 - 20:06:14",
+      "providerSeconds": 2.7821856
+    },
+    {
+      "query": "海洋生物",
+      "expected": [],
+      "actual": [],
+      "expandedTerms": "海洋 · 生物 · 鱼类 · 珊瑚 · 海藻 · 贝壳 · 水母 · 虾蟹",
+      "providerReceipt": "[GIN] 2026/11/22 - 20:07:34",
+      "providerSeconds": 2.5955363
+    }
+  ]
+}
