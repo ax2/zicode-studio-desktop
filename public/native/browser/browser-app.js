@@ -1069,13 +1069,21 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const modelActions = modelGateway && createBrowserModelGateway({ gateway: modelGateway, getTarget, isCurrent, openConversation });
     const analysisArtifacts = createBrowserAnalysisArtifacts({ capture, getTarget,
       isCurrent: () => Boolean(captureElement?.isConnected), gateway: new ArtifactGateway() });
+    const recognizeImage = async image => {
+      if (!isCurrent()) throw new Error(t("Page changed. Read it again."));
+      const result = await invoke("browser_recognize_image_text", {
+        tab: capture.tab, expectedUrl: capture.page.url, expectedRevision: capture.documentRevision, image, confirmed: true,
+      });
+      if (!isCurrent()) throw new Error(t("Page changed. Read it again."));
+      return result;
+    };
     captureElement = showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? attachments => prepareBrowserDraft({
       capture, isCurrent, getTarget, handoff: onPrepareDraft, attachments, openConversation,
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
     }) : undefined, isOpen => createBrowserNoteWriter({ capture, getTarget,
       isCurrent: () => isOpen() && isCurrent(), gateway: new NotesGateway(),
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
-    }), comparison, Boolean(openConversation), { host: assistant, trigger: read, modelActions, analysisArtifacts });
+    }), comparison, Boolean(openConversation), { host: assistant, trigger: read, modelActions, analysisArtifacts, recognizeImage });
     await syncSurface();
   }
   async function navigate(submission, source) {

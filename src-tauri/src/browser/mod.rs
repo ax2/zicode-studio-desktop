@@ -1,4 +1,5 @@
 pub(crate) mod capture;
+pub(crate) mod image_ocr;
 pub(crate) mod reader;
 pub(crate) mod selection;
 mod bookmark_html;

@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 
-export function browserDraftPrompt(capture, { includeLinks = false, includeTables = false, includeMedia = false, includeFrames = false, question, summarize = false } = {}) {
+export function browserDraftPrompt(capture, { includeLinks = false, includeTables = false, includeMedia = false, includeFrames = false, imageText = [], question, summarize = false } = {}) {
   const { links, linksTruncated, tables, tablesTruncated, metadata, images, imagesTruncated, frames, framesOmitted, ...page } = capture.page;
   const hasMedia = images?.length || Object.values(metadata ?? {}).some(Boolean);
   const userQuestion = typeof question === "string" ? question.slice(0, 5000).trim() : "";
@@ -20,6 +20,7 @@ export function browserDraftPrompt(capture, { includeLinks = false, includeTable
       ...(includeTables && tables?.length ? { tables, tablesTruncated } : {}),
       ...(includeMedia && hasMedia ? { metadata, images, imagesTruncated } : {}),
       ...(includeFrames && frames?.length ? { frames, framesOmitted } : {}),
+      ...(imageText.length ? { imageText } : {}),
     }, null, 2),
   ].join("\n\n");
 }

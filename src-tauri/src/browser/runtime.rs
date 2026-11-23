@@ -321,7 +321,8 @@ pub(super) fn capture<T: Send + 'static>(
     window: &WebviewWindow,
     tab: String,
     expected_url: String,
-    script: &'static str,
+    expected_revision: Option<String>,
+    script: &str,
     decode: fn(&str, &str) -> Result<T, String>,
     sender: tokio::sync::oneshot::Sender<Result<super::capture::Capture<T>, String>>,
 ) {
@@ -340,6 +341,9 @@ pub(super) fn capture<T: Send + 'static>(
                     return Err("Browser page changed; read it again".into());
                 }
                 let stamp = browser.engine.document_revision(&tab)?;
+                if expected_revision.as_ref().is_some_and(|revision| revision != &stamp) {
+                    return Err("Browser page changed; read it again".into());
+                }
                 let surface =
                     REVISIONS.with(|s| s.borrow().get(window.label()).copied().unwrap_or(0));
                 let owner = window.clone();

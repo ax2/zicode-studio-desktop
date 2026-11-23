@@ -433,6 +433,7 @@ permissions = [
   "allow-get-system-information",
   "allow-browser-control",
   "allow-browser-capture-page",
+  "allow-browser-recognize-image-text",
   "allow-browser-read-article",
   "allow-browser-read-selection",
   "allow-browser-get-state",
@@ -601,6 +602,11 @@ commands.allow = ["browser_control"]
 identifier = "allow-browser-capture-page"
 description = "Allow trusted chrome to explicitly read bounded text from its own browser tab with navigation checks; never execute caller-supplied scripts."
 commands.allow = ["browser_capture_page"]
+
+[[permission]]
+identifier = "allow-browser-recognize-image-text"
+description = "Recognize text in one reviewed browser image locally."
+commands.allow = ["browser_recognize_image_text"]
 
 [[permission]]
 identifier = "allow-browser-read-article"
