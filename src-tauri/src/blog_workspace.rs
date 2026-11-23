@@ -1,4 +1,5 @@
 //! Blog sites are selected through a native directory picker and remain local to the profile.
+mod assets;
 mod catalog;
 mod git;
 mod site;
@@ -48,6 +49,7 @@ fn listing(root: Option<&Path>) -> Result<Value, String> {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Keep each user approval distinct in the IPC payload.
 pub(crate) async fn blog_workspace(
     window: WebviewWindow,
     action: String,
@@ -56,6 +58,8 @@ pub(crate) async fn blog_workspace(
     text: Option<String>,
     expected: Option<String>,
     paths: Option<Vec<String>>,
+    owners: Option<Vec<String>>,
+    deletions: Option<Vec<String>>,
 ) -> Result<Value, String> {
     crate::require_workspace_window(&window)?;
     let config = crate::app_paths::data_root()?.join("blog-workspace.json");
@@ -105,9 +109,16 @@ pub(crate) async fn blog_workspace(
                 Ok(json!(new))
             }
             "pull" | "push" => {
-                git::sync(&root, &action, paths.unwrap_or_default())?;
+                git::sync(
+                    &root,
+                    &action,
+                    paths.unwrap_or_default(),
+                    owners.unwrap_or_default(),
+                    deletions.unwrap_or_default(),
+                )?;
                 listing(Some(&root))
             }
+            "preview" => Ok(json!(git::preview(&root, &paths.unwrap_or_default())?)),
             _ => Err("blog_unknown_action".into()),
         }
     })

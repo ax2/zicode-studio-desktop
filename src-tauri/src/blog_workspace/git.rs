@@ -1,4 +1,4 @@
-use super::site;
+use super::{assets, site};
 use crate::process_command::{new_command, working_directory};
 use std::{collections::BTreeSet, path::Path, process::Stdio, time::Duration};
 
@@ -113,6 +113,83 @@ fn key(prefix: &str, path: &str) -> Option<String> {
     site::relative(key).ok().map(|_| key.to_owned())
 }
 
+pub(super) fn preview(root: &Path, owners: &[String]) -> Result<assets::Preview, String> {
+    let changes = records(root)?;
+    plan(root, &changes, owners)
+}
+
+fn plan(
+    root: &Path,
+    changes: &[(String, String)],
+    owners: &[String],
+) -> Result<assets::Preview, String> {
+    let prefix = run(root, &["rev-parse", "--show-prefix"])?;
+    let prefix = prefix.trim_end_matches(['\r', '\n']);
+    let mut plan = assets::Preview::default();
+    let mut images = assets::ArticleImages::default();
+    for owner in owners {
+        let file = site::relative(owner)?;
+        if let Some((state, _)) = changes
+            .iter()
+            .find(|(_, name)| name.strip_prefix(prefix) == Some(file.as_str()))
+        {
+            if state.contains('D') {
+                return Err("blog_article_retirement_required".into());
+            }
+            plan.paths.insert(owner.clone());
+        }
+        if owner != "@homepagePicks" {
+            images.include(root, owner)?;
+        }
+    }
+    images.validate_directories(root)?;
+    for (state, name) in changes {
+        let Some(file) = name.strip_prefix(prefix) else {
+            continue;
+        };
+        if !images.includes(file) {
+            continue;
+        }
+        let deleted = state.contains('D');
+        let key = format!("{}{file}", assets::PREFIX);
+        if let Some(bytes) = assets::checked_size(root, file, deleted)? {
+            if deleted {
+                return Err("blog_git_refresh".into());
+            }
+            plan.sizes.insert(key.clone(), bytes);
+        } else {
+            if images.references.contains(file) {
+                return Err("blog_asset_referenced".into());
+            }
+            plan.deletions.insert(key.clone());
+        }
+        plan.paths.insert(key);
+    }
+    // An unchanged reference may be omitted by sparse checkout. Confirm it is
+    // in the Git index rather than forcing a download or trusting a local file.
+    let mut tracked = Vec::new();
+    for file in &images.references {
+        site::checked(root, file, true)?;
+        if !plan.paths.contains(&format!("{}{file}", assets::PREFIX)) {
+            tracked.push(file.as_str());
+        }
+    }
+    for chunk in tracked.chunks(32) {
+        let mut args = vec!["ls-files", "--stage", "--error-unmatch", "-z", "--"];
+        args.extend_from_slice(chunk);
+        let entries = run(root, &args).map_err(|_| "blog_asset_missing")?;
+        for entry in entries.split_terminator('\0') {
+            let info = entry.split_once('\t').ok_or("blog_git_refresh")?.0;
+            if !(info.starts_with("100644 ") || info.starts_with("100755 "))
+                || !info.ends_with(" 0")
+            {
+                return Err("blog_invalid_path".into());
+            }
+        }
+    }
+    Ok(plan)
+}
+
 pub(super) fn status(root: &Path) -> Result<Status, String> {
     let prefix = run(root, &["rev-parse", "--show-prefix"])?;
     let changed = records(root)?
@@ -180,8 +257,13 @@ fn commit_selected(
     let prefix = prefix.trim_end_matches(['\r', '\n']);
     let mut selected = BTreeSet::new();
     for item in selection {
-        site::resolve(root, item, true)?;
-        let file = site::relative(item)?;
+        let file = if let Some(file) = item.strip_prefix(assets::PREFIX) {
+            assets::checked_size(root, file, true)?;
+            file.to_owned()
+        } else {
+            site::resolve(root, item, true)?;
+            site::relative(item)?
+        };
         if !changes
             .iter()
             .any(|(_, path)| path == &format!("{prefix}{file}"))
@@ -248,23 +330,30 @@ fn commit_selected(
     Ok(oid)
 }
 
-pub(super) fn sync(root: &Path, action: &str, selection: Vec<String>) -> Result<(), String> {
+pub(super) fn sync(
+    root: &Path,
+    action: &str,
+    selection: Vec<String>,
+    owners: Vec<String>,
+    deletions: Vec<String>,
+) -> Result<(), String> {
     let name = sync_branch(root)?;
-    sync_branch_changes(root, &name, action, selection)
+    sync_reviewed(root, &name, action, selection, &owners, &deletions)
 }
 
-fn sync_branch_changes(
+fn sync_reviewed(
     root: &Path,
     name: &str,
     action: &str,
     selection: Vec<String>,
+    owners: &[String],
+    deletions: &[String],
 ) -> Result<(), String> {
     let branch_ref = format!("refs/heads/{name}");
     let local = head(root)?;
     let pending = pending(root, name);
-    let changes = records(root)?;
     if action == "pull" {
-        if !changes.is_empty() {
+        if !records(root)?.is_empty() {
             return Err("blog_git_dirty".into());
         }
         run(root, &["fetch", "--no-tags", "origin", &branch_ref])?;
@@ -311,6 +400,13 @@ fn sync_branch_changes(
     } else {
         if local != remote {
             return Err("blog_git_diverged".into());
+        }
+        let changes = records(root)?;
+        let latest = plan(root, &changes, owners)?;
+        if latest.paths != selection.iter().cloned().collect()
+            || latest.deletions != deletions.iter().cloned().collect()
+        {
+            return Err("blog_git_refresh".into());
         }
         let oid = commit_selected(root, &local, &changes, &selection)?;
         run(root, &["update-ref", &reference, &oid, ""])?;
@@ -364,15 +460,51 @@ mod tests {
         // and pull implementation with a real test-local transport below.
         assert_eq!(sync_branch(&first).unwrap_err(), "blog_git_remote");
         let push = |repo: &Path, keys: &[&str]| {
-            sync_branch_changes(
+            let owners: Vec<String> = keys.iter().map(|s| s.to_string()).collect();
+            let plan = preview(repo, &owners)?;
+            sync_reviewed(
                 repo,
                 "main",
                 "push",
-                keys.iter().map(|s| s.to_string()).collect(),
+                plan.paths.into_iter().collect(),
+                &owners,
+                &[],
             )
         };
-        let pull = |repo: &Path| sync_branch_changes(repo, "main", "pull", vec![]);
-        std::fs::write(first.join(file), "machine one").unwrap();
+        let pull = |repo: &Path| sync_reviewed(repo, "main", "pull", vec![], &[], &[]);
+        let article="---\nslug: one\nheroImage: /heroes/one-hero.png\n---\n![shared](/images/shared/explicit.png)\n`![example](/images/other/unrelated.png)`";
+        std::fs::write(first.join(file), article).unwrap();
+        let owners = vec!["one.md".to_owned()];
+        assert_eq!(
+            preview(&first, &owners).err().unwrap(),
+            "blog_asset_missing"
+        );
+        let png = include_bytes!("../../icons/32x32.png");
+        let images = [
+            "public/heroes/one-hero.png",
+            "public/images/one/figure.png",
+            "public/images/shared/explicit.png",
+        ];
+        let other = "public/images/other/unrelated.png";
+        for image in images.iter().copied().chain([other]) {
+            let path = first.join(image);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, png).unwrap();
+        }
+        let ignored = first.join(".git/info/exclude");
+        std::fs::write(&ignored, "/public/images/shared/explicit.png\n").unwrap();
+        assert_eq!(
+            preview(&first, &owners).err().unwrap(),
+            "blog_asset_missing"
+        );
+        std::fs::write(&ignored, "").unwrap();
+        let initial = preview(&first, &owners).unwrap();
+        assert_eq!(initial.paths.len(), 4);
+        assert_eq!(initial.sizes.len(), 3);
+        assert_eq!(
+            sync_reviewed(&first, "main", "push", owners.clone(), &owners, &[]).unwrap_err(),
+            "blog_git_refresh"
+        );
         std::fs::write(first.join("local-only.txt"), "local only").unwrap();
         run(&first, &["add", "local-only.txt"]).unwrap();
         assert_eq!(
@@ -404,9 +536,34 @@ mod tests {
         assert!(!status(&first).unwrap().pending);
         pull(&peer).unwrap();
         assert_eq!(
-            std::fs::read_to_string(peer.join(file)).unwrap(),
-            "machine one"
+            std::fs::read_to_string(peer.join(file))
+                .unwrap()
+                .replace("\r\n", "\n"),
+            article
         );
+        for image in images {
+            assert_eq!(std::fs::read(peer.join(image)).unwrap().as_slice(), png);
+        }
+        assert!(!peer.join(other).exists());
+        run(
+            &peer,
+            &["sparse-checkout", "set", "--no-cone", "/src/content/blog/"],
+        )
+        .unwrap();
+        assert!(!peer.join(images[0]).exists());
+        assert!(preview(&peer, &owners).unwrap().paths.is_empty());
+        run(&peer, &["sparse-checkout", "disable"]).unwrap();
+        // An image-only edit has an unchanged Markdown owner. Dropping an
+        // obsolete source image requires its own explicit removal approval.
+        std::fs::remove_file(peer.join(images[1])).unwrap();
+        let deletion = preview(&peer, &owners).unwrap();
+        let removing: Vec<_> = deletion.paths.into_iter().collect();
+        assert_eq!(removing, vec![format!("@asset/{}", images[1])]);
+        assert_eq!(
+            sync_reviewed(&peer, "main", "push", removing.clone(), &owners, &[]).unwrap_err(),
+            "blog_git_refresh"
+        );
+        sync_reviewed(&peer, "main", "push", removing.clone(), &owners, &removing).unwrap();
         assert!(!peer.join("local-only.txt").exists());
         std::fs::write(peer.join(file), "machine two").unwrap();
         push(&peer, &["one.md"]).unwrap();

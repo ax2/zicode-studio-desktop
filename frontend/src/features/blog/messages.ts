@@ -1,4 +1,12 @@
 const messages: Record<string, string> = {
+  blog_asset_not_image:
+    "An attachment does not match its image format. Check the file before syncing.",
+  blog_article_retirement_required:
+    "Remove published articles through the site's retirement workflow.",
+  blog_asset_missing:
+    "A referenced local image is missing from Git. Restore it or update the article.",
+  blog_asset_referenced: "A deleted image is still referenced by this article.",
+  blog_asset_too_large: "An image exceeds the 100 MiB GitHub file limit.",
   blog_file_changed: "The article changed on disk. Reopen it before saving.",
   blog_file_too_large: "This file exceeds the editor size limit.",
   blog_git_dirty: "Save or commit local changes before pulling.",

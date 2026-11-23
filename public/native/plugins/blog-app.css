@@ -134,3 +134,6 @@
     overflow: visible;
   }
 }
+.blog-sync fieldset { margin:.4rem 0; padding:0; border:0; min-width:0; }
+.blog-sync ul { padding-inline-start:1rem; overflow-wrap:anywhere; }
+.blog-sync li { margin-block:.25rem; }

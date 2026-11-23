@@ -29,8 +29,8 @@ fn strings(value: &Yaml) -> Vec<String> {
         .collect()
 }
 
-fn summary(file: File) -> Option<Summary> {
-    let mut lines = BufReader::new(file.take(16 * 1024)).lines();
+pub(super) fn metadata(reader: impl Read) -> Option<Yaml> {
+    let mut lines = BufReader::new(reader.take(16 * 1024)).lines();
     if lines
         .next()?
         .ok()?
@@ -66,8 +66,11 @@ fn summary(file: File) -> Option<Summary> {
             _ => {}
         }
     }
-    let docs = YamlLoader::load_from_str(&header).ok()?;
-    let doc = docs.first()?;
+    YamlLoader::load_from_str(&header).ok()?.into_iter().next()
+}
+
+fn summary(file: File) -> Option<Summary> {
+    let doc = metadata(file)?;
     Some(Summary {
         title: doc["title"].as_str()?.to_owned(),
         categories: strings(&doc["category"]),

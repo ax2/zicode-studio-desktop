@@ -21,7 +21,7 @@ fn linked(meta: &fs::Metadata) -> bool {
     }
 }
 
-fn checked(root: &Path, relative: &str, new_file: bool) -> Result<PathBuf, String> {
+pub(super) fn checked(root: &Path, relative: &str, allow_missing: bool) -> Result<PathBuf, String> {
     let mut target = root.to_owned();
     let mut parts = relative.split('/').peekable();
     while let Some(part) = parts.next() {
@@ -45,10 +45,7 @@ fn checked(root: &Path, relative: &str, new_file: bool) -> Result<PathBuf, Strin
         target.push(part);
         match fs::symlink_metadata(&target) {
             Ok(meta) if !linked(&meta) && (parts.peek().is_none() || meta.is_dir()) => (),
-            Err(e)
-                if new_file
-                    && parts.peek().is_none()
-                    && e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) if allow_missing && e.kind() == std::io::ErrorKind::NotFound => {}
             _ => return Err("blog_invalid_path".into()),
         }
     }

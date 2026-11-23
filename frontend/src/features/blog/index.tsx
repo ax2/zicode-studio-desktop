@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { t } from "../../shared/i18n";
 import { blankArticle, homepagePicks, readArticle, writeArticle, type Article } from "./article";
 import { messageForError } from "./messages";
+import { SyncArticles } from "./SyncArticles";
 
 export type Site = {
   root: string | null;
@@ -20,6 +21,8 @@ type Request = {
   text?: string;
   expected?: string | null;
   paths?: string[];
+  owners?: string[];
+  deletions?: string[];
 };
 export type Invoke = <T>(request: Request) => Promise<T>;
 type Edit = {
@@ -63,7 +66,7 @@ export function Blog({ invoke }: { invoke: Invoke }) {
   const [dirty, setDirty] = useState(false);
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(100);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [revision, setRevision] = useState(0);
   const [picks, setPicks] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -86,7 +89,7 @@ export function Blog({ invoke }: { invoke: Invoke }) {
   const loadSite = useCallback(
     async (next: Site) => {
       setSite(next);
-      setSelected([]);
+      setRevision((previous) => previous + 1);
       setPicks(null);
       if (next.root && next.homepagePicks) {
         const raw = await invoke<string>({
@@ -244,50 +247,16 @@ export function Blog({ invoke }: { invoke: Invoke }) {
                 {t("Show more")}
               </button>
             )}
-            {(site.changedPaths?.length > 0 || site.pendingPush) && (
-              <details className="blog-sync">
-                <summary>{t("Sync articles to GitHub")}</summary>
-                {site.changedPaths.map((path) => (
-                  <label key={path}>
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(path)}
-                      onChange={(e) =>
-                        setSelected(
-                          e.target.checked
-                            ? [...selected, path]
-                            : selected.filter((p) => p !== path),
-                        )
-                      }
-                    />
-                    {path}
-                  </label>
-                ))}
-                <button
-                  className="ui-button"
-                  disabled={busy || dirty || (!selected.length && !site.pendingPush)}
-                  onClick={() =>
-                    void run(async () => {
-                      try {
-                        await loadSite(
-                          await invoke<Site>({
-                            action: "push",
-                            site: root,
-                            paths: site.pendingPush ? [] : selected,
-                          }),
-                        );
-                        setStatus(t("Changes pushed"));
-                      } catch (error) {
-                        await loadSite(await invoke<Site>({ action: "list" }));
-                        throw error;
-                      }
-                    })
-                  }
-                >
-                  {t(site.pendingPush ? "Retry push" : "Commit and push selected changes")}
-                </button>
-              </details>
-            )}
+            <SyncArticles
+              key={JSON.stringify([root, revision, edit?.path])}
+              site={site}
+              activeArticle={edit?.original != null ? edit.path : null}
+              disabled={busy || dirty}
+              invoke={invoke}
+              run={run}
+              refresh={loadSite}
+              onPushed={() => setStatus(t("Changes pushed"))}
+            />
           </aside>
           {edit && article && (
             <form
