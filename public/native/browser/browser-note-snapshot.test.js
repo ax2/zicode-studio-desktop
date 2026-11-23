@@ -96,3 +96,20 @@ it.each([true, false])("reports only the clipped part in a note (body clipped %s
   expect(browserNoteContent(snapshot, true).includes(t("Selected text was shortened"))).toBe(!textTruncated);
   expect(browserNoteContent(snapshot, true)).not.toContain(t("Page content was shortened"));
 });
+
+
+it("adds frame sources, selection and tables only to an opted-in whole-page note", () => {
+  const frames = [{ title: "<img src=x>", url: "https://example.org/frame", text: "<img src=x> Embedded prose",
+    selection: "Embedded selection", tables: [{ caption: "Embedded table", rows: [["Part"], ["Three"]], firstRowHeader: true }] }];
+  const snapshot = { ...capture, page: { ...capture.page, frames, framesOmitted: true } };
+  const attachments = { includeFrames: true };
+  expect(browserNoteContent(snapshot)).not.toContain(frames[0].url);
+  expect(browserNoteContent(snapshot, true, attachments)).not.toContain(frames[0].url);
+  const html = document.createElement("div");
+  html.innerHTML = renderMarkdown(browserNoteContent(snapshot, false, attachments));
+  expect(html.textContent).toContain(frames[0].url);
+  expect(html.textContent).toContain(frames[0].selection);
+  expect(html.textContent).toContain(frames[0].text);
+  expect(html.querySelector("table td").textContent).toBe("Three");
+  expect(html.querySelector("img")).toBeNull();
+});

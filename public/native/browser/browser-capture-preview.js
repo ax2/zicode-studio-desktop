@@ -1,5 +1,7 @@
 import { createBrowserCompare } from "./browser-compare.js";
 import { createBrowserCaptureMedia } from "./browser-capture-media.js";
+import { createBrowserCaptureFrames } from "./browser-capture-frames.js";
+import { renderBrowserCaptureTables } from "./browser-capture-tables.js";
 import { createBrowserNoteClip } from "./browser-note-clip.js";
 import { t } from "../../i18n.js";
 import { createBrowserModelAssistant } from "./browser-model-assistant.js";
@@ -45,7 +47,11 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   const includeLinks = document.createElement("input"); includeLinks.type = "checkbox";
   const includeTables = document.createElement("input"); includeTables.type = "checkbox";
   const media = createBrowserCaptureMedia(capture.page);
-  const attachments = () => ({ includeLinks: includeLinks.checked, includeTables: includeTables.checked, includeMedia: media.include.checked });
+  const frames = createBrowserCaptureFrames(capture.page);
+  const attachments = () => ({
+    includeLinks: includeLinks.checked, includeTables: includeTables.checked, includeMedia: media.include.checked,
+    ...(frames.include.checked ? { includeFrames: true } : {}),
+  });
   let links;
   const capturedLinks = capture.page.links ?? [];
   if (capturedLinks.length || capture.page.linksTruncated) {
@@ -80,24 +86,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     if (capturedTables.length) {
       const share = document.createElement("label");
       share.append(includeTables, t("Include tables in the page note or chat draft"));
-      const scroll = document.createElement("div"); scroll.className = "browser-capture-tables-scroll";
-      scroll.tabIndex = 0; scroll.setAttribute("role", "region"); scroll.setAttribute("aria-label", t("Page tables"));
-      for (const { caption, rows, firstRowHeader } of capturedTables) {
-        const table = document.createElement("table");
-        if (caption) table.createCaption().textContent = caption;
-        const body = table.createTBody();
-        rows.forEach((row, index) => {
-          const header = index === 0 && firstRowHeader;
-          const tr = header ? table.createTHead().insertRow() : body.insertRow();
-          for (const value of row) {
-            const cell = document.createElement(header ? "th" : "td");
-            if (header) cell.scope = "col";
-            cell.textContent = value; tr.append(cell);
-          }
-        });
-        scroll.append(table);
-      }
-      tables.append(share, scroll);
+      tables.append(share, renderBrowserCaptureTables(capturedTables));
     }
     if (capture.page.tablesTruncated) {
       const limit = document.createElement("p"); limit.textContent = t("Only some table data is shown.");
@@ -199,6 +188,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (links) dialog.append(links);
   if (tables) dialog.append(tables);
   if (media.element) dialog.append(media.element);
+  if (frames.element) dialog.append(frames.element);
   if (questionLabel) dialog.append(questionLabel);
   if (dock?.modelActions) {
     modelAssistant = createBrowserModelAssistant({ actions: dock.modelActions, question,

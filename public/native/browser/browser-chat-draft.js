@@ -1,7 +1,7 @@
 import { t } from "../../i18n.js";
 
-export function browserDraftPrompt(capture, { includeLinks = false, includeTables = false, includeMedia = false, question, summarize = false } = {}) {
-  const { links, linksTruncated, tables, tablesTruncated, metadata, images, imagesTruncated, ...page } = capture.page;
+export function browserDraftPrompt(capture, { includeLinks = false, includeTables = false, includeMedia = false, includeFrames = false, question, summarize = false } = {}) {
+  const { links, linksTruncated, tables, tablesTruncated, metadata, images, imagesTruncated, frames, framesOmitted, ...page } = capture.page;
   const hasMedia = images?.length || Object.values(metadata ?? {}).some(Boolean);
   const userQuestion = typeof question === "string" ? question.slice(0, 5000).trim() : "";
   const task = summarize ? t("Summarize this captured web page and cite its source URL.") :
@@ -19,6 +19,7 @@ export function browserDraftPrompt(capture, { includeLinks = false, includeTable
       ...(includeLinks && links?.length ? { links, linksTruncated } : {}),
       ...(includeTables && tables?.length ? { tables, tablesTruncated } : {}),
       ...(includeMedia && hasMedia ? { metadata, images, imagesTruncated } : {}),
+      ...(includeFrames && frames?.length ? { frames, framesOmitted } : {}),
     }, null, 2),
   ].join("\n\n");
 }

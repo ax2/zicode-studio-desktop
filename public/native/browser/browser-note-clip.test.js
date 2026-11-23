@@ -69,3 +69,21 @@ it("shows page-declared text and image dimensions without loading the image in t
   expect(details.textContent).toContain("<img src=x>");
   expect(details.querySelector("img,a")).toBeNull();
 });
+
+
+it("reviews embedded content before explicitly attaching it to a local draft", async () => {
+  const page = { ...capture.page, frames: [{ title: "<img src=x>", url: "https://example.org/frame", text: "Body in the frame", selection: "Embedded selection" }], framesOmitted: true };
+  const prepare = vi.fn(async () => {});
+  const dialog = showBrowserCapture({ ...capture, page }, vi.fn(), prepare);
+  const details = dialog.querySelector(".browser-capture-frames"); details.open = true;
+  details.querySelector("details").open = true;
+  const include = getByRole(details, "checkbox");
+  expect(include.checked).toBe(false);
+  expect(getByRole(details, "textbox").value).toBe("Body in the frame");
+  expect(details.textContent).toContain("https://example.org/frame");
+  expect(details.textContent).toContain(t("Some frames were unavailable or exceeded capture limits."));
+  expect(details.querySelector("img,a")).toBeNull();
+  include.click();
+  getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
+  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ includeFrames: true })));
+});

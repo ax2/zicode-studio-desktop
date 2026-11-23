@@ -24,6 +24,22 @@ pub struct PageText {
     pub metadata: PageMetadata,
     pub images: Vec<PageImage>,
     pub images_truncated: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub frames: Vec<PageFrame>,
+    #[serde(default)]
+    pub frames_omitted: bool,
+}
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PageFrame {
+    pub title: String,
+    pub url: Option<String>,
+    pub text: String,
+    pub text_truncated: bool,
+    pub selection: String,
+    pub selection_truncated: bool,
+    pub tables: Vec<PageTable>,
+    pub tables_truncated: bool,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -63,14 +79,20 @@ pub struct Capture<T> {
     pub page: T,
 }
 #[cfg(windows)]
+fn checked_web_url(value: &str) -> Option<reqwest::Url> {
+    if value.len() > 1024 {
+        return None;
+    }
+    let url = reqwest::Url::parse(value).ok()?;
+    (matches!(url.scheme(), "http" | "https")
+        && url.host().is_some()
+        && url.username().is_empty()
+        && url.password().is_none())
+    .then_some(url)
+}
+#[cfg(windows)]
 fn is_web_url(value: &str) -> bool {
-    value.len() <= 1024
-        && reqwest::Url::parse(value).is_ok_and(|url| {
-            matches!(url.scheme(), "http" | "https")
-                && url.host().is_some()
-                && url.username().is_empty()
-                && url.password().is_none()
-        })
+    checked_web_url(value).is_some()
 }
 #[cfg(windows)]
 pub(super) fn decode(raw: &str, native_url: &str) -> Result<PageText, String> {
@@ -87,16 +109,39 @@ pub(super) fn decode(raw: &str, native_url: &str) -> Result<PageText, String> {
         return Err("Browser page changed or exceeded capture limits".into());
     }
     if page.links.len() > 20
-        || page.links.iter().any(|link| {
-            link.label.chars().count() > 120
-                || !is_web_url(&link.url)
-        })
+        || page
+            .links
+            .iter()
+            .any(|link| link.label.chars().count() > 120 || !is_web_url(&link.url))
     {
         return Err("Invalid browser links response".into());
     }
+    let mut body_chars = page.text.chars().count();
+    let mut selection_chars = page.selection.chars().count();
+    let origin = reqwest::Url::parse(native_url).ok().map(|url| url.origin());
+    if page.frames.len() > 6
+        || page.frames.iter().any(|frame| {
+            let frame_chars = frame.text.chars().count();
+            body_chars += frame_chars;
+            selection_chars += frame.selection.chars().count();
+            frame.title.chars().count() > 512
+                || frame_chars > 8000
+                || frame.url.as_deref().is_some_and(|value| {
+                    checked_web_url(value).is_none_or(|url| origin.as_ref() != Some(&url.origin()))
+                })
+        })
+        || body_chars > 48000
+        || selection_chars > 8192
+    {
+        return Err("Invalid browser frames response".into());
+    }
+    let mut tables = page
+        .tables
+        .iter()
+        .chain(page.frames.iter().flat_map(|frame| &frame.tables));
     let mut table_chars = 0;
-    if page.tables.len() > 4
-        || page.tables.iter().any(|table| {
+    if tables.clone().count() > 4
+        || tables.any(|table| {
             let columns = table.rows.first().map_or(0, Vec::len);
             let caption = table.caption.chars().count();
             table_chars += caption;
@@ -118,7 +163,11 @@ pub(super) fn decode(raw: &str, native_url: &str) -> Result<PageText, String> {
     }
     if page.metadata.language.chars().count() > 64
         || page.metadata.description.chars().count() > 400
-        || page.metadata.canonical_url.as_deref().is_some_and(|url| !is_web_url(url))
+        || page
+            .metadata
+            .canonical_url
+            .as_deref()
+            .is_some_and(|url| !is_web_url(url))
         || page.images.len() > 12
         || page.images.iter().any(|image| {
             image.alt.chars().count() > 160
@@ -181,13 +230,17 @@ mod tests {
         bad["text"] = serde_json::Value::String("a".repeat(48001));
         assert!(decode(&bad.to_string(), "https://example.com/").is_err());
         let mut bad = page.clone();
-        bad["links"] = serde_json::json!([{"label":"Source","url":"https://example.com/reference"}]);
+        bad["links"] =
+            serde_json::json!([{"label":"Source","url":"https://example.com/reference"}]);
         assert!(decode(&bad.to_string(), "https://example.com/").is_ok());
         for unsafe_url in ["javascript:alert(1)", "https://user:secret@example.com/"] {
             bad["links"][0]["url"] = serde_json::json!(unsafe_url);
             assert!(decode(&bad.to_string(), "https://example.com/").is_err());
         }
-        bad["links"] = serde_json::json!(vec![serde_json::json!({"label":"","url":"https://example.com/"}); 21]);
+        bad["links"] = serde_json::json!(vec![
+            serde_json::json!({"label":"","url":"https://example.com/"});
+            21
+        ]);
         assert!(decode(&bad.to_string(), "https://example.com/").is_err());
         let mut bad = page.clone();
         bad["tables"] = serde_json::json!([{"caption":"Inventory","firstRowHeader":true,"rows":[["Item","Count"],["Pens","3"]]}]);
@@ -204,5 +257,52 @@ mod tests {
         let mut bad = page;
         bad["tool"] = serde_json::json!("native.execute");
         assert!(decode(&bad.to_string(), "https://example.com/").is_err());
+    }
+    #[test]
+    fn bounds_embedded_content_and_checks_its_source_against_the_native_origin() {
+        let url = "https://example.com/";
+        let table = serde_json::json!({"caption":"Inventory","firstRowHeader":true,"rows":[["Item"],["Pens"]]});
+        let mut page = serde_json::json!({
+            "title":"Page","url":url,"text":"Body","selection":"Part","truncated":false,
+            "links":[],"linksTruncated":false,"tables":[table.clone()],"tablesTruncated":false,
+            "metadata":{"language":"","description":"","canonicalUrl":null},
+            "images":[],"imagesTruncated":false,
+            "frames":[{
+                "title":"Embedded","url":"https://example.com/inner","text":"Frame body","textTruncated":false,
+                "selection":"Frame selection","selectionTruncated":false,"tables":[table.clone()],"tablesTruncated":false
+            }],
+            "framesOmitted":true
+        });
+        let valid = |value: &serde_json::Value| decode(&value.to_string(), url).is_ok();
+        assert!(valid(&page));
+        for rejected in [
+            "https://example.org/inner",
+            "http://example.com/inner",
+            "https://example.com:444/",
+            "https://user:password@example.com/",
+            "about:srcdoc",
+        ] {
+            page["frames"][0]["url"] = serde_json::json!(rejected);
+            assert!(!valid(&page), "{rejected}");
+        }
+        page["frames"][0]["url"] = serde_json::Value::Null;
+        assert!(valid(&page));
+
+        let mut oversized = page.clone();
+        oversized["text"] = serde_json::json!("a".repeat(48000));
+        assert!(!valid(&oversized));
+        let mut oversized = page.clone();
+        oversized["selection"] = serde_json::json!("a".repeat(8192));
+        assert!(!valid(&oversized));
+        let mut oversized = page.clone();
+        oversized["frames"][0]["text"] = serde_json::json!("a".repeat(8001));
+        assert!(!valid(&oversized));
+        let mut oversized = page.clone();
+        oversized["frames"][0]["tables"] =
+            serde_json::json!([table.clone(), table.clone(), table.clone(), table]);
+        assert!(!valid(&oversized));
+        let repeated = page["frames"][0].clone();
+        page["frames"] = serde_json::json!(vec![repeated; 7]);
+        assert!(!valid(&page));
     }
 }
