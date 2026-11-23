@@ -1,0 +1,51 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.encoding",
+  "packageVersion": "0.4.0",
+  "source": {
+    "revision": "97fa495b481971abef0abc67b901bed9e8f843ba",
+    "dirty": true
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "resource.wasi.encoding-inspect.v1": "=1.0.0-preview.1",
+    "resource.wasi.encoding-utf8.v1": "=1.0.0-preview.1",
+    "resource.wasi.encoding-convert.v1": "=1.0.0-preview.1"
+  },
+  "tools": [
+    {
+      "sourceToolId": "encoding-detect",
+      "toolId": "devtools.encoding.inspect",
+      "capabilityId": "devtools.encoding.inspect",
+      "version": "1.2.0",
+      "status": "candidate",
+      "profile": "resource.wasi.input.draft2",
+      "title": "检测文件编码",
+      "scope": "编码检查支持非空文件至 8 MiB，并对整个文件严格解码验证，预览最多 256 字符。文件编码转换支持 8 MiB 输入、16 MiB 输出，手选七种源和目标编码并明确确认另存。"
+    },
+    {
+      "sourceToolId": "encoding-detect",
+      "toolId": "devtools.encoding.to_utf8",
+      "capabilityId": "devtools.encoding.to_utf8",
+      "version": "1.2.0",
+      "status": "candidate",
+      "profile": "resource.wasi.input.draft2",
+      "title": "文件转为 UTF-8",
+      "scope": "编码检查支持非空文件至 8 MiB，并对整个文件严格解码验证，预览最多 256 字符。文件编码转换支持 8 MiB 输入、16 MiB 输出，手选七种源和目标编码并明确确认另存。"
+    },
+    {
+      "sourceToolId": "encoding-detect",
+      "toolId": "devtools.encoding.convert",
+      "capabilityId": "devtools.encoding.convert",
+      "version": "1.2.0",
+      "status": "candidate",
+      "profile": "resource.wasi.input.draft2",
+      "title": "转换文件编码",
+      "scope": "编码检查支持非空文件至 8 MiB，并对整个文件严格解码验证，预览最多 256 字符。文件编码转换支持 8 MiB 输入、16 MiB 输出，手选七种源和目标编码并明确确认另存。"
+    }
+  ],
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted"
+}

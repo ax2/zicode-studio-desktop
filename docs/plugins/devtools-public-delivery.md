@@ -53,7 +53,7 @@ $result | Select-Object fileCount,logicalBytes,directoryIndex,signatureVerified
 
 已回下载 [v0.7.1 Windows 正式安装器](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.7.1)。文件为 369638351 字节，SHA-256 为 `0f0b5e88bde0815b32c8d0faf5a9da72a86389052dbf87a299ba75de82547937`。NSIS 文件清单包含 Studio EXE，未发现 `tool-packages` 目录或 `plugin.json`。安装 Studio 后需另行取得上述候选。
 
-历史 Windows 候选曾在运行目录旁放置文件摘要、校验清单、编码转换、JSON 文件查询与对比、JSON 文件格式化与校验五个包，共 38 个文件。上表的 JSON Object 是另一个包。当时 Studio v0.7.1 与 ZiDevTools v0.82.0 的 Release 附件清单均未列出这五个独立包。JSON 文件包现可按文末步骤获取。[历史交付回执](https://github.com/ax2/zicode-studio-desktop/issues/28#issuecomment-6969557942)
+历史 Windows 候选曾在运行目录旁放置文件摘要、校验清单、编码转换、JSON 文件查询与对比、JSON 文件格式化与校验五个包，共 38 个文件。上表的 JSON Object 是另一个包。当时 Studio v0.7.1 与 ZiDevTools v0.82.0 的 Release 附件清单均未列出这五个独立包。五个包现在均可按下文各节获取。[历史交付回执](https://github.com/ax2/zicode-studio-desktop/issues/28#issuecomment-6969557942)
 
 提供方交付每个新包时，请给出不可变的公开下载位置、插件 ID、版本、完整包目录和独立的逐文件收据（相对路径、字节数、SHA-256、目录索引哈希及其编码）。Studio 可用同一核验工具接收，再验证实际运行。包在提供方独立构建；用户安装、启用和授权分别进行。[跨机交付跟踪](https://github.com/ax2/zicode-studio-desktop/issues/241)
 
@@ -84,4 +84,28 @@ $dest = 'studio-plugin-json-file'
 
 候选从提供方固定提交 `8476912755c0373660296aae358380df4f261689` 用 Rust 1.99.1 的 `wasm32-wasip1` 插件构建配置重新构建。模块 SHA-256 为 `244ac722fce1b1fec7d1d34ad79e7c21d8936aa56480cc12e0d8c307742af312`，与此前提供方 candidate-02 的模块字节一致。构建来源记录和逐文件收据属于本候选。已在开启 CRLF 转换的全新 Windows 目录按固定提交从 GitHub 回下载，七个文件和收据均保持原始字节。
 
-本批真实 Windows Worker 和原生对照适配器通过 38 个正反例及 2 个身份和执行 profile 拒绝用例。隔离 Studio Host 安装后验证三项操作、取消写入、重复确认回执、撤权和确认另存。恰好 8 MiB 的输出逐字节回读，原文件保留。打开 Windows 原生文件选择和另存窗口仍待集中验收。候选独立安装，包为无签名开发目录。其余四个文件工具包的公开交付继续按各自验收范围跟踪。
+本批真实 Windows Worker 和原生对照适配器通过 38 个正反例及 2 个身份和执行 profile 拒绝用例。隔离 Studio Host 安装后验证三项操作、取消写入、重复确认回执、撤权和确认另存。恰好 8 MiB 的输出逐字节回读，原文件保留。打开 Windows 原生文件选择和另存窗口仍待集中验收。候选独立安装，包为无签名开发目录。其余四个文件工具包见下一节。
+
+## 2026-11-23 获取其余四个 Windows 文件工具包
+
+在「只取一个包」的命令中，用下表的候选目录名替换示例中的文件路径和提交。每个候选独立安装。已装同一插件 ID 的旧候选时，在插件管理核对版本后再更新。
+
+| 工具 | 候选目录 | 文件数 | 目录索引 SHA-256 |
+| --- | --- | ---: | --- |
+| 文件摘要与原文件接力 | `files-0.2.0-candidate-01` | 8 | `f43a2119309fbebe56aa58db427f53f74715a623e6e09042eb80f8751769a71b` |
+| 校验清单生成与核对 | `checksum-manifest-0.2.0-candidate-01` | 8 | `501217f0cf455eb8f269cbeecb69c3f01e1267f6956f97ad64f01b95cc05426d` |
+| 文件编码检测与转换 | `encoding-0.4.0-candidate-03` | 8 | `ed0ef3cbbbd46a718e861d8719df448c6beb6de6b442cecf1034afe6184886bc` |
+| JSON 文件查询与对比 | `compare-json-file-0.1.0-candidate-02` | 7 | `690377f74a0f117702dec9cb759a91117e8777b31d304b1551f4d441e9b18dc0` |
+
+下面以编码工具为例。其余步骤沿用「只取一个包」。
+
+```powershell
+$dir = 'tests/fixtures/devtools-windows-file-tools/encoding-0.4.0-candidate-03'
+$receipt = "$dir-verification.json"
+$commit = '7590da9a5afaeb23c831097911c5441e0f8e03ef'
+$dest = 'studio-plugin-encoding'
+```
+
+这四个目录沿用提供方已交付的无签名候选及外部收据。各自 `provenance.json` 保留 `dirty: true`，所以固定提交和校验收据用于取得并复核本次验收的候选字节。在开启 CRLF 转换的全新 Windows 目录按固定提交回下载，31 个包文件与 4 份外部收据逐一匹配。
+
+2026-11-23 用相同字节通过六次隔离 Windows Host 与真实 Worker 运行。文件摘要覆盖 96 MiB 文件、64 文件批次、进度、取消、撤权和原文件接力。清单覆盖确认目录、核对及生成。编码覆盖 8 MiB 检测和输入、七种编码转换、16 MiB 确认保存、冲突及原件替换。JSON 覆盖查询、有序与无序对比、明确确认后写入和结果字节回读。所有编码分支集中留在一个测试 Host 时曾收到 409，分到独立 Host 后各路径通过，未修改产品预算。原生文件选择与系统另存窗口仍列入集中验收。

@@ -1,0 +1,493 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.encoding",
+  "name": "ZiDevTools File Encoding",
+  "displayName": "ZiDevTools 文件编码",
+  "description": "检测已授权文件的编码，或严格转换到所选目标编码；不修改源文件。",
+  "version": "0.4.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.4.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "resource.wasi.encoding-inspect.v1": "=1.0.0-preview.1",
+    "resource.wasi.encoding-utf8.v1": "=1.0.0-preview.1",
+    "resource.wasi.encoding-convert.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.encoding.inspect",
+    "onCapability:devtools.encoding.to_utf8",
+    "onCapability:devtools.encoding.convert"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "capabilities": [
+      {
+        "id": "devtools.encoding.inspect",
+        "title": "检测文件编码",
+        "description": "检查最多 8 MiB。需要明确选择并授权文件，不修改原文件。",
+        "executionProfile": "resource.wasi.encoding-inspect.v1",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "operation": {
+                  "type": "string",
+                  "const": "inspect"
+                },
+                "sourceByteCount": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8388608
+                },
+                "encoding": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "encodingLabel": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "certain": {
+                  "type": "boolean"
+                },
+                "note": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "strictlyDecodable": {
+                  "type": "boolean"
+                },
+                "preview": {
+                  "type": "string",
+                  "maxLength": 1024
+                }
+              },
+              "required": [
+                "ok",
+                "operation",
+                "sourceByteCount",
+                "encoding",
+                "encodingLabel",
+                "certain",
+                "note",
+                "strictlyDecodable",
+                "preview"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "resourceInputMimeTypes": [
+          "text/plain",
+          "application/octet-stream",
+          "text/csv"
+        ],
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "检测文件编码",
+            "文件编码",
+            "编码转换",
+            "GBK UTF16 UTF8",
+            "file encoding"
+          ],
+          "description": "严格检查全文，转换结果可查看并确认另存。"
+        }
+      },
+      {
+        "id": "devtools.encoding.to_utf8",
+        "title": "文件转为 UTF-8",
+        "description": "转换最多 8 MiB。需要明确选择并授权文件，不修改原文件。",
+        "executionProfile": "resource.wasi.encoding-utf8.v1",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sourceEncoding": {
+              "type": "string",
+              "title": "源编码（按检测结果选择并核对预览）",
+              "enum": [
+                "utf8",
+                "utf16le",
+                "utf16be",
+                "gb18030",
+                "big5",
+                "shiftjis",
+                "windows1252"
+              ]
+            },
+            "bom": {
+              "type": "boolean",
+              "title": "输出UTF-8 BOM",
+              "default": false
+            }
+          },
+          "required": [
+            "sourceEncoding"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "operation": {
+                  "type": "string",
+                  "const": "to_utf8"
+                },
+                "sourceByteCount": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8388608
+                },
+                "sourceEncoding": {
+                  "type": "string",
+                  "enum": [
+                    "utf8",
+                    "utf16le",
+                    "utf16be",
+                    "gb18030",
+                    "big5",
+                    "shiftjis",
+                    "windows1252"
+                  ]
+                },
+                "targetEncoding": {
+                  "type": "string",
+                  "const": "utf8"
+                },
+                "outputByteCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777216
+                },
+                "bom": {
+                  "type": "boolean"
+                },
+                "characterCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 8388608
+                },
+                "preview": {
+                  "type": "string",
+                  "maxLength": 1024
+                }
+              },
+              "required": [
+                "ok",
+                "operation",
+                "sourceByteCount",
+                "sourceEncoding",
+                "targetEncoding",
+                "outputByteCount",
+                "bom",
+                "characterCount",
+                "preview"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "resourceInputMimeTypes": [
+          "text/plain",
+          "application/octet-stream",
+          "text/csv"
+        ],
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "文件转为 UTF-8",
+            "UTF8",
+            "转 UTF-8"
+          ],
+          "description": "严格检查全文，转换结果可查看并确认另存。"
+        }
+      },
+      {
+        "id": "devtools.encoding.convert",
+        "title": "转换文件编码",
+        "description": "转换最多 8 MiB。需要明确选择并授权文件，不修改原文件。",
+        "executionProfile": "resource.wasi.encoding-convert.v1",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sourceEncoding": {
+              "type": "string",
+              "title": "源编码",
+              "enum": [
+                "utf8",
+                "utf16le",
+                "utf16be",
+                "gb18030",
+                "big5",
+                "shiftjis",
+                "windows1252"
+              ]
+            },
+            "targetEncoding": {
+              "type": "string",
+              "title": "目标编码",
+              "enum": [
+                "utf8",
+                "utf16le",
+                "utf16be",
+                "gb18030",
+                "big5",
+                "shiftjis",
+                "windows1252"
+              ]
+            },
+            "bom": {
+              "type": "boolean",
+              "title": "写入 BOM（仅 UTF-8 或 UTF-16）",
+              "default": false
+            }
+          },
+          "required": [
+            "sourceEncoding",
+            "targetEncoding"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "operation": {
+                  "type": "string",
+                  "const": "convert"
+                },
+                "sourceByteCount": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8388608
+                },
+                "sourceEncoding": {
+                  "type": "string",
+                  "enum": [
+                    "utf8",
+                    "utf16le",
+                    "utf16be",
+                    "gb18030",
+                    "big5",
+                    "shiftjis",
+                    "windows1252"
+                  ]
+                },
+                "targetEncoding": {
+                  "type": "string",
+                  "enum": [
+                    "utf8",
+                    "utf16le",
+                    "utf16be",
+                    "gb18030",
+                    "big5",
+                    "shiftjis",
+                    "windows1252"
+                  ]
+                },
+                "outputByteCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16777216
+                },
+                "bom": {
+                  "type": "boolean"
+                },
+                "characterCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 8388608
+                },
+                "preview": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "bytePreviewHex": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              },
+              "required": [
+                "ok",
+                "operation",
+                "sourceByteCount",
+                "sourceEncoding",
+                "targetEncoding",
+                "outputByteCount",
+                "bom",
+                "characterCount",
+                "preview",
+                "bytePreviewHex"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "resourceInputMimeTypes": [
+          "text/plain",
+          "application/octet-stream",
+          "text/csv"
+        ],
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "转换文件编码",
+            "文件编码",
+            "编码转换",
+            "GBK UTF16 UTF8",
+            "file encoding"
+          ],
+          "description": "严格检查全文，转换结果可查看并确认另存。"
+        }
+      }
+    ],
+    "commands": [],
+    "piTools": []
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "每次调用只读取您明确选择并确认的一项文件快照；不会修改源文件。"
+      }
+    ],
+    "optional": []
+  }
+}

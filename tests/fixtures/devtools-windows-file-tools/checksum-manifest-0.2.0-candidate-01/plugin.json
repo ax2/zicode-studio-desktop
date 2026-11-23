@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.checksum-manifest",
+  "name": "ZiDevTools Checksum Manifest",
+  "displayName": "ZiDevTools 校验清单",
+  "description": "只核对明确提供的清单文本及文件名/SHA-256；不会打开文件或检查目录。未提供摘要标记为未提供，不推断磁盘缺失。清单最多64项/32KiB，请求及结果48KiB。 支持由已计算摘要生成清单。",
+  "version": "0.2.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.5.3 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.checksum-manifest.review",
+    "onCapability:devtools.checksum-manifest.generate"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.checksum-manifest.review",
+        "title": "SHA256SUMS 清单核对",
+        "description": "只核对明确提供的清单文本及文件名/SHA-256；不会打开文件或检查目录。未提供摘要标记为未提供，不推断磁盘缺失。清单最多64项/32KiB，请求及结果48KiB。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "manifest": {
+              "type": "string",
+              "title": "SHA256SUMS 清单内容",
+              "maxLength": 32768
+            },
+            "files": {
+              "type": "array",
+              "title": "已计算的文件名与 SHA-256（JSON 数组）",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 32768
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "minLength": 64,
+                    "maxLength": 64
+                  }
+                },
+                "required": [
+                  "name",
+                  "sha256"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "manifest",
+            "files"
+          ],
+          "additionalProperties": false
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "checksum",
+            "SHA256SUMS",
+            "校验清单"
+          ],
+          "description": "只核对明确提供的清单文本及文件名/SHA-256；不会打开文件或检查目录。未提供摘要标记为未提供，不推断磁盘缺失。清单最多64项/32KiB，请求及结果48KiB。"
+        }
+      },
+      {
+        "id": "devtools.checksum-manifest.generate",
+        "title": "生成 SHA256SUMS 清单",
+        "description": "按明确提供的文件名和已计算SHA-256生成标准SHA256SUMS；最多64项/32KiB清单。不会读取或写入文件，另存需宿主单独预览确认。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "files": {
+              "type": "array",
+              "title": "已计算的文件名与 SHA-256（JSON 数组）",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 32768
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "minLength": 64,
+                    "maxLength": 64
+                  }
+                },
+                "required": [
+                  "name",
+                  "sha256"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "files"
+          ],
+          "additionalProperties": false
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "checksum",
+            "SHA256SUMS",
+            "生成清单"
+          ],
+          "description": "按明确提供的文件名和已计算SHA-256生成标准SHA256SUMS；最多64项/32KiB清单。不会读取或写入文件，另存需宿主单独预览确认。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [],
+    "optional": []
+  }
+}
