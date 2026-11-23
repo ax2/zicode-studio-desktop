@@ -34,12 +34,15 @@ fn listing(root: Option<&Path>) -> Result<Value, String> {
     if site::detect(root)? != root {
         return Err("blog_site_changed".into());
     }
+    let layout = site::Layout::at(root)?;
     let paths = site::list(root)?;
     let state = git::status(root);
-    let catalog = catalog::summaries(root, &paths);
+    let catalog = catalog::summaries(root, layout, &paths);
     Ok(json!({
         "root": crate::process_command::working_directory(root),
         "paths": paths,
+        "framework": layout.framework(),
+        "collection": layout.collection(),
         "catalog": catalog,
         "homepagePicks": site::resolve(root, "@homepagePicks", false).is_ok(),
         "changedPaths": state.as_ref().map(|s| &s.changed).cloned().unwrap_or_default(),

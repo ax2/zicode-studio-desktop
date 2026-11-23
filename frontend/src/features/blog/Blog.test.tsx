@@ -133,3 +133,47 @@ it("writes locally, then pushes only the article the author selects", async () =
     }),
   );
 });
+
+it("uses Hugo fields for newly saved articles and previews the matching sync path", async () => {
+  setLocale("en");
+  const site: Site = {
+    root: "C:/test/hugo",
+    paths: [],
+    changedPaths: [],
+    homepagePicks: false,
+    pendingPush: false,
+    gitAvailable: true,
+    framework: "hugo",
+    collection: "content/posts",
+  };
+  const requests: Record<string, unknown>[] = [];
+  const invoke = vi.fn(async (request) => {
+    requests.push(request);
+    if (request.action === "save") {
+      site.paths = ["note.md"];
+      site.changedPaths = ["note.md"];
+      return request.text;
+    }
+    if (request.action === "preview") return { paths: ["note.md"], deletions: [] };
+    return { ...site };
+  }) as Invoke;
+  const view = render(<Blog invoke={invoke} />);
+  fireEvent.click(await view.findByText("New article"));
+  fireEvent.change(await view.findByLabelText("Title"), { target: { value: "Note" } });
+  fireEvent.change(view.getByLabelText("Article slug"), { target: { value: "note" } });
+  fireEvent.change(view.getByLabelText("Categories (comma separated)"), {
+    target: { value: "Docs" },
+  });
+  fireEvent.click(view.getByText("Save article"));
+  await view.findByText("Article saved locally");
+  const savedText = String(requests.find((r) => r.action === "save")?.text);
+  expect(savedText).toMatch(/^draft: true$/m);
+  expect(savedText).toMatch(/^categories:/m);
+  expect(savedText).toMatch(/^date:/m);
+  expect(savedText).not.toMatch(/^category:|^pubDate:/m);
+  fireEvent.click(view.getByText("Sync articles to GitHub"));
+  fireEvent.click(view.getByRole("checkbox", { name: "note.md" }));
+  fireEvent.click(view.getByText("Review files to sync"));
+  expect(await view.findByText("content/posts/note.md")).toBeTruthy();
+  expect(requests.find((r) => r.action === "push")).toBeUndefined();
+});

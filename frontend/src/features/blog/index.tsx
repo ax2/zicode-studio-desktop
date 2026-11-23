@@ -1,13 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { t } from "../../shared/i18n";
-import { blankArticle, homepagePicks, readArticle, writeArticle, type Article } from "./article";
+import {
+  blankArticle,
+  homepagePicks,
+  readArticle,
+  writeArticle,
+  type Article,
+  type Framework,
+} from "./article";
 import { messageForError } from "./messages";
 import { SyncArticles } from "./SyncArticles";
 
 export type Site = {
   root: string | null;
   paths: string[];
+  framework?: Framework;
+  collection?: string;
   catalog?: Record<string, { title: string; categories: string[]; tags: string[] }>;
   homepagePicks: boolean;
   changedPaths: string[];
@@ -34,9 +43,11 @@ type Edit = {
   urlSlug: string;
 };
 
-function editor(path: string, original: string | null): Edit {
+function editor(path: string, original: string | null, framework: Framework): Edit {
   const { article, urlSlug } =
-    original === null ? { article: blankArticle(), urlSlug: "" } : readArticle(original, path);
+    original === null
+      ? { article: blankArticle(framework), urlSlug: "" }
+      : readArticle(original, path, framework);
   return {
     path,
     article,
@@ -115,6 +126,7 @@ export function Blog({ invoke }: { invoke: Invoke }) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  const framework = site?.framework ?? "astro";
   const discard = () => !dirty || window.confirm(t("Discard unsaved article changes?"));
   function open(path: string | null) {
     if (!site?.root || !discard()) return;
@@ -122,7 +134,7 @@ export function Blog({ invoke }: { invoke: Invoke }) {
     void run(async () => {
       const text =
         path === null ? null : await invoke<string>({ action: "read", site: root, path });
-      setEdit(editor(path ?? "", text));
+      setEdit(editor(path ?? "", text, framework));
       setDirty(false);
     });
   }
@@ -138,7 +150,7 @@ export function Blog({ invoke }: { invoke: Invoke }) {
     if (edit.original === null && !/^[\p{L}\p{N}][\p{L}\p{N}._-]*$/u.test(article.slug))
       throw new Error("Use a filename-safe slug");
     const path = edit.original === null ? `${article.slug}.md` : edit.path;
-    const raw = writeArticle(edit.original, path, article);
+    const raw = writeArticle(edit.original, path, article, framework);
     await invoke<string>({
       action: "save",
       site: site.root,
@@ -146,7 +158,7 @@ export function Blog({ invoke }: { invoke: Invoke }) {
       text: raw,
       expected: edit.original,
     });
-    setEdit(editor(path, raw));
+    setEdit(editor(path, raw, framework));
     setDirty(false);
     await loadSite(await invoke<Site>({ action: "list" }));
     setStatus(t("Article saved locally"));
@@ -295,7 +307,7 @@ export function Blog({ invoke }: { invoke: Invoke }) {
                   <label>
                     {t("Publication date")}
                     <input
-                      required
+                      required={framework === "astro"}
                       value={article.pubDate}
                       onChange={(e) => field("pubDate", e.target.value)}
                     />

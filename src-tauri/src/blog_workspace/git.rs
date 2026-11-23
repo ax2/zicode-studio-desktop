@@ -104,13 +104,13 @@ fn records(root: &Path) -> Result<Vec<(String, String)>, String> {
         .collect()
 }
 
-fn key(prefix: &str, path: &str) -> Option<String> {
+fn key(layout: site::Layout, prefix: &str, path: &str) -> Option<String> {
     let local = path.strip_prefix(prefix)?;
-    if local == site::PICKS {
+    if Some(local) == layout.picks() {
         return Some("@homepagePicks".into());
     }
-    let key = local.strip_prefix(site::COLLECTION)?.strip_prefix('/')?;
-    site::relative(key).ok().map(|_| key.to_owned())
+    let key = local.strip_prefix(layout.collection())?.strip_prefix('/')?;
+    layout.relative(key).ok().map(|_| key.to_owned())
 }
 
 pub(super) fn preview(root: &Path, owners: &[String]) -> Result<assets::Preview, String> {
@@ -125,10 +125,11 @@ fn plan(
 ) -> Result<assets::Preview, String> {
     let prefix = run(root, &["rev-parse", "--show-prefix"])?;
     let prefix = prefix.trim_end_matches(['\r', '\n']);
+    let layout = site::Layout::at(root)?;
     let mut plan = assets::Preview::default();
     let mut images = assets::ArticleImages::default();
     for owner in owners {
-        let file = site::relative(owner)?;
+        let file = layout.relative(owner)?;
         if let Some((state, _)) = changes
             .iter()
             .find(|(_, name)| name.strip_prefix(prefix) == Some(file.as_str()))
@@ -138,7 +139,7 @@ fn plan(
             }
             plan.paths.insert(owner.clone());
         }
-        if owner != "@homepagePicks" {
+        if layout == site::Layout::Astro && owner != "@homepagePicks" {
             images.include(root, owner)?;
         }
     }
@@ -191,10 +192,11 @@ fn plan(
 }
 
 pub(super) fn status(root: &Path) -> Result<Status, String> {
+    let layout = site::Layout::at(root)?;
     let prefix = run(root, &["rev-parse", "--show-prefix"])?;
     let changed = records(root)?
         .into_iter()
-        .filter_map(|(_, file)| key(prefix.trim_end_matches(['\r', '\n']), &file))
+        .filter_map(|(_, file)| key(layout, prefix.trim_end_matches(['\r', '\n']), &file))
         .collect();
     let name = branch(root)?;
     Ok(Status {
@@ -255,14 +257,15 @@ fn commit_selected(
     }
     let prefix = run(root, &["rev-parse", "--show-prefix"])?;
     let prefix = prefix.trim_end_matches(['\r', '\n']);
+    let layout = site::Layout::at(root)?;
     let mut selected = BTreeSet::new();
     for item in selection {
         let file = if let Some(file) = item.strip_prefix(assets::PREFIX) {
             assets::checked_size(root, file, true)?;
             file.to_owned()
         } else {
-            site::resolve(root, item, true)?;
-            site::relative(item)?
+            layout.resolve(root, item, true)?;
+            layout.relative(item)?
         };
         if !changes
             .iter()
@@ -450,7 +453,8 @@ mod tests {
         let file = "src/content/blog/one.md";
         std::fs::create_dir_all(first.join(site::COLLECTION)).unwrap();
         std::fs::write(first.join(file), "initial").unwrap();
-        run(&first, &["add", "--", file]).unwrap();
+        std::fs::write(first.join("astro.config.mjs"), "").unwrap();
+        run(&first, &["add", "--", file, "astro.config.mjs"]).unwrap();
         run(&first, &["commit", "-m", "Initial article"]).unwrap();
         run(&first, &["push", "-u", "origin", "main"]).unwrap();
         run(temp.path(), &["clone", remote, "peer"]).unwrap();
@@ -547,7 +551,13 @@ mod tests {
         assert!(!peer.join(other).exists());
         run(
             &peer,
-            &["sparse-checkout", "set", "--no-cone", "/src/content/blog/"],
+            &[
+                "sparse-checkout",
+                "set",
+                "--no-cone",
+                "/src/content/blog/",
+                "/astro.config.mjs",
+            ],
         )
         .unwrap();
         assert!(!peer.join(images[0]).exists());
@@ -586,6 +596,7 @@ mod tests {
         let site = repo.join("astro-site");
         let posts = site.join(site::COLLECTION);
         std::fs::create_dir_all(&posts).unwrap();
+        std::fs::write(site.join("astro.config.mjs"), "").unwrap();
         run(repo, &["init", "--initial-branch=main"]).unwrap();
         run(repo, &["config", "user.email", "test@example.invalid"]).unwrap();
         run(repo, &["config", "user.name", "Blog Test"]).unwrap();
@@ -621,6 +632,96 @@ mod tests {
         );
     }
     #[test]
+    fn hugo_articles_keep_their_taxonomies_and_drafts_across_two_checkouts() {
+        use super::super::catalog;
+        use std::fs;
+
+        let temp = tempfile::tempdir().unwrap();
+        let upstream = temp.path().join("remote");
+        let original = temp.path().join("first");
+        let peer = temp.path().join("peer");
+        fs::create_dir_all(original.join("content/posts/guide")).unwrap();
+        fs::create_dir(&upstream).unwrap();
+        run(&upstream, &["init", "--bare", "--initial-branch=main"]).unwrap();
+        run(&original, &["init", "--initial-branch=main"]).unwrap();
+        for (key, value) in [
+            ("user.name", "Hugo test"),
+            ("user.email", "hugo@example.invalid"),
+            ("commit.gpgsign", "false"),
+            ("core.autocrlf", "false"),
+        ] {
+            run(&original, &["config", key, value]).unwrap();
+        }
+        fs::write(original.join(".gitattributes"), "*.md -text\n").unwrap();
+        fs::write(
+            original.join("hugo.toml"),
+            "baseURL = 'https://example.org/'\n",
+        )
+        .unwrap();
+        fs::write(
+            original.join("content/posts/_index.md"),
+            "---\ntitle: Posts\n---\n",
+        )
+        .unwrap();
+        let key = "guide/index.md".to_owned();
+        let relative = "content/posts/guide/index.md";
+        let raw = "---\ntitle: Guide\ndate: 2025-01-01\ncategories: [development, docs]\ntags: [windows]\ndraft: false\n---\nSample\n";
+        fs::write(original.join(relative), raw).unwrap();
+        run(&original, &["add", "."]).unwrap();
+        run(&original, &["commit", "-m", "Initial site"]).unwrap();
+        let remote = upstream.to_str().unwrap();
+        run(&original, &["remote", "add", "origin", remote]).unwrap();
+        run(&original, &["push", "-u", "origin", "main"]).unwrap();
+        run(temp.path(), &["clone", remote, "peer"]).unwrap();
+
+        let root = site::detect(&original).unwrap();
+        let layout = site::Layout::at(&root).unwrap();
+        assert_eq!(layout.framework(), "hugo");
+        assert_eq!(site::list(&root).unwrap(), [key.as_str()]);
+        let summary = serde_json::to_value(catalog::summaries(
+            &root,
+            layout,
+            std::slice::from_ref(&key),
+        ))
+        .unwrap();
+        assert_eq!(
+            summary[&key]["categories"],
+            serde_json::json!(["development", "docs"])
+        );
+        assert_eq!(summary[&key]["tags"], serde_json::json!(["windows"]));
+        assert!(site::resolve(&root, "@homepagePicks", false).is_err());
+        assert!(site::resolve(&root, "_index.md", false).is_err());
+        assert!(site::resolve(&root, "../about.md", true).is_err());
+
+        let updated = raw
+            .replace("development, docs", "engineering")
+            .replace("draft: false", "draft: true");
+        site::save(&root, &key, &updated, Some(raw)).unwrap();
+        assert!(site::save(&root, &key, "stale", Some(raw)).is_err());
+        fs::write(root.join("content/about.md"), "unsynced").unwrap();
+        assert_eq!(status(&root).unwrap().changed, [key.as_str()]);
+        let owners = vec![key.clone()];
+        let reviewed = preview(&root, &owners).unwrap();
+        assert_eq!(reviewed.paths.iter().collect::<Vec<_>>(), [&key]);
+        sync_reviewed(
+            &root,
+            "main",
+            "push",
+            reviewed.paths.into_iter().collect(),
+            &owners,
+            &[],
+        )
+        .unwrap();
+        sync_reviewed(&peer, "main", "pull", vec![], &[], &[]).unwrap();
+        assert_eq!(fs::read_to_string(peer.join(relative)).unwrap(), updated);
+        assert!(!peer.join("content/about.md").exists());
+        assert_eq!(
+            fs::read_to_string(root.join("content/about.md")).unwrap(),
+            "unsynced"
+        );
+    }
+
+    #[test]
     fn limits_remote_and_reports_only_site_content() {
         assert!(github_remote("git@github.com:ax2/zicode-blog.git\n"));
         assert!(github_remote("https://github.com/ax2/zicode-blog.git"));
@@ -634,13 +735,30 @@ mod tests {
             assert!(!github_remote(bad));
         }
         assert_eq!(
-            key("site/", "site/src/content/blog/en/item.mdx").as_deref(),
+            key(
+                site::Layout::Astro,
+                "site/",
+                "site/src/content/blog/en/item.mdx"
+            )
+            .as_deref(),
             Some("en/item.mdx")
         );
         assert_eq!(
-            key("site/", "site/src/lib/homepagePicks.ts").as_deref(),
+            key(
+                site::Layout::Astro,
+                "site/",
+                "site/src/lib/homepagePicks.ts"
+            )
+            .as_deref(),
             Some("@homepagePicks")
         );
-        assert_eq!(key("site/", "other/src/content/blog/item.md"), None);
+        assert_eq!(
+            key(
+                site::Layout::Astro,
+                "site/",
+                "other/src/content/blog/item.md"
+            ),
+            None
+        );
     }
 }
