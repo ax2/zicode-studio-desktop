@@ -1,0 +1,9 @@
+{
+  "sourceRevision": "8476912755c0373660296aae358380df4f261689",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-23T07:54:42.762928+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "244ac722fce1b1fec7d1d34ad79e7c21d8936aa56480cc12e0d8c307742af312"
+}

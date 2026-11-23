@@ -1,0 +1,354 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.json-file",
+  "name": "ZiDevTools JSON File",
+  "displayName": "ZiDevTools JSON 文件",
+  "description": "每项输入最多 1 MiB 的 UTF-8 JSON，64层，拒绝重复键、不安全整数和不能精确往返的十进制数值；不把策略拒绝误报为语法错误。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.6.4 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "resource.wasi.json-file-transform.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.json-file.format",
+    "onCapability:devtools.json-file.minify",
+    "onCapability:devtools.json-file.validate"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "capabilities": [
+      {
+        "id": "devtools.json-file.format",
+        "title": "JSON 文件格式化",
+        "executionProfile": "resource.wasi.json-file-transform.v1",
+        "maxResultBytes": 2048,
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "schemaVersion": {
+                  "type": "integer",
+                  "const": 1
+                },
+                "material": {
+                  "type": "string",
+                  "const": "json-file-result"
+                },
+                "sourceByteCounts": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1048576
+                  }
+                },
+                "outputByteCount": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8388608
+                }
+              },
+              "required": [
+                "ok",
+                "schemaVersion",
+                "material",
+                "sourceByteCounts",
+                "outputByteCount"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json",
+          "text/plain"
+        ],
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "JSON 格式化",
+            "JSON file format"
+          ],
+          "description": "每项输入最多 1 MiB 的 UTF-8 JSON，64层，拒绝重复键、不安全整数和不能精确往返的十进制数值；不把策略拒绝误报为语法错误。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。"
+        }
+      },
+      {
+        "id": "devtools.json-file.minify",
+        "title": "JSON 文件压缩",
+        "executionProfile": "resource.wasi.json-file-transform.v1",
+        "maxResultBytes": 2048,
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "schemaVersion": {
+                  "type": "integer",
+                  "const": 1
+                },
+                "material": {
+                  "type": "string",
+                  "const": "json-file-result"
+                },
+                "sourceByteCounts": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1048576
+                  }
+                },
+                "outputByteCount": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8388608
+                }
+              },
+              "required": [
+                "ok",
+                "schemaVersion",
+                "material",
+                "sourceByteCounts",
+                "outputByteCount"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json",
+          "text/plain"
+        ],
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "JSON 压缩",
+            "JSON file minify"
+          ],
+          "description": "每项输入最多 1 MiB 的 UTF-8 JSON，64层，拒绝重复键、不安全整数和不能精确往返的十进制数值；不把策略拒绝误报为语法错误。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。"
+        }
+      },
+      {
+        "id": "devtools.json-file.validate",
+        "title": "JSON 文件校验",
+        "executionProfile": "resource.wasi.json-file-transform.v1",
+        "maxResultBytes": 2048,
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "schemaVersion": {
+                  "type": "integer",
+                  "const": 1
+                },
+                "material": {
+                  "type": "string",
+                  "const": "json-file-result"
+                },
+                "sourceByteCounts": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1048576
+                  }
+                },
+                "outputByteCount": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8388608
+                }
+              },
+              "required": [
+                "ok",
+                "schemaVersion",
+                "material",
+                "sourceByteCounts",
+                "outputByteCount"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json",
+          "text/plain"
+        ],
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "JSON 校验",
+            "JSON file validate"
+          ],
+          "description": "每项输入最多 1 MiB 的 UTF-8 JSON，64层，拒绝重复键、不安全整数和不能精确往返的十进制数值；不把策略拒绝误报为语法错误。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。"
+        }
+      }
+    ],
+    "commands": [],
+    "piTools": []
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次明确选择和确认的 JSON 文件快照。"
+      }
+    ],
+    "optional": []
+  }
+}

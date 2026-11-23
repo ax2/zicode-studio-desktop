@@ -1,0 +1,25 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.json-file",
+  "packageVersion": "0.1.0",
+  "tools": [
+    {
+      "sourceToolId": "json",
+      "capabilityId": "devtools.json-file.format",
+      "title": "JSON 文件格式化",
+      "scope": "每项输入最多 1 MiB 的 UTF-8 JSON，64层，拒绝重复键、不安全整数和不能精确往返的十进制数值；不把策略拒绝误报为语法错误。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。"
+    },
+    {
+      "sourceToolId": "json",
+      "capabilityId": "devtools.json-file.minify",
+      "title": "JSON 文件压缩",
+      "scope": "每项输入最多 1 MiB 的 UTF-8 JSON，64层，拒绝重复键、不安全整数和不能精确往返的十进制数值；不把策略拒绝误报为语法错误。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。"
+    },
+    {
+      "sourceToolId": "json",
+      "capabilityId": "devtools.json-file.validate",
+      "title": "JSON 文件校验",
+      "scope": "每项输入最多 1 MiB 的 UTF-8 JSON，64层，拒绝重复键、不安全整数和不能精确往返的十进制数值；不把策略拒绝误报为语法错误。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。"
+    }
+  ]
+}
