@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, it, vi } from "vitest";
-import { loadMissingParents, summarizeHierarchy } from "./project-hierarchy.mjs";
+import { loadMissingParents, openIssuesInPublishedMilestones, summarizeHierarchy } from "./project-hierarchy.mjs";
 
 const repository = "owner/studio";
 function issue(number, {state = "open", version = "v1.2.3", epic = false} = {}) {
@@ -27,6 +27,7 @@ it("retains closed descendants, manual targets and nested parents", () => {
   const issues = [issue(1,{epic:true}), issue(2,{version:"v2.0.0"}), issue(3,{state:"closed",version:"v0.9.0"}),
     issue(4,{state:"closed",version:null}), issue(5,{epic:true,version:"later"})];
   const result = report(issues, new Map([["1",null],["2",parent(1)],["3",parent(2)],["4",null],["5",null]]));
+  expect(result.deeperThanTwoLevels).toEqual([{number:3, parent:2, depth:3}]);
   expect(result.total).toBe(5);
   expect(result.withParent).toBe(2);
   expect(numbers(result.roots)).toEqual([1,4,5]);
@@ -44,6 +45,26 @@ it("separates incomplete and cross-repository data from missing parent violation
   expect(numbers(result.unresolvedParents)).toEqual([4]);
   expect(numbers(result.externalParents)).toEqual([5]);
   expect(result.cycles).toEqual([[1,2]]);
+  expect(result.deeperThanTwoLevels).toEqual([]);
+});
+
+it("finds fourth-level issues when descendants precede their parents", () => {
+  const issues = [4,3,2,1,5].map(n => issue(n));
+  const parents = new Map([["1",null],["2",parent(1)],["3",parent(2)],["4",parent(3)],["5",parent(3)]]);
+  expect(report(issues, parents).deeperThanTwoLevels).toEqual([
+    {number:3, parent:2, depth:3}, {number:4, parent:3, depth:4}, {number:5, parent:3, depth:4},
+  ]);
+});
+
+it("matches open issues to published releases by exact milestone, including published prereleases", () => {
+  const issues = [issue(1), issue(2,{state:"closed"}), issue(3,{version:"v1.2.4"}),
+    issue(4,{version:"v1.2.3-rc.1"}), issue(5,{version:null}), issue(6,{version:"v1.2.30"})];
+  const releases = [
+    {tag_name:"v1.2.3",draft:false,published_at:"2026-11-20"},
+    {tag_name:"v1.2.4",draft:true,published_at:null},
+    {tag_name:"v1.2.3-rc.1",draft:false,prerelease:true,published_at:"2026-11-19"},
+  ];
+  expect(numbers(openIssuesInPublishedMilestones(issues, releases))).toEqual([1,4]);
 });
 
 it("reuses Project parents including confirmed roots and batches only missing repository nodes", () => {

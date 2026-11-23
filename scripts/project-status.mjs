@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Read only. Never re-add removed items or overwrite user planning changes.
 import { execFileSync } from "node:child_process";
-import { loadMissingParents, summarizeHierarchy } from "./project-hierarchy.mjs";
+import { loadMissingParents, openIssuesInPublishedMilestones, summarizeHierarchy } from "./project-hierarchy.mjs";
 
 function gh(args, payload) {
   const output = execFileSync("gh", args, {
@@ -53,7 +53,8 @@ do {
 function allPages(endpoint) {
   const results = [];
   for (let page = 1; ; page++) {
-    const batch = gh(["api", `${endpoint}&per_page=100&page=${page}`]);
+    const separator = endpoint.includes("?") ? "&" : "?";
+    const batch = gh(["api", `${endpoint}${separator}per_page=100&page=${page}`]);
     results.push(...batch);
     if (batch.length < 100) return results;
   }
@@ -65,6 +66,7 @@ const repositoryIssues = allPages(`repos/${repo}/issues?state=all`).filter(issue
 loadMissingParents(repositoryIssues, parents, ids => graphql(`query($ids:[ID!]!){nodes(ids:$ids){
     ... on Issue{id parent{id number url repository{nameWithOwner}}}
   }}`, { ids }).nodes);
+const openPublishedMilestoneIssues = openIssuesInPublishedMilestones(repositoryIssues, allPages(`repos/${repo}/releases`));
 const repositoryMilestones = allPages(`repos/${repo}/milestones?state=all`);
 const milestones = repositoryMilestones.filter(m => m.state === "open").map(m => ({ title: m.title, url: m.html_url, dueOn: m.due_on, openIssues: m.open_issues, closedIssues: m.closed_issues }));
 function issueSummary({ number, title, state, html_url }) {
@@ -85,14 +87,16 @@ const missingVersionViews = repositoryMilestones
     [`milestone:${m.title}`, `milestone:"${m.title}"`].includes(view.filter)));
 const milestoneSummary = ({ title, html_url }) => ({ title, url: html_url });
 const releaseMilestonesWithoutView = missingVersionViews.map(milestoneSummary);
+// GitHub milestone counters can include pull requests or lag behind issue moves.
+const activeVersionTitles = new Set(repositoryIssues.filter(i => i.state === "open").map(i => i.milestone?.title));
 const activeReleaseMilestonesWithoutView = missingVersionViews
-  .filter(m => m.open_issues > 0)
+  .filter(m => activeVersionTitles.has(m.title))
   .map(milestoneSummary);
 const known = new Set(items.map(i => i.url));
 const untracked = repositoryIssues
   .filter(issue => issue.state === "open" && !known.has(issue.html_url))
   .map(issueSummary);
-console.log(JSON.stringify({ checkedAt: new Date().toISOString(), ...project, items, milestones, untracked, issuesWithoutMilestone, issuesWithoutVersionMilestone, releaseMilestonesWithoutView, activeReleaseMilestonesWithoutView, hierarchy,
+console.log(JSON.stringify({ checkedAt: new Date().toISOString(), ...project, items, milestones, untracked, openPublishedMilestoneIssues, issuesWithoutMilestone, issuesWithoutVersionMilestone, releaseMilestonesWithoutView, activeReleaseMilestonesWithoutView, hierarchy,
   instruction: "Read selected issue body, all comments and dependencies before work. Untracked items are for review only; do not automatically re-add removed work." }, null, 2));
 
 if (process.argv.includes("--check-milestones") && (issuesWithoutVersionMilestone.length || activeReleaseMilestonesWithoutView.length)) {
