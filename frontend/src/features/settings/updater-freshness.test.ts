@@ -77,3 +77,17 @@ it("does not let an obsolete failure clear the new channel's active check", asyn
   expect(state()).toMatchObject({ checking: false, canInstall: true, update: { version: "0.6.6-beta.1", body: "New beta notes" } });
   expect(invoke.mock.calls).toEqual([["check_desktop_update", { beta: false }], ["check_desktop_update", { beta: true }]]);
 });
+
+it("keeps the refreshed stable offer when a superseded stable request finishes last", async () => {
+  let older!: (result: unknown) => void;
+  const invoke = vi.fn()
+    .mockImplementationOnce(() => new Promise(resolve => { older = resolve; }))
+    .mockResolvedValueOnce({ version: "0.7.2", fullInstaller: true });
+  vi.stubGlobal("__TAURI__", { core: { invoke } });
+  const first = state().checkNow();
+  state().showIdle();
+  await state().checkNow();
+  older({ version: "0.7.1", fullInstaller: true });
+  await first;
+  expect(state()).toMatchObject({ checking: false, canInstall: true, update: { version: "0.7.2" } });
+});

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
 
-export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+export const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 export const BETA_SETTINGS_KEY = "picot-settings-beta-updates";
 const MODE_KEY = "studio-desktop-update-mode";
 export type UpdateMode = "manual" | "notify" | "download";

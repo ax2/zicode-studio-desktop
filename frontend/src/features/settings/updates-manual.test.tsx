@@ -46,6 +46,7 @@ it("persists the selected mode and prepares a verified stable installer without 
   expect(invoke.mock.calls.map(([name]) => name).filter(name => name !== "desktop_update_preference")).toEqual(["check_desktop_update", "install_desktop_update"]);
   expect(state().installerReady).toBe(true);
   expect(view.getByText("Install and exit")).toBeTruthy();
+  expect(view.getByRole("status").textContent).toContain("v9.0.0");
   await act(async () => { await state().backgroundCheck(); });
   expect(invoke.mock.calls.some(([name]) => name === "restart_desktop_after_update")).toBe(false);
   await act(async () => { state().configure(true); await state().restoreMode(); });
@@ -96,4 +97,19 @@ it("localizes unavailable installed-version fallbacks without inventing a latest
   expect(view.container.querySelector("#setting-app-version-value")?.textContent).toBe("不可用");
   expect(view.container.querySelector("#setting-pi-version-value")?.textContent).toBe("不可用");
   expect(view.queryByText("Up to date")).toBeNull();
+});
+
+it("rechecks an offered Windows update without starting the older install", async () => {
+  setLocale("en");
+  localStorage.clear();
+  const install = vi.fn();
+  const invoke = vi.fn(async () => ({ version: "0.7.2", fullInstaller: true }));
+  vi.stubGlobal("__TAURI__", { core: { invoke } });
+  useAppUpdaterStore.getState().configure(true);
+  useAppUpdaterStore.getState().showAvailable({ version: "0.7.1", fullInstaller: true, downloadAndInstall: install });
+  const view = render(<UpdatesTab store={createSettingsStore()} widgets={createSettingsWidgetsStore()} />);
+  await act(async () => { fireEvent.click(view.getByRole("button", { name: "Check now" })); });
+  expect(view.getByRole("status").textContent).toContain("0.7.2");
+  expect(invoke.mock.calls).toEqual([["check_desktop_update", { beta: false }]]);
+  expect(install).not.toHaveBeenCalled();
 });

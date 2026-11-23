@@ -1123,6 +1123,7 @@ function iconSvg(name) {
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
   const paths = {
+    blog: [["path",{d:"M4 3h12v4M4 3v18h12v-5 M8 7h4 M8 11h2 M11 17l1-4 7-7 3 3-7 7-4 1z"}]],
     mail: [["path",{d:"M3 5h18v14H3z M3 6l9 7 9-7"}]],
     chat: [
       ["path", { d: "M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" }],

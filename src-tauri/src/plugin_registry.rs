@@ -2468,6 +2468,15 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
             true,
         ),
         (json!({
+            "schemaVersion":1, "id":"com.zicode.blog", "name":"Blog",
+            "description":"Write and organize static blog articles","version":"0.1.0","publisher":"zicode",
+            "engines":{"pluginApi":"^1.0.0"},"activationEvents":["onView:blog.dashboard"],
+            "contributes":{"activities":[{"id":"blog","title":"Blog","order":127}],
+              "views":[{"id":"blog.dashboard","activity":"blog","location":"main","title":"Blog"}],
+              "commands":[{"id":"blog.open","title":"Open Blog"}]},
+            "permissions":{"required":[],"optional":[]}
+        }), true, true),
+        (json!({
             "schemaVersion":1, "id":"com.zicode.mail", "name":"Mail",
             "description":"Mail for Gmail and Alibaba Mail","version":"0.1.0","publisher":"zicode",
             "engines":{"pluginApi":"^1.0.0"},"activationEvents":["onView:mail.dashboard"],
@@ -3139,7 +3148,7 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 22);
+        assert_eq!(registry.list("programming").len(), 23);
         let visual = registry.list("programming").into_iter()
             .find(|plugin| plugin.manifest.id == "com.zicode.visual-assets")
             .expect("visual assets registered");

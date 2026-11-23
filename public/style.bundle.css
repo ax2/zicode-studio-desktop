@@ -7435,7 +7435,7 @@ code {
 .plugin-activity-button:is([data-plugin-id="core.chat"], [data-plugin-id="com.zicode.tasks"], [data-plugin-id="com.zicode.finance"], [data-plugin-id="com.zicode.habits"]) { --activity-icon-color: var(--nav-teal); }
 .plugin-activity-button:is([data-plugin-id="com.zicode.notes"], [data-plugin-id="com.zicode.projects"], [data-plugin-id="core.files"], [data-plugin-id="com.zicode.clipboard"]) { --activity-icon-color: var(--nav-gold); }
 .plugin-activity-button:is([data-plugin-id="com.zicode.visual-assets"], [data-plugin-id="com.zicode.graph"], [data-plugin-id="com.zicode.imagetools"], [data-plugin-id="core.commands"]) { --activity-icon-color: var(--nav-purple); }
-.plugin-activity-button:is([data-plugin-id="com.zicode.mail"], [data-plugin-id="com.zicode.automation"], [data-plugin-id="com.zicode.articles"]) { --activity-icon-color: var(--nav-rose); }
+.plugin-activity-button:is([data-plugin-id="com.zicode.mail"], [data-plugin-id="com.zicode.automation"], [data-plugin-id="com.zicode.articles"], [data-plugin-id="com.zicode.blog"]) { --activity-icon-color: var(--nav-rose); }
 .plugin-activity-button:is([data-plugin-id="core.settings"], [data-plugin-id="core.help"]) { --activity-icon-color: var(--nav-slate); }
 
 .plugin-activity-button > svg {
@@ -7444,13 +7444,56 @@ code {
   height: var(--control-height-xs);
 }
 
+.plugin-activity-image {
+  display: block;
+  flex-shrink: 0;
+  width: calc(var(--space-6) + var(--space-1));
+  height: calc(var(--space-6) + var(--space-1));
+  object-fit: contain;
+  filter: drop-shadow(0 2px 2px light-dark(#17233333, #070b16aa));
+  transition:
+    transform var(--duration) var(--ease),
+    filter var(--duration) var(--ease);
+}
+
+.plugin-activity-button:is(:hover, :focus-visible) > .plugin-activity-image {
+  transform: translateY(-1px) scale(1.06);
+  filter:
+    saturate(1.12)
+    drop-shadow(0 3px 3px light-dark(#17233355, #070b16cc));
+}
+
+.plugin-activity-button.active:has(> .plugin-activity-image) {
+  background:
+    radial-gradient(
+      ellipse at 50% 20%,
+      color-mix(in srgb, var(--activity-icon-color) 24%, transparent),
+      transparent 85%
+    ),
+    color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--activity-icon-color) 26%, transparent);
+}
+
+.plugin-activity-button.active > .plugin-activity-image {
+  filter:
+    saturate(1.14)
+    drop-shadow(0 1px 4px color-mix(in srgb, var(--activity-icon-color) 40%, transparent))
+    drop-shadow(0 2px 2px light-dark(#17233338, #070b16aa));
+}
+
+.plugin-activity-button:active > .plugin-activity-image {
+  transform: scale(0.96);
+}
+
 .plugin-activity-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .plugin-activity-button, .plugin-activity-button::before { transition: none; }
+  .plugin-activity-button,
+  .plugin-activity-button::before,
+  .plugin-activity-image { transition: none; }
 }
 
 .plugin-activity-button:hover {
@@ -7519,28 +7562,6 @@ code {
   pointer-events: none;
   transition: opacity var(--duration) var(--ease);
   z-index: 110;
-}
-
-@media (min-width: 769px) {
-  .plugin-activity-button[data-plugin-id="com.zicode.mail"] {
-    align-content: center;
-    gap: var(--space-0-5);
-  }
-  .plugin-activity-button[data-plugin-id="com.zicode.mail"] .plugin-activity-tooltip {
-    position: static;
-    transform: none;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    box-shadow: none;
-    font-size: var(--font-size-sm);
-    line-height: 1;
-    opacity: 1;
-  }
-  .plugin-activity-button[data-plugin-id="com.zicode.mail"] .plugin-activity-shortcut {
-    display: none;
-  }
 }
 
 .plugin-activity-button:hover .plugin-activity-tooltip,
@@ -8077,7 +8098,8 @@ body[data-active-plugin="core.help"] .help-center-navigation {
   }
 
   .plugin-activity-brand img,
-  .plugin-activity-button svg {
+  .plugin-activity-button svg,
+  .plugin-activity-button .plugin-activity-image {
     width: var(--space-5);
     height: var(--space-5);
   }
@@ -19322,7 +19344,8 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
     height: 2px;
   }
 
-  .plugin-activity-button svg {
+  .plugin-activity-button svg,
+  .plugin-activity-button .plugin-activity-image {
     width: var(--space-5);
     height: var(--space-5);
   }
@@ -20100,11 +20123,15 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
 .page-header-content { flex: 1; min-width: 0; }
 .activity-utilities .status { width: var(--control-height-sm); height: var(--control-height-sm); justify-content: center; flex-shrink: 0; }
 .activity-utilities .status-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.activity-utilities .status-indicator { width: var(--space-4); height: var(--space-4); background: none; border-radius: 0; box-shadow: none; }
-.activity-utilities .status-indicator svg { display: block; width: 100%; height: 100%; }
-.activity-utilities .status-indicator.connected { color: var(--nav-teal); }
-.activity-utilities .status-indicator.disconnected { color: var(--nav-slate); }
-.activity-utilities .quick-tools-menu > summary { color: var(--nav-gold); }
+.activity-utilities .status-indicator { width: var(--space-5); height: var(--space-5); background: transparent url("/icons/activity/disconnected.png") center / contain no-repeat; border-radius: 0; box-shadow: none; }
+.activity-utilities .status-indicator.connected { background-image: url("/icons/activity/connected.png"); }
+.activity-utilities .status-indicator svg, .activity-utilities .quick-tools-menu > summary svg { display: none; }
+.activity-utilities .quick-tools-menu > summary::before {
+  content: "";
+  width: var(--space-5);
+  height: var(--space-5);
+  background: url("/icons/activity/quick-tools.png") center / contain no-repeat;
+}
 .quick-tools-menu > summary svg { width: var(--space-4); height: var(--space-4); }
 #page-header-actions .browser-tab-strip { flex: 1; padding: 0; overflow: hidden; }
 #page-header-actions .browser-tab-title { min-width: 0; }
@@ -20133,7 +20160,6 @@ body:not([data-active-plugin="core.chat"]) .session-header .header-left > .mobil
 
 .activity-utilities { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
 .activity-utilities .status, .activity-utilities .quick-tools-menu > summary { width: var(--control-height-lg); height: var(--control-height-lg); }
-.activity-utilities .quick-tools-menu > summary svg { width: var(--space-5); height: var(--space-5); }
 .activity-utilities .quick-tools-popover { position: fixed; inset-inline-start: calc(var(--control-height-lg) + var(--space-3)); top: auto; bottom: var(--space-3); max-height: calc(100dvh - var(--space-8)); overflow: auto; }
 .plugin-activity-list--system { overflow: visible; }
 

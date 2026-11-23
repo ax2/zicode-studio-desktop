@@ -51,6 +51,7 @@ fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }
 futures-util = "0.3"
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
 percent-encoding = "2"
+regex = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 sha2 = "0.10"
 chacha20poly1305 = "=0.10.1"

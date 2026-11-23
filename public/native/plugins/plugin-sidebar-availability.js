@@ -5,7 +5,7 @@ export function createPluginSidebarAvailability(sidebar) {
     sync(plugin) {
       const external = plugin?.origin === "developer" || plugin?.origin === "signed";
       const fullWidth = [
-        "com.zicode.browser", "com.zicode.visual-assets", "com.zicode.mail",
+        "com.zicode.browser", "com.zicode.visual-assets", "com.zicode.mail", "com.zicode.blog",
         "com.zicode.translate", "com.zicode.documents", "com.zicode.clipboard",
         "com.zicode.graph", "com.zicode.habits", "com.zicode.ocr", "com.zicode.watch",
       ].includes(plugin?.id);

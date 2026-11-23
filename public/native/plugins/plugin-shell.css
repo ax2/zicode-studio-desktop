@@ -123,7 +123,7 @@
 .plugin-activity-button:is([data-plugin-id="core.chat"], [data-plugin-id="com.zicode.tasks"], [data-plugin-id="com.zicode.finance"], [data-plugin-id="com.zicode.habits"]) { --activity-icon-color: var(--nav-teal); }
 .plugin-activity-button:is([data-plugin-id="com.zicode.notes"], [data-plugin-id="com.zicode.projects"], [data-plugin-id="core.files"], [data-plugin-id="com.zicode.clipboard"]) { --activity-icon-color: var(--nav-gold); }
 .plugin-activity-button:is([data-plugin-id="com.zicode.visual-assets"], [data-plugin-id="com.zicode.graph"], [data-plugin-id="com.zicode.imagetools"], [data-plugin-id="core.commands"]) { --activity-icon-color: var(--nav-purple); }
-.plugin-activity-button:is([data-plugin-id="com.zicode.mail"], [data-plugin-id="com.zicode.automation"], [data-plugin-id="com.zicode.articles"]) { --activity-icon-color: var(--nav-rose); }
+.plugin-activity-button:is([data-plugin-id="com.zicode.mail"], [data-plugin-id="com.zicode.automation"], [data-plugin-id="com.zicode.articles"], [data-plugin-id="com.zicode.blog"]) { --activity-icon-color: var(--nav-rose); }
 .plugin-activity-button:is([data-plugin-id="core.settings"], [data-plugin-id="core.help"]) { --activity-icon-color: var(--nav-slate); }
 
 .plugin-activity-button > svg {
@@ -132,13 +132,56 @@
   height: var(--control-height-xs);
 }
 
+.plugin-activity-image {
+  display: block;
+  flex-shrink: 0;
+  width: calc(var(--space-6) + var(--space-1));
+  height: calc(var(--space-6) + var(--space-1));
+  object-fit: contain;
+  filter: drop-shadow(0 2px 2px light-dark(#17233333, #070b16aa));
+  transition:
+    transform var(--duration) var(--ease),
+    filter var(--duration) var(--ease);
+}
+
+.plugin-activity-button:is(:hover, :focus-visible) > .plugin-activity-image {
+  transform: translateY(-1px) scale(1.06);
+  filter:
+    saturate(1.12)
+    drop-shadow(0 3px 3px light-dark(#17233355, #070b16cc));
+}
+
+.plugin-activity-button.active:has(> .plugin-activity-image) {
+  background:
+    radial-gradient(
+      ellipse at 50% 20%,
+      color-mix(in srgb, var(--activity-icon-color) 24%, transparent),
+      transparent 85%
+    ),
+    color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--activity-icon-color) 26%, transparent);
+}
+
+.plugin-activity-button.active > .plugin-activity-image {
+  filter:
+    saturate(1.14)
+    drop-shadow(0 1px 4px color-mix(in srgb, var(--activity-icon-color) 40%, transparent))
+    drop-shadow(0 2px 2px light-dark(#17233338, #070b16aa));
+}
+
+.plugin-activity-button:active > .plugin-activity-image {
+  transform: scale(0.96);
+}
+
 .plugin-activity-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .plugin-activity-button, .plugin-activity-button::before { transition: none; }
+  .plugin-activity-button,
+  .plugin-activity-button::before,
+  .plugin-activity-image { transition: none; }
 }
 
 .plugin-activity-button:hover {
@@ -207,28 +250,6 @@
   pointer-events: none;
   transition: opacity var(--duration) var(--ease);
   z-index: 110;
-}
-
-@media (min-width: 769px) {
-  .plugin-activity-button[data-plugin-id="com.zicode.mail"] {
-    align-content: center;
-    gap: var(--space-0-5);
-  }
-  .plugin-activity-button[data-plugin-id="com.zicode.mail"] .plugin-activity-tooltip {
-    position: static;
-    transform: none;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    box-shadow: none;
-    font-size: var(--font-size-sm);
-    line-height: 1;
-    opacity: 1;
-  }
-  .plugin-activity-button[data-plugin-id="com.zicode.mail"] .plugin-activity-shortcut {
-    display: none;
-  }
 }
 
 .plugin-activity-button:hover .plugin-activity-tooltip,
@@ -765,7 +786,8 @@ body[data-active-plugin="core.help"] .help-center-navigation {
   }
 
   .plugin-activity-brand img,
-  .plugin-activity-button svg {
+  .plugin-activity-button svg,
+  .plugin-activity-button .plugin-activity-image {
     width: var(--space-5);
     height: var(--space-5);
   }
