@@ -52,10 +52,14 @@ pub(super) fn checked(root: &Path, relative: &str, allow_missing: bool) -> Resul
     Ok(target)
 }
 
-pub(super) fn detect(selected: &Path) -> Result<PathBuf, String> {
-    let root = selected.canonicalize().map_err(|_| "blog_invalid_site")?;
-    let sub = checked(&root, "astro-site", false).ok();
-    for site in std::iter::once(&root).chain(sub.as_ref()) {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Layout {
+    Astro,
+    Hugo(&'static str),
+}
+
+impl Layout {
+    pub(super) fn at(root: &Path) -> Result<Self, String> {
         if [
             "astro.config.mjs",
             "astro.config.ts",
@@ -64,38 +68,97 @@ pub(super) fn detect(selected: &Path) -> Result<PathBuf, String> {
             "astro.config.cjs",
         ]
         .iter()
-        .any(|name| checked(site, name, false).is_ok_and(|p| p.is_file()))
-            && checked(site, COLLECTION, false).is_ok_and(|p| p.is_dir())
+        .any(|name| checked(root, name, false).is_ok_and(|p| p.is_file()))
+            && checked(root, COLLECTION, false).is_ok_and(|p| p.is_dir())
         {
-            return Ok(site.to_owned());
+            return Ok(Self::Astro);
+        }
+        if ["hugo.toml", "hugo.yaml", "hugo.yml", "hugo.json"]
+            .iter()
+            .any(|name| checked(root, name, false).is_ok_and(|p| p.is_file()))
+        {
+            for collection in ["content/posts", "content/post", "content/blog"] {
+                if checked(root, collection, false).is_ok_and(|p| p.is_dir()) {
+                    return Ok(Self::Hugo(collection));
+                }
+            }
+        }
+        Err("blog_invalid_site".into())
+    }
+
+    pub(super) fn framework(self) -> &'static str {
+        match self {
+            Self::Astro => "astro",
+            Self::Hugo(_) => "hugo",
         }
     }
-    Err("blog_invalid_site".into())
+
+    pub(super) fn collection(self) -> &'static str {
+        match self {
+            Self::Astro => COLLECTION,
+            Self::Hugo(collection) => collection,
+        }
+    }
+
+    pub(super) fn picks(self) -> Option<&'static str> {
+        (self == Self::Astro).then_some(PICKS)
+    }
+
+    pub(super) fn category_field(self) -> &'static str {
+        match self {
+            Self::Astro => "category",
+            Self::Hugo(_) => "categories",
+        }
+    }
+
+    pub(super) fn resolve(self, root: &Path, key: &str, new: bool) -> Result<PathBuf, String> {
+        let path = checked(root, &self.relative(key)?, new && key != "@homepagePicks")?;
+        if path.exists() && !path.is_file() {
+            return Err("blog_invalid_path".into());
+        }
+        Ok(path)
+    }
+
+    pub(super) fn relative(self, key: &str) -> Result<String, String> {
+        if key == "@homepagePicks" {
+            return self
+                .picks()
+                .map(str::to_owned)
+                .ok_or("blog_invalid_path".into());
+        }
+        let path = Path::new(key);
+        let extension = path.extension().and_then(|s| s.to_str());
+        let valid = match self {
+            Self::Astro => matches!(extension, Some("md" | "mdx")),
+            Self::Hugo(_) => {
+                extension == Some("md") && path.file_name().is_some_and(|name| name != "_index.md")
+            }
+        };
+        if !valid {
+            return Err("blog_invalid_path".into());
+        }
+        Ok(format!("{}/{key}", self.collection()))
+    }
 }
 
-pub(super) fn relative(key: &str) -> Result<String, String> {
-    if key == "@homepagePicks" {
-        return Ok(PICKS.into());
+pub(super) fn detect(selected: &Path) -> Result<PathBuf, String> {
+    let root = selected.canonicalize().map_err(|_| "blog_invalid_site")?;
+    if Layout::at(&root).is_ok() {
+        return Ok(root);
     }
-    if !matches!(
-        Path::new(key).extension().and_then(|s| s.to_str()),
-        Some("md" | "mdx")
-    ) {
-        return Err("blog_invalid_path".into());
-    }
-    Ok(format!("{COLLECTION}/{key}"))
+    let sub = checked(&root, "astro-site", false).map_err(|_| "blog_invalid_site")?;
+    (Layout::at(&sub)? == Layout::Astro)
+        .then_some(sub)
+        .ok_or("blog_invalid_site".into())
 }
 
 pub(super) fn resolve(root: &Path, key: &str, new: bool) -> Result<PathBuf, String> {
-    let path = checked(root, &relative(key)?, new && key != "@homepagePicks")?;
-    if path.exists() && !path.is_file() {
-        return Err("blog_invalid_path".into());
-    }
-    Ok(path)
+    Layout::at(root)?.resolve(root, key, new)
 }
 
 pub(super) fn list(root: &Path) -> Result<Vec<String>, String> {
-    let root = checked(root, COLLECTION, false)?;
+    let layout = Layout::at(root)?;
+    let root = checked(root, layout.collection(), false)?;
     let mut directories = vec![root.clone()];
     let mut paths = vec![];
     while let Some(directory) = directories.pop() {
@@ -113,18 +176,16 @@ pub(super) fn list(root: &Path) -> Result<Vec<String>, String> {
                 directories.push(path);
                 continue;
             }
-            if meta.is_file()
-                && matches!(
-                    path.extension().and_then(|s| s.to_str()),
-                    Some("md" | "mdx")
-                )
-            {
+            if meta.is_file() {
                 let name = path
                     .strip_prefix(&root)
                     .ok()
                     .and_then(Path::to_str)
-                    .ok_or("blog_invalid_path")?;
-                paths.push(name.replace(std::path::MAIN_SEPARATOR, "/"));
+                    .ok_or("blog_invalid_path")?
+                    .replace(std::path::MAIN_SEPARATOR, "/");
+                if layout.relative(&name).is_ok() {
+                    paths.push(name);
+                }
             }
         }
     }

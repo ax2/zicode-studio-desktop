@@ -13,10 +13,10 @@ type Props = {
   onPushed: () => void;
 };
 
-function filename(key: string) {
+function filename(key: string, collection = "src/content/blog") {
   if (key === "@homepagePicks") return "src/lib/homepagePicks.ts";
   if (key.startsWith("@asset/")) return key.slice(7);
-  return `src/content/blog/${key}`;
+  return `${collection}/${key}`;
 }
 
 export function SyncArticles({
@@ -79,7 +79,7 @@ export function SyncArticles({
                   checked={owners.includes(owner)}
                   onChange={(e) => select(owner, e.target.checked)}
                 />
-                {owner === "@homepagePicks" ? filename(owner) : owner}
+                {owner === "@homepagePicks" ? filename(owner, site.collection) : owner}
               </label>
             ))}
             <button
@@ -107,11 +107,11 @@ export function SyncArticles({
                               )
                             }
                           />
-                          {t("Confirm deletion")} · {filename(key)}
+                          {t("Confirm deletion")} · {filename(key, site.collection)}
                         </label>
                       ) : (
                         <>
-                          {filename(key)}
+                          {filename(key, site.collection)}
                           {review.sizes?.[key] !== undefined && (
                             <small> · {Math.ceil(review.sizes[key] / 1024)} KiB</small>
                           )}

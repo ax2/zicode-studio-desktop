@@ -3745,7 +3745,9 @@ const zhCN = {
   "Git could not create the commit. Check the author settings.": "Git 未能创建提交，请检查作者设置。",
   "The Git operation timed out.": "Git 操作超时。",
   "Git is unavailable for this site.": "此站点的 Git 不可用。",
-  "Choose an Astro site with a src/content/blog directory.": "请选择包含 src/content/blog 的 Astro 站点。",
+  "Choose a supported Astro or Hugo blog folder.": "请选择受支持的 Astro 或 Hugo 博客目录。",
+  "This Hugo article requires YAML front matter to edit it in Studio.":
+    "此 Hugo 文章需要使用 YAML 元数据，才能在 Studio 中编辑。",
   "The selected site changed. Open the folder again.": "所选站点已更改，请重新打开目录。",
   "Choose a Markdown file in the blog collection.": "请选择博客文章目录中的 Markdown 文件。",
   "The article could not be read.": "无法读取文章。",

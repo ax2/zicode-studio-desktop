@@ -69,21 +69,25 @@ pub(super) fn metadata(reader: impl Read) -> Option<Yaml> {
     YamlLoader::load_from_str(&header).ok()?.into_iter().next()
 }
 
-fn summary(file: File) -> Option<Summary> {
+fn summary(file: File, layout: site::Layout) -> Option<Summary> {
     let doc = metadata(file)?;
     Some(Summary {
         title: doc["title"].as_str()?.to_owned(),
-        categories: strings(&doc["category"]),
+        categories: strings(&doc[layout.category_field()]),
         tags: strings(&doc["tags"]),
     })
 }
 
-pub(super) fn summaries(root: &Path, paths: &[String]) -> BTreeMap<String, Summary> {
+pub(super) fn summaries(
+    root: &Path,
+    layout: site::Layout,
+    paths: &[String],
+) -> BTreeMap<String, Summary> {
     paths
         .iter()
         .filter_map(|key| {
-            let file = File::open(site::resolve(root, key, false).ok()?).ok()?;
-            Some((key.clone(), summary(file)?))
+            let file = File::open(layout.resolve(root, key, false).ok()?).ok()?;
+            Some((key.clone(), summary(file, layout)?))
         })
         .collect()
 }
@@ -101,7 +105,7 @@ mod tests {
         )
         .unwrap();
         file.rewind().unwrap();
-        let found = summary(file).unwrap();
+        let found = summary(file, site::Layout::Astro).unwrap();
         assert_eq!(found.title, "A: B");
         assert_eq!(found.categories, ["Docs"]);
         assert_eq!(found.tags, ["test"]);
