@@ -38,7 +38,6 @@ mod desktop_single_instance;
 mod desktop_startup_gate;
 mod desktop_tool_shortcuts;
 mod desktop_tray;
-mod desktop_system_tray;
 mod system_information;
 mod desktop_updates;
 #[cfg(all(windows, target_arch = "x86_64"))]

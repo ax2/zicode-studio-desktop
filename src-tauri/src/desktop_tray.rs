@@ -1,19 +1,20 @@
 //! Desktop lifecycle only; hiding never stops a workspace or starts a tool.
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{IconMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 struct DesktopTray {
     icon: TrayIcon,
-    tools: MenuItem<tauri::Wry>,
-    translation: MenuItem<tauri::Wry>,
+    tools: IconMenuItem<tauri::Wry>,
+    translation: IconMenuItem<tauri::Wry>,
+    system_information: IconMenuItem<tauri::Wry>,
     project_tools: MenuItem<tauri::Wry>,
     favorite_tools: Submenu<tauri::Wry>,
-    recent_tools: MenuItem<tauri::Wry>,
-    show: MenuItem<tauri::Wry>,
+    recent_tools: IconMenuItem<tauri::Wry>,
+    show: IconMenuItem<tauri::Wry>,
     hide: MenuItem<tauri::Wry>,
     exit: MenuItem<tauri::Wry>,
     focused_window: Mutex<Option<String>>,
@@ -123,6 +124,7 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
             "隐藏所有窗口（继续运行）",
             "退出 ZiCode Studio",
             "ZiCode Studio Desktop · 关闭窗口后继续运行",
+            "系统信息…",
         ],
         "en" => [
             "Open tool center",
@@ -133,6 +135,7 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
             "Hide all windows (keep running)",
             "Quit ZiCode Studio",
             "ZiCode Studio Desktop · Runs after windows close",
+            "System information…",
         ],
         _ => return Err("Unsupported tray locale".into()),
     };
@@ -165,7 +168,9 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
         .set_tooltip(Some(labels[7]))
         .map_err(|error| error.to_string())?;
     crate::desktop_tool_shortcuts::set_locale(window.app_handle(), &locale)?;
-    crate::desktop_system_tray::set_locale(window.app_handle(), &locale);
+    tray.system_information
+        .set_text(labels[8])
+        .map_err(|error| error.to_string())?;
     *tray
         .locale
         .lock()
@@ -258,10 +263,47 @@ fn open_workspace_feature(app: &AppHandle, event: &'static str) {
     }
 }
 
+const MENU_ICON_SIZE: u32 = 16;
+const TRANSLATION_ICON: &[u8] = include_bytes!("../../public/icons/activity/chat.png");
+const SYSTEM_ICON: &[u8] = include_bytes!("../../public/icons/activity/settings.png");
+const TOOLS_ICON: &[u8] = include_bytes!("../../public/icons/activity/tools.png");
+const FAVORITES_ICON: &[u8] = include_bytes!("../../public/icons/activity/quick-tools.png");
+const RECENT_ICON: &[u8] = include_bytes!("../../public/icons/activity/tasks.png");
+const STUDIO_ICON: &[u8] = include_bytes!("../icons/32x32.png");
+
+fn menu_icon(bytes: &[u8]) -> Option<tauri::image::Image<'static>> {
+    let source = image::load_from_memory_with_format(bytes, image::ImageFormat::Png)
+        .inspect_err(|error| log::warn!("[desktop-tray] menu icon unavailable: {error}"))
+        .ok()?;
+    let pixels = source
+        .resize_exact(
+            MENU_ICON_SIZE,
+            MENU_ICON_SIZE,
+            image::imageops::FilterType::Lanczos3,
+        )
+        .into_rgba8();
+    Some(tauri::image::Image::new_owned(
+        pixels.into_raw(),
+        MENU_ICON_SIZE,
+        MENU_ICON_SIZE,
+    ))
+}
+
+fn menu_action(
+    app: &tauri::App,
+    id: &str,
+    label: &str,
+    icon: &[u8],
+) -> tauri::Result<IconMenuItem<tauri::Wry>> {
+    IconMenuItem::with_id(app, id, label, true, menu_icon(icon), None::<&str>)
+}
+
 pub fn install(app: &tauri::App) -> tauri::Result<()> {
-    let system_information = crate::desktop_system_tray::install(app)?;
-    let translation = MenuItem::with_id(app, "studio.translation", "翻译", true, None::<&str>)?;
-    let tools = MenuItem::with_id(app, "studio.tools", "打开工具中心", true, None::<&str>)?;
+    let translation = menu_action(app, "studio.translation", "翻译", TRANSLATION_ICON)?;
+    // Sampling belongs to the system information page. A tray menu can stay
+    // open indefinitely without hardware reads or menu updates from a sampler.
+    let system_information = menu_action(app, "studio.system.open", "系统信息…", SYSTEM_ICON)?;
+    let tools = menu_action(app, "studio.tools", "打开工具中心", TOOLS_ICON)?;
     let project_tools = MenuItem::with_id(
         app,
         "studio.project.tools",
@@ -270,14 +312,9 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         None::<&str>,
     )?;
     let favorite_tools = crate::desktop_tool_shortcuts::install(app)?;
-    let recent_tools = MenuItem::with_id(
-        app,
-        "studio.tools.recent",
-        "最近使用的工具",
-        true,
-        None::<&str>,
-    )?;
-    let show = MenuItem::with_id(app, "studio.show", "显示 ZiCode Studio", true, None::<&str>)?;
+    favorite_tools.set_icon(menu_icon(FAVORITES_ICON))?;
+    let recent_tools = menu_action(app, "studio.tools.recent", "最近使用的工具", RECENT_ICON)?;
+    let show = menu_action(app, "studio.show", "显示 ZiCode Studio", STUDIO_ICON)?;
     let hide = MenuItem::with_id(
         app,
         "studio.hide",
@@ -285,26 +322,26 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         true,
         None::<&str>,
     )?;
-    let separator = PredefinedMenuItem::separator(app)?;
+    let utilities_end = PredefinedMenuItem::separator(app)?;
+    let windows_end = PredefinedMenuItem::separator(app)?;
     let exit = MenuItem::with_id(app, "studio.exit", "退出 ZiCode Studio", true, None::<&str>)?;
-    let menu = if crate::workspace_mode::single_default() {
-        Menu::with_items(app, &[&translation, &system_information, &tools, &favorite_tools, &recent_tools, &show, &hide, &separator, &exit])?
-    } else { Menu::with_items(
-        app,
-        &[
-            &translation,
-            &system_information,
-            &project_tools,
-            &tools,
-            &favorite_tools,
-            &recent_tools,
-            &show,
-            &hide,
-            &separator,
-            &exit,
-        ],
-    )? };
-    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
+    let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> = vec![&translation];
+    if !crate::workspace_mode::single_default() {
+        items.push(&project_tools);
+    }
+    items.extend_from_slice(&[
+        &tools,
+        &favorite_tools,
+        &recent_tools,
+        &utilities_end,
+        &system_information,
+        &show,
+        &hide,
+        &windows_end,
+        &exit,
+    ]);
+    let menu = Menu::with_items(app, &items)?;
+    let icon = tauri::image::Image::from_bytes(STUDIO_ICON)?;
     let tray = TrayIconBuilder::with_id("zicode-studio-desktop")
         .icon(icon)
         .tooltip("ZiCode Studio Desktop · 关闭窗口后继续运行")
@@ -314,10 +351,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             if crate::desktop_tool_shortcuts::handle_menu(app, event.id.as_ref()) {
                 return;
             }
-            if event.id.as_ref().starts_with("studio.system.") {
-                open_workspace_feature(app, "studio-open-system-information");
-                return;
-            }
+
             match event.id.as_ref() {
                 "studio.translation" => open_workspace_feature(app, "studio-open-translation"),
                 "studio.system.open" => open_workspace_feature(app, "studio-open-system-information"),
@@ -393,6 +427,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         icon: tray,
         tools,
         translation,
+        system_information,
         project_tools,
         favorite_tools,
         recent_tools,
@@ -437,6 +472,25 @@ mod tests {
             "native-workspace-tools-center"
         ));
         assert!(!crate::desktop_tools::project_context_window("bootstrap"));
+    }
+
+    #[test]
+    fn embedded_tray_menu_icons_fit_native_menu_and_keep_color() {
+        for asset in [
+            super::TRANSLATION_ICON,
+            super::SYSTEM_ICON,
+            super::TOOLS_ICON,
+            super::FAVORITES_ICON,
+            super::RECENT_ICON,
+            super::STUDIO_ICON,
+        ] {
+            let icon = super::menu_icon(asset).unwrap();
+            assert_eq!((icon.width(), icon.height()), (16, 16));
+            let (pixels, _) = icon.rgba().as_chunks::<4>();
+            assert!(pixels.iter().any(|pixel| {
+                pixel[3] != 0 && (pixel[0] != pixel[1] || pixel[1] != pixel[2])
+            }));
+        }
     }
 
     #[test]
