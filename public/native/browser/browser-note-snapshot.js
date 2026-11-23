@@ -29,11 +29,15 @@ function frameMarkdown(frame) {
 }
 function imageTextMarkdown(result) {
   const label = result.source.alt || result.source.url;
+  const frame = result.frame;
+  const frameSource = frame && [frame.title, frame.url || t("Inline frame")].filter(Boolean).join(" — ");
   return [
     `### ${quotedPageText(label.replace(/\s+/g, " "))}`,
     `${t("Source")}: ${quotedPageText(result.source.url)}`,
     `${t("Captured at")}: ${quotedPageText(result.capturedAt)}`,
     `${t("Document revision")}: ${quotedPageText(result.documentRevision)}`,
+    frame ? `${t("Embedded page source")}: ${quotedPageText(frameSource)}` : "",
+    frame ? `${t("Embedded page revision")}: ${quotedPageText(frame.documentRevision)}` : "",
     quotedPageText(result.text),
     result.truncated ? t("Recognized image text was shortened.") : "",
   ].filter(Boolean);

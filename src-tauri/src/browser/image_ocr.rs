@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::WebviewWindow;
 
-use super::capture::PageImage;
+use super::capture::{FrameImageLocator, PageImage};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,6 +12,24 @@ pub(crate) struct ImageRecognition {
     pub captured_at: String,
     pub text: String,
     pub truncated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    frame: Option<RecognizedFrame>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ImageFrameSource {
+    title: String,
+    url: Option<String>,
+    locator: FrameImageLocator,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecognizedFrame {
+    title: String,
+    url: Option<String>,
+    document_revision: String,
 }
 
 #[tauri::command]
@@ -22,6 +40,7 @@ pub(crate) async fn browser_recognize_image_text(
     expected_revision: String,
     image: PageImage,
     confirmed: bool,
+    frame: Option<ImageFrameSource>,
 ) -> Result<ImageRecognition, String> {
     crate::require_workspace_window(&window)?;
     if !confirmed {
@@ -29,11 +48,11 @@ pub(crate) async fn browser_recognize_image_text(
     }
     #[cfg(windows)]
     {
-        windows::recognize(window, tab, expected_url, expected_revision, image).await
+        windows::recognize(window, tab, expected_url, expected_revision, image, frame).await
     }
     #[cfg(not(windows))]
     {
-        let _ = (tab, expected_url, expected_revision, image);
+        let _ = (tab, expected_url, expected_revision, image, frame);
         Err("OCR is only available on Windows".into())
     }
 }
@@ -44,7 +63,6 @@ mod windows {
     use crate::browser::capture::{is_web_url, run};
     use base64::{engine::general_purpose::STANDARD, Engine};
     use image::{codecs::png::PngDecoder, DynamicImage, ImageDecoder, Limits};
-    use serde::Deserialize;
     use std::io::Cursor;
 
     const MAX_RESPONSE: usize = 6 * 1024 * 1024;
@@ -59,6 +77,7 @@ mod windows {
         Ready { png: String },
         Unavailable,
         OriginRestricted,
+        FrameChanged,
         TooLarge,
     }
 
@@ -75,6 +94,7 @@ mod windows {
             Pixels::OriginRestricted => {
                 Err("This image does not allow access to its pixels.".into())
             }
+            Pixels::FrameChanged => Err("The embedded page changed. Read the page again.".into()),
             Pixels::TooLarge => Err("Browser image exceeded the OCR size limit.".into()),
         }
     }
@@ -108,6 +128,7 @@ mod windows {
         expected_url: String,
         expected_revision: String,
         image: PageImage,
+        frame: Option<ImageFrameSource>,
     ) -> Result<ImageRecognition, String> {
         if expected_revision.is_empty()
             || expected_revision.len() > 128
@@ -118,8 +139,25 @@ mod windows {
         {
             return Err("Invalid browser image source.".into());
         }
+        if frame.as_ref().is_some_and(|frame| {
+            !frame.locator.is_valid()
+                || frame.title.chars().count() > 512
+                || frame.url.as_deref().is_some_and(|source| {
+                    !is_web_url(source)
+                        || !reqwest::Url::parse(source)
+                            .ok()
+                            .zip(reqwest::Url::parse(&expected_url).ok())
+                            .is_some_and(|(child, parent)| child.origin() == parent.origin())
+                })
+        }) {
+            return Err("Invalid browser image source.".into());
+        }
         let descriptor = serde_json::to_string(&image).map_err(|e| e.to_string())?;
-        let script = format!("({})({descriptor})", include_str!("image_ocr.js"));
+        let location = serde_json::to_string(&frame).map_err(|e| e.to_string())?;
+        let script = format!(
+            "({})({descriptor}, {location})",
+            include_str!("image_ocr.js")
+        );
         let captured = run(
             window,
             tab,
@@ -139,6 +177,11 @@ mod windows {
                 captured_at: captured.captured_at,
                 text: result.text.chars().take(MAX_TEXT).collect(),
                 truncated: result.char_count > MAX_TEXT,
+                frame: frame.map(|source| RecognizedFrame {
+                    title: source.title,
+                    url: source.url,
+                    document_revision: source.locator.time_origin,
+                }),
             })
         })
         .await

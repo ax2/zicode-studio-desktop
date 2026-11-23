@@ -119,12 +119,15 @@ it("preserves opted-in OCR text and its source without rendering markup or shari
 
   const imageText = [{ source: { alt: "<em>Label</em>", url: "https://example.org/diagram.png" },
     pageUrl: capture.page.url, documentRevision: capture.documentRevision, capturedAt: capture.capturedAt,
-    text: "Read <img src=x> this", truncated: false }];
+    text: "Read <img src=x> this", truncated: false,
+    frame: { title: "Inventory", url: "https://example.org/inventory", documentRevision: "1700000000000.45" } }];
 
   const content = browserNoteContent(capture, false, { imageText });
   expect(content).toContain(imageText[0].source.url);
   expect(content).toContain(imageText[0].documentRevision);
   expect(content).toContain(imageText[0].capturedAt);
+  expect(content).toContain(imageText[0].frame.url);
+  expect(content).toContain(imageText[0].frame.documentRevision);
   const view = document.createElement("div");
   view.innerHTML = renderMarkdown(content);
   expect(view.textContent).toContain(imageText[0].text);

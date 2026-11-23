@@ -1,4 +1,5 @@
 import { t } from "../../i18n.js";
+import { createBrowserCaptureImageList } from "./browser-capture-media.js";
 import { renderBrowserCaptureTables } from "./browser-capture-tables.js";
 
 function paragraph(value) {
@@ -7,10 +8,12 @@ function paragraph(value) {
   return element;
 }
 
-export function createBrowserCaptureFrames(page) {
+export function createBrowserCaptureFrames(page, recognizeImage) {
   const frames = page.frames ?? [];
+  const imageLists = [];
+  const imageText = () => imageLists.flatMap(list => list.imageText());
   const include = document.createElement("input"); include.type = "checkbox";
-  if (!frames.length && !page.framesOmitted) return { include };
+  if (!frames.length && !page.framesOmitted) return { include, imageText };
 
   const element = document.createElement("details"); element.className = "browser-capture-frames";
   const summary = document.createElement("summary");
@@ -42,8 +45,20 @@ export function createBrowserCaptureFrames(page) {
     if (frame.textTruncated) details.append(paragraph(t("Page content was shortened")));
     if (frame.selectionTruncated) details.append(paragraph(t("Selected text was shortened")));
     if (frame.tablesTruncated) details.append(paragraph(t("Only some table data is shown.")));
+    if (frame.images?.length) {
+      const recognize = recognizeImage && frame.imageLocator && (image => recognizeImage(image, {
+        title: frame.title, url: frame.url, locator: frame.imageLocator,
+      }));
+      const images = createBrowserCaptureImageList(frame.images, recognize);
+      const scroll = document.createElement("div");
+      scroll.className = "browser-capture-media-scroll";
+      scroll.append(images.element);
+      details.append(scroll);
+      imageLists.push(images);
+    }
+    if (frame.imagesTruncated) details.append(paragraph(t("Only some loaded images are shown.")));
     element.append(details);
   }
   if (page.framesOmitted) element.append(paragraph(t("Some frames were unavailable or exceeded capture limits.")));
-  return { include, element };
+  return { include, element, imageText };
 }

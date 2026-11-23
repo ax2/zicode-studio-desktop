@@ -58,7 +58,7 @@ test.each([
 });
 
 
-function captureFrames({ text = "Main body", selection = "Main selection" } = {}) {
+function captureFrames({ text = "Main body", selection = "Main selection", withImage = false } = {}) {
   const origin = "https://example.org";
   const selectable = value => {
     const visible = { closest: () => null, getClientRects: () => [{}] };
@@ -92,7 +92,12 @@ function captureFrames({ text = "Main body", selection = "Main selection" } = {}
       closest: () => null, getClientRects: () => hidden ? [] : [{}],
     };
   }
-  const nested = doc("", "about:srcdoc", "Nested document", "");
+  const nested = doc("", "about:srcdoc", withImage ? "" : "Nested document", "");
+  if (withImage) {
+    nested.defaultView = { performance: { timeOrigin: 45.5 } };
+    nested.images.push({ naturalWidth: 320, naturalHeight: 160, alt: "Embedded scan", currentSrc: new URL("/scan.png", origin).href,
+      getClientRects: () => [{}], closest: () => null, nodeType: 1 });
+  }
   const sameOrigin = doc("Same origin", `${origin}/inner`, "😀 for frame", "😀", [iframe(nested, { title: "Inline title" })]);
   const hidden = doc("Invisible title", `${origin}/hidden`, "Hidden content", "");
   const foreign = doc("Foreign title", "https://example.com/frame", "Foreign content", "");
@@ -125,4 +130,14 @@ test("embedded documents share the text and selection budget without splitting e
   expect(page.selectionTruncated).toBe(false);
   expect(page.frames[0]).toMatchObject({ text: "😀", textTruncated: true, selection: "", selectionTruncated: true });
   expect(page.frames[1]).toMatchObject({ text: "", textTruncated: true });
+});
+
+
+test("captures image-only embedded documents with a distinct navigation locator", () => {
+  const page = captureFrames({ withImage: true });
+  expect(page.frames[1]).toMatchObject({
+    title: "Inline title", url: null, text: "",
+    images: [{ alt: "Embedded scan", width: 320, height: 160, url: "https://example.org/scan.png" }],
+    imageLocator: { path: [0, 0], timeOrigin: "45.5" },
+  });
 });

@@ -3,6 +3,8 @@ import { t } from "../../i18n.js";
 export function browserDraftPrompt(capture, { includeLinks = false, includeTables = false, includeMedia = false, includeFrames = false, imageText = [], question, summarize = false } = {}) {
   const { links, linksTruncated, tables, tablesTruncated, metadata, images, imagesTruncated, frames, framesOmitted, ...page } = capture.page;
   const hasMedia = images?.length || Object.values(metadata ?? {}).some(Boolean);
+  // The text-only frame attachment does not include image previews or recognition locators.
+  const frameText = includeFrames && frames?.map(({ images, imagesTruncated, imageLocator, ...value }) => value);
   const userQuestion = typeof question === "string" ? question.slice(0, 5000).trim() : "";
   const task = summarize ? t("Summarize this captured web page and cite its source URL.") :
     userQuestion ? `${t("Question about this page")}\n${userQuestion}` :
@@ -19,7 +21,7 @@ export function browserDraftPrompt(capture, { includeLinks = false, includeTable
       ...(includeLinks && links?.length ? { links, linksTruncated } : {}),
       ...(includeTables && tables?.length ? { tables, tablesTruncated } : {}),
       ...(includeMedia && hasMedia ? { metadata, images, imagesTruncated } : {}),
-      ...(includeFrames && frames?.length ? { frames, framesOmitted } : {}),
+      ...(frameText?.length ? { frames: frameText, framesOmitted } : {}),
       ...(imageText.length ? { imageText } : {}),
     }, null, 2),
   ].join("\n\n");
