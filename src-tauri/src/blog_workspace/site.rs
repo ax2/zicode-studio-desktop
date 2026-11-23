@@ -312,6 +312,7 @@ mod tests {
         let posts = root.join(COLLECTION);
         let outside = root.join("outside");
         fs::create_dir_all(&posts).unwrap();
+        fs::write(root.join("astro.config.mjs"), "").unwrap();
         fs::create_dir(&outside).unwrap();
         fs::write(outside.join("private.md"), "intact").unwrap();
         #[cfg(windows)]
