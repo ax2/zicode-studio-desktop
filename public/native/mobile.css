@@ -153,6 +153,7 @@
   }
 
   .plugin-mobile-activity-more {
+    display: grid;
     flex: 1 1 0;
   }
 
