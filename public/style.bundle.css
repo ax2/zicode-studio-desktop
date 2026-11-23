@@ -19393,6 +19393,7 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   }
 
   .plugin-mobile-activity-more {
+    display: grid;
     flex: 1 1 0;
   }
 
