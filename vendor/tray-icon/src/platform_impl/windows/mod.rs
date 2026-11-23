@@ -401,9 +401,16 @@ unsafe extern "system" fn tray_proc(
             let id = userdata.id.clone();
             let position = PhysicalPosition::new(cursor.x as f64, cursor.y as f64);
 
+            // Explorer can deliver a button notification without exposing an
+            // icon rectangle (for example, from the overflow area). The menu
+            // already uses the cursor position; a click still needs dispatch.
             let rect = match get_tray_rect(userdata.internal_id, hwnd) {
                 Some(rect) => Rect::from(rect),
-                None => return 0,
+                None if lparam as u32 == WM_MOUSEMOVE => return 0,
+                None => Rect {
+                    position,
+                    size: crate::dpi::PhysicalSize::new(0, 0),
+                },
             };
 
             let event = match lparam as u32 {
