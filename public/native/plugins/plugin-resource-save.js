@@ -103,7 +103,10 @@ export function createResourceSave({ gateway, getTarget, isCurrent, notify = () 
     }
     if (exporter) controls.append(button("Choose another location…", () => {
       if (!valid() || committing) return;
-      clearProject(); void exporter.open(resource, owner, container, onSaved);
+      clearProject();
+      void exporter.open(resource, owner, container, onSaved, {
+        onPickerCancelled: () => open(resource, owner, container, onSaved),
+      });
     }));
     void prepare();
   }

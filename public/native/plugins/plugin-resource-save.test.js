@@ -6,12 +6,13 @@ const id = "11111111-1111-4111-8111-111111111111", hash = "a".repeat(64);
 const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
 const resource = { resourceId: id, contentVersion: hash, mimeType: "image/png", byteLength: 100 };
 const flush = async () => { for (let index = 0; index < 12; index++) await Promise.resolve(); };
-function fixture() {
+function fixture(exportApi) {
   document.body.replaceChildren(); const container = document.createElement("div"); document.body.append(container);
   let target = { instanceId: "r", sessionId: "s", workspaceId: "w" };
   const receipt = { schemaVersion: 1, profile: "resource.save.draft1", saveId: id, workspaceId: "w", relativePath: `.zicode/outputs/${id}/result.png`,
     mimeType: "image/png", byteLength: 100, contentVersion: hash, source: { pluginId: "p", capabilityId: "c", resourceId: id } };
   const gateway = {
+    ...(exportApi ? { exports: exportApi } : {}),
     prepareResourceSave: vi.fn(async () => ({ schemaVersion: 1, profile: "resource.save.draft1", grantId: id,
       requiresConfirmation: true, saved: false, expiresInSeconds: 60, operation: "create_new_file", preview: receipt })),
     commitResourceSave: vi.fn(async () => ({ schemaVersion: 1, profile: "resource.save.draft1", status: "saved", saved: true, replayed: false, receipt })),
@@ -39,6 +40,38 @@ describe("resource save consent", () => {
     f.container.querySelector("dialog").dispatchEvent(new Event("cancel", { cancelable: true }));
     expect(f.container.textContent).toBe(""); expect(f.gateway.commitResourceSave).not.toHaveBeenCalled(); f.controller.destroy();
   });
+  it("returns to a fresh Studio save preview when the system picker is canceled", async () => {
+    const exportApi = { choose: vi.fn(async () => null), commit: vi.fn(), cancel: vi.fn() };
+    const f = fixture(exportApi);
+    await flush();
+    await f.click("Choose another location…");
+    expect(exportApi.choose).toHaveBeenCalledOnce();
+    expect(f.gateway.prepareResourceSave).toHaveBeenCalledTimes(2);
+    expect(f.container.textContent).toContain("No file has been written yet");
+    expect(exportApi.commit).not.toHaveBeenCalled();
+    expect(f.gateway.commitResourceSave).not.toHaveBeenCalled();
+    await f.click("Confirm save file");
+    expect(f.gateway.commitResourceSave).toHaveBeenCalledOnce();
+    expect(f.onSaved).toHaveBeenCalledWith(f.receipt);
+    f.controller.destroy();
+  });
+
+  it("does not reopen a former workspace's preview after the system picker closes", async () => {
+    let finishPicker;
+    const exportApi = { choose: vi.fn(() => new Promise(resolve => { finishPicker = resolve; })), commit: vi.fn() };
+    const f = fixture(exportApi);
+    await flush();
+    await f.click("Choose another location…");
+    f.changeTarget();
+    finishPicker(null);
+    await flush();
+    expect(f.container.querySelector("dialog")).toBeNull();
+    expect(f.gateway.prepareResourceSave).toHaveBeenCalledOnce();
+    expect(f.gateway.commitResourceSave).not.toHaveBeenCalled();
+    expect(exportApi.commit).not.toHaveBeenCalled();
+    f.controller.destroy();
+  });
+
   it("rejects mismatched paths or owners before confirmation", async () => {
     const f = fixture(); f.receipt.relativePath = "../escape.png"; await flush();
     expect(f.container.textContent).not.toContain("../escape"); expect(f.container.textContent).toContain("Save could not be confirmed");

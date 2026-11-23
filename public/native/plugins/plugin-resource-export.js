@@ -18,15 +18,19 @@ function failure(error) {
 export function createResourceExport({ api, getTarget, isCurrent, notify = () => {}, profile = PROFILE, makeSource = resourceAccess, validate = matches }) {
   let active = true, revision = 0, current = null;
   function clear() { revision++; current?.dispose(); current = null; }
-  async function open(resource, owner, container, onSaved = () => {}) {
+  async function open(resource, owner, container, onSaved = () => {}, { onPickerCancelled } = {}) {
     clear(); if (!active || !isCurrent()) return;
     const token = revision, target = JSON.stringify(getTarget()), workspaceId = getTarget()?.workspaceId;
     const valid = () => active && token === revision && isCurrent() && target === JSON.stringify(getTarget());
     const source = makeSource(owner, resource); let grant;
     try {
       grant = await api.choose(workspaceId, source);
-      if (!valid() || grant === null) {
+      if (!valid()) {
         if (UUID.test(grant?.grantId ?? "")) await api.cancel(workspaceId, source, grant.grantId).catch(() => {});
+        return;
+      }
+      if (grant === null) {
+        onPickerCancelled?.();
         return;
       }
       if (grant?.schemaVersion !== 1 || grant.profile !== profile || grant.operation !== "create_new_file" || grant.saved !== false ||
