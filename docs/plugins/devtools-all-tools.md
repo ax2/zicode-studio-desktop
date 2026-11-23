@@ -1,3 +1,7 @@
+## 2026-11-23 开发补充：Spring Actuator 真实服务
+
+Windows 隔离 Studio Host 用冻结 Spring Actuator 0.1.1 候选联调真实 Spring Boot 3.5.11。合成回归与真实服务用例 2/2 通过。服务日志仅记录 4 次确认后的 GET，分别返回健康 `UP`、应用信息、JVM 指标列表和健康 `503/DOWN`，没有 Cookie 或 Authorization。未授权、拒绝确认、确认凭据重放均未触发额外请求。首次失败源于测试误判内容协商，Host 明确请求 `application/json`，修正断言后通过。此回执覆盖本机无认证只读服务和 Host 确认接口，原生 View 操作、远端认证、后台任务、报告导出和 Pi 集成仍属剩余范围。日常安装矩阵继续沿用此前的实测记录。见[复现步骤](../../tests/spring-actuator-conformance/README.md)。
+
 ## 2026-11-18 开发补充：JSON 文件格式化、压缩和校验
 
 独立开发候选补齐已映射 JSON 工具的文件入口：显式确认 UTF-8 文件后执行格式化、压缩或严格校验，原文件不改，完整结果需另行确认保存。输入1 MiB、输出8 MiB、64层；重复键和不能精确往返的数字为策略拒绝，与语法错误区分。合同及独立候选见[JSON文件工具](json-file-transform.md)，当前证据见[验收记录](../iterations/2026-11-18-json-file-transform.md)。这是后续集成分支的隔离验证，不修改下方2026-10-30日常安装清点或宣称154项全量交付完成。
