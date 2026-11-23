@@ -132,6 +132,14 @@
   height: var(--control-height-xs);
 }
 
+.plugin-activity-image {
+  display: block;
+  flex-shrink: 0;
+  width: var(--space-6);
+  height: var(--space-6);
+  object-fit: contain;
+}
+
 .plugin-activity-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
@@ -765,7 +773,8 @@ body[data-active-plugin="core.help"] .help-center-navigation {
   }
 
   .plugin-activity-brand img,
-  .plugin-activity-button svg {
+  .plugin-activity-button svg,
+  .plugin-activity-button .plugin-activity-image {
     width: var(--space-5);
     height: var(--space-5);
   }
