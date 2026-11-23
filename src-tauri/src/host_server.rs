@@ -4344,11 +4344,16 @@ fn finish_external_import(
     }
     let current = vault.list_notebooks().map_err(notes_api_error)?;
     let previews = bundle.notebooks.iter().map(|book| {
-        let title = format!("{} (Imported)", book.notebook.title);
+        let source_title = &book.notebook.title;
+        let title = format!("{source_title} (Imported)");
+        let title_exists = current.iter().any(|existing| {
+            existing.title.eq_ignore_ascii_case(source_title)
+                || existing.title.eq_ignore_ascii_case(&title)
+        });
         json!({
             "id": book.notebook.id,
             "parentId": book.notebook.parent_id,
-            "titleExists": current.iter().any(|existing| existing.title.eq_ignore_ascii_case(&title)),
+            "titleExists": title_exists,
             "title": title,
             "noteCount": book.notes.len(),
             "attachmentCount": book.attachments.len(),
@@ -7668,11 +7673,18 @@ mod tests {
             }
             upload
         };
+        let existing: Value = client
+            .post(format!("{base}/v2/notes/notebooks"))
+            .json(&json!({ "workspaceId": workspace, "sceneId": "programming", "title": "迁移" }))
+            .send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
         let original = [("迁移/首页.md", "[[章节/第二篇]]"), ("迁移/章节/第二篇.md", "内容")];
         let preview: Value = request(&original, None).send().await.unwrap()
             .error_for_status().unwrap().json().await.unwrap();
         assert_eq!(preview["preview"].as_array().unwrap().len(), 2);
         assert_eq!(preview["duplicateStrategy"], "newCopy");
+        assert_eq!(preview["preview"][0]["title"], "迁移 (Imported)");
+        assert_eq!(preview["preview"][0]["titleExists"], true);
+        assert_eq!(preview["preview"][1]["titleExists"], false);
         let digest = preview["digest"].as_str().unwrap();
         let changed = [("迁移/首页.md", "内容已被更改"), ("迁移/章节/第二篇.md", "内容")];
         let response = request(&changed, Some(digest)).send().await.unwrap();
@@ -7680,7 +7692,9 @@ mod tests {
 
         let before: Value = client.get(&notes_url).send().await.unwrap()
             .error_for_status().unwrap().json().await.unwrap();
-        assert!(before["snapshot"]["notebooks"].as_array().unwrap().is_empty());
+        let before_notebooks = before["snapshot"]["notebooks"].as_array().unwrap();
+        assert_eq!(before_notebooks.len(), 1);
+        assert_eq!(before_notebooks[0]["id"], existing["notebook"]["id"]);
 
         let reordered = [original[1], original[0]];
         let imported: Value = request(&reordered, Some(digest)).send().await.unwrap()
