@@ -34,6 +34,7 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
               aria-live="polite"
             >
               {updater.status || t("Click to check")}
+              {updater.installerReady && updater.update?.version && ` · v${updater.update.version}`}
             </span>
             <button
               type="button"
@@ -65,6 +66,10 @@ export function UpdatesTab({ store, widgets }: { store: SettingsStore; widgets: 
             >
               {updater.button || t("Check now")}
             </button>
+            {updater.canInstall && !updater.installerReady && !updater.installing &&
+              <button type="button" className="ui-button ui-button--secondary" onClick={() => void updater.checkNow()}>
+                {t("Check now")}
+              </button>}
             {(updater.canCancel || (updater.installerReady && !updater.installing)) &&
               <button type="button" className="ui-button ui-button--secondary" onClick={() => void updater.cancelDownload()}>
                 {t(updater.installerReady ? "Discard update" : "Cancel download")}

@@ -323,23 +323,21 @@ export function setupAppUpdater({
       settingsPanel?.openSettings?.("updates");
     });
 
-    let silentTimer: ReturnType<typeof setInterval> | null = null;
-    function scheduleSilentChecks() {
-      if (silentTimer) clearInterval(silentTimer);
-      silentTimer = setInterval(() => {
-        const state = useAppUpdaterStore.getState();
-        if (Date.now() - state.lastCheckMs >= CHECK_INTERVAL_MS) {
-          void state.backgroundCheck();
-        }
-      }, CHECK_INTERVAL_MS);
+    function checkIfDue() {
+      const state = useAppUpdaterStore.getState();
+      if (Date.now() - state.lastCheckMs >= CHECK_INTERVAL_MS) void state.backgroundCheck();
     }
+    window.addEventListener("focus", checkIfDue);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") checkIfDue();
+    });
+    setInterval(checkIfDue, CHECK_INTERVAL_MS);
 
     window.addEventListener("picot-update-channel-changed", () => {
       useAppUpdaterStore.getState().showIdle();
       void useAppUpdaterStore.getState().backgroundCheck();
     });
 
-    scheduleSilentChecks();
     void useAppUpdaterStore.getState().restoreMode().then(() => useAppUpdaterStore.getState().backgroundCheck());
   }
 
