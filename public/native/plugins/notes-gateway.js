@@ -273,6 +273,18 @@ export class NotesGateway {
     });
   }
 
+  importExternal(sceneId, workspaceId, file, confirmedDigest) {
+    const url = this.#url("/v2/notes/import-external");
+    url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
+    if (confirmedDigest) url.searchParams.set("confirmedDigest", confirmedDigest);
+    return this.#request(url, {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: file,
+    });
+  }
+
   rebuild(sceneId, workspaceId, notebookId) {
     return this.#post("/v2/notes/rebuild", {
       sceneId,

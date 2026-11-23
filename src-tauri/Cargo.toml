@@ -78,6 +78,7 @@ encoding_rs = "0.8"
 ego-tree = "0.9"
 pdf-extract = "0.7.3"
 quick-xml = "0.37"
+tar = "0.4.46"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["fs", "set-header"] }
 keyring = { version = "4.1.5", features = ["v1"] }

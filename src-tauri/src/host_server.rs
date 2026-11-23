@@ -957,6 +957,7 @@ impl HostServer {
                     .layer(DefaultBodyLimit::max(MAX_ATTACHMENT_HTTP_BODY_BYTES)),
             )
             .route("/v2/notes/attachment", get(read_note_attachment))
+            .route("/v2/notes/import-external", post(import_external_notes).layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)))
             .route("/v2/notes/import-markdown", post(import_markdown_note))
             .route("/v2/notes/export", get(export_notes_backup))
             .route("/v2/notes/export-all", get(export_notes_all))
@@ -4180,6 +4181,55 @@ async fn extract_text_http(
         )
     })?))
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExternalNotesImportQuery {
+    #[serde(flatten)]
+    scope: ExportAllNotesQuery,
+    #[serde(default)]
+    confirmed_digest: Option<String>,
+}
+
+async fn import_external_notes(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<ExternalNotesImportQuery>,
+    bytes: Bytes,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &query.scope.scene_id, query.confirmed_digest.is_some())?;
+    let digest = format!("{:x}", Sha256::digest(&bytes));
+    if query.confirmed_digest.as_ref().is_some_and(|expected| expected != &digest) {
+        return Err(notes_api_error(crate::notes_vault::NotesError::new(
+            "invalid_parameters", "The selected archive changed after preview",
+        )));
+    }
+    let vault = state.notes.lock().map_err(|_| notes_unavailable())?
+        .scoped(&query.scope.workspace_id).map_err(notes_api_error)?;
+    tokio::task::spawn_blocking(move || {
+        let (bundle, warnings) = crate::notes_vault::prepare_jex_import(bytes.as_ref())
+            .map_err(notes_api_error)?;
+        if query.confirmed_digest.is_some() {
+            let notebooks = vault.import_all_export(bundle).map_err(notes_api_error)?;
+            return Ok(Json(json!({ "notebooks": notebooks, "warnings": warnings })));
+        }
+        let current = vault.list_notebooks().map_err(notes_api_error)?;
+        let previews = bundle.notebooks.iter().map(|book| {
+            json!({
+                "id":book.notebook.id,
+                "parentId":book.notebook.parent_id,
+                "title":format!("{} (Imported)", book.notebook.title),
+                "noteCount":book.notes.len(),
+                "attachmentCount":book.attachments.len(),
+                "titleExists":current.iter().any(|existing| existing.title.eq_ignore_ascii_case(&format!("{} (Imported)", book.notebook.title))),
+            })
+        }).collect::<Vec<_>>();
+        Ok(Json(json!({
+            "digest":digest, "preview":previews, "warnings":warnings,
+            "duplicateStrategy":"newCopy",
+        })))
+    }).await.map_err(|_| notes_unavailable())?
+}
+
 
 async fn import_markdown_note(
     State(state): State<Arc<HostState>>,

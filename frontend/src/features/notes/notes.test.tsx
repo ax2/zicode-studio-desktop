@@ -2332,6 +2332,36 @@ describe("notes store", () => {
     expect(store.getState().error?.message).toContain("JSON");
   });
 
+  it("imports the selected JEX only after confirmation and clears a cancelled preview", async () => {
+    const file = new File(["test archive"], "library.jex");
+    const response = {
+      digest: "reviewed-content",
+      preview: [{ id: "source", title: "中文 (Imported)", noteCount: 1, attachmentCount: 1, titleExists: false }],
+      warnings: [],
+    };
+    const importExternal = vi.fn(async (_scene: string, _workspace: string, _file: File, digest?: string) =>
+      digest ? { ...response, notebooks: [{ id: "book-1", title: "中文 (Imported)" }] } : response,
+    );
+    const store = createNotesStore({
+      gateway: gatewayStub({ importExternal }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      chooseFile: async () => file,
+    });
+    await store.getState().load();
+    await store.getState().selectExternalImport();
+    expect(importExternal).toHaveBeenCalledExactlyOnceWith("programming", "ws-1", file);
+    expect(store.getState().externalImport?.report.preview[0].title).toBe("中文 (Imported)");
+    store.getState().cancelExternalImport();
+    await store.getState().commitExternalImport();
+    expect(importExternal).toHaveBeenCalledTimes(1);
+    await store.getState().selectExternalImport();
+    await store.getState().commitExternalImport();
+    expect(importExternal).toHaveBeenLastCalledWith("programming", "ws-1", file, response.digest);
+    expect(store.getState().externalImport).toBeNull();
+  });
+
+
   it("imports every notebook from a workspace backup bundle", async () => {
     const importAllBackup = vi.fn(async () => ({
       notebooks: [

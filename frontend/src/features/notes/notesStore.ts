@@ -36,6 +36,24 @@ import { createTrashActions, type TrashExpectation } from "./trash-actions";
 import { type CapturePreview, createWebCapture } from "./web-capture";
 import { createNoteWorkflowActions, type NoteWorkflow } from "./workflow-actions";
 
+export interface ExternalNotesPreview {
+  digest: string;
+  preview: Array<{
+    id: string;
+    parentId?: string | null;
+    title: string;
+    noteCount: number;
+    attachmentCount: number;
+    titleExists: boolean;
+  }>;
+  warnings: string[];
+}
+
+interface ExternalNotesSelection {
+  file: File;
+  report: ExternalNotesPreview;
+}
+
 export interface NotesGatewayLike {
   listModels?(sceneId: string): Promise<{ models: ModelToolChoice[] }>;
   list(sceneId: string, workspaceId: string, filters: { notebookId?: string | null; query?: string; tag?: string | null; sourceOnly?: boolean }): Promise<{ snapshot?: NotesSnapshot }>;
@@ -93,6 +111,7 @@ export interface NotesGatewayLike {
   exportBackup(sceneId: string, workspaceId: string, notebookId: string): Promise<{ backup: unknown }>;
   exportAllBackup(sceneId: string, workspaceId: string): Promise<{ backup: unknown }>;
   importBackup(sceneId: string, workspaceId: string, backup: unknown): Promise<{ notebook: Notebook }>;
+  importExternal?(sceneId: string, workspaceId: string, file: File, confirmedDigest?: string): Promise<ExternalNotesPreview & { notebooks?: Notebook[] }>;
   importAllBackup(sceneId: string, workspaceId: string, backup: unknown): Promise<{ notebooks: Notebook[] }>;
   rebuild(sceneId: string, workspaceId: string, notebookId: string): Promise<{ report: { validNotes: number; invalidFiles: unknown[] } }>;
   listTrash(sceneId: string, workspaceId: string, notebookId?: string): Promise<{ trash?: TrashEntry[] }>;
@@ -147,6 +166,7 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   relationshipError: string | null;
   relationshipIncomplete: boolean;
   transferBusy: boolean;
+  externalImport: ExternalNotesSelection | null;
   summaryModel: ModelToolSelection | null;
   setSummaryModel(value: ModelToolSelection | null): void;
   getSceneId(): string;
@@ -252,6 +272,9 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   exportAllBackup(): Promise<void>;
   importBackup(): Promise<void>;
   importAllBackup(): Promise<void>;
+  selectExternalImport(): Promise<void>;
+  commitExternalImport(): Promise<void>;
+  cancelExternalImport(): void;
   downloadNote(): Promise<void>;
   copyNote(): Promise<void>;
   rebuildIndex(): Promise<void>;
@@ -338,6 +361,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     ...createEditorNavigation({ get, set, gateway, guard, notify, localize: localizeNotesHostError }),
     ...createEditorMutations({ get, set, gateway, guard, capture: operationScope.capture, notify, confirmDelete, moveShortcuts: shortcuts.moved, localize: localizeNotesHostError }),
     transferBusy: false,
+    externalImport: null,
     summaryModel: null,
     getSceneId: sceneId,
     loadSummaryModels: async () => (await gateway.listModels?.(sceneId()))?.models ?? [],
@@ -686,7 +710,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         mode: "library", summaryModel: null, capturing: false,
         query: "", selectedTag: null, sourceOnly: false, ...readNotebookLayout(layoutScope()),
         trash: [], trashLoading: false, trashBusy: false, trashLoaded: false, trashError: null,
-        workflowBusy: null, attachmentBusy: false, editorLocked: false, transferBusy: false, saveState: "idle", saveDisabled: true,
+        workflowBusy: null, attachmentBusy: false, editorLocked: false, transferBusy: false, externalImport: null, saveState: "idle", saveDisabled: true,
         selectedNote: null, selectedNotebookId: null, selectedNoteIds: [], selectMode: false, snapshot: { notebooks: [], notes: [], tags: [] },
         dirty: false,
         project: normalizeProject(options.getProject?.()),

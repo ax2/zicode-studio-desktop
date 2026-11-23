@@ -11668,6 +11668,7 @@ dependencies = [
  "sha2 0.10.9",
  "snow",
  "studio-alibaba-mail",
+ "tar",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

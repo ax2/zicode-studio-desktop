@@ -78,6 +78,34 @@ export function createNoteTransfers({
       notify(t(all ? "All notebooks backup imported" : "Notes backup imported"));
   }
 
+  async function selectExternal(scope: NotesOperationScope) {
+    if (!gateway.importExternal) return;
+    set({ externalImport: null });
+    const file = await chooseFile(".jex");
+    if (!file || !scope.isCurrent()) return;
+    if (!file.size || file.size > 70 * 1024 * 1024)
+      throw new Error(t("JEX import must be between 1 byte and 70 MiB"));
+    const report = await gateway.importExternal(scope.sceneId, scope.workspaceId, file);
+    if (scope.isCurrent()) set({ externalImport: { file, report } });
+  }
+
+  async function commitExternal(scope: NotesOperationScope) {
+    const selection = get().externalImport;
+    if (!selection || !gateway.importExternal || !(await saved(scope))) return;
+    const editor = editorFingerprint(get());
+    const response = await gateway.importExternal(
+      scope.sceneId, scope.workspaceId, selection.file, selection.report.digest,
+    );
+    if (!scope.isCurrent()) return;
+    const preserveEditor = get().dirty || editorFingerprint(get()) !== editor;
+    set({ externalImport: null });
+    if (!preserveEditor) {
+      set({ selectedNotebookId: response.notebooks?.[0]?.id ?? null, selectedNote: null, dirty: false });
+    }
+    await get().load({ preserveSelection: preserveEditor });
+    if (scope.isCurrent()) notify(t("Joplin notebooks imported"));
+  }
+
   async function exportBackup(all: boolean, scope: NotesOperationScope) {
     if (!(await saved(scope))) return;
     const notebook = get().snapshot.notebooks.find((row) => row.id === get().selectedNotebookId);
@@ -115,6 +143,9 @@ export function createNoteTransfers({
   }
 
   return {
+    selectExternalImport: () => run(selectExternal),
+    commitExternalImport: () => run(commitExternal),
+    cancelExternalImport: () => set({ externalImport: null }),
     importBackup: () => run((scope) => importBackup(false, scope)),
     importAllBackup: () => run((scope) => importBackup(true, scope)),
     exportBackup: () => run((scope) => exportBackup(false, scope)),
