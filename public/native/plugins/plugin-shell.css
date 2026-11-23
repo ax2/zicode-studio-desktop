@@ -5,7 +5,13 @@
    views, command-palette contributions, and the built-in Plugin Manager. */
 
 .plugin-activity-bar {
-  --activity-icon-color: color-mix(in srgb, var(--text-primary) 70%, var(--text-secondary));
+  --nav-blue: light-dark(#1756ad, #83b7ff);
+  --nav-teal: light-dark(#096b69, #65d1c9);
+  --nav-gold: light-dark(#875309, #efbd71);
+  --nav-purple: light-dark(#6b46ad, #c4a4fa);
+  --nav-rose: light-dark(#a43e63, #f4a1be);
+  --nav-slate: light-dark(#405b78, #a9c1de);
+  --activity-icon-color: var(--nav-blue);
   width: calc(var(--control-height-lg) + var(--space-3));
   min-width: calc(var(--control-height-lg) + var(--space-3));
   height: 100%;
@@ -96,7 +102,7 @@
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
-  color: var(--activity-icon-color, var(--text-primary));
+  color: var(--text-primary);
   cursor: pointer;
   transition:
     background var(--duration) var(--ease),
@@ -114,7 +120,14 @@
   transition: height var(--duration) var(--ease);
 }
 
-.plugin-activity-button svg {
+.plugin-activity-button:is([data-plugin-id="core.chat"], [data-plugin-id="com.zicode.tasks"], [data-plugin-id="com.zicode.finance"], [data-plugin-id="com.zicode.habits"]) { --activity-icon-color: var(--nav-teal); }
+.plugin-activity-button:is([data-plugin-id="com.zicode.notes"], [data-plugin-id="com.zicode.projects"], [data-plugin-id="core.files"], [data-plugin-id="com.zicode.clipboard"]) { --activity-icon-color: var(--nav-gold); }
+.plugin-activity-button:is([data-plugin-id="com.zicode.visual-assets"], [data-plugin-id="com.zicode.graph"], [data-plugin-id="com.zicode.imagetools"], [data-plugin-id="core.commands"]) { --activity-icon-color: var(--nav-purple); }
+.plugin-activity-button:is([data-plugin-id="com.zicode.mail"], [data-plugin-id="com.zicode.automation"], [data-plugin-id="com.zicode.articles"]) { --activity-icon-color: var(--nav-rose); }
+.plugin-activity-button:is([data-plugin-id="core.settings"], [data-plugin-id="core.help"]) { --activity-icon-color: var(--nav-slate); }
+
+.plugin-activity-button > svg {
+  color: var(--activity-icon-color);
   width: var(--control-height-xs);
   height: var(--control-height-xs);
 }
