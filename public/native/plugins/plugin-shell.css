@@ -135,8 +135,8 @@
 .plugin-activity-image {
   display: block;
   flex-shrink: 0;
-  width: calc(var(--space-6) + var(--space-1));
-  height: calc(var(--space-6) + var(--space-1));
+  width: var(--space-8);
+  height: var(--space-8);
   object-fit: contain;
   filter: drop-shadow(0 2px 2px light-dark(#17233333, #070b16aa));
   transition:
@@ -145,10 +145,26 @@
 }
 
 .plugin-activity-button:is(:hover, :focus-visible) > .plugin-activity-image {
-  transform: translateY(-1px) scale(1.06);
+  transform: translateY(-1px) scale(1.08);
   filter:
-    saturate(1.12)
-    drop-shadow(0 3px 3px light-dark(#17233355, #070b16cc));
+    brightness(1.1)
+    drop-shadow(0 3px 3px light-dark(#17233355, #070b16cc))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--activity-icon-color) 48%, transparent));
+}
+
+.plugin-activity-button:has(> .plugin-activity-image)::after {
+  content: "";
+  position: absolute;
+  inset: var(--space-0-5);
+  border-radius: inherit;
+  background: radial-gradient(ellipse at top, light-dark(#ffffffb3, #c8e4ff45), transparent 73%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration) var(--ease);
+}
+
+.plugin-activity-button:has(> .plugin-activity-image):is(:hover, :focus-visible)::after {
+  opacity: 1;
 }
 
 .plugin-activity-button.active:has(> .plugin-activity-image) {
@@ -181,7 +197,12 @@
 @media (prefers-reduced-motion: reduce) {
   .plugin-activity-button,
   .plugin-activity-button::before,
+  .plugin-activity-button::after,
   .plugin-activity-image { transition: none; }
+
+  .plugin-activity-button:is(:hover, :focus-visible, :active) > .plugin-activity-image {
+    transform: none;
+  }
 }
 
 .plugin-activity-button:hover {
@@ -786,10 +807,14 @@ body[data-active-plugin="core.help"] .help-center-navigation {
   }
 
   .plugin-activity-brand img,
-  .plugin-activity-button svg,
-  .plugin-activity-button .plugin-activity-image {
+  .plugin-activity-button svg {
     width: var(--space-5);
     height: var(--space-5);
+  }
+
+  .plugin-activity-button .plugin-activity-image {
+    width: calc(var(--space-6) + var(--space-0-5));
+    height: calc(var(--space-6) + var(--space-0-5));
   }
 
   .plugin-main-hero {
