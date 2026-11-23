@@ -7447,9 +7447,42 @@ code {
 .plugin-activity-image {
   display: block;
   flex-shrink: 0;
-  width: var(--space-6);
-  height: var(--space-6);
+  width: calc(var(--space-6) + var(--space-1));
+  height: calc(var(--space-6) + var(--space-1));
   object-fit: contain;
+  filter: drop-shadow(0 2px 2px light-dark(#17233333, #070b16aa));
+  transition:
+    transform var(--duration) var(--ease),
+    filter var(--duration) var(--ease);
+}
+
+.plugin-activity-button:is(:hover, :focus-visible) > .plugin-activity-image {
+  transform: translateY(-1px) scale(1.06);
+  filter:
+    saturate(1.12)
+    drop-shadow(0 3px 3px light-dark(#17233355, #070b16cc));
+}
+
+.plugin-activity-button.active:has(> .plugin-activity-image) {
+  background:
+    radial-gradient(
+      ellipse at 50% 20%,
+      color-mix(in srgb, var(--activity-icon-color) 24%, transparent),
+      transparent 85%
+    ),
+    color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--activity-icon-color) 26%, transparent);
+}
+
+.plugin-activity-button.active > .plugin-activity-image {
+  filter:
+    saturate(1.14)
+    drop-shadow(0 1px 4px color-mix(in srgb, var(--activity-icon-color) 40%, transparent))
+    drop-shadow(0 2px 2px light-dark(#17233338, #070b16aa));
+}
+
+.plugin-activity-button:active > .plugin-activity-image {
+  transform: scale(0.96);
 }
 
 .plugin-activity-button:focus-visible {
@@ -7458,7 +7491,9 @@ code {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .plugin-activity-button, .plugin-activity-button::before { transition: none; }
+  .plugin-activity-button,
+  .plugin-activity-button::before,
+  .plugin-activity-image { transition: none; }
 }
 
 .plugin-activity-button:hover {
@@ -7527,28 +7562,6 @@ code {
   pointer-events: none;
   transition: opacity var(--duration) var(--ease);
   z-index: 110;
-}
-
-@media (min-width: 769px) {
-  .plugin-activity-button[data-plugin-id="com.zicode.mail"] {
-    align-content: center;
-    gap: var(--space-0-5);
-  }
-  .plugin-activity-button[data-plugin-id="com.zicode.mail"] .plugin-activity-tooltip {
-    position: static;
-    transform: none;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    box-shadow: none;
-    font-size: var(--font-size-sm);
-    line-height: 1;
-    opacity: 1;
-  }
-  .plugin-activity-button[data-plugin-id="com.zicode.mail"] .plugin-activity-shortcut {
-    display: none;
-  }
 }
 
 .plugin-activity-button:hover .plugin-activity-tooltip,
