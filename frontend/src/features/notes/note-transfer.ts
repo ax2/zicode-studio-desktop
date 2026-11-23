@@ -12,6 +12,7 @@ export function createNoteTransfers({
   notify,
   localize,
   chooseFile,
+  chooseFolder,
   downloadFile,
 }: {
   get(): NotesState;
@@ -21,6 +22,7 @@ export function createNoteTransfers({
   notify(message: string): void;
   localize(error: unknown): Error;
   chooseFile(accept: string): Promise<File | null>;
+  chooseFolder(): Promise<File[]>;
   downloadFile(name: string, content: string, type: string): void;
 }) {
   async function run(action: (scope: NotesOperationScope) => Promise<void>) {
@@ -78,6 +80,50 @@ export function createNoteTransfers({
       notify(t(all ? "All notebooks backup imported" : "Notes backup imported"));
   }
 
+  async function selectExternal(scope: NotesOperationScope) {
+    if (!gateway.importExternal) return;
+    set({ externalImport: null });
+    const file = await chooseFile(".jex,.enex,.html,.htm,.txt,.md,.markdown");
+    if (!file || !scope.isCurrent()) return;
+    if (!file.size || file.size > 70 * 1024 * 1024)
+      throw new Error(t("Import file must be between 1 byte and 70 MiB"));
+    const report = await gateway.importExternal(scope.sceneId, scope.workspaceId, file);
+    if (scope.isCurrent()) set({ externalImport: { source: file, name: file.name, report } });
+  }
+
+  async function selectFolder(scope: NotesOperationScope) {
+    if (!gateway.importFolder) return;
+    set({ externalImport: null });
+    const selected = await chooseFolder();
+    const files = selected.filter((file) =>
+      file.webkitRelativePath && !file.webkitRelativePath.split("/").slice(1).some((part) => part.startsWith(".")),
+    );
+    if (!scope.isCurrent() || !selected.length) return;
+    if (!files.length || files.length > 4_096 || files.reduce((size, file) => size + file.size, 0) > 64 * 1024 * 1024)
+      throw new Error(t("Import folder must contain 1 to 4,096 files within 64 MiB"));
+    const name = files[0].webkitRelativePath.split("/")[0];
+    const report = await gateway.importFolder(scope.sceneId, scope.workspaceId, files);
+    if (scope.isCurrent()) set({ externalImport: { source: files, name, report } });
+  }
+
+  async function commitExternal(scope: NotesOperationScope) {
+    const selection = get().externalImport;
+    if (!selection || !(await saved(scope))) return;
+    const editor = editorFingerprint(get());
+    const response = Array.isArray(selection.source)
+      ? await gateway.importFolder?.(scope.sceneId, scope.workspaceId, selection.source, selection.report.digest)
+      : await gateway.importExternal?.(scope.sceneId, scope.workspaceId, selection.source, selection.report.digest);
+    if (!response) return;
+    if (!scope.isCurrent()) return;
+    const preserveEditor = get().dirty || editorFingerprint(get()) !== editor;
+    set({ externalImport: null });
+    if (!preserveEditor) {
+      set({ selectedNotebookId: response.notebooks?.[0]?.id ?? null, selectedNote: null, dirty: false });
+    }
+    await get().load({ preserveSelection: preserveEditor });
+    if (scope.isCurrent()) notify(t("Notebooks imported"));
+  }
+
   async function exportBackup(all: boolean, scope: NotesOperationScope) {
     if (!(await saved(scope))) return;
     const notebook = get().snapshot.notebooks.find((row) => row.id === get().selectedNotebookId);
@@ -115,6 +161,10 @@ export function createNoteTransfers({
   }
 
   return {
+    selectExternalImport: () => run(selectExternal),
+    selectFolderImport: () => run(selectFolder),
+    commitExternalImport: () => run(commitExternal),
+    cancelExternalImport: () => set({ externalImport: null }),
     importBackup: () => run((scope) => importBackup(false, scope)),
     importAllBackup: () => run((scope) => importBackup(true, scope)),
     exportBackup: () => run((scope) => exportBackup(false, scope)),

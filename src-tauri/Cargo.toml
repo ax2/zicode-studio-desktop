@@ -66,7 +66,7 @@ tempfile = "3"
 boa_engine = "0.21"
 ed25519-dalek = "2"
 zip = { version = "2.4", default-features = false, features = ["deflate"] }
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.8", features = ["ws", "multipart"] }
 axum-server = { version = "0.8", features = ["tls-rustls"] }
 local-ip-address = "0.6"
 pem = "3"
@@ -78,7 +78,8 @@ scraper = "0.21"
 encoding_rs = "0.8"
 ego-tree = "0.9"
 pdf-extract = "0.7.3"
-quick-xml = "0.37"
+quick-xml = { version = "0.37", features = ["serialize"] }
+tar = "0.4.46"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["fs", "set-header"] }
 keyring = { version = "4.1.5", features = ["v1"] }

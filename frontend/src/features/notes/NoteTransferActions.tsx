@@ -3,8 +3,11 @@ import type { NotesStore } from "./notesStore";
 
 export function NoteTransferActions({ store }: { store: NotesStore }) {
   const busy = store((state) => state.transferBusy);
+  const external = store((state) => state.externalImport);
   const actions = [
-    [t("Import Markdown"), "importMarkdown"],
+    [t("Import notes from a file"), "selectExternalImport"],
+    [t("Import Markdown folder"), "selectFolderImport"],
+    [t("Import Markdown into this notebook"), "importMarkdown"],
     [t("Export readable backup"), "exportBackup"],
     [t("Export all notebooks backup"), "exportAllBackup"],
     [t("Import backup"), "importBackup"],
@@ -23,6 +26,38 @@ export function NoteTransferActions({ store }: { store: NotesStore }) {
           {label}
         </button>
       ))}
+      {external && (
+        <section aria-label={t("Notes import preview")}>
+          <h3>{t("Notes import preview")}</h3>
+          <p>{external.name}</p>
+          <p>{t("Import creates new copies. Existing notebooks keep their content.")}</p>
+          <ul>
+            {external.report.preview.map((book) => (
+              <li key={book.id}>
+                <strong>{book.title}</strong>
+                {book.parentId && <span>{" · "}{external.report.preview.find((parent) => parent.id === book.parentId)?.title}</span>}
+                {" · "}{t("Notes")} {book.noteCount}
+                {" · "}{t("Attachments")} {book.attachmentCount}
+                {book.titleExists && <span>{" · "}{t("Same title exists")}</span>}
+              </li>
+            ))}
+          </ul>
+          {external.report.warnings.length > 0 && (
+            <details>
+              <summary>{t("Items requiring review")} ({external.report.warnings.length})</summary>
+              <ul>
+                {external.report.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+              </ul>
+            </details>
+          )}
+          <button type="button" disabled={busy} onClick={() => void store.getState().commitExternalImport()}>
+            {t("Import the selected notes")}
+          </button>
+          <button type="button" disabled={busy} onClick={() => store.getState().cancelExternalImport()}>
+            {t("Cancel")}
+          </button>
+        </section>
+      )}
       {busy ? <p role="status">{t("Notes import or export in progress…")}</p> : null}
     </div>
   );

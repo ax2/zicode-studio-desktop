@@ -273,6 +273,29 @@ export class NotesGateway {
     });
   }
 
+  importFolder(sceneId, workspaceId, files, confirmedDigest) {
+    const url = this.#url("/v2/notes/import-folder");
+    url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
+    if (confirmedDigest) url.searchParams.set("confirmedDigest", confirmedDigest);
+    const body = new FormData();
+    for (const file of files) body.append(file.webkitRelativePath, file, file.name);
+    return this.#request(url, { method: "POST", body });
+  }
+
+  importExternal(sceneId, workspaceId, file, confirmedDigest) {
+    const url = this.#url("/v2/notes/import-external");
+    url.searchParams.set("fileName", file.name);
+    url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
+    if (confirmedDigest) url.searchParams.set("confirmedDigest", confirmedDigest);
+    return this.#request(url, {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: file,
+    });
+  }
+
   rebuild(sceneId, workspaceId, notebookId) {
     return this.#post("/v2/notes/rebuild", {
       sceneId,
@@ -300,7 +323,8 @@ export class NotesGateway {
         ...options,
         headers: {
           accept: "application/json",
-          ...(options.body ? { "content-type": "application/json" } : {}),
+          ...(options.body && !(options.body instanceof FormData)
+            ? { "content-type": "application/json" } : {}),
           ...options.headers,
         },
         signal: controller?.signal,

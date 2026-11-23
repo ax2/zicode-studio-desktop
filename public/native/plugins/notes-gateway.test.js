@@ -2,6 +2,21 @@ import { describe, expect, it, vi } from "vitest";
 import { NotesGateway } from "./notes-gateway.js";
 
 describe("NotesGateway", () => {
+  it("uploads a selected directory without folding its relative paths into filenames", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ digest: "preview" }) }));
+    const gateway = new NotesGateway({ fetchImpl, location: { origin: "http://localhost" } });
+    const file = new File(["内容"], "笔记.md");
+    Object.defineProperty(file, "webkitRelativePath", { value: "资料/子目录/笔记.md" });
+    await gateway.importFolder("programming", "w", [file], "preview");
+    const [url, options] = fetchImpl.mock.calls[0];
+    expect(url.pathname).toBe("/v2/notes/import-folder");
+    expect(url.searchParams.get("confirmedDigest")).toBe("preview");
+    expect(options.headers["content-type"]).toBeUndefined();
+    expect(Array.from(options.body.keys())).toEqual(["资料/子目录/笔记.md"]);
+    expect(options.body.get("资料/子目录/笔记.md").name).toBe("笔记.md");
+  });
+
+
   it("lists scene model choices and forwards the explicitly selected provider", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ models: [] }) }));
     const gateway = new NotesGateway({ fetchImpl, location: { origin: "http://localhost" } });
