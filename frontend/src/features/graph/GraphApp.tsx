@@ -22,6 +22,9 @@ export type GraphAppApi = {
   setTarget(): Promise<void>;
 };
 
+const GRAPH_WIDTH = 900;
+const GRAPH_HEIGHT = 560;
+
 const GROUP_COLORS = [
   "var(--accent, #6a7a88)",
   "#4f8cff",
@@ -63,7 +66,7 @@ function GraphMain({
   }, [store]);
 
   const { nodes, edges } = useMemo(() => buildGraph(data ?? { links: [], similar: [], conflicts: [] }), [data]);
-  const positions = useMemo(() => layoutGraph(nodes, edges), [nodes, edges]);
+  const positions = useMemo(() => layoutGraph(nodes, edges, GRAPH_WIDTH, GRAPH_HEIGHT), [nodes, edges]);
   const hasData = nodes.length > 0 || (data?.conflicts?.length ?? 0) > 0;
 
   return (
@@ -98,7 +101,7 @@ function GraphMain({
           <section className="ui-card graph-canvas-card">
             <svg
               className="graph-canvas"
-              viewBox="0 0 900 560"
+              viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`}
               role="img"
               aria-label={t("Knowledge Graph")}
             >
@@ -121,6 +124,10 @@ function GraphMain({
                 const point = positions.get(node.id);
                 if (!point) return null;
                 const active = selectedId === node.id;
+                const labelAnchor = point.x < GRAPH_WIDTH / 3
+                  ? "start"
+                  : point.x > GRAPH_WIDTH * 2 / 3 ? "end" : "middle";
+                const labelAbove = point.y > GRAPH_HEIGHT - 80;
                 const label = node.title.length > 18 ? `${node.title.slice(0, 18)}…` : node.title;
                 return (
                   // biome-ignore lint/a11y/noStaticElementInteractions: canvas nodes are mouse-driven; keyboard selection is available via the side Notes list buttons
@@ -134,8 +141,9 @@ function GraphMain({
                       <text
                         className="graph-node-label"
                         x={point.x}
-                        y={point.y + 22}
-                        textAnchor="middle"
+                        y={point.y + (labelAbove ? -22 : 22)}
+                        dominantBaseline={labelAbove ? "text-after-edge" : "hanging"}
+                        textAnchor={labelAnchor}
                       >
                         {label}
                       </text>

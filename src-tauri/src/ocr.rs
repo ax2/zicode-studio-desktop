@@ -26,8 +26,6 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 $null = [Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType = WindowsRuntime]
 $null = [Windows.Graphics.Imaging.BitmapDecoder, Windows.Foundation, ContentType = WindowsRuntime]
-$null = [Windows.Storage.StorageFile, Windows.Foundation, ContentType = WindowsRuntime]
-$null = [Windows.Storage.Streams.IRandomAccessStream, Windows.Foundation, ContentType = WindowsRuntime]
 $null = [Windows.Graphics.Imaging.SoftwareBitmap, Windows.Foundation, ContentType = WindowsRuntime]
 $null = [Windows.Media.Ocr.OcrResult, Windows.Foundation, ContentType = WindowsRuntime]
 $null = [Windows.Globalization.Language, Windows.Foundation, ContentType = WindowsRuntime]
@@ -46,10 +44,16 @@ if (-not $imagePath -or -not (Test-Path -LiteralPath $imagePath)) {
     throw 'OCR image path is missing'
 }
 
-$file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($imagePath)) ([Windows.Storage.StorageFile])
-$stream = Await ($file.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
-$decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
-$bitmap = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
+# The native file is already readable by this process. Use its stream so
+# decoding does not require a second, WinRT-brokered file open.
+$inputStream = [System.IO.File]::OpenRead($imagePath)
+try {
+    $stream = [System.IO.WindowsRuntimeStreamExtensions]::AsRandomAccessStream($inputStream)
+    $decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
+    $bitmap = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
+} finally {
+    $inputStream.Dispose()
+}
 
 $language = $env:ZICODE_OCR_LANGUAGE
 $engine = $null
@@ -318,6 +322,16 @@ mod tests {
         assert!(path.exists());
         assert!(path.extension().map(|ext| ext == "png").unwrap_or(false));
         std::fs::remove_file(&path).ok();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "requires en-US Windows OCR and ZICODE_OCR_TEST_FILE with the text STUDIO LAYOUT CHECK"]
+    fn windows_child_recognizes_the_prepared_image() {
+        let path = std::env::var_os("ZICODE_OCR_TEST_FILE").expect("OCR fixture path");
+        let text = run_windows_ocr(Path::new(&path), Some("en-US"), None)
+            .expect("Windows child process recognizes the image");
+        assert_eq!(text.trim(), "STUDIO LAYOUT CHECK");
     }
 
     #[test]
