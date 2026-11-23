@@ -56,3 +56,73 @@ test.each([
   const page = capture("Page", "x".repeat(body), "x".repeat(selected));
   expect(page).toMatchObject({ textTruncated, selectionTruncated, truncated: textTruncated || selectionTruncated });
 });
+
+
+function captureFrames({ text = "Main body", selection = "Main selection" } = {}) {
+  const origin = "https://example.org";
+  const selectable = value => {
+    const visible = { closest: () => null, getClientRects: () => [{}] };
+    const node = { nodeType: 3, nodeValue: value, parentElement: visible };
+    return { visible, node };
+  };
+  function doc(title, URL, body, value, frames = []) {
+    const { visible, node } = selectable(body);
+    return {
+      title, URL, body: visible, documentElement: {}, links: [], images: [],
+      createTreeWalker() {
+        const nodes = [node];
+        return { nextNode: () => nodes.shift() };
+      },
+      querySelectorAll: query => query === "iframe,frame" ? frames : [],
+      getElementsByTagName: () => [],
+      getSelection: () => ({
+        rangeCount: value ? 1 : 0, isCollapsed: !value, toString: () => value,
+        getRangeAt: () => ({ startContainer: node, endContainer: node }),
+      }),
+    };
+  }
+  function iframe(contentDocument, { sandbox = false, hidden = false, title = "" } = {}) {
+    return {
+      title, nodeType: 1,
+      get contentDocument() {
+        if (sandbox || hidden) throw Error("Unreadable frame was accessed");
+        return contentDocument;
+      },
+      hasAttribute: name => name === "sandbox" && sandbox,
+      closest: () => null, getClientRects: () => hidden ? [] : [{}],
+    };
+  }
+  const nested = doc("", "about:srcdoc", "Nested document", "");
+  const sameOrigin = doc("Same origin", `${origin}/inner`, "😀 for frame", "😀", [iframe(nested, { title: "Inline title" })]);
+  const hidden = doc("Invisible title", `${origin}/hidden`, "Hidden content", "");
+  const foreign = doc("Foreign title", "https://example.com/frame", "Foreign content", "");
+  const document = doc("Main", `${origin}/`, text, selection, [
+    iframe(sameOrigin), iframe(hidden, { hidden: true }), iframe(foreign),
+    iframe(null), iframe(hidden, { sandbox: true }),
+  ]);
+  return runInNewContext(script, {
+    document, URL, location: { href: document.URL, origin },
+    Node: { ELEMENT_NODE: 1 }, NodeFilter: { SHOW_TEXT: 4 },
+    getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+    getSelection: document.getSelection,
+  });
+}
+
+test("only reads visible loaded same-origin frames and keeps their source and selection separate", () => {
+  const page = captureFrames();
+  expect(page.text).toBe("Main body\n");
+  expect(page.selection).toBe("Main selection");
+  expect(page.frames).toMatchObject([
+    { title: "Same origin", url: "https://example.org/inner", text: "😀 for frame\n", selection: "😀" },
+    { title: "Inline title", url: null, text: "Nested document\n", selection: "" },
+  ]);
+  expect(page.framesOmitted).toBe(true);
+});
+
+test("embedded documents share the text and selection budget without splitting emoji", () => {
+  const page = captureFrames({ text: "a".repeat(47997), selection: "a".repeat(8191) });
+  expect(page.textTruncated).toBe(false);
+  expect(page.selectionTruncated).toBe(false);
+  expect(page.frames[0]).toMatchObject({ text: "😀", textTruncated: true, selection: "", selectionTruncated: true });
+  expect(page.frames[1]).toMatchObject({ text: "", textTruncated: true });
+});

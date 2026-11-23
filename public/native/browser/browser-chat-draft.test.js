@@ -123,3 +123,13 @@ it.each(["before launch", "while starting", "changed workspace"])("keeps the dra
   expect(options.openConversation).toHaveBeenCalledTimes(phase === "before launch" ? 0 : 1);
   expect(options.handoff).not.toHaveBeenCalled();
 });
+
+
+it("keeps all embedded documents out of the default chat draft", () => {
+  const frames = [{ title: "Embedded source", url: "https://example.org/frame", text: "Embedded prose", selection: "Local selection" }];
+  const snapshot = { ...capture, page: { ...capture.page, frames, framesOmitted: true } };
+  const extract = draft => JSON.parse(draft.slice(draft.indexOf("{")));
+  expect(extract(browserDraftPrompt(snapshot))).not.toHaveProperty("frames");
+  expect(extract(browserDraftPrompt(snapshot))).not.toHaveProperty("framesOmitted");
+  expect(extract(browserDraftPrompt(snapshot, { includeFrames: true }))).toMatchObject({ frames, framesOmitted: true });
+});

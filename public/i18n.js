@@ -1183,6 +1183,11 @@ const zhCN = {
   "A selected tab changed. Reopen the page preview and try again.":
     "所选标签已变化。请重新打开网页预览后再试。",
   "Page tables": "网页表格",
+  "Page frames": "内嵌网页",
+  "Inline frame": "页面内嵌内容",
+  "Frame content": "内嵌网页内容",
+  "Include frames in the page note or chat draft": "将内嵌网页一并加入笔记或对话草稿",
+  "Some frames were unavailable or exceeded capture limits.": "部分内嵌网页无法读取或超出提取上限。",
   "Include tables in the page note or chat draft": "将表格一并加入整页笔记或聊天草稿",
   "Only some table data is shown.": "只显示部分表格数据。",
   "Page links": "网页链接",
