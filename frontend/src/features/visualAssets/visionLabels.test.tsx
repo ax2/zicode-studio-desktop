@@ -69,3 +69,16 @@ it("loads only models explicitly declaring image input and never calls one merel
   expect(invoke).toHaveBeenCalledTimes(1);
   expect((screen.getByText("Review thumbnail transfer") as HTMLButtonElement).disabled).toBe(true);
 });
+
+it.each([
+  ["model_request_failed:401", "The model service returned HTTP 401."],
+  [new Error("model_request_failed:429"), "The model service returned HTTP 429."],
+  ["visual_assets_model_credential_unavailable", "Configure the model credential for this Studio profile."],
+  ["visual_assets_model_response_unusable", "The model response could not be read as a list of image labels."],
+  ["model_request_failed:400 private-body", "Image recognition failed. Check the selected model or refresh and try again."],
+])("shows only a safe explanation for model errors", async (reason, explanation) => {
+  render(<VisionLabels {...core} invoke={vi.fn().mockRejectedValue(reason)} records={[]} />);
+  fireEvent.click(screen.getByText(/Image model labels/));
+  fireEvent.click(screen.getByText("Load image models"));
+  expect((await screen.findByRole("alert")).textContent).toBe(explanation);
+});

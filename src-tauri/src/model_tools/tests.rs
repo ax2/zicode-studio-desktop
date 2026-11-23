@@ -320,3 +320,28 @@ async fn thumbnail_requests_use_only_image_capable_models_and_inline_png_content
     assert_eq!(data["messages"][0]["content"][1]["image_url"]["url"],"data:image/png;base64,aW1n");
     assert_eq!(data["model"],"vision-model");
 }
+
+#[test]
+fn gpt6_parameters_are_scoped_to_the_official_endpoint() {
+    let image = json!([{"type":"image_url","image_url":{"url":"data:image/png;base64,AA=="}}]);
+    for (base, model, modern) in [
+        ("https://api.openai.com/v1", "gpt-6-luna", true),
+        ("https://api.openai.com/v1", "gpt-6.1-sol", true),
+        ("https://api.openai.com/v1", "gpt-4o", false),
+        ("https://api.openai.com/v1", "gpt-60", false),
+        ("http://localhost:11434/v1", "gpt-6-luna", false),
+        ("https://api.openai.com.example/v1", "gpt-6-luna", false),
+    ] {
+        let mut ep = local_endpoint(base, false);
+        ep.choice.model = model.to_string();
+        let body = completion_body(&ep, image.clone(), Some(256));
+        assert_eq!(body["messages"][0]["content"], image);
+        assert_eq!(body["model"], model);
+        assert_eq!(body.get("temperature").is_none(), modern);
+        assert_eq!(body.get("max_tokens").is_none(), modern);
+        assert_eq!(body.get("max_completion_tokens").is_some(), modern);
+        assert_eq!(body[if modern { "max_completion_tokens" } else { "max_tokens" }], 256);
+        let unbounded = completion_body(&ep, json!("text"), None);
+        assert!(unbounded.get("max_tokens").is_none() && unbounded.get("max_completion_tokens").is_none());
+    }
+}

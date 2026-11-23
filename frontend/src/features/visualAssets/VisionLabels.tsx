@@ -13,6 +13,49 @@ export type VisionRecord = {
   labels: string[];
 };
 type Model = { provider: string; model: string; endpoint: string; supportsImages?: boolean };
+function visionError(error: unknown): string {
+  const code = error instanceof Error ? error.message : error;
+  if (typeof code === "string") {
+    const status = /^model_request_failed:([1-5][0-9]{2})$/.exec(code);
+    if (status) {
+      return t("The model service returned HTTP {status}.").replace("{status}", status[1]);
+    }
+    switch (code) {
+      case "visual_assets_model_network_permission_required":
+      case "model_network_permission_required":
+        return t("Allow network access for Visual assets in plugin permissions to use a search model.");
+      case "visual_assets_model_credential_unavailable":
+      case "model_credential_unavailable":
+        return t("Configure the model credential for this Studio profile.");
+      case "visual_assets_vision_model_required":
+        return t("Select a model that supports image input.");
+      case "model_selection_required":
+      case "model_selection_ambiguous":
+      case "model_selection_unavailable":
+      case "visual_assets_model_config_changed":
+        return t("Reload the image model list and select the destination again.");
+      case "model_client_unavailable":
+      case "model_request_unavailable":
+        return t("The model service could not be reached. Check the connection and service address.");
+      case "model_response_invalid":
+      case "visual_assets_model_response_unusable":
+        return t("The model response could not be read as a list of image labels.");
+      case "model_response_too_large":
+        return t("The model response exceeded the size limit.");
+      case "model_request_cancelled":
+        return t("The model request was cancelled.");
+      case "visual_assets_busy":
+        return t("A model request is already in progress.");
+      case "visual_assets_window_changed":
+      case "visual_assets_tags_changed":
+      case "visual_assets_library_changed":
+      case "visual_assets_preview_unavailable":
+        return t("Refresh the asset and review its current thumbnail and labels.");
+    }
+  }
+  return t("Image recognition failed. Check the selected model or refresh and try again.");
+}
+
 export function VisionLabels({
   invoke,
   workspaceId,
@@ -49,13 +92,7 @@ export function VisionLabels({
     try {
       await f();
     } catch (e) {
-      setError(
-        t(
-          String(e).includes("network_permission_required")
-            ? "Allow network access for Visual assets in plugin permissions to use a search model."
-            : "Image recognition failed. Check the selected model or refresh and try again.",
-        ),
-      );
+      setError(visionError(e));
     } finally {
       setBusy(false);
     }

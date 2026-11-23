@@ -200,6 +200,21 @@ pub(crate) async fn complete_thumbnail(endpoint:&ModelEndpoint,key:Option<&str>,
     complete_content(endpoint,key,content,Duration::from_secs(60),256,cancellation).await
 }
 
+fn completion_body(endpoint: &ModelEndpoint, content: Value, limit: Option<u32>) -> Value {
+    let model = &endpoint.choice.model;
+    let use_completion_limit = endpoint.url.origin().ascii_serialization() == "https://api.openai.com"
+        && (model == "gpt-6" || model.starts_with("gpt-6-") || model.starts_with("gpt-6."));
+    let mut body = json!({"model": model, "messages": [{"role": "user", "content": content}]});
+    if !use_completion_limit {
+        body["temperature"] = json!(0.2);
+    }
+    if let Some(limit) = limit {
+        let field = if use_completion_limit { "max_completion_tokens" } else { "max_tokens" };
+        body[field] = json!(limit);
+    }
+    body
+}
+
 async fn complete_content(endpoint:&ModelEndpoint,key:Option<&str>,content:Value,timeout:Duration,max_output_tokens:u32,cancellation:tokio_util::sync::CancellationToken)->Result<Value,String>{
     if endpoint.choice.requires_key && key.is_none_or(|key| key.trim().is_empty()) {
         return Err("model_credential_unavailable".into());
@@ -214,12 +229,7 @@ async fn complete_content(endpoint:&ModelEndpoint,key:Option<&str>,content:Value
         builder = builder.no_proxy();
     }
     let client = builder.build().map_err(|_| "model_client_unavailable")?;
-    let body = json!({
-        "model": endpoint.choice.model,
-        "messages": [{"role": "user", "content": content}],
-        "temperature": 0.2,
-        "max_tokens": max_output_tokens,
-    });
+    let body = completion_body(endpoint, content, Some(max_output_tokens));
     let mut request = client.post(endpoint.url.clone()).json(&body);
     if endpoint.choice.requires_key {
         request = request.bearer_auth(key.unwrap_or_default());
@@ -270,12 +280,7 @@ fn complete_inner(
         builder = builder.no_proxy();
     }
     let client = builder.build().map_err(|_| "model_client_unavailable")?;
-    let mut body = json!({
-        "model": endpoint.choice.model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2
-    });
-    if let Some(max_output_tokens) = max_output_tokens {
-        body["max_tokens"] = json!(max_output_tokens);
-    }
+    let body = completion_body(endpoint, Value::String(prompt), max_output_tokens);
     let mut request = client.post(endpoint.url.clone()).json(&body);
     if endpoint.choice.requires_key {
         request = request.bearer_auth(key.unwrap_or_default());
