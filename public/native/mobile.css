@@ -123,12 +123,6 @@
     height: calc(var(--space-12) + var(--space-2));
   }
 
-  .plugin-activity-button {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-0-5);
-  }
-
   .plugin-activity-button::before {
     top: calc(var(--space-1) * -1);
     bottom: auto;
@@ -144,35 +138,18 @@
     height: 2px;
   }
 
-  .plugin-activity-button svg,
-  .plugin-activity-button .plugin-activity-image {
+  .plugin-activity-button svg {
     width: var(--space-5);
     height: var(--space-5);
   }
 
+  .plugin-activity-button .plugin-activity-image {
+    width: var(--space-8);
+    height: var(--space-8);
+  }
+
   .plugin-activity-tooltip {
-    position: static;
-    display: block;
-    max-width: 100%;
-    padding: 0;
-    overflow: hidden;
-    transform: none;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    color: currentColor;
-    font-size: var(--font-size-sm);
-    line-height: 1.1;
-    text-overflow: ellipsis;
-    opacity: 0.82;
-  }
-
-  .plugin-activity-tooltip .plugin-activity-shortcut {
     display: none;
-  }
-
-  .plugin-activity-button.active .plugin-activity-tooltip {
-    opacity: 1;
   }
 
   .plugin-mobile-activity-more {
@@ -714,10 +691,6 @@
 }
 
 @media (max-height: 520px) and (pointer: coarse) {
-  .plugin-activity-tooltip {
-    font-size: var(--font-size-sm);
-  }
-
   .command-palette {
     max-height: calc(100dvh - var(--space-4));
   }
