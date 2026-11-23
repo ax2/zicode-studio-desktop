@@ -7447,8 +7447,8 @@ code {
 .plugin-activity-image {
   display: block;
   flex-shrink: 0;
-  width: calc(var(--space-6) + var(--space-1));
-  height: calc(var(--space-6) + var(--space-1));
+  width: var(--space-8);
+  height: var(--space-8);
   object-fit: contain;
   filter: drop-shadow(0 2px 2px light-dark(#17233333, #070b16aa));
   transition:
@@ -7457,10 +7457,26 @@ code {
 }
 
 .plugin-activity-button:is(:hover, :focus-visible) > .plugin-activity-image {
-  transform: translateY(-1px) scale(1.06);
+  transform: translateY(-1px) scale(1.08);
   filter:
-    saturate(1.12)
-    drop-shadow(0 3px 3px light-dark(#17233355, #070b16cc));
+    brightness(1.1)
+    drop-shadow(0 3px 3px light-dark(#17233355, #070b16cc))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--activity-icon-color) 48%, transparent));
+}
+
+.plugin-activity-button:has(> .plugin-activity-image)::after {
+  content: "";
+  position: absolute;
+  inset: var(--space-0-5);
+  border-radius: inherit;
+  background: radial-gradient(ellipse at top, light-dark(#ffffffb3, #c8e4ff45), transparent 73%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration) var(--ease);
+}
+
+.plugin-activity-button:has(> .plugin-activity-image):is(:hover, :focus-visible)::after {
+  opacity: 1;
 }
 
 .plugin-activity-button.active:has(> .plugin-activity-image) {
@@ -7493,7 +7509,12 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .plugin-activity-button,
   .plugin-activity-button::before,
+  .plugin-activity-button::after,
   .plugin-activity-image { transition: none; }
+
+  .plugin-activity-button:is(:hover, :focus-visible, :active) > .plugin-activity-image {
+    transform: none;
+  }
 }
 
 .plugin-activity-button:hover {
@@ -8098,10 +8119,14 @@ body[data-active-plugin="core.help"] .help-center-navigation {
   }
 
   .plugin-activity-brand img,
-  .plugin-activity-button svg,
-  .plugin-activity-button .plugin-activity-image {
+  .plugin-activity-button svg {
     width: var(--space-5);
     height: var(--space-5);
+  }
+
+  .plugin-activity-button .plugin-activity-image {
+    width: calc(var(--space-6) + var(--space-0-5));
+    height: calc(var(--space-6) + var(--space-0-5));
   }
 
   .plugin-main-hero {
@@ -19323,12 +19348,6 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
     height: calc(var(--space-12) + var(--space-2));
   }
 
-  .plugin-activity-button {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-0-5);
-  }
-
   .plugin-activity-button::before {
     top: calc(var(--space-1) * -1);
     bottom: auto;
@@ -19344,35 +19363,18 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
     height: 2px;
   }
 
-  .plugin-activity-button svg,
-  .plugin-activity-button .plugin-activity-image {
+  .plugin-activity-button svg {
     width: var(--space-5);
     height: var(--space-5);
   }
 
+  .plugin-activity-button .plugin-activity-image {
+    width: var(--space-8);
+    height: var(--space-8);
+  }
+
   .plugin-activity-tooltip {
-    position: static;
-    display: block;
-    max-width: 100%;
-    padding: 0;
-    overflow: hidden;
-    transform: none;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    color: currentColor;
-    font-size: var(--font-size-sm);
-    line-height: 1.1;
-    text-overflow: ellipsis;
-    opacity: 0.82;
-  }
-
-  .plugin-activity-tooltip .plugin-activity-shortcut {
     display: none;
-  }
-
-  .plugin-activity-button.active .plugin-activity-tooltip {
-    opacity: 1;
   }
 
   .plugin-mobile-activity-more {
@@ -19914,10 +19916,6 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
 }
 
 @media (max-height: 520px) and (pointer: coarse) {
-  .plugin-activity-tooltip {
-    font-size: var(--font-size-sm);
-  }
-
   .command-palette {
     max-height: calc(100dvh - var(--space-4));
   }
