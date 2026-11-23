@@ -53,7 +53,7 @@ $result | Select-Object fileCount,logicalBytes,directoryIndex,signatureVerified
 
 已回下载 [v0.7.1 Windows 正式安装器](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.7.1)。文件为 369638351 字节，SHA-256 为 `0f0b5e88bde0815b32c8d0faf5a9da72a86389052dbf87a299ba75de82547937`。NSIS 文件清单包含 Studio EXE，未发现 `tool-packages` 目录或 `plugin.json`。安装 Studio 后需另行取得上述候选。
 
-历史 Windows 候选曾在运行目录旁放置文件摘要、校验清单、编码转换、JSON 文件查询与对比、JSON 文件格式化与校验五个包，共 38 个文件。上表的 JSON Object 是另一个包。这五个包的公开下载位置仍待提供方交付。Studio v0.7.1 与 ZiDevTools v0.82.0 的 Release 附件清单均未列出这五个独立包。[历史交付回执](https://github.com/ax2/zicode-studio-desktop/issues/28#issuecomment-6969557942)
+历史 Windows 候选曾在运行目录旁放置文件摘要、校验清单、编码转换、JSON 文件查询与对比、JSON 文件格式化与校验五个包，共 38 个文件。上表的 JSON Object 是另一个包。当时 Studio v0.7.1 与 ZiDevTools v0.82.0 的 Release 附件清单均未列出这五个独立包。JSON 文件包现可按文末步骤获取。[历史交付回执](https://github.com/ax2/zicode-studio-desktop/issues/28#issuecomment-6969557942)
 
 提供方交付每个新包时，请给出不可变的公开下载位置、插件 ID、版本、完整包目录和独立的逐文件收据（相对路径、字节数、SHA-256、目录索引哈希及其编码）。Studio 可用同一核验工具接收，再验证实际运行。包在提供方独立构建；用户安装、启用和授权分别进行。[跨机交付跟踪](https://github.com/ax2/zicode-studio-desktop/issues/241)
 
@@ -69,3 +69,19 @@ Zi DevTools 的 [JSON 文件插件 PR](https://github.com/ax2/zi-devtools/pull/1
 - <code>release/plugin-candidates/json-file-0.1.0-candidate-02-verification.json</code>。此前记录目录索引 SHA-256 为 <code>2bfa0a11291d4c291f50b2ecca042b42256817a5ff33b24861d5f4040107e2ad</code>。若重新构建导致字节变化，请分配新的候选标识，并发布匹配的独立收据。
 
 Studio 另从提供方已固定的源码提交 <code>8476912755c0373660296aae358380df4f261689</code> 在隔离目录重建验收包 candidate-90。重建包 7 个文件、207,080 字节，目录索引 SHA-256 为 <code>756189d0e2f14e234caa3d2d28637f0c9e93cd6e94d8e5bceb005ae8c5e9ae75</code>。Windows 真实 Host/Worker 通过三项操作、结果确认另存和恰好 8 MiB 的输出回读。使用本机 Rust 1.88 和既有 WASI 目标，产物字节与 candidate-02 不同。跨机安装待提供方交付，桌面原生选择和另存也仍待验收。
+## 2026-11-23 获取 JSON 文件工具
+
+`com.zicode.devtools.json-file` 0.1.0 candidate-91 已随 Studio 公开源码提供。只下载此包时，可复用上方的稀疏检出命令。将 `$dir`、`$receipt`、`$commit` 和 `$dest` 更换为以下值，其余步骤相同。
+
+```powershell
+$dir = 'tests/fixtures/devtools-json-file-0.1.0-candidate-91'
+$receipt = "$dir-verification.json"
+$commit = '882182722ccc8cb897c79cb72efd7386463cc11b'
+$dest = 'studio-plugin-json-file'
+```
+
+核验应显示 7 个文件、189,064 字节，`directoryIndex.sha256` 为 `0740629545823a99b9e212126a1bb9c743742648fe5546e783c603ce3f96eab2`。在插件管理安装通过校验的目录，启用后在工具中心搜索「JSON 文件格式化」「JSON 文件压缩」或「JSON 文件校验」。每次按提示确认共享文件和保存结果。
+
+候选从提供方固定提交 `8476912755c0373660296aae358380df4f261689` 用 Rust 1.99.1 的 `wasm32-wasip1` 插件构建配置重新构建。模块 SHA-256 为 `244ac722fce1b1fec7d1d34ad79e7c21d8936aa56480cc12e0d8c307742af312`，与此前提供方 candidate-02 的模块字节一致。构建来源记录和逐文件收据属于本候选。已在开启 CRLF 转换的全新 Windows 目录按固定提交从 GitHub 回下载，七个文件和收据均保持原始字节。
+
+本批真实 Windows Worker 和原生对照适配器通过 38 个正反例及 2 个身份和执行 profile 拒绝用例。隔离 Studio Host 安装后验证三项操作、取消写入、重复确认回执、撤权和确认另存。恰好 8 MiB 的输出逐字节回读，原文件保留。打开 Windows 原生文件选择和另存窗口仍待集中验收。候选独立安装，包为无签名开发目录。其余四个文件工具包的公开交付继续按各自验收范围跟踪。
