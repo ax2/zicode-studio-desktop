@@ -81,6 +81,7 @@ import { setupDocumentsApp } from "./react/documents.js";
 import { NativeFileBrowser } from "./react/file-browser.js";
 import { setupFinanceWorkbench } from "./react/finance-workbench.js";
 import { setupGraphApp } from "./react/graph.js";
+import { setupBlogApp } from "./react/blog.js";
 import { setupMailApp } from "./react/mail.js";
 import { HabitsHttpGateway, setupHabitsApp } from "./react/habits.js";
 import { setupHelpCenter } from "./react/help.js";
@@ -1263,6 +1264,7 @@ pluginShell = setupPluginShell({
     "com.zicode.documents": documentsApp,
     "com.zicode.clipboard": clipboardApp,
     "com.zicode.graph": graphApp,
+    "com.zicode.blog": setupBlogApp(request => globalThis.__TAURI__.core.invoke("blog_workspace", request)),
     "com.zicode.mail": setupMailApp(
       request => globalThis.__TAURI__.core.invoke("mail_local", { request }),
       request => globalThis.__TAURI__.core.invoke("mail_alibaba", { workspaceId: target.workspaceId, request }),

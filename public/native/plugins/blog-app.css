@@ -1,0 +1,139 @@
+.blog-workspace {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  overflow: auto;
+}
+.blog-workspace header,
+.blog-workspace footer,
+.blog-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.blog-workspace h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.blog-site {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.blog-status {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.blog-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(12rem, 25%) minmax(0, 1fr);
+  gap: 1rem;
+}
+.blog-layout aside,
+.blog-editor {
+  min-width: 0;
+  overflow: auto;
+}
+.blog-files {
+  margin: 0.5rem 0;
+  padding: 0;
+  list-style: none;
+}
+.blog-files button {
+  width: 100%;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  text-align: start;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+}
+.blog-files button:hover,
+.blog-files button[aria-current] {
+  background: var(--surface-hover, rgba(127, 127, 127, 0.16));
+}
+.blog-files button[aria-current] {
+  font-weight: 600;
+}
+.blog-workspace input:not([type="checkbox"]),
+.blog-workspace textarea {
+  font: inherit;
+  color: inherit;
+  background: var(--bg-input, transparent);
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.38));
+  border-radius: 0.3rem;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+}
+.blog-filter input {
+  flex: 1;
+}
+.blog-sync label,
+.blog-body,
+.blog-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.blog-sync label {
+  flex-direction: row;
+  overflow-wrap: anywhere;
+  margin: 0.35rem 0;
+}
+.blog-editor fieldset {
+  min-width: 0;
+  min-height: 100%;
+  box-sizing: border-box;
+  border: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.blog-fields {
+  display: grid;
+  gap: 0.4rem 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+.blog-body {
+  flex: 1;
+}
+.blog-body textarea {
+  flex: 1;
+  min-height: 12rem;
+  resize: vertical;
+}
+.blog-editor footer {
+  justify-content: flex-end;
+}
+@media (max-width: 760px) {
+  .blog-layout {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+  .blog-layout aside {
+    max-height: 30vh;
+    flex-shrink: 0;
+  }
+  .blog-editor {
+    flex: 1;
+    overflow: visible;
+  }
+}
+.blog-sync fieldset { margin:.4rem 0; padding:0; border:0; min-width:0; }
+.blog-sync ul { padding-inline-start:1rem; overflow-wrap:anywhere; }
+.blog-sync li { margin-block:.25rem; }

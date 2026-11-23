@@ -26,6 +26,7 @@ describe("BuiltinPluginRegistry", () => {
       "com.zicode.tasks",
       "com.zicode.notes",
       "com.zicode.visual-assets",
+      "com.zicode.blog",
       "com.zicode.mail",
       "com.zicode.automation",
       "com.zicode.finance",
