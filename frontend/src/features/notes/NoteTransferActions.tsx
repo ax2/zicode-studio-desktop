@@ -6,7 +6,8 @@ export function NoteTransferActions({ store }: { store: NotesStore }) {
   const external = store((state) => state.externalImport);
   const actions = [
     [t("Import notes from a file"), "selectExternalImport"],
-    [t("Import Markdown"), "importMarkdown"],
+    [t("Import Markdown folder"), "selectFolderImport"],
+    [t("Import Markdown into this notebook"), "importMarkdown"],
     [t("Export readable backup"), "exportBackup"],
     [t("Export all notebooks backup"), "exportAllBackup"],
     [t("Import backup"), "importBackup"],
@@ -28,12 +29,13 @@ export function NoteTransferActions({ store }: { store: NotesStore }) {
       {external && (
         <section aria-label={t("Notes import preview")}>
           <h3>{t("Notes import preview")}</h3>
-          <p>{external.file.name}</p>
+          <p>{external.name}</p>
           <p>{t("Import creates new copies. Existing notebooks keep their content.")}</p>
           <ul>
             {external.report.preview.map((book) => (
               <li key={book.id}>
                 <strong>{book.title}</strong>
+                {book.parentId && <span>{" · "}{external.report.preview.find((parent) => parent.id === book.parentId)?.title}</span>}
                 {" · "}{t("Notes")} {book.noteCount}
                 {" · "}{t("Attachments")} {book.attachmentCount}
                 {book.titleExists && <span>{" · "}{t("Same title exists")}</span>}

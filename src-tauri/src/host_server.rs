@@ -957,6 +957,10 @@ impl HostServer {
                     .layer(DefaultBodyLimit::max(MAX_ATTACHMENT_HTTP_BODY_BYTES)),
             )
             .route("/v2/notes/attachment", get(read_note_attachment))
+            .route(
+                "/v2/notes/import-folder",
+                post(import_notes_folder).layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
+            )
             .route("/v2/notes/import-external", post(import_external_notes).layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)))
             .route("/v2/notes/import-markdown", post(import_markdown_note))
             .route("/v2/notes/export", get(export_notes_backup))
@@ -4209,15 +4213,75 @@ async fn import_external_notes(
     reviewed_input.update([0]);
     reviewed_input.update(&bytes);
     let digest = format!("{:x}", reviewed_input.finalize());
-    if query
-        .confirmed_digest
-        .as_ref()
-        .is_some_and(|expected| expected != &digest)
-    {
-        return Err(notes_api_error(crate::notes_vault::NotesError::new(
+    verify_import_digest(query.confirmed_digest.as_deref(), &digest)?;
+    let vault = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .scoped(&query.scope.workspace_id)
+        .map_err(notes_api_error)?;
+    tokio::task::spawn_blocking(move || {
+        let (bundle, warnings) =
+            crate::notes_vault::prepare_external_import(&query.file_name, bytes.as_ref())
+                .map_err(notes_api_error)?;
+        finish_external_import(
+            vault,
+            bundle,
+            warnings,
+            digest,
+            query.confirmed_digest.is_some(),
+        )
+    })
+    .await
+    .map_err(|_| notes_unavailable())?
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FolderNotesImportQuery {
+    #[serde(flatten)]
+    scope: ExportAllNotesQuery,
+    #[serde(default)]
+    confirmed_digest: Option<String>,
+}
+
+async fn import_notes_folder(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<FolderNotesImportQuery>,
+    mut multipart: axum::extract::Multipart,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(
+        &state,
+        &query.scope.scene_id,
+        query.confirmed_digest.is_some(),
+    )?;
+    let mut files = std::collections::BTreeMap::new();
+    let mut total_bytes = 0usize;
+    let bad_upload = || {
+        notes_api_error(NotesError::new(
             "invalid_parameters",
-            "The selected archive changed after preview",
-        )));
+            "Invalid Markdown folder upload",
+        ))
+    };
+    while let Some(field) = multipart.next_field().await.map_err(|_| bad_upload())? {
+        if files.len() >= crate::notes_vault::MAX_FOLDER_FILES {
+            return Err(notes_api_error(NotesError::new(
+                "payload_too_large",
+                "The selected folder contains more than 4,096 files",
+            )));
+        }
+        let path = field.name().ok_or_else(bad_upload)?.to_owned();
+        if path.len() > 1024 || files.contains_key(&path) {
+            return Err(bad_upload());
+        }
+        let bytes = field.bytes().await.map_err(|_| bad_upload())?;
+        total_bytes += bytes.len();
+        if total_bytes > crate::notes_vault::MAX_FOLDER_BYTES {
+            return Err(notes_api_error(NotesError::new(
+                "payload_too_large", "The selected folder exceeds 64 MiB",
+            )));
+        }
+        files.insert(path, bytes);
     }
     let vault = state
         .notes
@@ -4226,28 +4290,74 @@ async fn import_external_notes(
         .scoped(&query.scope.workspace_id)
         .map_err(notes_api_error)?;
     tokio::task::spawn_blocking(move || {
-        let (bundle, warnings) = crate::notes_vault::prepare_external_import(&query.file_name, bytes.as_ref())
-            .map_err(notes_api_error)?;
-        if query.confirmed_digest.is_some() {
-            let notebooks = vault.import_all_export(bundle).map_err(notes_api_error)?;
-            return Ok(Json(json!({ "notebooks": notebooks, "warnings": warnings })));
+        let mut hash = Sha256::new();
+        hash.update(b"notes-import-directory\0");
+        hash.update(query.scope.workspace_id.as_bytes());
+        hash.update([0]);
+        for (path, bytes) in &files {
+            hash.update((path.len() as u64).to_le_bytes());
+            hash.update(path.as_bytes());
+            hash.update((bytes.len() as u64).to_le_bytes());
+            hash.update(bytes);
         }
-        let current = vault.list_notebooks().map_err(notes_api_error)?;
-        let previews = bundle.notebooks.iter().map(|book| {
-            json!({
-                "id":book.notebook.id,
-                "parentId":book.notebook.parent_id,
-                "title":format!("{} (Imported)", book.notebook.title),
-                "noteCount":book.notes.len(),
-                "attachmentCount":book.attachments.len(),
-                "titleExists":current.iter().any(|existing| existing.title.eq_ignore_ascii_case(&format!("{} (Imported)", book.notebook.title))),
-            })
-        }).collect::<Vec<_>>();
-        Ok(Json(json!({
-            "digest":digest, "preview":previews, "warnings":warnings,
-            "duplicateStrategy":"newCopy",
-        })))
-    }).await.map_err(|_| notes_unavailable())?
+        let digest = format!("{:x}", hash.finalize());
+        verify_import_digest(query.confirmed_digest.as_deref(), &digest)?;
+        let (bundle, warnings) =
+            crate::notes_vault::prepare_folder_import(files).map_err(notes_api_error)?;
+        finish_external_import(
+            vault,
+            bundle,
+            warnings,
+            digest,
+            query.confirmed_digest.is_some(),
+        )
+    })
+    .await
+    .map_err(|_| notes_unavailable())?
+}
+
+fn verify_import_digest(
+    expected: Option<&str>,
+    digest: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    if expected.is_some_and(|expected| expected != digest) {
+        return Err(notes_api_error(NotesError::new(
+            "invalid_parameters",
+            "The selected files changed after preview",
+        )));
+    }
+    Ok(())
+}
+
+fn finish_external_import(
+    vault: NotesVault,
+    bundle: crate::notes_vault::VaultExportBundle,
+    warnings: Vec<String>,
+    digest: String,
+    confirmed: bool,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    if confirmed {
+        let notebooks = vault.import_all_export(bundle).map_err(notes_api_error)?;
+        return Ok(Json(
+            json!({ "notebooks": notebooks, "warnings": warnings }),
+        ));
+    }
+    let current = vault.list_notebooks().map_err(notes_api_error)?;
+    let previews = bundle.notebooks.iter().map(|book| {
+        let title = format!("{} (Imported)", book.notebook.title);
+        json!({
+            "id": book.notebook.id,
+            "parentId": book.notebook.parent_id,
+            "titleExists": current.iter().any(|existing| existing.title.eq_ignore_ascii_case(&title)),
+            "title": title,
+            "noteCount": book.notes.len(),
+            "attachmentCount": book.attachments.len(),
+        })
+    }).collect::<Vec<_>>();
+    Ok(Json(json!({
+        "digest": digest, "preview": previews, "warnings": warnings,
+        "duplicateStrategy": "newCopy",
+    })))
 }
 
 async fn import_markdown_note(
@@ -7528,6 +7638,60 @@ mod tests {
 
         host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn previews_and_confirms_markdown_folder_through_the_host_api() {
+        let temp = tempfile::tempdir().unwrap();
+        let public = temp.path().join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let metadata = MetadataStore::open(&temp.path().join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(32), auth).await.unwrap();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let workspace = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        let base = host.origin();
+        let notes_url = format!("{base}/v2/notes?workspaceId={workspace}&sceneId=programming");
+        let upload_url = format!("{base}/v2/notes/import-folder?workspaceId={workspace}&sceneId=programming");
+        let request = |files: &[(&str, &str)], digest: Option<&str>| {
+            let mut body = String::new();
+            for (path, content) in files {
+                body.push_str(&format!("--notes-fixture\r\nContent-Disposition: form-data; name=\"{path}\"; filename=\"note.md\"\r\nContent-Type: application/octet-stream\r\n\r\n{content}\r\n"));
+            }
+            body.push_str("--notes-fixture--\r\n");
+            let mut upload = client.post(&upload_url)
+                .header("content-type", "multipart/form-data; boundary=notes-fixture")
+                .body(body);
+            if let Some(digest) = digest {
+                upload = upload.query(&[("confirmedDigest", digest)]);
+            }
+            upload
+        };
+        let original = [("迁移/首页.md", "[[章节/第二篇]]"), ("迁移/章节/第二篇.md", "内容")];
+        let preview: Value = request(&original, None).send().await.unwrap()
+            .error_for_status().unwrap().json().await.unwrap();
+        assert_eq!(preview["preview"].as_array().unwrap().len(), 2);
+        assert_eq!(preview["duplicateStrategy"], "newCopy");
+        let digest = preview["digest"].as_str().unwrap();
+        let changed = [("迁移/首页.md", "内容已被更改"), ("迁移/章节/第二篇.md", "内容")];
+        let response = request(&changed, Some(digest)).send().await.unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+
+        let before: Value = client.get(&notes_url).send().await.unwrap()
+            .error_for_status().unwrap().json().await.unwrap();
+        assert!(before["snapshot"]["notebooks"].as_array().unwrap().is_empty());
+
+        let reordered = [original[1], original[0]];
+        let imported: Value = request(&reordered, Some(digest)).send().await.unwrap()
+            .error_for_status().unwrap().json().await.unwrap();
+        let books = imported["notebooks"].as_array().unwrap();
+        assert_eq!(books.len(), 2);
+        assert_eq!(books[1]["parentId"], books[0]["id"]);
+        let after: Value = client.get(&notes_url).send().await.unwrap()
+            .error_for_status().unwrap().json().await.unwrap();
+        assert_eq!(after["snapshot"]["notes"].as_array().unwrap().len(), 2);
+        host.stop_and_wait().await.unwrap();
     }
 
     #[tokio::test]

@@ -14,29 +14,36 @@ export function defaultDownloadFile(fileName: string, content: string, type: str
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export function defaultChooseFile(accept: string): Promise<File | null> {
+export async function defaultChooseFile(accept: string): Promise<File | null> {
+  return (await openNotesPicker(accept, false))[0] ?? null;
+}
+
+export function defaultChooseFolder(): Promise<File[]> {
+  return openNotesPicker("", true);
+}
+
+function openNotesPicker(accept: string, directory: boolean): Promise<File[]> {
   return new Promise((resolve) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = accept;
+    if (directory) input.setAttribute("webkitdirectory", "");
     input.hidden = true;
     let settled = false;
-    const finish = (file: File | null) => {
+    const finish = (files: File[]) => {
       if (settled) return;
       settled = true;
       input.remove();
       window.removeEventListener("focus", onWindowFocus);
-      resolve(file);
+      resolve(files);
     };
+    const selected = () => Array.from(input.files ?? []);
     const onWindowFocus = () => {
-      // Native file dialogs are modal: regaining focus without a change
-      // event means the user cancelled the picker.
-      setTimeout(() => finish(input.files?.[0] ?? null), 0);
+      // Native file dialogs are modal. Let the file change event finish first.
+      setTimeout(() => finish(selected()), 0);
     };
-    input.addEventListener("cancel", () => finish(null), { once: true });
-    input.addEventListener("change", () => finish(input.files?.[0] ?? null), {
-      once: true,
-    });
+    input.addEventListener("cancel", () => finish([]), { once: true });
+    input.addEventListener("change", () => finish(selected()), { once: true });
     window.addEventListener("focus", onWindowFocus);
     document.body.append(input);
     input.click();

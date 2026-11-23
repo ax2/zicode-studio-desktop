@@ -66,7 +66,7 @@ tempfile = "3"
 boa_engine = "0.21"
 ed25519-dalek = "2"
 zip = { version = "2.4", default-features = false, features = ["deflate"] }
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.8", features = ["ws", "multipart"] }
 axum-server = { version = "0.8", features = ["tls-rustls"] }
 local-ip-address = "0.6"
 pem = "3"

@@ -31,7 +31,7 @@ import {
 import type { NotesOperationScope } from "./operation-scope";
 import { createNotesOperationScope } from "./operation-scope";
 import { createShortcutRepository, referenceKey, type NoteReference, type ShortcutRepository } from "./shortcut-repository";
-import { defaultChooseFile, defaultDownloadFile, defaultFileToBase64 } from "./transfer-files";
+import { defaultChooseFile, defaultChooseFolder, defaultDownloadFile, defaultFileToBase64 } from "./transfer-files";
 import { createTrashActions, type TrashExpectation } from "./trash-actions";
 import { type CapturePreview, createWebCapture } from "./web-capture";
 import { createNoteWorkflowActions, type NoteWorkflow } from "./workflow-actions";
@@ -50,7 +50,8 @@ export interface ExternalNotesPreview {
 }
 
 interface ExternalNotesSelection {
-  file: File;
+  source: File | File[];
+  name: string;
   report: ExternalNotesPreview;
 }
 
@@ -111,6 +112,7 @@ export interface NotesGatewayLike {
   exportBackup(sceneId: string, workspaceId: string, notebookId: string): Promise<{ backup: unknown }>;
   exportAllBackup(sceneId: string, workspaceId: string): Promise<{ backup: unknown }>;
   importBackup(sceneId: string, workspaceId: string, backup: unknown): Promise<{ notebook: Notebook }>;
+  importFolder?(sceneId: string, workspaceId: string, files: File[], confirmedDigest?: string): Promise<ExternalNotesPreview & { notebooks?: Notebook[] }>;
   importExternal?(sceneId: string, workspaceId: string, file: File, confirmedDigest?: string): Promise<ExternalNotesPreview & { notebooks?: Notebook[] }>;
   importAllBackup(sceneId: string, workspaceId: string, backup: unknown): Promise<{ notebooks: Notebook[] }>;
   rebuild(sceneId: string, workspaceId: string, notebookId: string): Promise<{ report: { validNotes: number; invalidFiles: unknown[] } }>;
@@ -144,6 +146,7 @@ export interface NotesStoreOptions {
   confirmPublish?: (message: string) => boolean | Promise<boolean>;
   confirmDelete?: (message: string) => boolean | Promise<boolean>;
   chooseFile?: (accept: string) => Promise<File | null>;
+  chooseFolder?: () => Promise<File[]>;
   downloadFile?: (fileName: string, content: string, type: string) => void;
   onUseInChat?: (note: Note, selection: string, scope: NotesOperationScope) => void | Promise<void>;
   fileToBase64?: (file: File) => Promise<string>;
@@ -273,6 +276,7 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   importBackup(): Promise<void>;
   importAllBackup(): Promise<void>;
   selectExternalImport(): Promise<void>;
+  selectFolderImport(): Promise<void>;
   commitExternalImport(): Promise<void>;
   cancelExternalImport(): void;
   downloadNote(): Promise<void>;
@@ -294,6 +298,7 @@ export function createNotesStore(options: NotesStoreOptions) {
   const confirmPublish = options.confirmPublish ?? ((message: string) => globalThis.confirm(message) ?? false);
   const confirmDelete = options.confirmDelete ?? ((message: string) => globalThis.confirm(message) ?? false);
   const chooseFile = options.chooseFile ?? defaultChooseFile;
+  const chooseFolder = options.chooseFolder ?? defaultChooseFolder;
   const downloadFile = options.downloadFile ?? defaultDownloadFile;
   const onUseInChat = options.onUseInChat;
   const fileToBase64 = options.fileToBase64 ?? defaultFileToBase64;
@@ -691,7 +696,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     attachFile: createAttachmentUpload({ get, set, gateway, capture: operationScope.capture, chooseFile, fileToBase64, retain: recovery.retainAttachment, notify, localize: localizeNotesHostError }),
 
     ...createNoteTransfers({ get, set, gateway, capture: operationScope.capture, notify,
-      localize: localizeNotesHostError, chooseFile, downloadFile }),
+      localize: localizeNotesHostError, chooseFile, chooseFolder, downloadFile }),
 
     async setTarget() {
       const nextTarget = JSON.stringify([sceneId(), workspaceId()]);

@@ -12,6 +12,7 @@ export function createNoteTransfers({
   notify,
   localize,
   chooseFile,
+  chooseFolder,
   downloadFile,
 }: {
   get(): NotesState;
@@ -21,6 +22,7 @@ export function createNoteTransfers({
   notify(message: string): void;
   localize(error: unknown): Error;
   chooseFile(accept: string): Promise<File | null>;
+  chooseFolder(): Promise<File[]>;
   downloadFile(name: string, content: string, type: string): void;
 }) {
   async function run(action: (scope: NotesOperationScope) => Promise<void>) {
@@ -86,16 +88,32 @@ export function createNoteTransfers({
     if (!file.size || file.size > 70 * 1024 * 1024)
       throw new Error(t("Import file must be between 1 byte and 70 MiB"));
     const report = await gateway.importExternal(scope.sceneId, scope.workspaceId, file);
-    if (scope.isCurrent()) set({ externalImport: { file, report } });
+    if (scope.isCurrent()) set({ externalImport: { source: file, name: file.name, report } });
+  }
+
+  async function selectFolder(scope: NotesOperationScope) {
+    if (!gateway.importFolder) return;
+    set({ externalImport: null });
+    const selected = await chooseFolder();
+    const files = selected.filter((file) =>
+      file.webkitRelativePath && !file.webkitRelativePath.split("/").slice(1).some((part) => part.startsWith(".")),
+    );
+    if (!scope.isCurrent() || !selected.length) return;
+    if (!files.length || files.length > 4_096 || files.reduce((size, file) => size + file.size, 0) > 64 * 1024 * 1024)
+      throw new Error(t("Import folder must contain 1 to 4,096 files within 64 MiB"));
+    const name = files[0].webkitRelativePath.split("/")[0];
+    const report = await gateway.importFolder(scope.sceneId, scope.workspaceId, files);
+    if (scope.isCurrent()) set({ externalImport: { source: files, name, report } });
   }
 
   async function commitExternal(scope: NotesOperationScope) {
     const selection = get().externalImport;
-    if (!selection || !gateway.importExternal || !(await saved(scope))) return;
+    if (!selection || !(await saved(scope))) return;
     const editor = editorFingerprint(get());
-    const response = await gateway.importExternal(
-      scope.sceneId, scope.workspaceId, selection.file, selection.report.digest,
-    );
+    const response = Array.isArray(selection.source)
+      ? await gateway.importFolder?.(scope.sceneId, scope.workspaceId, selection.source, selection.report.digest)
+      : await gateway.importExternal?.(scope.sceneId, scope.workspaceId, selection.source, selection.report.digest);
+    if (!response) return;
     if (!scope.isCurrent()) return;
     const preserveEditor = get().dirty || editorFingerprint(get()) !== editor;
     set({ externalImport: null });
@@ -144,6 +162,7 @@ export function createNoteTransfers({
 
   return {
     selectExternalImport: () => run(selectExternal),
+    selectFolderImport: () => run(selectFolder),
     commitExternalImport: () => run(commitExternal),
     cancelExternalImport: () => set({ externalImport: null }),
     importBackup: () => run((scope) => importBackup(false, scope)),

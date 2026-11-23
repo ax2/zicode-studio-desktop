@@ -2362,6 +2362,32 @@ describe("notes store", () => {
   });
 
 
+  it("previews a Markdown directory and confirms the same upload", async () => {
+    const index = new File(["[[子目录/目标]]"], "首页.md");
+    const hidden = new File(["settings"], "app.json");
+    Object.defineProperty(index, "webkitRelativePath", { value: "资料/首页.md" });
+    Object.defineProperty(hidden, "webkitRelativePath", { value: "资料/.obsidian/app.json" });
+    const report = {
+      digest: "directory-digest",
+      preview: [{ id: "root", title: "资料 (Imported)", noteCount: 1, attachmentCount: 0, titleExists: false }],
+      warnings: [],
+    };
+    const importFolder = vi.fn(async () => report);
+    const store = createNotesStore({
+      gateway: gatewayStub({ importFolder }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      chooseFolder: async () => [index, hidden],
+    });
+    await store.getState().load();
+    await store.getState().selectFolderImport();
+    expect(importFolder).toHaveBeenCalledExactlyOnceWith("programming", "ws-1", [index]);
+    expect(store.getState().externalImport?.name).toBe("资料");
+    await store.getState().commitExternalImport();
+    expect(importFolder).toHaveBeenLastCalledWith("programming", "ws-1", [index], report.digest);
+    expect(store.getState().externalImport).toBeNull();
+  });
+
   it("imports every notebook from a workspace backup bundle", async () => {
     const importAllBackup = vi.fn(async () => ({
       notebooks: [
