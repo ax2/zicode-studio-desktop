@@ -10,6 +10,11 @@ description = "Allow a trusted workspace to inspect captured Notes conflicts and
 commands.allow = ["notes_sync_conflicts"]
 
 [[permission]]
+identifier = "allow-blog-workspace"
+description = "Manage articles in the Astro site selected in a trusted workspace window."
+commands.allow = ["blog_workspace"]
+
+[[permission]]
 identifier = "allow-mail-local"
 description = "Manage local account aliases and draft messages from the verified workspace window."
 commands.allow = ["mail_local"]
@@ -458,6 +463,7 @@ permissions = [
   "allow-scene-credential-status",
   "allow-notes-sync-settings",
   "allow-mail-local",
+  "allow-blog-workspace",
   "allow-notes-sync-task",
   "allow-notes-sync-conflicts",
   "allow-send-desktop-notification",

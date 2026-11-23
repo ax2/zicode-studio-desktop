@@ -73,6 +73,8 @@ mod native_pi_manager;
 #[cfg_attr(not(test), allow(dead_code))] // Some conflict-resolution APIs remain staged for a later UI.
 mod notes_sync;
 mod mail_local;
+mod blog_workspace;
+use blog_workspace::blog_workspace;
 mod mail_attachment;
 use mail_local::mail_local;
 mod notes_sync_task;
@@ -2211,6 +2213,7 @@ fn main() {
             publish_notes_notebook,
             notes_sync_settings,
             mail_local,
+            blog_workspace,
             notes_sync_task,
             notes_sync_conflicts,
             get_system_information,

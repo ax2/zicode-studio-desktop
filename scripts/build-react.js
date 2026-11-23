@@ -33,6 +33,7 @@ async function run() {
   });
   await build({
     entryPoints: {
+      blog: path.join(root, "frontend/src/features/blog/index.tsx"),
       mail: path.join(root, "frontend/src/features/mail/index.tsx"),
       "tool-center": path.join(root, "frontend/src/features/toolCenter/index.ts"),
       automation: path.join(root, "frontend/src/features/automation/index.ts"),

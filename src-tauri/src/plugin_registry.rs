@@ -2468,6 +2468,15 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
             true,
         ),
         (json!({
+            "schemaVersion":1, "id":"com.zicode.blog", "name":"Blog",
+            "description":"Write and organize static blog articles","version":"0.1.0","publisher":"zicode",
+            "engines":{"pluginApi":"^1.0.0"},"activationEvents":["onView:blog.dashboard"],
+            "contributes":{"activities":[{"id":"blog","title":"Blog","order":127}],
+              "views":[{"id":"blog.dashboard","activity":"blog","location":"main","title":"Blog"}],
+              "commands":[{"id":"blog.open","title":"Open Blog"}]},
+            "permissions":{"required":[],"optional":[]}
+        }), true, true),
+        (json!({
             "schemaVersion":1, "id":"com.zicode.mail", "name":"Mail",
             "description":"Mail for Gmail and Alibaba Mail","version":"0.1.0","publisher":"zicode",
             "engines":{"pluginApi":"^1.0.0"},"activationEvents":["onView:mail.dashboard"],

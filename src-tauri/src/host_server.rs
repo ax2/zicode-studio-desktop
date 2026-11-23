@@ -7265,6 +7265,7 @@ mod tests {
             .unwrap();
         assert_eq!(before["plugins"].as_array().unwrap().len(), 22);
         assert!(before["plugins"].as_array().unwrap().iter().any(|p| p["id"] == "com.zicode.mail" && p["enabled"] == true));
+        assert!(before["plugins"].as_array().unwrap().iter().any(|p| p["id"] == "com.zicode.blog" && p["enabled"] == true));
         assert!(before["plugins"].as_array().unwrap().iter().any(|plugin|
             plugin["id"] == "com.zicode.visual-assets" && plugin["enabled"] == true && plugin["core"] == true));
         assert!(before["plugins"].as_array().unwrap().iter().any(|plugin| plugin["id"] == "com.zicode.browser"));
