@@ -143,11 +143,6 @@
     height: var(--space-5);
   }
 
-  .plugin-activity-button .plugin-activity-image {
-    width: var(--space-8);
-    height: var(--space-8);
-  }
-
   .plugin-activity-tooltip {
     display: none;
   }

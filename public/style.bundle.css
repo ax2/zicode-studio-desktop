@@ -7461,8 +7461,13 @@ code {
     filter var(--duration) var(--ease);
 }
 
+.plugin-activity-button > .plugin-activity-image {
+  width: calc(var(--space-6) + var(--space-0-5));
+  height: calc(var(--space-6) + var(--space-0-5));
+}
+
 .plugin-activity-button:is(:hover, :focus-visible) > .plugin-activity-image {
-  transform: translateY(-1px) scale(1.08);
+  transform: translateY(-1px) scale(1.2);
   filter:
     brightness(1.1)
     drop-shadow(0 3px 3px light-dark(#17233355, #070b16cc))
@@ -8127,11 +8132,6 @@ body[data-active-plugin="core.help"] .help-center-navigation {
   .plugin-activity-button svg {
     width: var(--space-5);
     height: var(--space-5);
-  }
-
-  .plugin-activity-button .plugin-activity-image {
-    width: calc(var(--space-6) + var(--space-0-5));
-    height: calc(var(--space-6) + var(--space-0-5));
   }
 
   .plugin-main-hero {
@@ -19386,11 +19386,6 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   .plugin-activity-button svg {
     width: var(--space-5);
     height: var(--space-5);
-  }
-
-  .plugin-activity-button .plugin-activity-image {
-    width: var(--space-8);
-    height: var(--space-8);
   }
 
   .plugin-activity-tooltip {
