@@ -1,4 +1,5 @@
 import { t } from "../../i18n.js";
+import { createBrowserImageOcr } from "./browser-image-ocr.js";
 
 export function pageMetadataRows(metadata = {}) {
   return [
@@ -12,11 +13,13 @@ export function pageImageDescription({ alt, width, height, url }) {
   return [alt || t("No alternative text"), `${width} × ${height}`, url].filter(Boolean).join(" — ");
 }
 
-export function createBrowserCaptureMedia(page) {
+export function createBrowserCaptureMedia(page, recognizeImage) {
   const images = page.images ?? [];
+  const recognitions = [];
+  const imageText = () => recognitions.map(recognition => recognition.attachment()).filter(Boolean);
   const metadata = pageMetadataRows(page.metadata);
   const include = document.createElement("input"); include.type = "checkbox";
-  if (!images.length && !metadata.length && !page.imagesTruncated) return { include };
+  if (!images.length && !metadata.length && !page.imagesTruncated) return { include, imageText };
 
   const element = document.createElement("details"); element.className = "browser-capture-media";
   const summary = document.createElement("summary"); summary.textContent = t("Page images and details");
@@ -39,6 +42,11 @@ export function createBrowserCaptureMedia(page) {
       const list = document.createElement("ul"); list.setAttribute("aria-label", t("Page images"));
       for (const image of images) {
         const item = document.createElement("li"); item.textContent = pageImageDescription(image);
+        if (recognizeImage && image.url) {
+          const recognition = createBrowserImageOcr(image, recognizeImage);
+          item.append(recognition.element);
+          recognitions.push(recognition);
+        }
         list.append(item);
       }
       scroll.append(list);
@@ -49,5 +57,5 @@ export function createBrowserCaptureMedia(page) {
     const limit = document.createElement("p"); limit.textContent = t("Only some loaded images are shown.");
     element.append(limit);
   }
-  return { include, element };
+  return { include, element, imageText };
 }

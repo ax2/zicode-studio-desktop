@@ -272,8 +272,16 @@ pub(crate) fn extract_text_cancellable(
     cancelled: Option<&AtomicBool>,
 ) -> Result<OcrResult, String> {
     let img = decode_image(&request.image, workspace_root)?;
-    let png_path = save_temp_png(&img)?;
-    let text_result = run_windows_ocr(&png_path, request.language.as_deref(), cancelled);
+    extract_decoded_text(&img, request.language.as_deref(), cancelled)
+}
+
+pub(crate) fn extract_decoded_text(
+    img: &image::DynamicImage,
+    language: Option<&str>,
+    cancelled: Option<&AtomicBool>,
+) -> Result<OcrResult, String> {
+    let png_path = save_temp_png(img)?;
+    let text_result = run_windows_ocr(&png_path, language, cancelled);
     let _ = std::fs::remove_file(&png_path);
     let text = text_result?;
     let char_count = text.chars().count();

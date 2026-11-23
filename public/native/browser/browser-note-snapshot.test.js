@@ -113,3 +113,22 @@ it("adds frame sources, selection and tables only to an opted-in whole-page note
   expect(html.querySelector("table td").textContent).toBe("Three");
   expect(html.querySelector("img")).toBeNull();
 });
+
+
+it("preserves opted-in OCR text and its source without rendering markup or sharing it with a selection note", () => {
+
+  const imageText = [{ source: { alt: "<em>Label</em>", url: "https://example.org/diagram.png" },
+    pageUrl: capture.page.url, documentRevision: capture.documentRevision, capturedAt: capture.capturedAt,
+    text: "Read <img src=x> this", truncated: false }];
+
+  const content = browserNoteContent(capture, false, { imageText });
+  expect(content).toContain(imageText[0].source.url);
+  expect(content).toContain(imageText[0].documentRevision);
+  expect(content).toContain(imageText[0].capturedAt);
+  const view = document.createElement("div");
+  view.innerHTML = renderMarkdown(content);
+  expect(view.textContent).toContain(imageText[0].text);
+  expect(view.querySelector("img,em")).toBeNull();
+  expect(browserNoteContent(capture)).not.toContain(imageText[0].source.url);
+  expect(browserNoteContent(capture, true, { imageText })).not.toContain(imageText[0].source.url);
+});

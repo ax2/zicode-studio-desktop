@@ -133,3 +133,15 @@ it("keeps all embedded documents out of the default chat draft", () => {
   expect(extract(browserDraftPrompt(snapshot))).not.toHaveProperty("framesOmitted");
   expect(extract(browserDraftPrompt(snapshot, { includeFrames: true }))).toMatchObject({ frames, framesOmitted: true });
 });
+
+
+it("attaches only explicitly selected recognition results alongside their original page and image provenance", () => {
+
+  const imageText = [{ source: { alt: "<em>Label</em>", url: "https://example.org/diagram.png" },
+    pageUrl: capture.page.url, documentRevision: capture.documentRevision, capturedAt: capture.capturedAt,
+    text: "Read <img src=x> this", truncated: false }];
+
+  const extract = draft => JSON.parse(draft.slice(draft.indexOf("{")));
+  expect(extract(browserDraftPrompt(capture))).not.toHaveProperty("imageText");
+  expect(extract(browserDraftPrompt(capture, { imageText })).imageText).toEqual(imageText);
+});

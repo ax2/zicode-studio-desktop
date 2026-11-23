@@ -63,7 +63,7 @@ pub(crate) async fn browser_read_article(
         if !(expected_url.starts_with("https://") || expected_url.starts_with("http://")) {
             return Err("This browser action is not available yet".into());
         }
-        super::capture::run(window, tab, expected_url, include_str!("reader.js"), decode).await
+        super::capture::run(window, tab, expected_url, None, include_str!("reader.js"), decode).await
     }
     #[cfg(not(windows))]
     {

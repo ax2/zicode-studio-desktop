@@ -87,3 +87,33 @@ it("reviews embedded content before explicitly attaching it to a local draft", a
   getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
   await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ includeFrames: true })));
 });
+
+
+it("requests OCR only on its own action and separately opts in to including the text", async () => {
+  const image = { alt: "Diagram", width: 500, height: 60, url: "https://example.org/image.png" };
+  const snapshot = { ...capture, page: { ...capture.page, images: [image] } };
+  const recognized = { source: image, pageUrl: snapshot.page.url, documentRevision: "d1", capturedAt: "2026-11-23T00:00:00Z", text: "<em>Text</em>", truncated: false };
+  const recognizeImage = vi.fn().mockRejectedValueOnce(Error("OCR unavailable")).mockResolvedValue(recognized);
+  const prepare = vi.fn(async () => {});
+  const host = document.createElement("aside"), trigger = document.createElement("button");
+  document.body.append(trigger, host);
+  const dialog = showBrowserCapture(snapshot, vi.fn(), prepare, undefined, undefined, false, { host, trigger, recognizeImage });
+  const media = dialog.querySelector(".browser-capture-media");
+  media.open = true;
+  const action = getByRole(media, "button", { name: t("Recognize text locally") });
+  expect(recognizeImage).not.toHaveBeenCalled();
+  action.click();
+  await waitFor(() => expect(media.textContent).toContain("OCR unavailable"));
+  expect(getByRole(media, "status").textContent).toBe("OCR unavailable");
+  action.focus();
+  action.click();
+  await waitFor(() => expect(getByRole(media, "textbox").value).toBe("<em>Text</em>"));
+  expect(document.activeElement).toBe(getByRole(media, "textbox"));
+  expect(recognizeImage).toHaveBeenCalledWith(image);
+  const include = getByRole(media, "checkbox", { name: t("Include this image text in the page note or chat draft") });
+  expect(include.checked).toBe(false);
+  expect(media.querySelector("em")).toBeNull();
+  include.click();
+  getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
+  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ imageText: [recognized], includeMedia: false })));
+});

@@ -105,6 +105,9 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-capture-media-scroll dt { font-weight: 600; }
 .browser-capture-media-scroll dd { margin-inline-start: var(--space-3); margin-block-end: var(--space-2); overflow-wrap: anywhere; }
 .browser-capture-media-scroll ul { padding-inline-start: var(--space-5); overflow-wrap: anywhere; }
+.browser-image-ocr { margin-block: var(--space-2); }
+.browser-image-ocr > [hidden] { display: none; }
+.browser-image-ocr > .ui-textarea { width: 100%; height: auto; box-sizing: border-box; }
 .browser-capture-media-scroll li + li { margin-block-start: var(--space-1); }
 .browser-capture-dialog:has(> .browser-compare:not([hidden])) > :is(.browser-capture-text, .browser-capture-links, .browser-capture-tables, .browser-capture-media, .browser-capture-frames),
 .browser-capture-dialog:has(> .browser-compare:not([hidden])) .browser-capture-prepare { display: none; }

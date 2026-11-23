@@ -91,7 +91,7 @@ fn checked_web_url(value: &str) -> Option<reqwest::Url> {
     .then_some(url)
 }
 #[cfg(windows)]
-fn is_web_url(value: &str) -> bool {
+pub(super) fn is_web_url(value: &str) -> bool {
     checked_web_url(value).is_some()
 }
 #[cfg(windows)]
@@ -189,7 +189,7 @@ pub(crate) async fn browser_capture_page(
     crate::require_workspace_window(&window)?;
     #[cfg(windows)]
     {
-        run(window, tab, expected_url, SCRIPT, decode).await
+        run(window, tab, expected_url, None, SCRIPT, decode).await
     }
     #[cfg(not(windows))]
     {
@@ -202,14 +202,24 @@ pub(super) async fn run<T: Send + 'static>(
     window: WebviewWindow,
     tab: String,
     expected_url: String,
-    script: &'static str,
+    expected_revision: Option<String>,
+    script: impl Into<std::borrow::Cow<'static, str>>,
     decode: fn(&str, &str) -> Result<T, String>,
 ) -> Result<Capture<T>, String> {
+    let script = script.into();
     let (tx, rx) = tokio::sync::oneshot::channel();
     let app = window.app_handle().clone();
     app.run_on_main_thread(move || {
         // Initial and completion checks are both bound to the actual window.
-        super::runtime::capture(&window, tab, expected_url, script, decode, tx);
+        super::runtime::capture(
+            &window,
+            tab,
+            expected_url,
+            expected_revision,
+            &script,
+            decode,
+            tx,
+        );
     })
     .map_err(|error| error.to_string())?;
     tokio::time::timeout(std::time::Duration::from_secs(10), rx)
