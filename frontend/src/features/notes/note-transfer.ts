@@ -81,10 +81,10 @@ export function createNoteTransfers({
   async function selectExternal(scope: NotesOperationScope) {
     if (!gateway.importExternal) return;
     set({ externalImport: null });
-    const file = await chooseFile(".jex");
+    const file = await chooseFile(".jex,.enex,.html,.htm,.txt,.md,.markdown");
     if (!file || !scope.isCurrent()) return;
     if (!file.size || file.size > 70 * 1024 * 1024)
-      throw new Error(t("JEX import must be between 1 byte and 70 MiB"));
+      throw new Error(t("Import file must be between 1 byte and 70 MiB"));
     const report = await gateway.importExternal(scope.sceneId, scope.workspaceId, file);
     if (scope.isCurrent()) set({ externalImport: { file, report } });
   }
@@ -103,7 +103,7 @@ export function createNoteTransfers({
       set({ selectedNotebookId: response.notebooks?.[0]?.id ?? null, selectedNote: null, dirty: false });
     }
     await get().load({ preserveSelection: preserveEditor });
-    if (scope.isCurrent()) notify(t("Joplin notebooks imported"));
+    if (scope.isCurrent()) notify(t("Notebooks imported"));
   }
 
   async function exportBackup(all: boolean, scope: NotesOperationScope) {

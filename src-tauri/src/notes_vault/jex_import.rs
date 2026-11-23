@@ -188,7 +188,7 @@ pub(crate) fn prepare(
     ))
 }
 
-fn notebook(id: String, title: &str, parent_id: Option<String>, now: &str) -> VaultExport {
+pub(super) fn notebook(id: String, title: &str, parent_id: Option<String>, now: &str) -> VaultExport {
     VaultExport {
         schema_version: VAULT_SCHEMA_VERSION,
         exported_at: now.to_owned(),

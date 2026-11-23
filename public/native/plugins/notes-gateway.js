@@ -275,6 +275,7 @@ export class NotesGateway {
 
   importExternal(sceneId, workspaceId, file, confirmedDigest) {
     const url = this.#url("/v2/notes/import-external");
+    url.searchParams.set("fileName", file.name);
     url.searchParams.set("sceneId", sceneId);
     url.searchParams.set("workspaceId", workspaceId);
     if (confirmedDigest) url.searchParams.set("confirmedDigest", confirmedDigest);

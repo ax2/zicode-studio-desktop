@@ -4187,6 +4187,7 @@ async fn extract_text_http(
 struct ExternalNotesImportQuery {
     #[serde(flatten)]
     scope: ExportAllNotesQuery,
+    file_name: String,
     #[serde(default)]
     confirmed_digest: Option<String>,
 }
@@ -4196,17 +4197,36 @@ async fn import_external_notes(
     Query(query): Query<ExternalNotesImportQuery>,
     bytes: Bytes,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    ensure_notes_authorized(&state, &query.scope.scene_id, query.confirmed_digest.is_some())?;
-    let digest = format!("{:x}", Sha256::digest(&bytes));
-    if query.confirmed_digest.as_ref().is_some_and(|expected| expected != &digest) {
+    ensure_notes_authorized(
+        &state,
+        &query.scope.scene_id,
+        query.confirmed_digest.is_some(),
+    )?;
+    let mut reviewed_input = Sha256::new();
+    reviewed_input.update(query.scope.workspace_id.as_bytes());
+    reviewed_input.update([0]);
+    reviewed_input.update(query.file_name.as_bytes());
+    reviewed_input.update([0]);
+    reviewed_input.update(&bytes);
+    let digest = format!("{:x}", reviewed_input.finalize());
+    if query
+        .confirmed_digest
+        .as_ref()
+        .is_some_and(|expected| expected != &digest)
+    {
         return Err(notes_api_error(crate::notes_vault::NotesError::new(
-            "invalid_parameters", "The selected archive changed after preview",
+            "invalid_parameters",
+            "The selected archive changed after preview",
         )));
     }
-    let vault = state.notes.lock().map_err(|_| notes_unavailable())?
-        .scoped(&query.scope.workspace_id).map_err(notes_api_error)?;
+    let vault = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .scoped(&query.scope.workspace_id)
+        .map_err(notes_api_error)?;
     tokio::task::spawn_blocking(move || {
-        let (bundle, warnings) = crate::notes_vault::prepare_jex_import(bytes.as_ref())
+        let (bundle, warnings) = crate::notes_vault::prepare_external_import(&query.file_name, bytes.as_ref())
             .map_err(notes_api_error)?;
         if query.confirmed_digest.is_some() {
             let notebooks = vault.import_all_export(bundle).map_err(notes_api_error)?;
@@ -4229,7 +4249,6 @@ async fn import_external_notes(
         })))
     }).await.map_err(|_| notes_unavailable())?
 }
-
 
 async fn import_markdown_note(
     State(state): State<Arc<HostState>>,

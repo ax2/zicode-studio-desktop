@@ -5,7 +5,7 @@ export function NoteTransferActions({ store }: { store: NotesStore }) {
   const busy = store((state) => state.transferBusy);
   const external = store((state) => state.externalImport);
   const actions = [
-    [t("Import from Joplin"), "selectExternalImport"],
+    [t("Import notes from a file"), "selectExternalImport"],
     [t("Import Markdown"), "importMarkdown"],
     [t("Export readable backup"), "exportBackup"],
     [t("Export all notebooks backup"), "exportAllBackup"],
@@ -26,8 +26,8 @@ export function NoteTransferActions({ store }: { store: NotesStore }) {
         </button>
       ))}
       {external && (
-        <section aria-label={t("Joplin import preview")}>
-          <h3>{t("Joplin import preview")}</h3>
+        <section aria-label={t("Notes import preview")}>
+          <h3>{t("Notes import preview")}</h3>
           <p>{external.file.name}</p>
           <p>{t("Import creates new copies. Existing notebooks keep their content.")}</p>
           <ul>
@@ -49,7 +49,7 @@ export function NoteTransferActions({ store }: { store: NotesStore }) {
             </details>
           )}
           <button type="button" disabled={busy} onClick={() => void store.getState().commitExternalImport()}>
-            {t("Import Joplin notebooks")}
+            {t("Import the selected notes")}
           </button>
           <button type="button" disabled={busy} onClick={() => store.getState().cancelExternalImport()}>
             {t("Cancel")}
