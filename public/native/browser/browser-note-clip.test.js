@@ -109,11 +109,40 @@ it("requests OCR only on its own action and separately opts in to including the 
   action.click();
   await waitFor(() => expect(getByRole(media, "textbox").value).toBe("<em>Text</em>"));
   expect(document.activeElement).toBe(getByRole(media, "textbox"));
-  expect(recognizeImage).toHaveBeenCalledWith(image);
+  expect(recognizeImage).toHaveBeenCalledWith(image, undefined);
   const include = getByRole(media, "checkbox", { name: t("Include this image text in the page note or chat draft") });
   expect(include.checked).toBe(false);
   expect(media.querySelector("em")).toBeNull();
   include.click();
   getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
   await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ imageText: [recognized], includeMedia: false })));
+});
+
+
+it("recognizes an image-only frame with its reviewed locator and opts into its result independently of frame text", async () => {
+  const image = { alt: "Inventory scan", width: 300, height: 120, url: "https://example.org/scan.png" };
+  const frame = { title: "Inventory", url: "https://example.org/warehouse", text: "", images: [image], imageLocator: { path: [0, 1], timeOrigin: "42" } };
+  const snapshot = { ...capture, page: { ...capture.page, frames: [frame] } };
+  const recognized = { source: image, pageUrl: snapshot.page.url, documentRevision: "d1", capturedAt: "2026-11-23T00:00:00Z", text: "Inventory count",
+    frame: { title: frame.title, url: frame.url, documentRevision: "42" } };
+  const recognizeImage = vi.fn(async () => recognized);
+  const prepare = vi.fn(async () => {});
+  const host = document.createElement("aside"), trigger = document.createElement("button");
+  document.body.append(trigger, host);
+  const dialog = showBrowserCapture(snapshot, vi.fn(), prepare, undefined, undefined, false, { host, trigger, recognizeImage });
+  const details = dialog.querySelector(".browser-capture-frames");
+  details.open = true;
+  details.querySelector("details").open = true;
+  expect(recognizeImage).not.toHaveBeenCalled();
+  getByRole(details, "button", { name: t("Recognize text locally") }).click();
+  await waitFor(() => expect(getByRole(details, "textbox").value).toBe("Inventory count"));
+  expect(recognizeImage).toHaveBeenCalledWith(image, { title: frame.title, url: frame.url, locator: frame.imageLocator });
+  const includeFrame = getByRole(details, "checkbox", { name: t("Include frames in the page note or chat draft") });
+  const includeImage = getByRole(details, "checkbox", { name: t("Include this image text in the page note or chat draft") });
+  expect(includeFrame.checked).toBe(false);
+  expect(includeImage.checked).toBe(false);
+  includeImage.click();
+  getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
+  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ imageText: [recognized] })));
+  expect(prepare.mock.calls[0][0]).not.toHaveProperty("includeFrames");
 });

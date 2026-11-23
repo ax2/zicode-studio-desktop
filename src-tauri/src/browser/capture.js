@@ -152,18 +152,42 @@
     }
     return { tables, tablesTruncated };
   }
+  function readImages(doc, allowance, scanLimit) {
+    const images = [];
+    const imageKeys = new Set();
+    const pageImages = doc.images ?? [];
+    let imagesTruncated = pageImages.length > scanLimit;
+    for (let i = 0; i < Math.min(pageImages.length, scanLimit); i++) {
+      const img = pageImages[i];
+      const { naturalWidth: width, naturalHeight: height } = img;
+      if (!width || !height || width > 100000 || height > 100000 || !visible(img)) continue;
+      const alt = shortText(img.alt, 160);
+      // currentSrc describes the candidate already selected by the page, including srcset.
+      const url = webUrl(img.currentSrc);
+      const key = url ? JSON.stringify([url, alt, width, height]) : null;
+      if (key && imageKeys.has(key)) continue;
+      if (images.length === allowance) { imagesTruncated = true; break; }
+      if (key) imageKeys.add(key);
+      images.push({ alt, width, height, url });
+    }
+    return { images, imagesTruncated };
+  }
+  const mainImages = readImages(document, 12, 400);
   const mainTables = readTables(document);
   const frames = [];
   let framesOmitted = false;
   let framesToScan = 24;
   const origin = location.origin;
-  function readFrames(doc, depth) {
+  let frameImagesRemaining = 12;
+  let frameImagesToScan = 400;
+  function readFrames(doc, path) {
     const children = doc.querySelectorAll('iframe,frame');
-    if (depth === 3) {
+    if (path.length === 3) {
       framesOmitted ||= children.length > 0;
       return;
     }
-    for (const element of children) {
+    for (let index = 0; index < children.length; index++) {
+      const element = children[index];
       if (framesToScan === 0 || frames.length === 6) { framesOmitted = true; return; }
       framesToScan--;
       if (!visible(element)) continue;
@@ -178,37 +202,28 @@
       const body = readText(child, 8000);
       const selection = readSelection(child, child.getSelection());
       const tables = readTables(child);
-      if (body.text || selection.selection || tables.tables.length ||
-          body.textTruncated || selection.selectionTruncated || tables.tablesTruncated) {
-        frames.push({ title: clip(child.title || element.title || '', 512), url, ...body, ...selection, ...tables });
+      const imageScan = Math.min(child.images?.length ?? 0, frameImagesToScan);
+      frameImagesToScan -= imageScan;
+      const media = readImages(child, Math.min(6, frameImagesRemaining), imageScan);
+      frameImagesRemaining -= media.images.length;
+      const childPath = [...path, index];
+      const timeOrigin = child.defaultView?.performance?.timeOrigin;
+      const imageLocator = media.images.some(image => image.url) && Number.isFinite(timeOrigin)
+        ? { path: childPath, timeOrigin: String(timeOrigin) } : undefined;
+      if (body.text || selection.selection || tables.tables.length || media.images.length ||
+          body.textTruncated || selection.selectionTruncated || tables.tablesTruncated || media.imagesTruncated) {
+        frames.push({ title: clip(child.title || element.title || '', 512), url, ...body, ...selection, ...tables, ...media, imageLocator });
       }
-      readFrames(child, depth + 1);
+      readFrames(child, childPath);
     }
   }
-  readFrames(document, 0);
+  readFrames(document, []);
   const metadata = {
     language: shortText(document.documentElement.lang || "", 64),
     description: shortText(document.head?.querySelector('meta[name="description" i]')?.content || "", 400),
     canonicalUrl: webUrl(document.head?.querySelector('link[rel~="canonical" i]')?.href),
   };
-  const images = [];
-  const imageKeys = new Set();
-  const pageImages = document.images;
-  let imagesTruncated = pageImages.length > 400;
-  for (let i = 0; i < Math.min(pageImages.length, 400); i++) {
-    const img = pageImages[i];
-    const { naturalWidth: width, naturalHeight: height } = img;
-    if (!width || !height || width > 100000 || height > 100000 || !visible(img)) continue;
-    const alt = shortText(img.alt, 160);
-    // currentSrc describes the candidate already selected by the page, including srcset.
-    const url = webUrl(img.currentSrc);
-    const key = url ? JSON.stringify([url, alt, width, height]) : null;
-    if (key && imageKeys.has(key)) continue;
-    if (images.length === 12) { imagesTruncated = true; break; }
-    if (key) imageKeys.add(key);
-    images.push({ alt, width, height, url });
-  }
   return { title: clip(document.title, 512), url: location.href, ...mainText, ...mainSelection,
     truncated: mainText.textTruncated || mainSelection.selectionTruncated,
-    links, linksTruncated, ...mainTables, metadata, images, imagesTruncated, frames, framesOmitted };
+    links, linksTruncated, ...mainTables, metadata, ...mainImages, frames, framesOmitted };
 })()

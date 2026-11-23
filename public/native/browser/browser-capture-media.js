@@ -13,10 +13,25 @@ export function pageImageDescription({ alt, width, height, url }) {
   return [alt || t("No alternative text"), `${width} × ${height}`, url].filter(Boolean).join(" — ");
 }
 
+export function createBrowserCaptureImageList(images, recognizeImage) {
+  const recognitions = [];
+  const list = document.createElement("ul"); list.setAttribute("aria-label", t("Page images"));
+  for (const image of images) {
+    const item = document.createElement("li"); item.textContent = pageImageDescription(image);
+    if (recognizeImage && image.url) {
+      const recognition = createBrowserImageOcr(image, recognizeImage);
+      item.append(recognition.element);
+      recognitions.push(recognition);
+    }
+    list.append(item);
+  }
+  return { element: list, imageText: () => recognitions.map(recognition => recognition.attachment()).filter(Boolean) };
+}
+
 export function createBrowserCaptureMedia(page, recognizeImage) {
   const images = page.images ?? [];
-  const recognitions = [];
-  const imageText = () => recognitions.map(recognition => recognition.attachment()).filter(Boolean);
+  const imageList = createBrowserCaptureImageList(images, recognizeImage);
+  const { imageText } = imageList;
   const metadata = pageMetadataRows(page.metadata);
   const include = document.createElement("input"); include.type = "checkbox";
   if (!images.length && !metadata.length && !page.imagesTruncated) return { include, imageText };
@@ -38,19 +53,7 @@ export function createBrowserCaptureMedia(page, recognizeImage) {
       }
       scroll.append(list);
     }
-    if (images.length) {
-      const list = document.createElement("ul"); list.setAttribute("aria-label", t("Page images"));
-      for (const image of images) {
-        const item = document.createElement("li"); item.textContent = pageImageDescription(image);
-        if (recognizeImage && image.url) {
-          const recognition = createBrowserImageOcr(image, recognizeImage);
-          item.append(recognition.element);
-          recognitions.push(recognition);
-        }
-        list.append(item);
-      }
-      scroll.append(list);
-    }
+    if (images.length) scroll.append(imageList.element);
     element.append(label, scroll);
   }
   if (page.imagesTruncated) {

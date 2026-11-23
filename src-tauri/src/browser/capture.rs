@@ -40,6 +40,30 @@ pub struct PageFrame {
     pub selection_truncated: bool,
     pub tables: Vec<PageTable>,
     pub tables_truncated: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub images: Vec<PageImage>,
+    #[serde(default)]
+    pub images_truncated: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_locator: Option<FrameImageLocator>,
+}
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FrameImageLocator {
+    pub(super) path: Vec<u8>,
+    pub(super) time_origin: String,
+}
+#[cfg(windows)]
+impl FrameImageLocator {
+    pub(super) fn is_valid(&self) -> bool {
+        (1..=3).contains(&self.path.len())
+            && self.path.iter().all(|index| *index < 24)
+            && self.time_origin.len() <= 32
+            && self
+                .time_origin
+                .parse::<f64>()
+                .is_ok_and(|value| value.is_finite() && value > 0.0)
+    }
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -119,19 +143,27 @@ pub(super) fn decode(raw: &str, native_url: &str) -> Result<PageText, String> {
     let mut body_chars = page.text.chars().count();
     let mut selection_chars = page.selection.chars().count();
     let origin = reqwest::Url::parse(native_url).ok().map(|url| url.origin());
+    let mut frame_images = 0;
     if page.frames.len() > 6
         || page.frames.iter().any(|frame| {
             let frame_chars = frame.text.chars().count();
             body_chars += frame_chars;
             selection_chars += frame.selection.chars().count();
+            frame_images += frame.images.len();
             frame.title.chars().count() > 512
                 || frame_chars > 8000
+                || frame.images.len() > 6
+                || frame
+                    .image_locator
+                    .as_ref()
+                    .is_some_and(|locator| !locator.is_valid())
                 || frame.url.as_deref().is_some_and(|value| {
                     checked_web_url(value).is_none_or(|url| origin.as_ref() != Some(&url.origin()))
                 })
         })
         || body_chars > 48000
         || selection_chars > 8192
+        || frame_images > 12
     {
         return Err("Invalid browser frames response".into());
     }
@@ -169,12 +201,16 @@ pub(super) fn decode(raw: &str, native_url: &str) -> Result<PageText, String> {
             .as_deref()
             .is_some_and(|url| !is_web_url(url))
         || page.images.len() > 12
-        || page.images.iter().any(|image| {
-            image.alt.chars().count() > 160
-                || !(1..=100_000).contains(&image.width)
-                || !(1..=100_000).contains(&image.height)
-                || image.url.as_deref().is_some_and(|url| !is_web_url(url))
-        })
+        || page
+            .images
+            .iter()
+            .chain(page.frames.iter().flat_map(|frame| &frame.images))
+            .any(|image| {
+                image.alt.chars().count() > 160
+                    || !(1..=100_000).contains(&image.width)
+                    || !(1..=100_000).contains(&image.height)
+                    || image.url.as_deref().is_some_and(|url| !is_web_url(url))
+            })
     {
         return Err("Invalid browser image or page metadata response".into());
     }
@@ -297,6 +333,22 @@ mod tests {
         }
         page["frames"][0]["url"] = serde_json::Value::Null;
         assert!(valid(&page));
+        let mut media = page.clone();
+        let image = serde_json::json!({"url":"https://example.com/image.png","alt":"Scan","width":320,"height":160});
+        media["frames"][0]["images"] = serde_json::json!([image.clone()]);
+        media["frames"][0]["imageLocator"] =
+            serde_json::json!({"path":[0,2],"timeOrigin":"1700000000000.123"});
+        assert!(valid(&media));
+        let mut stale = media.clone();
+        stale["frames"][0]["imageLocator"]["path"] = serde_json::json!([0, 24]);
+        assert!(!valid(&stale));
+        let mut too_many = media.clone();
+        too_many["frames"][0]["images"] = serde_json::json!(vec![image.clone(); 7]);
+        assert!(!valid(&too_many));
+        media["frames"][0]["images"] = serde_json::json!(vec![image; 5]);
+        let frame = media["frames"][0].clone();
+        media["frames"] = serde_json::json!(vec![frame; 3]);
+        assert!(!valid(&media));
 
         let mut oversized = page.clone();
         oversized["text"] = serde_json::json!("a".repeat(48000));

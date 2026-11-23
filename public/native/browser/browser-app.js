@@ -1069,10 +1069,11 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const modelActions = modelGateway && createBrowserModelGateway({ gateway: modelGateway, getTarget, isCurrent, openConversation });
     const analysisArtifacts = createBrowserAnalysisArtifacts({ capture, getTarget,
       isCurrent: () => Boolean(captureElement?.isConnected), gateway: new ArtifactGateway() });
-    const recognizeImage = async image => {
+    const recognizeImage = async (image, frame) => {
       if (!isCurrent()) throw new Error(t("Page changed. Read it again."));
       const result = await invoke("browser_recognize_image_text", {
         tab: capture.tab, expectedUrl: capture.page.url, expectedRevision: capture.documentRevision, image, confirmed: true,
+        ...(frame ? { frame } : {}),
       });
       if (!isCurrent()) throw new Error(t("Page changed. Read it again."));
       return result;

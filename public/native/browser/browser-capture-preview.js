@@ -46,18 +46,18 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   text.value = `${capture.page.selection ? `${t("Selected text")}\n${capture.page.selection}\n\n` : ""}${capture.page.text}`;
   const includeLinks = document.createElement("input"); includeLinks.type = "checkbox";
   const includeTables = document.createElement("input"); includeTables.type = "checkbox";
-  const recognizeImage = dock?.recognizeImage && (async image => {
+  const recognizeImage = dock?.recognizeImage && (async (image, frame) => {
     if (busy || !isOpen()) return;
     setBusy(true);
     try {
-      const result = await dock.recognizeImage(image);
+      const result = await dock.recognizeImage(image, frame);
       return isOpen() ? result : undefined;
     } finally { setBusy(false); }
   });
   const media = createBrowserCaptureMedia(capture.page, recognizeImage);
-  const frames = createBrowserCaptureFrames(capture.page);
+  const frames = createBrowserCaptureFrames(capture.page, recognizeImage);
   const attachments = () => {
-    const imageText = media.imageText();
+    const imageText = [...media.imageText(), ...frames.imageText()];
     return {
       includeLinks: includeLinks.checked, includeTables: includeTables.checked, includeMedia: media.include.checked,
       ...(frames.include.checked ? { includeFrames: true } : {}),
@@ -167,7 +167,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     busy = value;
     if (dock) dialog.setAttribute("aria-busy", String(value));
     if (question) question.disabled = value;
-    for (const button of media.element?.querySelectorAll(".browser-image-ocr button") ?? []) button.disabled = value;
+    for (const button of dialog.querySelectorAll(".browser-image-ocr button")) button.disabled = value;
     if (value) {
       for (const button of actions.querySelectorAll("button:not(:disabled)")) {
         button.disabled = true;

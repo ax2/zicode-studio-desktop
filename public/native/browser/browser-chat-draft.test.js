@@ -145,3 +145,12 @@ it("attaches only explicitly selected recognition results alongside their origin
   expect(extract(browserDraftPrompt(capture))).not.toHaveProperty("imageText");
   expect(extract(browserDraftPrompt(capture, { imageText })).imageText).toEqual(imageText);
 });
+
+
+it("keeps embedded image addresses and locators out of text-only frame attachments", () => {
+  const frame = { title: "Frame", url: "https://example.org/frame", text: "Text" };
+  const snapshot = { ...capture, page: { ...capture.page, frames: [{ ...frame, images: [{ url: "https://example.org/private-path" }], imagesTruncated: true, imageLocator: { path: [0], timeOrigin: "42" } }] } };
+  const draft = browserDraftPrompt(snapshot, { includeFrames: true });
+  expect(JSON.parse(draft.slice(draft.indexOf("{"))).frames).toEqual([frame]);
+  expect(draft).not.toContain("private-path");
+});
