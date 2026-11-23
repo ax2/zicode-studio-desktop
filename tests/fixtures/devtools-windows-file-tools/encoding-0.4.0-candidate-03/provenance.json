@@ -1,0 +1,10 @@
+{
+  "sourceRevision": "97fa495b481971abef0abc67b901bed9e8f843ba",
+  "dirty": true,
+  "builtAt": "2026-11-17T06:27:24.589873+00:00",
+  "adapter": "zi-encoding-wasi/0.1.0",
+  "core": "zi-encoding-core/0.1.0",
+  "signature": "unsigned",
+  "wasmTarget": "wasm32-wasip1",
+  "profile": "plugin"
+}

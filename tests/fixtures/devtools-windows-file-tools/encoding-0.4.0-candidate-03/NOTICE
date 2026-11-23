@@ -1,0 +1,1 @@
+ZiDevTools encoding adapter, MIT. Shared algorithms: zi-encoding-core; third-party encoding_rs, chardetng, anyhow, serde, serde_json and base64 retain their upstream licenses. Local unsigned candidate; no credentials or native executable are included.

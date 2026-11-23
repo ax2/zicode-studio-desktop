@@ -1,0 +1,21 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.checksum-manifest",
+  "packageVersion": "0.2.0",
+  "tools": [
+    {
+      "sourceToolId": "checksum-manifest",
+      "sourceVersion": "1.0.0",
+      "capabilityId": "devtools.checksum-manifest.review",
+      "title": "SHA256SUMS 清单核对",
+      "scope": "只核对明确提供的清单文本及文件名/SHA-256；不会打开文件或检查目录。未提供摘要标记为未提供，不推断磁盘缺失。清单最多64项/32KiB，请求及结果48KiB。"
+    },
+    {
+      "sourceToolId": "checksum-manifest",
+      "sourceVersion": "1.0.0",
+      "capabilityId": "devtools.checksum-manifest.generate",
+      "title": "生成 SHA256SUMS 清单",
+      "scope": "按明确提供的文件名和已计算SHA-256生成标准SHA256SUMS；最多64项/32KiB清单。不会读取或写入文件，另存需宿主单独预览确认。"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.files",
+  "packageVersion": "0.2.0",
+  "source": {
+    "revision": "97fa495b481971abef0abc67b901bed9e8f843ba",
+    "dirty": true
+  },
+  "requiredProfiles": {
+    "resource.wasi.file-digest.v1": "=1.0.0-preview.1",
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "resource.wasi.file-digest-stream.v1": "=1.0.0-preview.1"
+  },
+  "tools": [
+    {
+      "sourceToolId": "files",
+      "toolId": "devtools.files.hash",
+      "capabilityId": "devtools.files.hash",
+      "version": "1.2.0",
+      "status": "candidate",
+      "profile": "resource.wasi.input.draft2",
+      "title": "文件摘要校验",
+      "scope": "Windows 本机经确认可流式校验1–64个普通文件，逐项计算SHA-256/SHA-512。普通资源输入继续支持原4项及32 MiB快照契约。候选待Studio接入验收。"
+    }
+  ],
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted"
+}
