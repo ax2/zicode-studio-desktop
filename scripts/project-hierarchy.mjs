@@ -8,6 +8,12 @@ export function loadMissingParents(issues, parents, readNodes) {
   }
 }
 
+export function openIssuesInPublishedMilestones(issues, releases) {
+  const tags = new Set(releases.filter(release => !release.draft && release.published_at).map(release => release.tag_name));
+  return issues.filter(issue => issue.state === "open" && tags.has(issue.milestone?.title))
+    .map(issue => ({number:issue.number, title:issue.title, url:issue.html_url, milestone:issue.milestone.title}));
+}
+
 /** Audit the repository snapshot, including closed issues and items removed from the Project. */
 export function summarizeHierarchy(issues, parents, repository, versionMilestone) {
   const byId = new Map(issues.map(issue => [issue.node_id, issue]));
@@ -41,6 +47,8 @@ export function summarizeHierarchy(issues, parents, repository, versionMilestone
     }
   }
   const cycles = [], visited = new Set();
+  const depths = new Map(roots.map(issue => [issue.number, 1]));
+  const deeperThanTwoLevels = [];
   for (const start of edges.keys()) {
     const chain = [], positions = new Map();
     let number = start;
@@ -53,10 +61,17 @@ export function summarizeHierarchy(issues, parents, repository, versionMilestone
       chain.push(number);
       number = edges.get(number);
     }
-    for (const member of chain) visited.add(member);
+    let depth = depths.get(number);
+    for (const member of chain.reverse()) {
+      visited.add(member);
+      if (depth === undefined) continue; // An incomplete ancestry or cycle has no known depth.
+      depth++;
+      depths.set(member, depth);
+      if (depth > 2) deeperThanTwoLevels.push({number: member, parent: edges.get(member), depth});
+    }
   }
   return {
     total: issues.length, withParent, roots, rootsWithoutEpic, rootsWithoutVersionMilestone,
-    unavailable, unresolvedParents, externalParents, cycles,
+    unavailable, unresolvedParents, externalParents, cycles, deeperThanTwoLevels,
   };
 }
