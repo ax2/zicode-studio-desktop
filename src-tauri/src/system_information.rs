@@ -176,28 +176,6 @@ fn platform_sample(previous: &mut Option<[u64; 3]>) -> Result<SystemInformation,
 }
 
 #[cfg(test)]
-pub(crate) fn test_information() -> SystemInformation {
-    SystemInformation {
-        sampled_at: 0,
-        cpu_name: "Test CPU".into(),
-        logical_processors: 8,
-        cpu_usage: None,
-        reported_frequency_mhz: None,
-        max_frequency_mhz: None,
-        memory_total: 0,
-        memory_available: 0,
-        disks: Vec::new(),
-        temperature_celsius: None,
-        temperature_source: None,
-        temperature_monitor: crate::system_temperature::Status {
-            state: "idle",
-            library_available: false,
-            driver_available: false,
-        },
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
