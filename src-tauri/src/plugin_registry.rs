@@ -3148,7 +3148,7 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 22);
+        assert_eq!(registry.list("programming").len(), 23);
         let visual = registry.list("programming").into_iter()
             .find(|plugin| plugin.manifest.id == "com.zicode.visual-assets")
             .expect("visual assets registered");

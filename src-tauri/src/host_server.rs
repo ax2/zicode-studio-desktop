@@ -7263,7 +7263,7 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 22);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 23);
         assert!(before["plugins"].as_array().unwrap().iter().any(|p| p["id"] == "com.zicode.mail" && p["enabled"] == true));
         assert!(before["plugins"].as_array().unwrap().iter().any(|p| p["id"] == "com.zicode.blog" && p["enabled"] == true));
         assert!(before["plugins"].as_array().unwrap().iter().any(|plugin|
