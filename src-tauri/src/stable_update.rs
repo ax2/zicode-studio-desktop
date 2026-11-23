@@ -13,7 +13,7 @@ use tauri::{Emitter, WebviewWindow};
 use tokio::io::AsyncWriteExt;
 use tokio_util::sync::CancellationToken;
 
-const API: &str = "https://api.github.com/repos/ax2/zicode-studio-desktop/releases/latest";
+const API: &str = "https://api.github.com/repos/ax2/zicode-studio-desktop/releases";
 const DOWNLOAD: &str = "https://github.com/ax2/zicode-studio-desktop/releases/download";
 const MAX_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 const CANCELLED: &str = "UPDATE_CANCELLED";
@@ -52,11 +52,13 @@ enum Stage {
     Handoff,
 }
 struct State {
+    requests: HashMap<String, std::sync::Arc<()>>,
     checked: HashMap<String, Candidate>,
     stage: Stage,
 }
 static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
     Mutex::new(State {
+        requests: HashMap::new(),
         checked: HashMap::new(),
         stage: Stage::Idle,
     })
@@ -153,45 +155,120 @@ fn select(release: &Release, current: &semver::Version) -> Result<Option<Candida
         sha: digest.to_ascii_lowercase(),
     }))
 }
-async fn latest(current: &semver::Version) -> Result<(Release, Option<Candidate>), String> {
-    let response = client()?
-        .get(API)
-        .header("Accept", "application/vnd.github+json")
-        .timeout(Duration::from_secs(25))
-        .send()
-        .await
-        .and_then(|r| r.error_for_status())
-        .map_err(|_| "Could not read the official GitHub release")?;
-    if response.url().as_str() != API {
-        return Err("Unexpected release metadata source".into());
+fn installable(
+    releases: Vec<Release>,
+    current: &semver::Version,
+) -> Result<Option<(Release, Candidate)>, String> {
+    let mut stable = releases
+        .into_iter()
+        .filter_map(|release| {
+            let version = semver::Version::parse(release.tag_name.strip_prefix('v')?).ok()?;
+            let pending = release
+                .body
+                .as_deref()
+                .and_then(|body| body.trim_end().lines().last())
+                .is_some_and(|line| {
+                    line.starts_with("<!-- studio-release-v1:") && line.contains(":pending:")
+                });
+            (!release.draft
+                && !release.prerelease
+                && version.pre.is_empty()
+                && version.build.is_empty()
+                && !pending)
+                .then_some((version, release))
+        })
+        .collect::<Vec<_>>();
+    stable.sort_unstable_by(|a, b| b.0.cmp(&a.0));
+    if stable.is_empty() {
+        return Err("No published stable release was available".into());
     }
-    let mut bytes = Vec::new();
-    let mut stream = response.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|_| "Incomplete official release metadata")?;
-        if bytes.len() + chunk.len() > 1024 * 1024 {
-            return Err("Official release metadata exceeds limit".into());
+    let mut invalid = None;
+    for (version, release) in stable {
+        if version <= *current {
+            break;
         }
-        bytes.extend_from_slice(&chunk);
+        match select(&release, current) {
+            Ok(Some(candidate)) => return Ok(Some((release, candidate))),
+            Ok(None) => continue,
+            Err(error) => invalid = Some(error),
+        }
     }
-    let release: Release =
-        serde_json::from_slice(&bytes).map_err(|_| "Invalid official release metadata")?;
-    let candidate = select(&release, current)?;
-    Ok((release, candidate))
+    invalid.map_or(Ok(None), Err)
+}
+async fn latest(current: &semver::Version) -> Result<Option<(Release, Candidate)>, String> {
+    let client = client()?;
+    let mut releases = Vec::new();
+    for page in 1..=20 {
+        let url = format!("{API}?per_page=100&page={page}");
+        let response = client
+            .get(&url)
+            .header("Accept", "application/vnd.github+json")
+            .header("Cache-Control", "no-cache")
+            .header("Pragma", "no-cache")
+            .timeout(Duration::from_secs(25))
+            .send()
+            .await
+            .and_then(|r| r.error_for_status())
+            .map_err(|_| "Could not read the official GitHub releases")?;
+        if response.url().as_str() != url {
+            return Err("Unexpected release metadata source".into());
+        }
+        let more = response
+            .headers()
+            .get(reqwest::header::LINK)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|value| {
+                value
+                    .split(',')
+                    .any(|part| part.trim_end().ends_with("rel=\"next\""))
+            });
+        let mut bytes = Vec::new();
+        let mut stream = response.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|_| "Incomplete official release metadata")?;
+            if bytes.len() + chunk.len() > 8 * 1024 * 1024 {
+                return Err("Official release metadata exceeds limit".into());
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let batch: Vec<Release> =
+            serde_json::from_slice(&bytes).map_err(|_| "Invalid official release metadata")?;
+        releases.extend(batch);
+        if !more {
+            return installable(releases, current);
+        }
+    }
+    Err("Official release catalog exceeds limit".into())
 }
 pub(super) async fn check(
     window: &WebviewWindow,
     current: &semver::Version,
 ) -> Result<Option<super::desktop_updates::DesktopUpdateInfo>, String> {
-    state()?.checked.remove(window.label());
-    let (release, candidate) = latest(current).await?;
-    if let Some(candidate) = candidate {
+    let request = std::sync::Arc::new(());
+    {
+        let mut state = state()?;
+        state.checked.remove(window.label());
+        state
+            .requests
+            .insert(window.label().into(), request.clone());
+    }
+    let result = latest(current).await;
+    let mut state = state()?;
+    if !state
+        .requests
+        .get(window.label())
+        .is_some_and(|active| std::sync::Arc::ptr_eq(active, &request))
+    {
+        return Err("Update check superseded".into());
+    }
+    state.requests.remove(window.label());
+    if let Some((release, candidate)) = result? {
         let info = super::desktop_updates::DesktopUpdateInfo::full(
             candidate.version.clone(),
             release.published_at,
             release.body,
         );
-        state()?.checked.insert(window.label().into(), candidate);
+        state.checked.insert(window.label().into(), candidate);
         Ok(Some(info))
     } else {
         Ok(None)
@@ -278,7 +355,7 @@ pub(super) async fn install(
     progress(window, "downloading", 0, checked.size);
     let mut owned_file = false;
     let work = async {
-        let (_, candidate) = latest(current).await?;
+        let candidate = latest(current).await?.map(|(_, candidate)| candidate);
         if candidate.as_ref() != Some(&checked) {
             return Err("Official installer changed. Check again.".into());
         }
@@ -356,6 +433,7 @@ pub(super) fn cancel(window: &WebviewWindow) -> Result<(), String> {
 }
 pub(super) fn forget_window(label: &str) {
     if let Ok(mut state) = state() {
+        state.requests.remove(label);
         state.checked.remove(label);
         match &state.stage {
             Stage::Download(owner, token) if owner == label => token.cancel(),
@@ -559,6 +637,51 @@ mod tests {
         r = release();
         r.prerelease = true;
         assert!(select(&r, &base).is_err());
+    }
+    #[test]
+    fn catalog_uses_highest_installable_version_even_if_listing_is_unsorted() {
+        fn at(version: &str) -> Release {
+            let mut release = release();
+            release.tag_name = format!("v{version}");
+            release.assets[0].name = format!("ZiCode.Studio.Desktop_{version}_x64-setup.exe");
+            release.assets[0].browser_download_url =
+                format!("{DOWNLOAD}/v{version}/{}", release.assets[0].name);
+            release
+        }
+        let base = semver::Version::new(0, 7, 0);
+        let mut partial = at("0.8.0");
+        partial.assets[0].digest = None;
+        let mut pending = at("0.7.3");
+        pending.body = Some("notes\n\n<!-- studio-release-v1:abc:def:pending:123 -->".into());
+        let catalog = vec![
+            at("0.7.1"),
+            pending,
+            at("1.0.0-beta.1"),
+            partial,
+            at("0.7.2"),
+        ];
+        assert_eq!(
+            installable(catalog, &base).unwrap().unwrap().1.version,
+            "0.7.2"
+        );
+        assert!(installable(vec![at("0.7.0")], &base).unwrap().is_none());
+        let mut invalid = at("0.7.2");
+        invalid.assets.clear();
+        assert!(installable(vec![invalid], &base).is_err());
+    }
+
+    #[tokio::test]
+    #[ignore = "read-only official GitHub release metadata; requires network"]
+    async fn official_catalog_read_only_from_v070() {
+        let (_, next) = latest(&semver::Version::new(0, 7, 0))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(semver::Version::parse(&next.version).unwrap() >= semver::Version::new(0, 7, 2));
+        println!(
+            "verified published Windows x64 v{}; {} bytes; sha256 {}",
+            next.version, next.size, next.sha
+        );
     }
     #[test]
     fn only_standard_https_github_asset_origins_can_follow_redirects() {

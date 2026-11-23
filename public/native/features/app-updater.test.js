@@ -26,11 +26,12 @@ describe("app updater sidebar action", () => {
     const downloadAndInstall = vi.fn(async () => undefined);
     const relaunch = vi.fn(async () => undefined);
     const openSettings = vi.fn();
+    let offeredVersion = "0.7.1";
 
     globalThis.__TAURI__ = {
       process: { relaunch },
       updater: {
-        check: vi.fn(async () => ({ version: "9.9.9", downloadAndInstall })),
+        check: vi.fn(async () => ({ version: offeredVersion, downloadAndInstall })),
       },
     };
 
@@ -43,10 +44,20 @@ describe("app updater sidebar action", () => {
     sidebarButton.click();
 
     expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify.mock.calls[0][0].title).toContain("9.9.9");
+    expect(notify.mock.calls[0][0].title).toContain("0.7.1");
     notify.mock.calls[0][0].action.run();
     await handle.checkNow();
     expect(notify).toHaveBeenCalledTimes(1);
+    offeredVersion = "0.7.2";
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now + 31 * 60 * 1000);
+    try {
+      window.dispatchEvent(new Event("focus"));
+      await vi.waitFor(() => expect(notify).toHaveBeenCalledTimes(2));
+      expect(notify.mock.calls[1][0].title).toContain("0.7.2");
+      window.dispatchEvent(new Event("focus"));
+      expect(globalThis.__TAURI__.updater.check).toHaveBeenCalledTimes(3);
+    } finally { clock.mockRestore(); }
     expect(openSettings).toHaveBeenCalledWith("updates");
     expect(downloadAndInstall).not.toHaveBeenCalled();
     expect(relaunch).not.toHaveBeenCalled();
