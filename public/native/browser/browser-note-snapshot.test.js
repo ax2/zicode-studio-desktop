@@ -135,3 +135,40 @@ it("preserves opted-in OCR text and its source without rendering markup or shari
   expect(browserNoteContent(capture)).not.toContain(imageText[0].source.url);
   expect(browserNoteContent(capture, true, { imageText })).not.toContain(imageText[0].source.url);
 });
+
+it("stores a summary as literal text and reuses a new notebook after a failed write", async () => {
+  const { options, gateway, params } = setup();
+  const text = "Summary line\n![Illustration](https://example.invalid/image.svg) <em>quoted</em>";
+  const writer = createBrowserNoteWriter({ ...options, analysis: {
+    kind: "summary", text, generatedAt: "2026-11-09T03:31:00Z", model: { provider: "fixture", modelId: "notes" },
+  } });
+  gateway.create.mockRejectedValueOnce(Error("Storage unavailable")).mockResolvedValueOnce({ note: { id: "saved", notebookId: "new-book" } });
+  const destination = { ...params, notebookId: null, notebookTitle: "Research" };
+  await expect(writer.save(destination)).rejects.toThrow("Storage unavailable");
+  await writer.save(destination);
+  expect(gateway.createNotebook).toHaveBeenCalledOnce();
+  expect(gateway.create).toHaveBeenCalledTimes(2);
+  expect(options.readCurrent).not.toHaveBeenCalled();
+  const { content } = gateway.create.mock.calls[1][3];
+  const preview = document.createElement("div");
+  preview.innerHTML = renderMarkdown(content);
+  expect(preview.querySelector("h2").textContent).toBe(t("Page summary"));
+  expect(preview.querySelector("img,em")).toBeNull();
+  expect(preview.textContent).toContain("![Illustration]");
+  expect(preview.textContent).not.toContain("Chosen words");
+});
+
+it("keeps a finished analysis in its original destination even during notebook creation", async () => {
+  const { options, gateway, params, target } = setup();
+  gateway.createNotebook.mockImplementationOnce(async () => {
+    target.workspaceId = "changed";
+    return { notebook: { id: "new-book" } };
+  });
+  const writer = createBrowserNoteWriter({ ...options, analysis: {
+    kind: "analysis", text: "Reviewed output", generatedAt: "2026-11-09T03:31:00Z",
+    model: { provider: "fixture", modelId: "notes" },
+  } });
+  await expect(writer.save({ ...params, notebookId: null, notebookTitle: "Research" })).rejects.toThrow(t("Page or destination changed. Read the page again."));
+  expect(gateway.create).not.toHaveBeenCalled();
+  expect(options.readCurrent).not.toHaveBeenCalled();
+});

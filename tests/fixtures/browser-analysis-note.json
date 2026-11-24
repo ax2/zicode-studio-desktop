@@ -1,0 +1,37 @@
+{
+  "capture": {
+    "tab": "sample",
+    "documentRevision": "reviewed-document:29",
+    "capturedAt": "2026-11-24T03:30:00Z",
+    "page": {
+      "title": "观察报告",
+      "url": "https://example.invalid/source?item=1&view=2",
+      "text": "Reviewed page input",
+      "selection": "Selected words"
+    }
+  },
+  "analysis": {
+    "kind": "analysis",
+    "text": "Reviewed answer 🦊.\nSecond line",
+    "question": "Which rows describe scope?",
+    "generatedAt": "2026-11-24T03:31:00.000Z",
+    "model": {
+      "provider": "fixture",
+      "modelId": "fixture-model"
+    }
+  },
+  "draft": {
+    "title": "Reviewed site analysis",
+    "content": "## Page analysis\n\nPage title: 观察报告\n\nSource: https://example.invalid/source?item=1&amp;view=2\n\nCaptured at: 2026-11-24T03:30:00Z\n\nDocument revision: reviewed-document:29\n\nGenerated at: 2026-11-24T03:31:00.000Z\n\nBrowser model: fixture / fixture-model\n\nBrowser analysis question: Which rows describe scope?\n\n### Browser model answer\n\nReviewed answer 🦊.  \nSecond line",
+    "tags": [
+      "web-clip",
+      "browser-analysis"
+    ],
+    "icon": "🌐",
+    "source": {
+      "url": "https://example.invalid/source?item=1&view=2",
+      "capturedAt": "2026-11-24T03:30:00Z",
+      "documentRevision": "reviewed-document:29"
+    }
+  }
+}
