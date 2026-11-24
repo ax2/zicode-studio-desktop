@@ -1,3 +1,7 @@
+## 2026-11-24 开发补充：目录空间分析
+
+Studio 工具中心已接入独立 Disk Inspector 0.1.0 候选。对工作区内选定目录单独确认后，查看文件逻辑大小、文件及目录数量、直属子目录和大文件排行。隔离 Windows 已验证完整、Host 深度受限和 Worker 分析预算受限的实际报告，中英文界面均有部分结果提示。系统文件夹窗口及日常安装分发见 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29)。见[接口与验证](local-directory-usage-snapshot-draft1.md)。
+
 ## 2026-11-24 开发补充：CSV 合并的左右表导入
 
 四种合并操作均可选择 8 KiB 以内的同格式 UTF-8 CSV、TSV 或 JSON 文件作为左右表，保留已有设置，并撤销最近一次导入。完成后可确认另存 CSV 或列式 JSON。开发范围见 [Windows Worker 验收](../iterations/2026-11-24-csv-merge-file-input.md)。
