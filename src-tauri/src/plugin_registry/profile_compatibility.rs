@@ -52,7 +52,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             .ok_or_else(|| "Invalid plugin profile range".to_string())?;
         if matches!(
             name.as_str(),
-            "tool.open.v1" | "view.operation.directory.v1"
+            "tool.open.v1" | "view.operation.directory.v1" | crate::plugin_resource_execution::IMAGE_CROP_PROFILE
         ) && range != "=1.0.0-preview.1"
         {
             return Err(format!("{name} requires the exact preview profile version"));
@@ -71,6 +71,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             | "resource.output.types.v1"
             | "resource.host.input.v1"
             | crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE
+            | crate::plugin_resource_execution::IMAGE_CROP_PROFILE
             | crate::plugin_resource_regex::PROFILE
             | crate::plugin_regex_review::PROFILE
             | crate::plugin_resource_execution::metadata::PROFILE
@@ -308,8 +309,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             );
         }
     }
-    let image_resize_required =
-        requirements.contains_key(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE);
+    use crate::plugin_resource_execution::{IMAGE_CROP_CAPABILITY_ID, IMAGE_CROP_PLUGIN_ID, IMAGE_CROP_PROFILE, IMAGE_RESIZE_PROFILE, is_image_processing_profile};
     crate::plugin_resource_execution::markdown::validate_manifest(manifest)?;
     crate::plugin_resource_execution::file_digest::validate_manifest(manifest)?;
     crate::plugin_resource_execution::encoding::validate_manifest(manifest)?;
@@ -319,20 +319,17 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
         manifest.schema_version, requirements, &manifest.runtime, &manifest.contributes,
         manifest.permissions.required.iter().chain(&manifest.permissions.optional).any(|permission|permission.name=="resource.read"),
     )?;
-    let image_resize_capabilities = manifest
+    let image_processing_capabilities = manifest
         .contributes
         .get("capabilities")
         .and_then(serde_json::Value::as_array)
         .into_iter()
         .flatten()
         .filter(|capability| {
-            capability
-                .get("executionProfile")
-                .and_then(serde_json::Value::as_str)
-                == Some(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE)
+            is_image_processing_profile(capability.get("executionProfile").and_then(serde_json::Value::as_str))
         })
         .collect::<Vec<_>>();
-    if image_resize_required {
+    for profile in [IMAGE_RESIZE_PROFILE, IMAGE_CROP_PROFILE].into_iter().filter(|profile| requirements.contains_key(*profile)) {
         let runtime = &manifest.runtime;
         let required_permission = manifest
             .permissions
@@ -340,11 +337,13 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             .iter()
             .chain(&manifest.permissions.optional)
             .any(|permission| permission.name == "resource.read");
-        let scoped_capability = image_resize_capabilities.len() == 1
-            && image_resize_capabilities[0].get("outputSchema").is_some()
-            && image_resize_capabilities[0]
-                .get("resourceInputMax")
-                .is_none();
+        let mut selected = image_processing_capabilities.iter().copied().filter(|capability| capability["executionProfile"] == profile);
+        let scoped_capability = selected.next().is_some_and(|capability| {
+            capability.get("outputSchema").is_some() && capability.get("resourceInputMax").is_none()
+                && (profile != IMAGE_CROP_PROFILE || (manifest.id == IMAGE_CROP_PLUGIN_ID
+                    && capability["id"] == IMAGE_CROP_CAPABILITY_ID
+                    && capability["resourceInputMimeTypes"] == serde_json::json!(crate::plugin_resource_execution::IMAGE_MIME_TYPES)))
+        }) && selected.next().is_none();
         if manifest.schema_version != 2
             || !requirements.contains_key("output.schema.v1")
             || !requirements.contains_key("resource.output.types.v1")
@@ -363,7 +362,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             || !required_permission
             || !scoped_capability
         {
-            return Err("resource.wasi.image.resize.v1 requires the image resize capability, resource input/output runtimes, output profiles, and resource.read permission".into());
+            return Err(format!("{profile} requires the matching single image capability, resource input/output runtimes, output profiles, and resource.read permission"));
         }
     }
     for capability in manifest
@@ -374,8 +373,8 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
         .flatten()
     {
         if let Some(profile) = capability.get("executionProfile") {
-            if !((profile.as_str() == Some(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE)
-                && image_resize_required)
+            if !((is_image_processing_profile(profile.as_str())
+                && profile.as_str().is_some_and(|name| requirements.contains_key(name)))
                 || (crate::plugin_resource_regex::selected(profile.as_str())
                     && profile.as_str().is_some_and(|name| requirements.contains_key(name)))
                 || (crate::plugin_resource_execution::metadata::selected(profile.as_str())

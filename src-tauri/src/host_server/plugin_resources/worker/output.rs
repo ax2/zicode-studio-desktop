@@ -4,7 +4,7 @@ use super::*;
 pub(super) struct Profiles<'a> {
     pub(super) output: crate::plugin_worker::resource_output::Profile,
     pub(super) extended_output_types: bool,
-    pub(super) image_resize: bool,
+    pub(super) image_processing: bool,
     pub(super) source_bytes: &'a [&'a [u8]],
     pub(super) package_version: &'a str,
     pub(super) module: &'a [u8],
@@ -62,8 +62,8 @@ pub(super) fn register(
         let metadata=bundle.resources.iter().map(|resource|(resource.mime_type.as_str(),resource.bytes.len())).collect::<Vec<_>>();
         crate::plugin_regex_review::validate_outputs(&bundle.result,&metadata).map_err(rejected)?;
     }
-    if profiles.image_resize {
-        if let Some(result) = normalize_image_resize_failure(&bundle.result)? {
+    if profiles.image_processing {
+        if let Some(result) = normalize_image_failure(&bundle.result)? {
             if !bundle.resources.is_empty() {
                 return Err(rejected("invalid_output"));
             }
@@ -74,7 +74,11 @@ pub(super) fn register(
                 report_resource: None,
             });
         }
-        validate_image_resize_outputs(&bundle)?;
+        validate_image_outputs(&bundle)?;
+        if capability.execution_profile.as_deref() == Some(crate::plugin_resource_execution::IMAGE_CROP_PROFILE) {
+            let [source] = profiles.source_bytes else { return Err(rejected("invalid_output")); };
+            validate_crop_output(source, &request.input, &bundle)?;
+        }
     }
     if bundle.result.is_null()
         || serde_json::to_vec(&bundle.result)
@@ -156,7 +160,7 @@ pub(super) fn register(
 
 /// Accepts only the image adapter's bounded public error envelope. Guest text is discarded so
 /// it cannot leak paths or arbitrary diagnostics into Studio's UI or logs.
-fn normalize_image_resize_failure(result: &Value) -> Result<Option<Value>, ApiError> {
+fn normalize_image_failure(result: &Value) -> Result<Option<Value>, ApiError> {
     if result.get("ok") != Some(&Value::Bool(false)) {
         return Ok(None);
     }
@@ -198,7 +202,7 @@ fn normalize_image_resize_failure(result: &Value) -> Result<Option<Value>, ApiEr
     ))
 }
 
-fn validate_image_resize_outputs(
+fn validate_image_outputs(
     bundle: &crate::plugin_worker::resource_output::Bundle,
 ) -> Result<(), ApiError> {
     if bundle.resources.len() != 1 {
@@ -210,6 +214,38 @@ fn validate_image_resize_outputs(
     }
     if !crate::plugin_resource_execution::IMAGE_MIME_TYPES.contains(&output.mime_type.as_str()) {
         return Err(rejected("invalid_output"));
+    }
+    Ok(())
+}
+
+fn validate_crop_output(
+    source: &[u8],
+    input: &Value,
+    bundle: &crate::plugin_worker::resource_output::Bundle,
+) -> Result<(), ApiError> {
+    use std::io::Cursor;
+    let invalid = || rejected("invalid_output");
+    let [output] = bundle.resources.as_slice() else { return Err(invalid()); };
+    if output.mime_type != "image/png" || bundle.result["mimeType"] != "image/png"
+        || bundle.result["byteLength"].as_u64() != Some(output.bytes.len() as u64)
+        || !output.bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+    {
+        return Err(invalid());
+    }
+    let source_dimensions = image::ImageReader::new(Cursor::new(source)).with_guessed_format()
+        .map_err(|_| invalid())?.into_dimensions().map_err(|_| invalid())?;
+    let dimensions = image::ImageReader::with_format(Cursor::new(&output.bytes), image::ImageFormat::Png)
+        .into_dimensions().map_err(|_| invalid())?;
+    let (width, height) = (u64::from(dimensions.0), u64::from(dimensions.1));
+    let (source_width, source_height) = (u64::from(source_dimensions.0), u64::from(source_dimensions.1));
+    if input["width"].as_u64() != Some(width) || input["height"].as_u64() != Some(height)
+        || input["x"].as_u64().and_then(|x| x.checked_add(width)).is_none_or(|right| right > source_width)
+        || input["y"].as_u64().and_then(|y| y.checked_add(height)).is_none_or(|bottom| bottom > source_height)
+        || bundle.result["width"].as_u64() != Some(width) || bundle.result["height"].as_u64() != Some(height)
+        || bundle.result["sourceWidth"].as_u64() != Some(source_width)
+        || bundle.result["sourceHeight"].as_u64() != Some(source_height)
+    {
+        return Err(invalid());
     }
     Ok(())
 }
@@ -300,16 +336,16 @@ mod tests {
             result: json!({}),
             resources,
         };
-        assert!(validate_image_resize_outputs(&bundle(vec![blob()])).is_ok());
+        assert!(validate_image_outputs(&bundle(vec![blob()])).is_ok());
         assert_eq!(
-            validate_image_resize_outputs(&bundle(vec![]))
+            validate_image_outputs(&bundle(vec![]))
                 .unwrap_err()
                 .1
                  .0["error"]["code"],
             "invalid_output"
         );
         assert_eq!(
-            validate_image_resize_outputs(&bundle(vec![blob(), blob()]))
+            validate_image_outputs(&bundle(vec![blob(), blob()]))
                 .unwrap_err()
                 .1
                  .0["error"]["code"],
@@ -320,7 +356,7 @@ mod tests {
             bytes: vec![1, 2, 3],
         };
         assert_eq!(
-            validate_image_resize_outputs(&bundle(vec![invalid_mime]))
+            validate_image_outputs(&bundle(vec![invalid_mime]))
                 .unwrap_err()
                 .1
                  .0["error"]["code"],
@@ -331,7 +367,7 @@ mod tests {
             bytes: vec![0; crate::plugin_resource_execution::IMAGE_RESIZE_MAX_RESOURCE_BYTES + 1],
         };
         assert_eq!(
-            validate_image_resize_outputs(&bundle(vec![oversized]))
+            validate_image_outputs(&bundle(vec![oversized]))
                 .unwrap_err()
                 .1
                  .0["error"]["code"],
@@ -341,7 +377,7 @@ mod tests {
 
     #[test]
     fn image_resize_failure_envelopes_are_allowlisted_and_guest_text_is_discarded() {
-        let normalized = normalize_image_resize_failure(&json!({
+        let normalized = normalize_image_failure(&json!({
             "ok": false,
             "error": {"code":"INVALID_IMAGE", "message":"C:\\private\\input.png failed"}
         }))
@@ -360,12 +396,12 @@ mod tests {
             json!({"ok":false,"error":"failed"}),
         ] {
             assert_eq!(
-                normalize_image_resize_failure(&invalid).unwrap_err().1 .0["error"]["code"],
+                normalize_image_failure(&invalid).unwrap_err().1 .0["error"]["code"],
                 "invalid_output"
             );
         }
         assert_eq!(
-            normalize_image_resize_failure(&json!({"ok":true})).unwrap(),
+            normalize_image_failure(&json!({"ok":true})).unwrap(),
             None
         );
     }
