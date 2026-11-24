@@ -90,3 +90,39 @@ it("retains rows when deletion fails and still permits closing during a pending 
   const onClose = vi.fn(); const slow = showBrowserHistory({ invoke: () => new Promise(() => {}), onClose });
   getByRole(slow, "button", { name: t("Close") }).click();expect(onClose).toHaveBeenCalledOnce();expect(slow.isConnected).toBe(false);
 });
+
+
+it.each(["native cancel", "search Escape"])("discards only the clear review through %s and preserves filtered history", async path => {
+  const history = await open();
+  const { dialog } = history;
+  const search = getByLabelText(dialog, t("Search browsing history"));
+  fireEvent.input(search, { target: { value: "Page" } });
+  fireEvent.submit(dialog.querySelector("form"));
+  await idle(dialog);
+  const clear = getByRole(dialog, "button", { name: t("Clear browsing history") });
+  clear.click();
+  await idle(dialog);
+  const review = dialog.querySelector(".browser-history-confirm");
+  const apply = getByRole(review, "button", { name: t("Confirm clear history") });
+  if (path === "search Escape") {
+    search.focus();
+    fireEvent.keyDown(search, { key: "Escape" });
+  } else {
+    const cancel = new Event("cancel", { cancelable: true });
+    if (dialog.dispatchEvent(cancel)) dialog.close();
+  }
+  expect(dialog.open).toBe(true);
+  expect(review.hidden).toBe(true);
+  expect(document.activeElement).toBe(clear);
+  expect(search.value).toBe("Page");
+  expect(dialog.querySelectorAll('[role="listitem"]')).toHaveLength(2);
+  clear.click();
+  await idle(dialog);
+  apply.click();
+  expect(history.calls).toHaveLength(2);
+  getByRole(review, "button", { name: t("Cancel") }).click();
+  const close = new Event("cancel", { cancelable: true });
+  if (dialog.dispatchEvent(close)) dialog.close();
+  expect(dialog.open).toBe(false);
+  expect(history.onClose).toHaveBeenCalledOnce();
+});

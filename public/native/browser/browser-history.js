@@ -35,7 +35,7 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
   const request = request => invoke("browser_history", { request });
   const form = el("form", "browser-history-search");
   const search = el("input", "ui-input"); search.type = "search"; search.maxLength = 256; search.setAttribute("aria-label", t("Search browsing history")); search.placeholder = t("Search browsing history");
-  closeOnSearchEscape(dialog, search);
+  closeOnSearchEscape(dialog, search, () => { if (!discardClear()) dialog.close(); });
   const submit = el("button", "ui-button ui-button--secondary", t("Search")); submit.type = "submit"; form.append(search, submit);
   const toolbar = el("div", "ui-toolbar browser-history-toolbar");
   const confirm = el("div", "browser-history-confirm"); confirm.hidden = true;
@@ -44,18 +44,36 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
     const result = await request({ kind: "list", query, before });
     if (!dialog.open) return;
     page = { ...result, entries: before ? [...page.entries, ...result.entries] : result.entries };
-    confirm.hidden = true; render();
+    hideClear(); render();
   };
   const submitSearch = () => run(async () => { query = search.value.trim(); await load(); }, () => search);
   form.addEventListener("submit", event => { event.preventDefault(); void submitSearch(); });
   search.addEventListener("search", () => { if (!search.value && query) void submitSearch(); });
   const more = button("Show older visits", () => load(page.nextBefore));
-  const cancelClear = button("Cancel", () => { confirm.hidden = true; }, "secondary", () => clear);
+  function hideClear() {
+    confirm.hidden = true;
+    confirm.replaceChildren();
+  }
+  function discardClear() {
+    if (busy || confirm.hidden) return false;
+    hideClear();
+    clear.focus({ preventScroll: true });
+    return true;
+  }
+  const cancelClear = button("Cancel", hideClear, "secondary", () => clear);
   const clear = button("Clear browsing history", () => {
     const throughId = page.latestId;
-    confirm.replaceChildren(el("p", "", t("Remove all visits recorded so far, including results outside this search? Bookmarks, tabs and site data will be kept.")),
-      button("Confirm clear history", async () => { await request({ kind: "clear", throughId }); await load(); message.textContent = t("Browsing history cleared"); }, "danger"),
-      cancelClear);
+    const details = el("p", "", t("Remove all visits recorded so far, including results outside this search? Bookmarks, tabs and site data will be kept."));
+    details.id = "browser-history-clear-description";
+    const apply = button("Confirm clear history", async () => {
+      if (!dialog.open || confirm.hidden || apply.parentNode !== confirm) return;
+      await request({ kind: "clear", throughId });
+      await load();
+      message.textContent = t("Browsing history cleared");
+    }, "danger");
+    apply.setAttribute("aria-describedby", details.id);
+    cancelClear.setAttribute("aria-describedby", details.id);
+    confirm.replaceChildren(details, apply, cancelClear);
     confirm.hidden = false;
   }, "secondary", () => cancelClear);
   toolbar.append(button("Refresh history", () => load()), clear);
@@ -80,6 +98,9 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
   const close = el("button", "ui-button ui-button--secondary", t("Close")); close.type = "button"; close.addEventListener("click", () => dialog.close());
   content.append(form, toolbar, confirm, list, more);
   dialog.append(el("h2", "", t("Browsing history")), content, message, close);
+  dialog.addEventListener("cancel", event => {
+    if (event.cancelable && discardClear()) event.preventDefault();
+  });
   dialog.addEventListener("close", () => { dialog.remove(); onClose?.(); }, { once: true });
   document.body.append(dialog);
   dialog.showModal();
