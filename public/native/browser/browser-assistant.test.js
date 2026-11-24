@@ -335,7 +335,7 @@ it("ignores a browser Notes link when the workspace changes during activation", 
   expect(open).not.toHaveBeenCalled();
 });
 
-async function openControlledAssistant({ capturePage, handoff, target, modelGateway, getNativeStatus }) {
+async function openControlledAssistant({ capturePage, handoff, target, modelGateway, getNativeStatus, canOpenDraftConversation, openDraftConversation }) {
   setLocale("en");
   const host = document.createElement("main");
   document.body.append(host);
@@ -361,7 +361,7 @@ async function openControlledAssistant({ capturePage, handoff, target, modelGate
     return {};
   });
   app = setupBrowserApp({ invoke, listen: vi.fn(async (_name, callback) => { emit = payload => callback({ payload }); return () => {}; }), onPrepareDraft: handoff,
-    getTarget: () => target, modelGateway });
+    getTarget: () => target, modelGateway, canOpenDraftConversation, openDraftConversation });
   app.renderContent(host);
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_control", { request: expect.objectContaining({ kind: "present", tab: capture.tab }) }));
   getByRole(host, "button", { name: "Read page" }).click();
@@ -434,6 +434,87 @@ it("does not restore a typed question into a different Chat session", async () =
   question().dispatchEvent(new Event("input", { bubbles: true }));
   panel.getByRole("button", { name: "Close" }).click();
   target.sessionId = "different";
+  getByRole(host, "button", { name: "Read page" }).click();
+  await waitFor(() => expect(question().value).toBe(""));
+  expect(handoff).not.toHaveBeenCalled();
+});
+
+it("keeps both unsent questions when switching Chat sessions on the same page", async () => {
+  const target = { sceneId: "programming", workspaceId: "workspace", instanceId: "instance-a", sessionId: "a", runtimeMode: "ai" };
+  const handoff = vi.fn(async () => {});
+  const { host, assistant } = await openControlledAssistant({ handoff, target });
+  const panel = within(assistant);
+  const question = () => panel.getByRole("textbox", { name: "Question about this page" });
+  const enter = text => {
+    question().value = text;
+    question().dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  const open = async (sessionId, text) => {
+    target.sessionId = sessionId;
+    target.instanceId = "instance-" + sessionId;
+    getByRole(host, "button", { name: "Read page" }).click();
+    await waitFor(() => expect(question().value).toBe(text));
+  };
+  const close = () => panel.getByRole("button", { name: "Close" }).click();
+  enter("First conversation question");
+  close();
+  await open("b", "");
+  enter("Second conversation question");
+  close();
+  await open("a", "First conversation question");
+  panel.getByRole("button", { name: "Prepare chat draft" }).click();
+  await waitFor(() => expect(assistant.hidden).toBe(true));
+  expect(handoff.mock.calls[0][0].prompt).toContain("First conversation question");
+  expect(handoff.mock.calls[0][0].prompt).not.toContain("Second conversation question");
+  await open("a", "");
+  close();
+  await open("b", "Second conversation question");
+});
+
+it("keeps a stale question out of a different Chat session while the original preview is open", async () => {
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "a", runtimeMode: "ai" };
+  const handoff = vi.fn(async () => {});
+  const { host, assistant, readTabs } = await openControlledAssistant({ handoff, target });
+  const panel = within(assistant);
+  const question = () => panel.getByRole("textbox", { name: "Question about this page" });
+  question().value = "Only for the first session";
+  question().dispatchEvent(new Event("input", { bubbles: true }));
+  target.sessionId = "b";
+  panel.getByRole("button", { name: "Prepare chat draft" }).click();
+  await waitFor(() => expect(panel.getByRole("alert").textContent).toBe("Page or conversation changed. Read the page again."));
+  expect(readTabs()).toEqual([capture.tab]);
+  expect(handoff).not.toHaveBeenCalled();
+  panel.getByRole("button", { name: "Close" }).click();
+  target.sessionId = "a";
+  getByRole(host, "button", { name: "Read page" }).click();
+  await waitFor(() => expect(question().value).toBe("Only for the first session"));
+});
+
+it("keeps the question with a Chat session explicitly opened to load browser models", async () => {
+  const tools = { sceneId: "programming", workspaceId: "workspace", instanceId: "tools-instance", sessionId: "tools", runtimeMode: "tools" };
+  const conversation = { ...tools, instanceId: "chat-instance", sessionId: "chat", runtimeMode: "ai" };
+  const target = { ...tools };
+  const openDraftConversation = vi.fn(async ({ isCurrent }) => {
+    expect(isCurrent()).toBe(true);
+    Object.assign(target, conversation);
+  });
+  const modelGateway = { call: vi.fn(async () => ({ ok: true, data: { revision: 1, models: [] } })) };
+  const handoff = vi.fn(async () => {});
+  const { host, assistant } = await openControlledAssistant({ handoff, target, modelGateway,
+    canOpenDraftConversation: async () => true, openDraftConversation });
+  const panel = within(assistant);
+  const question = () => panel.getByRole("textbox", { name: "Question about this page" });
+  question().value = "Continue this question in the new chat";
+  question().dispatchEvent(new Event("input", { bubbles: true }));
+  panel.getByRole("button", { name: "Load Pi models" }).click();
+  await waitFor(() => expect(modelGateway.call).toHaveBeenCalledWith("get_module_models", {},
+    expect.objectContaining({ target: conversation })));
+  expect(openDraftConversation).toHaveBeenCalledOnce();
+  panel.getByRole("button", { name: "Close" }).click();
+  getByRole(host, "button", { name: "Read page" }).click();
+  await waitFor(() => expect(question().value).toBe("Continue this question in the new chat"));
+  panel.getByRole("button", { name: "Close" }).click();
+  Object.assign(target, tools);
   getByRole(host, "button", { name: "Read page" }).click();
   await waitFor(() => expect(question().value).toBe(""));
   expect(handoff).not.toHaveBeenCalled();
