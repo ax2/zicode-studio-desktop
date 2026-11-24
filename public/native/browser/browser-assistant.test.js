@@ -241,7 +241,9 @@ it("saves a reviewed browser answer to Notes and reopens the saved document with
   const invoke = vi.fn(async (command, args) => {
     if (command === "browser_get_state") return { startupMode: "browser", session: { activeTab: capture.tab, revision: 0, tabs } };
     if (command === "browser_capture_page") return capture;
-    if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs };
+    if (args?.request?.kind === "status") return {
+      surfaceRevision: 0, tabs: tabs.map(tab => ({ ...tab, documentRevision: capture.documentRevision })),
+    };
     return {};
   });
   const { model } = analysis;
@@ -330,7 +332,7 @@ it("ignores a browser Notes link when the workspace changes during activation", 
   expect(open).not.toHaveBeenCalled();
 });
 
-async function openControlledAssistant({ capturePage, handoff, target, modelGateway }) {
+async function openControlledAssistant({ capturePage, handoff, target, modelGateway, getNativeStatus }) {
   setLocale("en");
   const host = document.createElement("main");
   document.body.append(host);
@@ -348,7 +350,10 @@ async function openControlledAssistant({ capturePage, handoff, target, modelGate
       expect(args.expectedUrl).toBe(source.page.url);
       return capturePage?.(source) ?? source;
     }
-    if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs };
+    if (args?.request?.kind === "status") {
+      const snapshot = { surfaceRevision: 0, tabs: tabs.map((tab, index) => ({ ...tab, documentRevision: pages[index].documentRevision })) };
+      return getNativeStatus?.(snapshot) ?? snapshot;
+    }
     return {};
   });
   app = setupBrowserApp({ invoke, listen: vi.fn(async () => () => {}), onPrepareDraft: handoff,
@@ -661,4 +666,82 @@ it("keeps an oversized reviewed comparison available for a draft without sending
   expect(send.disabled).toBe(true);
   expect(panel.getByText("The reviewed tabs exceed the model input limit. Compare fewer tabs or prepare a draft.").hidden).toBe(false);
   expect(modelRequests(modelGateway)).toHaveLength(0);
+});
+
+it.each(["Send page and ask", "Send page and summarize"])("checks the current native document before %s", async buttonName => {
+  const modelGateway = comparisonGateway();
+  let changed = false;
+  const { host, assistant, readTabs } = await openControlledAssistant({
+    target: browserComparisonSession, handoff: vi.fn(), modelGateway,
+    getNativeStatus: snapshot => ({
+      ...snapshot, tabs: snapshot.tabs.map(tab => tab.id === capture.tab && changed
+        ? { ...tab, documentRevision: capture.documentRevision + 1 } : tab),
+    }),
+  });
+  const question = getByRole(host, "textbox", { name: "Question about this page" });
+  question.value = "Keep this question";
+  question.dispatchEvent(new Event("input", { bubbles: true }));
+  const send = getByRole(host, "button", { name: buttonName });
+  await waitFor(() => expect(send.disabled).toBe(false));
+  changed = true; // Same URL, and Studio has yet to receive its navigation event.
+  send.click();
+  await waitFor(() => expect(assistant.textContent).toContain("Page or conversation changed. Read the page again."));
+  expect(modelRequests(modelGateway)).toHaveLength(0);
+  expect(readTabs()).toEqual([capture.tab]);
+  expect(question.value).toBe("Keep this question");
+});
+
+it("sends only the page content and attachments chosen when the user clicked Send", async () => {
+  const modelGateway = comparisonGateway();
+  const link = { label: "Reviewed source link", url: "https://example.invalid/source" };
+  let hold = false, finishCheck;
+  const { host, assistant } = await openControlledAssistant({
+    target: browserComparisonSession, handoff: vi.fn(), modelGateway,
+    capturePage: source => ({ ...source, page: { ...source.page, links: [link] } }),
+    getNativeStatus: snapshot => hold ? new Promise(resolve => { finishCheck = () => resolve(snapshot); }) : snapshot,
+  });
+  const question = getByRole(host, "textbox", { name: "Question about this page" });
+  question.value = "The reviewed question";
+  question.dispatchEvent(new Event("input", { bubbles: true }));
+  assistant.querySelector(".browser-capture-links").open = true;
+  const include = getByRole(assistant, "checkbox", { name: "Include links in the page note or chat draft" });
+  include.click();
+  expect(assistant.textContent).toContain("Page questions and summaries include the selected attachments.");
+  const send = getByRole(host, "button", { name: "Send page and ask" });
+  await waitFor(() => expect(send.disabled).toBe(false));
+  hold = true;
+  send.click();
+  await waitFor(() => expect(finishCheck).toBeTypeOf("function"));
+  expect(modelRequests(modelGateway)).toHaveLength(0);
+  include.checked = false;
+  question.value = "An edit after sending";
+  finishCheck();
+  await waitFor(() => expect(modelRequests(modelGateway)).toHaveLength(1));
+  const [, { prompt }] = modelRequests(modelGateway)[0];
+  expect(prompt).toContain("The reviewed question");
+  expect(prompt).not.toContain("An edit after sending");
+  expect(prompt).toContain("\"label\": \"Reviewed source link\"");
+  expect(prompt).toContain(link.url);
+});
+
+it("cancels the single-page document check without starting or cancelling a request in Pi", async () => {
+  const modelGateway = comparisonGateway();
+  let hold = false, finishCheck;
+  const { host, assistant } = await openControlledAssistant({
+    target: browserComparisonSession, handoff: vi.fn(), modelGateway,
+    getNativeStatus: snapshot => hold ? new Promise(resolve => { finishCheck = () => resolve(snapshot); }) : snapshot,
+  });
+  const send = getByRole(host, "button", { name: "Send page and summarize" });
+  await waitFor(() => expect(send.disabled).toBe(false));
+  hold = true;
+  send.focus(); send.click();
+  await waitFor(() => expect(finishCheck).toBeTypeOf("function"));
+  getByRole(host, "button", { name: "Cancel model request" }).click();
+  hold = false;
+  finishCheck();
+  await waitFor(() => expect(assistant.textContent).toContain("Model request cancelled."));
+  expect(modelGateway.call.mock.calls.map(([name]) => name)).toEqual(["get_module_models"]);
+  expect(send.disabled).toBe(false);
+  send.click();
+  await waitFor(() => expect(modelRequests(modelGateway)).toHaveLength(1));
 });

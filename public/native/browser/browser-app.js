@@ -1361,6 +1361,17 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       ? { tab: source.tab, url: source.url, version }
       : peers.find(peer => peer.tab === source.tab);
     const modelActions = modelGateway && createBrowserModelGateway({ gateway: modelGateway, getTarget, isCurrent, openConversation });
+    const verifyPage = modelActions && (isSending => verifyReviewedBrowserSources(
+      [{ tab: capture.tab, url: capture.page.url, documentRevision: capture.documentRevision }],
+      async source => {
+        const status = await control({ kind: "status" }).catch(() => undefined);
+        const page = status?.tabs?.find(entry => entry.id === source.tab);
+        return page?.documentRevision && !page.processFailed
+          ? { tab: page.id, page: { url: page.url }, documentRevision: page.documentRevision }
+          : null;
+      },
+      () => isSending() && !blocked() && isCurrent(),
+    ));
     const sourcesCurrent = sources => sources.every(source => sourceIsCurrent(requestFor(source)));
     const reread = source => readSource(requestFor(source));
     const comparison = (onPrepareDraft || modelActions) && {
@@ -1403,7 +1414,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     }) : undefined, (isOpen, analysis) => createBrowserNoteWriter({ capture, getTarget, analysis,
       isCurrent: () => isOpen() && isCurrent(), gateway: new NotesGateway(),
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
-    }), comparison, Boolean(openConversation), { host: assistant, trigger: read, modelActions, analysisArtifacts, recognizeImage, previewImage });
+    }), comparison, Boolean(openConversation), { host: assistant, trigger: read, modelActions, verifyPage, analysisArtifacts, recognizeImage, previewImage });
     await syncSurface();
   }
   async function navigate(submission, source) {

@@ -94,7 +94,12 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (capture.page.textTruncated ?? capture.page.truncated) notices.push("Page content was shortened");
   if (capture.page.selectionTruncated) notices.push("Selected text was shortened");
   const hasShortenedText = notices.length > 0;
-  if (!hasShortenedText) notices.push("Content read locally. Nothing has been sent to AI.");
+  if (!hasShortenedText) notices.push(dock?.modelActions
+    ? "Page content was collected locally."
+    : "Content read locally. Nothing has been sent to AI.");
+  if (dock?.modelActions && (links || tables || media.element || frames.element)) {
+    notices.push("Page questions and summaries include the selected attachments.");
+  }
   for (const key of notices) {
     const label = document.createElement("span");
     setLabel(label, key);
@@ -220,7 +225,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     modelAssistant = createBrowserModelAssistant({ actions: dock.modelActions, question,
       prompt: summarize => browserDraftPrompt(capture, { ...attachments(), question: question?.value, summarize }),
       isCurrent: isOpen, setBusy, artifacts: dock.analysisArtifacts,
-      canStart: () => !busy, verifyComparison: comparison?.verify,
+      canStart: () => !busy, verifyPage: dock.verifyPage, verifyComparison: comparison?.verify,
       notes: createNoteWriter && { capture, writer: createNoteWriter } });
   }
   compare = comparison && createBrowserCompare({ ...comparison, capture, setBusy, opensChat,
@@ -252,11 +257,12 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (frames.element) dialog.append(frames.element);
   if (questionLabel) dialog.append(questionLabel);
   if (modelAssistant) {
+    if (!hasShortenedText) dialog.append(note);
     dialog.append(modelAssistant.element);
     dialog.disposeBrowserModel = () => modelAssistant.dispose();
     dialog.cancelBrowserModel = () => modelAssistant.cancel();
   }
-  if (!hasShortenedText) dialog.append(note);
+  if (!hasShortenedText && !modelAssistant) dialog.append(note);
   dialog.append(error);
   if (prepareDraft) dialog.append(draftStatus);
   dialog.append(actions);

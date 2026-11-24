@@ -1280,6 +1280,9 @@ const zhCN = {
   "Choose one or two loaded tabs and review their excerpts.": "选择一个或两个已加载的标签并审核摘录。",
   "Review the excerpts before sending.": "发送前请审核摘录。",
   "Checking reviewed tabs…": "正在核对已审核的标签…",
+  "Checking the reviewed page…": "正在核对已审核的网页…",
+  "Page content was collected locally.": "网页内容已在本机读取。",
+  "Page questions and summaries include the selected attachments.": "发送网页问题或摘要请求时会一并发送已勾选的附加内容。",
   "The reviewed tabs exceed the model input limit. Compare fewer tabs or prepare a draft.": "已审核的标签内容超过模型输入上限。请减少参与对比的标签，或先准备草稿。",
   "Choose one or two loaded tabs. Review the sources before preparing a draft.":
     "选择一个或两个已加载的标签，先检查来源，再准备草稿。",
