@@ -1,6 +1,6 @@
 ## 2026-11-23 开发补充：Spring Actuator 真实服务
 
-Windows 隔离 Studio Host 用冻结 Spring Actuator 0.1.1 候选联调真实 Spring Boot 3.5.11。合成回归与真实服务用例 2/2 通过。服务日志仅记录 4 次确认后的 GET，分别返回健康 `UP`、应用信息、JVM 指标列表和健康 `503/DOWN`，没有 Cookie 或 Authorization。未授权、拒绝确认、确认凭据重放均未触发额外请求。首次失败源于测试误判内容协商，Host 明确请求 `application/json`，修正断言后通过。此回执覆盖本机无认证只读服务和 Host 确认接口，原生 View 操作、远端认证、后台任务、报告导出和 Pi 集成仍属剩余范围。日常安装矩阵继续沿用此前的实测记录。见[复现步骤](../../tests/spring-actuator-conformance/README.md)。
+Windows 隔离 Studio Host 用冻结 Spring Actuator 0.1.1 候选联调真实 Spring Boot 3.5.11。合成回归与真实服务用例 2/2 通过。服务日志仅记录 4 次确认后的 GET，分别返回健康 `UP`、应用信息、JVM 指标列表和健康 `503/DOWN`，没有 Cookie 或 Authorization。未授权、拒绝确认、确认凭据重放均未触发额外请求。首次失败源于测试误判内容协商，Host 明确请求 `application/json`，修正断言后通过。此回执覆盖本机无认证只读服务和 Host 确认接口，原生 View 操作、远端认证、后台任务、报告导出和 Pi 集成仍属剩余范围。日常安装矩阵继续沿用此前的实测记录。见[复现步骤](https://github.com/ax2/zicode-studio-desktop/blob/ceded471cec33bd46493e7fa8cdd85d0b20fb79b/tests/spring-actuator-conformance/README.md)。
 
 ## 2026-11-18 开发补充：JSON 文件格式化、压缩和校验
 

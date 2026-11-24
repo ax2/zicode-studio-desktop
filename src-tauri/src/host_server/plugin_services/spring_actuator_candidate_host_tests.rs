@@ -9,7 +9,24 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[tokio::test]
 async fn frozen_spring_actuator_view_uses_confirmed_host_get() {
-    verify_candidate(None).await;
+    verify_candidate(Candidate::ServiceView, None).await;
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Candidate {
+    ServiceView,
+    DirectoryView,
+}
+
+impl Candidate {
+    fn fixture(self) -> &'static str {
+        match self {
+            Self::ServiceView => "devtools-spring-actuator-candidate02",
+            Self::DirectoryView => {
+                "devtools-view-operation-2026-10-18/spring-actuator-0.1.3-candidate-01"
+            }
+        }
+    }
 }
 
 struct LiveActuator {
@@ -18,28 +35,121 @@ struct LiveActuator {
 }
 
 #[cfg(windows)]
+impl LiveActuator {
+    fn from_environment() -> Self {
+        let origin = |name| {
+            let port: u16 = std::env::var(name)
+                .expect("fixture port")
+                .parse()
+                .expect("numeric fixture port");
+            assert_ne!(port, 0);
+            format!("http://127.0.0.1:{port}")
+        };
+        let up = origin("ZICODE_ACTUATOR_UP_PORT");
+        let down = origin("ZICODE_ACTUATOR_DOWN_PORT");
+        assert_ne!(up, down);
+        Self { up, down }
+    }
+}
+
+#[cfg(windows)]
 #[tokio::test]
 #[ignore = "requires the two disposable Spring Boot fixtures in tests/spring-actuator-conformance"]
 async fn frozen_spring_actuator_view_accepts_real_spring_boot_responses() {
-    let origin = |name| {
-        let port: u16 = std::env::var(name)
-            .expect("fixture port")
-            .parse()
-            .expect("numeric fixture port");
-        assert_ne!(port, 0);
-        format!("http://127.0.0.1:{port}")
-    };
-    let live = LiveActuator {
-        up: origin("ZICODE_ACTUATOR_UP_PORT"),
-        down: origin("ZICODE_ACTUATOR_DOWN_PORT"),
-    };
-    assert_ne!(live.up, live.down);
-    verify_candidate(Some(live)).await;
+    verify_candidate(
+        Candidate::ServiceView,
+        Some(LiveActuator::from_environment()),
+    )
+    .await;
 }
 
-async fn verify_candidate(live: Option<LiveActuator>) {
+#[cfg(windows)]
+#[tokio::test]
+#[ignore = "requires the two disposable Spring Boot fixtures in tests/spring-actuator-conformance"]
+async fn frozen_spring_actuator_directory_accepts_real_spring_boot_responses() {
+    verify_candidate(
+        Candidate::DirectoryView,
+        Some(LiveActuator::from_environment()),
+    )
+    .await;
+}
+
+async fn verify_directory(host: &HostServer, client: &reqwest::Client, plugin_id: &str) {
+    let url = format!("{}/v2/plugin-tool-directory", host.origin());
+    let catalog = |include_views| {
+        client
+            .get(&url)
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .query(&[
+                ("sceneId", "programming"),
+                ("pluginId", plugin_id),
+                ("includeViewOperations", include_views),
+            ])
+    };
+    let capabilities: Value = catalog("false")
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(capabilities["total"], 0);
+    let page: Value = catalog("true")
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(page["total"], 4);
+    let mut operations = Vec::new();
+    for item in page["items"].as_array().unwrap() {
+        assert_eq!(item["kind"], "view-operation");
+        assert_eq!(item["pluginId"], plugin_id);
+        assert_eq!(item["viewId"], "devtools.spring-actuator.main");
+        assert_eq!(item["version"], "0.1.3");
+        assert_eq!(item["enabled"], true);
+        assert!(item.get("capabilityId").is_none());
+        operations.push(item["operationId"].as_str().unwrap());
+    }
+    operations.sort_unstable();
+    assert_eq!(
+        operations,
+        [
+            "devtools.spring-actuator.health",
+            "devtools.spring-actuator.info",
+            "devtools.spring-actuator.metrics",
+            "devtools.spring-actuator.summary",
+        ]
+    );
+
+    let detail = client
+        .get(format!("{url}/detail"))
+        .header("x-zicode-desktop-token", host.desktop_token())
+        .query(&[
+            ("sceneId", "programming"),
+            ("pluginId", plugin_id),
+            ("capabilityId", "devtools.spring-actuator.health"),
+            ("revision", page["revision"].as_str().unwrap()),
+        ])
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(detail.status(), reqwest::StatusCode::NOT_FOUND);
+    assert_eq!(
+        detail.json::<Value>().await.unwrap()["error"]["code"],
+        "tool_unavailable"
+    );
+}
+
+async fn verify_candidate(candidate: Candidate, live: Option<LiveActuator>) {
     let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../tests/fixtures/devtools-spring-actuator-candidate02");
+        .join("../tests/fixtures")
+        .join(candidate.fixture());
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../.cache/task-scratch")
         .join(format!(
@@ -88,7 +198,7 @@ async fn verify_candidate(live: Option<LiveActuator>) {
     );
     {
         let mut registry = host.state.plugins.lock().unwrap();
-        registry.install_developer(&fixture).unwrap();
+        assert_eq!(registry.install_developer(&fixture).unwrap(), plugin_id);
     }
     let disabled = client
         .get(&view_url)
@@ -103,6 +213,9 @@ async fn verify_candidate(live: Option<LiveActuator>) {
             .set_enabled("programming", plugin_id, true)
             .unwrap();
     }
+    if candidate == Candidate::DirectoryView {
+        verify_directory(&host, &client, plugin_id).await;
+    }
     let view: Value = client
         .get(&view_url)
         .header("x-zicode-desktop-token", host.desktop_token())
@@ -116,6 +229,9 @@ async fn verify_candidate(live: Option<LiveActuator>) {
     let html = view["view"]["html"].as_str().unwrap();
     assert!(html.contains("sdk.services?.http?.get"));
     assert!(html.contains("connect-src 'none'"));
+    if candidate == Candidate::DirectoryView {
+        assert!(html.contains("onOpenViewOperation"));
+    }
 
     let listener = if live.is_none() {
         Some(

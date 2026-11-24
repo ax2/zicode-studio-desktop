@@ -49,6 +49,20 @@ $result | Select-Object fileCount,logicalBytes,directoryIndex,signatureVerified
 
 本次在空目录按以上命令从公开提交取得 Inspect，工作树中只有所选候选、外部收据、字节属性和核验工具。616 个文件共 2341254 字节，目录索引 SHA-256 为 `1d3af04bb9e35fa9594a673ff71058e56ffbb94e516f4086dba275472d1678ee`。当前 Windows Studio 的真实 Host/Worker 隔离测试用这份下载完成 8 项 Inspect 操作。其他八包在本次只复核了目录与收据。
 
+## 可搜索的 Spring Actuator 只读诊断
+
+Spring Actuator 0.1.3 候选在工具中心提供四个定位入口，分别打开服务健康、服务信息、指标目录和响应摘要。进入页面后还需选择端点并明确确认，本次请求才会发出。指标目录只列出指标名称。
+
+沿用上文的 Git 获取示例，保留末尾完整校验检查，并替换目录、收据及固定提交：
+
+~~~powershell
+$dir = 'tests/fixtures/devtools-view-operation-2026-10-18/spring-actuator-0.1.3-candidate-01'
+$receipt = 'tests/fixtures/devtools-view-operation-2026-10-18/spring-actuator-0.1.3-candidate-01-verification.json'
+$commit = '0117fdffa8604c879cd97a6c1aa146c3bee5288d'
+~~~
+
+目录 49 个文件，246194 字节，索引 SHA-256 为 `74f6bab2ed7c9ddbee2857aeac7cf4d875eda642900afbb0fb4fec31102f97cc`。安装开发插件后核对版本，再按需启用并授予 HTTP 只读权限。[Windows 隔离 Host 复现](https://github.com/ax2/zicode-studio-desktop/blob/main/tests/spring-actuator-conformance/README.md)
+
 ## Windows 安装包与五个文件工具包
 
 已回下载 [v0.7.1 Windows 正式安装器](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.7.1)。文件为 369638351 字节，SHA-256 为 `0f0b5e88bde0815b32c8d0faf5a9da72a86389052dbf87a299ba75de82547937`。NSIS 文件清单包含 Studio EXE，未发现 `tool-packages` 目录或 `plugin.json`。安装 Studio 后需另行取得上述候选。
