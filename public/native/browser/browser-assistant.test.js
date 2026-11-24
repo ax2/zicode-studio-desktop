@@ -830,3 +830,84 @@ it("keeps the last complete result when a translation reaches the model output l
   expect(send.disabled).toBe(false);
   expect(modelRequests(gateway)).toHaveLength(2);
 });
+
+it("chooses individual structured tables and freezes the checked range before sending", async () => {
+  const first = { caption: "Reviewed inventory", firstRowHeader: true, rows: [["Item", "Count"], ["Pencil", "7"]] };
+  const second = { caption: "Deferred order", firstRowHeader: false, rows: [["Paper", "2"]] };
+  const modelGateway = comparisonGateway();
+  let hold = false, finishCheck;
+  const { host } = await openControlledAssistant({
+    target: browserComparisonSession, handoff: vi.fn(), modelGateway,
+    capturePage: source => ({ ...source, page: { ...source.page,
+      text: "Reviewed inventory and Deferred order are both in the plain page text.",
+      tables: [first, second], tablesTruncated: true } }),
+    getNativeStatus: snapshot => hold ? new Promise(resolve => { finishCheck = () => resolve(snapshot); }) : snapshot,
+  });
+  const details = host.querySelector(".browser-capture-tables");
+  details.open = true;
+  const toggleAll = getByRole(details, "checkbox", { name: "Include all structured tables" });
+  const keep = getByRole(details, "checkbox", { name: /Include table 1.*Reviewed inventory/ });
+  const omit = getByRole(details, "checkbox", { name: /Include table 2.*Deferred order/ });
+  expect([toggleAll.checked, keep.checked, omit.checked]).toEqual([false, false, false]);
+  expect(details.textContent).toContain("Page text can still contain words from tables.");
+  keep.click();
+  expect(toggleAll.indeterminate).toBe(true);
+  toggleAll.click();
+  expect([toggleAll.checked, keep.checked, omit.checked]).toEqual([true, true, true]);
+  omit.click();
+  const send = getByRole(host, "button", { name: "Send page and summarize" });
+  await waitFor(() => expect(send.disabled).toBe(false));
+  hold = true;
+  send.click();
+  await waitFor(() => expect(finishCheck).toBeTypeOf("function"));
+  expect(modelRequests(modelGateway)).toHaveLength(0);
+  // A late checkbox change must not expand the request.
+  keep.checked = false;
+  omit.checked = true;
+  finishCheck();
+  await waitFor(() => expect(modelRequests(modelGateway)).toHaveLength(1));
+  const prompt = modelRequests(modelGateway)[0][1].prompt;
+  const payload = JSON.parse(prompt.slice(prompt.indexOf("{")));
+  expect(payload).toMatchObject({ tables: [first], tablesTruncated: true, documentRevision: capture.documentRevision });
+  expect(payload.text).toContain(second.caption);
+});
+
+it("uses the checked tables for a saved note and a separately prepared Chat draft", async () => {
+  const inventory = { caption: "Inventory", firstRowHeader: true, rows: [["Part", "Count"], ["A", "7"]] };
+  const orders = { caption: "Orders", firstRowHeader: true, rows: [["Month", "Orders"], ["June", "5"]] };
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "session", runtimeMode: "ai" };
+  const handoff = vi.fn(async () => {});
+  const write = vi.fn(async draft => ({ note: { ...draft, id: "saved-note" } }));
+  vi.stubGlobal("fetch", vi.fn(async (url, options) => {
+    if (url.pathname === "/v2/notes") return Response.json({ snapshot: { notebooks: [{ id: "book", title: "Research" }] } });
+    if (url.pathname === "/v2/notes/create") return Response.json(await write(JSON.parse(options.body)));
+    throw Error("Unexpected note request");
+  }));
+  const { host } = await openControlledAssistant({ handoff, target,
+    capturePage: source => ({ ...source, page: { ...source.page, tables: [inventory, orders], tablesTruncated: true } }),
+  });
+  const tables = host.querySelector(".browser-capture-tables");
+  tables.open = true;
+  const first = getByRole(tables, "checkbox", { name: /Include table 1.*Inventory/ });
+  const second = getByRole(tables, "checkbox", { name: /Include table 2.*Orders/ });
+  second.click();
+  getByRole(host, "button", { name: "Save to Notes" }).click();
+  const save = await waitFor(() => getByRole(host, "button", { name: "Save page to notebook" }));
+  await waitFor(() => expect(save.disabled).toBe(false));
+  save.click();
+  await waitFor(() => expect(write).toHaveBeenCalledOnce());
+  const note = write.mock.calls[0][0];
+  expect(note.source).toMatchObject({ url: capture.page.url, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision });
+  expect(note.content).toContain("| Month | Orders |");
+  expect(note.content).toContain("Only some table data is shown.");
+  expect(note.content).not.toContain("| Part | Count |");
+  await waitFor(() => expect(getByRole(host, "button", { name: "Open saved note" })).toBeTruthy());
+
+  first.click();
+  second.click();
+  getByRole(host, "button", { name: "Prepare chat draft" }).click();
+  await waitFor(() => expect(handoff).toHaveBeenCalledOnce());
+  const { prompt } = handoff.mock.calls[0][0];
+  expect(JSON.parse(prompt.slice(prompt.indexOf("{")))).toMatchObject({ tables: [inventory], tablesTruncated: true });
+  expect(write).toHaveBeenCalledOnce();
+});
