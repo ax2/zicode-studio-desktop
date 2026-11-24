@@ -6,6 +6,9 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, Tray
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
+#[cfg(windows)]
+mod windows_menu;
+
 struct DesktopTray {
     icon: TrayIcon,
     tools: IconMenuItem<tauri::Wry>,
@@ -20,6 +23,8 @@ struct DesktopTray {
     focused_window: Mutex<Option<String>>,
     locale: Mutex<String>,
     exit_prompt_open: AtomicBool,
+    #[cfg(windows)]
+    _menu_bitmaps: Vec<windows_menu::MenuBitmap>,
 }
 
 fn exit_prompt_labels(locale: &str) -> (&'static str, &'static str, &'static str) {
@@ -293,7 +298,7 @@ fn open_workspace_feature(app: &AppHandle, event: &'static str) {
     }
 }
 
-const MENU_ICON_SIZE: u32 = 16;
+const DEFAULT_MENU_ICON_SIZE: u32 = 16;
 const TRANSLATION_ICON: &[u8] = include_bytes!("../../public/icons/activity/chat.png");
 const SYSTEM_ICON: &[u8] = include_bytes!("../../public/icons/activity/settings.png");
 const TOOLS_ICON: &[u8] = include_bytes!("../../public/icons/activity/tools.png");
@@ -301,22 +306,14 @@ const FAVORITES_ICON: &[u8] = include_bytes!("../../public/icons/activity/quick-
 const RECENT_ICON: &[u8] = include_bytes!("../../public/icons/activity/tasks.png");
 const STUDIO_ICON: &[u8] = include_bytes!("../icons/32x32.png");
 
-fn menu_icon(bytes: &[u8]) -> Option<tauri::image::Image<'static>> {
+fn menu_icon(bytes: &[u8], size: u32) -> Option<tauri::image::Image<'static>> {
     let source = image::load_from_memory_with_format(bytes, image::ImageFormat::Png)
         .inspect_err(|error| log::warn!("[desktop-tray] menu icon unavailable: {error}"))
         .ok()?;
     let pixels = source
-        .resize_exact(
-            MENU_ICON_SIZE,
-            MENU_ICON_SIZE,
-            image::imageops::FilterType::Lanczos3,
-        )
+        .resize_exact(size, size, image::imageops::FilterType::Lanczos3)
         .into_rgba8();
-    Some(tauri::image::Image::new_owned(
-        pixels.into_raw(),
-        MENU_ICON_SIZE,
-        MENU_ICON_SIZE,
-    ))
+    Some(tauri::image::Image::new_owned(pixels.into_raw(), size, size))
 }
 
 fn menu_action(
@@ -325,7 +322,12 @@ fn menu_action(
     label: &str,
     icon: &[u8],
 ) -> tauri::Result<IconMenuItem<tauri::Wry>> {
-    IconMenuItem::with_id(app, id, label, true, menu_icon(icon), None::<&str>)
+    let image = if cfg!(windows) {
+        None
+    } else {
+        menu_icon(icon, DEFAULT_MENU_ICON_SIZE)
+    };
+    IconMenuItem::with_id(app, id, label, true, image, None::<&str>)
 }
 
 pub fn install(app: &tauri::App) -> tauri::Result<()> {
@@ -342,7 +344,8 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         None::<&str>,
     )?;
     let favorite_tools = crate::desktop_tool_shortcuts::install(app)?;
-    favorite_tools.set_icon(menu_icon(FAVORITES_ICON))?;
+    #[cfg(not(windows))]
+    favorite_tools.set_icon(menu_icon(FAVORITES_ICON, DEFAULT_MENU_ICON_SIZE))?;
     let recent_tools = menu_action(app, "studio.tools.recent", "最近使用的工具", RECENT_ICON)?;
     let show = menu_action(app, "studio.show", "显示 ZiCode Studio", STUDIO_ICON)?;
     let hide = MenuItem::with_id(
@@ -371,6 +374,23 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         &exit,
     ]);
     let menu = Menu::with_items(app, &items)?;
+    #[cfg(windows)]
+    let menu_bitmaps = windows_menu::install(
+        &menu,
+        &items,
+        &[
+            ("studio.translation", TRANSLATION_ICON),
+            ("studio.system.open", SYSTEM_ICON),
+            ("studio.tools", TOOLS_ICON),
+            (favorite_tools.id().as_ref(), FAVORITES_ICON),
+            ("studio.tools.recent", RECENT_ICON),
+            ("studio.show", STUDIO_ICON),
+        ],
+    )
+    .unwrap_or_else(|error| {
+        log::warn!("[desktop-tray] popup icons unavailable: {error}");
+        Vec::new()
+    });
     let icon = tauri::image::Image::from_bytes(STUDIO_ICON)?;
     let tray = TrayIconBuilder::with_id("zicode-studio-desktop")
         .icon(icon)
@@ -470,6 +490,8 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         focused_window: Mutex::new(None),
         locale: Mutex::new("zh-CN".into()),
         exit_prompt_open: AtomicBool::new(false),
+        #[cfg(windows)]
+        _menu_bitmaps: menu_bitmaps,
     });
     Ok(())
 }
@@ -517,8 +539,8 @@ mod tests {
             super::RECENT_ICON,
             super::STUDIO_ICON,
         ] {
-            let icon = super::menu_icon(asset).unwrap();
-            assert_eq!((icon.width(), icon.height()), (16, 16));
+            let icon = super::menu_icon(asset, 24).unwrap();
+            assert_eq!((icon.width(), icon.height()), (24, 24));
             let (pixels, _) = icon.rgba().as_chunks::<4>();
             assert!(pixels.iter().any(|pixel| {
                 pixel[3] != 0 && (pixel[0] != pixel[1] || pixel[1] != pixel[2])
