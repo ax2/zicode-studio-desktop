@@ -30,7 +30,7 @@ export function browserModelError(reason) {
   return t("Could not load Pi models. Open Chat or model settings, then retry.");
 }
 
-export function createBrowserModelAssistant({ actions, question, prompt, isCurrent, setBusy, artifacts, notes, canStart = () => true, verifyComparison }) {
+export function createBrowserModelAssistant({ actions, question, prompt, isCurrent, setBusy, artifacts, notes, canStart = () => true, verifyPage, verifyComparison }) {
   const element = document.createElement("section"); element.className = "ui-card browser-model-assistant";
   element.setAttribute("aria-label", t("Browser model"));
   const field = document.createElement("label"), title = document.createElement("span"); label(title, "Browser model");
@@ -231,12 +231,17 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     const request = { id: `browser-${randomId()}`, cancelled: false, sent: false };
     const expectedRevision = snapshot.revision;
     const trigger = reviewedComparison ? compareButton : element.contains(document.activeElement) ? document.activeElement : null;
+    const verifyText = reviewedComparison
+      ? isSending => verifyComparison(reviewedComparison.sources, isSending)
+      : !visual && verifyPage;
     let completed = false;
     pending = request; busy = true; setBusy(true); controls();
     if (trigger) cancel.focus({ preventScroll: !reviewedComparison });
     status.textContent = t(visual ? "Preparing image preview…" : reviewedComparison ? "Checking reviewed tabs…" :
-      "Sending reviewed page content to the selected model…");
+      verifyText ? "Checking the reviewed page…" : "Sending reviewed page content to the selected model…");
     try {
+      // Build the exact reviewed message before any asynchronous check.
+      const textPrompt = visual ? undefined : reviewedComparison?.prompt ?? prompt(kind === "summary");
       if (visual) {
         const latest = await visual.read();
         if (request.cancelled) throw Error("module_model_request_cancelled");
@@ -248,8 +253,8 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
         }
         status.textContent = t("Sending this image to the selected model…");
       }
-      if (reviewedComparison) {
-        await verifyComparison(reviewedComparison.sources, () => current() && mine === generation && !request.cancelled);
+      if (verifyText) {
+        await verifyText(() => current() && mine === generation && !request.cancelled);
         if (request.cancelled) throw Error("module_model_request_cancelled");
         if (!current() || mine !== generation) return;
         status.textContent = t("Sending reviewed page content to the selected model…");
@@ -259,7 +264,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
         requestId: request.id, confirmed: true, expectedRevision, expectedModelFingerprint: model.fingerprint,
         ...(visual
           ? { prompt: t("Describe the visible content of this image."), image: visual.preview.pngBase64 }
-          : { prompt: reviewedComparison?.prompt ?? prompt(kind === "summary") }),
+          : { prompt: textPrompt }),
       });
       if (request.cancelled) throw Error("module_model_request_cancelled");
       if (!current() || mine !== generation) return;
@@ -286,7 +291,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       if (request.cancelled) status.textContent = t("Model request cancelled.");
       else {
         if (staleModelErrors.has(modelErrorCode(reason))) invalidateModelConfiguration();
-        status.textContent = (visual || reviewedComparison) && !request.sent
+        status.textContent = (visual || verifyText) && !request.sent
           ? t(String(reason?.message ?? reason)) : browserModelError(reason);
       }
     } finally {
