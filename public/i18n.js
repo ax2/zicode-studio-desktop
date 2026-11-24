@@ -104,6 +104,7 @@ const zhCN = {
   "Empty message": "邮件正文为空",
   "Download message body": "下载邮件正文",
   "Create reply draft": "创建回复草稿",
+  "This cached message is unavailable. Search again before replying.": "这封缓存邮件已不可用。请重新搜索后再回复。",
   "Send saved draft": "发送已保存草稿",
   "Check local delivery status": "查询本地投递状态",
   "Checking local delivery status…": "正在查询本地投递状态…",

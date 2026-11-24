@@ -32,12 +32,12 @@ export function mailError(error:unknown) {
   };
   return t(messages[code.replace(/^Error:\s*/,"")]??"Mail operation failed. Check the account and try again.");
 }
-export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfigured,onBusy}:{id:string,folder:string,setFolder:(id:string)=>void,invoke:Invoke,discard:()=>boolean|Promise<boolean>,
+export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfigured,onBusy,draftBusy = false}:{id:string,folder:string,setFolder:(id:string)=>void,invoke:Invoke,discard:()=>boolean|Promise<boolean>,draftBusy?:boolean,
   onReply:(draft:Draft)=>void,onConfigured:(value:boolean)=>void,onBusy:(value:boolean)=>void}) {
   const [folders,setFolders]=useState<{id:string;name:string}[]>([]);
   const [configured,setConfigured]=useState(false),[enabled,setEnabled]=useState(false),[secret,setSecret]=useState("");
   const [page,setPage]=useState<Page|null>(null),[body,setBody]=useState<Body|null>(null),[selected,setSelected]=useState<MessageRef|null>(null);
-  const [online,setOnline]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
+  const [online,setOnline]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState("");
   const live=useRef(false),lock=useRef(false),generation=useRef(0),onConfig=useRef(onConfigured);
   onConfig.current=onConfigured;
   useEffect(()=>{onBusy(busy);return()=>onBusy(false)},[busy,onBusy]);
@@ -120,7 +120,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       {selected&&chosen&&<article aria-label={t("Selected message")}><h3 translate="no">{chosen.subject||t("No subject")}</h3><p translate="no">{chosen.sender}</p>
         {body?<>{body.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}<MailBody text={body.text} html={body.html}/><MailAttachments key={selected.uidValidity+"-"+selected.uid} items={body.attachments} invoke={invoke} message={{accountId:id,...selected}}/></>:!online&&!busy&&<p role="status">{t("This message is not available offline. Download it explicitly to read it.")}</p>}
         {!body&&<button className="ui-button" type="button" disabled={!configured} onClick={()=>void run(()=>req<Body>("read",selected),setBody)}>{t("Download message body")}</button>}
-        <button className="ui-button" type="button" disabled={!chosen.replyTo} onClick={()=>{void run(async()=>await discard()?await req<Draft>("replyDraft",selected):null,d=>{if(d)onReply(d)})}}>{t("Create reply draft")}</button>
+        <button className="ui-button" type="button" disabled={!chosen.replyTo||draftBusy} onClick={()=>{void run(async()=>await discard()?await req<Draft>("replyDraft",selected):null,d=>{if(d)onReply(d)})}}>{t("Create reply draft")}</button>
       </article>}
     </fieldset>{error&&<p role="alert">{error}</p>}
   </section>;

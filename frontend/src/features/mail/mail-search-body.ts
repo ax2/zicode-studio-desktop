@@ -1,7 +1,7 @@
 import { mailError } from "./AlibabaInbox";
 import { gmailError } from "./GmailInbox";
 import type { Attachment, MessageRef } from "./MailAttachments";
-import type { Invoke } from "./index";
+import type { Draft, Invoke } from "./index";
 
 export type SearchMailBody = {
   text: string | null;
@@ -15,6 +15,7 @@ type SearchBodyAccess = {
   invoke: Invoke;
   message: MessageRef;
   read(download: boolean): Promise<SearchMailBody | null>;
+  replyDraft?(): Promise<Draft>;
   error(reason: unknown): string;
 };
 
@@ -37,6 +38,7 @@ export function searchBodyAccess(hit: SearchMessage, gmail?: Invoke, alibaba?: I
   const message = { accountId: hit.account, ...(hit.folder && { folder: hit.folder }), uidValidity: hit.epoch, uid };
   return {
     invoke: alibaba, message, error: mailError,
+    replyDraft: () => alibaba<Draft>({ kind: "replyDraft", ...message }),
     async read(download) {
       try {
         return await alibaba<SearchMailBody>({ kind: download ? "read" : "cachedBody", ...message });
