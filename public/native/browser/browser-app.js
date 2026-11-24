@@ -45,6 +45,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
   let initialized = false, initPromise, lastSurface = "", surfaceError = "", saveTail = Promise.resolve();
   let shortcutSurface;
+  let developerToolsPending = false, developerToolsError = "", refreshDeveloperTools;
   let actionTail = Promise.resolve(), restoreError = "", statusMessage = "";
   const enqueue = work => { const result = actionTail.then(work); actionTail = result.catch(report); return result; };
   const act = work => enqueue(work).catch(() => {});
@@ -106,9 +107,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const overlayOpen = browserOverlayOpen;
   const preview = createBrowserOverlayPreview({ capture: tab => control({ kind: "snapshot", tab }), host: () => viewport,
     current: tab => visible && selected()?.id === tab && root?.isConnected });
-  function blocked() {
-    return browserWindow.minimized || document.hidden || !visible || !root?.isConnected || root.closest("[inert],.plugin-surface-hidden") || overlayOpen();
-  }
+  const surfaceUnavailable = () => browserWindow.minimized || document.hidden || !visible ||
+    !root?.isConnected || root.closest("[inert],.plugin-surface-hidden");
+  const blocked = () => surfaceUnavailable() || overlayOpen();
   const popup = createBrowserPopups({
     currentSource: id => {
       if (blocked() || active !== id) return null;
@@ -218,27 +219,62 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       ...(popupRequest ? { popupRequest } : {}),
     }), bounds()).then(async () => {
       nativeTabs.add(tab.id);
+      refreshDeveloperTools?.();
       await control({ kind: "menuLanguage", chinese: t("Find in page") !== "Find in page" });
     }).finally(() => { creatingTabs.delete(tab.id); creatingPopups.delete(tab.id); });
     creatingTabs.set(tab.id, creation);
     return creation;
   }
-  function openDeveloperTools() {
+  function developerToolsState() {
+    if (developerToolsPending) return { description: t("Opening developer tools…") };
     const tab = selected();
-    if (!tab || blocked()) return;
-    const { id, url } = tab;
-    const version = pageVersions.get(id);
-    const expectedDocumentRevision = documentRevisions.get(id);
-    if (!expectedDocumentRevision) {
-      setStatus(t("Wait for the current page to finish loading"));
-      return;
+    if (!tab || !/^https?:/.test(tab.url) || !URL.canParse(tab.url)) {
+      return { description: t("Open a webpage to use developer tools.") };
     }
-    return act(() => {
-      if (selected()?.url !== url || pageVersions.get(id) !== version) return;
-      return runPageAction("developerTools", id, expectedDocumentRevision);
+    const { id, url } = tab;
+    const navigation = navigationStates.get(id);
+    if (crashedTabs.has(id) || navigation === "failed") {
+      return { description: t("Reload this page to use developer tools.") };
+    }
+    const revision = documentRevisions.get(id);
+    if (!pageAvailable(id) || navigation || !revision) {
+      return { description: t("Wait for the current page to finish loading") };
+    }
+    return { target: { id, url, revision, version: pageVersions.get(id) }, description: new URL(url).host };
+  }
+  function clearDeveloperToolsError() {
+    if (developerToolsError && statusMessage === developerToolsError) setStatus("");
+    developerToolsError = "";
+  }
+  function openDeveloperTools() {
+    const { target } = developerToolsState();
+    if (!target || blocked()) return;
+    const { id, url, revision, version } = target;
+    const sameDocument = () => active === id && selected()?.url === url &&
+      documentRevisions.get(id) === revision && pageVersions.get(id) === version;
+    developerToolsPending = true;
+    clearDeveloperToolsError();
+    refreshDeveloperTools?.();
+    return act(async () => {
+      try {
+        if (blocked() || !sameDocument()) return;
+        await syncSurface();
+        await surface.settled();
+        if (blocked() || !sameDocument()) return;
+        await control({ kind: "openDeveloperTools", tab: id, expectedUrl: url, expectedDocumentRevision: revision });
+      } catch (error) {
+        if (surfaceUnavailable() || !sameDocument()) return;
+        const reason = String(error?.message ?? error);
+        const known = reason === "Browser page changed" || reason === "Browser page is not visible";
+        developerToolsError = t(known ? reason : "Could not open developer tools for this page.");
+        setStatus(developerToolsError);
+      }
+    }).finally(() => {
+      developerToolsPending = false;
+      refreshDeveloperTools?.();
     });
   }
-  async function runPageAction(action, source, expectedDocumentRevision) {
+  async function runPageAction(action, source) {
     if (!source || active !== source || blocked()) return;
     if (crashedTabs.has(source)) {
       if (action === "reload") {
@@ -248,7 +284,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       }
       return;
     }
-    if (action === "print" || action === "developerTools") {
+    if (action === "print") {
       const expectedUrl = selected()?.url;
       const version = pageVersions.get(source);
       if (!nativeTabs.has(source) || !/^https?:/.test(expectedUrl ?? "") || navigationStates.get(source) === "loading") {
@@ -258,11 +294,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       await syncSurface();
       await surface.settled();
       if (blocked() || active !== source || selected()?.url !== expectedUrl || pageVersions.get(source) !== version) return;
-      if (action === "developerTools" && documentRevisions.get(source) !== expectedDocumentRevision) return;
-      const request = action === "print"
-        ? { kind: "printPage", tab: source, expectedUrl }
-        : { kind: "openDeveloperTools", tab: source, expectedUrl, expectedDocumentRevision };
-      try { await control(request); }
+      try { await control({ kind: "printPage", tab: source, expectedUrl }); }
       catch (error) { report(t(String(error?.message ?? error))); }
       return;
     }
@@ -510,6 +542,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   function paint() {
     paintStatus();
     paintHistoryControls();
+    refreshDeveloperTools?.();
     bookmarkButton.disabled = !/^https?:/.test(selected()?.url ?? "");
     const loading = navigationStates.get(active) === "loading";
     reloadButton.textContent = loading ? "×" : "↻";
@@ -711,6 +744,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           if (id === active) {
             if (!tabSearch?.open) preview.clear();
             if (statusMessage === t("Use the PDF toolbar for search and zoom.")) setStatus("");
+            clearDeveloperToolsError();
             void find.close();
           }
         } else {
@@ -735,6 +769,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       }
       if (payload.kind === "title") tab.title = payload.title;
       const routeChanged = payload.kind === "visited" && payload.sameDocument;
+      if (routeChanged && tab.id === active) clearDeveloperToolsError();
       if (payload.kind === "loading" || routeChanged) {
         tab.url = payload.url;
         pageVersions.set(tab.id, (pageVersions.get(tab.id) ?? 0) + 1);
@@ -749,7 +784,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     for (const event of pendingEvents) handleEvent(event);
     pendingEvents.length = 0;
     const menuLanguage = () => { if (nativeTabs.size) void control({ kind: "menuLanguage", chinese: t("Find in page") !== "Find in page" }).catch(report); };
-    window.addEventListener("zicode:locale-changed", () => { menuLanguage(); paintStatus(); });
+    window.addEventListener("zicode:locale-changed", () => { menuLanguage(); paintStatus(); refreshDeveloperTools?.(); });
     menuLanguage(); paint();
     await syncSurface();
   }
@@ -927,9 +962,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       userAgentSettings: createBrowserUserAgentSettings(control),
       proxySettings: createBrowserProxySettings(control),
       print: () => { const source = active; return act(() => runPageAction("print", source)); },
-      developerTools: openDeveloperTools,
+      developerTools: { state: developerToolsState, open: openDeveloperTools },
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),
       pin: { state: pinState, toggle: () => act(togglePin) } });
+    refreshDeveloperTools = options.refreshDeveloperTools;
     const layoutLabel = document.createElement("label");
     tabLayoutInput = document.createElement("input");
     tabLayoutInput.type = "checkbox";

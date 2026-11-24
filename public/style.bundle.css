@@ -792,6 +792,7 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-menu-group .browser-menu-command[hidden] { display: none; }
 .browser-menu-command::before { content: ""; inline-size: var(--space-4); block-size: var(--space-4); background: currentColor; mask: var(--browser-command-icon) center / contain no-repeat; }
 .browser-menu-command[data-shortcut]::after { content: attr(data-shortcut); color: var(--text-secondary); font-size: var(--font-size-sm); white-space: nowrap; }
+.browser-developer-tools-context { margin: 0; padding-inline-start: calc(var(--space-4) + var(--space-4)); color: var(--text-secondary); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
 .browser-menu-settings label { padding: var(--space-1) var(--space-2); color: var(--text-secondary); }
 .browser-library-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border-block-end: 1px solid var(--border); padding-block-end: var(--space-2); margin-block-end: var(--space-3); }
 .browser-library-heading h2 { margin: 0; font-size: var(--font-size-lg); }

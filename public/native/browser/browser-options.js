@@ -128,7 +128,7 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     button.addEventListener("click", async () => { await open(); menu.open = false; });
     (name === "Site permissions and storage" ? settings : library).append(button);
   }
-  for (const [name, action] of [["Reading mode", reader], ["Translate selected text", translateSelection], ["Save viewport PNG to Downloads", screenshot], ["Print page…", print], ["Save page PDF to Downloads", savePdf], ["Developer tools", developerTools]]) {
+  for (const [name, action] of [["Reading mode", reader], ["Translate selected text", translateSelection], ["Save viewport PNG to Downloads", screenshot], ["Print page…", print], ["Save page PDF to Downloads", savePdf], ["Developer tools", developerTools?.open]]) {
     if (!action) continue;
     const button = document.createElement("button");
     button.type = "button";
@@ -138,6 +138,21 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     if (action === print) { button.title = `${t(name)} (Ctrl+P)`; button.setAttribute("aria-keyshortcuts", "Control+p"); }
     button.addEventListener("click", () => { menu.open = false; action(); });
     page.append(button);
+    if (name === "Developer tools") {
+      const context = document.createElement("p");
+      context.id = "browser-developer-tools-context";
+      context.className = "browser-developer-tools-context";
+      button.setAttribute("aria-describedby", context.id);
+      page.append(context);
+      const refresh = () => {
+        const { target, description } = developerTools.state();
+        button.disabled = !target;
+        if (context.textContent !== description) context.textContent = description;
+      };
+      menu.refreshDeveloperTools = refresh;
+      menu.addEventListener("toggle", () => { if (menu.open) refresh(); });
+      refresh();
+    }
   }
   if (userAgentSettings) settings.append(userAgentSettings);
   if (proxySettings) settings.append(proxySettings);
