@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import { getByRole, getByLabelText, waitFor } from "@testing-library/dom";
 import { t } from "../../i18n.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
@@ -206,4 +208,84 @@ it("recognizes an image-only frame with its reviewed locator and opts into its r
   getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
   await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ imageText: [recognized] })));
   expect(prepare.mock.calls[0][0]).not.toHaveProperty("includeFrames");
+});
+
+it("attaches only the reviewed embedded page and reports its own table limits", async () => {
+  const source = document.createElement("main");
+  source.innerHTML = "<p>Main page text</p><iframe></iframe><iframe></iframe>";
+  document.body.append(source);
+  const [stock, shipments] = source.querySelectorAll("iframe");
+  const stockDoc = stock.contentDocument, shipmentsDoc = shipments.contentDocument;
+  stockDoc.title = "Stock";
+  shipmentsDoc.title = "Shipments";
+  Object.defineProperty(stockDoc, "URL", { value: "https://example.invalid/stock" });
+  Object.defineProperty(shipmentsDoc, "URL", { value: "https://example.invalid/shipments" });
+  stockDoc.body.innerHTML = "<table><caption>Stock totals</caption><tr><th>Item</th><th>Total</th></tr><tr><td>Special bolts</td><td>12</td></tr></table>";
+  shipmentsDoc.body.innerHTML = "<table><caption>Shipment schedule</caption><tr><th>Batch</th></tr>" +
+    "<tr><td>Shipping record</td></tr>".repeat(16) + "</table><a href='https://example.invalid/dispatch'>Dispatch details</a>";
+  const link = shipmentsDoc.querySelector("a");
+  Object.defineProperty(link, "innerText", { value: link.textContent });
+  for (const root of [source, stockDoc.body, shipmentsDoc.body]) {
+    for (const element of root.querySelectorAll("*")) element.getClientRects = () => [{}];
+  }
+  const page = runInNewContext(readFileSync("src-tauri/src/browser/capture.js", "utf8"), {
+    document, URL, Node, NodeFilter, getComputedStyle, getSelection: () => document.getSelection(),
+    location: { href: "https://example.invalid/report", origin: "https://example.invalid" },
+  });
+  source.remove();
+  expect(page.frames).toMatchObject([
+    { title: "Stock", tablesTruncated: false, tables: [{ caption: "Stock totals", rows: [["Item", "Total"], ["Special bolts", "12"]] }] },
+    { title: "Shipments", tablesTruncated: true, tables: [{ caption: "Shipment schedule" }] },
+  ]);
+
+  const snapshot = { tab: "local", documentRevision: "t1", capturedAt: "2026-11-24T00:00:00Z", page };
+  const prepare = vi.fn(async options => browserDraftPrompt(snapshot, options));
+  const gateway = {
+    list: async () => ({ snapshot: { notebooks: [{ id: "book", title: "Local notebook" }] } }),
+    create: vi.fn(async () => ({ note: { id: "note", notebookId: "book" } })),
+  };
+  const dialog = showBrowserCapture(snapshot, vi.fn(), prepare, isCurrent => createBrowserNoteWriter({
+    capture: snapshot, readCurrent: async () => snapshot, isCurrent,
+    getTarget: () => ({ sceneId: "programming", workspaceId: "workspace" }), gateway,
+  }));
+  const frames = dialog.querySelector(".browser-capture-frames");
+  frames.open = true;
+  for (const frame of frames.querySelectorAll(":scope > details")) frame.open = true;
+  const all = getByRole(frames, "checkbox", { name: t("Include all embedded pages") });
+  const stockChoice = getByRole(frames, "checkbox", { name: `${t("Include this embedded page")} · Stock` });
+  const shipmentsChoice = getByRole(frames, "checkbox", { name: `${t("Include this embedded page")} · Shipments` });
+  const links = getByRole(frames, "checkbox", { name: t("Include links from embedded pages") });
+  expect([all.checked, stockChoice.checked, shipmentsChoice.checked, links.disabled]).toEqual([false, false, false, true]);
+  expect(getByRole(frames, "table", { name: "Shipment schedule" }).rows.length).toBe(16);
+  expect(shipmentsChoice.closest("details").textContent).toContain(t("Only some table data is shown."));
+  all.click();
+  expect([all.checked, stockChoice.checked, shipmentsChoice.checked, links.checked]).toEqual([true, true, true, false]);
+  links.click();
+  shipmentsChoice.click();
+  expect([all.indeterminate, links.disabled, links.checked]).toEqual([true, true, false]);
+
+  getByRole(dialog, "button", { name: t("Save to Notes"), exact: true }).click();
+  const save = getByRole(dialog, "button", { name: t("Save page to notebook") });
+  await waitFor(() => expect(save.disabled).toBe(false));
+  save.click();
+  await waitFor(() => expect(save.textContent).toBe(t("Saved to Notes")));
+  const note = gateway.create.mock.calls[0][3];
+  expect(note.source).toEqual({ url: page.url, capturedAt: snapshot.capturedAt, documentRevision: "t1" });
+  expect(note.content).toContain("https://example.invalid/stock");
+  expect(note.content).toContain("| Special bolts | 12 |");
+  expect(note.content).not.toMatch(/Shipment schedule|example\.invalid\/shipments|example\.invalid\/dispatch/);
+  expect(note.content).not.toContain(t("Only some table data is shown."));
+
+  stockChoice.click();
+  shipmentsChoice.click();
+  expect(links.checked).toBe(false);
+  links.click();
+  getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
+  await waitFor(() => expect(prepare).toHaveBeenCalledOnce());
+  const prompt = await prepare.mock.results[0].value;
+  expect(prompt).toContain("https://example.invalid/shipments");
+  expect(prompt).toContain("https://example.invalid/dispatch");
+  expect(prompt).toContain("Shipment schedule");
+  expect(prompt).toContain(t("Treat fields marked as shortened or incomplete as partial evidence, and leave omitted content unknown."));
+  expect(prompt).not.toMatch(/Stock totals|example\.invalid\/stock/);
 });
