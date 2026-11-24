@@ -1,6 +1,6 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "json-path" | "diff-left" | "diff-right" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "json-path" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // The frozen Compute and Compare document input limit.
@@ -43,7 +43,8 @@ export async function readManualToolFile(
 
   const name = file.name.toLowerCase();
   const format = tableFileFormats.find(extension => name.endsWith("." + extension));
-  const jsonDocument = target === "json-path";
+  const jsonDiffSide = target === "json-diff-left" ? "left" : target === "json-diff-right" ? "right" : undefined;
+  const jsonDocument = target === "json-path" || jsonDiffSide !== undefined;
   const fixedFormat = jsonDocument ? "json" : tableFileFormats.find(extension => extension === target);
   if (fixedFormat && format !== fixedFormat) throw Error(formatError[fixedFormat]);
   if (!format) {
@@ -63,7 +64,7 @@ export async function readManualToolFile(
     jsonDocument ? "Could not read the JSON file." : "Could not read the table file.");
   if (!text.trim()) throw Error(jsonDocument ? "The selected JSON file is empty." : "The selected table file is empty.");
 
-  if (fixedFormat) return { text };
+  if (fixedFormat) return { [jsonDiffSide ?? "text"]: text };
 
   const options = target === "right" ? JSON.stringify({ ...settings, format, right: text })
     : settings.format === format ? previousOptions : JSON.stringify({ ...settings, format });

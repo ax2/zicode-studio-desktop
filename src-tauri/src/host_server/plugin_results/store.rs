@@ -102,6 +102,17 @@ fn workbench_exports(operation: &str, output: &str) -> Option<TableExports> {
     Some(exports)
 }
 
+fn is_json_diff_report(text: &str, order: &str) -> bool {
+    let Ok(value) = serde_json::from_str::<Value>(text) else {
+        return false;
+    };
+    let Some(changes) = value.get("changes").and_then(Value::as_array) else {
+        return false;
+    };
+    value.get("arrayOrder").and_then(Value::as_str) == Some(order)
+        && value.get("equal").and_then(Value::as_bool) == Some(changes.is_empty())
+}
+
 fn is_quality_report_json(text: &str) -> bool {
     let Ok(report) = serde_json::from_str::<Value>(text) else {
         return false;
@@ -231,7 +242,10 @@ impl Store {
             && ((scope.is_quality_report() && is_quality_report_json(&text))
                 || (scope.is_json_path()
                     && serde_json::from_str::<&RawValue>(&text)
-                        .is_ok_and(|array| array.get().starts_with('['))));
+                        .is_ok_and(|array| array.get().starts_with('[')))
+                || scope
+                    .json_diff_array_order()
+                    .is_some_and(|order| is_json_diff_report(&text, order)));
         let bytes_added =
             text.len() + qr_png.as_ref().map_or(0, |png| png.len()) + table_exports.payload_bytes();
         if self
@@ -487,6 +501,15 @@ mod tests {
             ..scope
         };
         assert!(capture(&mut store, unrelated, report)["jsonExport"].is_null());
+    }
+
+    #[test]
+    fn json_diff_export_requires_the_declared_mode_and_consistent_report() {
+        let report = r#" { "arrayOrder":"by index","changes":[],"equal":true } "#;
+        assert!(is_json_diff_report(report, "by index"));
+        assert!(!is_json_diff_report(report, "ignored (duplicates retained)"));
+        assert!(!is_json_diff_report(&report.replace("true", "false"), "by index"));
+        assert!(!is_json_diff_report("[]", "by index"));
     }
 
     #[test]

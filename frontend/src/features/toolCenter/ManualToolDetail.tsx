@@ -23,9 +23,14 @@ const hostResourceReceivers = new Map([
   ["com.zicode.text-inspector/text.inspect", "resource.host.text-input.v1"],
 ]);
 
-const diffFileTargets = [
+const textDiffFileTargets = [
   { target: "diff-left", field: "left", label: "Import left text file…", inputLabel: "Left text file", fieldLabel: "Original text" },
   { target: "diff-right", field: "right", label: "Import right text file…", inputLabel: "Right text file", fieldLabel: "Revised text" },
+] as const;
+
+const jsonDiffFileTargets = [
+  { target: "json-diff-left", field: "left", label: "Import left JSON file…", inputLabel: "Left JSON file", fieldLabel: "Original JSON" },
+  { target: "json-diff-right", field: "right", label: "Import right JSON file…", inputLabel: "Right JSON file", fieldLabel: "Revised JSON" },
 ] as const;
 
 export interface ManualToolDetailProps {
@@ -120,6 +125,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const comparePlugin = tool.pluginId === "com.zicode.devtools.compare";
   const jsonPath = comparePlugin && tool.capabilityId === "devtools.compare.json.path";
   const textDiff = comparePlugin && tool.capabilityId === "devtools.compare.text.diff";
+  const jsonDiff = comparePlugin && /^devtools\.compare\.json\.diff\.(ordered|unordered)$/.test(tool.capabilityId);
+  const diffFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets : [];
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
@@ -152,7 +159,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   async function importFile(file: File, target: ToolFileTarget) {
     const owner = fileRead.current;
     const allowed = target === singleFileTarget || (tableMerge && (target === "left" || target === "right")) ||
-      (textDiff && diffFileTargets.some(side => side.target === target));
+      diffFileTargets.some(side => side.target === target);
     if (!owner || owner.identity !== transformIdentity || owner.api !== api ||
         !allowed || !supported || !detail.enabled || editingLocked) return;
     const sequence = ++owner.sequence;
@@ -168,7 +175,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
         : current);
     } catch (reason) {
       if (isCurrent()) setError(reason instanceof Error ? reason.message :
-        textDiff ? "Could not read the text file." : jsonPath ? "Could not read the JSON file." : "Could not read the table file.");
+        textDiff ? "Could not read the text file." : jsonPath || jsonDiff ? "Could not read the JSON file." : "Could not read the table file.");
     } finally {
       if (isCurrent()) setFileLoading(null);
     }
@@ -233,7 +240,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       {resourceTool ? <ResourceToolRunner tool={tool} detail={detail} api={api} getTarget={getResourceTarget} scope={scope}
         accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
         {fields.map(field => {
-          const side = textDiff ? diffFileTargets.find(target => target.field === field.key) : undefined;
+          const side = diffFileTargets.find(target => target.field === field.key);
           return <ManualToolInput key={field.key} id={`${detailId}-${field.key}`}
             field={side ? { ...field, label: t(side.fieldLabel) } : field} value={values[field.key]}
             disabled={editingLocked} invalid={invalidField === field.key}
@@ -252,8 +259,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
             loadingLabel={jsonPath ? "Reading JSON file…" : undefined}
             disabled={editingLocked || !detail.enabled} loading={fileLoading === singleFileTarget}
             onPick={file => { void importFile(file, singleFileTarget); }} />}
-          {textDiff && diffFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
-            label={t(side.label)} inputLabel={t(side.inputLabel)} accept="" loadingLabel="Reading text file…"
+          {diffFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
+            label={t(side.label)} inputLabel={t(side.inputLabel)} accept={jsonDiff ? ".json" : ""}
+            loadingLabel={jsonDiff ? "Reading JSON file…" : "Reading text file…"}
             disabled={editingLocked || !detail.enabled} loading={fileLoading === side.target}
             onPick={file => { void importFile(file, side.target); }} />)}
           {tableMerge && <>

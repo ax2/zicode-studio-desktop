@@ -173,6 +173,8 @@ it.each([
   { format: "json", capabilityId: "devtools.compute.quality.csv", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compute.quality.tsv", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compare.json.path", mimeType: "application/json", label: "Save JSON as…" },
+  { format: "json", capabilityId: "devtools.compare.json.diff.ordered", mimeType: "application/json", label: "Save JSON as…" },
+  { format: "json", capabilityId: "devtools.compare.json.diff.unordered", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compute.table.json", mimeType: "application/json", label: "Save JSON as…" },
   { format: "csv", capabilityId: "devtools.compute.table.csv", mimeType: "text/csv", label: "Save CSV as…" },
   { format: "json", capabilityId: "devtools.compute.table.query", mimeType: "application/json", label: "Save JSON as…" },

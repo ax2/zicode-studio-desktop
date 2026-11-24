@@ -213,8 +213,8 @@ it("accepts exactly 8 KiB as the JSON query draft", async () => {
 
 const compareWorker = process.env.ZICODE_TEST_COMPARE_WORKER;
 const compareModule = process.env.ZICODE_TEST_COMPARE_MODULE;
-it.runIf(Boolean(compareWorker && compareModule))("queries a selected JSON file through the frozen Windows Compare Worker", async () => {
-  const { api, store, container, document, query, importFile, submit } = await mountJsonPath();
+
+function bindFrozenCompareWorker(api: ManualToolApi) {
   vi.mocked(api.invoke).mockImplementation(async (sceneId, _workspaceId, pluginId, capabilityId, input) => {
     const output = spawnSync(compareWorker as string, ["--zicode-plugin-worker"], {
       input: JSON.stringify({ workerPath: compareModule, workerKind: "wasi", pluginId, capabilityId, sceneId, input }),
@@ -223,6 +223,10 @@ it.runIf(Boolean(compareWorker && compareModule))("queries a selected JSON file 
     expect(output.status).toBe(0);
     return JSON.parse(output.stdout);
   });
+}
+it.runIf(Boolean(compareWorker && compareModule))("queries a selected JSON file through the frozen Windows Compare Worker", async () => {
+  const { api, store, container, document, query, importFile, submit } = await mountJsonPath();
+  bindFrozenCompareWorker(api);
   const text = '{"项目":[{"金额":9223372036854775807},{"金额":18446744073709551615}]}';
   const path = '$.项目[*]["金额"]';
   fireEvent.change(query, { target: { value: path } });
@@ -305,14 +309,7 @@ it("accepts exactly 8 KiB, retains both drafts on invalid UTF-8 or one extra byt
 
 it.runIf(Boolean(compareWorker && compareModule))("compares selected text files through the frozen Windows Worker", async () => {
   const { api, container, pick, submit } = await mountTextDiff();
-  vi.mocked(api.invoke).mockImplementation(async (sceneId, _workspaceId, pluginId, capabilityId, input) => {
-    const output = spawnSync(compareWorker as string, ["--zicode-plugin-worker"], {
-      input: JSON.stringify({ workerPath: compareModule, workerKind: "wasi", pluginId, capabilityId, sceneId, input }),
-      windowsHide: true, encoding: "utf8", timeout: 15000,
-    });
-    expect(output.status).toBe(0);
-    return JSON.parse(output.stdout);
-  });
+  bindFrozenCompareWorker(api);
   const left = "序言\r\n旧值  \r\n收尾\r\n";
   const right = "序言\r\n新值  \r\n收尾\r\n";
   await pick("left", [new NodeFile(["\uFEFF", left], "before.txt")]);
@@ -328,3 +325,76 @@ it.runIf(Boolean(compareWorker && compareModule))("compares selected text files 
   expect(vi.mocked(api.invoke).mock.calls[1][4]).toEqual({ left: "", right });
   expect(result()).toContain("+新值  \n");
 }, 25_000);
+
+const jsonDiffModes = ["ordered", "unordered"] as const;
+type JsonDiffMode = typeof jsonDiffModes[number];
+
+async function mountJsonDiff(mode: JsonDiffMode) {
+  const view = await mount({ ...jsonPathTool, capabilityId: "devtools.compare.json.diff." + mode }, undefined, diffSchema);
+  const form = within(view.container);
+  const left = form.getByRole<HTMLTextAreaElement>("textbox", { name: /^原始 JSON/ });
+  const right = form.getByRole<HTMLTextAreaElement>("textbox", { name: /^修改后的 JSON/ });
+  const pick = async (side: "left" | "right", files: NodeFile[]) => {
+    const label = side === "left" ? "左侧 JSON 文件" : "右侧 JSON 文件";
+    const picker = form.getByLabelText<HTMLInputElement>(label);
+    expect(picker.accept).toBe(".json");
+    await act(async () => fireEvent.change(picker, { target: { files } }));
+  };
+  return { ...view, form, left, right, pick };
+}
+
+it.each(jsonDiffModes)("imports either JSON file without running the %s comparison and can undo the last import", async (mode) => {
+  const { api, form, left, right, pick } = await mountJsonDiff(mode);
+  fireEvent.change(left, { target: { value: '{"original":true}' } });
+  fireEvent.change(right, { target: { value: '{"revised":true}' } });
+  const original = '{"amount":18446744073709551614}';
+  const revised = '{"amount":18446744073709551615}';
+  await pick("left", [new NodeFile(["\uFEFF", original], "before.JSON")]);
+  expect(left.value).toBe(original);
+  expect(right.value).toBe('{"revised":true}');
+  await pick("right", [new NodeFile([revised], "after.json")]);
+  await pick("left", []);
+  expect(left.value).toBe(original);
+  expect(right.value).toBe(revised);
+  expect(api.invoke).not.toHaveBeenCalled();
+  await act(async () => { form.getByRole("button", { name: "撤销上次导入" }).click(); });
+  expect(left.value).toBe(original);
+  expect(right.value).toBe('{"revised":true}');
+});
+
+it("keeps both JSON drafts when the file extension, size or contents cannot be loaded", async () => {
+  const { api, form, left, right, pick } = await mountJsonDiff("ordered");
+  fireEvent.change(left, { target: { value: '{"original":true}' } });
+  fireEvent.change(right, { target: { value: '{"revised":true}' } });
+  const cases = [
+    [new NodeFile(["{}"], "wrong.txt"), "请选择 JSON 文件。"],
+    [new NodeFile([" ".repeat(8191), "{}"], "large.json"), "JSON 文件不能超过 8 KiB。"],
+    [new NodeFile([new Uint8Array([0xff])], "bad.json"), "文件必须使用有效的 UTF-8 编码。"],
+    [new NodeFile([" \r\n"], "empty.json"), "所选 JSON 文件为空。"],
+  ] as const;
+  for (const [file, error] of cases) {
+    await pick("right", [file]);
+    expect(form.getByRole("alert").textContent).toBe(error);
+    expect(left.value).toBe('{"original":true}');
+    expect(right.value).toBe('{"revised":true}');
+  }
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
+for (const mode of jsonDiffModes) {
+  it.runIf(Boolean(compareWorker && compareModule))("runs the " + mode + " JSON file comparison with the frozen Windows Worker", async () => {
+    const { api, pick, submit, container } = await mountJsonDiff(mode);
+    bindFrozenCompareWorker(api);
+    const left = '{\r\n  "项目/名~":[1,2], "amount":18446744073709551614\r\n}';
+    const right = '{"项目/名~":[3,2],"amount":18446744073709551615}';
+    await pick("left", [new NodeFile([left], "before.json")]);
+    await pick("right", [new NodeFile([right], "after.json")]);
+    expect(api.invoke).not.toHaveBeenCalled();
+    await submit();
+    expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ left, right });
+    const result = container.querySelector<HTMLTextAreaElement>("[data-tool-result]")?.value;
+    expect(result).toContain('"path": "' + (mode === "ordered" ? "/项目~1名~0/0" : "/项目~1名~0") + '"');
+    expect(result).toContain("18446744073709551614");
+    expect(result).toContain("18446744073709551615");
+  }, 25_000);
+}

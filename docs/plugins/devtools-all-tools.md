@@ -6,6 +6,12 @@
 
 Studio 工具中心已接入独立 Disk Inspector 0.1.0 候选。对工作区内选定目录单独确认后，查看文件逻辑大小、文件及目录数量、直属子目录和大文件排行。隔离 Windows 已验证完整、Host 深度受限和 Worker 分析预算受限的实际报告，中英文界面均有部分结果提示。系统文件夹窗口及日常安装分发见 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29)。见[接口与验证](local-directory-usage-snapshot-draft1.md)。
 
+## 2026-11-24 开发补充：结构化 JSON 对比的文件导入与另存
+
+Compare 0.1.0 的「JSON 对比（数组按顺序）」和「JSON 对比（数组忽略顺序）」可分别导入两份 8 KiB 以内的 UTF-8 JSON 文件。导入保留另一侧和原件，可撤销上次导入，点击「执行工具」后才调用插件。选择「将 JSON 另存为…」后可选址、确认保存本次运行的原始 JSON 报告，同名文件保留。
+
+冻结 Compare 候选 02 和生产 Windows Worker 验证了实际 JSON Pointer 转义、相邻的 u64 数值、i64 最小值、相同文档、数组重排和重复元素。Windows Host 逐字节回读了六份报告，并核对拒绝、取消和撤权。大文件仍可使用[专用 JSON 文件工具](json-file-compare.md)。系统文件窗口和其余源工具范围由 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 跟踪。
+
 ## 2026-11-24 开发补充：文本差异文件导入与报告另存
 
 「文本差异对比」可分别导入原文和修改后的本机文件。每侧接受 8 KiB 以内的 UTF-8 内容，不要求特定后缀。可导入空文件，UTF-8 BOM 作为编码标记处理，保留文本空格和换行。取消选择或读取失败时保留草稿，导入只替换选定的一侧，可撤销上次导入。点击「执行工具」后才调用插件，原文件保持原样。
