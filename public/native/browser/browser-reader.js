@@ -27,13 +27,31 @@ export function showBrowserReader(page, onClose, position = {}) {
   const smaller = button("Smaller reading text", "A−", () => resize(-1));
   const larger = button("Larger reading text", "A+", () => resize(1));
   const close = button("Close", t("Close"), () => { rememberPosition(); dialog.close(); });
-  function resize(step) {
-    size = Math.max(0, Math.min(3, size + step));
+  function paintSize() {
     dialog.dataset.readerSize = String(size);
-    smaller.disabled = size === 0;
-    larger.disabled = size === 3;
+    smaller.setAttribute("aria-disabled", String(size === 0));
+    larger.setAttribute("aria-disabled", String(size === 3));
   }
-  resize(0);
+  function resize(step) {
+    const next = Math.max(0, Math.min(3, size + step));
+    if (next === size) return;
+    const anchor = scroll.scrollTop ? readingAnchor() : undefined;
+    size = next;
+    paintSize();
+    if (!anchor) return;
+
+    const { top, height } = anchor.block.getBoundingClientRect();
+    const offset = anchor.offset > 0 ? anchor.offset * height / anchor.height : anchor.offset;
+    scroll.scrollTop += top + offset - anchor.viewportTop;
+  }
+  function readingAnchor() {
+    const viewportTop = scroll.getBoundingClientRect().top;
+    for (const block of article.querySelectorAll(":scope > :not(ol, ul), :scope > :is(ol, ul) > li")) {
+      const { top, bottom, height } = block.getBoundingClientRect();
+      if (bottom > viewportTop) return { block, viewportTop, offset: viewportTop - top, height };
+    }
+  }
+  paintSize();
   controls.append(smaller, larger, close);
   header.append(textElement("span", t("Reading mode")), controls);
   const scroll = document.createElement("div");
