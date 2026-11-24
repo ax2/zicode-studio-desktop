@@ -104,7 +104,8 @@ pub(super) fn execute(
                         let title = webview2_com::take_pwstr(title).chars().take(512).collect::<String>();
                         title_result.map_err(|error| error.to_string())?;
                         let history = super::windows_policy::history_state(&view.webview()).map_err(|e|e.to_string())?;
-                        Ok(json!({"id":id,"history":history,"title":title,"popupOpener":browser.engine.popup_opener(id),"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"favicon":browser.engine.favicon(id),"settings":super::engine::page_controls::read(view)?}))
+                        Ok(json!({"id":id,"history":history,"title":title,"popupOpener":browser.engine.popup_opener(id),"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"favicon":browser.engine.favicon(id),"settings":super::engine::page_controls::read(view)?,
+                            "documentRevision":browser.engine.export_ready(id).then(|| browser.engine.document_revision(id)).transpose()?}))
                     };
                     let snapshot = read();
                     // COM calls can dispatch WindowCloseRequested while reading status.
@@ -254,13 +255,18 @@ pub(super) fn execute(
                 let view = ready_web_document(&browser.engine, &tab, &expected_url)?;
                 super::page_output::show_print_dialog(view)?;
             }
-            Request::OpenDeveloperTools { tab, expected_url } => {
+            Request::OpenDeveloperTools { tab, expected_url, expected_document_revision } => {
                 use wry::WebViewExtWindows;
                 let view = ready_web_document(&browser.engine, &tab, &expected_url)?;
                 let mut visible = windows::core::BOOL::default();
                 unsafe { view.controller().IsVisible(&mut visible) }.map_err(|e| e.to_string())?;
                 if !visible.as_bool() {
                     return Err("Browser page is not visible".into());
+                }
+                if !browser.engine.export_ready(&tab)
+                    || browser.engine.document_revision(&tab)? != expected_document_revision
+                {
+                    return Err("Browser page changed".into());
                 }
                 // Browser tabs keep automatic DevTools entry points disabled.
                 unsafe { view.webview().OpenDevToolsWindow() }.map_err(|e| e.to_string())?;

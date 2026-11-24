@@ -29,7 +29,14 @@ pub(super) mod native_downloads;
 use native_view::{Container, NativeView};
 use raw_window_handle::HasWindowHandle;
 use serde::Serialize;
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+};
 use wry::WebViewBuilderExtWindows;
 use wry::{
     dpi::{LogicalPosition, LogicalSize},
@@ -103,6 +110,8 @@ pub(super) enum EngineEvent {
         tab: String,
         success: bool,
         canceled: bool,
+        #[serde(rename = "documentRevision")]
+        document_revision: Option<String>,
     },
 }
 
@@ -139,6 +148,12 @@ enum ViewStart<'a> {
     Popup(native_popups::Pending),
 }
 
+type DocumentRevision = (String, Arc<AtomicU64>);
+
+fn document_stamp((instance, revision): &DocumentRevision) -> String {
+    format!("{instance}:{}", revision.load(Ordering::SeqCst))
+}
+
 pub struct NativeBrowserEngine {
     pub(super) user_agent: Option<String>,
     pub(super) http_proxy: Option<HttpProxy>,
@@ -150,7 +165,7 @@ pub struct NativeBrowserEngine {
     menu_cache: std::rc::Rc<std::cell::RefCell<native_context_menu::MenuCache>>,
     views: HashMap<String, NativeView>,
     selected: std::cell::RefCell<Option<String>>,
-    documents: HashMap<String, (String, Arc<std::sync::atomic::AtomicU64>)>,
+    documents: HashMap<String, DocumentRevision>,
     context: WebContext,
     policy: BrowserPolicy,
     emit: Arc<dyn Fn(EngineEvent) + Send + Sync>,
@@ -201,7 +216,6 @@ impl NativeBrowserEngine {
     #[allow(dead_code)]
     pub fn popup_opener(&self, tab: &str) -> Option<&str> { self.views.get(tab)?.opener.as_deref() }
     fn validate_opener(&self, request: &native_popups::Pending) -> Result<(), String> {
-        use std::sync::atomic::Ordering;
         let source = self.view(&request.tab)?;
         let (_, revision) = self.documents.get(&request.tab).ok_or("Browser popup source changed")?;
         let mut visible = windows::core::BOOL::default();
@@ -236,8 +250,8 @@ impl NativeBrowserEngine {
             if let EngineEvent::Visited { transient: value, .. } = &mut event { *value = transient; }
             shared_emit(event);
         }));
-        let revision = Arc::new(std::sync::atomic::AtomicU64::new(0));
-        let nav_revision = revision.clone();
+        let document = (uuid::Uuid::new_v4().to_string(), Arc::new(AtomicU64::new(0)));
+        let nav_revision = document.1.clone();
         let favicon = Arc::new(native_favicon::Icon::default());
         let nav_favicon = favicon.clone();
         let nav_policy = self.policy.clone();
@@ -271,7 +285,7 @@ impl NativeBrowserEngine {
             .with_navigation_handler(move |url| {
                 let permitted = gate.get() && nav_policy.permits(&url);
                 if permitted {
-                    nav_revision.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    nav_revision.fetch_add(1, Ordering::SeqCst);
                     nav_favicon.clear();
                     nav_emit(EngineEvent::Favicon { tab: nav_tab.clone(), image: None });
                 }
@@ -329,11 +343,13 @@ impl NativeBrowserEngine {
         std::fs::create_dir_all(&download_staging).map_err(|error| error.to_string())?;
         native_favicon::install(&view.webview, tab.to_string(), view.favicon.clone(), tab_emit.clone());
         native_shortcuts::install(&view.webview, tab.to_string(), tab_emit.clone()).map_err(|error| startup_error("shortcuts", &error))?;
-        native_popups::install(&view.webview, self.policy.clone(), tab.to_string(), revision.clone(), self.popups.clone(), tab_emit.clone()).map_err(|error| startup_error("popups", &error))?;
+        native_popups::install(&view.webview, self.policy.clone(), tab.to_string(), document.1.clone(), self.popups.clone(), tab_emit.clone()).map_err(|error| startup_error("popups", &error))?;
         native_context_menu::install(&view.webview, self.policy.clone(), tab.to_string(), self.menu_chinese.clone(), self.menu_cache.clone(), tab_emit.clone()).map_err(|error| startup_error("context menu", &error))?;
+        let navigation_document = document.clone();
         super::windows_policy::install(
             &view.webview,
             &view.navigation,
+            move || document_stamp(&navigation_document),
             self.policy.clone(),
             &download_staging,
             tab.to_string(),
@@ -372,10 +388,7 @@ impl NativeBrowserEngine {
             }
         }
         self.views.insert(tab.to_string(), view);
-        self.documents.insert(
-            tab.to_string(),
-            (uuid::Uuid::new_v4().to_string(), revision),
-        );
+        self.documents.insert(tab.to_string(), document);
         if let ViewStart::Popup(request) = &mut start {
             if let Err(error) = request.complete() {
                 let _ = self.destroy(tab);
@@ -387,15 +400,10 @@ impl NativeBrowserEngine {
     #[allow(dead_code)] // Production Host capture uses this; the separate engine probe does not.
     pub fn document_revision(&self, tab: &str) -> Result<String, String> {
         self.view(tab)?;
-        let (instance, revision) = self
-            .documents
+        self.documents
             .get(tab)
-            .ok_or("Browser tab is no longer available")?;
-        Ok(format!(
-            "{}:{}",
-            instance,
-            revision.load(std::sync::atomic::Ordering::SeqCst)
-        ))
+            .map(document_stamp)
+            .ok_or_else(|| "Browser tab is no longer available".into())
     }
     #[allow(dead_code)] // Host metadata uses this; the standalone engine probe has no chrome.
     pub fn favicon(&self, tab: &str) -> Option<String> { self.views.get(tab).and_then(|view| view.favicon.image()) }

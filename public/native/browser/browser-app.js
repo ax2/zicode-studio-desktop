@@ -61,6 +61,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const waitingDownloads = new Set();
   const downloadObservers = new Set();
   const pageVersions = new Map();
+  const documentRevisions = new Map();
   const control = request => invoke("browser_control", { request });
   const surface = createBrowserSurface(control);
   const paintStatus = () => {
@@ -187,12 +188,17 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (!tab || blocked()) return;
     const { id, url } = tab;
     const version = pageVersions.get(id);
+    const expectedDocumentRevision = documentRevisions.get(id);
+    if (!expectedDocumentRevision) {
+      setStatus(t("Wait for the current page to finish loading"));
+      return;
+    }
     return act(() => {
       if (selected()?.url !== url || pageVersions.get(id) !== version) return;
-      return runPageAction("developerTools", id);
+      return runPageAction("developerTools", id, expectedDocumentRevision);
     });
   }
-  async function runPageAction(action, source) {
+  async function runPageAction(action, source, expectedDocumentRevision) {
     if (!source || active !== source || blocked()) return;
     if (crashedTabs.has(source)) {
       if (action === "reload") {
@@ -212,8 +218,11 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       await syncSurface();
       await surface.settled();
       if (blocked() || active !== source || selected()?.url !== expectedUrl || pageVersions.get(source) !== version) return;
-      const kind = action === "print" ? "printPage" : "openDeveloperTools";
-      try { await control({ kind, tab: source, expectedUrl }); }
+      if (action === "developerTools" && documentRevisions.get(source) !== expectedDocumentRevision) return;
+      const request = action === "print"
+        ? { kind: "printPage", tab: source, expectedUrl }
+        : { kind: "openDeveloperTools", tab: source, expectedUrl, expectedDocumentRevision };
+      try { await control(request); }
       catch (error) { report(t(String(error?.message ?? error))); }
       return;
     }
@@ -269,6 +278,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     }
     crashedTabs.delete(id);
     navigationStates.delete(id);
+    documentRevisions.delete(id);
     historyStates.delete(id);
     if (!reopening) pageVersions.delete(id);
     favicons.delete(id);
@@ -278,6 +288,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (crashedTabs.has(id) || (!tab && !creatingTabs.has(id))) return;
     crashedTabs.add(id);
     navigationStates.delete(id);
+    documentRevisions.delete(id);
     historyStates.delete(id);
     favicons.delete(id);
     pageVersions.set(id, (pageVersions.get(id) ?? 0) + 1);
@@ -505,11 +516,28 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function initialize() {
     if (initialized) { await syncSurface(); return; }
     if (!invoke) { const message = t("Browser is available in the Windows desktop app"); setStatus(message); startupState.fail(message, false); return; }
-    const [stored, live] = await Promise.all([invoke("browser_get_state"), control({ kind: "status" })]);
+    // Subscribe before the snapshot so an existing tab cannot finish loading unseen.
+    const pendingEvents = [];
+    let handleEvent;
+    const subscription = listen?.("zicode:browser-event", event => {
+      if (handleEvent) handleEvent(event);
+      else pendingEvents.push(event);
+    });
+    const nativeStatus = () => control({ kind: "status" });
+    let stored, live;
+    try {
+      [stored, live] = await Promise.all([
+        invoke("browser_get_state"),
+        subscription ? Promise.resolve(subscription).then(nativeStatus) : nativeStatus(),
+      ]);
+    } catch (error) {
+      if (subscription) void Promise.resolve(subscription).then(unlisten => unlisten?.()).catch(() => {});
+      throw error;
+    }
     revision = stored.session.revision; surface.seed(live.surfaceRevision);
     tabs = groupBrowserTabs(stored.session.tabs.map(tab => ({ zoom: 1, muted: false, ...tab }))); active = stored.session.activeTab; closedTabs = stored.session.closedTabs ?? [];
     const recentlyClosed = new Set(closedTabs.map(entry => entry.tab.id));
-    for (const tab of live.tabs) {
+    for (const { documentRevision, ...tab } of live.tabs) {
       const saved = tabs.find(item => item.id === tab.id);
       if (tab.processFailed && saved) {
         nativeTabs.add(tab.id);
@@ -522,6 +550,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         continue;
       }
       nativeTabs.add(tab.id);
+      if (documentRevision) documentRevisions.set(tab.id, documentRevision);
       if (tab.history) historyStates.set(tab.id, tab.history);
       if (tab.favicon) favicons.set(tab.id, tab.favicon);
       if (saved) { saved.url = tab.url; if (typeof tab.title === "string") saved.title = tab.title || (tab.url === "about:blank" ? t("New tab") : ""); if (tab.settings) Object.assign(saved, tab.settings); } else tabs.push({ ...tab, title: tab.url });
@@ -537,7 +566,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     verticalTabs = stored.verticalTabs === true;
     placeTabStrip();
     searchSettings.initialize(stored.searchEngine);
-    if (listen) await listen("zicode:browser-event", ({ payload }) => {
+    handleEvent = ({ payload }) => {
       if (payload.kind === "processFailed") { recordCrash(payload.tab); return; }
       if (payload.tab && crashedTabs.has(payload.tab)) return;
       if (payload.kind === "contextAction") {
@@ -605,13 +634,17 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (!tab && !creatingTabs.has(id) && !nativeTabs.has(id)) return;
         if (payload.kind === "navigationStarted") {
           navigationStates.set(id, "loading");
+          documentRevisions.delete(id);
           if (tab) pageVersions.set(id, (pageVersions.get(id) ?? 0) + 1);
           if (id === active) {
             if (!tabSearch?.open) preview.clear();
             void find.close();
           }
-        } else if (!payload.success && !payload.canceled && navigationStates.get(id) !== "stopping") navigationStates.set(id, "failed");
-        else navigationStates.delete(id);
+        } else {
+          if (payload.documentRevision) documentRevisions.set(id, payload.documentRevision);
+          if (!payload.success && !payload.canceled && navigationStates.get(id) !== "stopping") navigationStates.set(id, "failed");
+          else navigationStates.delete(id);
+        }
         if (id === active) paint();
         return;
       }
@@ -638,8 +671,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (!tab.popupOpener) { clearTimeout(saveTimer); saveTimer = setTimeout(() => void act(save), 150); }
       }
       if (payload.kind.endsWith("Blocked")) setStatus(t("This browser action is not available yet"));
-    });
+    };
     initialized = true;
+    for (const event of pendingEvents) handleEvent(event);
+    pendingEvents.length = 0;
     const menuLanguage = () => { if (nativeTabs.size) void control({ kind: "menuLanguage", chinese: t("Find in page") !== "Find in page" }).catch(report); };
     window.addEventListener("zicode:locale-changed", () => { menuLanguage(); paintStatus(); });
     menuLanguage(); paint();
