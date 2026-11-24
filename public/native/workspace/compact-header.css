@@ -4,10 +4,31 @@
 #page-header-actions { display: flex; flex: 1; min-width: 0; pointer-events: auto; -webkit-app-region: no-drag; }
 #page-header-actions[hidden], #page-header-actions > [hidden] { display: none; }
 .page-header-content { flex: 1; min-width: 0; }
-.activity-utilities .status { width: var(--control-height-sm); height: var(--control-height-sm); justify-content: center; flex-shrink: 0; }
+.activity-utilities .status { width: var(--control-height-sm); height: var(--control-height-sm); justify-content: center; flex-shrink: 0; border-radius: var(--radius-md); }
 .activity-utilities .status-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .activity-utilities .status-indicator { width: var(--space-5); height: var(--space-5); background: transparent url("/icons/activity/disconnected.png") center / contain no-repeat; border-radius: 0; box-shadow: none; }
-.activity-utilities .status-indicator.connected { background-image: url("/icons/activity/connected.png"); }
+.activity-utilities .status-indicator.connected {
+  background-image: url("/icons/activity/connected.png");
+  transition: transform var(--duration) var(--ease), filter var(--duration) var(--ease);
+}
+.activity-utilities .status:has(> .status-indicator.connected):is(:hover, :focus-visible) {
+  background: var(--bg-glass-hover);
+}
+.activity-utilities .status:is(:hover, :focus-visible) > .status-indicator.connected {
+  transform: translateY(-1px) scale(1.2);
+  filter:
+    brightness(1.1)
+    drop-shadow(0 3px 3px light-dark(#17233355, #070b16cc))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--nav-teal) 48%, transparent));
+}
+.activity-utilities .status:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .activity-utilities .status-indicator.connected { animation: none; transition: none; }
+  .activity-utilities .status:is(:hover, :focus-visible) > .status-indicator.connected { transform: none; }
+}
 .activity-utilities .status-indicator svg, .activity-utilities .quick-tools-menu > summary svg { display: none; }
 .activity-utilities .quick-tools-menu > summary::before {
   content: "";
