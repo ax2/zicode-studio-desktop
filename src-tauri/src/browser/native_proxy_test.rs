@@ -1,6 +1,6 @@
 //! Native WebView2 route acceptance. Every response comes from an owned local socket.
 use super::{
-    engine::{native_privacy_tests::HiddenOwner, Bounds, NativeBrowserEngine},
+    engine::{native_privacy_tests::HiddenOwner, Bounds, EngineEvent, NativeBrowserEngine},
     policy::BrowserPolicy,
     proxy_endpoint::HttpProxy,
 };
@@ -97,10 +97,15 @@ fn native_browser_routes_http_and_https_connect_through_configured_proxy() {
     let profile = tempfile::tempdir().unwrap();
     let (proxy, requests) = fixture();
     let owner = HiddenOwner::new();
+    let (finished, documents) = mpsc::channel();
     let mut engine = NativeBrowserEngine::new(
         profile.path().join("browser"),
         BrowserPolicy::public_web(),
-        Arc::new(|_| {}),
+        Arc::new(move |event| {
+            if let EngineEvent::NavigationFinished { document_revision: Some(revision), .. } = event {
+                let _ = finished.send(revision);
+            }
+        }),
     )
     .unwrap();
     engine.http_proxy = Some(proxy);
@@ -127,6 +132,15 @@ fn native_browser_routes_http_and_https_connect_through_configured_proxy() {
         serde_json::from_str::<String>(&title).unwrap(),
         "Owned proxy fixture"
     );
+
+    let first = wait(|| documents.try_recv().ok());
+    assert_eq!(engine.document_revision(TAB).unwrap(), first);
+    engine.action(TAB, "reload").unwrap();
+    let reloaded = wait(|| documents.try_recv().ok());
+    assert_ne!(reloaded, first);
+    assert_eq!(engine.document_revision(TAB).unwrap(), reloaded);
+    assert_eq!(engine.view(TAB).unwrap().url().unwrap(), HTTP);
+    println!("Real WebView2 reported a new document revision on same-address reload");
 
     assert!(engine.navigate(TAB, "http://127.0.0.1:81/private").is_err());
     assert!(engine

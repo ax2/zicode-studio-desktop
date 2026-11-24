@@ -29,7 +29,12 @@ async function mount({ tabs = [tab(1), tab(3)], closedTabs = [{ tab: tab(2), ind
   const reopen = async () => {
     const menu = root.querySelector(".browser-options"); menu.open = true;
     menu.dispatchEvent(new Event("toggle"));
-    const button = root.querySelector(".browser-reopen"); expect(button.disabled).toBe(false); button.click();
+    const button = root.querySelector(".browser-reopen");
+    await waitFor(() => {
+      menu.dispatchEvent(new Event("toggle"));
+      expect(button.disabled).toBe(false);
+    });
+    button.click();
   };
   return { root, reopen, calls, saved: () => session };
 }

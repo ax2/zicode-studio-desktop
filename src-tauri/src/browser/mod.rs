@@ -81,6 +81,8 @@ pub enum Request {
         tab: String,
         #[serde(rename = "expectedUrl")]
         expected_url: String,
+        #[serde(rename = "expectedDocumentRevision")]
+        expected_document_revision: String,
     },
     SavePdf { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
     GetUserAgent,

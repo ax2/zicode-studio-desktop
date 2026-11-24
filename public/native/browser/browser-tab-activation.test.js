@@ -6,12 +6,12 @@ import { t } from "../../i18n.js";
 let app;
 afterEach(async () => { await app?.canDeactivate(); document.body.replaceChildren(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const tab = id => ({ id, url: `https://example.org/${id}`, title: `Page ${id}`, zoom: 1, muted: false });
-async function mount(closedTabs = []) {
+async function mount(closedTabs = [], restoredDocument = null) {
   vi.spyOn(document, "hidden", "get").mockReturnValue(false);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 50, y: 80, width: 900, height: 600 });
   vi.stubGlobal("ResizeObserver", class { observe() {} });
   let session = { revision: 1, tabs: [tab("a"), tab("b")], activeTab: "a", closedTabs };
-  let visible = null;
+  let visible = null, emit;
   const views = new Set(), requests = [];
   const hooks = { save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), navigate: async () => {} };
   const invoke = async (name, args) => {
@@ -23,8 +23,18 @@ async function mount(closedTabs = []) {
     }
     if (name === "browser_control") {
       const r = args.request; requests.push(r);
-      if (r.kind === "status") return { surfaceRevision: 0, tabs: [] };
-      if (r.kind === "create") { await hooks.create(); views.add(r.tabId); }
+      if (r.kind === "status") {
+        if (!restoredDocument) return { surfaceRevision: 0, tabs: [] };
+        views.add("a");
+        // The existing view can finish loading while its startup snapshot is in flight.
+        emit({ kind: "navigationFinished", tab: "a", success: true, documentRevision: restoredDocument });
+        return { surfaceRevision: 0, tabs: [tab("a")] };
+      }
+      if (r.kind === "create") {
+        await hooks.create();
+        views.add(r.tabId);
+        emit({ kind: "navigationFinished", tab: r.tabId, success: true, documentRevision: `${r.tabId}:1` });
+      }
       if (r.kind === "close") views.delete(r.tab);
       if (r.kind === "savePdf") return hooks.savePdf();
       if (r.kind === "navigate") return hooks.navigate();
@@ -34,9 +44,10 @@ async function mount(closedTabs = []) {
     return {};
   };
   const root = document.createElement("main"); document.body.append(root);
-  app = setupBrowserApp({ invoke }); app.renderContent(root);
+  const listen = async (_name, callback) => { emit = payload => callback({ payload }); };
+  app = setupBrowserApp({ invoke, listen }); app.renderContent(root);
   await waitFor(() => expect(visible).toBe("a"));
-  return { root, hooks, requests, views, saved: () => structuredClone(session), visible: () => visible,
+  return { root, hooks, requests, views, emit, saved: () => structuredClone(session), visible: () => visible,
     selected: () => root.querySelector('[aria-selected="true"]').closest("[data-browser-tab-id]").dataset.browserTabId,
     select: id => root.querySelector(`[data-browser-tab-id="${id}"] [role=tab]`).click(),
     add: () => root.querySelector(".browser-tab-strip > button").click(),
@@ -95,11 +106,40 @@ it("opens developer tools only from the menu for the current visible browser tab
   menu.open = true;
   entry.click();
   await waitFor(() => expect(requests()).toEqual([
-    { kind: "openDeveloperTools", tab: "b", expectedUrl: "https://example.org/b" },
+    { kind: "openDeveloperTools", tab: "b", expectedUrl: "https://example.org/b", expectedDocumentRevision: "b:1" },
   ]));
   expect(menu.open).toBe(false);
   expect(h.visible()).toBe("b");
   expect(h.saved().activeTab).toBe("b");
+});
+
+it("uses the native document revision even when the tab reloads the same address", async () => {
+  const h = await mount();
+  const menu = h.root.querySelector(".browser-options");
+  const entry = menu.querySelector('[data-i18n-text="Developer tools"]');
+  const requests = () => h.requests.filter(request => request.kind === "openDeveloperTools");
+
+  entry.click();
+  await waitFor(() => expect(requests().map(r => r.expectedDocumentRevision)).toEqual(["a:1"]));
+  h.emit({ kind: "navigationStarted", tab: "a" });
+  entry.click();
+  await app.finishWindowWrites();
+  expect(requests()).toHaveLength(1);
+
+  h.emit({ kind: "navigationFinished", tab: "a", success: true, documentRevision: "a:2" });
+  entry.click();
+  await waitFor(() => expect(requests().map(r => r.expectedDocumentRevision)).toEqual(["a:1", "a:2"]));
+  expect(requests().map(r => r.expectedUrl)).toEqual(["https://example.org/a", "https://example.org/a"]);
+});
+
+it("uses the native document that finished loading during shell recovery", async () => {
+  const h = await mount([], "restored:2");
+  const entry = h.root.querySelector('.browser-options [data-i18n-text="Developer tools"]');
+  entry.click();
+  await waitFor(() => expect(h.requests).toContainEqual({
+    kind: "openDeveloperTools", tab: "a", expectedUrl: "https://example.org/a", expectedDocumentRevision: "restored:2",
+  }));
+  expect(h.requests.some(r => r.kind === "create" && r.tabId === "a")).toBe(false);
 });
 
 it("discards developer tools actions while the browser surface is inactive", async () => {

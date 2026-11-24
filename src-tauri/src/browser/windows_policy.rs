@@ -72,6 +72,7 @@ impl NavigationState {
 pub(super) fn install(
     view: &wry::WebView,
     navigation: &NavigationState,
+    document_revision: impl Fn() -> String + 'static,
     policy: BrowserPolicy,
     download_staging: &std::path::Path,
     tab: String,
@@ -184,6 +185,7 @@ pub(super) fn install(
                         tab: nav_tab.clone(),
                         success: success.as_bool(),
                         canceled,
+                        document_revision: has_document.get().then(&document_revision),
                     });
                     if let Some(sender) = sender.filter(|_| success.as_bool()) {
                         emit_visit(&sender, &nav_policy, nav_emit.as_ref(), &nav_tab, false)?;
