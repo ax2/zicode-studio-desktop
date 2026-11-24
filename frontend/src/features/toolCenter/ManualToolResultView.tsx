@@ -9,9 +9,9 @@ import { t } from "../../shared/i18n";
 import type { ReactNode, Ref } from "react";
 import type { ManualToolResult } from "./manual-tool-result";
 
-export function ManualToolResultView({ result, dataTransform = false, dataMerge = false, tablePreview, tableActions, sectionRef, onBackToInputs }: {
+export function ManualToolResultView({ result, dataTransform = false, dataMerge = false, tablePreview, actions, sectionRef, onBackToInputs }: {
   result: ManualToolResult; dataTransform?: boolean; dataMerge?: boolean; tablePreview?: TransformPreview | MergePreview | null;
-  tableActions?: ReactNode; sectionRef?: Ref<HTMLElement>; onBackToInputs?(): void;
+  actions?: ReactNode; sectionRef?: Ref<HTMLElement>; onBackToInputs?(): void;
 }) {
   const image = useMemo(() => result.successful && !dataTransform && !dataMerge ? inlineToolImage(result.text) : null,
     [dataTransform, dataMerge, result.successful, result.text]);
@@ -28,7 +28,7 @@ export function ManualToolResultView({ result, dataTransform = false, dataMerge 
     {onBackToInputs && <button type="button" className="ui-button ui-button--secondary" onClick={onBackToInputs}>{t("Back to inputs")}</button>}
     {result.successful ? <>
       <p role="status">{t("Tool completed")}</p>
-      {tableActions}
+      {actions}
       {preview ? <DataTransformResult key={result.text} result={preview} text={result.text} />
         : image ? <ToolResultImage key={result.text} image={image} text={result.text} />
         : <ToolResultText key={result.text} text={result.text} />}
