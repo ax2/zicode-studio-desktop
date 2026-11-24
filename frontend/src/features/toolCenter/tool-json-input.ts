@@ -94,8 +94,8 @@ function uniqueObjectKeys(text: string): boolean {
   return true;
 }
 
-export function parseToolJson(text: string, kind: "array" | "object"): { value: ToolInputValue } | { error: string } {
-  if (text.length > 32768 || new TextEncoder().encode(text).length > 32768) return { error: "JSON input exceeds the 32 KiB form limit." };
+export function parseToolJson(text: string, kind: "array" | "object", maxBytes = 32768): { value: ToolInputValue } | { error: string } {
+  if (text.length > maxBytes || new TextEncoder().encode(text).length > maxBytes) return { error: "JSON input exceeds the 32 KiB form limit." };
   if (!losslessNumbers(text)) return { error: "JSON contains a number that cannot be preserved exactly." };
   try {
     const value: unknown = JSON.parse(text);

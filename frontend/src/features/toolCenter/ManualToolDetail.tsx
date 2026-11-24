@@ -1,5 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import { FileImportButton } from "./FileImportButton";
+import { WorkbenchDraftFileActions } from "./WorkbenchDraftFileActions";
 import type { ToolAccessScope, ToolAccessStore } from "../commandPalette/tool-access";
 import { type ManualTool, type ManualToolApi, type ToolDetail, manualToolError, supportsResultActions } from "./manual-tools";
 import { toolFields, prepareToolInput } from "./manual-tool-fields";
@@ -60,6 +62,7 @@ export interface ManualToolDetailProps {
   resourceSession?: ResourceSessionOwner;
   onReload?(): Promise<void>;
   initialDraft?: Record<string, string>;
+  workbenchDraftActive?: boolean;
   draftReaderRef?(reader: WorkbenchDraftReader | null): void;
   onOpenWorkbenchDraft?: OpenWorkbenchDraft;
 }
@@ -87,7 +90,7 @@ export function ManualToolDetail(props: ManualToolDetailProps) {
   return <ManualToolDetailView {...props} call={call} />;
 }
 
-export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, initialDraft, draftReaderRef, onOpenWorkbenchDraft, call }: ManualToolDetailProps & {
+export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, initialDraft, draftReaderRef, onOpenWorkbenchDraft, workbenchDraftActive = true, call }: ManualToolDetailProps & {
   call: ReturnType<typeof useManualToolCall>;
 }) {
   const detailOwner = useMemo(() => ({ api, sceneId: scope.sceneId, pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision }),
@@ -158,8 +161,11 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     ["json", "csv", "query"].some(mode => tool.capabilityId === `devtools.compute.table.${mode}`);
   const workbenchApply = isWorkbenchDraftTool(tool) && detail?.version === tool.version;
   const readableDraft = useRef<Record<string, string> | null>(null);
-  const canReadDraft = workbenchApply && detail?.enabled && detail.revision === revision &&
-    detail.pluginId === tool.pluginId && detail.capability.id === tool.capabilityId && supported && !resourceTool && !editingLocked;
+  const activeWorkbench = workbenchApply && detail?.enabled && detail.revision === revision &&
+    detail.pluginId === tool.pluginId && detail.capability.id === tool.capabilityId && supported && !resourceTool;
+  const canReadDraft = activeWorkbench && !editingLocked;
+  const draftFileTool = activeWorkbench && fields?.length === 2 &&
+    fields.every(field => field.kind === "string" && !field.choices && (field.key === "text" || field.key === "options"));
   useLayoutEffect(() => { readableDraft.current = canReadDraft ? values : null; }, [canReadDraft, values]);
   useLayoutEffect(() => {
     if (!draftReaderRef) return;
@@ -208,6 +214,21 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   function undoDraft() {
     if (!ownsUndo || editingLocked) return;
     setDraft(current => undo && current.undo === undo ? { values: undo.values } : current);
+  }
+
+  async function restoreDraftFile(next: Record<string, string>, expected: Record<string, string>, isCurrent: () => boolean) {
+    const owner = draftOwner.current;
+    if (!owner || !canReadDraft || readableDraft.current !== expected || !isCurrent()) return false;
+    const fresh = await api.loadTool(scope.sceneId, { pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision });
+    const available = fresh.enabled && fresh.pluginId === tool.pluginId && fresh.version === tool.version &&
+      fresh.capability.id === tool.capabilityId && fresh.revision === revision &&
+      !fresh.permissions.some(permission => permission.required && permission.name !== "pi.tools.register");
+    if (!available || !isCurrent() || draftOwner.current !== owner || readableDraft.current !== expected) return false;
+    setDraft(current => current.values === expected ? { values: next, undo: {
+      identity: transformIdentity, values: expected, kind: "import", scopeBound: true,
+    } } : current);
+    setError(""); setInvalidField(""); setResult(null); setCaptured(null); setTableExecution(null);
+    return true;
   }
 
   async function importFile(file: File, target: ToolFileTarget) {
@@ -329,6 +350,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
               if (invalidField === field.key) { setInvalidField(""); setError(""); } }}
             onChange={value => setDraft(previous => ({ values: { ...previous.values, [field.key]: value } }))} />;
         })}
+        {draftFileTool && workbenchDraftActive && <WorkbenchDraftFileActions key={transformIdentity}
+          tool={tool} values={values} disabled={!canReadDraft} onRestore={restoreDraftFile} />}
         {jsonSchema && <>
           <div className="ui-toolbar">{documentFileButtons}</div>
           <p className="tool-center-source">{t("Choose Draft 4, 6 or 7 with $schema. Without it, Draft 7 is used. References must stay in the same schema document.")}</p>
@@ -401,20 +424,6 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   </section>;
 }
 
-function FileImportButton({ label, inputLabel, disabled, loading, accept = ".csv,.tsv,.json", loadingLabel = "Reading table file…", onPick }: {
-  label: string; inputLabel: string; disabled: boolean; loading: boolean; accept?: string; loadingLabel?: string; onPick(file: File): void;
-}) {
-  const picker = useRef<HTMLInputElement>(null);
-  return <>
-    <input ref={picker} type="file" hidden accept={accept} aria-label={inputLabel} onChange={event => {
-      const file = event.currentTarget.files?.[0];
-      event.currentTarget.value = "";
-      if (file) onPick(file);
-    }} />
-    <button type="button" className="ui-button ui-button--secondary" disabled={disabled}
-      onClick={() => picker.current?.click()}>{loading ? t(loadingLabel) : label}</button>
-  </>;
-}
 
 function isStaleToolError(reason: unknown): boolean {
   return Boolean(reason && typeof reason === "object" && "code" in reason &&

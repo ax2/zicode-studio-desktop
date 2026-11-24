@@ -1,18 +1,6 @@
 import { t } from "../../shared/i18n";
 
-export function defaultDownloadFile(fileName: string, content: string, type: string): void {
-  if (typeof URL.createObjectURL !== "function")
-    throw new Error(t("File downloads are not available in this view."));
-  const url = URL.createObjectURL(new Blob([content], { type }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.hidden = true;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
+export { downloadFile as defaultDownloadFile } from "../../shared/download-file";
 
 export async function defaultChooseFile(accept: string): Promise<File | null> {
   return (await openNotesPicker(accept, false))[0] ?? null;
