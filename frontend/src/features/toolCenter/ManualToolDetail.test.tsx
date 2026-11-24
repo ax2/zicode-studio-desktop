@@ -29,10 +29,13 @@ async function mount(activeTool: ManualTool = tool, resourceInputProfile?: strin
   const store = { read: vi.fn(async () => emptyAccess()), mutate: vi.fn(async () => emptyAccess()) };
   const container = document.createElement("div"); document.body.append(container);
   const root = createRoot(container); roots.push(root);
-  await act(async () => root.render(<ManualToolDetail tool={activeTool} revision="revision" api={api}
-    scope={{ sceneId: "programming", workspaceId: "workspace" }} accessStore={store} onOpenApplication={onOpenApplication} />));
+  const renderScope = async (workspaceId: string, selected = activeTool, revision = "revision") => {
+    await act(async () => root.render(<ManualToolDetail tool={selected} revision={revision} api={api}
+      scope={{ sceneId: "programming", workspaceId }} accessStore={store} onOpenApplication={onOpenApplication} />));
+  };
+  await renderScope("workspace");
   const submit = async () => { await act(async () => container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))); };
-  return { container, api, store, submit };
+  return { container, api, store, submit, renderScope };
 }
 
 it("keeps object input editable for a disabled plugin and explains the actual blocker", async () => {
@@ -503,7 +506,8 @@ it.runIf(Boolean(mixedMergePackage && mixedMergeWorker)).each([
   const packagePath = mixedMergePackage as string;
   const manifest = JSON.parse(readFileSync(join(packagePath, "plugin.json"), "utf8"));
   const capability = manifest.contributes.capabilities.find((item: {id: string}) => item.id === "devtools.table-merge." + mode);
-  const { api, choose, submit, container, form } = await mountMixedMerge(mode, capability.inputSchema);
+  const fixture = await mountMixedMerge(mode, capability.inputSchema);
+  const { api, choose, submit, container, form } = fixture;
   vi.mocked(api.invoke).mockImplementation(async (sceneId, _workspaceId, pluginId, capabilityId, input) => {
     const worker = spawnSync(mixedMergeWorker as string, ["--zicode-plugin-worker"], {
       input: JSON.stringify({ workerPath: join(packagePath, manifest.runtime.wasi), workerKind: "wasi", pluginId, capabilityId, sceneId, input }),
@@ -528,5 +532,105 @@ it.runIf(Boolean(mixedMergePackage && mixedMergeWorker)).each([
   expect(api.invoke).not.toHaveBeenCalled();
   await submit();
   expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ ...input, ...keyFields });
-  expect(within(container).getByRole("table").textContent).toContain(expected);
-}, 15000);
+  const result = within(container);
+  expect(result.getByRole("table").textContent).toContain(expected);
+  const originalFormat = { left: fixture.leftFormat.value, right: fixture.rightFormat.value };
+  const editors = { left: fixture.left, right: fixture.right };
+  const formats = { left: fixture.leftFormat, right: fixture.rightFormat };
+  const originals = { left, right };
+  for (const side of ["left", "right"] as const) {
+    const opposite = side === "left" ? "right" : "left";
+    const label = side === "left" ? "应用结果到左表" : "应用结果到右表";
+    const apply = result.getByRole("button", { name: label }) as HTMLButtonElement;
+    expect(apply.disabled).toBe(false);
+    await act(async () => { apply.click(); });
+    expect(editors[side].value).toMatch(/^\{"headers":\[/);
+    expect(editors[side].value).toContain(expected);
+    expect(formats[side].selectedOptions[0].textContent).toBe("json");
+    expect(editors[opposite].value).toBe(originals[opposite]);
+    expect(formats[opposite].value).toBe(originalFormat[opposite]);
+    expect(api.invoke).toHaveBeenCalledTimes(1);
+    expect(fixture.store.mutate).toHaveBeenCalledTimes(1);
+    await act(async () => { form.getByRole("button", { name: "撤销上次应用" }).click(); });
+    expect([editors.left.value, editors.right.value]).toEqual([left, right]);
+    expect([formats.left.value, formats.right.value]).toEqual([originalFormat.left, originalFormat.right]);
+  }
+  if (mode === "append") {
+    await act(async () => { result.getByRole("button", { name: "应用结果到左表" }).click(); });
+    const applied = fixture.left.value;
+    await submit();
+    expect(vi.mocked(api.invoke).mock.calls[1][4]).toEqual({ left: applied, right, leftFormat: "json", rightFormat });
+    expect(result.getByRole("table").textContent).toContain("18446744073709551615");
+  }
+}, 20000);
+
+async function runMergeFixture(output: string) {
+  const fixture = await mountMixedMerge();
+  vi.mocked(fixture.api.invoke).mockResolvedValue({ result: envelope(output) });
+  await fixture.choose("left", [new NodeFile(["id\n1"], "left.csv")]);
+  await fixture.choose("right", [new NodeFile(['[{"id":"2"}]'], "right.json")]);
+  await fixture.submit();
+  return fixture;
+}
+
+const fixtureResult = (value: string) => JSON.stringify({
+  report: "Merged", data: { headers: ["id"], rows: [[value]] }, csv: "id\n",
+});
+
+it("disables an older merge result after an edit and never restores that result on a workspace round trip", async () => {
+  const { container, form, renderScope, left, right, api } = await runMergeFixture(fixtureResult("result"));
+  const result = within(container);
+  const applyLeft = () => result.getByRole("button", { name: "应用结果到左表" }) as HTMLButtonElement;
+  expect(applyLeft().disabled).toBe(false);
+  await act(async () => { fireEvent.change(left, { target: { value: "new draft" } }); });
+  expect(applyLeft().disabled).toBe(true);
+  expect(left.value).toBe("new draft");
+  expect(right.value).toBe('[{"id":"2"}]');
+  expect(form.queryByRole("button", { name: "撤销上次应用" })).toBeNull();
+  expect(api.invoke).toHaveBeenCalledTimes(1);
+  await renderScope("another-workspace");
+  await renderScope("workspace");
+  expect(result.queryByRole("button", { name: "应用结果到左表" })).toBeNull();
+});
+
+it("retains a later draft edit instead of allowing merge undo to roll it back", async () => {
+  const { container, form, left, right } = await runMergeFixture(fixtureResult("result"));
+  const result = within(container);
+  await act(async () => { result.getByRole("button", { name: "应用结果到右表" }).click(); });
+  expect(right.value).toContain("result");
+  await act(async () => { fireEvent.change(left, { target: { value: "later edit" } }); });
+  expect(form.queryByRole("button", { name: "撤销上次应用" })).toBeNull();
+  expect((result.getByRole("button", { name: "应用结果到左表" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(left.value).toBe("later edit");
+  expect(right.value).toContain("result");
+});
+
+it("keeps a result readable when its compact JSON exceeds the per-table byte budget", async () => {
+  const { container, left, right } = await runMergeFixture(fixtureResult("中".repeat(2731)));
+  const result = within(container);
+  expect(result.getByRole("table")).toBeTruthy();
+  expect((result.getByRole("button", { name: "应用结果到左表" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((result.getByRole("button", { name: "应用结果到右表" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(left.value).toBe("id\n1");
+  expect(right.value).toBe('[{"id":"2"}]');
+});
+
+
+it("ignores a previous merge execution failure after switching workspace and can run again", async () => {
+  const fixture = await mountMixedMerge();
+  await fixture.choose("left", [new NodeFile(["id\n1"], "left.csv")]);
+  await fixture.choose("right", [new NodeFile(['[{"id":"2"}]'], "right.json")]);
+  let rejectPrevious: (reason: Error) => void = () => {};
+  const previous = new Promise<never>((_resolve, reject) => { rejectPrevious = reject; });
+  vi.mocked(fixture.api.invoke).mockImplementationOnce(() => previous);
+  await fixture.submit();
+  expect(fixture.api.invoke).toHaveBeenCalledTimes(1);
+  await fixture.renderScope("another-workspace");
+  await act(async () => { rejectPrevious(new Error("Old workspace failure")); });
+  expect(within(fixture.container).queryByRole("alert")).toBeNull();
+  expect(fixture.container.querySelector('button[type="submit"]')?.hasAttribute("disabled")).toBe(false);
+  vi.mocked(fixture.api.invoke).mockResolvedValueOnce({ result: envelope(fixtureResult("new result")) });
+  await fixture.submit();
+  expect(vi.mocked(fixture.api.invoke).mock.calls[1][1]).toBe("another-workspace");
+  expect(within(fixture.container).getByRole("table").textContent).toContain("new result");
+});

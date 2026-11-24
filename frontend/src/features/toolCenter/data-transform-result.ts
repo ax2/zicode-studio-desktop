@@ -18,6 +18,7 @@ interface TablePreview {
 
 export interface MergePreview extends TablePreview {
   report: string;
+  input: string | null;
 }
 
 export interface TransformPreview extends TablePreview {
@@ -117,7 +118,7 @@ function previewRows(rows: unknown[][]): TablePreview["rows"] {
   }));
 }
 
-export function dataMergePreview(text: string): MergePreview | null {
+export function dataMergePreview(text: string, includeInput = false): MergePreview | null {
   const table = readTableResult(text);
   const report = table?.result.report;
   if (
@@ -128,7 +129,12 @@ export function dataMergePreview(text: string): MergePreview | null {
   )
     return null;
   try {
-    return { report, headers: table.headers, rows: previewRows(table.rows) };
+    return {
+      report,
+      input: includeInput ? encodeTableInput(table.headers, table.rows) : null,
+      headers: table.headers,
+      rows: previewRows(table.rows),
+    };
   } catch {
     return null;
   }

@@ -1,7 +1,7 @@
 import { ToolResultText } from "./ToolResultText";
 import { ToolResultImage } from "./ToolResultImage";
 import { DataTransformResult } from "./DataTransformResult";
-import { dataMergePreview, dataTransformPreview, type TransformPreview } from "./data-transform-result";
+import { dataMergePreview, dataTransformPreview, type MergePreview, type TransformPreview } from "./data-transform-result";
 import { dataTransformRowFailure } from "./data-transform-error-protocol";
 import { inlineToolImage } from "./inline-tool-image";
 import { useMemo } from "react";
@@ -9,17 +9,18 @@ import { t } from "../../shared/i18n";
 import type { ReactNode, Ref } from "react";
 import type { ManualToolResult } from "./manual-tool-result";
 
-export function ManualToolResultView({ result, dataTransform = false, dataMerge = false, transformPreview, transformActions, sectionRef, onBackToInputs }: {
-  result: ManualToolResult; dataTransform?: boolean; dataMerge?: boolean; transformPreview?: TransformPreview | null;
-  transformActions?: ReactNode; sectionRef?: Ref<HTMLElement>; onBackToInputs?(): void;
+export function ManualToolResultView({ result, dataTransform = false, dataMerge = false, tablePreview, tableActions, sectionRef, onBackToInputs }: {
+  result: ManualToolResult; dataTransform?: boolean; dataMerge?: boolean; tablePreview?: TransformPreview | MergePreview | null;
+  tableActions?: ReactNode; sectionRef?: Ref<HTMLElement>; onBackToInputs?(): void;
 }) {
   const image = useMemo(() => result.successful && !dataTransform && !dataMerge ? inlineToolImage(result.text) : null,
     [dataTransform, dataMerge, result.successful, result.text]);
   const preview = useMemo(() => {
     if (!result.successful) return null;
+    if (tablePreview !== undefined) return tablePreview;
     if (dataMerge) return dataMergePreview(result.text);
-    return transformPreview === undefined && dataTransform ? dataTransformPreview(result.text) : transformPreview;
-  }, [transformPreview, dataMerge, dataTransform, result.successful, result.text]);
+    return dataTransform ? dataTransformPreview(result.text) : null;
+  }, [tablePreview, dataMerge, dataTransform, result.successful, result.text]);
   const failedRow = useMemo(() => dataTransform && !result.successful ? dataTransformRowFailure(result.raw) : null,
     [dataTransform, result.successful, result.raw]);
   return <section className="tool-execution-result" ref={sectionRef} tabIndex={-1} aria-label={t("Latest execution")}>
@@ -28,7 +29,7 @@ export function ManualToolResultView({ result, dataTransform = false, dataMerge 
     {result.successful ? <>
       <p role="status">{t("Tool completed")}</p>
       {preview ? <>
-        {transformActions}
+        {tableActions}
         <DataTransformResult key={result.text} result={preview} text={result.text} />
       </>
         : image ? <ToolResultImage key={result.text} image={image} text={result.text} />
