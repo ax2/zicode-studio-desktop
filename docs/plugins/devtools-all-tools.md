@@ -42,6 +42,10 @@ Compare 0.1.0 的「JSON 对比（数组按顺序）」和「JSON 对比（数�
 
 Base64 编码和解码均可显式导入 8 KiB 内的 UTF-8 文件并撤销，成功后下载完整 `.base64` 或 `.txt`。编码保留 BOM 和原换行，解码导入支持折行，Worker 继续严格检查 Base64 和 UTF-8。已用生产 Windows Worker 实测完整文件往返。见[范围与验收](../iterations/2026-11-25-base64-file-workflow.md)。
 
+## 2026-11-25 开发补充：JSON 字符串文件转义与还原
+
+两种模式均可导入 8 KiB 内 UTF-8 文件并撤销，手动执行成功后下载当前完整的 `.json` 字符串字面量或还原的 `.txt`。正常工具中心和生产 Windows Worker 已通过文件往返及原件回读。见[范围与验收](../iterations/2026-11-25-json-string-files.md)。
+
 ## 2026-11-25 开发补充：文本统计文件和报告
 
 「文本统计」可导入 8 KiB 内 UTF-8 文件并撤销，执行后下载完整 TXT。真实 Windows Worker 验证含中文、Unicode 组合字符、CRLF、空文件和 8 KiB 边界。见[范围与验收](../iterations/2026-11-25-text-statistics-files.md)。
