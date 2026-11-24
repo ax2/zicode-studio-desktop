@@ -1,11 +1,12 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 export type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // The frozen tool document input limit.
 const jsonFileFields = new Map<ToolFileTarget, string>([
   ["json-path", "text"],
+  ["yaml-from-json", "text"],
   ["json-diff-left", "left"],
   ["json-diff-right", "right"],
   ["schema-instance", "instance"],
@@ -53,6 +54,12 @@ export async function readManualToolFile(
     if (!name.endsWith(".sql")) throw Error("Choose a SQL file.");
     const text = await readUtf8ToolFile(file, "SQL files must be 8 KiB or smaller.", "Could not read the SQL file.");
     if (!text.trim()) throw Error("The selected SQL file is empty.");
+    return { text };
+  }
+  if (target === "yaml-to-json") {
+    if (!name.endsWith(".yaml") && !name.endsWith(".yml")) throw Error("Choose a YAML file.");
+    const text = await readUtf8ToolFile(file, "YAML files must be 8 KiB or smaller.", "Could not read the YAML file.");
+    if (!text.trim()) throw Error("The selected YAML file is empty.");
     return { text };
   }
   const format = tableFileFormats.find(extension => name.endsWith("." + extension));
