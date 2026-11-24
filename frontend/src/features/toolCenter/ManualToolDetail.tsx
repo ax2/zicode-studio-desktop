@@ -74,7 +74,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const [fileLoading, setFileLoading] = useState(false);
   const editingLocked = running || actionBusy || fileLoading;
   const filePicker = useRef<HTMLInputElement>(null);
-  const fileRead = useRef(0);
+  const fileRead = useRef<{ identity: string; api: ManualToolApi; sequence: number } | null>(null);
   const alive = useRef(true);
   const formRef = useRef<HTMLFormElement>(null);
   const resultRef = useRef<HTMLElement>(null);
@@ -107,8 +107,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const dataTransform = isDataTransform(tool);
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
   useLayoutEffect(() => {
+    fileRead.current = { identity: transformIdentity, api, sequence: 0 };
     setFileLoading(false);
-    return () => { fileRead.current += 1; };
+    return () => { fileRead.current = null; };
   }, [transformIdentity, api]);
   const ownsUndo = undo?.identity === transformIdentity;
   const inputsCurrent = transformed?.identity === transformIdentity && transformed.api === api && transformed.source === values;
@@ -132,21 +133,24 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   }
 
   async function importTransformFile(file: File) {
-    if (!dataTransform || !supported || !detail.enabled || editingLocked) return;
-    const sequence = ++fileRead.current;
+    const owner = fileRead.current;
+    if (!owner || owner.identity !== transformIdentity || owner.api !== api ||
+        !dataTransform || !supported || !detail.enabled || editingLocked) return;
+    const sequence = ++owner.sequence;
+    const isCurrent = () => fileRead.current === owner && owner.sequence === sequence;
     setFileLoading(true);
     setError("");
     try {
       const next = await readTransformFile(file, values.options);
-      if (sequence !== fileRead.current) return;
+      if (!isCurrent()) return;
       setInvalidField("");
       setDraft(current => current.values === values
         ? { values: { ...values, ...next }, undo: { identity: transformIdentity, values, kind: "import" } }
         : current);
     } catch (reason) {
-      if (sequence === fileRead.current) setError(reason instanceof Error ? reason.message : "Could not read the table file.");
+      if (isCurrent()) setError(reason instanceof Error ? reason.message : "Could not read the table file.");
     } finally {
-      if (sequence === fileRead.current) setFileLoading(false);
+      if (isCurrent()) setFileLoading(false);
     }
   }
 
