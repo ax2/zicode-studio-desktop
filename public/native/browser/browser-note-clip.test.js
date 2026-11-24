@@ -248,6 +248,121 @@ it("requests OCR only on its own action and separately opts in to including the 
 });
 
 
+it("saves and reopens only explicitly selected OCR text from the page and an embedded page", async () => {
+  const url = "https://example.invalid/inventory";
+  const image = name => ({ alt: name, width: 320, height: 80, url: url + "/" + name + ".png" });
+  const primary = image("main"), unselected = image("unselected"), embedded = image("embedded");
+  const frame = { title: "Embedded department", url: url + "/frame", text: "Unrelated frame body",
+    images: [embedded], imageLocator: { path: [0, 1], timeOrigin: "84" } };
+  const snapshot = { tab: "clip-tab", documentRevision: "ocr-document-4", capturedAt: "2026-11-25T01:12:00Z",
+    page: { title: "Fixture inventory", url, text: "Unrelated page body", selection: "Unrelated selected words",
+      textTruncated: true, links: [{ label: "Unrelated link", url: url + "/link" }], images: [primary, unselected], frames: [frame] } };
+  const target = { sceneId: "programming", workspaceId: "ocr-workspace" };
+  const recognized = vi.fn(async (source, origin) => ({
+    source, pageUrl: url, documentRevision: snapshot.documentRevision,
+    capturedAt: origin ? "2026-11-25T01:13:02Z" : "2026-11-25T01:13:01Z",
+    text: origin ? "Embedded count 🦊" : source === primary ? "Primary <img> count" : "Unselected OCR text",
+    truncated: Boolean(origin),
+    ...(origin ? { frame: { title: origin.title, url: origin.url, documentRevision: "84" } } : {}),
+  }));
+  let stored, reopened;
+  const writes = [];
+  const fetchImpl = vi.fn(async (url, request) => {
+    if (url.pathname === "/v2/notes") return Response.json({ snapshot: { notebooks: [{ id: "book", title: "Results" }] } });
+    if (url.pathname === "/v2/notes/create") {
+      const { sceneId, workspaceId, ...draft } = JSON.parse(request.body);
+      expect({ sceneId, workspaceId }).toEqual(target);
+      writes.push(draft);
+      if (writes.length === 1) return Response.json({ error: { message: "Storage unavailable" } }, { status: 503 });
+      stored = { id: "saved", ...draft };
+      return Response.json({ note: stored });
+    }
+    if (url.pathname === "/v2/notes/note") {
+      expect(Object.fromEntries(url.searchParams)).toEqual({ ...target, notebookId: "book", noteId: "saved" });
+      return Response.json({ note: stored });
+    }
+    throw Error("Unexpected Notes request");
+  });
+  const gateway = new NotesGateway({ fetchImpl });
+  const readCurrent = vi.fn(async () => snapshot);
+  const host = document.createElement("aside"), trigger = document.createElement("button");
+  document.body.append(host, trigger);
+  const prepare = vi.fn();
+  const dialog = showBrowserCapture(snapshot, vi.fn(), prepare, isCurrent => createBrowserNoteWriter({
+    capture: snapshot, readCurrent, isCurrent, getTarget: () => target, gateway,
+  }), undefined, false, { host, trigger, recognizeImage: recognized });
+  const media = dialog.querySelector(".browser-capture-media");
+  const frames = dialog.querySelector(".browser-capture-frames");
+  const links = dialog.querySelector(".browser-capture-links");
+  media.open = frames.open = links.open = true;
+  frames.querySelector("details").open = true;
+  getByRole(links, "checkbox").click();
+  getByRole(frames, "checkbox", { name: t("Include frames in the page note or chat draft") }).click();
+  getByRole(dialog, "button", { name: t("Save to Notes"), exact: true }).click();
+  const save = getByRole(dialog, "button", { name: t("Save page to notebook") });
+  const mode = getByLabelText(dialog, t("Save content"));
+  await waitFor(() => expect(save.disabled).toBe(false));
+  expect(mode.value).toBe("page");
+  mode.value = "image-text";
+  mode.dispatchEvent(new Event("change", { bubbles: true }));
+  expect(save.textContent).toBe(t("Save image text to notebook"));
+  expect(save.disabled).toBe(true);
+  expect(dialog.textContent).toContain(t("Select the recognized image text you want to save."));
+  save.dispatchEvent(new Event("click"));
+  expect(writes).toHaveLength(0);
+  expect(recognized).not.toHaveBeenCalled();
+  expect(readCurrent).not.toHaveBeenCalled();
+
+  const rows = [...media.querySelectorAll(".browser-image-ocr"), frames.querySelector(".browser-image-ocr")];
+  for (const row of rows) {
+    getByRole(row, "button", { name: t("Recognize text locally") }).click();
+    await waitFor(() => expect(getByRole(row, "textbox").readOnly).toBe(true));
+    expect(getByRole(row, "checkbox").checked).toBe(false);
+  }
+  expect(save.disabled).toBe(true);
+  getByRole(rows[0], "checkbox").click();
+  getByRole(rows[2], "checkbox").click();
+  expect(save.disabled).toBe(false);
+  save.click();
+  await waitFor(() => expect(dialog.textContent).toContain("Storage unavailable"));
+  expect(queryByRole(dialog, "button", { name: t("Open saved note") })).toBeNull();
+  expect(getByRole(rows[0], "checkbox").checked).toBe(true);
+  expect(getByRole(rows[2], "checkbox").checked).toBe(true);
+  getByRole(rows[0], "checkbox").click();
+  getByRole(rows[2], "checkbox").click();
+  expect(save.disabled).toBe(true);
+  expect(mode.value).toBe("image-text");
+  getByRole(rows[0], "checkbox").click();
+  getByRole(rows[2], "checkbox").click();
+
+  const listener = ({ detail }) => {
+    void navigateToNote(detail, { getTarget: () => target, activate: async () => {}, isActive: () => true,
+      open: async (notebookId, noteId) => { reopened = await gateway.get(target.sceneId, target.workspaceId, notebookId, noteId); },
+    });
+  };
+  window.addEventListener("zicode:open-note", listener);
+  try {
+    save.click();
+    const open = await waitFor(() => getByRole(dialog, "button", { name: t("Open saved note") }));
+    open.click();
+    await waitFor(() => expect(reopened?.note).toEqual(stored));
+    expect(writes).toHaveLength(2);
+    expect(writes[0]).toEqual(writes[1]);
+    expect(stored.source).toEqual({ url, capturedAt: snapshot.capturedAt, documentRevision: snapshot.documentRevision });
+    expect(stored.content).toContain("Primary &lt;img&gt; count");
+    expect(stored.content).toContain("Embedded count 🦊");
+    for (const value of [primary.url, embedded.url, frame.url, "84", "2026-11-25T01:13:02Z", t("Recognized image text was shortened.")]) {
+      expect(stored.content).toContain(value);
+    }
+    expect(stored.content).not.toMatch(/Unrelated|Unselected OCR text|unselected\.png|data:image/);
+    expect(stored.content).not.toContain(t("Page content was shortened"));
+    expect(recognized).toHaveBeenCalledTimes(3);
+    expect(prepare).not.toHaveBeenCalled();
+  } finally {
+    window.removeEventListener("zicode:open-note", listener);
+  }
+});
+
 it("reports when local OCR finds no text and lets the user retry", async () => {
   const image = { alt: "Blank image", width: 200, height: 60, url: "https://example.org/blank.png" };
   const snapshot = { ...capture, page: { ...capture.page, images: [image] } };

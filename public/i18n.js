@@ -1003,6 +1003,9 @@ const zhCN = {
   "Web clippings": "网页剪藏",
   "New notebook title": "新笔记本标题",
   "Save content": "保存内容",
+  "Only selected image text": "仅保存勾选的图片文字",
+  "Save image text to notebook": "将图片文字保存到笔记本",
+  "Select the recognized image text you want to save.": "请勾选要保存的图片识别文本。",
   "Save page to notebook": "保存网页到笔记本",
   "Saved to Notes. The source and capture time are included.":
     "已保存到笔记，包含来源网址和采集时间。",

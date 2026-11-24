@@ -241,13 +241,19 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (compare) actions.append(compare.button);
   let clip;
   if (createNoteWriter) {
+    const canSaveImageText = recognizeImage && (
+      capture.page.images?.some(image => image.url) ||
+      capture.page.frames?.some(frame => frame.imageLocator && frame.images?.some(image => image.url))
+    );
     clip = createBrowserNoteClip({ capture, writer: createNoteWriter(isOpen),
       isOpen,
+      canSaveImageText,
       onOpened: dock ? undefined : () => dismiss(),
       attachments,
       setBusy,
     });
     actions.append(clip.button);
+    if (canSaveImageText) dialog.addEventListener("change", clip.updateScope);
   }
   if (clip && compare) {
     compare.button.addEventListener("click", () => { if (!compare.panel.hidden) clip.panel.hidden = true; });
