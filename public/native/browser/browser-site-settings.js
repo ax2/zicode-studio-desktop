@@ -5,7 +5,17 @@ export const SITE_SETTINGS_CHANGED = "Site changed. Open site settings again.";
 const kinds = ["Other permission", "Microphone", "Camera", "Location", "Notifications", "Sensors",
   "Clipboard read", "Automatic downloads", "File access", "Autoplay", "Local fonts", "MIDI devices", "Window management"];
 
-export function showSiteSettings({ origin, request, onClose }) {
+export function browserPermissionKind(permission) {
+  return permission >= 0 && permission < kinds.length ? permission : 0;
+}
+
+export function blockedPermissionText(permissions) {
+  if (!permissions?.size) return "";
+  const names = [...permissions].sort((left, right) => left - right).map(permission => t(kinds[permission]));
+  return t("Permissions blocked in this tab · {permissions}").replace("{permissions}", names.join(" · "));
+}
+
+export function showSiteSettings({ origin, blockedPermissions, request, onClose }) {
   const el = (tag, text) => {
     const node = document.createElement(tag);
     if (text) node.textContent = text;
@@ -24,16 +34,24 @@ export function showSiteSettings({ origin, request, onClose }) {
   const list = el("div"), actions = el("fieldset"), confirm = el("section"), status = el("p");
   status.setAttribute("role", "status");
   let stale = false;
+  const blocked = el("p");
+  function setBlockedPermissions(permissions) {
+    const text = stale ? "" : blockedPermissionText(permissions);
+    blocked.hidden = !text;
+    blocked.textContent = text;
+  }
+  setBlockedPermissions(blockedPermissions);
   confirm.hidden = true;
   const clear = button("Clear site storage", () => prompt("Remove this site's local storage, databases, offline caches and service workers? Cookies are kept.", { type: "clearStorage" }, clear));
   const cookies = button("Clear host cookies", () => prompt("Clear cookies belonging only to this host across its ports? This may sign you out. Shared domain cookies are kept.", { type: "clearHostCookies" }, cookies));
   const close = button("Close", () => dialog.close());
   actions.append(el("legend", t("Saved site permissions")), list, clear, cookies);
-  dialog.append(el("h2", t("Site permissions and storage")), el("p", origin), actions, confirm, status, close);
+  dialog.append(el("h2", t("Site permissions and storage")), el("p", origin), blocked, actions, confirm, status, close);
   const errorText = error => t(String(error?.message ?? error));
   function invalidate() {
     if (stale || !dialog.open) return;
     stale = true;
+    setBlockedPermissions();
     confirm.hidden = true;
     confirm.replaceChildren();
     actions.disabled = true;
@@ -111,5 +129,5 @@ export function showSiteSettings({ origin, request, onClose }) {
   dialog.showModal();
   close.focus();
   void load();
-  return { invalidate, close() { if (dialog.open) dialog.close(); } };
+  return { invalidate, setBlockedPermissions, close() { if (dialog.open) dialog.close(); } };
 }
