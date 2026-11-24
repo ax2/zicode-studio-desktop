@@ -3,7 +3,6 @@ import type { ManualTool } from "./manual-tools";
 const byteLimit = 48 * 1024; // The Compute Worker returns at most 48 KiB.
 const columnLimit = 128;
 const rowLimit = 10_000;
-const rowFailure = /^第 ([1-9][0-9]{0,4}) 行，列 ([\s\S]+) 转换失败；原数据未修改$/u;
 
 export function isDataTransform(tool: Pick<ManualTool, "pluginId" | "capabilityId">): boolean {
   return (
@@ -96,19 +95,6 @@ export function dataTransformPreview(text: string): TransformPreview | null {
       ...new Map(examples.map((pair) => [JSON.stringify(pair), pair])).values(),
     ];
     return { headers, rows: previewRows, changed, examples: distinctExamples };
-  } catch {
-    return null;
-  }
-}
-
-export function dataTransformRowFailure(raw: string): { row: string; column: string } | null {
-  if (raw.length > byteLimit) return null;
-  try {
-    const result = JSON.parse(raw) as { ok?: boolean; error?: { message?: unknown } } | null;
-    const message = result?.error?.message;
-    if (result?.ok !== false || typeof message !== "string") return null;
-    const match = rowFailure.exec(message);
-    return match && Number(match[1]) <= rowLimit ? { row: match[1], column: match[2] } : null;
   } catch {
     return null;
   }

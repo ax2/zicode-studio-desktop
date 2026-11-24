@@ -1,7 +1,8 @@
 import { ToolResultText } from "./ToolResultText";
 import { ToolResultImage } from "./ToolResultImage";
 import { DataTransformResult } from "./DataTransformResult";
-import { dataTransformPreview, dataTransformRowFailure } from "./data-transform-result";
+import { dataTransformPreview } from "./data-transform-result";
+import { dataTransformRowFailure } from "./data-transform-error-protocol";
 import { inlineToolImage } from "./inline-tool-image";
 import { useMemo } from "react";
 import { t } from "../../shared/i18n";
