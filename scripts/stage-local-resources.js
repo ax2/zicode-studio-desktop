@@ -1,6 +1,25 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { execFileSync } = require("node:child_process");
 const { createHash, randomUUID } = require("node:crypto");
+
+const runtimeDirectories = new Set(["pi", "portable-git", "webview2", "bun"]);
+
+function primaryCheckout(configDir) {
+  const records = execFileSync("git", ["worktree", "list", "--porcelain", "-z"], {
+    cwd: configDir,
+    encoding: "utf8",
+    windowsHide: true,
+  }).split("\0");
+  const prefix = "worktree ";
+  const checkouts = records.filter((record) => record.startsWith(prefix))
+    .map((record) => record.slice(prefix.length));
+  const current = fs.realpathSync(path.dirname(configDir));
+  if (records[1] === "bare" || !checkouts.some((checkout) => path.relative(current, checkout) === "")) {
+    throw Error("Shared runtime resources require a Git checkout.");
+  }
+  return fs.realpathSync(checkouts[0]);
+}
 
 function digest(file) {
   const hash = createHash("sha256");
@@ -22,6 +41,27 @@ function digest(file) {
 // while the Windows application resolves resources beside its executable.
 function stageLocalResources(configDir, debugDir, resources) {
   let updated = 0;
+  let primary;
+
+  function resourceSource(source, destination) {
+    const candidate = path.resolve(configDir, source);
+    const resourcePath = path.join("resources", destination);
+    if (!runtimeDirectories.has(destination)
+      || path.relative(configDir, candidate) !== resourcePath
+      || !fs.lstatSync(candidate).isSymbolicLink()) {
+      return candidate;
+    }
+
+    primary ??= primaryCheckout(configDir);
+    const expected = path.join(primary, "src-tauri", resourcePath);
+    const resolved = fs.realpathSync(candidate);
+    if (path.relative(expected, resolved) !== "" || !fs.lstatSync(expected).isDirectory()) {
+      throw Error(`Shared runtime must point to the corresponding primary checkout directory: ${source}`);
+    }
+    // Only the known runtime root can be shared. The recursive stager still rejects nested links.
+    return resolved;
+  }
+
   function stage(source, target, prepared) {
     const input = fs.lstatSync(source);
     const existing = fs.lstatSync(target, { throwIfNoEntry: false });
@@ -61,7 +101,7 @@ function stageLocalResources(configDir, debugDir, resources) {
     if (!relative || relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
       throw Error("Resource destination outside the debug directory: " + destination);
     }
-    stage(path.resolve(configDir, source), target, path.join(debugDir, "build", relative));
+    stage(resourceSource(source, destination), target, path.join(debugDir, "build", relative));
   }
   return updated;
 }
