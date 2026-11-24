@@ -779,17 +779,18 @@ it.each(["Send page and ask", "Send page and summarize"])("checks the current na
 it("sends only the page content and attachments chosen when the user clicked Send", async () => {
   const modelGateway = comparisonGateway();
   const link = { label: "Reviewed source link", url: "https://example.invalid/source" };
+  const privateLink = { label: "Unreviewed private link", url: "https://example.invalid/private" };
   let hold = false, finishCheck;
   const { host, assistant } = await openControlledAssistant({
     target: browserComparisonSession, handoff: vi.fn(), modelGateway,
-    capturePage: source => ({ ...source, page: { ...source.page, links: [link] } }),
+    capturePage: source => ({ ...source, page: { ...source.page, links: [privateLink, link] } }),
     getNativeStatus: snapshot => hold ? new Promise(resolve => { finishCheck = () => resolve(snapshot); }) : snapshot,
   });
   const question = getByRole(host, "textbox", { name: "Question about this page" });
   question.value = "The reviewed question";
   question.dispatchEvent(new Event("input", { bubbles: true }));
   assistant.querySelector(".browser-capture-links").open = true;
-  const include = getByRole(assistant, "checkbox", { name: "Include links in the page note or chat draft" });
+  const include = getByRole(assistant, "checkbox", { name: /Reviewed source link/ });
   include.click();
   expect(assistant.textContent).toContain("Page questions and summaries include the selected attachments.");
   const send = getByRole(host, "button", { name: "Send page and ask" });
@@ -807,6 +808,7 @@ it("sends only the page content and attachments chosen when the user clicked Sen
   expect(prompt).not.toContain("An edit after sending");
   expect(prompt).toContain("\"label\": \"Reviewed source link\"");
   expect(prompt).toContain(link.url);
+  expect(prompt).not.toContain(privateLink.url);
 });
 
 it("cancels the single-page document check without starting or cancelling a request in Pi", async () => {

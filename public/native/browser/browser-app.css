@@ -102,6 +102,9 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-capture-frames > details { padding-inline-start: var(--space-3); margin-block: var(--space-2); }
 .browser-capture-frames p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .browser-capture-links li p { margin-block: var(--space-1); }
+.browser-capture-link-choices li { list-style: none; }
+.browser-capture-link-choices li label { align-items: flex-start; overflow-wrap: anywhere; }
+.browser-capture-link-choices li input { flex-shrink: 0; }
 .browser-capture-media-scroll, .browser-capture-tables-scroll { max-block-size: min(24vh, calc(var(--space-12) * 4)); overflow: auto; }
 .browser-capture-media-scroll dl { margin-block: var(--space-1); }
 .browser-capture-media-scroll dt { font-weight: 600; }

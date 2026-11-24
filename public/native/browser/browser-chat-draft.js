@@ -1,6 +1,7 @@
 import { t } from "../../i18n.js";
 import { isFrameTextIncomplete } from "./browser-capture-status.js";
 import { selectCapturedFrames } from "./browser-capture-frames.js";
+import { selectCapturedLinks } from "./browser-capture-links.js";
 import { selectCapturedTables } from "./browser-capture-tables.js";
 
 export function webEvidenceContext(incomplete) {
@@ -13,7 +14,7 @@ function browserEvidencePrompt(task, source, incomplete) {
     JSON.stringify({ sourceTrust: "untrusted-web-content", ...source }, null, 2)].join("\n\n");
 }
 
-export function browserDraftPrompt(capture, { selectionOnly = false, includeLinks = false, includeTables = false, tableIndexes, includeMedia = false, includeFrames = false, frameIndexes, includeFrameLinks = false, imageText = [], question, summarize = false } = {}) {
+export function browserDraftPrompt(capture, { selectionOnly = false, includeLinks = false, linkIndexes, includeTables = false, tableIndexes, includeMedia = false, includeFrames = false, frameIndexes, includeFrameLinks = false, imageText = [], question, summarize = false } = {}) {
   const { links, linksTruncated, tables, tablesTruncated, metadata, images, imagesTruncated, frames, framesOmitted, ...page } = capture.page;
   const selectedTables = includeTables ? selectCapturedTables(tables, tableIndexes) : [];
   const hasMedia = images?.length || Object.values(metadata ?? {}).some(Boolean);
@@ -33,8 +34,9 @@ export function browserDraftPrompt(capture, { selectionOnly = false, includeLink
       ...source, title, url, selectionOnly: true, selection, selectionTruncated: Boolean(selectionTruncated),
     }, selectionTruncated);
   }
+  const selectedLinks = includeLinks ? selectCapturedLinks(links, linkIndexes) : [];
   const attachments = {
-    ...(includeLinks && links?.length ? { links, linksTruncated } : {}),
+    ...(selectedLinks.length ? { links: selectedLinks, linksTruncated } : {}),
     ...(selectedTables.length ? { tables: selectedTables, tablesTruncated } : {}),
     ...(includeMedia && hasMedia ? { metadata, images, imagesTruncated } : {}),
     ...(frameText?.length ? { frames: frameText, framesOmitted } : {}),

@@ -129,6 +129,55 @@ it("previews link addresses as text and only attaches them when selected", async
   await waitFor(() => expect(writer.save).toHaveBeenCalledWith(expect.objectContaining({ includeLinks: true, selectionOnly: false })));
 });
 
+it("attaches only reviewed page links to the note and chat draft in capture order", async () => {
+  const links = [
+    { label: "Private workspace", url: "https://example.org/private-link" },
+    { label: "Public <guide>", url: "https://example.org/guide" },
+    { label: "", url: "https://example.org/reference" },
+  ];
+  const snapshot = { ...capture, page: { ...capture.page, links, linksTruncated: true } };
+  const writer = { notebooks: async () => [{ id: "book", title: "Existing" }], save: vi.fn(async () => ({ id: "note" })) };
+  const prepare = vi.fn(async () => {});
+  const dialog = showBrowserCapture(snapshot, vi.fn(), prepare, () => writer);
+  const details = dialog.querySelector(".browser-capture-links"); details.open = true;
+  const all = getByRole(details, "checkbox", { name: t("Include all page links") });
+  const guide = getByRole(details, "checkbox", { name: /Public <guide>/ });
+  const reference = getByRole(details, "checkbox", { name: "https://example.org/reference" });
+  const privateLink = getByRole(details, "checkbox", { name: /Private workspace/ });
+  expect([all, guide, reference, privateLink].map(input => input.checked)).toEqual([false, false, false, false]);
+  expect(details.querySelector("a,img")).toBeNull();
+  all.click();
+  expect([guide, reference, privateLink].every(input => input.checked)).toBe(true);
+  all.click();
+  expect([guide, reference, privateLink].some(input => input.checked)).toBe(false);
+  reference.click();
+  guide.click();
+  expect(all.indeterminate).toBe(true);
+
+  getByRole(dialog, "button", { name: t("Save to Notes"), exact: true }).click();
+  const save = getByRole(dialog, "button", { name: t("Save page to notebook") });
+  await waitFor(() => expect(save.disabled).toBe(false));
+  save.click();
+  await waitFor(() => expect(writer.save).toHaveBeenCalledOnce());
+  const [noteOptions] = writer.save.mock.calls[0];
+  expect(noteOptions).toMatchObject({ includeLinks: true, linkIndexes: [1, 2] });
+  const note = browserNoteContent(snapshot, false, noteOptions);
+  expect(note).toContain("Public &lt;guide&gt; — https://example.org/guide");
+  expect(note).toContain("https://example.org/reference");
+  expect(note).not.toContain("private-link");
+  expect(note).toContain(t("Only some page links are shown."));
+  expect(browserNoteContent(snapshot, true, noteOptions)).not.toContain("https://example.org/guide");
+
+  getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
+  await waitFor(() => expect(prepare).toHaveBeenCalledOnce());
+  const [draftOptions] = prepare.mock.calls[0];
+  expect(draftOptions).toMatchObject({ includeLinks: true, linkIndexes: [1, 2] });
+  const prompt = browserDraftPrompt(snapshot, draftOptions);
+  expect(JSON.parse(prompt.slice(prompt.indexOf("{")))).toMatchObject({ links: links.slice(1), linksTruncated: true });
+  expect(prompt).not.toContain("private-link");
+  expect(browserDraftPrompt(snapshot, { ...draftOptions, selectionOnly: true })).not.toContain("https://example.org/guide");
+});
+
 it("shows page-declared text and image dimensions without loading the image in the preview", () => {
   const media = { ...capture, page: { ...capture.page, metadata: { description: "<img src=x>" },
     images: [{ alt: "Diagram", width: 120, height: 80, url: "https://example.org/diagram.svg" }] } };
