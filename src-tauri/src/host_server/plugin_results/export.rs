@@ -197,6 +197,8 @@ impl HostServer {
                     "data-quality-report"
                 } else if source.scope.is_json_path() {
                     "json-path-result"
+                } else if source.scope.json_diff_array_order().is_some() {
+                    "json-diff-report"
                 } else {
                     source
                         .scope

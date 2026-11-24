@@ -24,6 +24,17 @@ impl Scope {
             && self.capability_id == "devtools.compare.json.path"
     }
 
+    fn json_diff_array_order(&self) -> Option<&'static str> {
+        if self.plugin_id != "com.zicode.devtools.compare" {
+            return None;
+        }
+        match self.capability_id.as_str() {
+            "devtools.compare.json.diff.ordered" => Some("by index"),
+            "devtools.compare.json.diff.unordered" => Some("ignored (duplicates retained)"),
+            _ => None,
+        }
+    }
+
     fn is_text_diff(&self) -> bool {
         self.plugin_id == "com.zicode.devtools.compare"
             && self.capability_id == "devtools.compare.text.diff"

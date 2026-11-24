@@ -791,3 +791,99 @@ async fn text_diff_frozen_host_exports_original_reports() {
     host.stop();
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires frozen Compare 0.1.0 candidate 02, its receipt and a production Windows Worker"]
+async fn structured_json_diff_frozen_host_exports_original_reports() {
+    use super::plugin_resources::export::Context;
+
+    let plugin = "com.zicode.devtools.compare";
+    let (root, host) =
+        start_frozen_export_host("structured-json-diff", "ZICODE_TEST_COMPARE_PACKAGE", plugin, 10)
+            .await;
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let endpoint = format!("{}/v2/plugin-capabilities/invoke", host.origin());
+    let original = r#"{"项目/名~":[1,1,2],"amount":18446744073709551614,"min":-9223372036854775807}"#;
+    let changed = r#"{"项目/名~":[3,2,1],"amount":18446744073709551615,"min":-9223372036854775808}"#;
+    let reordered = r#"{"项目/名~":[2,1,1],"min":-9223372036854775807,"amount":18446744073709551614}"#;
+    let context = Context {
+        window: "main".into(),
+        workspace: WORKSPACE.into(),
+        route: format!("/app/workspaces/{WORKSPACE}/tools"),
+    };
+
+    for (mode, label, pointer, other_mode) in [
+        ("ordered", "by index", "/项目~1名~0/0", "unordered"),
+        ("unordered", "ignored (duplicates retained)", "/项目~1名~0", "ordered"),
+    ] {
+        let scope = json!({
+            "workspaceId": WORKSPACE, "sceneId": "programming", "pluginId": plugin,
+            "capabilityId": format!("devtools.compare.json.diff.{mode}"),
+        });
+        let invoke = async |right: &str| -> Value {
+            let mut body = scope.clone();
+            body["captureResult"] = json!(true);
+            body["input"] = json!({ "left": original, "right": right });
+            client
+                .post(&endpoint)
+                .header("x-zicode-desktop-token", host.desktop_token())
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+                .error_for_status()
+                .unwrap()
+                .json()
+                .await
+                .unwrap()
+        };
+
+        for (name, right, equal) in [
+            ("changes", changed, false),
+            ("identical", original, true),
+            ("reordered", reordered, mode == "unordered"),
+        ] {
+            let response = invoke(right).await;
+            let result = &response["result"];
+            assert_eq!(result["ok"], true, "{mode}/{name}: {result}");
+            let report = result["data"]["text"].as_str().unwrap();
+            let json: Value = serde_json::from_str(report).unwrap();
+            assert_eq!(json["equal"], equal);
+            assert_eq!(json["arrayOrder"], label);
+            let changes = json["changes"].as_array().unwrap();
+            assert_eq!(changes.is_empty(), equal);
+            if name == "changes" {
+                assert!(changes.iter().any(|change| change["path"] == pointer));
+                let amount = changes.iter().find(|change| change["path"] == "/amount").unwrap();
+                assert_eq!(amount["before"], u64::MAX - 1);
+                assert_eq!(amount["after"], u64::MAX);
+                let min = changes.iter().find(|change| change["path"] == "/min").unwrap();
+                assert_eq!(min["after"], i64::MIN);
+
+                let mut foreign_scope = scope.clone();
+                foreign_scope["capabilityId"] = json!(format!("devtools.compare.json.diff.{other_mode}"));
+                assert!(host
+                    .result_text_export_metadata(&context, json!({
+                        "scope": foreign_scope, "resultId": response["resultRef"]["resultId"],
+                        "format": "json"
+                    }))
+                    .is_err());
+            }
+            let case = format!("{mode}-{name}");
+            verify_result_export(
+                &host, &root, WORKSPACE, &scope, &response,
+                ExportCase {
+                    format: "json", mime_type: "application/json", operation: &case,
+                    stem: "json-diff-report", expected: report, revoke: name == "reordered",
+                },
+            );
+            println!("verified structured JSON diff {case}");
+        }
+
+        let invalid = invoke(r#"{"missing":}"#).await;
+        assert_eq!(invalid["result"]["ok"], false);
+        assert!(invalid["resultRef"].is_null());
+    }
+    host.stop();
+    std::fs::remove_dir_all(root).unwrap();
+}
