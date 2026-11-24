@@ -236,7 +236,24 @@ fn verify_diagnostic_report_export(
     assert_eq!(fs::read(&destination).unwrap(), bytes);
 }
 
+async fn task_rows(host: &HostServer, client: &reqwest::Client, workspace: &str) -> Vec<Value> {
+    let response: Value = client
+        .post(format!("{}/v2/plugin-task-center/workspace", host.origin()))
+        .header("x-zicode-desktop-token", host.desktop_token())
+        .json(&json!({"schemaVersion":1,"workspaceId":workspace,"limit":20}))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    response["page"]["tasks"].as_array().unwrap().clone()
+}
+
 async fn verify_candidate(candidate: Candidate, live: Option<LiveActuator>) {
+    let expected_task_count = if live.is_some() { 4 } else { 1 };
     let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../tests/fixtures")
         .join(candidate.fixture());
@@ -428,6 +445,7 @@ async fn verify_candidate(candidate: Candidate, live: Option<LiveActuator>) {
             result
         };
         read(&live.up, "health", false).await;
+        assert!(task_rows(&host, &client, workspace_id).await.is_empty());
         let health = read(&live.up, "health", true).await;
         assert_eq!(health["result"]["status"], 200);
         assert_eq!(health["result"]["data"]["status"], "UP");
@@ -470,6 +488,9 @@ async fn verify_candidate(candidate: Candidate, live: Option<LiveActuator>) {
                 .await
                 .is_err()
         );
+        assert!(task_rows(&host, &client, workspace_id).await.is_empty());
+        let (observed, wait_for_request) = tokio::sync::oneshot::channel();
+        let (reply, wait_for_reply) = tokio::sync::oneshot::channel();
         let server = tokio::spawn(async move {
             let (mut stream, _) = tokio::time::timeout(Duration::from_secs(5), listener.accept())
                 .await
@@ -481,6 +502,8 @@ async fn verify_candidate(candidate: Candidate, live: Option<LiveActuator>) {
             assert!(request.starts_with("GET /actuator/health HTTP/1.1\r\n"));
             assert!(!request.to_ascii_lowercase().contains("authorization:"));
             assert!(!request.to_ascii_lowercase().contains("cookie:"));
+            observed.send(()).unwrap();
+            wait_for_reply.await.unwrap();
             let body = br#"{"status":"DOWN"}"#;
             let headers = format!(
             "HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
@@ -489,13 +512,93 @@ async fn verify_candidate(candidate: Candidate, live: Option<LiveActuator>) {
             stream.write_all(headers.as_bytes()).await.unwrap();
             stream.write_all(body).await.unwrap();
         });
-        let committed = commit(&operation_id, &grant_id, true).send().await.unwrap();
+        let request = commit(&operation_id, &grant_id, true);
+        let pending = tokio::spawn(request.send());
+        tokio::time::timeout(Duration::from_secs(6), wait_for_request)
+            .await.unwrap().unwrap();
+        let running = task_rows(&host, &client, workspace_id).await;
+        assert_eq!(running.len(), 1);
+        assert_eq!(running[0]["state"], "running");
+        assert_eq!(running[0]["operationId"], "actuator.health");
+        reply.send(()).unwrap();
+        let committed = pending.await.unwrap().unwrap();
         server.await.unwrap();
         assert_eq!(committed.status(), reqwest::StatusCode::OK);
         let result: Value = committed.json().await.unwrap();
         assert_eq!(result["result"]["status"], 503);
         assert_eq!(result["result"]["data"]["status"], "DOWN");
     }
+    let tasks = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let rows = task_rows(&host, &client, workspace_id).await;
+            if rows.len() == expected_task_count
+                && rows.iter().all(|row| row["state"] == "succeeded")
+            {
+                break rows;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("Actuator task states must settle");
+    for row in &tasks {
+        assert_eq!(row["pluginId"], plugin_id);
+        assert_eq!(row["profileVersion"], PROFILE_VERSION);
+        assert_eq!(row["state"], "succeeded");
+        let version = match candidate {
+            Candidate::ServiceView => "0.1.1",
+            Candidate::DirectoryView => "0.1.3",
+        };
+        assert_eq!(row["packageVersion"], version);
+        assert_eq!(row["latestSequence"], 3);
+        let serialized = row.to_string();
+        assert!(!serialized.contains("127.0.0.1"));
+        assert!(!serialized.contains("DOWN"));
+        assert!(!serialized.contains("runtimeId"));
+    }
+    if expected_task_count == 1 {
+        let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let operation_id = uuid::Uuid::new_v4().to_string();
+        let prepared: Value = client
+            .post(&prepare_url)
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&make_request(&origin, "health", &operation_id))
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let grant = prepared["grantId"].as_str().unwrap();
+        let in_flight = tokio::spawn(commit(&operation_id, grant, true).send());
+        let (connection, _) = tokio::time::timeout(Duration::from_secs(5), listener.accept())
+            .await
+            .unwrap()
+            .unwrap();
+        let running = task_rows(&host, &client, workspace_id)
+            .await
+            .into_iter()
+            .find(|row| row["state"] == "running")
+            .expect("confirmed read must be tracked before the network request");
+        host.close_workspace(workspace_id).unwrap();
+        drop(connection);
+        let reply = in_flight.await.unwrap().unwrap();
+        assert_eq!(reply.status(), reqwest::StatusCode::CONFLICT);
+        let reply: Value = reply.json().await.unwrap();
+        assert!(reply.get("result").is_none());
+        let tasks = task_rows(&host, &client, workspace_id).await;
+        assert_eq!(tasks.len(), 2);
+        assert!(tasks.iter().any(|row| {
+            row["taskRef"] == running["taskRef"] && row["state"] == "interrupted"
+        }));
+        assert!(tasks.iter().any(|row| row["state"] == "succeeded"));
+    }
+
     {
         let mut registry = host.state.plugins.lock().unwrap();
         registry

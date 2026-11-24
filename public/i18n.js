@@ -5900,6 +5900,9 @@ const zhCN = {
   "No project activity yet": "暂无项目活动",
   "Task center": "任务中心",
   "Plugin tasks": "插件任务",
+  "Actuator health": "Actuator 健康检查",
+  "Actuator application info": "Actuator 应用信息",
+  "Actuator metrics": "Actuator 指标目录",
   "This tool session shows plugin tasks. Open an AI session to manage AI tasks.":
     "当前工具会话仅显示插件任务。打开 AI 会话可管理 AI 任务。",
   "Plugin tool runs for this workspace. Task history is read-only here.":

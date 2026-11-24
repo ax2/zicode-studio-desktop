@@ -46,6 +46,17 @@ pub(super) fn interrupt_workspace_tasks_now(
     store.interrupt_workspace(workspace_id)
 }
 
+pub(super) fn task_store(state: &HostState) -> Result<Arc<Store>, &'static str> {
+    let mut slot = state
+        .plugin_task_store
+        .lock()
+        .map_err(|_| "task_store_unavailable")?;
+    if slot.is_none() {
+        *slot = Some(Arc::new(Store::open(&state.plugin_task_database)?));
+    }
+    slot.as_ref().cloned().ok_or("task_store_unavailable")
+}
+
 fn task_store_if_exists(state: &HostState) -> Result<Option<Arc<Store>>, &'static str> {
     let store = {
         let mut slot = state
@@ -110,16 +121,7 @@ pub(super) async fn detail(
         .map_err(|_| rejected(StatusCode::CONFLICT, "task_workspace_unavailable"))?;
     let state_for_read = state.clone();
     let detail = tokio::task::spawn_blocking(move || {
-        let store = {
-            let mut slot = state_for_read
-                .plugin_task_store
-                .lock()
-                .map_err(|_| "task_store_unavailable")?;
-            if slot.is_none() {
-                *slot = Some(Arc::new(Store::open(&state_for_read.plugin_task_database)?));
-            }
-            slot.as_ref().cloned().ok_or("task_store_unavailable")?
-        };
+        let store = task_store(&state_for_read)?;
         store.workspace_detail(
             &request.workspace_id,
             &request.task_ref,
@@ -170,16 +172,7 @@ pub(super) async fn workspace(
 
     let state_for_read = state.clone();
     let page = tokio::task::spawn_blocking(move || {
-        let store = {
-            let mut slot = state_for_read
-                .plugin_task_store
-                .lock()
-                .map_err(|_| "task_store_unavailable")?;
-            if slot.is_none() {
-                *slot = Some(Arc::new(Store::open(&state_for_read.plugin_task_database)?));
-            }
-            slot.as_ref().cloned().ok_or("task_store_unavailable")?
-        };
+        let store = task_store(&state_for_read)?;
         store.list_workspace(
             &request.workspace_id,
             request.before.as_ref(),

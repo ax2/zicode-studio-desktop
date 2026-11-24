@@ -48,6 +48,22 @@ it("shows only the current workspace and loads later pages on demand", async () 
   expect(screen.queryByText("convert")).toBeNull();
 });
 
+it("labels confirmed Actuator reads without relabelling other plugins", async () => {
+  const list = async () => ({
+    tasks: [
+      { taskRef: "actuator", pluginId: "com.zicode.devtools.spring-actuator", operationId: "actuator.health",
+        state: "running", packageVersion: "0.1.3", updatedAtMs: 1 },
+      { taskRef: "other", pluginId: "example.tools", operationId: "actuator.health",
+        state: "failed", packageVersion: "1.0.0", updatedAtMs: 1 },
+    ],
+    nextCursor: null,
+  });
+  render(<PluginTaskOverview workspaceId="workspace-a" list={list} />);
+  expect(await screen.findByText("Actuator 健康检查")).toBeTruthy();
+  expect(screen.getByText("actuator.health")).toBeTruthy();
+  expect(screen.getByText(/运行中/)).toBeTruthy();
+});
+
 it("keeps plugin task read failures within the plugin section", async () => {
   render(
     <PluginTaskOverview

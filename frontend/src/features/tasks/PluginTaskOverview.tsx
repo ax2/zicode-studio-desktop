@@ -15,6 +15,18 @@ const STATE_LABELS: Record<string, string> = {
   interrupted: "Plugin task interrupted",
 };
 
+const ACTUATOR_LABELS: Readonly<Record<string, string>> = {
+  "actuator.health": "Actuator health",
+  "actuator.info": "Actuator application info",
+  "actuator.metrics": "Actuator metrics",
+};
+
+function taskLabel({ pluginId, operationId }: PluginTaskPage["tasks"][number]): string {
+  const label = pluginId === "com.zicode.devtools.spring-actuator" && Object.hasOwn(ACTUATOR_LABELS, operationId)
+    ? ACTUATOR_LABELS[operationId] : null;
+  return label ? t(label) : operationId;
+}
+
 export function PluginTaskOverview({
   workspaceId,
   list,
@@ -146,7 +158,7 @@ export function PluginTaskOverview({
         <ul className="task-center-list">
           {tasks.map((task) => (
             <li className="ui-card" key={task.taskRef}>
-              <strong>{task.operationId}</strong>
+              <strong>{taskLabel(task)}</strong>
               <span>
                 {" "}
                 · {task.pluginId} · {task.packageVersion}
