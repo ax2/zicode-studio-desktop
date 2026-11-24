@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { expect, it } from "vitest";
 import staging from "./stage-local-resources.js";
 
@@ -73,6 +73,26 @@ it("stages the primary checkout's shared runtimes without linking the runnable c
     expect(readFileSync(live, "utf8")).toBe("pi");
     expect(staging.stageLocalResources(config, debug, resources)).toBe(1);
     expect(readFileSync(live, "utf8")).toBe("updated");
+  });
+});
+
+it("recognizes a linked checkout recorded through an alternate directory path", () => {
+  withLinkedCheckout(({ root, shared, config, debug }) => {
+    const checkout = dirname(config);
+    const alias = join(root, "alternate checkout path");
+    linkRuntime(checkout, alias);
+    const gitDir = execFileSync("git", ["rev-parse", "--absolute-git-dir"], {
+      cwd: checkout, encoding: "utf8", windowsHide: true,
+    }).trim();
+    const aliasedGitFile = join(alias, ".git").replaceAll("\\", "/");
+    writeFileSync(join(gitDir, "gitdir"), aliasedGitFile + "\n");
+
+    const bun = join(shared, "bun");
+    mkdirSync(bun);
+    writeFileSync(join(bun, "runtime.bin"), "shared runtime");
+    linkRuntime(bun, join(config, "resources", "bun"));
+    expect(staging.stageLocalResources(config, debug, { "./resources/bun": "bun" })).toBe(1);
+    expect(readFileSync(join(debug, "bun", "runtime.bin"), "utf8")).toBe("shared runtime");
   });
 });
 
