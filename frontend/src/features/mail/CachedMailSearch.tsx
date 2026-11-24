@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
-import { MailAttachments, type Attachment } from "./MailAttachments";
+import { MailAttachments } from "./MailAttachments";
 import { MailBody } from "./MailBody";
+import { searchBodyAccess, type SearchMailBody } from "./mail-search-body";
 import type { Invoke } from "./index";
 
 type Account = { id: string; address: string; provider: string };
 type Hit = { folder?:string; account: string; address: string; provider: string; id: string; epoch: number | null; subject: string; sender: string };
 type Page = { items: Hit[]; more: boolean };
-type Reading = { hit: Hit; loading?: boolean; failed?: boolean; text?: string | null; html?: string | null; attachments?: Attachment[]; bodyLimited?: boolean };
+type Reading = { hit: Hit } & (
+  { status: "loading" } | { status: "missing"; error?: string } |
+  { status: "failed"; error: string } | { status: "ready"; body: SearchMailBody }
+);
 
 function isSameMessage(left: Hit, right: Hit): boolean {
   return left.account === right.account && left.provider === right.provider && left.folder === right.folder &&
@@ -26,10 +30,16 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const searchGeneration = useRef(0);
-  const readingRequest = useRef<{ hit: Hit } | null>(null);
+  const readingRequest = useRef<{ hit: Hit; pending: boolean; canDownload: boolean } | null>(null);
+  const readingAccess = reading && searchBodyAccess(reading.hit, gmail, alibaba);
+  const loadingBody = reading?.status === "loading";
   const updatedAccounts = useRef(new Set<string>());
   const requestedOffset = useRef<number | null>(null);
   const previousLabel = useRef(label);
+  useEffect(() => () => {
+    ++searchGeneration.current;
+    readingRequest.current = null;
+  }, []);
 
   const closeReading = useCallback((account?: string) => {
     if (account && readingRequest.current?.hit.account !== account) return;
@@ -107,32 +117,31 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
       window.removeEventListener("studio-mail-cache-updated",cacheChanged);
     };
   },[scope,search,closeReading]);
-  async function open(hit: Hit) {
-    const request = { hit };
+  async function open(hit: Hit, download = false) {
+    const previous = readingRequest.current;
+    if (download && (previous?.hit !== hit || !previous.canDownload)) return;
+    if (previous?.pending && isSameMessage(previous.hit, hit)) return;
+    const request = { hit, pending: true, canDownload: false };
     readingRequest.current = request;
-    setReading({ hit, loading: true });
+    const access = searchBodyAccess(hit, gmail, alibaba);
+    if (!access) {
+      request.pending = false;
+      setReading({ hit, status: "missing" });
+      return;
+    }
+    setReading({ hit, status: "loading" });
     try {
-      let text: string | null = null;
-      let html: string | null = null;
-      let attachments: Attachment[] | undefined;
-      let bodyLimited = false;
-      if (hit.provider === "gmail" && gmail) {
-        const body = await gmail<{plainText:string | null;html?:string;attachments?:Attachment[]} | null>({kind:"cachedBody", accountId:hit.account, id:hit.id});
-        text = body?.plainText ?? null;
-        html = body?.html ?? null;
-        attachments = body?.attachments;
-      } else if (hit.provider === "alibaba" && alibaba) {
-        const body = await alibaba<{text:string;html?:string;attachments?:Attachment[];bodyLimited?:boolean}>({kind:"cachedBody", accountId:hit.account, ...(hit.folder?{folder:hit.folder}:{}), uidValidity:hit.epoch, uid:Number(hit.id)});
-        text = body.text;
-        html = body.html ?? null;
-        attachments = body.attachments;
-        bodyLimited = !!body.bodyLimited;
-      }
-      if (readingRequest.current === request) setReading({hit,text,html,attachments,bodyLimited});
-    } catch(e) {
-      if (readingRequest.current === request) {
-        setReading({ hit, text: null, failed: !String(e).includes("mail_cache_empty") });
-      }
+      const body = await access.read(download);
+      if (readingRequest.current !== request) return;
+      request.canDownload = !body;
+      setReading(body ? { hit, status: "ready", body } : { hit, status: "missing" });
+    } catch (reason) {
+      if (readingRequest.current !== request) return;
+      request.canDownload = download;
+      const message = download ? access.error(reason) : t("Could not access local mail data.");
+      setReading({ hit, status: download ? "missing" : "failed", error: message });
+    } finally {
+      request.pending = false;
     }
   }
   return <fieldset><legend>{t("Search cached inboxes")}</legend>
@@ -143,7 +152,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
       </select></label>
       {label && scope===current && <label><input type="checkbox" checked={labelOnly} onChange={e=>{clear();setLabelOnly(e.target.checked)}}/>{t(accounts.find(a=>a.id===current)?.provider==="gmail"?"Search only the selected Gmail label":"Search only the selected folder")}</label>}
       <label>{t("Search cached mail")}<input className="ui-input" type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
-      <button className="ui-button" type="submit" disabled={busy || reading?.loading || !query.trim()}>{t("Search")}</button>
+      <button className="ui-button" type="submit" disabled={busy || loadingBody || !query.trim()}>{t("Search")}</button>
     </form>
     {error && <p role="alert">{t("Could not access local mail data.")}</p>}
     {page && <>
@@ -151,20 +160,25 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
       <ul className="mail-inbox-list">{page.items.map(hit=><li key={JSON.stringify([hit.account,hit.folder,hit.epoch,hit.id])}>
         <button className="ui-button" type="button" onClick={()=>void open(hit)}><strong translate="no">{hit.subject || t("No subject")}</strong>
           <small translate="no">{hit.sender} · {hit.address}</small></button></li>)}</ul>
-      {offset>0 && <button className="ui-button" type="button" disabled={busy || reading?.loading} onClick={()=>void search(offset-40)}>{t("Previous")}</button>}
-      {page.more && <button className="ui-button" type="button" disabled={busy || reading?.loading} onClick={()=>void search(offset+40)}>{t("Next")}</button>}
+      {offset>0 && <button className="ui-button" type="button" disabled={busy || loadingBody} onClick={()=>void search(offset-40)}>{t("Previous")}</button>}
+      {page.more && <button className="ui-button" type="button" disabled={busy || loadingBody} onClick={()=>void search(offset+40)}>{t("Next")}</button>}
     </>}
-    {reading && <article aria-label={t("Cached message")} aria-busy={reading.loading}><h3 translate="no">{reading.hit.subject||t("No subject")}</h3>
+    {reading && <article aria-label={t("Cached message")} aria-busy={loadingBody}><h3 translate="no">{reading.hit.subject||t("No subject")}</h3>
       <p translate="no">{reading.hit.sender} · {reading.hit.address}</p>
-      {reading.loading && <p role="status">{t("Loading…")}</p>}
-      {reading.failed && <p role="alert">{t("Could not access local mail data.")}</p>}
-      {reading.text===null && !reading.html && <p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
-      {(typeof reading.text==="string" || reading.html) && <MailBody text={reading.text ?? null} html={reading.html}/>}
-      {reading.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}
-      <MailAttachments key={JSON.stringify([reading.hit.account,reading.hit.folder,reading.hit.epoch,reading.hit.id])} items={reading.attachments}
-        invoke={reading.hit.provider==="gmail"?gmail:alibaba} message={reading.hit.provider==="gmail"
-          ? {accountId:reading.hit.account,id:reading.hit.id}
-          : {accountId:reading.hit.account,folder:reading.hit.folder,uidValidity:reading.hit.epoch!,uid:Number(reading.hit.id)}}/>
+      {reading.status === "loading" && <p role="status">{t("Loading…")}</p>}
+      {(reading.status === "failed" || reading.status === "missing") && reading.error && <p role="alert">{reading.error}</p>}
+      {reading.status === "missing" && <>
+        <p>{t(readingAccess ? "This message is not available offline. Download it explicitly to read it." : "No message body is saved on this device.")}</p>
+        {readingAccess && <button className="ui-button" type="button" onClick={() => void open(reading.hit, true)}>
+          {t("Download message body")}
+        </button>}
+      </>}
+      {reading.status === "ready" && <>
+        {reading.body.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}
+        <MailBody text={reading.body.text} html={reading.body.html}/>
+        {readingAccess && <MailAttachments key={JSON.stringify(readingAccess.message)} items={reading.body.attachments}
+          invoke={readingAccess.invoke} message={readingAccess.message}/>}
+      </>}
     </article>}
   </fieldset>;
 }

@@ -121,6 +121,7 @@ const zhCN = {
   "Save an Alibaba Mail client password first.": "请先保存阿里邮箱的客户端安全密码。",
   "Windows credential storage is unavailable.": "Windows 凭据存储不可用。",
   "The mail server certificate could not be verified.": "无法验证邮件服务器证书。",
+  "No message body is saved on this device.": "此设备上没有已保存的邮件正文。",
   "This message is not available offline. Download it explicitly to read it.": "此邮件尚无离线正文。点击下载后即可阅读。",
   "This message exceeds the 4 MiB reading limit.": "这封邮件超过 4 MiB 阅读上限。",
   "This message header is too large to display.": "此邮件的头部过大，无法显示。",
