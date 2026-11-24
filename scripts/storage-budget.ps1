@@ -10,16 +10,23 @@ $CargoTarget = [IO.Path]::GetFullPath($CargoTarget)
 $scratch = Join-Path $projectRoot '.cache/task-scratch'
 function Measure-Tree([string]$Path, [string]$Exclude = '') {
     $bytes = [long]0; $count = 0; $unknown = 0
-    $queue = [Collections.Generic.Stack[string]]::new()
-    if (Test-Path -LiteralPath $Path) { $queue.Push($Path) }
+    $queue = [Collections.Generic.Stack[IO.FileSystemInfo]]::new()
+    $listing = [IO.EnumerationOptions]::new()
+    $listing.AttributesToSkip = 0
+    $listing.IgnoreInaccessible = $false
+    if (Test-Path -LiteralPath $Path) {
+        try { $queue.Push((Get-Item -LiteralPath $Path -Force)) } catch { $unknown++ }
+    }
     while ($queue.Count -gt 0) {
-        $current = $queue.Pop()
-        if ($Exclude -and $current -eq $Exclude) { continue }
+        $item = $queue.Pop()
+        if ($Exclude -and $item.FullName -eq $Exclude) { continue }
         try {
-            $item = Get-Item -LiteralPath $current -Force
+            # Directory listings already include file lengths. Refresh directories before entering them.
+            $directory = $item -is [IO.DirectoryInfo]
+            if ($directory) { $item.Refresh() }
             if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { $unknown++; continue }
-            if ($item.PSIsContainer) {
-                foreach ($child in (Get-ChildItem -LiteralPath $current -Force)) { $queue.Push($child.FullName) }
+            if ($directory) {
+                foreach ($child in $item.EnumerateFileSystemInfos('*', $listing)) { $queue.Push($child) }
             } else { $bytes += $item.Length; $count++ }
         } catch { $unknown++ }
     }
