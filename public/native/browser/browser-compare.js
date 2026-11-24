@@ -51,14 +51,19 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
   read.textContent = t("Read selected tabs");
   const draft = document.createElement("button"); draft.type = "button"; draft.className = "ui-button ui-button--primary";
   draft.textContent = t(opensChat ? "Open Chat and prepare comparison draft" : "Prepare comparison draft");
-  toolbar.append(read, draft); panel.append(choices, toolbar, status, preview);
-  let reviewed = null;
+  const cancel = document.createElement("button"); cancel.type = "button"; cancel.className = "ui-button ui-button--secondary";
+  cancel.textContent = t("Cancel comparison");
+  cancel.dataset.i18nText = "Cancel comparison";
+  toolbar.append(read, draft, cancel); panel.append(choices, toolbar, status, preview);
+  let reviewed = null, pending = null;
   const selected = () => inputs.filter(({ input }) => input.checked);
   function update() {
     const count = selected().length;
-    read.disabled = count < 1;
-    draft.disabled = !reviewed;
-    for (const { input } of inputs) input.disabled = !input.checked && count >= maxPeers;
+    read.disabled = Boolean(pending) || count < 1;
+    draft.disabled = Boolean(pending) || !reviewed;
+    cancel.hidden = !pending;
+    cancel.classList.toggle("hidden", cancel.hidden);
+    for (const { input } of inputs) input.disabled = Boolean(pending) || (!input.checked && count >= maxPeers);
   }
   function clearReview() { reviewed = null; preview.replaceChildren(); status.textContent = ""; update(); }
   function showReview(sources) {
@@ -86,26 +91,49 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
       preview.append(details);
     }
   }
-  async function work(operation) {
-    panel.disabled = true;
-    setBusy(true);
-    try { await operation(); }
-    catch (error) { if (isOpen()) status.textContent = t(String(error?.message ?? error)); }
-    finally {
-      setBusy(false);
-      panel.disabled = false;
-      update();
-    }
+  function finish(job) {
+    if (pending !== job) return;
+    const restoreFocus = isOpen() && document.activeElement === cancel;
+    pending = null;
+    setBusy(false);
+    update();
+    if (restoreFocus) job.trigger.focus({ preventScroll: true });
   }
-  for (const { input } of inputs) input.addEventListener("change", clearReview);
+  async function work(trigger, message, operation) {
+    if (pending || trigger.disabled || !isOpen()) return;
+    const job = { trigger };
+    const current = () => pending === job;
+    pending = job;
+    setBusy(true);
+    update();
+    status.textContent = t(message);
+    cancel.focus();
+    try { await operation(current); }
+    catch (error) { if (current() && isOpen()) status.textContent = t(String(error?.message ?? error)); }
+    finally { finish(job); }
+  }
+  function cancelWork() {
+    if (!pending || !isOpen()) return;
+    status.textContent = t("Comparison cancelled. Your selections are kept.");
+    finish(pending);
+  }
+  cancel.addEventListener("click", cancelWork);
+  panel.addEventListener("keydown", event => {
+    if (!pending || event.key !== "Escape" || event.isComposing || event.keyCode === 229) return;
+    event.preventDefault(); event.stopPropagation();
+    cancelWork();
+  });
+  for (const { input } of inputs) input.addEventListener("change", () => { if (!pending) clearReview(); });
   read.addEventListener("click", () => {
     const targets = selected().map(({ source }) => source);
-    clearReview();
-    status.textContent = t("Reading selected tabs…");
-    void work(async () => {
+    void work(read, "Reading selected tabs…", async current => {
       const sources = [comparisonSource(capture)];
-      for (const source of targets) sources.push(comparisonSource(await readSource(source)));
-      if (!isOpen()) return;
+      for (const source of targets) {
+        const page = await readSource(source);
+        if (!current() || !isOpen()) return;
+        sources.push(comparisonSource(page));
+      }
+      preview.replaceChildren();
       showReview(sources);
       reviewed = sources;
       status.textContent = t("Review the sources, then prepare an unsent draft.");
@@ -114,8 +142,10 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
   draft.addEventListener("click", () => {
     const sources = reviewed;
     if (!sources) return;
-    status.textContent = "";
-    void work(async () => { await prepare(sources); onPrepared(); });
+    void work(draft, "Preparing comparison draft…", async current => {
+      await prepare(sources, current);
+      if (current()) onPrepared();
+    });
   });
   update();
   return { button, panel };

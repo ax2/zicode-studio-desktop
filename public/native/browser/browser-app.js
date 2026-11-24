@@ -1256,9 +1256,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const comparison = onPrepareDraft && /^https?:/.test(capture.page.url) && {
       peers,
       readSource,
-      prepare: sources => prepareBrowserComparisonDraft({
+      prepare: (sources, isPreparing) => prepareBrowserComparisonDraft({
         sources, getTarget, handoff: onPrepareDraft, openConversation,
-        isCurrent: () => sources.every(source => sourceIsCurrent(requestFor(source))),
+        isCurrent: () => isPreparing() && sources.every(source => sourceIsCurrent(requestFor(source))),
         readSource: source => readSource(requestFor(source)),
       }),
     };
