@@ -71,6 +71,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const blockedPermissions = new Map();
   const pdfDocuments = new Map();
   const readerPositions = new Map();
+  const questionDrafts = new Map();
+  const questionScope = () => {
+    const { sceneId, workspaceId, instanceId, sessionId } = getTarget() ?? {};
+    return JSON.stringify([sceneId, workspaceId, instanceId, sessionId]);
+  };
+  const closePageAssistant = restoreFocus => assistant?.firstElementChild?.invalidateBrowserCapture?.(restoreFocus);
   const control = request => invoke("browser_control", { request });
   const surface = createBrowserSurface(control);
   const paintStatus = () => {
@@ -356,7 +362,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     commit: async (next, id, background = false) => {
       // Reflect the committed session before any fallible native presentation.
       const changed = active !== id;
-      tabs = next; active = id; setStatus(""); paint();
+      tabs = next; active = id;
+      if (changed) closePageAssistant();
+      setStatus(""); paint();
       if (changed) refreshOpenPageControls?.();
       if (!background) {
         await find.close();
@@ -371,6 +379,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     address.focus(); address.select();
   }
   async function discardTabView(id, reopening = false) {
+    questionDrafts.delete(id);
     if (nativeTabs.has(id)) {
       await control({ kind: "close", tab: id });
       nativeTabs.delete(id);
@@ -389,6 +398,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const tab = tabs.find(item => item.id === id) ?? creatingPopups.get(id);
     if (crashedTabs.has(id) || (!tab && !creatingTabs.has(id))) return;
     crashedTabs.add(id);
+    questionDrafts.delete(id);
     navigationStates.delete(id);
     documentRevisions.delete(id);
     blockedPermissions.delete(id);
@@ -398,6 +408,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     favicons.delete(id);
     pageVersions.set(id, (pageVersions.get(id) ?? 0) + 1);
     if (id === active) {
+      closePageAssistant(true);
       lastSurface = "";
       preview.clear();
       void find.close({ stopNative: false });
@@ -446,6 +457,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (!popupOpener) await persist(nextTabs, nextActive);
     tabs = nextTabs;
     active = nextActive;
+    if (wasActive) closePageAssistant();
     setStatus("");
     paint();
     if (wasActive) {
@@ -795,12 +807,14 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (!tab && !creatingTabs.has(id) && !nativeTabs.has(id)) return;
         if (payload.kind === "navigationStarted") {
           navigationStates.set(id, "loading");
+          questionDrafts.delete(id);
           documentRevisions.delete(id);
           blockedPermissions.delete(id);
           pdfDocuments.delete(id);
           readerPositions.delete(id);
           if (tab) pageVersions.set(id, (pageVersions.get(id) ?? 0) + 1);
           if (id === active) {
+            closePageAssistant(true);
             if (!tabSearch?.open) preview.clear();
             if (statusMessage === t("Use the PDF toolbar for search and zoom.")) setStatus("");
             clearDeveloperToolsError();
@@ -848,6 +862,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (payload.kind === "loading" || routeChanged) {
         tab.url = payload.url;
         pageVersions.set(tab.id, (pageVersions.get(tab.id) ?? 0) + 1);
+        questionDrafts.delete(tab.id);
+        if (tab.id === active) closePageAssistant(true);
       }
       if (routeChanged || ["title", "loading"].includes(payload.kind)) {
         paint();
@@ -1371,6 +1387,21 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     let captureElement;
     // A successful handoff can detach the Browser while Chat becomes active.
     const isCurrent = () => sameDocument() && captureElement?.parentNode === assistant;
+    const owner = questionScope();
+    const draftKey = JSON.stringify([owner, url, capture.documentRevision]);
+    const previousQuestion = questionDrafts.get(tab.id);
+    const clearQuestion = () => {
+      if (questionDrafts.get(tab.id)?.key === draftKey) questionDrafts.delete(tab.id);
+    };
+    const questionDraft = onPrepareDraft && capture.documentRevision && {
+      value: previousQuestion?.key === draftKey ? previousQuestion.value : "",
+      remember(value) {
+        if (!isCurrent() || questionScope() !== owner) return;
+        if (value.trim()) questionDrafts.set(tab.id, { key: draftKey, value });
+        else clearQuestion();
+      },
+      clear: clearQuestion,
+    };
     const peers = tabs.filter(peer => peer.id !== tab.id && pageAvailable(peer.id) &&
       /^https?:/.test(peer.url) && !navigationStates.has(peer.id)).map(peer => ({
       tab: peer.id, url: peer.url, title: peer.title, version: pageVersions.get(peer.id),
@@ -1442,7 +1473,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     }) : undefined, (isOpen, analysis) => createBrowserNoteWriter({ capture, getTarget, analysis,
       isCurrent: () => isOpen() && isCurrent(), gateway: new NotesGateway(),
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
-    }), comparison, Boolean(openConversation), { host: assistant, trigger: read, modelActions, verifyPage, analysisArtifacts, recognizeImage, previewImage });
+    }), comparison, Boolean(openConversation), { host: assistant, trigger: read, modelActions, verifyPage, analysisArtifacts, recognizeImage, previewImage, questionDraft });
     await syncSurface();
   }
   async function navigate(submission, source) {
