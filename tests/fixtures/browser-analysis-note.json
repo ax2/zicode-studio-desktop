@@ -33,5 +33,56 @@
       "capturedAt": "2026-11-24T03:30:00Z",
       "documentRevision": "reviewed-document:29"
     }
+  },
+  "image": {
+    "capture": {
+      "tab": "sample-image",
+      "documentRevision": "reviewed-image:3",
+      "capturedAt": "2026-11-24T03:30:00Z",
+      "page": {
+        "title": "Image workbench",
+        "url": "https://example.invalid/source?mode=image&view=analysis",
+        "text": "Private page fixture",
+        "selection": "Private selection"
+      }
+    },
+    "analysis": {
+      "kind": "image",
+      "text": "Reviewed answer 🦊.\n<script>inert</script>",
+      "question": "",
+      "generatedAt": "2026-11-24T03:36:00.000Z",
+      "model": {
+        "provider": "fixture",
+        "modelId": "vision-model"
+      },
+      "image": {
+        "pageUrl": "https://example.invalid/source?mode=image&view=analysis",
+        "documentRevision": "reviewed-image:3",
+        "capturedAt": "2026-11-24T03:35:00Z",
+        "source": {
+          "url": "https://assets.example.invalid/image.png?choice=1&version=3",
+          "alt": "Reviewed illustration"
+        },
+        "frame": {
+          "url": "https://example.invalid/frame?tab=2#image",
+          "title": "Embedded illustration",
+          "documentRevision": "embed-r1"
+        }
+      }
+    },
+    "draft": {
+      "title": "Image analysis · Reviewed illustration",
+      "content": "## Image analysis\n\nPage title: Image workbench\n\nSource: https://example.invalid/source?mode=image&amp;view=analysis\n\nCaptured at: 2026-11-24T03:35:00Z\n\nDocument revision: reviewed-image:3\n\nImage source: https://assets.example.invalid/image.png?choice=1&amp;version=3\n\nImage frame source: Embedded illustration · https://example.invalid/frame?tab=2\\#image\n\nFrame document version: embed-r1\n\nGenerated at: 2026-11-24T03:36:00.000Z\n\nBrowser model: fixture / vision-model\n\n### Browser model answer\n\nReviewed answer 🦊.  \n&lt;script&gt;inert&lt;/script&gt;",
+      "tags": [
+        "web-clip",
+        "browser-analysis"
+      ],
+      "icon": "🌐",
+      "source": {
+        "url": "https://example.invalid/source?mode=image&view=analysis",
+        "capturedAt": "2026-11-24T03:35:00Z",
+        "documentRevision": "reviewed-image:3"
+      }
+    }
   }
 }
