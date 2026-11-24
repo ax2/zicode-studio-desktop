@@ -53,5 +53,71 @@ async fn creates_cited_local_notes_without_fetch_and_keeps_existing_notes() {
         .query(&[("sceneId","programming"),("workspaceId",workspace),("notebookId",book),("noteId",saved["note"]["id"].as_str().unwrap())])
         .send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
     assert_eq!(restored,saved);
+
+    let fixture: Value =
+        serde_json::from_str(include_str!("../../../tests/fixtures/browser-analysis-note.json"))
+            .unwrap();
+    let mut analysis = fixture["draft"].clone();
+    analysis["workspaceId"] = json!(workspace);
+    analysis["sceneId"] = json!("programming");
+    analysis["notebookId"] = json!(book);
+    let created: Value = client
+        .post(format!("{}/v2/notes/create", host.origin()))
+        .json(&analysis)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let document = &created["note"];
+    assert_eq!(document["title"], analysis["title"]);
+    assert_eq!(document["content"], analysis["content"]);
+    let tags = document["tags"].as_array().unwrap();
+    assert_eq!(tags.len(), 2);
+    assert!(tags.contains(&json!("browser-analysis")));
+    assert!(tags.contains(&json!("web-clip")));
+    for field in ["url", "capturedAt", "documentRevision"] {
+        assert_eq!(document["source"][field], analysis["source"][field]);
+    }
+    let analysis_id = document["id"].as_str().unwrap();
+    let reopened: Value = client
+        .get(format!("{}/v2/notes/note", host.origin()))
+        .query(&[
+            ("sceneId", "programming"),
+            ("workspaceId", workspace),
+            ("notebookId", book),
+            ("noteId", analysis_id),
+        ])
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(reopened, created);
+    let matching: Value = client
+        .get(format!("{}/v2/notes", host.origin()))
+        .query(&[
+            ("sceneId", "programming"),
+            ("workspaceId", workspace),
+            ("sourceOnly", "true"),
+            ("tag", "browser-analysis"),
+        ])
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(matching["snapshot"]["notes"].as_array().unwrap().len(), 1);
+    assert_eq!(matching["snapshot"]["notes"][0]["id"], analysis_id);
+
     host.stop_and_wait().await.unwrap();
 }
