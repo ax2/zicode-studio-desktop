@@ -1,9 +1,9 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 type TableFileFormat = typeof tableFileFormats[number];
-export type TableFileTarget = "transform" | "workbench" | "left" | "right" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "json-path" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
-const maxFileBytes = 8192; // Frozen Compute input limit in UTF-8 bytes.
+const maxFileBytes = 8192; // The frozen Compute and Compare document input limit.
 const formatError = {
   csv: "Choose a CSV file.",
   tsv: "Choose a TSV file.",
@@ -13,7 +13,7 @@ const transformOptions = new Set(["format", "column", "value"]);
 const workbenchOptions = new Set(["format", "query", "sort", "output"]);
 const mergeOptions = new Set(["format", "left_key", "right_key", "right"]);
 
-function tableSettings(source: string, target: TableFileTarget): TableSettings {
+function tableSettings(source: string, target: ToolFileTarget): TableSettings {
   try {
     const parsed: unknown = source.trim() ? JSON.parse(source) : {};
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw Error();
@@ -31,17 +31,19 @@ function tableSettings(source: string, target: TableFileTarget): TableSettings {
   }
 }
 
-export async function readComputeTableFile(
-  file: File, values: Record<string, string>, target: TableFileTarget,
+export async function readManualToolFile(
+  file: File, values: Record<string, string>, target: ToolFileTarget,
 ): Promise<Record<string, string>> {
   const name = file.name.toLowerCase();
   const format = tableFileFormats.find(extension => name.endsWith("." + extension));
-  const fixedFormat = tableFileFormats.find(extension => extension === target);
+  const jsonDocument = target === "json-path";
+  const fixedFormat = jsonDocument ? "json" : tableFileFormats.find(extension => extension === target);
   if (fixedFormat && format !== fixedFormat) throw Error(formatError[fixedFormat]);
   if (!format) {
     throw Error("Choose a CSV, TSV, or JSON file.");
   }
-  if (file.size > maxFileBytes) throw Error("Table files must be 8 KiB or smaller.");
+  const sizeError = jsonDocument ? "JSON files must be 8 KiB or smaller." : "Table files must be 8 KiB or smaller.";
+  if (file.size > maxFileBytes) throw Error(sizeError);
 
   const previousOptions = values.options ?? "";
   const settings = fixedFormat ? {} : tableSettings(previousOptions, target);
@@ -54,16 +56,16 @@ export async function readComputeTableFile(
   try {
     data = await file.slice(0, maxFileBytes + 1).arrayBuffer();
   } catch {
-    throw Error("Could not read the table file.");
+    throw Error(jsonDocument ? "Could not read the JSON file." : "Could not read the table file.");
   }
-  if (data.byteLength > maxFileBytes) throw Error("Table files must be 8 KiB or smaller.");
+  if (data.byteLength > maxFileBytes) throw Error(sizeError);
   let text: string;
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(data);
   } catch {
     throw Error("The file must contain valid UTF-8 text.");
   }
-  if (!text.trim()) throw Error("The selected table file is empty.");
+  if (!text.trim()) throw Error(jsonDocument ? "The selected JSON file is empty." : "The selected table file is empty.");
 
   if (fixedFormat) return { text };
 

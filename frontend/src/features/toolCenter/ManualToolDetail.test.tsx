@@ -1,4 +1,6 @@
-import { fireEvent } from "@testing-library/react";
+import { File as NodeFile } from "node:buffer";
+import { spawnSync } from "node:child_process";
+import { fireEvent, within } from "@testing-library/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
@@ -149,3 +151,103 @@ it("preserves the column-transform input and latest error when a partially valid
   expect(container.querySelector("table")).toBeNull();
   expect(store.mutate).not.toHaveBeenCalled();
 });
+
+const jsonPathTool = { ...tool, pluginId: "com.zicode.devtools.compare", capabilityId: "devtools.compare.json.path" };
+const jsonPathSchema = {
+  type: "object", required: ["text", "query"], additionalProperties: false,
+  properties: { text: { type: "string", maxLength: 8192 }, query: { type: "string", maxLength: 4096 } },
+};
+
+async function mountJsonPath() {
+  const view = await mount(jsonPathTool, undefined, jsonPathSchema);
+  const form = within(view.container);
+  const picker = form.getByLabelText("JSON 输入文件") as HTMLInputElement;
+  const document = view.container.querySelector("form textarea") as HTMLTextAreaElement;
+  const query = form.getByRole("textbox", { name: /query/i }) as HTMLTextAreaElement;
+  const importFile = async (files: NodeFile[]) => {
+    await act(async () => { fireEvent.change(picker, { target: { files } }); });
+  };
+  return { ...view, form, picker, document, query, importFile };
+}
+
+it("imports a JSON document into the query draft without running it and can undo", async () => {
+  const { api, form, picker, document, query, importFile } = await mountJsonPath();
+  expect(picker.accept).toBe(".json");
+  fireEvent.change(document, { target: { value: '{"previous":true}' } });
+  fireEvent.change(query, { target: { value: "$.项目[*]" } });
+  const text = '{\r\n  "项目": [9223372036854775807]\r\n}';
+  await importFile([new NodeFile(["\uFEFF", text], "document.JSON")]);
+  expect(document.value).toBe(text.replaceAll("\r\n", "\n"));
+  expect(query.value).toBe("$.项目[*]");
+  expect(api.invoke).not.toHaveBeenCalled();
+
+  await importFile([]);
+  expect(document.value).toBe(text.replaceAll("\r\n", "\n"));
+  await act(async () => { form.getByRole("button", { name: "撤销上次导入" }).click(); });
+  expect(document.value).toBe('{"previous":true}');
+  expect(query.value).toBe("$.项目[*]");
+});
+
+it.each([
+  ["notes.txt", [new Uint8Array([0x31])], "请选择 JSON 文件。"],
+  ["invalid.json", [new Uint8Array([0xff])], "文件必须使用有效的 UTF-8 编码。"],
+  ["empty.json", ["  \n"], "所选 JSON 文件为空。"],
+  ["large.json", ["中".repeat(2731)], "JSON 文件不能超过 8 KiB。"],
+] as const)("rejects %s without replacing the existing JSON query draft", async (name, bytes, message) => {
+  const { api, form, document, query, importFile } = await mountJsonPath();
+  fireEvent.change(document, { target: { value: "Prior JSON" } });
+  fireEvent.change(query, { target: { value: "$.prior" } });
+  await importFile([new NodeFile([...bytes], name)]);
+  expect(form.getByRole("alert").textContent).toBe(message);
+  expect(document.value).toBe("Prior JSON");
+  expect(query.value).toBe("$.prior");
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
+it("accepts exactly 8 KiB as the JSON query draft", async () => {
+  const { document, importFile } = await mountJsonPath();
+  const content = "{}" + " ".repeat(8190);
+  await importFile([new NodeFile([content], "limit.json")]);
+  expect(document.value).toBe(content);
+});
+
+const compareWorker = process.env.ZICODE_TEST_COMPARE_WORKER;
+const compareModule = process.env.ZICODE_TEST_COMPARE_MODULE;
+it.runIf(Boolean(compareWorker && compareModule))("queries a selected JSON file through the frozen Windows Compare Worker", async () => {
+  const { api, store, container, document, query, importFile, submit } = await mountJsonPath();
+  vi.mocked(api.invoke).mockImplementation(async (sceneId, _workspaceId, pluginId, capabilityId, input) => {
+    const output = spawnSync(compareWorker as string, ["--zicode-plugin-worker"], {
+      input: JSON.stringify({ workerPath: compareModule, workerKind: "wasi", pluginId, capabilityId, sceneId, input }),
+      windowsHide: true, encoding: "utf8", timeout: 15000,
+    });
+    expect(output.status).toBe(0);
+    return JSON.parse(output.stdout);
+  });
+  const text = '{"项目":[{"金额":9223372036854775807},{"金额":18446744073709551615}]}';
+  const path = '$.项目[*]["金额"]';
+  fireEvent.change(query, { target: { value: path } });
+  await importFile([new NodeFile([text], "fixture.json")]);
+  expect(api.invoke).not.toHaveBeenCalled();
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text, query: path });
+  const result = () => container.querySelector<HTMLTextAreaElement>("[data-tool-result]")?.value;
+  expect(result()).toContain("9223372036854775807");
+  expect(result()).toContain("18446744073709551615");
+  expect(store.mutate).toHaveBeenCalledTimes(1);
+
+  fireEvent.change(query, { target: { value: "$.缺失[*]" } });
+  await submit();
+  expect(result()).toBe("[]");
+  fireEvent.change(query, { target: { value: "$.." } });
+  await submit();
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("INVALID_INPUT");
+  expect(document.value).toBe(text);
+
+  fireEvent.change(query, { target: { value: path } });
+  const invalidJson = '{"项目":';
+  await importFile([new NodeFile([invalidJson], "invalid.json")]);
+  await submit();
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("INVALID_INPUT");
+  expect(document.value).toBe(invalidJson);
+  expect(store.mutate).toHaveBeenCalledTimes(2);
+}, 25_000);

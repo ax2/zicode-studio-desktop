@@ -10,6 +10,12 @@ Studio 工具中心已接入独立 Disk Inspector 0.1.0 候选。对工作区内
 
 四种合并操作均可选择 8 KiB 以内的同格式 UTF-8 CSV、TSV 或 JSON 文件作为左右表，保留已有设置，并撤销最近一次导入。完成后可确认另存 CSV 或列式 JSON。开发范围见 [Windows Worker 验收](../iterations/2026-11-24-csv-merge-file-input.md)。
 
+## 2026-11-24 开发补充：JSON 路径查询文件输入
+
+「JSON 路径查询」可导入 8 KiB 内的 UTF-8 JSON 文件。导入后保留现有路径表达式，可撤销回到原草稿，由用户手动执行。支持 UTF-8 BOM，原文件保留。
+
+使用已核验的冻结 Compare 0.1.0 候选 02 与生产 Windows Worker 验证。覆盖中文字段和通配符、完整整数文本、无匹配结果、无效查询和无效 JSON。系统文件窗口、结果文件保存和更大输入仍由 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 跟踪。
+
 ## 2026-11-24 开发补充：数据工作台文件导入与另存
 
 「表格转 JSON」「表格转 CSV」和「表格筛选与排序」都可导入 8 KiB 内的 UTF-8 CSV、TSV 或 JSON。文件后缀设置输入格式，筛选、排序方向和输出选项沿用当前草稿。可撤销导入，确认草稿后手动执行。成功后选择对应格式的「另存为…」，选定位置并确认，保存该次运行生成的 CSV、TSV 或 JSON 表格，同名文件保留。
