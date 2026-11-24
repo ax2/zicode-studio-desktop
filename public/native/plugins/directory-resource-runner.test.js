@@ -12,6 +12,7 @@ function fixture(overrides = {}, maxResources = 1, directory = false, receiver =
   const profile = receiver?.resourceInputProfile ?? "resource.wasi.input.draft2";
   const detail = { pluginId: tool.pluginId, version: "1", revision: "a".repeat(64), enabled: true, resourceInputProfile: profile, capability: { id: tool.capabilityId, inputSchema: {}, ...(receiver?.executionProfile ? { executionProfile: receiver.executionProfile } : {}), ...(receiver?.resourceInputMimeTypes ? { resourceInputMimeTypes: receiver.resourceInputMimeTypes } : {}), ...(maxResources > 1 ? { resourceInputMax: maxResources } : {}) }, permissions: [{ name: "resource.read", granted: true }, ...(directory ? [{ name: "resource.directory.read", granted: true }] : [])] };
   if (receiver?.nativeDigestStream) detail.nativeDigestStream = true;
+  if (receiver?.directoryUsage === true) detail.permissions.push({ name: "resource.directory.usage.read", granted: true });
   const gateway = { loadTool: vi.fn(async () => detail), prepareResource: vi.fn(async () => ({ resourceId: id })), appendResource: vi.fn(async () => ({ uploadedBytes: 3 })), commitResource: vi.fn(async access => ({ ...access, confirmed: true, byteLength: 3 })), revokeResource: vi.fn(async () => ({})), readResource: vi.fn(async () => ({})), cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })),
     invokeResource: vi.fn(async (owner, request) => ({ schemaVersion: 1, operationId: id, source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile }, result: { text: "received <script>literal</script>" } })), ...overrides };
   gateway.resourceCalls = { keep: vi.fn(async (target, owner, ticket) => ({ target, owner, ticket })), remove: vi.fn(async () => {}) };
@@ -29,6 +30,40 @@ function fixture(overrides = {}, maxResources = 1, directory = false, receiver =
   }
   return { gateway, form, onBusy, onSuccess, controller, button, share, switchTarget: () => { target = { ...target, sessionId: "other" }; } };
 }
+function diskInspectorFixture({ granted = true, report } = {}) {
+  const receiver = {
+    pluginId: "com.zicode.devtools.disk-inspector", capabilityId: "devtools.disk-inspector.scan",
+    title: "Disk Inspector", directoryUsage: granted, resourceInputMimeTypes: ["text/plain"],
+  };
+  const owner = { runtimeId: "runtime", sessionId: "session", pluginId: receiver.pluginId, capabilityId: receiver.capabilityId };
+  const directoryProfile = "resource.local-directory.usage.draft1";
+  const access = { schemaVersion: 1, owner, resourceId: id, contentVersion: "a".repeat(64) };
+  const projectDirectories = {
+    choose: vi.fn(async () => "."),
+    prepare: vi.fn(async () => ({ schemaVersion: 1, profile: directoryProfile, confirmed: false, entryNamesRead: false,
+      relativePath: ".", owner, grantId: id })),
+    commit: vi.fn(async () => ({ schemaVersion: 1, profile: directoryProfile, confirmed: true, entryCount: 3, partial: true, access })),
+    cancel: vi.fn(async () => ({})),
+  };
+  const result = report ?? {
+    ok: true, schemaVersion: 1, material: "directory-usage-report", partial: true,
+    logicalBytes: "9007199254740993", rootFilesLogicalBytes: "2", fileCount: 2, directoryCount: 1, groupCount: 1,
+    groups: [{ path: "recordings", logicalBytes: "9007199254740991", pathTruncated: false }],
+    largestFiles: [
+      { path: ["recordings", "a".repeat(200), "b".repeat(200), "c".repeat(86), "🧑‍💻", ""].join("/"), logicalBytes: "9007199254740991", pathTruncated: true },
+      { path: ["recordings", "a".repeat(200), "b".repeat(200), "d".repeat(97), "."].join("/"), logicalBytes: "42", pathTruncated: true },
+    ],
+    source: { partial: true, limitReason: "entries", visitedEntries: 3, skippedLinks: 1, skippedDepth: 0, skippedNames: 0, unreadable: 0 },
+    analysis: { examinedEntries: 3, inputBytes: 300, readBytes: 300, limitReason: null },
+    limits: { hostMaxEntries: 4096, hostMaxDepth: 16, hostScanSeconds: 15, hostMaxSnapshotBytes: 2097152,
+      maxAnalysisBytes: 64000, displayedPathBytes: 512, displayedRowsPerList: 20 },
+  };
+  const invokeResource = vi.fn(async (_owner, request) => ({ schemaVersion: 1, operationId: id,
+    source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result }));
+  const f = fixture({ projectDirectories, invokeResource }, 1, true, receiver);
+  return { f, projectDirectories, owner, directoryProfile, access, result };
+}
+
 function streamingFixture() {
   const receiver = { pluginId: "com.zicode.devtools.files", capabilityId: "devtools.files.hash",
     executionProfile: "resource.wasi.file-digest.v1", nativeDigestStream: true };
@@ -55,6 +90,92 @@ function streamingFixture() {
 }
 afterEach(() => { for (const root of roots.splice(0)) root.destroy(); vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
 describe("directory-owned resource execution", () => {
+  it("prepares only the special directory usage profile, waits for approval, then displays the exact partial result", async () => {
+    const { f, projectDirectories, owner, directoryProfile, access } = diskInspectorFixture();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+    expect(f.button("Files")).toBeUndefined();
+    f.button("Choose a folder").click();
+    await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
+    expect(projectDirectories.choose).toHaveBeenCalledWith("workspace");
+    expect(projectDirectories.prepare).toHaveBeenCalledWith(owner, ".", directoryProfile);
+    expect(document.body.textContent).toContain("Current file location");
+    expect(projectDirectories.commit).not.toHaveBeenCalled();
+    expect(f.gateway.invokeResource).not.toHaveBeenCalled();
+
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    expect(projectDirectories.commit).toHaveBeenCalledWith(owner, id);
+    expect(document.body.textContent).toContain("Shared partial usage");
+    expect(f.gateway.invokeResource).not.toHaveBeenCalled();
+
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    expect(f.gateway.invokeResource.mock.calls[0][1]).toMatchObject({ resourceId: id, contentVersion: access.contentVersion, input: {} });
+    const result = document.querySelector(".disk-inspector-result");
+    expect(result.textContent).toContain("9,007,199,254,740,993 B");
+    expect(result.textContent).toContain("Entry limit reached.");
+    expect(result.textContent).toContain("Skipped links: 1");
+    expect([...result.querySelectorAll("bdi")].map(entry => entry.textContent)).toEqual([
+      "recordings", expect.stringMatching(/\/🧑‍💻\/$/u), expect.stringMatching(/\/\.$/u),
+    ]);
+    expect(result.textContent).toContain("Path shortened");
+    f.button("Cancel directory sharing").click();
+    expect(f.gateway.revokeResource).toHaveBeenCalledWith(access);
+    expect(result.textContent).toBe("");
+  });
+
+  it("shows only a fixed error if the report contains an absolute path", async () => {
+    const { f, result } = diskInspectorFixture();
+    result.largestFiles[0].path = "D:\\personal\\secret.txt";
+    f.button("Choose a folder").click();
+    await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Disk Inspector returned an invalid report."));
+    expect(document.body.textContent).not.toContain("secret.txt");
+    expect(f.onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("identifies a Worker-limited report without claiming a full scan or Host counts", async () => {
+    const { f, result } = diskInspectorFixture();
+    result.source = null;
+    result.analysis.limitReason = "analysis_bytes";
+    f.button("Choose a folder").click();
+    await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    expect(document.body.textContent).toContain("Analysis input limit reached.");
+    expect(document.body.textContent).not.toContain("Skipped links:");
+    expect(document.body.textContent).toContain("This scan is partial.");
+  });
+
+  it("keeps Disk Inspector unavailable with only the old directory grant", () => {
+    const { f, projectDirectories } = diskInspectorFixture({ granted: false });
+    expect(f.button("Choose a folder")).toBeUndefined();
+    expect(f.button("Execute tool").disabled).toBe(true);
+    expect(projectDirectories.choose).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("directory usage permission");
+  });
+
+  it("cancels a pending directory scan and revokes a late resource with the original scope", async () => {
+    const { f, projectDirectories, owner, directoryProfile, access } = diskInspectorFixture();
+    let finish;
+    projectDirectories.commit.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    f.button("Choose a folder").click();
+    await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    f.button("Cancel directory sharing").click();
+    expect(projectDirectories.cancel).toHaveBeenCalledWith(owner, id);
+    finish({ profile: directoryProfile, confirmed: true, entryCount: 3, partial: false, access });
+    await vi.waitFor(() => expect(f.gateway.revokeResource).toHaveBeenCalledWith(access));
+    expect(f.button("Execute tool").disabled).toBe(true);
+    expect(f.gateway.invokeResource).not.toHaveBeenCalled();
+  });
+
   it("runs native streaming from the existing browse action and offers save and original relay", async () => {
     const { f, files, api, owner, reply } = streamingFixture();
     let finish;

@@ -17,6 +17,8 @@ impl Write for HashWriter<'_> {
 }
 
 pub(crate) const PAGE_SIZE: usize = 40;
+const DISK_INSPECTOR: &str = "com.zicode.devtools.disk-inspector";
+const DISK_SCAN: &str = "devtools.disk-inspector.scan";
 
 pub(crate) fn tool_access_id(plugin_id: &str, capability_id: &str) -> String {
     let bytes = serde_json::to_vec(&(plugin_id, capability_id)).expect("string tuple");
@@ -270,10 +272,15 @@ impl PluginRegistry {
             if (request.resource_only || request.directory_only) && (!enabled || !resource_permission) {
                 continue;
             }
-            if request.directory_only && (!manifest.permissions.required.iter().chain(&manifest.permissions.optional)
-                .any(|p| p.name == "resource.directory.read")
-                || !self.state.scenes.get(&request.scene_id).and_then(|s| s.get(&manifest.id))
-                    .and_then(|s| s.permissions.get("resource.directory.read")).copied().unwrap_or(false)) {
+            let has_directory_permission = |name: &str| {
+                manifest.permissions.required.iter().chain(&manifest.permissions.optional).any(|p| p.name == name)
+                    && self.state.scenes.get(&request.scene_id).and_then(|s| s.get(&manifest.id))
+                        .and_then(|s| s.permissions.get(name)).copied().unwrap_or(false)
+            };
+            let directory_metadata = request.directory_only && has_directory_permission("resource.directory.read");
+            let directory_usage = request.directory_only && manifest.id == DISK_INSPECTOR
+                && has_directory_permission("resource.directory.usage.read");
+            if request.directory_only && !directory_metadata && !directory_usage {
                 continue;
             }
             for cap in caps {
@@ -306,6 +313,15 @@ impl PluginRegistry {
                 let Some(id) = cap.get("id").and_then(Value::as_str) else {
                     continue;
                 };
+                let disk_scan = manifest.id == DISK_INSPECTOR && id == DISK_SCAN;
+                let directory_target = if disk_scan {
+                    directory_usage
+                } else {
+                    directory_metadata
+                };
+                if (request.resource_only && disk_scan) || (request.directory_only && !directory_target) {
+                    continue;
+                }
                 if request.exclude_plugin_id.as_deref() == Some(manifest.id.as_str())
                     && request.exclude_capability_id.as_deref() == Some(id) {
                     continue;

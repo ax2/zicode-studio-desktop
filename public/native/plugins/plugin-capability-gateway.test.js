@@ -200,6 +200,15 @@ describe("PluginCapabilityGateway", () => {
       { schemaVersion: 1, owner, grantId: "other-grant" },
     ]);
   });
+  it("forwards the dedicated usage profile only during explicit directory preparation", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" }, pickProjectDirectory: async () => "." });
+    const owner = { runtimeId: "r", sessionId: "s", pluginId: "com.zicode.devtools.disk-inspector", capabilityId: "devtools.disk-inspector.scan" };
+    const profile = "resource.local-directory.usage.draft1";
+    await gateway.projectDirectories.prepare(owner, ".", profile);
+    expect(fetchImpl.mock.calls[0][0].pathname).toBe("/v2/plugin-resources/prepare-local-directory");
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ schemaVersion: 1, owner, relativePath: ".", profile });
+  });
   it("queries local file state without preparing, confirming or executing it", async () => {
     const state = { schemaVersion: 1, phase: "reading", executionFinished: false, cancellationRequested: true, contentRead: null };
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => state }));
