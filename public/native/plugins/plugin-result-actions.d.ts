@@ -1,19 +1,22 @@
 export interface ResultScope {
   sceneId: string; workspaceId: string; pluginId: string; capabilityId: string;
 }
+type ResultExportDescriptor = { mimeType: string; contentVersion: string; byteLength: number };
+type ResultExportSource = { scope: ResultScope; resultId: string; format?: "png" | "csv" };
+
 export interface CapturedToolResponse {
   result: unknown;
   operation?: string;
-  resultRef?: { resultId: string; schemaVersion?: number; mimeType?: string; contentVersion?: string; byteLength?: number; pngExport?: { mimeType: string; contentVersion: string; byteLength: number } };
+  resultRef?: { resultId: string; schemaVersion?: number; mimeType?: string; contentVersion?: string; byteLength?: number; pngExport?: ResultExportDescriptor; csvExport?: ResultExportDescriptor };
   resultCaptureError?: { code: string };
   replayed?: boolean;
 }
 export interface ResultActionsGateway {
   textExports?: {
-    choose(workspaceId: string, source: { scope: ResultScope; resultId: string; format?: "png" }): Promise<unknown>;
-    commit(workspaceId: string, source: { scope: ResultScope; resultId: string; format?: "png" }, grantId: string): Promise<unknown>;
-    cancel(workspaceId: string, source: { scope: ResultScope; resultId: string; format?: "png" }, grantId: string): Promise<unknown>;
-    verify(workspaceId: string, source: { scope: ResultScope; resultId: string; format?: "png" }, grantId: string): Promise<unknown>;
+    choose(workspaceId: string, source: ResultExportSource): Promise<unknown>;
+    commit(workspaceId: string, source: ResultExportSource, grantId: string): Promise<unknown>;
+    cancel(workspaceId: string, source: ResultExportSource, grantId: string): Promise<unknown>;
+    verify(workspaceId: string, source: ResultExportSource, grantId: string): Promise<unknown>;
   } | null;
   prepareSave(scope: ResultScope, resultId: string, title: string): Promise<unknown>;
   commitSave(scope: ResultScope, grantId: string): Promise<unknown>;

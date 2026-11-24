@@ -8,6 +8,9 @@ export function createTextResultExport(options) {
 export function createPngResultExport(options) {
   return createCapturedResultExport(options, "result.export.png.v1", "image/png", "png");
 }
+export function createCsvResultExport(options) {
+  return createCapturedResultExport(options, "result.export.csv.v1", "text/csv", "csv");
+}
 function createCapturedResultExport(options, profile, mimeType, format) {
   return createResourceExport({ ...options, profile,
     makeSource: (scope, result) => ({ scope, resultId: result.resultId, ...(format ? { format } : {}) }),

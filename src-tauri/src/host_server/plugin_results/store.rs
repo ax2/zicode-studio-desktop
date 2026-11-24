@@ -3,6 +3,7 @@ use super::*;
 const MAX_RESULTS: usize = 64;
 const MAX_TOTAL_BYTES: usize = 2 * 1024 * 1024;
 const MAX_TEXT_BYTES: usize = 64 * 1024;
+const MAX_CSV_BYTES: usize = 48 * 1024;
 const RESULT_TTL: Duration = Duration::from_secs(900);
 const GRANT_TTL: Duration = Duration::from_secs(120);
 
@@ -16,7 +17,32 @@ pub(super) struct Record {
     pub mime_type: &'static str,
     pub json_value: Option<Value>,
     pub qr_png: Option<Arc<[u8]>>,
+    pub transform_csv: Option<Arc<str>>,
     expires: Instant,
+}
+
+impl Record {
+    fn payload_bytes(&self) -> usize {
+        self.text.len()
+            + self.qr_png.as_ref().map_or(0, |png| png.len())
+            + self.transform_csv.as_ref().map_or(0, |csv| csv.len())
+    }
+}
+
+fn transform_csv(scope: &Scope, text: &str) -> Option<Arc<str>> {
+    if scope.plugin_id != "com.zicode.devtools.compute"
+        || !scope
+            .capability_id
+            .starts_with("devtools.compute.transform.")
+    {
+        return None;
+    }
+    #[derive(Deserialize)]
+    struct Output {
+        csv: String,
+    }
+    let Output { csv } = serde_json::from_str(text).ok()?;
+    (!csv.is_empty() && csv.len() <= MAX_CSV_BYTES).then(|| csv.into())
 }
 
 pub(super) struct Grant {
@@ -100,11 +126,17 @@ impl Store {
         } else {
             None
         };
-        let bytes_added = text.len() + qr_png.as_ref().map_or(0, |png| png.len());
+        let transform_csv = json_value
+            .is_none()
+            .then(|| transform_csv(&scope, &text))
+            .flatten();
+        let bytes_added = text.len()
+            + qr_png.as_ref().map_or(0, |png| png.len())
+            + transform_csv.as_ref().map_or(0, |csv| csv.len());
         if self
             .records
             .values()
-            .map(|record| record.text.len() + record.qr_png.as_ref().map_or(0, |png| png.len()))
+            .map(Record::payload_bytes)
             .sum::<usize>()
             + bytes_added
             > MAX_TOTAL_BYTES
@@ -126,6 +158,13 @@ impl Store {
                 "contentVersion": sha256_hex(bytes),
             });
         }
+        if let Some(csv) = &transform_csv {
+            descriptor["csvExport"] = json!({
+                "mimeType": "text/csv",
+                "byteLength": csv.len(),
+                "contentVersion": sha256_hex(csv.as_bytes()),
+            });
+        }
         self.records.insert(
             id.clone(),
             Record {
@@ -137,6 +176,7 @@ impl Store {
                 mime_type,
                 json_value,
                 qr_png,
+                transform_csv,
                 expires: Instant::now() + RESULT_TTL,
             },
         );
@@ -186,6 +226,45 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_successful_compute_transform_text_gets_a_csv_export_descriptor() {
+        let scope = Scope {
+            workspace_id: "workspace".into(),
+            scene_id: "programming".into(),
+            plugin_id: "com.zicode.devtools.compute".into(),
+            capability_id: "devtools.compute.transform.trim".into(),
+        };
+        let capture = |input: Value| -> Value {
+            Store::default()
+                .capture(scope.clone(), "proof".into(), "1".into(), &input)
+                .unwrap()
+        };
+        let csv = "name,count\r\n\"甲,乙\",9223372036854775807\r\n";
+        let text = json!({"csv":csv}).to_string();
+        let descriptor = capture(json!({"ok":true,"data":{"text":text}}));
+        assert_eq!(descriptor["mimeType"], "text/plain");
+        assert_eq!(
+            descriptor["csvExport"],
+            json!({"mimeType":"text/csv","byteLength":csv.len(),"contentVersion":sha256_hex(csv.as_bytes())})
+        );
+        for text in ["not-json", r#"{"csv":""}"#, r#"{"csv":42}"#] {
+            assert!(capture(json!({"ok":true,"data":{"text":text}}))["csvExport"].is_null());
+        }
+        let unrelated = Scope {
+            capability_id: "devtools.compute.qr.png".into(),
+            ..scope
+        };
+        let descriptor = Store::default()
+            .capture(
+                unrelated,
+                "proof".into(),
+                "1".into(),
+                &json!({"ok":true,"data":{"text":text}}),
+            )
+            .unwrap();
+        assert!(descriptor["csvExport"].is_null());
+    }
 
     #[test]
     fn utf8_and_total_text_byte_limits_are_exact() {
