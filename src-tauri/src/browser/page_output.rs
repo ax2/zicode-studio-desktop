@@ -42,10 +42,15 @@ unsafe extern "system" {
     fn SHCreateMemStream(initial: *const u8, bytes: u32) -> *mut std::ffi::c_void;
 }
 
+pub(super) struct ExpectedDocument {
+    pub(super) url: String,
+    pub(super) revision: String,
+}
+
 async fn request(
     window: &WebviewWindow,
     tab: String,
-    expected_url: Option<String>,
+    expected: Option<ExpectedDocument>,
     format: Format,
 ) -> Result<Vec<u8>, String> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
@@ -53,7 +58,7 @@ async fn request(
     window
         .app_handle()
         .run_on_main_thread(move || {
-            super::runtime::page_output(&owner, tab, expected_url, format, sender);
+            super::runtime::page_output(&owner, tab, expected, format, sender);
         })
         .map_err(|error| error.to_string())?;
     let (seconds, timeout) = match format {
@@ -78,6 +83,7 @@ pub(super) async fn save(
     window: WebviewWindow,
     tab: String,
     expected_url: String,
+    expected_document_revision: String,
     format: Format,
 ) -> Result<Value, String> {
     let directory = window
@@ -85,7 +91,11 @@ pub(super) async fn save(
         .path()
         .download_dir()
         .map_err(|error| error.to_string())?;
-    let bytes = request(&window, tab, Some(expected_url), format).await?;
+    let expected = ExpectedDocument {
+        url: expected_url,
+        revision: expected_document_revision,
+    };
+    let bytes = request(&window, tab, Some(expected), format).await?;
     crate::require_workspace_window(&window)?;
     let (extension, signature, invalid): (&str, &[u8], &str) = match format {
         Format::Png => ("png", b"\x89PNG\r\n\x1a\n", "Could not capture a PNG image"),

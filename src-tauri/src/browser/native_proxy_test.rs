@@ -102,7 +102,11 @@ fn native_browser_routes_http_and_https_connect_through_configured_proxy() {
         profile.path().join("browser"),
         BrowserPolicy::public_web(),
         Arc::new(move |event| {
-            if let EngineEvent::NavigationFinished { document_revision: Some(revision), .. } = event {
+            if let EngineEvent::NavigationFinished {
+                document_revision: Some(revision),
+                ..
+            } = event
+            {
                 let _ = finished.send(revision);
             }
         }),
@@ -135,12 +139,22 @@ fn native_browser_routes_http_and_https_connect_through_configured_proxy() {
 
     let first = wait(|| documents.try_recv().ok());
     assert_eq!(engine.document_revision(TAB).unwrap(), first);
+    assert!(super::runtime::ready_web_document(&engine, TAB, HTTP, &first).is_ok());
     engine.action(TAB, "reload").unwrap();
     let reloaded = wait(|| documents.try_recv().ok());
     assert_ne!(reloaded, first);
     assert_eq!(engine.document_revision(TAB).unwrap(), reloaded);
     assert_eq!(engine.view(TAB).unwrap().url().unwrap(), HTTP);
-    println!("Real WebView2 reported a new document revision on same-address reload");
+    assert_eq!(
+        super::runtime::ready_web_document(&engine, TAB, HTTP, &first)
+            .err()
+            .as_deref(),
+        Some("Browser page changed"),
+    );
+    assert!(super::runtime::ready_web_document(&engine, TAB, HTTP, &reloaded).is_ok());
+    println!(
+        "Real WebView2 rejected an output request for the old revision after same-address reload"
+    );
 
     assert!(engine.navigate(TAB, "http://127.0.0.1:81/private").is_err());
     assert!(engine

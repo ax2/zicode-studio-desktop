@@ -77,8 +77,20 @@ pub enum Request {
     #[serde(skip)]
     DownloadName { id: String },
     Snapshot { tab: String },
-    SaveScreenshot { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
-    PrintPage { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
+    SaveScreenshot {
+        tab: String,
+        #[serde(rename = "expectedUrl")]
+        expected_url: String,
+        #[serde(rename = "expectedDocumentRevision")]
+        expected_document_revision: String,
+    },
+    PrintPage {
+        tab: String,
+        #[serde(rename = "expectedUrl")]
+        expected_url: String,
+        #[serde(rename = "expectedDocumentRevision")]
+        expected_document_revision: String,
+    },
     OpenDeveloperTools {
         tab: String,
         #[serde(rename = "expectedUrl")]
@@ -86,7 +98,13 @@ pub enum Request {
         #[serde(rename = "expectedDocumentRevision")]
         expected_document_revision: String,
     },
-    SavePdf { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
+    SavePdf {
+        tab: String,
+        #[serde(rename = "expectedUrl")]
+        expected_url: String,
+        #[serde(rename = "expectedDocumentRevision")]
+        expected_document_revision: String,
+    },
     GetUserAgent,
     SetUserAgent { value: Option<String> },
     GetHttpProxy,
@@ -197,11 +215,11 @@ pub(crate) async fn browser_control(
                 return download_reveal::reveal(window, id).await;
             }
             Request::Snapshot { tab } => return page_output::snapshot(window, tab).await,
-            Request::SaveScreenshot { tab, expected_url } => {
-                return page_output::save(window, tab, expected_url, page_output::Format::Png).await;
+            Request::SaveScreenshot { tab, expected_url, expected_document_revision } => {
+                return page_output::save(window, tab, expected_url, expected_document_revision, page_output::Format::Png).await;
             }
-            Request::SavePdf { tab, expected_url } => {
-                return page_output::save(window, tab, expected_url, page_output::Format::Pdf).await;
+            Request::SavePdf { tab, expected_url, expected_document_revision } => {
+                return page_output::save(window, tab, expected_url, expected_document_revision, page_output::Format::Pdf).await;
             }
             request => request,
         };
