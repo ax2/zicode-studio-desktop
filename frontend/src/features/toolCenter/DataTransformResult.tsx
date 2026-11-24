@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { t } from "../../shared/i18n";
-import type { dataTransformPreview } from "./data-transform-result";
+import type { MergePreview, TransformPreview } from "./data-transform-result";
 import { ToolResultText } from "./ToolResultText";
 
 const pageSize = 25;
@@ -9,23 +9,31 @@ export function DataTransformResult({
   result,
   text,
 }: {
-  result: NonNullable<ReturnType<typeof dataTransformPreview>>;
+  result: TransformPreview | MergePreview;
   text: string;
 }) {
   const [page, setPage] = useState(0);
-  const { headers, rows, changed, examples } = result;
+  const { headers, rows } = result;
+  const caption =
+    "changed" in result
+      ? t("{rows} rows × {columns} columns · {changed} changes").replace(
+          "{changed}",
+          String(result.changed),
+        )
+      : t("{rows} rows × {columns} columns");
+  const examples = "examples" in result ? result.examples : [];
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   const start = page * pageSize;
   return (
     <div className="tool-transform-result">
+      {"report" in result && <p className="tool-merge-report">{result.report}</p>}
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: A focus stop makes the overflowing table keyboard-scrollable. */}
       <section className="tool-transform-table" tabIndex={0} aria-label={t("Table preview")}>
         <table>
           <caption>
-            {t("{rows} rows × {columns} columns · {changed} changes")
+            {caption
               .replace("{rows}", String(rows.length))
-              .replace("{columns}", String(headers.length))
-              .replace("{changed}", String(changed))}
+              .replace("{columns}", String(headers.length))}
           </caption>
           <thead>
             <tr>

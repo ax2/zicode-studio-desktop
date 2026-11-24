@@ -107,6 +107,7 @@ body[data-active-plugin="core.tools"] #sidebar-overlay { display: none; }
   text-align: start;
   vertical-align: top;
 }
+.tool-merge-report { overflow-wrap: anywhere; }
 .tool-transform-examples li, .tool-transform-failed-row {
   overflow-wrap: anywhere;
   white-space: pre-wrap;

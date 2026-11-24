@@ -288,7 +288,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
           disabled={running || actionBusy || resourceBusy} onClick={onOpenApplication}>{t("Open tool interface")}</button>}
       </div>}
     </>}
-    {result !== null && <ManualToolResultView result={result} dataTransform={dataTransform}
+    {result !== null && <ManualToolResultView result={result} dataTransform={dataTransform} dataMerge={tableMerge}
       transformPreview={dataTransform ? transformed?.preview ?? null : undefined}
       transformActions={transformed && <div className="ui-toolbar">
         {applied
