@@ -1438,6 +1438,7 @@ const zhCN = {
   "Use a single HTTP proxy for requests in this browser profile. Leave blank to use the system proxy.": "为当前浏览器资料的网页请求设置一个 HTTP 代理。留空使用系统代理。",
   "Current browser proxy": "本次启动使用的浏览器代理",
   "Saved proxy is active": "已保存的代理配置在本次启动中生效",
+  "Proxy address has unsaved changes.": "代理地址有未保存的修改。",
   "Quit Studio completely, then reopen it to apply the saved proxy.": "从托盘完全退出并重新打开 Studio 后，已保存的代理才会生效。",
   "Use system proxy": "使用系统代理",
   "System proxy": "系统代理",

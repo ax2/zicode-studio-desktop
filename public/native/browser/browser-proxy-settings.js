@@ -22,6 +22,10 @@ export function createBrowserProxySettings(control) {
   const hint = document.createElement("small");
   hint.dataset.i18nText = "Use a single HTTP proxy for requests in this browser profile. Leave blank to use the system proxy.";
   hint.textContent = t(hint.dataset.i18nText);
+  const draftHint = document.createElement("small");
+  draftHint.dataset.i18nText = "Proxy address has unsaved changes.";
+  draftHint.textContent = t(draftHint.dataset.i18nText);
+  draftHint.hidden = true;
   const activeLabel = document.createElement("span");
   activeLabel.dataset.i18nText = "Current browser proxy";
   activeLabel.textContent = t("Current browser proxy");
@@ -48,10 +52,15 @@ export function createBrowserProxySettings(control) {
   };
   let busy = false;
   let loaded = false;
+  let savedAddress = "";
+  const refreshDraftHint = () => { draftHint.hidden = input.value === savedAddress; };
   input.disabled = true;
   async function request(action) {
-    if (busy) return;
+    const reading = action.kind === "getHttpProxy";
+    if (busy || (!reading && !loaded)) return;
+    const keepDraft = reading && input.value !== savedAddress;
     busy = true;
+    if (reading) loaded = false;
     input.disabled = save.disabled = reset.disabled = true;
     showStatus("");
     try {
@@ -61,11 +70,14 @@ export function createBrowserProxySettings(control) {
       if (active) delete activeValue.dataset.i18nText;
       else activeValue.dataset.i18nText = "System proxy";
       activeValue.textContent = active ?? t("System proxy");
-      input.value = saved ?? "";
+      savedAddress = saved ?? "";
+      if (!keepDraft) input.value = savedAddress;
+      refreshDraftHint();
       showStatus(active === saved
         ? "Saved proxy is active"
         : "Quit Studio completely, then reopen it to apply the saved proxy.");
     } catch (error) {
+      if (reading) activeRow.hidden = true;
       showStatus(String(error?.message ?? error));
     } finally {
       busy = false;
@@ -76,6 +88,7 @@ export function createBrowserProxySettings(control) {
   panel.addEventListener("toggle", () => {
     if (panel.open) void request({ kind: "getHttpProxy" });
   });
+  input.addEventListener("input", refreshDraftHint);
   input.addEventListener("keydown", event => {
     if (event.key !== "Enter" || event.isComposing) return;
     event.preventDefault();
@@ -84,7 +97,7 @@ export function createBrowserProxySettings(control) {
   });
   save.addEventListener("click", () => void request({ kind: "setHttpProxy", value: input.value.trim() || null }));
   reset.addEventListener("click", () => void request({ kind: "setHttpProxy", value: null }));
-  fields.append(input, hint, activeRow, save, reset, status);
+  fields.append(input, hint, draftHint, activeRow, save, reset, status);
   panel.append(title, fields);
   return panel;
 }
