@@ -3,6 +3,7 @@ import { randomId } from "../utils/random-id.js";
 import { createBrowserImageReview, sameReviewedImage } from "./browser-image-review.js";
 import { createBrowserNoteClip } from "./browser-note-clip.js";
 import { browserComparisonPrompt } from "./browser-chat-draft.js";
+import { browserTranslationDefault, browserTranslationLanguages, browserTranslationPrompt } from "./browser-translation.js";
 
 const label = (element, value) => { element.dataset.i18nText = value; element.textContent = t(value); };
 function button(value, listener) {
@@ -26,11 +27,12 @@ export function browserModelError(reason) {
   if (code === "module_model_selection_unavailable") return t("The selected model is unavailable. Choose another model or configure Pi.");
   if (code === "module_model_image_unsupported") return t("Use a browser model that supports images.");
   if (code === "module_model_image_invalid") return t("Invalid browser image response");
+  if (code === "module_model_translation_incomplete") return t("Translation was cut off. Select a shorter passage and try again.");
   if (code.startsWith("module_model_")) return t("The model request could not be completed. Check the selected model and credentials.");
   return t("Could not load Pi models. Open Chat or model settings, then retry.");
 }
 
-export function createBrowserModelAssistant({ actions, question, prompt, isCurrent, setBusy, artifacts, notes, canStart = () => true, verifyPage, verifyComparison }) {
+export function createBrowserModelAssistant({ actions, question, prompt, isCurrent, setBusy, artifacts, notes, canStart = () => true, verifyPage, verifyComparison, translationSource }) {
   const element = document.createElement("section"); element.className = "ui-card browser-model-assistant";
   element.setAttribute("aria-label", t("Browser model"));
   const field = document.createElement("label"), title = document.createElement("span"); label(title, "Browser model");
@@ -45,6 +47,22 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
   ask.classList.add("browser-capture-prepare");
   summarize.classList.add("browser-capture-prepare");
   const cancel = button("Cancel model request", cancelRequest);
+  const translation = translationSource && document.createElement("div");
+  const language = translation && document.createElement("select");
+  const translate = translation && button(translationSource.scope === "selection" ? "Send selection to translate" : "Send page text to translate", () => void send("translation"));
+  if (translation) {
+    const field = document.createElement("label"), title = document.createElement("span");
+    label(title, "Target language");
+    field.className = "ui-toolbar";
+    language.className = "ui-select";
+    for (const [value, name] of Object.entries(browserTranslationLanguages)) {
+      const option = document.createElement("option"); option.value = value; label(option, name); language.append(option);
+    }
+    language.value = browserTranslationDefault();
+    field.append(title, language);
+    translation.className = "ui-toolbar browser-capture-prepare browser-translation-actions";
+    translation.append(field, translate);
+  }
   const compareNotice = document.createElement("p");
   compareNotice.setAttribute("role", "status");
   label(compareNotice, "The reviewed tabs exceed the model input limit. Compare fewer tabs or prepare a draft.");
@@ -87,10 +105,12 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     refresh.disabled = blocked;
     ask.disabled = blocked || !snapshot?.effectiveBrowserModel || !question?.value.trim();
     summarize.disabled = blocked || !snapshot?.effectiveBrowserModel;
+    if (translation) translate.disabled = language.disabled = blocked || !snapshot?.effectiveBrowserModel;
     if (compareButton) {
       compareButton.disabled = blocked || !snapshot?.effectiveBrowserModel || !comparison || comparison.exceedsLimit;
     }
     cancel.hidden = !pending;
+    cancel.classList.toggle("hidden", cancel.hidden);
     cancel.setAttribute("aria-disabled", String(pending?.cancelled === true));
     imageReview.controls(snapshot?.effectiveBrowserModel, blocked);
     save.hidden = !artifacts || !analysis;
@@ -223,6 +243,8 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
   async function send(kind, reviewedComparison) {
     const model = snapshot?.effectiveBrowserModel;
     const visual = kind === "image" ? reviewed : undefined;
+    const targetLanguage = kind === "translation" ? language?.value : undefined;
+    if (kind === "translation" && (!translationSource || !Object.hasOwn(browserTranslationLanguages, targetLanguage))) return;
     const reviewRequired = kind === "image" && (!visual || !model?.supportsImages) ||
       kind === "comparison" && (!reviewedComparison || reviewedComparison.exceedsLimit);
     if (busy || !canStart() || !model || !current() || reviewRequired || (kind === "analysis" && !question?.value.trim())) return;
@@ -241,7 +263,8 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       verifyText ? "Checking the reviewed page…" : "Sending reviewed page content to the selected model…");
     try {
       // Build the exact reviewed message before any asynchronous check.
-      const textPrompt = visual ? undefined : reviewedComparison?.prompt ?? prompt(kind === "summary");
+      const textPrompt = visual ? undefined : reviewedComparison?.prompt ??
+        (targetLanguage ? browserTranslationPrompt(translationSource, targetLanguage) : prompt(kind === "summary"));
       if (visual) {
         const latest = await visual.read();
         if (request.cancelled) throw Error("module_model_request_cancelled");
@@ -264,12 +287,15 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
         requestId: request.id, confirmed: true, expectedRevision, expectedModelFingerprint: model.fingerprint,
         ...(visual
           ? { prompt: t("Describe the visible content of this image."), image: visual.preview.pngBase64 }
-          : { prompt: textPrompt }),
+          : { prompt: textPrompt, ...(targetLanguage && { purpose: "translation" }) }),
       });
       if (request.cancelled) throw Error("module_model_request_cancelled");
       if (!current() || mine !== generation) return;
       savedArtifact = undefined; saveStatus.textContent = "";
       analysis = { text: value.text, model: value.model, kind, question: requestedQuestion, generatedAt: new Date().toISOString() };
+      if (targetLanguage) {
+        analysis.translation = { language: targetLanguage, scope: translationSource.scope, truncated: translationSource.truncated };
+      }
       imageReview.showResult(visual?.preview);
       if (visual) {
         const { source, pageUrl, capturedAt, documentRevision, frame } = visual.preview;
@@ -284,7 +310,8 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       answer.value = value.text; answer.hidden = false; completed = true;
       const tokens = Number.isSafeInteger(value.usage?.totalTokens)
         ? ` · ${value.usage.totalTokens} ${t("tokens")}` : "";
-      answerModel.hidden = false; answerModel.textContent = name(value.model) + tokens;
+      const languageLabel = targetLanguage ? `${t(browserTranslationLanguages[targetLanguage])} · ` : "";
+      answerModel.hidden = false; answerModel.textContent = languageLabel + name(value.model) + tokens;
       status.textContent = "";
     } catch (reason) {
       if (!current() || mine !== generation) return;
@@ -316,7 +343,9 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     } finally { busy = false; setBusy(false); if (current()) controls(); }
   }
   question?.addEventListener("input", controls);
-  toolbar.append(refresh, ask, summarize, cancel); element.append(field, hint, destination, toolbar, imageReview.element, status, answerModel, imageReview.resultSource, answerSources, answer);
+  toolbar.append(refresh, ask, summarize, cancel); element.append(field, hint, destination, toolbar);
+  if (translation) element.append(translation);
+  element.append(imageReview.element, status, answerModel, imageReview.resultSource, answerSources, answer);
   if (artifacts) element.append(save, open, saveStatus);
   if (notes) element.append(noteSlot);
   controls();

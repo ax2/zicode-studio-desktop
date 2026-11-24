@@ -8,6 +8,7 @@ import { appendPartialCapture } from "./browser-capture-status.js";
 import { t } from "../../i18n.js";
 import { createBrowserModelAssistant } from "./browser-model-assistant.js";
 import { browserDraftPrompt } from "./browser-chat-draft.js";
+import { browserTranslationSource } from "./browser-translation.js";
 
 function setLabel(element, key) {
   element.dataset.i18nText = key;
@@ -226,6 +227,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
       prompt: summarize => browserDraftPrompt(capture, { ...attachments(), question: question?.value, summarize }),
       isCurrent: isOpen, setBusy, artifacts: dock.analysisArtifacts,
       canStart: () => !busy, verifyPage: dock.verifyPage, verifyComparison: comparison?.verify,
+      translationSource: dock.verifyPage && browserTranslationSource(capture),
       notes: createNoteWriter && { capture, writer: createNoteWriter } });
   }
   compare = comparison && createBrowserCompare({ ...comparison, capture, setBusy, opensChat,

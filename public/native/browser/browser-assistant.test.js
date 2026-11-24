@@ -745,3 +745,88 @@ it("cancels the single-page document check without starting or cancelling a requ
   send.click();
   await waitFor(() => expect(modelRequests(modelGateway)).toHaveLength(1));
 });
+
+it.each([
+  { selection: "Reviewed source segment", target: "zh-CN", scope: "selection", text: "Reviewed source segment", limited: true, button: "Send selection to translate" },
+  { selection: "", target: "en", scope: "page", text: "Reviewed page body", limited: false, button: "Send page text to translate" },
+])("translates only the reviewed $scope into the selected language", async ({ selection, target, scope, text, limited, button }) => {
+  const gateway = comparisonGateway();
+  let hold = false, finishCheck;
+  const { host, readTabs } = await openControlledAssistant({
+    target: browserComparisonSession, handoff: vi.fn(), modelGateway: gateway,
+    capturePage: source => ({ ...source, page: { ...source.page, selection, selectionTruncated: limited,
+      text: "Reviewed page body", links: [{ url: "https://example.invalid/extra-link", label: "Unshared link" }] } }),
+    getNativeStatus: snapshot => hold ? new Promise(resolve => { finishCheck = () => resolve(snapshot); }) : snapshot,
+  });
+  const send = getByRole(host, "button", { name: button });
+  const language = getByRole(host, "combobox", { name: "Target language" });
+  await waitFor(() => expect(send.disabled).toBe(false));
+  language.value = target;
+  language.dispatchEvent(new Event("change", { bubbles: true }));
+  host.querySelector(".browser-capture-links").open = true;
+  getByRole(host, "checkbox", { name: "Include links in the page note or chat draft" }).checked = true;
+  expect(modelRequests(gateway)).toHaveLength(0);
+  hold = true;
+  send.click();
+  await waitFor(() => expect(finishCheck).toBeTypeOf("function"));
+  expect(language.disabled).toBe(true);
+  expect(modelRequests(gateway)).toHaveLength(0);
+  language.value = target === "en" ? "zh-CN" : "en";
+  finishCheck();
+  await waitFor(() => expect(modelRequests(gateway)).toHaveLength(1));
+  const [, request] = modelRequests(gateway)[0];
+  const payload = JSON.parse(request.prompt.slice(request.prompt.indexOf("{")));
+  expect(payload).toEqual({ sourceTrust: "untrusted-web-content", title: capture.page.title, url: capture.page.url,
+    capturedAt: capture.capturedAt, documentRevision: capture.documentRevision, scope, truncated: limited, text });
+  expect(request.prompt).toContain(target === "en" ? "English" : "Simplified Chinese");
+  expect(request.prompt).not.toContain("Unshared link");
+  expect(request).toMatchObject({ confirmed: true, purpose: "translation" });
+  expect(readTabs()).toEqual([capture.tab]);
+  await waitFor(() => expect(getByRole(host, "textbox", { name: "Browser model answer" }).hidden).toBe(false));
+});
+
+it("cancels translation during verification and rejects a same-URL document change on retry", async () => {
+  const gateway = comparisonGateway();
+  let hold = false, changed = false, finishCheck;
+  const { host, assistant } = await openControlledAssistant({
+    target: browserComparisonSession, handoff: vi.fn(), modelGateway: gateway,
+    getNativeStatus: snapshot => hold ? new Promise(resolve => { finishCheck = () => resolve(snapshot); }) : ({
+      ...snapshot, tabs: snapshot.tabs.map(tab => tab.id === capture.tab && changed
+        ? { ...tab, documentRevision: capture.documentRevision + 1 } : tab),
+    }),
+  });
+  const send = getByRole(host, "button", { name: "Send selection to translate" });
+  await waitFor(() => expect(send.disabled).toBe(false));
+  hold = true;
+  send.focus();
+  send.click();
+  await waitFor(() => expect(finishCheck).toBeTypeOf("function"));
+  getByRole(host, "button", { name: "Cancel model request" }).click();
+  hold = false;
+  finishCheck();
+  await waitFor(() => expect(assistant.textContent).toContain("Model request cancelled."));
+  expect(document.activeElement).toBe(send);
+  changed = true;
+  send.click();
+  await waitFor(() => expect(assistant.textContent).toContain("Page or conversation changed. Read the page again."));
+  expect(gateway.call.mock.calls.map(([name]) => name)).toEqual(["get_module_models"]);
+});
+
+it("keeps the last complete result when a translation reaches the model output limit", async () => {
+  const gateway = comparisonGateway();
+  const { host, assistant } = await openControlledAssistant({
+    target: browserComparisonSession, handoff: vi.fn(), modelGateway: gateway,
+  });
+  const send = getByRole(host, "button", { name: "Send selection to translate" });
+  await waitFor(() => expect(send.disabled).toBe(false));
+  send.click();
+  const answer = await waitFor(() => getByRole(host, "textbox", { name: "Browser model answer" }));
+  const original = answer.value;
+  expect(original).toBeTruthy();
+  gateway.call.mockResolvedValueOnce({ ok: false, error: "module_model_translation_incomplete" });
+  send.click();
+  await waitFor(() => expect(assistant.textContent).toContain("Select a shorter passage and try again."));
+  expect(answer.value).toBe(original);
+  expect(send.disabled).toBe(false);
+  expect(modelRequests(gateway)).toHaveLength(2);
+});
