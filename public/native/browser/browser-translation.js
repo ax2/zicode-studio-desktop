@@ -4,6 +4,14 @@ import { webEvidenceContext } from "./browser-chat-draft.js";
 export const browserTranslationLanguages = {
   "zh-CN": "Simplified Chinese",
   en: "English",
+  ja: "Japanese",
+  ko: "Korean",
+  fr: "French",
+  de: "German",
+  es: "Spanish",
+  ru: "Russian",
+  pt: "Portuguese",
+  ar: "Arabic",
 };
 
 export function browserTranslationSource(capture) {
