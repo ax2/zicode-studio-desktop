@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../i18n.js";
 import { BuiltinPluginRegistry } from "./plugin-registry.js";
 import { setupPluginShell } from "./plugin-shell.js";
+import { setupBrowserApp } from "../browser/browser-app.js";
 
 function renderShell() {
   document.body.innerHTML = `
@@ -468,6 +469,39 @@ afterEach(() => {
 });
 
 describe("setupPluginShell", () => {
+  it("keeps the mounted browser and focused unsent input when the application language changes", async () => {
+    vi.stubGlobal("ResizeObserver", class { observe() {} });
+    const browser = setupBrowserApp({ invoke: async name => {
+      if (name === "browser_get_state") return { startupMode: "browser", session: { revision: 0, tabs: [] } };
+      return {};
+    } });
+    const renderBrowser = vi.spyOn(browser, "renderContent");
+    const shell = setupPluginShell({ registry: registry(), builtinApps: { "com.zicode.browser": browser } });
+    try {
+      await shell.activate("com.zicode.browser", { focus: false });
+      const browserRoot = document.querySelector(".studio-browser");
+      await vi.waitFor(() => expect(browserRoot.querySelector(".browser-address").disabled).toBe(false));
+      const address = browserRoot.querySelector(".browser-address");
+      address.focus();
+      address.value = "unsent query";
+      address.dispatchEvent(new Event("input", { bubbles: true }));
+      renderBrowser.mockClear();
+
+      setLocale("zh-CN");
+      expect(renderBrowser).not.toHaveBeenCalled();
+      expect(document.querySelector(".studio-browser")).toBe(browserRoot);
+      expect(address.placeholder).toBe("搜索或输入网址");
+      expect(address.value).toBe("unsent query");
+      expect(document.activeElement).toBe(address);
+      setLocale("en");
+      expect(address.placeholder).toBe("Search or enter a web address");
+      expect(document.activeElement).toBe(address);
+    } finally {
+      shell.destroy();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("renders application activities while preserving Chat as the default surface", async () => {
     const shell = setupPluginShell({ registry: registry() });
 

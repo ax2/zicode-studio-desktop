@@ -912,7 +912,10 @@ export function setupPluginShell({
     renderActivities();
     if (activePluginId !== CHAT_PLUGIN_ID) {
       renderSidebar(activePluginId);
-      renderMain(activePluginId);
+      // Views that update their own labels can keep their focused control mounted.
+      if (!applicationViews.get(activePluginId)?.handlesLocaleChange || !pluginMain.firstChild) {
+        renderMain(activePluginId);
+      }
     }
     updateActivitySelection(activePluginId);
   };
