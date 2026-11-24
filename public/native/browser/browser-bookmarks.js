@@ -10,9 +10,13 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
   const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
   const dialog = el("dialog", "browser-bookmarks-dialog ui-panel"); dialog.setAttribute("aria-label", t("Bookmarks"));
   const guard = createBookmarkDraftGuard(dialog);
-  const requestClose = async () => {
-    if (!guard.dirty() || await guard.confirm()) dialog.close();
+  dialog.canCloseBookmarkDraft = async () => {
+    if (!guard.dirty() || await guard.confirm()) return true;
     guard.restoreFocus();
+    return false;
+  };
+  const requestClose = async () => {
+    if (!guard.dirty() || await dialog.canCloseBookmarkDraft()) dialog.close();
   };
   dialog.addEventListener("cancel", event => { event.preventDefault(); void requestClose(); });
   const beginEdit = async draft => {
@@ -198,7 +202,9 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
   dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
   document.body.append(dialog); dialog.showModal(); close.focus();
   void run(async () => {
-    library = await request({ kind: "list" });
+    const saved = await request({ kind: "list" });
+    if (!dialog.open) return;
+    library = saved;
     if (editCurrent && current) await beginCurrent();
     else render();
   }).then(() => {

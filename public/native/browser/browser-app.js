@@ -41,7 +41,8 @@ import { t } from "../../i18n.js";
 export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   listen = globalThis.__TAURI__?.event?.listen, nativeWindow = globalThis.__TAURI__?.window?.getCurrentWindow?.(), notify = () => {}, getTarget = () => null, onPrepareDraft, canOpenDraftConversation, openDraftConversation, onTranslateSelection, modelGateway } = {}) {
   let startupState, searchSettings, ordering, tabStripControls, tabMenu, tabSearch, pageControls, find, shortcuts, fullscreen;
-  let refreshOpenPageControls, siteSettingsPanel;
+  let refreshOpenPageControls, siteSettingsPanel, libraryPanel;
+  let libraryGeneration = 0;
   let root, viewport, assistant, read, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
   let initialized = false, initPromise, lastSurface = "", surfaceError = "", saveTail = Promise.resolve();
@@ -1133,40 +1134,60 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       },
     });
   }
-  function restorePanelPage(tab) {
+  function restorePanelPage(tab, current = () => true) {
     void run(async () => {
       await syncSurface();
-      if (tab && active === tab && !blocked() && pageAvailable(tab)) {
+      if (current() && tab && active === tab && !blocked() && pageAvailable(tab)) {
         if (newTabShortcuts.ready(shortcutTab())) address.focus();
         else await control({ kind: "focusPage", tab });
       }
     });
   }
+  function libraryOwner() {
+    const source = readerSource(), generation = libraryGeneration;
+    return () => !surfaceUnavailable() && libraryGeneration === generation && active === (source?.id ?? null) &&
+      (!source || (selected()?.url === source.url && pageVersions.get(source.id) === source.version));
+  }
+  async function openLibrary(ownsPage, show, returnToPage) {
+    if (libraryPanel || !ownsPage()) return;
+    await hide(true, ownsPage);
+    if (!ownsPage()) { await syncSurface(); return; }
+    try {
+      const panel = show(() => {
+        if (libraryPanel !== panel) return;
+        libraryPanel = undefined;
+        restorePanelPage(returnToPage, ownsPage);
+      });
+      libraryPanel = panel;
+    } catch (error) {
+      await syncSurface();
+      throw error;
+    }
+  }
   async function openBookmarks(editCurrent, returnToPage) {
+    const ownsPage = libraryOwner();
+    if (libraryPanel || !ownsPage()) return;
     const selectedTab = selected(); let current = null;
     if (selectedTab && pageAvailable(selectedTab.id)) {
-      const result = await control({ kind: "url", tab: selectedTab.id });
+      const result = await control({ kind: "url", tab: selectedTab.id }).catch(error => {
+        if (ownsPage()) throw error;
+      });
+      if (!ownsPage()) return;
       const url = typeof result === "string" ? result : result.url;
-      if (active === selectedTab.id && /^https?:/.test(url)) current = { url, title: url === selectedTab.url ? selectedTab.title : url };
+      if (/^https?:/.test(url)) current = { url, title: url === selectedTab.url ? selectedTab.title : url };
     }
-    await hide(true);
-    showBrowserBookmarks({ invoke, current, editCurrent, onClose: () => {
-      newTabShortcuts.refresh();
-      restorePanelPage(returnToPage);
-    },
-      onOpen: openSavedPage,
-    });
+    await openLibrary(ownsPage, onClose => showBrowserBookmarks({ invoke, current, editCurrent, onClose: () => {
+      if (ownsPage()) newTabShortcuts.refresh();
+      onClose();
+    }, onOpen: openSavedPage }), returnToPage);
   }
-  async function openDownloads(returnToPage) {
-    if (document.querySelector(".browser-downloads-dialog")) return;
-    await hide(true);
-    showBrowserDownloads({ invoke, onClose: () => restorePanelPage(returnToPage),
+  function openDownloads(returnToPage) {
+    return openLibrary(libraryOwner(), onClose => showBrowserDownloads({ invoke, onClose,
       subscribe: observer => { downloadObservers.add(observer); return () => downloadObservers.delete(observer); },
-    });
+    }), returnToPage);
   }
-  async function openHistory(returnToPage) {
-    await hide(true);
-    showBrowserHistory({ invoke, onOpen: openSavedPage, onClose: () => restorePanelPage(returnToPage) });
+  function openHistory(returnToPage) {
+    return openLibrary(libraryOwner(), onClose => showBrowserHistory({ invoke, onOpen: openSavedPage, onClose }), returnToPage);
   }
   async function openSiteSettings(source) {
     if (siteSettingsPanel || surfaceUnavailable()) return;
@@ -1372,6 +1393,16 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     addressEditor.accepted(submission);
     selected().url = url; setStatus(""); paint(); await save();
   }
+  function deactivateBrowserPanels() {
+    visible = false;
+    libraryGeneration++;
+    root?.querySelector(".browser-options[open]")?.removeAttribute("open");
+    const panel = libraryPanel;
+    libraryPanel = undefined;
+    panel?.close();
+    siteSettingsPanel?.panel.close();
+    newTabShortcuts.select(null);
+  }
   return {
     async finishWindowWrites() { await actionTail; await saveTail; },
     async openNoteSource(url, current) {
@@ -1386,7 +1417,21 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       initPromise ??= restore();
       void initPromise.then(() => run(syncSurface));
     },
-    async canDeactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); await fullscreen?.leave(); await find?.close(); ordering?.cancel(); visible = false; siteSettingsPanel?.panel.close(); newTabShortcuts.select(null); await initPromise; await hide(); return true; },
-    deactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); void fullscreen?.leave(); void find?.close(); ordering?.cancel(); visible = false; siteSettingsPanel?.panel.close(); newTabShortcuts.select(null); void run(hide); },
+    async canDeactivate() {
+      if (libraryPanel?.canCloseBookmarkDraft && !await libraryPanel.canCloseBookmarkDraft()) return false;
+      assistant?.firstElementChild?.cancelBrowserModel?.();
+      tabMenu?.close(); tabSearch?.close();
+      await fullscreen?.leave(); await find?.close();
+      ordering?.cancel(); deactivateBrowserPanels();
+      await initPromise; await hide();
+      return true;
+    },
+    deactivate() {
+      assistant?.firstElementChild?.cancelBrowserModel?.();
+      tabMenu?.close(); tabSearch?.close();
+      void fullscreen?.leave(); void find?.close();
+      ordering?.cancel(); deactivateBrowserPanels();
+      void run(hide);
+    },
   };
 }
