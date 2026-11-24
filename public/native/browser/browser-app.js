@@ -1359,36 +1359,56 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       throw new Error(t("Wait for the current page to finish loading"));
     }
     const url = tab.url, version = pageVersions.get(tab.id);
+    let owner = questionScope();
     const sameDocument = () => active === tab.id && selected()?.url === url &&
       !navigationStates.has(tab.id) && pageVersions.get(tab.id) === version;
     const ensureOpenSource = () => {
       if (blocked() || !sameDocument()) throw new Error(t("Page changed. Read it again."));
+      if (questionScope() !== owner) throw new Error(t("Page or conversation changed. Read the page again."));
     };
     const capture = await invoke("browser_capture_page", { tab: tab.id, expectedUrl: url });
     ensureOpenSource();
     if (capture.page.url !== url) throw new Error(t("Page changed. Read it again."));
-    const openConversation = getTarget()?.runtimeMode === "tools" && await canOpenDraftConversation?.()
-      ? openDraftConversation : undefined;
+    const canOpenConversation = getTarget()?.runtimeMode === "tools" && await canOpenDraftConversation?.();
     ensureOpenSource();
     if (assistant.querySelector('[aria-busy="true"]')) return;
     let captureElement;
     // A successful handoff can detach the Browser while Chat becomes active.
     const isCurrent = () => sameDocument() && captureElement?.parentNode === assistant;
-    const owner = questionScope();
-    const draftKey = JSON.stringify([owner, url, capture.documentRevision]);
-    const previousQuestion = questionDrafts.get(tab.id);
+    const ownsQuestion = () => isCurrent() && questionScope() === owner;
+    const draftKey = () => JSON.stringify([owner, url, capture.documentRevision]);
+    const savedQuestions = () => questionDrafts.get(tab.id);
     const clearQuestion = () => {
-      if (questionDrafts.get(tab.id)?.key === draftKey) questionDrafts.delete(tab.id);
+      const questions = savedQuestions();
+      if (!questions) return;
+      questions.delete(draftKey());
+      if (!questions.size) questionDrafts.delete(tab.id);
     };
     const questionDraft = onPrepareDraft && capture.documentRevision && {
-      value: previousQuestion?.key === draftKey ? previousQuestion.value : "",
+      value: savedQuestions()?.get(draftKey()) ?? "",
       remember(value) {
-        if (!isCurrent() || questionScope() !== owner) return;
-        if (value.trim()) questionDrafts.set(tab.id, { key: draftKey, value });
-        else clearQuestion();
+        if (!ownsQuestion()) return;
+        if (!value.trim()) {
+          clearQuestion();
+          return;
+        }
+        const questions = savedQuestions() ?? new Map();
+        questions.set(draftKey(), value);
+        questionDrafts.set(tab.id, questions);
       },
       clear: clearQuestion,
     };
+    const openConversation = canOpenConversation && openDraftConversation && (async options => {
+      await openDraftConversation(options);
+      if (!isCurrent()) throw new Error(t("Page or conversation changed. Read the page again."));
+      const questions = savedQuestions(), previous = draftKey();
+      owner = questionScope();
+      const next = draftKey();
+      if (previous !== next && questions?.has(previous) && !questions.has(next)) {
+        questions.set(next, questions.get(previous));
+        questions.delete(previous);
+      }
+    });
     const peers = tabs.filter(peer => peer.id !== tab.id && pageAvailable(peer.id) &&
       /^https?:/.test(peer.url) && !navigationStates.has(peer.id)).map(peer => ({
       tab: peer.id, url: peer.url, title: peer.title, version: pageVersions.get(peer.id),
@@ -1406,7 +1426,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const requestFor = source => source.tab === tab.id
       ? { tab: source.tab, url: source.url, version }
       : peers.find(peer => peer.tab === source.tab);
-    const modelActions = modelGateway && createBrowserModelGateway({ gateway: modelGateway, getTarget, isCurrent, openConversation });
+    const modelActions = modelGateway && createBrowserModelGateway({ gateway: modelGateway, getTarget, isCurrent: ownsQuestion, openConversation });
     const verifyPage = modelActions && (isSending => verifyReviewedBrowserSources(
       [{ tab: capture.tab, url: capture.page.url, documentRevision: capture.documentRevision }],
       async source => {
@@ -1416,7 +1436,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           ? { tab: page.id, page: { url: page.url }, documentRevision: page.documentRevision }
           : null;
       },
-      () => isSending() && !blocked() && isCurrent(),
+      () => isSending() && !blocked() && ownsQuestion(),
     ));
     const sourcesCurrent = sources => sources.every(source => sourceIsCurrent(requestFor(source)));
     const reread = source => readSource(requestFor(source));
@@ -1425,11 +1445,11 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       readSource,
       prepare: onPrepareDraft && ((sources, isPreparing) => prepareBrowserComparisonDraft({
         sources, getTarget, handoff: onPrepareDraft, openConversation,
-        isCurrent: () => isPreparing() && sourcesCurrent(sources),
+        isCurrent: () => isPreparing() && ownsQuestion() && sourcesCurrent(sources),
         readSource: reread,
       })),
       verify: (sources, isSending) => verifyReviewedBrowserSources(sources, reread,
-        () => isSending() && !blocked() && sourcesCurrent(sources)),
+        () => isSending() && !blocked() && ownsQuestion() && sourcesCurrent(sources)),
     };
     const analysisArtifacts = createBrowserAnalysisArtifacts({ capture, getTarget,
       isCurrent: () => Boolean(captureElement?.isConnected), gateway: new ArtifactGateway() });
@@ -1455,7 +1475,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       return result;
     };
     captureElement = showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? (attachments, isPreparing) => prepareBrowserDraft({
-      capture, isCurrent: () => isPreparing() && isCurrent(), getTarget, handoff: onPrepareDraft, attachments, openConversation,
+      capture, isCurrent: () => isPreparing() && ownsQuestion(), getTarget, handoff: onPrepareDraft, attachments, openConversation,
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
     }) : undefined, (isOpen, analysis) => createBrowserNoteWriter({ capture, getTarget, analysis,
       isCurrent: () => isOpen() && isCurrent(), gateway: new NotesGateway(),
