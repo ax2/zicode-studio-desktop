@@ -63,6 +63,7 @@ export function createNoteEditorSave({
         ...(changed ? {} : { draftTitle: title }),
         dirty: changed,
         saveState: changed ? "dirty" : "saved",
+        editorConflict: null,
       });
       if (changed) get().scheduleAutosave();
       if (!silent && !changed) notify(t("Note saved"));
@@ -72,7 +73,15 @@ export function createNoteEditorSave({
       await get().load();
       if (sameEditor() && !get().dirty) void get().loadBacklinks(response.note);
     } catch (error) {
-      if (sameEditor()) set({ error: localize(error), dirty: true, saveState: "dirty" });
+      if (sameEditor()) {
+        const failure = localize(error);
+        const conflict = (failure as Error & { code?: string }).code === "version_conflict";
+        set({
+          ...(conflict ? { editorConflict: failure, error: null } : { error: failure }),
+          dirty: true,
+          saveState: "dirty",
+        });
+      }
     } finally {
       if (sameEditor()) set({ saveDisabled: !get().dirty });
     }

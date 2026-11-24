@@ -50,15 +50,12 @@ export function createEditorTransition({
       )
         return null;
       if (state.dirty) {
-        set({
-          error:
-            state.error ??
-            new Error(
-              t(
-                "Save the current note successfully before continuing. Your edits are still in the editor.",
-              ),
+        if (!state.editorConflict && !state.error)
+          set({
+            error: new Error(
+              t("Save the current note successfully before continuing. Your edits are still in the editor."),
             ),
-        });
+          });
         return null;
       }
       const fingerprint = context(state);

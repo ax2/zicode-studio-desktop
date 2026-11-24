@@ -194,6 +194,7 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   newNotebookParentId: string | null;
   dirty: boolean;
   saveState: "idle" | "dirty" | "saving" | "saved";
+  editorConflict: Error | null;
   preview: boolean;
   query: string;
   selectedTag: string | null;
@@ -390,6 +391,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     summarizing: false,
     dirty: false,
     saveState: "idle",
+    editorConflict: null,
     preview: false,
     query: "",
     selectedTag: null,
@@ -638,6 +640,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         draftIcon: note.icon || DEFAULT_NOTE_ICON,
         draftContent: note.content,
         draftTags: [...(note.tags || [])],
+        editorConflict: null,
       });
     },
 
@@ -721,6 +724,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         workflowBusy: null, attachmentBusy: false, editorLocked: false, transferBusy: false, externalImport: null, saveState: "idle", saveDisabled: true,
         selectedNote: null, selectedNotebookId: null, selectedNoteIds: [], selectMode: false, snapshot: { notebooks: [], notes: [], tags: [] },
         dirty: false,
+        editorConflict: null,
         project: normalizeProject(options.getProject?.()),
         recentNotes: [],
       });

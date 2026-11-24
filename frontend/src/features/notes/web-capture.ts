@@ -128,7 +128,7 @@ export function createWebCapture({
         if (!ticket) {
           if (current() && view === viewSequence && get().dirty)
             throw (
-              get().error ??
+              get().editorConflict ?? get().error ??
               new Error(
                 t(
                   "Save the current note successfully before continuing. Your edits are still in the editor.",
