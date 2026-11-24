@@ -149,6 +149,7 @@ export interface NotesStoreOptions {
   chooseFolder?: () => Promise<File[]>;
   downloadFile?: (fileName: string, content: string, type: string) => void;
   onUseInChat?: (note: Note, selection: string, scope: NotesOperationScope) => void | Promise<void>;
+  onOpenSource?: (url: string, scope: NotesOperationScope) => Promise<void>;
   fileToBase64?: (file: File) => Promise<string>;
   invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown>;
   renderMarkdown?: (markdown: string) => string;
@@ -163,6 +164,7 @@ export interface ProjectInfo {
 export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   workflowBusy: NoteWorkflow | null;
   canDeactivate(): Promise<boolean>;
+  openSource?: (url: string) => Promise<void>;
   attachmentBusy: boolean;
   editorLocked: boolean;
   relationshipLoading: boolean;
@@ -300,7 +302,7 @@ export function createNotesStore(options: NotesStoreOptions) {
   const chooseFile = options.chooseFile ?? defaultChooseFile;
   const chooseFolder = options.chooseFolder ?? defaultChooseFolder;
   const downloadFile = options.downloadFile ?? defaultDownloadFile;
-  const onUseInChat = options.onUseInChat;
+  const { onUseInChat, onOpenSource } = options;
   const fileToBase64 = options.fileToBase64 ?? defaultFileToBase64;
   const invoke = options.invoke;
   const sceneId = () => getTarget()?.sceneId ?? "programming";
@@ -359,6 +361,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     ...shortcuts.actions,
     ...createWebCapture({ get, set, gateway, capture: operationScope.capture, guard, notify, localize: localizeNotesHostError }),
     async canDeactivate() { const ticket = await guard.prepare(); return Boolean(ticket?.unchanged()); },
+    openSource: onOpenSource ? (url) => onOpenSource(url, operationScope.capture()) : undefined,
     workflowBusy: null,
     ...createNoteWorkflowActions({ get, set, gateway, guard, capture: operationScope.capture, notify, localize: localizeNotesHostError, confirmPublish, invoke, onUseInChat }),
     attachmentBusy: false,

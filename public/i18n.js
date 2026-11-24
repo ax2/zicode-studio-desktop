@@ -5713,6 +5713,7 @@ const zhCN = {
     "请综合以下上下文包继续分析。",
   "First call {instructions} separately, ignoring stale chat context.":
     "请先分别调用 {instructions}，不要依赖过期聊天上下文。",
+  "Open source in Studio Browser": "在 Studio 浏览器打开来源",
   "Copy source URL": "复制来源链接",
   Published: "发布于",
   Captured: "剪藏于",
