@@ -3,6 +3,7 @@ import { localizeHostError } from "../../shared/hostErrors.js";
 import { t } from "../../shared/i18n.js";
 import type { SavedOutputGateway } from "./saved-output-types";
 import {
+  artifactBrowserSources,
   type ArtifactDescriptor,
   type ArtifactDocument,
   defaultDownloadFile,
@@ -24,11 +25,17 @@ export interface ArtifactGatewayLike {
   delete(sceneId: string, workspaceId: string, artifact: ArtifactDescriptor): Promise<unknown>;
 }
 
+interface BrowserSourceScope {
+  workspaceId: string;
+  isCurrent(): boolean;
+}
+
 export interface ArtifactAppOptions {
   gateway: ArtifactGatewayLike;
   getTarget?: () => { sceneId?: string; workspaceId?: string } | null;
   notify?: (message: string) => void;
   openApp?: (pluginId: string) => void;
+  onOpenSource?: (url: string, scope: BrowserSourceScope) => Promise<void>;
   confirmDelete?: (message: string) => boolean | Promise<boolean>;
   downloadFile?: (fileName: string, content: string, type: string) => void;
   chooseFile?: (accept: string) => Promise<File | null>;
@@ -46,6 +53,8 @@ interface ArtifactState {
   targetEpoch: number;
   snapshot: ArtifactSnapshot;
   selected: ArtifactDocument | null;
+  sourceOpening: boolean;
+  openSource?: (artifact: ArtifactDocument, url: string) => Promise<void>;
   loading: boolean;
   error: Error | null;
   query: string;
@@ -99,6 +108,7 @@ export function createArtifactStore(options: ArtifactAppOptions) {
   let listSequence = 0;
   let listLoading = false;
   let detailLoading = false;
+  let detailTarget: { sceneId: string; workspaceId: string } | null = null;
 
   const sceneId = () => getTarget()?.sceneId ?? "programming";
   const workspaceId = () => getTarget()?.workspaceId ?? "";
@@ -107,6 +117,22 @@ export function createArtifactStore(options: ArtifactAppOptions) {
     targetEpoch: 0,
     snapshot: { ...EMPTY_ARTIFACT_SNAPSHOT },
     selected: null,
+    sourceOpening: false,
+    openSource: options.onOpenSource && (async (artifact, url) => {
+      const scope = detailTarget;
+      const requestId = requestSequence;
+      const isCurrent = () =>
+        !!scope?.workspaceId && scope.workspaceId === workspaceId() && scope.sceneId === sceneId() &&
+        requestId === requestSequence && get().selected === artifact;
+      if (!scope || !isCurrent() || detailLoading || get().sourceOpening ||
+          !artifactBrowserSources(artifact).some((source) => source.url === url)) return;
+      set({ sourceOpening: true });
+      try {
+        await options.onOpenSource?.(url, { workspaceId: scope.workspaceId, isCurrent });
+      } finally {
+        set({ sourceOpening: false });
+      }
+    }),
     loading: false,
     error: null,
     query: "",
@@ -179,37 +205,19 @@ export function createArtifactStore(options: ArtifactAppOptions) {
       }
     },
 
-    async selectArtifact(descriptor) {
-      const requestId = ++requestSequence;
-      detailLoading = true;
-      set({ loading: true, error: null });
-      try {
-        const response = await gateway.get(sceneId(), workspaceId(), descriptor.id);
-        if (requestId !== requestSequence) return;
-        set({ selected: response.artifact ?? null });
-      } catch (loadError) {
-        if (requestId === requestSequence) {
-          set({
-            error: localizeHostError(
-              loadError instanceof Error ? loadError : new Error(String(loadError)),
-            ),
-          });
-        }
-      } finally {
-        if (requestId === requestSequence) {
-          detailLoading = false;
-          set({ loading: listLoading });
-        }
-      }
+    selectArtifact(descriptor) {
+      return get().openArtifact(descriptor.id);
     },
 
     async openArtifact(artifactId) {
       const requestId = ++requestSequence;
       detailLoading = true;
       set({ loading: true, error: null });
+      const scope = { sceneId: sceneId(), workspaceId: workspaceId() };
       try {
-        const response = await gateway.get(sceneId(), workspaceId(), artifactId);
-        if (requestId !== requestSequence) return;
+        const response = await gateway.get(scope.sceneId, scope.workspaceId, artifactId);
+        if (requestId !== requestSequence || scope.sceneId !== sceneId() || scope.workspaceId !== workspaceId()) return;
+        detailTarget = scope;
         set({ selected: response.artifact ?? null });
       } catch (loadError) {
         if (requestId === requestSequence) {

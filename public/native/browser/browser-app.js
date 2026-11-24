@@ -1409,7 +1409,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   return {
     async finishWindowWrites() { await actionTail; await saveTail; },
-    async openNoteSource(url, current) {
+    async openSource(url, current) {
       await initPromise;
       if (!current()) return;
       if (!initialized) throw new Error(restoreError || t("This browser action is not available yet"));

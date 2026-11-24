@@ -8,6 +8,7 @@ import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { t } from "../../shared/i18n.js";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import {
+  artifactBrowserSources,
   type ArtifactDescriptor,
   type ArtifactDocument,
   formatBytes,
@@ -223,6 +224,7 @@ export function ArtifactMain({
           exportSelected={exportSelected}
           deleteSelected={deleteSelected}
           discussInChat={discussInChat}
+          store={store}
         />
       )}
     </div>
@@ -234,7 +236,9 @@ function ArtifactDocumentView({
   exportSelected,
   deleteSelected,
   discussInChat,
+  store,
 }: {
+  store: ArtifactStore;
   selected: ArtifactDocument;
   exportSelected: () => boolean;
   deleteSelected: () => Promise<void>;
@@ -311,9 +315,54 @@ function ArtifactDocumentView({
       </section>
       <section className="artifacts-provenance">
         <h2>{t("Provenance")}</h2>
-        <pre className="artifacts-json">{stringifyContent(selected.provenance)}</pre>
+        <ArtifactSources selected={selected} store={store} />
       </section>
     </article>
+  );
+}
+
+function ArtifactSources({ selected, store }: { selected: ArtifactDocument; store: ArtifactStore }) {
+  const openSource = store((state) => state.openSource);
+  const opening = store((state) => state.sourceOpening);
+  const sources = artifactBrowserSources(selected);
+  const raw = <pre className="artifacts-json">{stringifyContent(selected.provenance)}</pre>;
+  if (sources.length === 0) return raw;
+
+  return (
+    <>
+      <ol className="artifacts-sources">
+        {sources.map((source) => {
+          const label = source.title || source.url;
+          const capturedAt = formatDateTime(source.capturedAt);
+          return (
+            <li key={source.position} value={source.position}>
+              {openSource ? (
+                <button
+                  type="button"
+                  className="ui-button ui-button--ghost ui-button--sm"
+                  title={t("Open source in Studio Browser")}
+                  disabled={opening}
+                  onClick={() => void openSource(selected, source.url)}
+                >
+                  <span translate="no">{label}</span>
+                </button>
+              ) : <strong translate="no">{label}</strong>}
+              {source.title && <div translate="no">{source.url}</div>}
+              {(capturedAt || source.documentRevision) && (
+                <div className="artifacts-source-meta">
+                  {capturedAt && <span>{t("Captured at")} <time dateTime={source.capturedAt}>{capturedAt}</time></span>}
+                  {source.documentRevision && <span>{t("Document revision")} <span translate="no">{source.documentRevision}</span></span>}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <details>
+        <summary>{t("Technical details")}</summary>
+        {raw}
+      </details>
+    </>
   );
 }
 

@@ -19,6 +19,37 @@ export interface ArtifactDocument extends ArtifactDescriptor {
   content?: unknown;
 }
 
+function browserPageSource(value: unknown, position: number) {
+  if (!value || typeof value !== "object") return [];
+  const { url, title, capturedAt, documentRevision } = value as Record<string, unknown>;
+  if (typeof url !== "string" || !/^https?:\/\//i.test(url) || /[\s\\\p{Cc}]/u.test(url)) return [];
+  try {
+    const address = new URL(url);
+    if (address.username || address.password) return [];
+  } catch {
+    return [];
+  }
+  return [{
+    position,
+    url,
+    title: typeof title === "string" ? title.trim() : "",
+    capturedAt: typeof capturedAt === "string" ? capturedAt : "",
+    documentRevision: typeof documentRevision === "string" ? documentRevision : "",
+  }];
+}
+
+export function artifactBrowserSources(artifact: ArtifactDocument) {
+  if (artifact.pluginId !== "com.zicode.artifacts" || artifact.kind !== "report") return [];
+  const provenance = artifact.provenance as { producer?: unknown; source?: unknown; sources?: unknown; analysis?: { kind?: unknown } } | undefined;
+  if (provenance?.producer !== "browser.analysis") return [];
+  if (provenance.analysis?.kind === "comparison") {
+    const sources = provenance.sources;
+    if (!Array.isArray(sources) || sources.length < 2 || sources.length > 3) return [];
+    return sources.flatMap((source, index) => browserPageSource(source, index + 1));
+  }
+  return browserPageSource(provenance.source, 1);
+}
+
 export const EMPTY_ARTIFACT_SNAPSHOT = Object.freeze({
   artifacts: [] as ArtifactDescriptor[],
   kinds: [] as string[],
