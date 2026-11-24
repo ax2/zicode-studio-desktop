@@ -10,7 +10,7 @@ export function downloadSize(bytes) {
 }
 export function showBrowserDownloads({ invoke, onClose, subscribe }) {
   let closed = false, loading = false, generation = 0, timer, nextBefore = null, acting = null;
-  let records = new Map(), loadedOlder = false, query = "";
+  let records = new Map(), loadedOlder = false, query = "", awaitingFirstPage = true;
   const rows = new Map(), liveUpdates = new Map();
   const el = (tag, className = "", text) => {
     const node = document.createElement(tag); node.className = className;
@@ -19,7 +19,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
   const dialog = el("dialog", "browser-downloads-dialog ui-panel"); dialog.setAttribute("aria-label", t("Downloads"));
   const directory = el("p", "browser-downloads-meta");
   const list = el("div", "browser-downloads-list"); list.setAttribute("role", "list");
-  const empty = el("p", "", t("No downloads yet")); list.append(empty);
+  const empty = el("p"); list.append(empty);
   const message = el("p", "browser-downloads-message"); message.setAttribute("role", "status");
   let actionError = "", loadError = "";
   const updateMessage = () => { message.textContent = actionError || loadError; };
@@ -81,7 +81,9 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     const row = { element, title, url, status, progress, path, error, tools, save, choose, pause, cancel, reveal, remove }; rows.set(id, row); return row;
   }
   function render() {
-    empty.hidden = records.size > 0;
+    empty.hidden = records.size > 0 || Boolean(loadError);
+    empty.textContent = t(awaitingFirstPage ? "Loading…" : query ? "No matching downloads" : "No downloads yet");
+    list.setAttribute("aria-busy", String(awaitingFirstPage));
     const focused = document.activeElement;
     let previous = empty;
     for (const record of records.values()) {
@@ -120,6 +122,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     try {
       const page = await request({ kind: "downloads", before, ...(requestedQuery ? { query: requestedQuery } : {}) });
       if (closed || version !== generation) return;
+      if (before === null) awaitingFirstPage = false;
       loadError = ""; updateMessage();
       const entries = page.entries.map(record => liveUpdates.get(record.id) ?? record);
       directory.textContent = `${t("Default download location")}: ${page.directory}`;
@@ -136,11 +139,19 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
         nextBefore = page.nextBefore;
       }
       render();
-    } catch (error) { if (!closed && version === generation) { loadError = t(String(error?.message ?? error)); updateMessage(); } }
+    } catch (error) {
+      if (!closed && version === generation) {
+        if (before === null) awaitingFirstPage = false;
+        loadError = t(String(error?.message ?? error)); updateMessage(); render();
+      }
+    }
     finally {
       loading = false; more.disabled = false;
-      if (!closed && query !== requestedQuery && !acting) void load();
-      else if (!closed) timer = setTimeout(() => void load(), 500);
+      if (!closed && !acting) {
+        // A new search can have the same text after two edits.
+        if (version !== generation) void load();
+        else timer = setTimeout(() => void load(), 500);
+      }
     }
   }
   const form = el("form", "browser-history-search");
@@ -161,7 +172,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     records.clear();
     rows.clear();
     list.replaceChildren(empty);
-    empty.textContent = t(query ? "No matching downloads" : "No downloads yet");
+    awaitingFirstPage = true;
     nextBefore = null;
     loadedOlder = false;
     actionError = ""; loadError = ""; updateMessage();
@@ -188,6 +199,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
   document.body.append(dialog);
   dialog.showModal();
   search.focus({ preventScroll: true });
+  render();
   void load();
   return dialog;
 }
