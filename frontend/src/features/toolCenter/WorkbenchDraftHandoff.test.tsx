@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
 import { ManualToolDirectory } from "./ManualToolDirectory";
 import type { ManualTool, ManualToolApi } from "./manual-tools";
@@ -73,19 +73,61 @@ function setup(
     })),
     invoke: vi.fn(invoke),
   };
-  const directory = (workspaceId: string, gateway: ManualToolApi = api) => (
+  let currentGateway: ManualToolApi = api;
+  let currentWorkspace = scope.workspaceId;
+  let catalogRevision = 1;
+  const directory = (request?: ManualTool) => (
     <ManualToolDirectory
-      api={gateway}
-      scope={{ ...scope, workspaceId }}
+      api={currentGateway}
+      scope={{ ...scope, workspaceId: currentWorkspace }}
+      catalogRevision={catalogRevision}
+      requestedTool={request ? { tool: request, revision } : undefined}
       openApplication={() => undefined}
     />
   );
-  const view = render(directory(scope.workspaceId));
-  const switchWorkspace = (workspaceId: string) => view.rerender(directory(workspaceId));
-  const switchApi = () => view.rerender(directory(scope.workspaceId, { ...api }));
-  return { api, switchWorkspace, switchApi };
+  const view = render(directory());
+  const switchWorkspace = (workspaceId: string) => {
+    currentWorkspace = workspaceId;
+    view.rerender(directory());
+  };
+  const switchApi = () => {
+    currentGateway = { ...api };
+    view.rerender(directory());
+  };
+  const switchCatalog = () => {
+    catalogRevision++;
+    view.rerender(directory());
+  };
+  const requestTool = (mode: string) =>
+    view.rerender(directory(tools.find((tool) => tool.toolId === mode)));
+  return { api, switchWorkspace, switchApi, switchCatalog, requestTool };
 }
 
+const dialogDescriptors = {
+  showModal: Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, "showModal"),
+  close: Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, "close"),
+};
+beforeAll(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.open = true;
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.open = false;
+    },
+  });
+});
+afterAll(() => {
+  for (const key of ["showModal", "close"] as const) {
+    const descriptor = dialogDescriptors[key];
+    if (descriptor) Object.defineProperty(HTMLDialogElement.prototype, key, descriptor);
+    else Reflect.deleteProperty(HTMLDialogElement.prototype, key);
+  }
+});
 beforeEach(() => setLocale("en"));
 afterEach(cleanup);
 
@@ -102,8 +144,10 @@ async function open(mode: string) {
   const title = await screen.findByRole("heading", { name: "Fixture " + mode });
   const card = title.closest("article");
   if (!card) throw Error("Missing tool card");
+  const button = within(card).getByRole<HTMLButtonElement>("button", { name: "Open tool" });
+  await waitFor(() => expect(button.disabled).toBe(false));
   await act(async () => {
-    fireEvent.click(within(card).getByRole("button", { name: "Open tool" }));
+    fireEvent.click(button);
   });
   await screen.findByRole("form", { name: "Tool inputs" });
 }
@@ -263,6 +307,17 @@ it.runIf(Boolean(candidate && worker))(
     expect(JSON.parse(wire.data.text).text).toBe("city,id\nkeep,18446744073709551615\n");
     await click("Fixture query");
     expect(editor("text").value).toBe(instance);
+    await closeWorkbench("query", "Keep draft and close");
+    await click("Tool directory");
+    await open("query");
+    expect(editor("text").value).toBe(instance);
+    expect(editor("options").value).toBe('{"format":"json","query":"keep","sort":"city"}');
+    expect(api.invoke).toHaveBeenCalledTimes(2);
+    await click("Execute tool");
+    expect(api.invoke.mock.calls[2][4]).toEqual({
+      text: instance,
+      options: editor("options").value,
+    });
     await click("Fixture csv");
     switchWorkspace("another-workspace");
     await screen.findByRole("form", { name: "Tool inputs" });
@@ -273,3 +328,109 @@ it.runIf(Boolean(candidate && worker))(
   },
   20_000,
 );
+
+async function closeWorkbench(
+  mode: string,
+  action: "Keep draft and close" | "Discard and close" | "Close tool" | "Cancel",
+) {
+  await click("Close tool: Fixture " + mode);
+  const dialog = await screen.findByRole("dialog");
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole("button", { name: action }));
+  });
+}
+
+it("keeps only explicitly retained inputs, resumes editing, and clears on discard", async () => {
+  const { api, requestTool } = setup();
+  await runQuery();
+  const options = editor("options").value;
+  const storage = vi.spyOn(Storage.prototype, "setItem");
+  try {
+    await closeWorkbench("query", "Cancel");
+    expect(editor("text").value).toBe(instance);
+    expect(screen.getByRole("region", { name: "Latest execution" })).toBeTruthy();
+    await closeWorkbench("query", "Keep draft and close");
+    expect(screen.queryByRole("form", { name: "Tool inputs" })).toBeNull();
+    requestTool("query");
+    await screen.findByRole("form", { name: "Tool inputs" });
+    expect(editor("text").value).toBe(instance);
+    expect(editor("options").value).toBe(options);
+    expect(screen.queryByRole("region", { name: "Latest execution" })).toBeNull();
+    expect(api.invoke).toHaveBeenCalledTimes(1);
+    await closeWorkbench("query", "Discard and close");
+    await open("query");
+    expect(editor("text").value).toBe("");
+    expect(editor("options").value).toBe("");
+    expect(storage).not.toHaveBeenCalled();
+  } finally {
+    storage.mockRestore();
+  }
+});
+
+it.each([
+  "workspace",
+  "connection",
+  "catalog",
+] as const)("discards closed drafts when the %s changes", async (boundary) => {
+  const { api, switchWorkspace, switchApi, switchCatalog } = setup();
+  await open("query");
+  fireEvent.change(editor("text"), { target: { value: "fixture-private-draft" } });
+  await closeWorkbench("query", "Keep draft and close");
+  if (boundary === "workspace") {
+    switchWorkspace("other");
+    switchWorkspace(scope.workspaceId);
+  } else if (boundary === "connection") switchApi();
+  else switchCatalog();
+  await open("query");
+  expect(editor("text").value).toBe("");
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
+it("keeps a closed receiver draft when a result handoff selects the same tool", async () => {
+  const { api } = setup();
+  await open("json");
+  fireEvent.change(editor("text"), { target: { value: "kept receiver contents" } });
+  await closeWorkbench("json", "Keep draft and close");
+  await runQuery();
+  await chooseDraft("json");
+  await click("Open receiving draft");
+  expect((await screen.findByRole("alert")).textContent).toContain("has a kept draft");
+  await click("Cancel");
+  await click("Tool directory");
+  await open("json");
+  expect(editor("text").value).toBe("kept receiver contents");
+  expect(api.invoke).toHaveBeenCalledTimes(1);
+});
+
+it("does not retain a draft over the workbench UTF-8 limit", async () => {
+  const { api } = setup();
+  await open("query");
+  fireEvent.change(editor("text"), { target: { value: "中".repeat(2731) } });
+  await click("Close tool: Fixture query");
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).queryByRole("button", { name: "Keep draft and close" })).toBeNull();
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
+it("uses the current tool details when a previous gateway's response arrives late", async () => {
+  const { api, switchApi } = setup();
+  const original = api.loadTool.getMockImplementation();
+  if (!original) throw Error("Expected metadata fixture");
+  const delivery = { resolve: () => {} };
+  api.loadTool.mockImplementationOnce(async (...args) => {
+    await new Promise<void>((resolve) => {
+      delivery.resolve = resolve;
+    });
+    return { ...(await original(...args)), revision: "outdated", enabled: false };
+  });
+  const opening = open("query");
+  await waitFor(() => expect(api.loadTool).toHaveBeenCalledTimes(1));
+  switchApi();
+  await opening;
+  fireEvent.change(editor("text"), { target: { value: instance } });
+  await act(async () => delivery.resolve());
+  await closeWorkbench("query", "Keep draft and close");
+  await open("query");
+  expect(editor("text").value).toBe(instance);
+  expect(api.invoke).not.toHaveBeenCalled();
+});

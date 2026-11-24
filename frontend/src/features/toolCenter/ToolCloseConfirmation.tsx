@@ -2,9 +2,9 @@ import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { t } from "../../shared/i18n";
 
-export function ToolCloseConfirmation({ title, trigger, busy, onCancel, onConfirm, restoreFocus }: {
+export function ToolCloseConfirmation({ title, trigger, busy, onCancel, onConfirm, onKeepDraft, restoreFocus }: {
   title: string; trigger: HTMLButtonElement; busy: boolean;
-  onCancel(): void; onConfirm(): void; restoreFocus(): void;
+  onCancel(): void; onConfirm(): void; onKeepDraft?(): void; restoreFocus(): void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
@@ -33,11 +33,14 @@ export function ToolCloseConfirmation({ title, trigger, busy, onCancel, onConfir
       buttons[(current + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length]?.focus();
     }}>
     <h2 id={label} className="dialog-title">{t("Close tool")}: {title}</h2>
-    <p id={description} className="dialog-message">{t("Close this tool and discard its inputs and result?")}</p>
+    <p id={description} className="dialog-message">{t(onKeepDraft
+      ? "Keep these inputs for this Tool Center session, or discard them. Closing clears the result."
+      : "Close this tool and discard its inputs and result?")}</p>
     {busy && <p role="status">{t("Completion unconfirmed")}</p>}
     <div className="ui-toolbar">
       <button ref={cancel} type="button" className="ui-button ui-button--secondary" onClick={onCancel}>{t("Cancel")}</button>
-      <button type="button" className="ui-button ui-button--danger" disabled={busy} onClick={onConfirm}>{t("Close tool")}</button>
+      <button type="button" className="ui-button ui-button--danger" disabled={busy} onClick={onConfirm}>{t(onKeepDraft ? "Discard and close" : "Close tool")}</button>
+      {onKeepDraft && <button type="button" className="ui-button ui-button--primary" disabled={busy} onClick={onKeepDraft}>{t("Keep draft and close")}</button>}
     </div>
   </dialog>, document.body);
 }

@@ -49,9 +49,11 @@ export function WorkbenchDraftHandoff({
         setError(
           reason instanceof Error && reason.message === "workbench_receiver_open"
             ? "That tool already has an open tab. Close it or choose another receiver."
-            : reason instanceof Error && reason.message === "tool_tabs_full"
-              ? "Close an opened tool before opening another."
-              : "Could not open a receiving draft. Check the tool and try again.",
+            : reason instanceof Error && reason.message === "workbench_receiver_kept"
+              ? "That tool has a kept draft. Reopen it before sending another table."
+              : reason instanceof Error && reason.message === "tool_tabs_full"
+                ? "Close an opened tool before opening another."
+                : "Could not open a receiving draft. Check the tool and try again.",
         );
     } finally {
       confirming.current = false;
