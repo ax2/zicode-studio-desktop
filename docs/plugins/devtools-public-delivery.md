@@ -61,7 +61,7 @@ $receipt = 'tests/fixtures/devtools-view-operation-2026-10-18/spring-actuator-0.
 $commit = '0117fdffa8604c879cd97a6c1aa146c3bee5288d'
 ~~~
 
-目录 49 个文件，246194 字节，索引 SHA-256 为 `74f6bab2ed7c9ddbee2857aeac7cf4d875eda642900afbb0fb4fec31102f97cc`。安装开发插件后核对版本，再按需启用并授予 HTTP 只读权限。[Windows 隔离 Host 复现](../../tests/spring-actuator-conformance/README.md)
+目录 49 个文件，246194 字节，索引 SHA-256 为 `74f6bab2ed7c9ddbee2857aeac7cf4d875eda642900afbb0fb4fec31102f97cc`。安装开发插件后核对版本，再按需启用并授予 HTTP 只读权限。[Windows 隔离 Host 复现](https://github.com/ax2/zicode-studio-desktop/blob/main/tests/spring-actuator-conformance/README.md)
 
 ## Windows 安装包与五个文件工具包
 
