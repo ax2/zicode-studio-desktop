@@ -1,4 +1,5 @@
 //! Native page output for temporary viewport previews and explicit local exports.
+use super::engine::native_downloads::Record;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde_json::{json, Value};
 use std::{io::Write, path::Path, time::Duration};
@@ -92,11 +93,39 @@ pub(super) async fn save(
         .download_dir()
         .map_err(|error| error.to_string())?;
     let expected = ExpectedDocument {
-        url: expected_url,
+        url: expected_url.clone(),
         revision: expected_document_revision,
     };
-    let bytes = request(&window, tab, Some(expected), format).await?;
+    let bytes = request(&window, tab.clone(), Some(expected), format).await?;
     crate::require_workspace_window(&window)?;
+    let completed = tauri::async_runtime::spawn_blocking(move || {
+        publish(&directory, tab, &expected_url, format, &bytes)
+    })
+    .await
+    .map_err(|_| "Page file save worker stopped")??;
+    let output = json!({ "name": &completed.name, "bytes": completed.received });
+
+    // The file is already available in Downloads even if its history cannot be written.
+    let report =
+        |error: String| log::warn!("Could not record browser export in download history: {error}");
+    let history = serde_json::to_value(completed)
+        .map_err(|error| error.to_string())
+        .and_then(|value| {
+            super::download_journal::record(window.label().to_owned(), value, report)
+        });
+    if let Err(error) = history {
+        report(error);
+    }
+    Ok(output)
+}
+
+pub(super) fn publish(
+    directory: &Path,
+    tab: String,
+    url: &str,
+    format: Format,
+    bytes: &[u8],
+) -> Result<Record, String> {
     let (extension, signature, invalid): (&str, &[u8], &str) = match format {
         Format::Png => ("png", b"\x89PNG\r\n\x1a\n", "Could not capture a PNG image"),
         Format::Pdf => ("pdf", b"%PDF-", "Could not create a page PDF"),
@@ -105,12 +134,6 @@ pub(super) async fn save(
     if !bytes.starts_with(signature) {
         return Err(invalid.into());
     }
-    tauri::async_runtime::spawn_blocking(move || publish(&directory, extension, &bytes))
-        .await
-        .map_err(|_| "Page file save worker stopped")?
-}
-
-fn publish(directory: &Path, extension: &str, bytes: &[u8]) -> Result<Value, String> {
     use super::engine::native_downloads::files;
     let name = format!(
         "Studio-{}.{extension}",
@@ -127,9 +150,30 @@ fn publish(directory: &Path, extension: &str, bytes: &[u8]) -> Result<Value, Str
         let _ = std::fs::remove_file(&staging);
         return Err(error);
     }
-    Ok(
-        json!({"name":target.file_name().and_then(|name| name.to_str()).unwrap_or(&name),"bytes":bytes.len()}),
-    )
+    // Browser-generated files may come from private paths or bearer-token URLs.
+    let origin = reqwest::Url::parse(url)
+        .ok()
+        .filter(|url| matches!(url.scheme(), "http" | "https"))
+        .map_or_else(String::new, |url| url.origin().ascii_serialization());
+    let size = bytes.len() as i64; // Capture already caps the largest output at 64 MiB.
+    Ok(Record {
+        id: uuid::Uuid::new_v4().to_string(),
+        tab,
+        url: origin,
+        name: target
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or(&name)
+            .to_owned(),
+        state: "completed".into(),
+        can_resume: false,
+        received: size,
+        total: Some(size),
+        path: Some(target.to_string_lossy().into_owned()),
+        partial_path: None,
+        error: None,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    })
 }
 
 pub(super) fn capture(

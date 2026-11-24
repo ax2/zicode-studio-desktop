@@ -30,9 +30,19 @@ fn write(db: &Connection, owner: &str, record: &Value) -> Result<(), String> {
         params![owner, id, record.to_string()]).map_err(|e| e.to_string())?;
     Ok(())
 }
+fn record_job(owner: String, record: Value, failed: impl FnOnce(String) + Send + 'static) -> Option<Job> {
+    if crate::browser_windows::private(&owner) {
+        return None;
+    }
+    Some(Box::new(move |db| {
+        if let Err(error) = db.and_then(|db| write(db, &owner, &record)) {
+            failed(error);
+        }
+    }))
+}
+
 pub fn record(owner: String, record: Value, failed: impl FnOnce(String) + Send + 'static) -> Result<(), String> {
-    if crate::browser_windows::private(&owner){return Ok(())}
-    submit(Box::new(move |db| { if let Err(error) = db.and_then(|db| write(db, &owner, &record)) { failed(error); } }))
+    record_job(owner, record, failed).map_or(Ok(()), submit)
 }
 fn page(db: &Connection, owner: &str, before: Option<i64>, query: Option<&str>) -> Result<Value, String> {
     if before.is_some_and(|n| n < 1) { return Err("Invalid download history cursor".into()); }
@@ -113,6 +123,115 @@ pub fn flush() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn an_invalid_export_never_produces_a_completed_record() {
+        use crate::browser::page_output::{publish, Format};
+        let directory = tempfile::tempdir().unwrap();
+        assert!(publish(
+            directory.path(),
+            "fixture-tab".to_string(),
+            "https://fixture.invalid",
+            Format::Pdf,
+            b"not a PDF",
+        ).is_err());
+        assert!(std::fs::read_dir(directory.path()).unwrap().next().is_none());
+    }
+
+    #[test]
+    #[ignore = "Opt-in real WebView2 print-to-PDF and PNG persisted through an isolated download journal"]
+    fn native_page_exports_are_reopenable_in_the_owning_download_history() {
+        use crate::browser::{
+            engine::{native_privacy_tests::HiddenOwner, NativeBrowserEngine},
+            native_pdf_viewer_probe::{inline_pdf, wait, BOUNDS, TAB},
+            page_output::{capture, publish, Format},
+            policy::BrowserPolicy,
+        };
+        use std::sync::{atomic::AtomicBool, mpsc, Arc};
+
+        let profile = tempfile::tempdir().unwrap();
+        let directory = profile.path().join("downloads");
+        let db_path = profile.path().join("journal");
+        let origin = inline_pdf(Arc::new(AtomicBool::new(true)));
+        let source = format!("{origin}/page.pdf?token=private-fixture#fragment");
+        let webview_owner = HiddenOwner::new();
+        let mut engine = NativeBrowserEngine::new(
+            profile.path().join("renderer"),
+            BrowserPolicy::isolated_probe(&origin).unwrap(),
+            Arc::new(|_| {}),
+        ).unwrap();
+        engine.create(&webview_owner, TAB, &source, BOUNDS, 1.0, false).unwrap();
+        engine.activate(Some(TAB), BOUNDS, false).unwrap();
+        let view = engine.view(TAB).unwrap();
+        wait("synthetic HTML source ready", || {
+            (engine.export_ready(TAB) && view.url().ok().as_deref() == Some(&source)).then_some(())
+        });
+        assert!(!engine.is_pdf_document(TAB));
+        let document_revision = engine.document_revision(TAB).unwrap();
+        let worker = start(db_path.clone()).unwrap();
+        let (errors, failures) = mpsc::channel();
+        let private = format!("{}{}", crate::browser_windows::PRIVATE, uuid::Uuid::new_v4());
+        let mut outputs = Vec::new();
+
+        for (format, extension) in [(Format::Pdf, "pdf"), (Format::Png, "png")] {
+            let (view, work) = engine.begin_page_work(TAB).unwrap();
+            let (send, receive) = mpsc::channel();
+            capture(view, format, move |result| {
+                drop(work);
+                let _ = send.send(result);
+            }).unwrap();
+            let bytes = wait("Windows native page output", || receive.try_recv().ok()).unwrap();
+            let completed = publish(&directory, TAB.to_owned(), &source, format, &bytes).unwrap();
+            assert_eq!(completed.url, origin);
+            assert_eq!(completed.received as usize, bytes.len());
+            assert!(completed.name.ends_with(&format!(".{extension}")));
+            if matches!(format, Format::Png) {
+                let image = image::load_from_memory(&bytes).unwrap();
+                assert_eq!((image.width(), image.height()), (800, 600));
+            } else {
+                let tail = &bytes[bytes.len().saturating_sub(24)..];
+                assert!(bytes.starts_with(b"%PDF-") && tail.windows(5).any(|end| end == b"%%EOF"));
+            }
+            let row = serde_json::to_value(&completed).unwrap();
+            assert!(record_job(private.clone(), row.clone(), |_| panic!("private export wrote history")).is_none());
+            let report = errors.clone();
+            let job = record_job("owning-window".into(), row.clone(), move |failure| {
+                let _ = report.send(failure);
+            }).unwrap();
+            worker.send(job).unwrap();
+            outputs.push((completed, bytes, row));
+            println!("Windows export {extension}: {} bytes", outputs.last().unwrap().1.len());
+        }
+
+        let (send, receive) = mpsc::channel();
+        worker.send(Box::new(move |db| { let _ = send.send(db.map(|_| ())); })).unwrap();
+        receive.recv_timeout(Duration::from_secs(10)).unwrap().unwrap();
+        assert!(failures.try_recv().is_err());
+        drop(worker);
+        let reopened = open(&db_path).unwrap();
+        let history = page(&reopened, "owning-window", None, None).unwrap();
+        assert_eq!(history["entries"].as_array().unwrap().len(), 2);
+        assert!(page(&reopened, "other-window", None, None).unwrap()["entries"].as_array().unwrap().is_empty());
+        assert!(page(&reopened, &private, None, None).unwrap()["entries"].as_array().unwrap().is_empty());
+        assert!(page(&reopened, "owning-window", None, Some("private-fixture")).unwrap()["entries"].as_array().unwrap().is_empty());
+        let hit = page(&reopened, "owning-window", None, Some(".pdf")).unwrap();
+        assert_eq!(hit["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(hit["entries"][0]["id"], outputs[0].0.id);
+        assert_eq!(engine.document_revision(TAB).unwrap(), document_revision);
+
+        let (reported, error) = mpsc::channel();
+        let save_failure = record_job("owning-window".into(), outputs[0].2.clone(), move |message| {
+            let _ = reported.send(message);
+        }).unwrap();
+        save_failure(Err("fixture journal unavailable".into()));
+        assert_eq!(error.recv().unwrap(), "fixture journal unavailable");
+        for (completed, bytes, _) in outputs {
+            let target = find_completed_path(&reopened, "owning-window", &completed.id).unwrap();
+            assert_eq!(std::fs::read(&target).unwrap(), bytes);
+            delete_record(&reopened, "owning-window", &completed.id).unwrap();
+            assert_eq!(std::fs::read(target).unwrap(), bytes);
+        }
+    }
+
     #[test]
     fn removal_is_owner_scoped_persistent_and_keeps_the_downloaded_file() {
         let root = std::env::temp_dir().join(format!("browser-download-removal-{}", uuid::Uuid::new_v4()));
