@@ -11,6 +11,7 @@ enum Format {
     Text,
     Png,
     Csv,
+    Json,
 }
 impl Format {
     fn profile(self) -> &'static str {
@@ -18,6 +19,7 @@ impl Format {
             Self::Text => "result.export.text.draft1",
             Self::Png => "result.export.png.v1",
             Self::Csv => "result.export.csv.v1",
+            Self::Json => "result.export.json.v1",
         }
     }
 
@@ -26,6 +28,7 @@ impl Format {
             Self::Text => "text/plain",
             Self::Png => "image/png",
             Self::Csv => "text/csv",
+            Self::Json => "application/json",
         }
     }
 
@@ -34,6 +37,7 @@ impl Format {
             Self::Text => None,
             Self::Png => Some("png"),
             Self::Csv => Some("csv"),
+            Self::Json => Some("json"),
         }
     }
 
@@ -45,7 +49,14 @@ impl Format {
                 .as_deref()
                 .ok_or_else(|| rejected("result_export_format_unavailable")),
             Self::Csv => record
-                .transform_csv
+                .transform
+                .csv
+                .as_deref()
+                .map(str::as_bytes)
+                .ok_or_else(|| rejected("result_export_format_unavailable")),
+            Self::Json => record
+                .transform
+                .json
                 .as_deref()
                 .map(str::as_bytes)
                 .ok_or_else(|| rejected("result_export_format_unavailable")),
@@ -169,6 +180,8 @@ impl HostServer {
                 ("qr-code.png", Some("png"))
             } else if source.format == Format::Csv {
                 ("data-transform.csv", Some("csv"))
+            } else if source.format == Format::Json {
+                ("data-transform.json", Some("json"))
             } else if source.scope.plugin_id == "com.zicode.devtools.checksum-manifest"
                 && source.scope.capability_id == "devtools.checksum-manifest.generate"
             {

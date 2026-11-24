@@ -1371,6 +1371,7 @@ const zhCN = {
   "Save generated manifest as…": "将生成的清单另存为…",
   "Save PNG as…": "将 PNG 另存为…",
   "Save CSV as…": "将 CSV 另存为…",
+  "Save JSON as…": "将 JSON 另存为…",
   "Save diagnostic JSON as…": "将诊断结果另存为 JSON…",
   "Generating manifest…": "正在生成清单…",
   "Manifest generated. Choose a destination to save a new copy.":
