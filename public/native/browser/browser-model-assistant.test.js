@@ -352,3 +352,71 @@ it("cancels during local validation without invoking a provider", async () => {
   expect(f.actions.ask).not.toHaveBeenCalled();
   expect(f.actions.cancel).not.toHaveBeenCalled();
 });
+
+it("cancels a model request with Escape in the page assistant and keeps the question", async () => {
+  setLocale("en");
+  const host = document.createElement("aside"), trigger = document.createElement("button");
+  document.body.append(trigger, host);
+  const snapshot = { tab: "local", documentRevision: "page-revision", capturedAt: "2026-11-24T09:00:00.000Z",
+    page: { title: "Local fixture", url: "https://example.org/", text: "Reviewed text" } };
+  let finish;
+  const actions = { autoLoad: () => true, load: vi.fn(async () => state()),
+    ask: vi.fn(() => new Promise(resolve => { finish = resolve; })), cancel: vi.fn(async () => {}) };
+  const dialog = showBrowserCapture(snapshot, vi.fn(), vi.fn(), undefined, undefined, false,
+    { host, trigger, modelActions: actions });
+  try {
+    const input = getByRole(dialog, "textbox", { name: "Question about this page" });
+    fireEvent.input(input, { target: { value: "Keep the original question" } });
+    const ask = getByRole(dialog, "button", { name: "Send page and ask" });
+    await waitFor(() => expect(ask.disabled).toBe(false));
+    ask.focus();
+    fireEvent.click(ask);
+    expect(actions.ask).toHaveBeenCalledOnce();
+
+    const cancel = getByRole(dialog, "button", { name: "Cancel model request" });
+    expect(document.activeElement).toBe(cancel);
+    const escaped = fireEvent.keyDown(cancel, { key: "Escape", bubbles: true, cancelable: true });
+    expect(escaped).toBe(false);
+    expect(actions.cancel).toHaveBeenCalledWith(actions.ask.mock.calls[0][0].requestId);
+    expect(dialog.textContent).toContain("Cancelling model request…");
+    expect(cancel.getAttribute("aria-disabled")).toBe("true");
+    expect(document.activeElement).toBe(cancel);
+    expect(dialog.isConnected).toBe(true);
+
+    finish({ text: "Late response", model: a });
+    await waitFor(() => expect(dialog.textContent).toContain("Model request cancelled."));
+    expect(input.disabled).toBe(false);
+    expect(input.value).toBe("Keep the original question");
+    expect(document.activeElement).toBe(ask);
+    expect(queryByRole(dialog, "textbox", { name: "Browser model answer" })).toBeNull();
+    expect(actions.ask).toHaveBeenCalledOnce();
+  } finally {
+    dialog.disposeBrowserModel();
+    finish?.({ text: "Late response", model: a });
+    host.remove();
+    trigger.remove();
+  }
+});
+
+it("dispatches cancellation once and keeps its outcome when the pending request fails late", async () => {
+  const f = fixture();
+  let fail;
+  f.actions.ask.mockImplementation(() => new Promise((_, reject) => { fail = reject; }));
+  const ask = getByRole(f.el, "button", { name: "Send page and ask" });
+  await waitFor(() => expect(ask.disabled).toBe(false));
+  fireEvent.click(ask);
+  try {
+    fireEvent.click(getByRole(f.el, "button", { name: "Cancel model request" }));
+    f.controller.cancel();
+    f.controller.cancel();
+    expect(f.actions.cancel).toHaveBeenCalledExactlyOnceWith(f.actions.ask.mock.calls[0][0].requestId);
+    expect(ask.disabled).toBe(true);
+    expect(f.el.textContent).toContain("Cancelling model request…");
+    fail(new Error("module_model_request_timeout"));
+    await waitFor(() => expect(f.el.textContent).toContain("Model request cancelled."));
+    expect(ask.disabled).toBe(false);
+    expect(f.question.value).toBe("What does this page say?");
+  } finally {
+    fail(new Error("module_model_request_timeout"));
+  }
+});

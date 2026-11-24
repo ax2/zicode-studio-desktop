@@ -104,11 +104,12 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   const close = document.createElement("button"); close.type = "button"; close.className = "ui-button ui-button--primary";
   setLabel(close, "Close");
   close.addEventListener("click", () => { if (!busy) dismiss(true); });
-  dialog.addEventListener("cancel", event => { if (cancelDraft?.() || busy) event.preventDefault(); });
+  const cancelPending = () => cancelDraft?.() || modelAssistant?.cancel();
+  dialog.addEventListener("cancel", event => { if (cancelPending() || busy) event.preventDefault(); });
   dialog.addEventListener("close", () => { modelAssistant?.dispose(); dialog.remove(); onClose(); }, { once: true });
   dialog.addEventListener("keydown", event => {
     if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
-    if (cancelDraft?.()) {
+    if (cancelPending()) {
       event.preventDefault();
       event.stopPropagation();
     } else if (dock && !busy) {
