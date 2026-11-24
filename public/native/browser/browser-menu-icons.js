@@ -9,6 +9,7 @@ const paths = {
   "Search tabs": search,
   "Find in page": search,
   "Bookmarks": "m12 3 3 6 6 1-4.5 4.4 1 6.2-5.5-3-5.5 3 1-6.2L3 10l6-1z",
+  "Add website shortcut": "M4 4h16v16H4z M4 8h16 M12 10v7 M8.5 13.5h7",
   "Downloads": "M12 3v12m-5-5 5 5 5-5 M4 16v5h16v-5",
   "Browsing history": "M3 11a9 9 0 1 1 2 7 M3 5v6h6 M12 7v5l3 2",
   "Site permissions and storage": "M12 3l8 3v5c0 5-4 8-8 10-4-2-8-5-8-10V6z",

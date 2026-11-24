@@ -27,14 +27,32 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     shortcuts.setAttribute("role", "group");
     shortcuts.setAttribute("aria-label", t("Website shortcuts"));
     library.append(shortcuts);
+    const add = websiteShortcuts.add && document.createElement("button");
+    const available = () => websiteShortcuts.available?.() !== false;
+    if (add) {
+      const label = "Add website shortcut";
+      add.type = "button";
+      add.className = "ui-button ui-button--secondary";
+      add.dataset.i18nText = label;
+      add.textContent = t(label);
+      add.hidden = true;
+      add.addEventListener("click", () => {
+        if (!menu.open || !available()) return;
+        menu.open = false;
+        void websiteShortcuts.add(trigger);
+      });
+      library.append(add);
+    }
     let revision = 0;
     menu.addEventListener("toggle", async () => {
       const request = ++revision;
       shortcuts.replaceChildren(); shortcuts.hidden = true;
-      if (!menu.open) return;
+      const show = menu.open && available();
+      if (add) add.hidden = !show;
+      if (!show) return;
       try {
         const items = await websiteShortcuts.list();
-        if (!menu.open || revision !== request || !items.length) return;
+        if (!menu.open || revision !== request || !available() || !items.length) return;
         const label = document.createElement("strong"); label.textContent = t("Website shortcuts");
         shortcuts.append(label);
         for (const item of items) {

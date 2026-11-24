@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, getByRole, queryByRole, waitFor, within } from "@testing-library/dom";
 import { getLocale, setLocale } from "../../i18n.js";
 import { navigateToBrowserSource } from "../features/browser-source-navigation.js";
@@ -10,6 +10,11 @@ const blank = { id: "new", title: "New tab", url: "about:blank" };
 const marked = { id: "known", title: "Research notes", url: "https://research.invalid/reference", shortcut: true };
 const ordinary = { id: "ordinary", title: "Regular bookmark", url: "https://other.invalid/" };
 let app;
+const dialogMethods = ["showModal", "close"].map(name => [name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name)]);
+beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.open = true; } });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value() { this.open = false; this.dispatchEvent(new Event("close")); } });
+});
 
 afterEach(async () => {
   await app?.canDeactivate();
@@ -18,9 +23,13 @@ afterEach(async () => {
   setLocale(locale);
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  for (const [name, descriptor] of dialogMethods) {
+    if (descriptor) Object.defineProperty(HTMLDialogElement.prototype, name, descriptor);
+    else delete HTMLDialogElement.prototype[name];
+  }
 });
 
-function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list, hide, stateError } = {}) {
+function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list, save, hide, stateError } = {}) {
   setLocale("en");
   vi.stubGlobal("ResizeObserver", class { observe() {} });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 20, y: 50, width: 900, height: 580 });
@@ -33,7 +42,11 @@ function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list
       return { startupMode: "browser", private: privateWindow, session: { activeTab: active, revision, tabs: structuredClone(tabs) } };
     }
     if (command === "browser_save_session") return { revision: ++revision };
-    if (command === "browser_bookmarks") return list ? list() : { bookmarks: [marked, ordinary], folders: [] };
+    if (command === "browser_bookmarks") {
+      if (args.request.kind === "save") return save?.(args.request);
+      return list ? list() : { bookmarks: [marked, ordinary], folders: [] };
+    }
+    if (args?.request?.kind === "url") return { url: tabs.find(tab => tab.id === args.request.tab)?.url ?? "about:blank" };
     if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs: structuredClone(tabs) };
     if (args?.request?.kind === "snapshot") return "data:image/jpeg;base64,AA==";
     if (args?.request?.kind === "hide" && hide) return hide();
@@ -133,7 +146,11 @@ it("keeps private blank tabs free of library lookups", async () => {
   const list = vi.fn(async () => ({ bookmarks: [marked], folders: [] }));
   const { host, calls } = setup({ tabs: [blank], privateWindow: true, list });
   await waitFor(() => expect(calls("present").at(-1)?.tab).toBe(blank.id));
+  const menu = host.querySelector(".browser-options");
+  menu.open = true;
+  fireEvent(menu, new Event("toggle"));
   expect(list).not.toHaveBeenCalled();
+  expect(within(menu).queryByRole("button", { name: "Add website shortcut" })).toBeNull();
   expect(host.querySelector(".browser-new-tab-shortcuts")).toBeNull();
 });
 
@@ -180,4 +197,67 @@ it("waits for a restored native blank view to hide before exposing shortcut butt
   finishHide({});
   await waitFor(() => getByRole(host, "region", { name: "Website shortcuts" }));
   expect(hide).toHaveBeenCalledOnce();
+});
+
+
+it("can mark the active page as a shortcut directly from the menu without duplicating a bookmark", async () => {
+  const expected = { ...ordinary, url: page.url, folderId: "folder" };
+  const library = { revision: 12, folders: [{ id: "folder", title: "Research", parentId: null }], bookmarks: [expected, marked] };
+  const save = vi.fn(async request => ({ ...library, revision: 13, folders: request.folders, bookmarks: request.bookmarks }));
+  const { host, calls } = setup({ list: async () => library, save });
+  await waitFor(() => expect(calls("present").at(-1)?.tab).toBe(page.id));
+  const menu = host.querySelector(".browser-options");
+  menu.open = true;
+  fireEvent(menu, new Event("toggle"));
+  (await within(menu).findByRole("button", { name: "Add website shortcut" })).click();
+  const dialog = await waitFor(() => getByRole(document.body, "dialog", { name: "Bookmarks" }));
+  const form = await within(dialog).findByRole("form", { name: "Bookmark editor" });
+  expect(within(form).getByLabelText("Bookmark name").value).toBe(expected.title);
+  expect(within(form).getByLabelText("Bookmark URL").value).toBe(page.url);
+  expect(within(form).getByRole("checkbox", { name: "Show in website shortcuts" }).checked).toBe(true);
+  expect(save).not.toHaveBeenCalled();
+  const submit = within(form).getByRole("button", { name: "Save" });
+  await waitFor(() => expect(submit.matches(":disabled")).toBe(false));
+  submit.click();
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  expect(save.mock.calls[0][0]).toEqual({
+    kind: "save", expectedRevision: 12, folders: library.folders,
+    bookmarks: [{ ...expected, shortcut: true }, marked],
+  });
+  await waitFor(() => expect(within(dialog).queryByRole("form", { name: "Bookmark editor" })).toBeNull());
+  within(dialog).getByRole("button", { name: "Close" }).click();
+  await waitFor(() => expect(document.activeElement).toBe(menu.querySelector("summary")));
+  expect(calls("navigate")).toHaveLength(0);
+});
+
+it("can add the first shortcut from a blank tab menu and then add another from the new-tab list", async () => {
+  let library = { revision: 0, folders: [], bookmarks: [] };
+  const save = vi.fn(async request => library = { revision: 1, folders: request.folders, bookmarks: request.bookmarks });
+  const { host, calls } = setup({ tabs: [blank], list: async () => library, save });
+  await waitFor(() => expect(calls("present").at(-1)?.tab).toBe(blank.id));
+  const menu = host.querySelector(".browser-options");
+  menu.open = true;
+  fireEvent(menu, new Event("toggle"));
+  (await within(menu).findByRole("button", { name: "Add website shortcut" })).click();
+  const dialog = await waitFor(() => getByRole(document.body, "dialog", { name: "Bookmarks" }));
+  const form = await within(dialog).findByRole("form", { name: "Bookmark editor" });
+  expect(within(form).getByRole("checkbox", { name: "Show in website shortcuts" }).checked).toBe(true);
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.input(within(form).getByLabelText("Bookmark name"), { target: { value: "New shortcut" } });
+  fireEvent.input(within(form).getByLabelText("Bookmark URL"), { target: { value: "https://first.invalid/" } });
+  const submit = within(form).getByRole("button", { name: "Save" });
+  await waitFor(() => expect(submit.matches(":disabled")).toBe(false));
+  submit.click();
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  await waitFor(() => expect(within(dialog).queryByRole("form", { name: "Bookmark editor" })).toBeNull());
+  within(dialog).getByRole("button", { name: "Close" }).click();
+  const panel = await waitFor(() => getByRole(host, "region", { name: "Website shortcuts" }));
+  expect(within(panel).getByRole("button", { name: /New shortcut/ })).toBeTruthy();
+  within(panel).getByRole("button", { name: "Add website shortcut" }).click();
+  const second = await waitFor(() => getByRole(document.body, "dialog", { name: "Bookmarks" }));
+  expect((await within(second).findByRole("checkbox", { name: "Show in website shortcuts" })).checked).toBe(true);
+  within(second).getByRole("button", { name: "Close" }).click();
+  await waitFor(() => expect(document.activeElement).toBe(host.querySelector(".browser-address")));
+  expect(save).toHaveBeenCalledOnce();
+  expect(calls("navigate")).toHaveLength(0);
 });
