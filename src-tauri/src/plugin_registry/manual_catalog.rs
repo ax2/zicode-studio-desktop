@@ -208,7 +208,7 @@ impl PluginRegistry {
         let mut categories: BTreeMap<String, usize> = BTreeMap::new();
         for plugin in self.plugins.values() {
             let manifest = &plugin.manifest;
-            let enabled = self.manual_enabled(&request.scene_id, plugin);
+            let enabled = self.plugin_enabled(&request.scene_id, plugin);
             let source_text = format!("{} {} {} {} {}", manifest.id, manifest.name,
                 manifest.display_name.as_deref().unwrap_or(""), manifest.description, manifest.publisher);
             if request.include_view_operations && !request.resource_only && !request.directory_only && request.file_name.is_none()
@@ -269,16 +269,13 @@ impl PluginRegistry {
             }
             let wasi_receiver = manifest.runtime.get("wasi").and_then(Value::as_str).is_some()
                 && manifest_input_profile == Some("resource.wasi.input.draft2");
-            let resource_permission = manifest.permissions.required.iter().chain(&manifest.permissions.optional)
-                .any(|p| p.name == "resource.read")
-                && self.state.scenes.get(&request.scene_id).and_then(|s| s.get(&manifest.id))
-                    .and_then(|s| s.permissions.get("resource.read")).copied().unwrap_or(plugin.origin == PluginOrigin::BuiltIn);
+            let resource_permission = self.plugin_permission_granted(&request.scene_id, plugin, "resource.read");
             if (request.resource_only || request.directory_only) && (!enabled || !resource_permission) {
                 continue;
             }
             let has_directory_permission = |name: &str| {
                 manifest.permissions.required.iter().chain(&manifest.permissions.optional).any(|p| p.name == name)
-                    && self.state.scenes.get(&request.scene_id).and_then(|s| s.get(&manifest.id))
+                    && self.bound_scene_state(&request.scene_id, plugin)
                         .and_then(|s| s.permissions.get(name)).copied().unwrap_or(false)
             };
             let directory_metadata = request.directory_only && has_directory_permission("resource.directory.read");
@@ -433,17 +430,6 @@ impl PluginRegistry {
         )
     }
 
-    fn manual_enabled(&self, scene: &str, plugin: &InstalledPlugin) -> bool {
-        plugin.core
-            || self
-                .state
-                .scenes
-                .get(scene)
-                .and_then(|s| s.get(&plugin.manifest.id))
-                .and_then(|s| s.enabled)
-                .unwrap_or(plugin.enabled_by_default)
-    }
-
     pub(crate) fn manual_tool_detail(&self, request: &DetailQuery) -> Result<Value, &'static str> {
         invalid_scene(&request.scene_id)?;
         if request.resource_mime_type.as_deref().is_some_and(|mime| !super::resource_input_types::valid_mime_type(mime)) {
@@ -483,9 +469,7 @@ impl PluginRegistry {
         }
         let permissions: Vec<_> = plugin.manifest.permissions.required.iter()
             .chain(plugin.manifest.permissions.optional.iter()).map(|permission| {
-                let granted = self.state.scenes.get(&request.scene_id)
-                    .and_then(|s| s.get(&request.plugin_id)).and_then(|s| s.permissions.get(&permission.name))
-                    .copied().unwrap_or(plugin.origin == PluginOrigin::BuiltIn);
+                let granted = self.plugin_permission_granted(&request.scene_id, plugin, &permission.name);
                 json!({"name":permission.name,"reason":permission.reason,"granted":granted,
                     "required":plugin.manifest.permissions.required.iter().any(|p| p.name == permission.name)})
             }).collect();
@@ -499,7 +483,7 @@ impl PluginRegistry {
             "nativeDigestStream":native_digest_stream,
             "pluginId":request.plugin_id,"version":plugin.manifest.version,
             "resourceInputProfile":resource_input_profile,
-            "enabled":self.manual_enabled(&request.scene_id,plugin),
+            "enabled":self.plugin_enabled(&request.scene_id,plugin),
             "capability":capability,"permissions":permissions}),
         )
     }

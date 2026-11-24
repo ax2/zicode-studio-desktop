@@ -148,7 +148,7 @@ pub(super) fn registry() -> PluginRegistry {
             "com.zicode.catalog-fixture".into(),
             InstalledPlugin {
                 execution_revision: uuid::Uuid::new_v4(),
-                content_digest: None,
+                content_digest: Some([0; 32]),
                 publisher_identity: None,
                 retained_versions: Vec::new(),
                 manifest,
