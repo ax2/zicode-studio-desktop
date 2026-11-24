@@ -1,4 +1,5 @@
 import { pageImageDescription, pageMetadataRows } from "./browser-capture-media.js";
+import { selectCapturedFrames } from "./browser-capture-frames.js";
 import { t } from "../../i18n.js";
 
 // Native text is quoted as text, including Markdown and HTML supplied by a website.
@@ -46,12 +47,12 @@ function imageTextMarkdown(result) {
     result.truncated ? t("Recognized image text was shortened.") : "",
   ].filter(Boolean);
 }
-export function browserNoteContent(capture, selectionOnly = false, { includeLinks = false, includeTables = false, includeMedia = false, includeFrames = false, includeFrameLinks = false, imageText = [] } = {}) {
+export function browserNoteContent(capture, selectionOnly = false, { includeLinks = false, includeTables = false, includeMedia = false, includeFrames = false, frameIndexes, includeFrameLinks = false, imageText = [] } = {}) {
   const text = selectionOnly ? capture.page.selection : capture.page.text;
   const links = !selectionOnly && includeLinks ? capture.page.links : null;
   const tables = !selectionOnly && includeTables ? capture.page.tables : null;
   const media = !selectionOnly && includeMedia ? capture.page : null;
-  const frames = !selectionOnly && includeFrames ? capture.page.frames ?? [] : [];
+  const frames = !selectionOnly && includeFrames ? selectCapturedFrames(capture.page.frames, frameIndexes) : [];
   const recognized = selectionOnly ? [] : imageText;
   const metadata = pageMetadataRows(media?.metadata);
   const images = media?.images ?? [];
@@ -120,13 +121,13 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
       if (!current()) throw new Error(t("Page or destination changed. Read the page again."));
       return result.snapshot.notebooks;
     },
-    async save({ notebookId, notebookTitle, title, selectionOnly, includeLinks, includeTables, includeMedia, includeFrames, includeFrameLinks, imageText }) {
+    async save({ notebookId, notebookTitle, title, selectionOnly, includeLinks, includeTables, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText }) {
       if (saved) return saved;
       if (pending) throw new Error(t("Saving…"));
       pending = true;
       try {
         const content = analysis ? browserAnalysisNoteContent(capture, analysis)
-          : browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, includeMedia, includeFrames, includeFrameLinks, imageText });
+          : browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText });
         title = title.trim(); notebookTitle = notebookTitle?.trim();
         if (!title || [...title].length > 200) throw new Error(t("Enter a note title of up to 200 characters."));
         if (!notebookId && (!notebookTitle || [...notebookTitle].length > 200)) throw new Error(t("Enter a notebook title of up to 200 characters."));

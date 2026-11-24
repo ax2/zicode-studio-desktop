@@ -66,8 +66,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     const imageText = [...media.imageText(), ...frames.imageText()];
     return {
       includeLinks: includeLinks.checked, includeTables: includeTables.checked, includeMedia: media.include.checked,
-      ...(frames.include.checked ? { includeFrames: true } : {}),
-      ...(frames.include.checked && frames.includeLinks.checked ? { includeFrameLinks: true } : {}),
+      ...frames.attachments(),
       ...(imageText.length ? { imageText } : {}),
     };
   };
