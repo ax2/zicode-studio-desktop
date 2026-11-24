@@ -26,6 +26,7 @@ export function createPluginDirectoryResourceSelection({
   isCurrent,
   onResource,
   directoryUsage = false,
+  onExplorerPreparing = () => {},
 }) {
   const usage = directoryUsage && isDiskInspector(plugin.id, plugin.capabilities[0].id);
   const profile = usage ? directoryUsageProfile : "resource.local-directory.draft1";
@@ -104,8 +105,9 @@ export function createPluginDirectoryResourceSelection({
     explorerPending = true;
     resumeExplorer();
   }
-  function finish() {
+  function finish(fromExplorer = false) {
     busy = false;
+    if (fromExplorer) onExplorerPreparing(false);
     if (active && isCurrent()) {
       choose.disabled = false;
       panel.removeAttribute("aria-busy");
@@ -124,6 +126,7 @@ export function createPluginDirectoryResourceSelection({
     choose.disabled = true;
     panel.setAttribute("aria-busy", "true");
     let stage = "picker";
+    if (fromExplorer) onExplorerPreparing(true);
     try {
       const selected = await (fromExplorer
         ? picker.entry(target.workspaceId, owner)
@@ -188,7 +191,7 @@ export function createPluginDirectoryResourceSelection({
                 );
       }
     } finally {
-      finish();
+      finish(fromExplorer);
     }
   }
   choose.addEventListener("click", () => void chooseFolder());

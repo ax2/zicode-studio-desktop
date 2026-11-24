@@ -1595,6 +1595,7 @@ try {
           entryMode: () => globalThis.__TAURI__.core.invoke("desktop_entry_mode"),
           api: pluginCapabilityGateway, getTarget: () => target,
           openTool: (tool, revision, scope) => pluginShell.openManualTool(tool, revision, scope),
+          notify: message => notifications.notify({ type: "warning", message }),
         });
         if (!handled) await openWidgetNote();
       } catch (error) { showError(error); }

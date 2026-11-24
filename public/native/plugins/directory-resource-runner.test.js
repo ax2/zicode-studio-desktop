@@ -149,6 +149,32 @@ describe("directory-owned resource execution", () => {
     expect(f.gateway.invokeResource).not.toHaveBeenCalled();
   });
 
+  it("blocks execution of the old selection while waiting for a new Explorer folder", async () => {
+    const entry = vi.fn(async () => null);
+    const { f, owner, directoryProfile, directoryUsage, access } = diskInspectorFixture({ explorer: entry });
+    await vi.waitFor(() => expect(f.button("Choose a folder").disabled).toBe(false));
+    f.button("Choose a folder").click();
+    await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+
+    let complete;
+    entry.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    window.dispatchEvent(new Event("zicode:entry-changed"));
+    expect(f.button("Execute tool").disabled).toBe(true);
+    f.button("Execute tool").click();
+    expect(f.gateway.invokeResource).not.toHaveBeenCalled();
+    const next = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    complete({ profile: directoryProfile, confirmed: false, entryNamesRead: false,
+      owner, grantId: next, displayName: "新选目录" });
+    await vi.waitFor(() => expect(document.body.textContent).toContain("新选目录"));
+    expect(f.gateway.revokeResource).toHaveBeenCalledWith(access);
+    expect(f.button("Execute tool").disabled).toBe(true);
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    expect(directoryUsage.commit).toHaveBeenCalledWith("workspace", owner, next);
+  });
+
   it("shows only a fixed error if the report contains an absolute path", async () => {
     const { f, result } = diskInspectorFixture();
     result.largestFiles[0].path = "D:\\personal\\secret.txt";

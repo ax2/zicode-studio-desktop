@@ -1,7 +1,7 @@
 import { t } from "../../i18n.js";
 import { isDiskInspector } from "../plugins/disk-inspector-result.js";
 
-export async function openExplorerDirectoryTool({ entryMode, api, getTarget, openTool }) {
+export async function openExplorerDirectoryTool({ entryMode, api, getTarget, openTool, notify }) {
   const original = getTarget();
   if (original?.runtimeMode !== "tools" || await entryMode() !== "directoryUsage") return false;
   const current = () => {
@@ -14,7 +14,7 @@ export async function openExplorerDirectoryTool({ entryMode, api, getTarget, ope
   const page = await api.searchTools(sceneId, { pluginId: "com.zicode.devtools.disk-inspector", directoryOnly: true });
   if (!current()) return true;
   const tool = page.items.find(item => item.enabled && isDiskInspector(item.pluginId, item.capabilityId));
-  if (!tool) throw new Error(t("Install and enable Disk Inspector to analyze the folder selected in Explorer."));
-  await openTool(tool, page.revision, { sceneId, workspaceId });
+  if (tool) await openTool(tool, page.revision, { sceneId, workspaceId });
+  else notify(t("Install and enable Disk Inspector to analyze the folder selected in Explorer."));
   return true;
 }

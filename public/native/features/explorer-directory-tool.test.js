@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { t } from "../../i18n.js";
 import { openExplorerDirectoryTool } from "./explorer-directory-tool.js";
 
 const scope = { workspaceId: "workspace", sceneId: "programming" };
@@ -9,7 +10,7 @@ function fixture() {
   const api = { searchTools: vi.fn(async () => ({ items: [tool], revision: "catalog" })) };
   const openTool = vi.fn();
   const entryMode = vi.fn(async () => "directoryUsage");
-  return { api, openTool, entryMode, getTarget: () => target,
+  return { api, openTool, entryMode, notify: vi.fn(), getTarget: () => target,
     changeSession: () => { target = { ...target, sessionId: "tools-second" }; } };
 }
 
@@ -41,6 +42,7 @@ it("discards a stale catalog response when the original tool session changes", a
 it("describes the missing candidate instead of opening another provider", async () => {
   const f = fixture();
   f.api.searchTools.mockResolvedValue({ items: [{ ...tool, enabled: false }, { ...tool, pluginId: "another" }], revision: "catalog" });
-  await expect(openExplorerDirectoryTool(f)).rejects.toThrow();
+  await expect(openExplorerDirectoryTool(f)).resolves.toBe(true);
   expect(f.openTool).not.toHaveBeenCalled();
+  expect(f.notify).toHaveBeenCalledWith(t("Install and enable Disk Inspector to analyze the folder selected in Explorer."));
 });
