@@ -36,6 +36,5 @@ describe("release dependency cache reuse", () => {
     expect(globalSettings).not.toContain("CARGO_NET_RETRY");
     expect(release.match(/CARGO_HTTP_MULTIPLEXING: "false"/g)).toHaveLength(5);
     expect(release.match(/CARGO_NET_RETRY: "10"/g)).toHaveLength(5);
-    expect(platform).toContain("cancel-in-progress: ${{ github.event_name == 'pull_request' }}");
   });
 });

@@ -308,26 +308,9 @@ install of pi. macOS and Linux currently use system Git and shell tools.
 
 ## Post-fix verification (Rust / Tauri)
 
-After every edit under `src-tauri/` (or any Rust fix), run the static lint+check script before declaring the work done. It catches compile-time errors (e.g. `E0282`, `E0061`, Tauri v1→v2 API drift, deprecated APIs) without producing a binary, so it is much faster than `tauri build`. The full script also runs Rust tests. Select verification and reuse receipts according to the [release and validation policy](docs/agents/project-management.md#快速迭代与验证用户规则2026-11-18).
+Run `bun run check:rust:static` for Rust changes before handoff. It runs Cargo check and strict Clippy, with an advisory formatting check. Use it to surface deprecations before upgrading Tauri or its plugins. Run targeted tests for the changed behavior.
 
-```bash
-bun run check:rust:static
-# or directly
-bash scripts/check-rust.sh --static-only
-```
-
-`scripts/check-rust.sh` runs, in order:
-
-1. `cargo check --all-targets` — type/borrow/API signature check (~1–5s).
-2. In the full `check:rust` mode only, `cargo test` — compile and run Rust tests.
-3. `cargo clippy --all-targets -- -D warnings` — lints, warnings as errors.
-4. `cargo fmt --check` — advisory only; prints a hint if formatting drifts, but does not fail the script.
-
-### Rules
-
-- **Never** run `tauri build` / `cargo build` just to verify a fix — use `bun run check:rust:static` instead. Per project policy, full builds are not used for verification.
-- After editing any `*.rs` file under `src-tauri/`, run `bun run check:rust:static` and only mark the task complete if it exits 0. Run `bun run check:rust` when tests are requested or required by the release process.
-- When upgrading Tauri or its plugins, run the script first to surface any deprecation warnings before touching feature code.
+For work that needs a desktop binary, combine the changes for the batch and verify one local Windows candidate. Follow the [fast iteration and validation policy](docs/agents/project-management.md#快速迭代与验证用户规则2026-11-18) for scope, evidence and build coordination.
 
 ## Auto-updater
 

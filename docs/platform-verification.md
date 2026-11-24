@@ -52,13 +52,13 @@ CI 同时安装 Python 3.12；Python 真实环境用例默认忽略，但统一�
 
 ## PR 与 CI
 
-独立工作流 `.github/workflows/developer-platform.yml` 使用只读仓库权限，
-在 PR、main 推送和手动触发时分别检查 Windows 2022 x64、macOS 15 ARM64、macOS 15 Intel x64、Ubuntu 22.04 x64。
+日常开发在本机运行相关检查。同批桌面改动共用一个本地 Windows 候选。
+`.github/workflows/developer-platform.yml` 可手动触发，默认检查 Windows 2022 x64。用户明确要求时，可选全平台矩阵，额外检查 macOS ARM64、macOS Intel x64 和 Ubuntu x64。
 矩阵关闭 fail-fast，一个平台失败不取消其他平台；执行超时为 90 分钟。
 每个平台无论成功或失败都保留已有日志和报告 14 天。
 
 该工作流配置存在不代表已经执行。记录真实 CI URL、commit、平台和结果后，才可把对应系统列为已验证。
-本地新增工作流不自动触发远程运行，也不修改既有发布流程。
+正式版本的 GitHub 打包与安装器验证由发布工作流执行。
 
 ## 仍需单独验收
 
