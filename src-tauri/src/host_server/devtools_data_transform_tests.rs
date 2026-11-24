@@ -3,14 +3,14 @@
 use super::*;
 use serde_json::value::RawValue;
 
-const WORKSPACE: &str = "27a89235-43d6-47be-9b76-b8578c05ea86";
+pub(super) const WORKSPACE: &str = "27a89235-43d6-47be-9b76-b8578c05ea86";
 const PLUGIN: &str = "com.zicode.devtools.compute";
 
 async fn start_compute_host(purpose: &str) -> (PathBuf, HostServer) {
     start_frozen_export_host(purpose, "ZICODE_TEST_COMPUTE_PACKAGE", PLUGIN, 8).await
 }
 
-async fn start_frozen_export_host(
+pub(super) async fn start_frozen_export_host(
     purpose: &str,
     package: &str,
     plugin: &str,
