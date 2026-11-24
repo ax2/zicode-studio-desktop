@@ -1486,6 +1486,7 @@ const zhCN = {
   "User-Agent saved for new tabs": "新标签页的 User-Agent 已保存",
   "Use 1–512 printable ASCII characters without surrounding spaces": "请输入 1–512 个可打印 ASCII 字符，首尾不能有空格",
   "Website shortcuts": "网站快捷入口",
+  "Add website shortcut": "添加网站快捷入口",
   "Print page…": "打印页面…",
   "Developer tools": "开发者工具",
   "Save page PDF to Downloads": "将网页 PDF 保存到下载文件夹",

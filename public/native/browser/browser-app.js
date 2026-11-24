@@ -97,6 +97,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       await syncSurface();
     }),
     manage: () => void act(() => openBookmarks(false)),
+    add: source => void act(() => {
+      if (shortcutTab() === source && !blocked()) return openBookmarks(false, source, { shortcut: true });
+    }),
     onChange: () => void run(syncSurface),
   });
   function shortcutTab() {
@@ -1035,8 +1038,17 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       }),
       screenshot: () => exportPage("saveScreenshot", "Screenshot saved to Downloads"),
       websiteShortcuts: {
+        available: () => !root.hasAttribute("data-private-browser"),
         list: listWebsiteShortcuts,
         open: item => void openSavedPage(item).catch(report),
+        add: returnFocus => {
+          const ownsPage = libraryOwner();
+          return act(() => {
+            if (ownsPage() && !root.hasAttribute("data-private-browser")) {
+              return openBookmarks(false, null, { shortcut: true, returnFocus });
+            }
+          });
+        },
         report,
       },
       userAgentSettings: createBrowserUserAgentSettings(control),
@@ -1160,9 +1172,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   function restorePanelPage(tab, current = () => true) {
     void run(async () => {
       await syncSurface();
-      if (current() && tab && active === tab && !blocked() && pageAvailable(tab)) {
+      if (current() && tab && active === tab && !blocked()) {
         if (newTabShortcuts.ready(shortcutTab())) address.focus();
-        else await control({ kind: "focusPage", tab });
+        else if (pageAvailable(tab)) await control({ kind: "focusPage", tab });
       }
     });
   }
@@ -1187,7 +1199,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       throw error;
     }
   }
-  async function openBookmarks(editCurrent, returnToPage) {
+  async function openBookmarks(editCurrent, returnToPage, { shortcut = false, returnFocus } = {}) {
     const ownsPage = libraryOwner();
     if (libraryPanel || !ownsPage()) return;
     const selectedTab = selected(); let current = null;
@@ -1199,8 +1211,11 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       const url = typeof result === "string" ? result : result.url;
       if (/^https?:/.test(url)) current = { url, title: url === selectedTab.url ? selectedTab.title : url };
     }
-    await openLibrary(ownsPage, onClose => showBrowserBookmarks({ invoke, current, editCurrent, onClose: () => {
-      if (ownsPage()) newTabShortcuts.refresh();
+    await openLibrary(ownsPage, onClose => showBrowserBookmarks({ invoke, current, editCurrent, editShortcut: shortcut, onClose: () => {
+      if (ownsPage()) {
+        newTabShortcuts.refresh();
+        if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+      }
       onClose();
     }, onOpen: openSavedPage }), returnToPage);
   }

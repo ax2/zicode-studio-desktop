@@ -2,7 +2,7 @@ import { t } from "../../i18n.js";
 
 const visibleLimit = 12;
 
-export function createBrowserNewTabShortcuts({ list, open, manage, onChange }) {
+export function createBrowserNewTabShortcuts({ list, open, manage, add, onChange }) {
   const panel = document.createElement("section");
   panel.className = "browser-new-tab-shortcuts";
   panel.setAttribute("aria-label", t("Website shortcuts"));
@@ -38,6 +38,15 @@ export function createBrowserNewTabShortcuts({ list, open, manage, onChange }) {
         grid.append(button);
       }
       inner.append(heading, grid);
+      if (add) {
+        const create = document.createElement("button");
+        create.type = "button";
+        create.className = "ui-button ui-button--ghost";
+        create.textContent = t("Add website shortcut");
+        create.dataset.i18nText = "Add website shortcut";
+        create.addEventListener("click", () => { if (current()) add(source); });
+        inner.append(create);
+      }
       if (bookmarks.length > visibleLimit) {
         const more = document.createElement("button");
         more.type = "button";
