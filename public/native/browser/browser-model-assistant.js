@@ -16,6 +16,7 @@ const selectionKey = selection => selection ? JSON.stringify([selection.provider
 const modelErrorCode = reason => reason?.code === "browser_model_context_changed" ? reason.code :
   reason instanceof Error ? reason.message : String(reason ?? "");
 const maxBrowserModelPromptBytes = 256 * 1024; // Pi's browser_model_request limit.
+const promptFits = prompt => new TextEncoder().encode(prompt).byteLength <= maxBrowserModelPromptBytes;
 const staleModelErrors = new Set(["browser_model_context_changed", "module_model_config_changed", "module_model_selection_unavailable"]);
 
 export function browserModelError(reason) {
@@ -25,6 +26,7 @@ export function browserModelError(reason) {
   if (code === "module_model_request_timeout") return t("The model request timed out. It was not retried.");
   if (code === "module_model_config_changed") return t("Model configuration changed. Reload the models before sending.");
   if (code === "module_model_selection_unavailable") return t("The selected model is unavailable. Choose another model or configure Pi.");
+  if (code === "module_model_prompt_invalid") return t("This request exceeds the model input limit. Use less text or fewer attachments.");
   if (code === "module_model_image_unsupported") return t("Use a browser model that supports images.");
   if (code === "module_model_image_invalid") return t("Invalid browser image response");
   if (code === "module_model_translation_incomplete") return t("Translation was cut off. Select a shorter passage and try again.");
@@ -32,7 +34,7 @@ export function browserModelError(reason) {
   return t("Could not load Pi models. Open Chat or model settings, then retry.");
 }
 
-export function createBrowserModelAssistant({ actions, question, prompt, isCurrent, setBusy, artifacts, notes, canStart = () => true, verifyPage, verifyComparison, translationSource }) {
+export function createBrowserModelAssistant({ actions, question, selectionScope, prompt, isCurrent, setBusy, artifacts, notes, canStart = () => true, verifyPage, verifyComparison, translationSource }) {
   const element = document.createElement("section"); element.className = "ui-card browser-model-assistant";
   element.setAttribute("aria-label", t("Browser model"));
   const field = document.createElement("label"), title = document.createElement("span"); label(title, "Browser model");
@@ -46,6 +48,11 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
   const summarize = button("Send page and summarize", () => void send("summary"));
   ask.classList.add("browser-capture-prepare");
   summarize.classList.add("browser-capture-prepare");
+  function updateSendLabels() {
+    label(ask, selectionScope.checked ? "Send selection and ask" : "Send page and ask");
+    label(summarize, selectionScope.checked ? "Send selection and summarize" : "Send page and summarize");
+  }
+  selectionScope?.addEventListener("change", updateSendLabels);
   const cancel = button("Cancel model request", cancelRequest);
   const translation = translationSource && document.createElement("div");
   const language = translation && document.createElement("select");
@@ -75,7 +82,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     setSources(sources) {
       if (comparison?.sources === sources || (!comparison && !sources)) return;
       const prompt = sources && browserComparisonPrompt(sources);
-      const exceedsLimit = Boolean(prompt && new TextEncoder().encode(prompt).byteLength > maxBrowserModelPromptBytes);
+      const exceedsLimit = Boolean(prompt && !promptFits(prompt));
       comparison = sources ? { sources, prompt, exceedsLimit } : undefined;
       compareNotice.hidden = !exceedsLimit;
       controls();
@@ -250,6 +257,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     if (busy || !canStart() || !model || !current() || reviewRequired || (kind === "analysis" && !question?.value.trim())) return;
     const mine = ++generation;
     const requestedQuestion = kind === "analysis" ? question.value.trim() : "";
+    const selectionOnly = (kind === "analysis" || kind === "summary") && selectionScope?.checked;
     const request = { id: `browser-${randomId()}`, cancelled: false, sent: false };
     const expectedRevision = snapshot.revision;
     const trigger = reviewedComparison ? compareButton : element.contains(document.activeElement) ? document.activeElement : null;
@@ -265,6 +273,10 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       // Build the exact reviewed message before any asynchronous check.
       const textPrompt = visual ? undefined : reviewedComparison?.prompt ??
         (targetLanguage ? browserTranslationPrompt(translationSource, targetLanguage) : prompt(kind === "summary"));
+      if (textPrompt && !promptFits(textPrompt)) {
+        status.textContent = t("This request exceeds the model input limit. Use less text or fewer attachments.");
+        return;
+      }
       if (visual) {
         const latest = await visual.read();
         if (request.cancelled) throw Error("module_model_request_cancelled");
@@ -292,7 +304,8 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       if (request.cancelled) throw Error("module_model_request_cancelled");
       if (!current() || mine !== generation) return;
       savedArtifact = undefined; saveStatus.textContent = "";
-      analysis = { text: value.text, model: value.model, kind, question: requestedQuestion, generatedAt: new Date().toISOString() };
+      analysis = { text: value.text, model: value.model, kind, question: requestedQuestion, generatedAt: new Date().toISOString(),
+        ...(selectionOnly && { selectionOnly: true }) };
       if (targetLanguage) {
         analysis.translation = { language: targetLanguage, scope: translationSource.scope, truncated: translationSource.truncated };
       }
@@ -353,6 +366,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
   return { element, compare, controls, reviewImage, cancel: cancelRequest, dispose() {
     if (disposed) return; disposed = true; generation += 1;
     question?.removeEventListener("input", controls);
+    selectionScope?.removeEventListener("change", updateSendLabels);
     clearImage();
     cancelRequest();
   } };
