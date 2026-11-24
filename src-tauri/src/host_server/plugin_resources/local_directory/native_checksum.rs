@@ -118,7 +118,29 @@ impl HostServer {
         owner_value: Value,
         path: PathBuf,
     ) -> Result<Value, String> {
+        self.prepare_native_directory_analysis(context, owner_value, path, None).await
+    }
+
+    pub(crate) async fn prepare_native_directory_analysis(
+        &self,
+        context: Context,
+        owner_value: Value,
+        path: PathBuf,
+        profile: Option<&str>,
+    ) -> Result<Value, String> {
         let owner = owner(owner_value)?;
+        let (purpose, profile) = match profile {
+            None => (Purpose::Usage, usage::PROFILE),
+            Some(duplicates::PROFILE) => {
+                let (workspace, session) = crate::desktop_tools::route_identity(&context.route)
+                    .map_err(|_| "resource_authorization_changed")?;
+                if context.workspace != workspace || owner.session_id != session {
+                    return Err("resource_authorization_changed".into());
+                }
+                (Purpose::Duplicates, duplicates::PROFILE)
+            }
+            _ => return Err("resource_directory_profile_unsupported".into()),
+        };
         let display_name = path
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
@@ -128,11 +150,11 @@ impl HostServer {
             let grant_id = issue_grant(
                 &state,
                 owner.clone(),
-                Purpose::Usage,
+                purpose,
                 Selection::Picked(SelectedDirectory { context, path }),
             )?;
             Ok(json!({
-                "schemaVersion":1,"profile":usage::PROFILE,"grantId":grant_id,
+                "schemaVersion":1,"profile":profile,"grantId":grant_id,
                 "owner":owner,"displayName":display_name,"entryNamesRead":false,
                 "confirmed":false,"expiresInSeconds":120,
             }))

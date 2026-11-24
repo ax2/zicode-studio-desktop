@@ -3,6 +3,7 @@ import { createPluginResourceSelection } from "./plugin-resource-selection.js";
 import { createMultiResourceSelection } from "./plugin-multi-resource-selection.js";
 import { createPluginDirectoryResourceSelection } from "./plugin-directory-resource-selection.js";
 import { directoryUsagePermission, isDiskInspector, renderDiskInspectorResult } from "./disk-inspector-result.js";
+import { duplicateFilesPermission, isDuplicateFiles, renderDuplicateFilesResult } from "./duplicate-files-result.js";
 import { createResourceComputation } from "./plugin-view-resource-compute.js";
 import { createResourcePreview } from "./plugin-resource-preview.js";
 import { createResourceTransfer } from "./plugin-resource-transfer.js";
@@ -39,7 +40,9 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const valid = () => active && original === resourceViewTarget(getTarget?.());
   const status = node("p"); status.setAttribute("role", "status");
   const diskInspector = isDiskInspector(tool.pluginId, tool.capabilityId);
-  const result = diskInspector ? node("div", null, "disk-inspector-result") : node("pre", null, "tool-result");
+  const duplicates = isDuplicateFiles(tool.pluginId, tool.capabilityId);
+  const directoryAnalysis = diskInspector || duplicates;
+  const result = directoryAnalysis ? node("div", null, duplicates ? "duplicate-files-result" : "disk-inspector-result") : node("pre", null, "tool-result");
   const parameters = node("div"), controls = node("div", null, "ui-toolbar"), outputs = node("div");
   const run = button("Execute tool", () => void execute()), cancel = button("Cancel tool", () => void stop());
   const check = button("Stop and recover call", () => void checkStatus()); check.hidden = true;
@@ -56,9 +59,11 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   }
   const canChooseDirectory = ["choose", "prepare", "commit", "cancel"].every(key => typeof gateway.projectDirectories?.[key] === "function");
   const canChooseUsage = ["choose", "commit", "cancel"].every(key => typeof gateway.directoryUsage?.[key] === "function");
-  if (diskInspector && (tool.runtime !== "wasi" || !canChooseUsage ||
-      !detail.permissions.some(permission => permission.name === directoryUsagePermission && permission.granted))) {
-    status.textContent = t("Disk Inspector requires the desktop folder picker and its directory usage permission.");
+  const analysisPermission = duplicates ? duplicateFilesPermission : directoryUsagePermission;
+  if (directoryAnalysis && (tool.runtime !== "wasi" || !canChooseUsage ||
+      !detail.permissions.some(permission => permission.name === analysisPermission && permission.granted))) {
+    status.textContent = t(duplicates ? "Duplicate file checking requires its own folder permission and the desktop folder picker." :
+      "Disk Inspector requires the desktop folder picker and its directory usage permission.");
     return { destroy() { active = false; container.replaceChildren(); } };
   }
   const metadataResult = createImageMetadataResult({ raw: result, executionProfile: detail.capability.executionProfile, capabilityId: tool.capabilityId,
@@ -157,7 +162,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     onSave: save ? (...args) => save.open(...args) : undefined, onTransfer: transfer ? (...args) => transfer.open(...args) : undefined,
     onClear: () => { save?.clear(); transfer?.clear(); } });
   const computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid, recoverable: true, onOutputs: (items, owner, labels, reportResource) => {
-    if (diskInspector || !valid() || reference !== executionAccess) return;
+    if (directoryAnalysis || !valid() || reference !== executionAccess) return;
     metadataResult?.setReportResource?.(reportResource, owner);
     if (fileDigest && reportResource) preview.show([reportResource], owner, ["File digest results"]);
     else if (["resource.wasi.image.metadata.v1", "resource.wasi.markdown.v1"].includes(detail.capability.executionProfile)) preview.show(items, owner, items.map(item => item.outputLabel));
@@ -166,7 +171,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   } });
   const selectionContainer = node("div"); container.prepend(selectionContainer);
   const acceptedTypes = detail.capability.resourceInputMimeTypes;
-  if (!diskInspector && Array.isArray(acceptedTypes) && acceptedTypes.length) {
+  if (!directoryAnalysis && Array.isArray(acceptedTypes) && acceptedTypes.length) {
     const types = node("p");
     types.textContent = detail.capability.executionProfile === "resource.wasi.file-digest.v1" && tool.capabilityId === "devtools.files.hash"
       ? t("Any file type") : t("Accepted file types: {types}").replace("{types}", acceptedTypes.join(", "));
@@ -199,11 +204,11 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     } };
   const directoryAvailable = canChooseDirectory && detail.permissions.some(p => p.name === "resource.directory.read" && p.granted);
   const selectInputs = options => createResourceInputModes(options, select, acceptedTypes, detail.capability.executionProfile);
-  let selection = diskInspector ? createPluginDirectoryResourceSelection({
+  let selection = directoryAnalysis ? createPluginDirectoryResourceSelection({
     ...selectionOptions, directoryUsage: true,
     onExplorerPreparing(value) { directoryPreparing = value; refreshReviewControls(); },
   }) : selectInputs(selectionOptions);
-  if (!diskInspector && directoryAvailable) {
+  if (!directoryAnalysis && directoryAvailable) {
     const mode = node("div", null, "ui-toolbar");
     const files = button("Files", () => switchMode("files"));
     const directory = button("Folder", () => switchMode("directory"));
@@ -306,7 +311,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   async function execute() {
     if (!valid() || running || reviewBusy || folderBusy || directoryPreparing || !reference || !form) return;
     const prepared = form.prepare(); if (prepared.error) { status.textContent = t(prepared.error); return; }
-    const input = diskInspector ? {} : { ...prepared.input, ...selection.getInputOptions?.() };
+    const input = directoryAnalysis ? {} : { ...prepared.input, ...selection.getInputOptions?.() };
     if (reference.digestStream) return executeStream(reference, input);
     const access = reference; executionAccess = access;
     // Names remain in the trusted parent; they are never added to the Worker request.
@@ -321,9 +326,10 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       invoking = true;
       const response = await computation.invoke({ ...access, toolCallId: callId, input });
       if (!valid() || reference !== access) return;
-      if (diskInspector) {
-        if (response.result?.ok !== false && !renderDiskInspectorResult(result, response.result)) {
-          status.textContent = t("Disk Inspector returned an invalid report.");
+      if (directoryAnalysis) {
+        const render = duplicates ? renderDuplicateFilesResult : renderDiskInspectorResult;
+        if (response.result?.ok !== false && !render(result, response.result)) {
+          status.textContent = t(duplicates ? "Duplicate file checking returned an invalid report." : "Disk Inspector returned an invalid report.");
           return;
         }
       } else {
@@ -336,6 +342,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
         ? "Tool reported an error. Inputs are kept and no result was saved."
         : detail.capability.executionProfile === "resource.wasi.file-digest.v1" && tool.capabilityId === "devtools.files.hash"
         ? "File checks completed. Original files were not changed."
+        : duplicates ? "Duplicate file check finished."
         : diskInspector ? "Directory usage analysis finished."
         : "Tool finished. Review the result and save any output files explicitly.");
       try { if (response.result?.ok !== false) await onSuccess(response); } catch { if (valid()) status.textContent = t("Tool completed, but history could not be saved."); }

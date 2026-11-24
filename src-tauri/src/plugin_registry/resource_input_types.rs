@@ -7,7 +7,7 @@ pub(super) const VERSION: &str = "1.0.0-preview.1";
 const FIELD: &str = "resourceInputMimeTypes";
 const MAX_TYPES: usize = 32;
 
-pub(super) fn accepts(capability: &Value, mime_type: &str) -> bool {
+pub(crate) fn accepts(capability: &Value, mime_type: &str) -> bool {
     capability
         .get(FIELD)
         .and_then(Value::as_array)

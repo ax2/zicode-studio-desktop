@@ -19,6 +19,8 @@ impl Write for HashWriter<'_> {
 pub(crate) const PAGE_SIZE: usize = 40;
 const DISK_INSPECTOR: &str = "com.zicode.devtools.disk-inspector";
 const DISK_SCAN: &str = "devtools.disk-inspector.scan";
+const DUPLICATE_FILES: &str = "com.zicode.devtools.duplicate-files";
+const DUPLICATE_SCAN: &str = "devtools.duplicate-files.scan";
 
 pub(crate) fn tool_access_id(plugin_id: &str, capability_id: &str) -> String {
     let bytes = serde_json::to_vec(&(plugin_id, capability_id)).expect("string tuple");
@@ -280,7 +282,9 @@ impl PluginRegistry {
             let directory_metadata = request.directory_only && has_directory_permission("resource.directory.read");
             let directory_usage = request.directory_only && manifest.id == DISK_INSPECTOR
                 && has_directory_permission("resource.directory.usage.read");
-            if request.directory_only && !directory_metadata && !directory_usage {
+            let directory_duplicates = request.directory_only && manifest.id == DUPLICATE_FILES
+                && has_directory_permission("resource.directory.duplicates.read");
+            if request.directory_only && !directory_metadata && !directory_usage && !directory_duplicates {
                 continue;
             }
             for cap in caps {
@@ -314,12 +318,16 @@ impl PluginRegistry {
                     continue;
                 };
                 let disk_scan = manifest.id == DISK_INSPECTOR && id == DISK_SCAN;
+                let duplicate_scan = manifest.id == DUPLICATE_FILES && id == DUPLICATE_SCAN;
                 let directory_target = if disk_scan {
                     directory_usage
+                } else if duplicate_scan {
+                    directory_duplicates && super::resource_input_types::accepts(cap, "text/plain")
                 } else {
                     directory_metadata
                 };
-                if (request.resource_only && disk_scan) || (request.directory_only && !directory_target) {
+                if (request.resource_only && (disk_scan || duplicate_scan))
+                    || (request.directory_only && !directory_target) {
                     continue;
                 }
                 if request.exclude_plugin_id.as_deref() == Some(manifest.id.as_str())

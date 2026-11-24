@@ -3,6 +3,7 @@
 mod checksum;
 mod checksum_progress;
 mod native_checksum;
+mod duplicates;
 mod usage;
 pub(super) use native_checksum::open_picked_file;
 
@@ -40,6 +41,7 @@ pub(in crate::host_server) struct DirectoryGrantRequest {
 enum Purpose {
     Metadata,
     Usage,
+    Duplicates,
     Checksum(Vec<checksum::Entry>),
     GenerateChecksum(Vec<checksum::SelectedFile>),
 }
@@ -48,6 +50,7 @@ enum Purpose {
 enum DirectoryAccess {
     Metadata,
     Usage,
+    Duplicates,
     Checksum,
 }
 
@@ -56,6 +59,7 @@ impl Purpose {
         match self {
             Self::Metadata => DirectoryAccess::Metadata,
             Self::Usage => DirectoryAccess::Usage,
+            Self::Duplicates => DirectoryAccess::Duplicates,
             Self::Checksum(_) | Self::GenerateChecksum(_) => DirectoryAccess::Checksum,
         }
     }
@@ -284,26 +288,35 @@ fn authorize(
     let permission = match access {
         DirectoryAccess::Metadata => "resource.directory.read",
         DirectoryAccess::Usage if owner.plugin_id == usage::PLUGIN && owner.capability_id == usage::CAPABILITY => usage::PERMISSION,
+        DirectoryAccess::Duplicates if owner.plugin_id == duplicates::PLUGIN && owner.capability_id == duplicates::CAPABILITY => duplicates::PERMISSION,
         DirectoryAccess::Checksum if owner.plugin_id == "com.zicode.devtools.files"
             && owner.capability_id == crate::plugin_resource_execution::file_digest::CAPABILITY => "resource.read",
         _ => return Err(rejected("resource_directory_profile_unsupported")),
     };
-    if !plugin
-        .manifest
-        .permissions
-        .required
-        .iter()
-        .chain(&plugin.manifest.permissions.optional)
-        .any(|item| item.name == permission)
-    {
-        return Err(rejected("resource_directory_profile_unsupported"));
+    let duplicates_read = matches!(access, DirectoryAccess::Duplicates);
+    if duplicates_read {
+        let runtime = &plugin.manifest.runtime;
+        let capabilities = plugin.manifest.contributes["capabilities"].as_array();
+        if runtime["wasi"].as_str().is_none()
+            || runtime["resourceInputProfile"] != "resource.wasi.input.draft2"
+            || !capabilities.is_some_and(|caps| caps.iter().any(|cap| {
+                cap["id"] == duplicates::CAPABILITY
+                    && crate::plugin_registry::resource_input_types::accepts(cap, "text/plain")
+            }))
+        {
+            return Err(rejected("resource_directory_profile_unsupported"));
+        }
     }
-    if plugin.permission_grants.get(permission) != Some(&true) {
-        return Err(plugin_api_error(
-            StatusCode::FORBIDDEN,
-            "permission_denied",
-            "",
-        ));
+    for name in std::iter::once(permission).chain(duplicates_read.then_some("resource.read")) {
+        if !plugin.manifest.permissions.required.iter()
+            .chain(&plugin.manifest.permissions.optional)
+            .any(|item| item.name == name)
+        {
+            return Err(rejected("resource_directory_profile_unsupported"));
+        }
+        if plugin.permission_grants.get(name) != Some(&true) {
+            return Err(plugin_api_error(StatusCode::FORBIDDEN, "permission_denied", ""));
+        }
     }
     Ok((root, proof, registry.manual_revision(&scene)))
 }
@@ -599,14 +612,24 @@ async fn commit_grant(
         check_authority()?;
         let directory = grant.selection.open(&grant.root, access)?;
         match &grant.purpose {
-            Purpose::Metadata | Purpose::Usage => {
-                let (profile, bytes, count, partial) = if matches!(grant.purpose, Purpose::Usage) {
-                    let scan = usage::snapshot(&directory, &grant.stamp, &control, check_authority)?;
+            Purpose::Metadata | Purpose::Usage | Purpose::Duplicates => {
+                let analysis = match grant.purpose {
+                    Purpose::Usage => Some((
+                        usage::PROFILE,
+                        usage::snapshot(&directory, &grant.stamp, &control, check_authority)?,
+                    )),
+                    Purpose::Duplicates => Some((
+                        duplicates::PROFILE,
+                        duplicates::snapshot(&directory, &grant.stamp, &control, check_authority)?,
+                    )),
+                    _ => None,
+                };
+                let (profile, bytes, count, partial) = if let Some((profile, scan)) = analysis {
                     let current = grant.selection.open(&grant.root, access)?;
                     if stamp(&current)? != grant.stamp {
                         return Err(rejected("resource_directory_changed"));
                     }
-                    (usage::PROFILE, scan.bytes, scan.entry_count, Some(scan.partial))
+                    (profile, scan.bytes, scan.entry_count, Some(scan.partial))
                 } else {
                     let (bytes, count) = snapshot(&directory, &grant.stamp, &control)?;
                     (METADATA_PROFILE, bytes, count, None)
@@ -638,7 +661,7 @@ async fn commit_grant(
                         let files = checksum::generate(&directory, selected, &control, &check_authority)?;
                         json!({"schemaVersion":1,"profile":checksum::GENERATE_PROFILE,"files":files})
                     }
-                    Purpose::Metadata | Purpose::Usage => unreachable!("snapshot already handled"),
+                    Purpose::Metadata | Purpose::Usage | Purpose::Duplicates => unreachable!("snapshot already handled"),
                 };
                 let current_directory = grant.selection.open(&grant.root, access)?;
                 if stamp(&current_directory)? != grant.stamp {
@@ -695,3 +718,6 @@ mod usage_tests;
 
 #[cfg(test)]
 mod usage_provider_tests;
+
+#[cfg(test)]
+mod duplicates_provider_tests;

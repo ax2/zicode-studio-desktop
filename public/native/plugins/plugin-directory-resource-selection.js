@@ -1,5 +1,6 @@
 import { t } from "../../i18n.js";
 import { directoryUsageProfile, isDiskInspector } from "./disk-inspector-result.js";
+import { duplicateFilesProfile, isDuplicateFiles } from "./duplicate-files-result.js";
 
 function sameOwner(actual, expected) {
   return (
@@ -28,16 +29,19 @@ export function createPluginDirectoryResourceSelection({
   directoryUsage = false,
   onExplorerPreparing = () => {},
 }) {
-  const usage = directoryUsage && isDiskInspector(plugin.id, plugin.capabilities[0].id);
-  const profile = usage ? directoryUsageProfile : "resource.local-directory.draft1";
+  const duplicates = directoryUsage && isDuplicateFiles(plugin.id, plugin.capabilities[0].id);
+  const usage = directoryUsage && (duplicates || isDiskInspector(plugin.id, plugin.capabilities[0].id));
+  const profile = duplicates ? duplicateFilesProfile : usage ? directoryUsageProfile : "resource.local-directory.draft1";
   const panel = document.createElement("section");
   panel.className = "plugin-resource-selection";
   panel.setAttribute("aria-label", t("Studio directory selection"));
   const label = document.createElement("strong");
-  label.textContent = t(usage ? "Share folder usage with Disk Inspector" : "Studio · Share folder names with this plugin");
+  label.textContent = t(duplicates ? "Check a folder for duplicate files" :
+    usage ? "Share folder usage with Disk Inspector" : "Studio · Share folder names with this plugin");
   const description = document.createElement("p");
   description.textContent = t(
-    usage ? "After confirmation, shares relative names, entry types and logical file sizes. File contents are not read." :
+    duplicates ? "After confirmation, Studio reads same-size candidate files to calculate SHA-256. The plugin receives relative names, sizes and hashes." :
+      usage ? "After confirmation, shares relative names, entry types and logical file sizes. File contents are not read." :
       "Only names and file or directory types from one level are shared. No file contents are read. Nothing is saved or sent to AI.",
   );
   const choose = document.createElement("button");
@@ -95,7 +99,7 @@ export function createPluginDirectoryResourceSelection({
     confirm.disabled = true;
     return old;
   }
-  const canReadExplorer = usage && typeof picker.entry === "function";
+  const canReadExplorer = usage && !duplicates && typeof picker.entry === "function";
   function resumeExplorer() {
     if (!explorerPending || !active || !isCurrent() || busy) return;
     explorerPending = false;
@@ -118,7 +122,8 @@ export function createPluginDirectoryResourceSelection({
     if (!active || !isCurrent() || busy) return;
     if (!fromExplorer) {
       clear();
-      status.textContent = t(usage ? "Choose a local folder. Usage is shared only after confirmation." :
+      status.textContent = t(duplicates ? "Choose a local folder. Candidate files are read only after confirmation." :
+        usage ? "Choose a local folder. Usage is shared only after confirmation." :
         "Choose a folder within the current file location. Names are shared only after confirmation.");
     }
     busy = true;
@@ -130,7 +135,7 @@ export function createPluginDirectoryResourceSelection({
     try {
       const selected = await (fromExplorer
         ? picker.entry(target.workspaceId, owner)
-        : usage ? picker.choose(target.workspaceId, owner) : picker.choose(target.workspaceId));
+        : usage ? picker.choose(...grantArgs, ...(duplicates ? [profile] : [])) : picker.choose(target.workspaceId));
       if (!valid(token)) {
         if (usage && selected?.grantId) void cancelGrant(selected.grantId).catch(() => {});
         return;
@@ -166,7 +171,8 @@ export function createPluginDirectoryResourceSelection({
       grant = prepared;
       confirm.disabled = false;
       status.textContent = t(
-        usage ? "Selected directory: {name} · plugin {plugin}. Confirm to share directory usage." :
+        duplicates ? "Selected directory: {name} · plugin {plugin}. Confirm to read duplicate candidates." :
+          usage ? "Selected directory: {name} · plugin {plugin}. Confirm to share directory usage." :
           "Selected directory: {name} · plugin {plugin}. Confirm to share one level of names.",
       )
         .replace("{name}", usage ? (prepared.displayName || t("Selected local folder")) : selected)
@@ -206,7 +212,7 @@ export function createPluginDirectoryResourceSelection({
       pending = grant;
     choose.disabled = confirm.disabled = true;
     panel.setAttribute("aria-busy", "true");
-    status.textContent = t("Sharing the confirmed directory snapshot…");
+    status.textContent = t(duplicates ? "Checking sizes and hashing candidate files…" : "Sharing the confirmed directory snapshot…");
     try {
       const result = await picker.commit(...grantArgs, pending.grantId);
       if (!valid(token)) {
@@ -235,7 +241,8 @@ export function createPluginDirectoryResourceSelection({
         contentVersion: access.contentVersion,
       });
       status.textContent = t(
-        usage && result.partial ? "Shared partial usage for {count} directory entries. You can now execute the tool." :
+        duplicates ? "Hashed {count} candidate files. Execute the tool to group matches." :
+          usage && result.partial ? "Shared partial usage for {count} directory entries. You can now execute the tool." :
           "Shared {count} directory entries. You can now execute the tool or cancel sharing.",
       ).replace("{count}", result.entryCount);
     } catch {

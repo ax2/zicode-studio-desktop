@@ -13,6 +13,7 @@ function fixture(overrides = {}, maxResources = 1, directory = false, receiver =
   const detail = { pluginId: tool.pluginId, version: "1", revision: "a".repeat(64), enabled: true, resourceInputProfile: profile, capability: { id: tool.capabilityId, inputSchema: {}, ...(receiver?.executionProfile ? { executionProfile: receiver.executionProfile } : {}), ...(receiver?.resourceInputMimeTypes ? { resourceInputMimeTypes: receiver.resourceInputMimeTypes } : {}), ...(maxResources > 1 ? { resourceInputMax: maxResources } : {}) }, permissions: [{ name: "resource.read", granted: true }, ...(directory ? [{ name: "resource.directory.read", granted: true }] : [])] };
   if (receiver?.nativeDigestStream) detail.nativeDigestStream = true;
   if (receiver?.directoryUsage === true) detail.permissions.push({ name: "resource.directory.usage.read", granted: true });
+  if (receiver?.duplicateFiles === true) detail.permissions.push({ name: "resource.directory.duplicates.read", granted: true });
   const gateway = { loadTool: vi.fn(async () => detail), prepareResource: vi.fn(async () => ({ resourceId: id })), appendResource: vi.fn(async () => ({ uploadedBytes: 3 })), commitResource: vi.fn(async access => ({ ...access, confirmed: true, byteLength: 3 })), revokeResource: vi.fn(async () => ({})), readResource: vi.fn(async () => ({})), cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })),
     invokeResource: vi.fn(async (owner, request) => ({ schemaVersion: 1, operationId: id, source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile }, result: { text: "received <script>literal</script>" } })), ...overrides };
   gateway.resourceCalls = { keep: vi.fn(async (target, owner, ticket) => ({ target, owner, ticket })), remove: vi.fn(async () => {}) };
@@ -90,6 +91,45 @@ function streamingFixture() {
 }
 afterEach(() => { for (const root of roots.splice(0)) root.destroy(); vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
 describe("directory-owned resource execution", () => {
+  it("reads and groups duplicate candidates only after an explicit directory confirmation", async () => {
+    const receiver = { pluginId: "com.zicode.devtools.duplicate-files", capabilityId: "devtools.duplicate-files.scan",
+      title: "Duplicate Files", duplicateFiles: true, resourceInputMimeTypes: ["text/plain"] };
+    const owner = { runtimeId: "runtime", sessionId: "session", pluginId: receiver.pluginId, capabilityId: receiver.capabilityId };
+    const profile = "resource.local-directory.duplicates.draft1";
+    const access = { schemaVersion: 1, owner, resourceId: id, contentVersion: "b".repeat(64) };
+    const directoryUsage = {
+      entry: vi.fn(async () => null),
+      choose: vi.fn(async () => ({ profile, owner, grantId: id, confirmed: false, entryNamesRead: false, displayName: "测试文件夹" })),
+      commit: vi.fn(async () => ({ profile, access, confirmed: true, partial: true, entryCount: 2 })),
+      cancel: vi.fn(async () => ({})),
+    };
+    const report = { ok: true, schemaVersion: 1, material: "duplicate-files-report", partial: true,
+      projectionTruncated: false, groupCount: 1, duplicateFileCount: 2, redundantBytes: "3",
+      source: { hashedFiles: 2, partial: true, limitReason: "hash_bytes", skippedBudget: 2 },
+      groups: [{ logicalBytes: "3", redundantBytes: "3", sha256: "a".repeat(64), fileCount: 2, paths: ["备份/a.txt", "a.txt"] }],
+    };
+    const invokeResource = vi.fn(async (_owner, request) => ({ schemaVersion: 1, operationId: id,
+      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result: report }));
+    const f = fixture({ directoryUsage, invokeResource }, 1, false, receiver);
+    expect(f.button("Execute tool").disabled).toBe(true);
+    expect(directoryUsage.entry).not.toHaveBeenCalled();
+    f.button("Choose a folder").click();
+    await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
+    expect(directoryUsage.choose).toHaveBeenCalledWith("workspace", owner, profile);
+    expect(directoryUsage.commit).not.toHaveBeenCalled();
+    expect(invokeResource).not.toHaveBeenCalled();
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    expect(directoryUsage.commit).toHaveBeenCalledWith("workspace", owner, id);
+    expect(invokeResource).not.toHaveBeenCalled();
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Potential duplicate logical size"));
+    expect(document.body.textContent).toContain("Candidate file read budget reached.");
+    expect([...document.querySelectorAll(".duplicate-files-result bdi")].map(node => node.textContent))
+      .toEqual(["备份/a.txt", "a.txt"]);
+    expect(invokeResource.mock.calls[0][1]).toMatchObject({ resourceId: id, input: {} });
+  });
+
   it("prepares only the special directory usage profile, waits for approval, then displays the exact partial result", async () => {
     const { f, directoryUsage, owner, directoryProfile, access } = diskInspectorFixture();
     expect(document.querySelector('input[type="file"]')).toBeNull();
