@@ -5,7 +5,7 @@ import { t } from "i18n";
 import { createPluginResultTransfer } from "./plugin-result-transfer.js";
 import { openSavedArtifact } from "../features/artifact-navigation.js";
 import { appendResultCaptureNotice } from "./plugin-result-capture-notice.js";
-import { createCsvResultExport, createJsonResultExport, createPngResultExport, createTextResultExport } from "./text-result-export.js";
+import { createCsvResultExport, createJsonResultExport, createPngResultExport, createTextResultExport, createTsvResultExport } from "./text-result-export.js";
 export function createPluginResultActions({ container, gateway, isCurrent, onReceiverExecuted, onOpenSaved = openSavedArtifact, sourceResultDisplayed = false }) {
   const uuidPattern = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   const panel = document.createElement("section");
@@ -22,8 +22,9 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
   const reportExport = exporter(createTextResultExport, "reportReference");
   const pngExport = exporter(createPngResultExport, "pngReference");
   const csvExport = exporter(createCsvResultExport, "csvReference");
+  const tsvExport = exporter(createTsvResultExport, "tsvReference");
   const jsonExport = exporter(createJsonResultExport, "jsonReference");
-  const resultExports = [reportExport, pngExport, csvExport, jsonExport].filter(Boolean);
+  const resultExports = [reportExport, pngExport, csvExport, tsvExport, jsonExport].filter(Boolean);
 
   function exporter(create, referenceKey) {
     return gateway.textExports ? create({
@@ -124,6 +125,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     const report = exportButton(reportExport, current.reportReference, t("Save diagnostic JSON as…"), token);
     const png = exportButton(pngExport, current.pngReference, t("Save PNG as…"), token);
     const csv = exportButton(csvExport, current.csvReference, t("Save CSV as…"), token);
+    const tsv = exportButton(tsvExport, current.tsvReference, t("Save TSV as…"), token);
     const json = exportButton(jsonExport, current.jsonReference, t("Save JSON as…"), token);
     const content = current.transferred ? element("pre", current.text) : null;
     content?.setAttribute("aria-label", t("Transferred result"));
@@ -132,7 +134,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
         "strong",
         current.transferred ? t("Studio · Receiver result") : t("Studio · Save tool result"),
       ),
-      ...[content, png, csv, json, title, preview, report, send, status].filter(Boolean),
+      ...[content, png, csv, tsv, json, title, preview, report, send, status].filter(Boolean),
     );
     if (current.saveOutcomeUnknown) {
       preview.disabled = true;
@@ -165,9 +167,13 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       ? exportReference(reference, reference?.pngExport, "image/png") : null;
     const tableResult = computeOutput && (scope.capabilityId?.startsWith("devtools.compute.transform.") ||
       /^devtools\.compute\.merge\.(left|inner|append|columns)$/.test(scope.capabilityId ?? ""));
-    const csvReference = tableResult ? exportReference(reference, reference?.csvExport, "text/csv") : null;
+    const workbench = computeOutput && /^devtools\.compute\.table\.(csv|json|query)$/.exec(scope.capabilityId ?? "")?.[1];
+    const csvReference = tableResult || workbench === "csv" || workbench === "query"
+      ? exportReference(reference, reference?.csvExport, "text/csv") : null;
+    const tsvReference = workbench === "query"
+      ? exportReference(reference, reference?.tsvExport, "text/tab-separated-values") : null;
     const qualityReport = computeOutput && /^devtools\.compute\.quality\.(json|csv|tsv)$/.test(scope.capabilityId ?? "");
-    const jsonReference = tableResult || qualityReport
+    const jsonReference = tableResult || qualityReport || workbench === "json" || workbench === "query"
       ? exportReference(reference, reference?.jsonExport, "application/json") : null;
     const successful = httpResult || response?.result?.ok === true ||
       (response?.operation === "model.generate" && typeof resultText === "string");
@@ -178,6 +184,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           reportReference,
           pngReference,
           csvReference,
+          tsvReference,
           jsonReference,
           transferred,
           text: resultText,

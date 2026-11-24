@@ -11,6 +11,9 @@ export function createPngResultExport(options) {
 export function createCsvResultExport(options) {
   return createCapturedResultExport(options, "result.export.csv.v1", "text/csv", "csv");
 }
+export function createTsvResultExport(options) {
+  return createCapturedResultExport(options, "result.export.tsv.v1", "text/tab-separated-values", "tsv");
+}
 export function createJsonResultExport(options) {
   return createCapturedResultExport(options, "result.export.json.v1", "application/json", "json");
 }
