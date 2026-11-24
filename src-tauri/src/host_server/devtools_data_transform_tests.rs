@@ -720,3 +720,46 @@ fn verify_result_export(
     );
     file
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires frozen Compare 0.1.0 candidate 02, its receipt and a production Windows Worker"]
+async fn text_diff_frozen_host_preserves_both_file_drafts() {
+    let plugin = "com.zicode.devtools.compare";
+    let (root, host) =
+        start_frozen_export_host("text-diff", "ZICODE_TEST_COMPARE_PACKAGE", plugin, 10).await;
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let endpoint = format!("{}/v2/plugin-capabilities/invoke", host.origin());
+    let at_limit = "a".repeat(8192);
+    for (name, left, right, expected) in [
+        ("different", "序言\r\n旧值  \r\n收尾\r\n", "序言\r\n新值  \r\n收尾\r\n", vec!["-旧值  ", "+新值  "]),
+        ("new-with-no-final-newline", "", "新增", vec!["+新增", "\\ No newline at end of file"]),
+        ("both-empty", "", "", vec!["两份文本完全相同"]),
+        ("boundary", at_limit.as_str(), at_limit.as_str(), vec!["两份文本完全相同"]),
+    ] {
+        let response: Value = client
+            .post(&endpoint)
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&json!({
+                "workspaceId": WORKSPACE, "sceneId": "programming", "pluginId": plugin,
+                "capabilityId": "devtools.compare.text.diff",
+                "input": { "left": left, "right": right }
+            }))
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let result = &response["result"];
+        assert_eq!(result["ok"], true, "{name}: {result}");
+        let diff = result["data"]["text"].as_str().unwrap();
+        for exact_line in expected {
+            assert!(diff.lines().any(|line| line == exact_line), "{name}: {diff}");
+        }
+        println!("verified text diff case {name}");
+    }
+    host.stop();
+    std::fs::remove_dir_all(root).unwrap();
+}
