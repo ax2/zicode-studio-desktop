@@ -41,6 +41,7 @@ import { t } from "../../i18n.js";
 export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   listen = globalThis.__TAURI__?.event?.listen, nativeWindow = globalThis.__TAURI__?.window?.getCurrentWindow?.(), notify = () => {}, getTarget = () => null, onPrepareDraft, canOpenDraftConversation, openDraftConversation, onTranslateSelection, modelGateway } = {}) {
   let startupState, searchSettings, ordering, tabStripControls, tabMenu, tabSearch, pageControls, find, shortcuts, fullscreen;
+  let refreshOpenPageControls;
   let root, viewport, assistant, read, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
   let initialized = false, initPromise, lastSurface = "", surfaceError = "", saveTail = Promise.resolve();
@@ -330,7 +331,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     getTabs: () => tabs, getActive: () => active, prepare: ensureView, persist,
     commit: async (next, id, background = false) => {
       // Reflect the committed session before any fallible native presentation.
+      const changed = active !== id;
       tabs = next; active = id; setStatus(""); paint();
+      if (changed) refreshOpenPageControls?.();
       if (!background) {
         await find.close();
         await syncSurface();
@@ -417,7 +420,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     active = nextActive;
     setStatus("");
     paint();
-    if (wasActive) await find.close();
+    if (wasActive) {
+      refreshOpenPageControls?.();
+      await find.close();
+    }
     try {
       await discardTabView(id);
     } finally {
@@ -472,17 +478,37 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     await surface.settled();
     if (canFocus()) await control({ kind: "focusPage", tab: id });
   }
-  function openPdfFind(id, current) {
+  function pdfRevision(id) {
     const revision = pdfDocuments.get(id);
-    if (!revision || documentRevisions.get(id) !== revision) return null;
-    return focusPdfReader(id, () => current() && documentRevisions.get(id) === revision).then(() => true);
+    return revision && documentRevisions.get(id) === revision ? revision : undefined;
+  }
+  function openPdfFind(id, current) {
+    const revision = pdfRevision(id);
+    if (!revision) return null;
+    return focusPdfReader(id, () => current() && pdfRevision(id) === revision).then(() => true);
+  }
+  function applyPdfDocument(id, revision) {
+    if (!revision || documentRevisions.get(id) !== revision || pdfRevision(id) === revision) return;
+    pdfDocuments.set(id, revision);
+    if (id !== active) return;
+    refreshOpenPageControls?.();
+    if (!find.isOpenFor(id)) return;
+    const previousFocus = document.activeElement;
+    void find.close();
+    if (!find.element.contains(previousFocus)) return;
+    const current = () => pdfRevision(id) === revision &&
+      (document.activeElement === previousFocus || document.activeElement === document.body);
+    // Preserve the user's existing Find intent without sending its query to the reader.
+    void focusPdfReader(id, current).catch(error => {
+      if (current() && active === id && !blocked()) report(error);
+    });
   }
   async function changePageSettings(id, change) {
     const tab = tabs.find(tab => tab.id === id); if (!tab || !pageAvailable(id)) throw new Error(t("Browser tab is no longer available"));
     const version = pageVersions.get(id);
     const before = await control({ kind: "pageSettings", tab: id });
     const setting = typeof change === "function" ? change(before) : change;
-    if (setting.kind === "zoom" && before.pdfDocument === true) {
+    if (setting.kind === "zoom" && (before.pdfDocument === true || pdfRevision(id))) {
       await focusPdfReader(id, () => pageVersions.get(id) === version);
       return;
     }
@@ -727,9 +753,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         return;
       }
       if (payload.kind === "pdfDocument") {
-        if (documentRevisions.get(payload.tab) === payload.documentRevision) {
-          pdfDocuments.set(payload.tab, payload.documentRevision);
-        }
+        applyPdfDocument(payload.tab, payload.documentRevision);
         return;
       }
       if (payload.kind === "navigationStarted" || payload.kind === "navigationFinished") {
@@ -752,7 +776,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           if (!payload.success && !payload.canceled && navigationStates.get(id) !== "stopping") navigationStates.set(id, "failed");
           else navigationStates.delete(id);
         }
-        if (id === active) paint();
+        if (id === active) {
+          paint();
+          refreshOpenPageControls?.();
+        }
         return;
       }
       if (!tab) {
@@ -904,7 +931,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (action === "history") return openHistory(returnToPage);
         if (action === "downloads") return openDownloads(returnToPage);
       }), report });
-    pageControls = createBrowserPageControls({ getTab: selected, read: tab => control({ kind: "pageSettings", tab }), change: (tab, change) => enqueue(() => changePageSettings(tab, change)) });
+    pageControls = createBrowserPageControls({ getTab: selected, isPdf: id => Boolean(pdfRevision(id)),
+      read: tab => control({ kind: "pageSettings", tab }), change: (tab, change) => enqueue(() => changePageSettings(tab, change)) });
     searchSettings = createBrowserSearchSettings({ save: engine => invoke("browser_set_search_engine", { engine }), report });
     let exportingPage = false;
     const exportPage = (kind, success, pending) => {
@@ -966,6 +994,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),
       pin: { state: pinState, toggle: () => act(togglePin) } });
     refreshDeveloperTools = options.refreshDeveloperTools;
+    refreshOpenPageControls = () => { if (options.open) void pageControls.refresh(); };
     const layoutLabel = document.createElement("label");
     tabLayoutInput = document.createElement("input");
     tabLayoutInput.type = "checkbox";
