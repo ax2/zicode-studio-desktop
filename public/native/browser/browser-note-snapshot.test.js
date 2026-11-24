@@ -232,3 +232,25 @@ it.each([
   await expect(writer.save(params)).rejects.toThrow(t("This analysis cannot be saved."));
   expect(gateway.create).not.toHaveBeenCalled();
 });
+
+it("stores the completed translation and its scope without writing the captured source text", async () => {
+  const locale = getLocale();
+  setLocale("en");
+  try {
+    const { options, gateway, params } = setup();
+    const analysis = { kind: "translation", text: "Translated passage.", generatedAt: "2026-11-09T03:31:00Z",
+      model: { provider: "fixture", modelId: "notes" }, translation: { language: "zh-CN", scope: "selection", truncated: true } };
+    const result = await createBrowserNoteWriter({ ...options, analysis }).save({ ...params, title: "Reviewed translation" });
+    expect(gateway.create).toHaveBeenCalledOnce();
+    expect(options.readCurrent).not.toHaveBeenCalled();
+    expect(result.source).toEqual({ url: capture.page.url, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision });
+    expect(result.content).toContain("Target language: Simplified Chinese");
+    expect(result.content).toContain("Source text: Selected text");
+    expect(result.content).toContain("Capture: Partial capture");
+    expect(result.content).toContain("Translated passage.");
+    expect(result.content).not.toContain(capture.page.selection);
+    expect(result.content).not.toContain(capture.page.text);
+  } finally {
+    setLocale(locale);
+  }
+});

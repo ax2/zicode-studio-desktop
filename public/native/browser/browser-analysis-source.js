@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 
-const labels = { summary: "Page summary", analysis: "Page analysis", image: "Image analysis", comparison: "Web page comparison" };
+const labels = { summary: "Page summary", analysis: "Page analysis", image: "Image analysis", comparison: "Web page comparison", translation: "Page translation" };
 
 export function browserAnalysisLabel(kind) {
   return Object.hasOwn(labels, kind) ? labels[kind] : undefined;

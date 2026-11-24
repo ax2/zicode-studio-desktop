@@ -1,6 +1,7 @@
 import { t } from "../../i18n.js";
 import { openSavedArtifact } from "../features/artifact-navigation.js";
 import { analysisWebUrl, browserAnalysisLabel, browserAnalysisPageSource } from "./browser-analysis-source.js";
+import { browserTranslationDetails } from "./browser-translation.js";
 
 // Save the reviewed result, not a fresh page read or another model request.
 export function browserAnalysisArtifact(capture, analysis) {
@@ -29,6 +30,10 @@ export function browserAnalysisArtifact(capture, analysis) {
     }
   }
   const readableTitle = `${label} · ${source.image?.alt || title || url}`.replace(/\p{Cc}/gu, " ").replace(/\s+/gu, " ").trim();
+  if (analysis.translation) {
+    details.push(`${t("Document revision")}: ${source.documentRevision}`,
+      ...browserTranslationDetails(analysis.translation).map(([label, value]) => `${t(label)}: ${value}`));
+  }
   details.push(`${t("Captured at")}: ${source.capturedAt}`, `${t("Generated at")}: ${analysis.generatedAt}`, "", analysis.text);
   return {
     pluginId: "com.zicode.artifacts", kind: "report",
@@ -39,6 +44,7 @@ export function browserAnalysisArtifact(capture, analysis) {
       source,
       ...(analysis.kind === "comparison" ? { sources: analysis.sources } : {}),
       analysis: { kind: analysis.kind, generatedAt: analysis.generatedAt, question: analysis.question || "",
+        ...(analysis.translation && { translation: analysis.translation }),
         model: { provider: analysis.model.provider, modelId: analysis.model.modelId } } },
   };
 }

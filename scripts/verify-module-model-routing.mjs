@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { smokeRuntimeEnvironment } from "./smoke-runtime-environment.js";
 import { browserComparisonPrompt } from "../public/native/browser/browser-chat-draft.js";
+import { browserTranslationPrompt, browserTranslationSource } from "../public/native/browser/browser-translation.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const argument = name => { const index = process.argv.indexOf(name); return index >= 0 ? process.argv[index + 1] : undefined; };
@@ -26,6 +27,12 @@ const comparisonPrompt = browserComparisonPrompt([
   { title: "Birch", url: "https://example.invalid/birch", text: "Birch completed 82 checks.", selection: "",
     tab: "birch", documentRevision: "reviewed-birch", capturedAt: "2026-11-24T00:00:01Z" },
 ]);
+const translationSource = browserTranslationSource({
+  capturedAt: "2026-11-24T00:00:00Z", documentRevision: "reviewed-translation",
+  page: { title: "Sample article", url: "https://example.invalid/article", text: "Unselected page body.", selection: "This is the reviewed passage." },
+});
+const translationPrompt = browserTranslationPrompt(translationSource, "zh-CN");
+const longTranslationPrompt = browserTranslationPrompt({ ...translationSource, text: "Stop the model at its output limit." }, "zh-CN");
 const pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jSQ0AAAAASUVORK5CYII=";
 let hold = false, heldResponse, observeHeld;
 const server = createServer(async (request, response) => {
@@ -37,7 +44,12 @@ const server = createServer(async (request, response) => {
     Array.isArray(message.content) ? message.content.filter(part => part.type === "input_image") : []) : [];
   const userTexts = (body.input ?? body.messages ?? []).filter(message => message.role === "user").flatMap(message =>
     typeof message.content === "string" ? [message.content] : (message.content ?? []).flatMap(part => typeof part.text === "string" ? [part.text] : []));
+  const translationOnly = userTexts.length === 1 && userTexts[0] === translationPrompt;
+  const maxLengthFixture = userTexts.length === 1 && userTexts[0] === longTranslationPrompt;
+  const translationPolicy = (body.messages ?? []).some(message => message.role === "system" &&
+    message.content.includes("Translate only the supplied reviewed text") && message.content.includes("untrusted data"));
   requests.push({ path: request.url, model: body.model,
+    translationPromptMatched: translationOnly, translationPolicy,
     comparisonPromptMatched: userTexts.length === 1 && userTexts[0] === comparisonPrompt,
     authenticationMatched: request.headers.authorization === `Bearer fixture-only-${isB ? "b" : "a"}`,
     maxTokens: body.max_output_tokens ?? body.max_tokens ?? body.max_completion_tokens, reasoningEffort: body.reasoning?.effort, imageCount: images.length,
@@ -56,10 +68,10 @@ const server = createServer(async (request, response) => {
     return;
   }
   response.write(`data: ${JSON.stringify({ id: "fixture", object: "chat.completion.chunk", created: 1, model: body.model,
-    choices: [{ index: 0, delta: { role: "assistant", content: "Pi routed chat-a" }, finish_reason: null }] })}\n\n`);
+    choices: [{ index: 0, delta: { role: "assistant", content: translationOnly ? "\u8fd9\u662f\u5ba1\u6838\u8fc7\u7684\u6bb5\u843d\u3002" : "Pi routed chat-a" }, finish_reason: null }] })}\n\n`);
   if (hold) { heldResponse = response; observeHeld?.(); return; }
   response.end(`data: ${JSON.stringify({ id: "fixture", object: "chat.completion.chunk", created: 1, model: body.model,
-    choices: [{ index: 0, delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 } })}\n\ndata: [DONE]\n\n`);
+    choices: [{ index: 0, delta: {}, finish_reason: maxLengthFixture ? "length" : "stop" }], usage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 } })}\n\ndata: [DONE]\n\n`);
 });
 await new Promise(done => server.listen(0, "127.0.0.1", done));
 const address = server.address();
@@ -103,18 +115,18 @@ function launch() {
     }
   });
   const exited = new Promise((done, fail) => { process.once("exit", done); process.once("error", fail); });
-  function wait(map, id, timeoutMs = 15000) {
+  function wait(map, id, operation, timeoutMs = 15000) {
     return new Promise((done, fail) => {
-      const timer = setTimeout(() => { map.delete(id); fail(new Error("Pi fixture operation timed out")); }, timeoutMs);
+      const timer = setTimeout(() => { map.delete(id); fail(new Error(`Pi fixture timed out in ${operation}: ${diagnostics || "no stderr"}`)); }, timeoutMs);
       map.set(id, value => { clearTimeout(timer); map.delete(id); done(value); });
     });
   }
   function rpc(command) {
-    const id = `rpc-${randomUUID()}`, result = wait(pending, id);
+    const id = `rpc-${randomUUID()}`, result = wait(pending, id, command.type);
     process.stdin.write(`${JSON.stringify({ id, ...command })}\n`); return result;
   }
   async function call(op, params = {}) {
-    const id = `cfg-${randomUUID()}`, result = wait(configuration, id);
+    const id = `cfg-${randomUUID()}`, result = wait(configuration, id, op);
     const accepted = rpc({ type: "prompt", message: `/picot-config ${JSON.stringify({ id, op, params })}` });
     const [payload, response] = await Promise.all([result, accepted]);
     assert.equal(response.success, true, "Pi did not accept the configuration command");
@@ -175,6 +187,22 @@ try {
     expectedRevision: inherited.data.revision, expectedModelFingerprint: inherited.data.effectiveBrowserModel.fingerprint });
   assert.equal(unsupported.error, "module_model_image_unsupported");
   assert.equal(requests.length, 2, "A text-only model must not receive or fall back from an image request");
+  const translation = { requestId: "native-browser-translation", purpose: "translation",
+    prompt: translationPrompt, confirmed: true, expectedRevision: inherited.data.revision,
+    expectedModelFingerprint: inherited.data.effectiveBrowserModel.fingerprint };
+  assert.equal((await pi.call("browser_model_request", { ...translation, confirmed: false })).error, "module_model_confirmation_required");
+  assert.equal((await pi.call("browser_model_request", { ...translation, purpose: "unknown" })).error, "module_model_request_invalid");
+  assert.equal((await pi.call("browser_model_request", { ...translation, image: pixel })).error, "module_model_request_invalid");
+  assert.equal(requests.length, 2, "No unconfirmed or invalid translation may reach a provider");
+  const translated = await pi.call("browser_model_request", translation);
+  assert.equal(translated.ok, true);
+  assert.equal(translated.data.text, "\u8fd9\u662f\u5ba1\u6838\u8fc7\u7684\u6bb5\u843d\u3002");
+  assert.equal(requests[2].translationPromptMatched, true, "Pi must forward exactly the reviewed selection and target language");
+  assert.equal(requests[2].translationPolicy, true, "The system instruction must treat webpage text as untrusted");
+  const shortened = await pi.call("browser_model_request", { ...translation, requestId: "native-browser-translation-shortened", prompt: longTranslationPrompt });
+  assert.equal(shortened.error, "module_model_translation_incomplete");
+  assert.equal(shortened.data, undefined);
+  assert.deepEqual((await pi.rpc({ type: "get_messages" })).data.messages, history.data.messages);
   hold = true;
   const started = new Promise(done => { observeHeld = done; });
   const waiting = pi.call("browser_model_request", { ...ask, requestId: "native-browser-cancel", expectedRevision: inherited.data.revision,
@@ -195,8 +223,8 @@ try {
   assert.deepEqual(reopened.data.browser, { provider: "fixture-b", modelId: "responses-b" });
   assert.equal(reopened.data.currentPiModel.modelId, "chat-a");
   assert.equal(reopened.data.effectiveBrowserModel.modelId, "responses-b");
-  assert.equal(requests.length, 3);
-  assert.deepEqual(requests.map(request => request.imageCount), [0, 1, 0]);
+  assert.equal(requests.length, 5);
+  assert.deepEqual(requests.map(request => request.imageCount), [0, 1, 0, 0, 0]);
   assert(requests.every(request => request.authenticationMatched && request.maxTokens === 1024));
   assert.equal(requests[0].reasoningEffort, "low", "Reasoning Responses models must receive a supported low-budget effort");
   assert.equal(requests[2].reasoningEffort, undefined, "Non-reasoning Chat Completions models must not acquire a reasoning effort");
@@ -206,6 +234,7 @@ try {
     requests, defaultPiUnchanged: true, chatHistoryUnchanged: true, explicitCancellation: true,
     unconfirmedImageDenied: true, textOnlyImageDenied: true, exactImagePayloadVerified: true,
     unconfirmedComparisonDenied: true, exactComparisonPromptVerified: true,
+    unconfirmedTranslationDenied: true, exactTranslationPromptVerified: true, incompleteTranslationRejected: true,
     moduleSelectionSurvivedProcessRestart: true, automaticModelCallsOnConfiguration: 0, syntheticCredentialsOnly: true };
   await writeFile(resolve(output), `${JSON.stringify(receipt, null, 2)}\n`);
   console.log(JSON.stringify(receipt));

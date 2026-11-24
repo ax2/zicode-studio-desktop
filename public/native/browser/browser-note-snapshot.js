@@ -2,6 +2,7 @@ import { pageImageDescription, pageMetadataRows } from "./browser-capture-media.
 import { selectCapturedFrames } from "./browser-capture-frames.js";
 import { t } from "../../i18n.js";
 import { browserAnalysisLabel, browserAnalysisPageSource } from "./browser-analysis-source.js";
+import { browserTranslationDetails } from "./browser-translation.js";
 
 // Native text is quoted as text, including Markdown and HTML supplied by a website.
 export function quotedPageText(value) {
@@ -107,6 +108,7 @@ function browserAnalysisNoteContent(source, analysis) {
     line("Generated at", generatedAt),
     line("Browser model", `${model.provider} / ${model.modelId}`),
     question && line("Browser analysis question", question),
+    ...browserTranslationDetails(analysis.translation).map(([label, value]) => line(label, value)),
     ...sources,
     `### ${t("Browser model answer")}`,
     quotedPageText(analysis.text),

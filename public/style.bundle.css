@@ -675,6 +675,8 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-assistant[hidden] { display: none; }
 .browser-assistant h2, .browser-assistant p { overflow-wrap: anywhere; }
 .browser-assistant .ui-toolbar { flex-wrap: wrap; }
+.browser-translation-actions { margin-block-start: var(--space-1); }
+.browser-translation-actions .ui-select { inline-size: auto; }
 .browser-assistant textarea { inline-size: 100%; resize: vertical; }
 .browser-assistant .browser-capture-text { block-size: calc(var(--space-12) * 2); }
 .browser-assistant .browser-compare-preview textarea { block-size: calc(var(--space-12) * 2); }
@@ -727,6 +729,17 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-image-ocr { margin-block: var(--space-2); }
 .browser-image-ocr > [hidden] { display: none; }
 .browser-image-ocr > .ui-textarea { width: 100%; height: auto; box-sizing: border-box; }
+.browser-image-review[hidden], .browser-image-result-source[hidden] { display: none; }
+.browser-image-review img {
+  display: block;
+  max-inline-size: min(100%, calc(var(--space-12) * 4));
+  max-block-size: calc(var(--space-12) * 3);
+  object-fit: contain;
+}
+.browser-image-review dd, .browser-image-result-source dd {
+  margin-inline-start: var(--space-3);
+  overflow-wrap: anywhere;
+}
 .browser-capture-media-scroll li + li { margin-block-start: var(--space-1); }
 .browser-capture-dialog:has(> .browser-compare:not([hidden])) > :is(.browser-capture-text, .browser-capture-links, .browser-capture-tables, .browser-capture-media, .browser-capture-frames),
 .browser-capture-dialog:has(> .browser-compare:not([hidden])) .browser-capture-prepare { display: none; }
@@ -746,8 +759,8 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-options-panel { position: absolute; inset-inline-end: 0; top: calc(100% + var(--space-1)); z-index: 20; display: grid; gap: var(--space-2); width: min(21rem, calc(100vw - var(--space-8))); padding: var(--space-3); max-height: 70vh; overflow: auto; background: var(--bg-solid); box-shadow: var(--shadow-lg); }
 .browser-options-panel [role="group"]:has(.browser-site-shortcut) { display: grid; gap: var(--space-1); max-height: 32vh; overflow: auto; }
 .browser-site-shortcut { display: block; overflow: hidden; text-align: start; text-overflow: ellipsis; white-space: nowrap; }
-.browser-user-agent-fields { display: grid; gap: var(--space-1); }
-.browser-user-agent input { min-width: 0; width: 100%; }
+.browser-user-agent-fields, .browser-proxy-fields { display: grid; gap: var(--space-1); }
+.browser-user-agent input, .browser-proxy input { min-width: 0; width: 100%; }
 .browser-options-panel label { display: grid; gap: var(--space-1); }
 .browser-options-panel .ui-select { width: 100%; max-width: none; }
 

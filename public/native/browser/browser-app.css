@@ -56,6 +56,8 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-assistant[hidden] { display: none; }
 .browser-assistant h2, .browser-assistant p { overflow-wrap: anywhere; }
 .browser-assistant .ui-toolbar { flex-wrap: wrap; }
+.browser-translation-actions { margin-block-start: var(--space-1); }
+.browser-translation-actions .ui-select { inline-size: auto; }
 .browser-assistant textarea { inline-size: 100%; resize: vertical; }
 .browser-assistant .browser-capture-text { block-size: calc(var(--space-12) * 2); }
 .browser-assistant .browser-compare-preview textarea { block-size: calc(var(--space-12) * 2); }

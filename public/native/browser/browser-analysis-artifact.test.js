@@ -124,3 +124,18 @@ it("fits real Host title limits without splitting emoji and retains the complete
   expect(draft.title.endsWith("😀")).toBe(true);
   expect(draft.provenance.source.title).toBe(title);
 });
+
+it("keeps the target language, shortened selection and original document with the saved translation", async () => {
+  const f = writer();
+  const translation = { language: "en", scope: "selection", truncated: true };
+  await f.artifacts.save({ ...analysis, kind: "translation", translation, text: "Translated passage." });
+  const draft = f.gateway.create.mock.calls[0][2];
+  expect(draft.title).toBe(`Page translation · ${capture.page.title}`);
+  expect(draft.provenance).toMatchObject({ source: { ...capture.page, documentRevision: capture.documentRevision },
+    analysis: { kind: "translation", translation } });
+  expect(draft.content).toContain("Target language: English");
+  expect(draft.content).toContain("Source text: Selected text");
+  expect(draft.content).toContain("Capture: Partial capture");
+  expect(draft.content).toContain("Document revision: doc-synthetic-1");
+  expect(draft.content).toContain("Translated passage.");
+});
