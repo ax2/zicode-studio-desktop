@@ -26,6 +26,12 @@ mod policy;
 #[cfg(windows)]
 mod runtime;
 #[cfg(windows)]
+mod proxy;
+#[cfg(all(windows, test))]
+mod native_proxy_test;
+#[cfg(any(windows, test))]
+pub(crate) mod proxy_endpoint;
+#[cfg(windows)]
 mod native_find;
 #[cfg(windows)]
 mod site_settings;
@@ -79,6 +85,8 @@ pub enum Request {
     SavePdf { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
     GetUserAgent,
     SetUserAgent { value: Option<String> },
+    GetHttpProxy,
+    SetHttpProxy { value: Option<String> },
     MenuLanguage { chinese: bool },
     CancelPopup { request: String },
     Suspend { tab: String },
@@ -158,6 +166,26 @@ pub(crate) async fn browser_control(
                     Ok(serde_json::json!(store.user_agent(&profile)?))
                 })).await.map_err(|_| "Browser metadata worker stopped")?;
             }
+            action @ (Request::GetHttpProxy | Request::SetHttpProxy { .. }) => {
+                let owner = window.label().to_owned();
+                if crate::browser_windows::private(&owner) {
+                    return Err("Proxy settings are unavailable in private browser windows".into());
+                }
+                let root = crate::app_paths::data_root()?.join("browser");
+                return tauri::async_runtime::spawn_blocking(move || {
+                    let store = crate::browser_store::Store::open(&root)?;
+                    let id = store.state(&owner)?.profile_id;
+                    let directory = root.join("profiles").join(&id).join("engine");
+                    let settings = match action {
+                        Request::SetHttpProxy { value } => {
+                            let replacement = value.as_deref().map(proxy_endpoint::HttpProxy::parse).transpose()?;
+                            proxy::save(&store, &directory, &id, replacement)?
+                        }
+                        _ => proxy::read(&store, &directory, &id)?,
+                    };
+                    serde_json::to_value(settings).map_err(|error| error.to_string())
+                }).await.map_err(|_| "Browser metadata worker stopped")?;
+            }
             Request::Downloads { before, query } => return download_commands::list(window, before, query).await,
             Request::DownloadChoose { id } => return download_commands::choose(window, id).await,
             Request::DownloadRemove { id } => return download_commands::remove(window, id).await,
@@ -178,17 +206,23 @@ pub(crate) async fn browser_control(
             let owner = window.label().to_owned();
             Some(
                 tauri::async_runtime::spawn_blocking(move || {
-                    let (id, user_agent) = crate::browser_private::store(&root, &owner, |store| {
+                    let private_directory = if crate::browser_windows::private(&owner) {
+                        Some(crate::browser_private::engine(&owner)?)
+                    } else {
+                        None
+                    };
+                    crate::browser_private::store(&root, &owner, |store| {
                         let id = store.state(&owner)?.profile_id;
                         let user_agent = store.user_agent(&id)?;
-                        Ok((id, user_agent))
-                    })?;
-                    let directory = if crate::browser_windows::private(&owner) {
-                        crate::browser_private::engine(&owner)?
-                    } else {
-                        root.join("profiles").join(id).join("engine")
-                    };
-                    Ok::<_, String>((directory, user_agent))
+                        let (directory, proxy) = if let Some(directory) = private_directory {
+                            (directory, None)
+                        } else {
+                            let directory = root.join("profiles").join(&id).join("engine");
+                            let proxy = proxy::read(store, &directory, &id)?.active;
+                            (directory, proxy)
+                        };
+                        Ok(runtime::EngineProfile { directory, user_agent, proxy })
+                    })
                 })
                 .await
                 .map_err(|_| "Browser profile worker stopped")??,

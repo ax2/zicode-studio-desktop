@@ -307,3 +307,42 @@ fn custom_user_agent_is_validated_persistent_and_profile_scoped() {
     reopened.set_user_agent(&regular, None).unwrap();
     assert_eq!(reopened.user_agent(&regular).unwrap(), None);
 }
+
+#[test]
+fn http_proxy_preference_survives_reopening_without_merging_profiles_or_tabs() {
+    use crate::browser::proxy_endpoint::HttpProxy;
+
+    let path = root();
+    let mut db = Store::open(&path).unwrap();
+    let regular = db.state("main").unwrap().profile_id;
+    let named = db.add_profile("Named proxy fixture").unwrap();
+    db.bind_profile("named", &named).unwrap();
+    let tab = "2391a120-bcac-4b81-9ba5-69b17e2ad992";
+    let initial = vec![SavedTab {
+        id: tab.to_owned(),
+        url: "https://example.org/state".into(),
+        title: "Existing tab".into(),
+        zoom: 1.0,
+        muted: false,
+        pinned: false,
+        group: None,
+    }];
+    db.save("main", 0, initial, Some(tab.to_owned())).unwrap();
+    let existing = db.state("main").unwrap().session;
+    let proxy = HttpProxy::parse("http://127.0.0.1:8808").unwrap();
+    let other = HttpProxy::parse("http://[::1]:8888").unwrap();
+    assert!(db.http_proxy(&regular).unwrap().is_none());
+    db.set_http_proxy(&regular, Some(&proxy)).unwrap();
+    assert!(db.http_proxy(&named).unwrap().is_none());
+    db.set_http_proxy(&named, Some(&other)).unwrap();
+    drop(db);
+
+    let reopened = Store::open(&path).unwrap();
+    assert_eq!(reopened.state("main").unwrap().session, existing);
+    assert_eq!(reopened.state("named").unwrap().profile_id, named);
+    assert_eq!(reopened.http_proxy(&regular).unwrap(), Some(proxy));
+    assert_eq!(reopened.http_proxy(&named).unwrap(), Some(other.clone()));
+    reopened.set_http_proxy(&regular, None).unwrap();
+    assert!(reopened.http_proxy(&regular).unwrap().is_none());
+    assert_eq!(reopened.http_proxy(&named).unwrap(), Some(other));
+}

@@ -1,4 +1,6 @@
 //! Browser metadata only. Native engine profiles own cookies and site storage.
+#[cfg(any(windows, test))]
+use crate::browser::proxy_endpoint::HttpProxy;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, path::Path, time::Duration};
@@ -120,6 +122,8 @@ impl Store {
             id INTEGER PRIMARY KEY CHECK(id=1), vertical INTEGER NOT NULL CHECK(vertical IN (0,1))
         );").map_err(|err| err.to_string())?;
         tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_user_agents(profile TEXT PRIMARY KEY, value TEXT NOT NULL);").map_err(|e| e.to_string())?;
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_http_proxies(profile TEXT PRIMARY KEY, value TEXT NOT NULL);")
+            .map_err(|error| error.to_string())?;
         groups::create(&tx)?;
         windows::create(&tx)?;
         profiles::create(&tx)?;
@@ -141,6 +145,25 @@ impl Store {
             self.0.execute("DELETE FROM browser_user_agents WHERE profile=?1", [profile]).map_err(|e| e.to_string())?;
         }
         Ok(())
+    }
+    #[cfg(any(windows, test))]
+    pub(crate) fn http_proxy(&self, profile: &str) -> Result<Option<HttpProxy>, String> {
+        let saved: Option<String> = self.0.query_row(
+            "SELECT value FROM browser_http_proxies WHERE profile=?1",
+            [profile],
+            |row| row.get(0),
+        ).optional().map_err(|error| error.to_string())?;
+        saved.as_deref().map(HttpProxy::parse).transpose()
+    }
+    #[cfg(any(windows, test))]
+    pub(crate) fn set_http_proxy(&self, profile: &str, proxy: Option<&HttpProxy>) -> Result<(), String> {
+        match proxy {
+            Some(proxy) => self.0.execute(
+                "INSERT INTO browser_http_proxies(profile,value) VALUES(?1,?2) ON CONFLICT(profile) DO UPDATE SET value=excluded.value",
+                [profile, proxy.address()],
+            ),
+            None => self.0.execute("DELETE FROM browser_http_proxies WHERE profile=?1", [profile]),
+        }.map(|_| ()).map_err(|error| error.to_string())
     }
     pub fn state(&self, owner: &str) -> Result<State, String> {
         let (mode, default_profile): (String, String) = self

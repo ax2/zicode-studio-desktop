@@ -2,6 +2,7 @@
 use super::{
     engine::{Bounds, NativeBrowserEngine},
     policy::BrowserPolicy,
+    proxy_endpoint::HttpProxy,
     Request, Viewport,
 };
 use serde_json::{json, Value};
@@ -74,9 +75,15 @@ fn ready_web_document<'a>(
     Ok(view)
 }
 
+pub(super) struct EngineProfile {
+    pub(super) directory: PathBuf,
+    pub(super) user_agent: Option<String>,
+    pub(super) proxy: Option<HttpProxy>,
+}
+
 pub(super) fn execute(
     window: &WebviewWindow,
-    profile: Option<(PathBuf, Option<String>)>,
+    profile: Option<EngineProfile>,
     request: Request,
 ) -> Result<Value, String> {
     if let Request::Fullscreen { enabled } = request { return super::window_controls::fullscreen(window, enabled); }
@@ -113,7 +120,7 @@ pub(super) fn execute(
             tab_id, zoom, muted, popup_request,
         } = request
         {
-            let (directory, user_agent) = profile.ok_or("Browser profile unavailable")?;
+            let EngineProfile { directory, user_agent, proxy } = profile.ok_or("Browser profile unavailable")?;
             let rect = bounds(window, viewport)?;
             if !BrowserPolicy::public_web().permits(&url) {
                 return Err("Browser navigation blocked".into());
@@ -171,6 +178,7 @@ pub(super) fn execute(
                     }),
                 )?;
                 engine.private=crate::browser_windows::private(window.label());
+                engine.http_proxy = proxy;
                 entry.insert(WindowBrowser { engine, tabs: Vec::new() });
             }
             let browser = windows
@@ -265,7 +273,7 @@ pub(super) fn execute(
                     json!({"url":browser.engine.view(&tab)?.url().map_err(|e|e.to_string())?}),
                 )
             }
-            Request::GetUserAgent | Request::SetUserAgent { .. } | Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Suspend { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } | Request::SiteSettings { .. } => unreachable!(),
+            Request::GetUserAgent | Request::SetUserAgent { .. } | Request::GetHttpProxy | Request::SetHttpProxy { .. } | Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Suspend { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } | Request::SiteSettings { .. } => unreachable!(),
         }
         Ok(Value::Null)
     }))
