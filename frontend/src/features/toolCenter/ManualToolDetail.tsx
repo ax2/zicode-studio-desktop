@@ -15,7 +15,7 @@ import type { ResourceSessionOwner } from "./resource-session-owner";
 import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
 import { dataTransformPreview, isDataTransform, type TransformPreview } from "./data-transform-result";
 import { prepareTransformApply, type TransformInput } from "./data-transform-apply";
-import { readComputeTableFile, type TableFileTarget } from "./compute-table-file";
+import { readComputeTableFile, tableFileFormats, type TableFileTarget } from "./compute-table-file";
 
 const hostResourceReceivers = new Map([
   ["com.zicode.resource-inspector/image.inspect", "resource.host.image-input.v1"],
@@ -106,6 +106,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const dataTransform = isDataTransform(tool);
   const tableMerge = tool.pluginId === "com.zicode.devtools.compute" &&
     ["left", "inner", "append", "columns"].some(mode => tool.capabilityId === `devtools.compute.merge.${mode}`);
+  const qualityFormat = tool.pluginId === "com.zicode.devtools.compute"
+    ? tableFileFormats.find(format => tool.capabilityId === "devtools.compute.quality." + format)
+    : undefined;
+  const singleTableTarget = dataTransform ? "transform" : qualityFormat;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
   useLayoutEffect(() => {
     fileRead.current = { identity: transformIdentity, api, sequence: 0 };
@@ -135,8 +139,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
 
   async function importTableFile(file: File, target: TableFileTarget) {
     const owner = fileRead.current;
+    const allowed = target === singleTableTarget || (tableMerge && (target === "left" || target === "right"));
     if (!owner || owner.identity !== transformIdentity || owner.api !== api ||
-        !(target === "transform" ? dataTransform : tableMerge) || !supported || !detail.enabled || editingLocked) return;
+        !allowed || !supported || !detail.enabled || editingLocked) return;
     const sequence = ++owner.sequence;
     const isCurrent = () => fileRead.current === owner && owner.sequence === sequence;
     setFileLoading(target);
@@ -222,9 +227,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
           <button type="submit" className="ui-button ui-button--primary" disabled={editingLocked || !detail.enabled || call.supported === null}>
             <span key={running ? call.phase : "idle"}>{t(running ? call.phase === "preparing" ? "Preparing tool…" : "Running…" : "Execute tool")}</span>
           </button>
-          {dataTransform && <TableImportButton key={transformIdentity} label={t("Import table file…")}
-            inputLabel={t("Table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === "transform"}
-            onPick={file => { void importTableFile(file, "transform"); }} />}
+          {singleTableTarget && <TableImportButton key={transformIdentity} label={t("Import table file…")}
+            inputLabel={t("Table file")} accept={qualityFormat && "." + qualityFormat}
+            disabled={editingLocked || !detail.enabled} loading={fileLoading === singleTableTarget}
+            onPick={file => { void importTableFile(file, singleTableTarget); }} />}
           {tableMerge && <>
             <TableImportButton key={"left:" + transformIdentity} label={t("Import left table…")}
               inputLabel={t("Left table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === "left"}
@@ -272,12 +278,12 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   </section>;
 }
 
-function TableImportButton({ label, inputLabel, disabled, loading, onPick }: {
-  label: string; inputLabel: string; disabled: boolean; loading: boolean; onPick(file: File): void;
+function TableImportButton({ label, inputLabel, disabled, loading, accept = ".csv,.tsv,.json", onPick }: {
+  label: string; inputLabel: string; disabled: boolean; loading: boolean; accept?: string; onPick(file: File): void;
 }) {
   const picker = useRef<HTMLInputElement>(null);
   return <>
-    <input ref={picker} type="file" hidden accept=".csv,.tsv,.json" aria-label={inputLabel} onChange={event => {
+    <input ref={picker} type="file" hidden accept={accept} aria-label={inputLabel} onChange={event => {
       const file = event.currentTarget.files?.[0];
       event.currentTarget.value = "";
       if (file) onPick(file);

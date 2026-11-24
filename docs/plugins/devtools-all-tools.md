@@ -6,6 +6,12 @@ Studio 工具中心已接入独立 Disk Inspector 0.1.0 候选。对工作区内
 
 四种合并操作均可选择 8 KiB 以内的同格式 UTF-8 CSV、TSV 或 JSON 文件作为左右表，保留已有设置，并撤销最近一次导入。完成后可确认另存 CSV 或列式 JSON。开发范围见 [Windows Worker 验收](../iterations/2026-11-24-csv-merge-file-input.md)。
 
+## 2026-11-24 开发补充：数据质量原文件导入
+
+在 JSON、CSV 或 TSV 数据质量检查中选择「导入表格文件…」。每个入口接受相应后缀、8 KiB 以内的 UTF-8 文件。导入更新草稿，保留原件，可撤销。选项留空，按「执行工具」查看空值、空白、重复行和类型分布。
+
+Windows 使用生产 Worker（SHA-256 `1bf0adf0d8e3e8874eca61258ef133de9875dac87c0cbd76a83a45a2d7f2f1a3`），分别运行冻结 Compute 0.1.0 候选 02 与 0.2.0 候选 01。两版均通过三个格式的 React 文件选择事件、手动执行与真实结果校验。JSON 测试核对相邻的 64 位大整数仍能区分，CSV、TSV 核对中文列名与空白统计。另有错误后缀、取消选择、UTF-8 BOM 与撤销回归。系统文件窗口、更大输入和报告文件保存继续由 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 跟踪。
+
 ## 2026-11-24 开发补充：数据列变换的表格预览
 
 数据列变换执行成功后，在工具页分页查看完整返回表格和变更示例。原始输入保留，原始 JSON 和 CSV 结果仍可复制。转换失败时显示第一条无法转换的数据行与列名。见[表格预览验收](../iterations/2026-11-24-data-transform-preview.md)。可在确认应用后使用列式 JSON 继续工作，并撤销最近一次应用。Host 已捕获的 CSV 和列式 JSON 可选址、确认并另存为新文件，保留同名文件。可导入 8 KiB 以内的 UTF-8 CSV、TSV 或 JSON 文件并撤销导入。见[文件导入验收](../iterations/2026-11-24-data-transform-file-import.md)。系统文件窗口及更大输入由 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 跟踪。
