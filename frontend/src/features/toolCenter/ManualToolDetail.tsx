@@ -13,7 +13,8 @@ import { useManualToolCall } from "./use-manual-tool-call";
 import { ResourceToolRunner, type ResourceTargetProvider, type ReceiveNoteDraft } from "./ResourceToolRunner";
 import type { ResourceSessionOwner } from "./resource-session-owner";
 import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
-import { isDataTransform } from "./data-transform-result";
+import { dataTransformPreview, isDataTransform, type TransformPreview } from "./data-transform-result";
+import { prepareTransformApply, type TransformInput } from "./data-transform-apply";
 
 const hostResourceReceivers = new Map([
   ["com.zicode.resource-inspector/image.inspect", "resource.host.image-input.v1"],
@@ -32,6 +33,20 @@ export interface ManualToolDetailProps {
   onReload?(): Promise<void>;
 }
 
+interface ToolDraft {
+  values: Record<string, string>;
+  undo?: { identity: string; values: Record<string, string> };
+}
+
+interface TransformExecution {
+  identity: string;
+  sequence: number;
+  api: ManualToolApi;
+  source: Record<string, string>;
+  preview: TransformPreview;
+  next: TransformInput | null;
+}
+
 export function ManualToolDetail(props: ManualToolDetailProps) {
   const call = useManualToolCall(props.api, props.tool.runtime);
   return <ManualToolDetailView {...props} call={call} />;
@@ -42,7 +57,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
 }) {
   const [detail, setDetail] = useState<ToolDetail | null>(null);
   const detailId = useId();
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [{ values, undo }, setDraft] = useState<ToolDraft>({ values: {} });
   const [error, setError] = useState("");
   const [stale, setStale] = useState(false);
   const [reloading, setReloading] = useState(false);
@@ -50,6 +65,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const [recording, setRecording] = useState(false);
   const running = call.busy || recording;
   const [result, setResult] = useState<ManualToolResult | null>(null);
+  const [transformed, setTransformed] = useState<TransformExecution | null>(null);
+  const executionSequence = useRef(0);
   const [captured, setCaptured] = useState<CapturedToolResponse | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [resourceBusy, setResourceBusy] = useState(false);
@@ -82,10 +99,34 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const hostResourceProfile = hostResourceReceivers.get(`${tool.pluginId}/${tool.capabilityId}`);
   const resourceTool = (detail?.resourceInputProfile === "resource.wasi.input.draft2" && tool.runtime === "wasi") ||
     (tool.runtime === "builtin" && hostResourceProfile !== undefined && detail?.resourceInputProfile === hostResourceProfile);
+  const dataTransform = isDataTransform(tool);
+  const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
+  const ownsUndo = undo?.identity === transformIdentity;
+  const inputsCurrent = transformed?.identity === transformIdentity && transformed.api === api && transformed.source === values;
+  const applyAllowed = inputsCurrent && supported && !resourceTool && tool.enabled && detail?.enabled && !running && !actionBusy;
+  const alreadyCurrent = inputsCurrent && transformed?.next?.text === values.text &&
+    transformed?.next?.options === values.options;
+  const canApply = applyAllowed && Boolean(transformed?.next) && !alreadyCurrent;
+  const applied = ownsUndo && undo?.values === transformed?.source;
+  function applyTransform() {
+    if (!canApply || !transformed || transformed.sequence !== executionSequence.current) return;
+    const { next, source } = transformed;
+    if (!next) return;
+    setDraft(current => current.values === source
+      ? { values: { ...source, ...next }, undo: { identity: transformIdentity, values: source } }
+      : current);
+  }
+
+  function undoTransform() {
+    if (!ownsUndo || running || actionBusy) return;
+    setDraft(current => undo && current.undo === undo ? { values: undo.values } : current);
+  }
+
   async function execute() {
     if (!supported || running || actionBusy || !detail?.enabled || call.supported === null) return;
     const prepared = prepareToolInput(fields, values);
-    setError(""); setStale(false); setInvalidField(""); setResult(null); setCaptured(null);
+    const sequence = ++executionSequence.current;
+    setError(""); setStale(false); setInvalidField(""); setResult(null); setCaptured(null); setTransformed(null);
     if ("error" in prepared) {
       setError(prepared.error); setInvalidField(prepared.field);
       document.getElementById(`${detailId}-${prepared.field}`)?.focus();
@@ -95,8 +136,19 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     try {
       const response = await call.run({ ...scope, pluginId: tool.pluginId, capabilityId: tool.capabilityId,
         input: prepared.input, catalogRevision: detail.revision, ...(supportsResultActions(api) ? { captureResult: true } : {}) });
-      if (!alive.current) return;
+      if (!alive.current || sequence !== executionSequence.current) return;
       const outcome = manualToolResult(response.result);
+      if (dataTransform && outcome.successful) {
+        const preview = dataTransformPreview(outcome.text);
+        if (preview) {
+          const wire = response.result;
+          const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
+            wire.contractVersion === "1.0.0-rc.1";
+          const input = declared ? prepareTransformApply(tool.capabilityId, values, preview) : null;
+          const next = input && !("error" in prepareToolInput(fields, { ...values, ...input })) ? input : null;
+          setTransformed({ identity: transformIdentity, sequence, api, source: values, preview, next });
+        }
+      }
       setResult(outcome);
       if (outcome.successful) setCaptured(response);
       if (outcome.successful && accessStore) {
@@ -130,13 +182,15 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
         accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
         {fields.map(field => <ManualToolInput key={field.key} id={`${detailId}-${field.key}`} field={field} value={values[field.key]}
           disabled={running || actionBusy} invalid={invalidField === field.key}
-          onOmit={() => { setValues(previous => { const next = { ...previous }; delete next[field.key]; return next; });
+          onOmit={() => { setDraft(previous => { const next = { ...previous.values }; delete next[field.key]; return { values: next }; });
             if (invalidField === field.key) { setInvalidField(""); setError(""); } }}
-          onChange={value => setValues(previous => ({ ...previous, [field.key]: value }))} />)}
+          onChange={value => setDraft(previous => ({ values: { ...previous.values, [field.key]: value } }))} />)}
         <div className="ui-toolbar">
           <button type="submit" className="ui-button ui-button--primary" disabled={running || actionBusy || !detail.enabled || call.supported === null}>
             <span key={running ? call.phase : "idle"}>{t(running ? call.phase === "preparing" ? "Preparing tool…" : "Running…" : "Execute tool")}</span>
           </button>
+          {ownsUndo && <button type="button" className="ui-button ui-button--secondary" disabled={running || actionBusy}
+            onClick={undoTransform}>{t("Undo last application")}</button>}
           {result !== null && <button type="button" className="ui-button ui-button--secondary" onClick={() => jumpTo(resultRef.current)}>{t("View latest execution")}</button>}
           {call.supported && call.busy && <button type="button" className="ui-button ui-button--danger"
             disabled={call.phase === "preparing" || call.phase === "cancelling"} onClick={() => { void call.cancel(); }}>
@@ -151,7 +205,21 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
           disabled={running || actionBusy || resourceBusy} onClick={onOpenApplication}>{t("Open tool interface")}</button>}
       </div>}
     </>}
-    {result !== null && <ManualToolResultView result={result} dataTransform={isDataTransform(tool)} sectionRef={resultRef} onBackToInputs={supported ? () => jumpTo(formRef.current) : undefined} />}
+    {result !== null && <ManualToolResultView result={result} dataTransform={dataTransform}
+      transformPreview={dataTransform ? transformed?.preview ?? null : undefined}
+      transformActions={transformed && <div className="ui-toolbar">
+        {applied
+          ? <span role="status">{t("Applied to the input as a JSON table.")}</span>
+          : alreadyCurrent ? <span role="status">{t("The result already matches the input.")}</span>
+            : <>
+            <button type="button" className="ui-button ui-button--secondary" disabled={!canApply}
+              onClick={applyTransform}>{t("Apply to input")}</button>
+            {!inputsCurrent
+              ? <span className="tool-center-source">{t("The inputs changed. Run the tool again to apply a current result.")}</span>
+              : !transformed.next && <span className="tool-center-source">{t("This result cannot be applied within the tool’s input contract.")}</span>}
+          </>}
+      </div>}
+      sectionRef={resultRef} onBackToInputs={supported ? () => jumpTo(formRef.current) : undefined} />}
     {captured && supportsResultActions(api) && <ManualToolResultActions response={captured}
       accessStore={accessStore} onRecentChange={onRecentChange}
       scope={{ ...scope, pluginId: tool.pluginId, capabilityId: tool.capabilityId }} gateway={api}
