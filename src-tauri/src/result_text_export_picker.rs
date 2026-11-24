@@ -13,7 +13,10 @@ pub(crate) async fn select_result_text_export(app: AppHandle, window: WebviewWin
     let picked = tauri::async_runtime::spawn_blocking(move || {
         let picker = app.dialog().file().set_directory(initial).set_file_name(name);
         let picker = match extension {
-            Some(extension) => picker.add_filter("Text", &[&extension]),
+            Some(extension) => {
+                let label = if extension == "json" { "JSON" } else { "Text" };
+                picker.add_filter(label, &[&extension])
+            }
             None => picker,
         };
         picker.blocking_save_file()

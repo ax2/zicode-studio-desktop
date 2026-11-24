@@ -51,6 +51,8 @@ impl HostServer {
                 && source.scope.capability_id == "devtools.checksum-manifest.generate"
             {
                 ("SHA256SUMS", None)
+            } else if source.scope.capability_id == crate::host_server::plugin_services::HTTP_GET_PROFILE {
+                ("actuator-response.json", Some("json"))
             } else {
                 ("result.txt", Some("txt"))
             };

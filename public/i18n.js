@@ -1355,6 +1355,7 @@ const zhCN = {
     "生成时会将以上文件名和 SHA-256 提供给校验清单插件。保存时需要另外选择位置并确认。",
   "Generate SHA256SUMS": "生成 SHA256SUMS 清单",
   "Save generated manifest as…": "将生成的清单另存为…",
+  "Save diagnostic JSON as…": "将诊断结果另存为 JSON…",
   "Generating manifest…": "正在生成清单…",
   "Manifest generated. Choose a destination to save a new copy.":
     "清单已生成。可选择位置保存为新文件。",

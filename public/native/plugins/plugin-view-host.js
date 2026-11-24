@@ -312,6 +312,8 @@ export function setupPluginViewHost({
           isCurrent: (scope) =>
             instances.get(instanceKey) === instance &&
             container.isConnected &&
+            (scope?.capabilityId !== "service.http.get.v1" ||
+              instance.resourceTarget === resourceViewTarget(getTarget())) &&
             scope?.workspaceId === (getTarget()?.workspaceId ?? "") &&
             scope?.sceneId === (getTarget()?.sceneId ?? "programming"),
         });
@@ -611,7 +613,7 @@ export function setupPluginViewHost({
         if (!isCurrent()) throw new Error("Plugin runtime changed");
         const scope = { workspaceId: target.workspaceId, sceneId: target.sceneId ?? "programming",
           pluginId: instance.plugin.id, capabilityId: "service.http.get.v1" };
-        if (response?.resultRef) instance.resultActions?.show(response, scope);
+        if (response?.resultRef || response?.resultCaptureError) instance.resultActions?.show(response, scope);
         const viewResponse = { ...(response ?? {}) };
         delete viewResponse.resultRef;
         delete viewResponse.resultCaptureError;

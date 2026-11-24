@@ -451,9 +451,12 @@ describe("PluginViewHost", () => {
   });
   it("requires a trusted confirmation for fixed service GETs and hides Host result references", async () => {
     const target = { sceneId: "programming", workspaceId: "workspace", instanceId: "runtime", sessionId: "session" };
+    setLocale("en");
     let preparedOperationId;
+    const reportId = "33333333-3333-4333-8333-333333333333";
     const capabilityGateway = {
       prepareSave: vi.fn(),
+      textExports: { choose: vi.fn(async () => null), commit: vi.fn() },
       prepareHttpGet: vi.fn(async (_owner, _input, operationId) => {
         preparedOperationId = operationId;
         return { operationId, grantId: "private-grant", expiresInMs: 60_000,
@@ -463,7 +466,8 @@ describe("PluginViewHost", () => {
       }),
       commitHttpGet: vi.fn(async (_owner, _grant, confirmed) => confirmed
         ? { schemaVersion: 1, operation: "http.get", result: { data: { status: "UP" } },
-          resultRef: { resultId: "private-result" } }
+          resultRef: { resultId: reportId, schemaVersion: 1, byteLength: 48,
+            contentVersion: "a".repeat(64), mimeType: "text/plain" } }
         : { schemaVersion: 1, operation: "http.get", status: "declined" }),
       cancelHttpGet: vi.fn(async () => ({ status: "requested" })),
     };
@@ -487,8 +491,19 @@ describe("PluginViewHost", () => {
       requestId: "http", result: expect.objectContaining({ operation: "http.get" }),
     }), "*"));
     expect(JSON.stringify(postMessage.mock.calls)).not.toContain("private-grant");
-    expect(JSON.stringify(postMessage.mock.calls)).not.toContain("private-result");
+    expect(JSON.stringify(postMessage.mock.calls)).not.toContain(reportId);
     expect(document.querySelector(".plugin-result-actions").hidden).toBe(false);
+    const exportReport = [...document.querySelectorAll(".plugin-result-actions button")]
+      .find(button => button.textContent === "Save diagnostic JSON as…");
+    expect(exportReport).toBeTruthy();
+    expect(capabilityGateway.textExports.choose).not.toHaveBeenCalled();
+    exportReport.click();
+    await vi.waitFor(() => expect(capabilityGateway.textExports.choose).toHaveBeenCalledExactlyOnceWith("workspace", {
+      scope: { sceneId: "programming", workspaceId: "workspace", pluginId: PLUGIN.id,
+        capabilityId: "service.http.get.v1" },
+      resultId: reportId,
+    }));
+    expect(capabilityGateway.textExports.commit).not.toHaveBeenCalled();
     host.destroy();
   });
   it("forwards an aborted HTTP GET to the Host cancellation operation", async () => {
