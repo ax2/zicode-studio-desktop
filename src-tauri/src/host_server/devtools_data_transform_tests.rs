@@ -3,9 +3,10 @@
 use super::*;
 use serde_json::value::RawValue;
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "requires frozen Compute package, its external receipt and a production Windows Worker"]
-async fn data_transform_preview_frozen_host_results() {
+const WORKSPACE: &str = "27a89235-43d6-47be-9b76-b8578c05ea86";
+const PLUGIN: &str = "com.zicode.devtools.compute";
+
+async fn start_compute_host(purpose: &str) -> (PathBuf, HostServer) {
     let candidate = PathBuf::from(std::env::var_os("ZICODE_TEST_COMPUTE_PACKAGE").unwrap());
     let receipt = candidate.with_file_name(format!(
         "{}-verification.json",
@@ -15,25 +16,23 @@ async fn data_transform_preview_frozen_host_results() {
     let project = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     super::inspect_011_host_tests::verify_receipt(&project, &candidate, &receipt, 8);
 
-    let root = project.join(".cache/task-scratch").join(format!(
-        "compute-transform-preview-{}",
-        uuid::Uuid::new_v4()
-    ));
+    let root = project
+        .join(".cache/task-scratch")
+        .join(format!("compute-{purpose}-{}", uuid::Uuid::new_v4()));
     let public = root.join("public");
     std::fs::create_dir_all(&public).unwrap();
     std::fs::write(
         root.join("owner.json"),
-        r#"{"purpose":"Compute data transform Host/Worker acceptance","lifetime":"remove on success; retain failures"}"#,
+        json!({"purpose": format!("Compute {purpose} Host/Worker acceptance"), "lifetime": "remove on success; retain failures"}).to_string(),
     )
     .unwrap();
     let metadata =
         crate::metadata_store::MetadataStore::open(&root.join("metadata.sqlite3")).unwrap();
     let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
     let runtimes = NativePiManager::new(16);
-    let workspace = "27a89235-43d6-47be-9b76-b8578c05ea86";
     runtimes
         .register_tool_session(RuntimeTarget::new(
-            workspace,
+            WORKSPACE,
             "table-preview",
             "table-runtime",
         ))
@@ -47,17 +46,24 @@ async fn data_transform_preview_frozen_host_results() {
     )
     .await
     .unwrap();
-    let plugin = "com.zicode.devtools.compute";
     {
         let mut registry = host.state.plugins.lock().unwrap();
-        assert_eq!(registry.install_developer(&candidate).unwrap(), plugin);
-        registry.set_enabled("programming", plugin, true).unwrap();
+        assert_eq!(registry.install_developer(&candidate).unwrap(), PLUGIN);
+        registry.set_enabled("programming", PLUGIN, true).unwrap();
     }
     host.state
         .capability_broker
         .lock()
         .unwrap()
         .worker_executable = Some(executable);
+    (root, host)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires frozen Compute package, its external receipt and a production Windows Worker"]
+async fn data_transform_preview_frozen_host_results() {
+    let (root, host) = start_compute_host("transform-preview").await;
+    let (workspace, plugin) = (WORKSPACE, PLUGIN);
 
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
     let endpoint = format!("{}/v2/plugin-capabilities/invoke", host.origin());
@@ -362,6 +368,89 @@ async fn data_transform_preview_frozen_host_results() {
         println!("DATA_QUALITY_REPORT format={format} bytes={}", text.len());
     }
 
+    host.stop_and_wait().await.unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires frozen Compute 0.2.0, its external receipt and a production Windows Worker"]
+async fn data_workbench_frozen_host_exports() {
+    let (root, host) = start_compute_host("workbench-export").await;
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let endpoint = format!("{}/v2/plugin-capabilities/invoke", host.origin());
+    let input = r#"{"headers":["id","name"],"rows":[[18446744073709551615,"甲,组"],[9223372036854775807,"乙"],[-9223372036854775808,"丙"]]}"#;
+    for (mode, format, mime_type) in [
+        ("json", "json", "application/json"),
+        ("csv", "csv", "text/csv"),
+        ("query", "json", "application/json"),
+        ("query", "csv", "text/csv"),
+        ("query", "tsv", "text/tab-separated-values"),
+    ] {
+        let operation = format!("table.{mode}");
+        let options = if mode == "query" {
+            json!({"format":"json","query":"甲","output":format})
+        } else {
+            json!({"format":"json"})
+        };
+        let request = json!({
+            "workspaceId": WORKSPACE, "sceneId": "programming", "pluginId": PLUGIN,
+            "capabilityId": format!("devtools.compute.{operation}"), "captureResult": true,
+            "input": {"text": input, "options": options.to_string()},
+        });
+        let response = client
+            .post(&endpoint)
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&request)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let response: Value = response.json().await.unwrap();
+        assert_eq!(
+            response["result"]["ok"], true,
+            "{mode}/{format}: {response}"
+        );
+        let report: Value =
+            serde_json::from_str(response["result"]["data"]["text"].as_str().unwrap()).unwrap();
+        let output = report["text"].as_str().unwrap();
+        assert_eq!(report["format"], format);
+        assert_eq!(report["inputRows"], 3);
+        assert_eq!(report["selectedRows"], if mode == "query" { 1 } else { 3 });
+        match (mode, format) {
+            ("json", "json") => {
+                let rows: Value = serde_json::from_str(output).unwrap();
+                assert_eq!(rows, json!([{"id":u64::MAX,"name":"甲,组"},{"id":i64::MAX,"name":"乙"},{"id":i64::MIN,"name":"丙"}]));
+            }
+            ("csv", "csv") => assert_eq!(output, "id,name\n18446744073709551615,\"甲,组\"\n9223372036854775807,乙\n-9223372036854775808,丙\n"),
+            ("query", "json") => assert_eq!(serde_json::from_str::<Value>(output).unwrap(), json!([{"id":u64::MAX,"name":"甲,组"}])),
+            ("query", "csv") => assert_eq!(output, "id,name\n18446744073709551615,\"甲,组\"\n"),
+            ("query", "tsv") => assert_eq!(output, "id\tname\n18446744073709551615\t甲,组\n"),
+            _ => unreachable!(),
+        }
+        for alternate in ["csv", "tsv", "json"] {
+            if alternate != format {
+                assert!(response["resultRef"][format!("{alternate}Export")].is_null());
+            }
+        }
+        verify_table_export(
+            &host,
+            &root,
+            WORKSPACE,
+            &response,
+            ExportCase {
+                format,
+                mime_type,
+                operation: &operation,
+                stem: "data-workbench",
+                expected: output,
+                revoke: true,
+            },
+        );
+        println!(
+            "DATA_WORKBENCH_EXPORT {mode}/{format} bytes={}",
+            output.len()
+        );
+    }
     host.stop_and_wait().await.unwrap();
     std::fs::remove_dir_all(root).unwrap();
 }

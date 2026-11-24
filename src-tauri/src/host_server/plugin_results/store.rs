@@ -34,17 +34,22 @@ impl Record {
 #[derive(Clone, Default)]
 pub(super) struct TableExports {
     pub csv: Option<Arc<str>>,
+    pub tsv: Option<Arc<str>>,
     pub json: Option<Arc<str>>,
 }
 
 impl TableExports {
     fn payload_bytes(&self) -> usize {
         self.csv.as_ref().map_or(0, |csv| csv.len())
+            + self.tsv.as_ref().map_or(0, |tsv| tsv.len())
             + self.json.as_ref().map_or(0, |json| json.len())
     }
 }
 
 fn table_exports(scope: &Scope, text: &str) -> Option<TableExports> {
+    if let Some(operation) = scope.workbench_export_operation() {
+        return workbench_exports(operation, text);
+    }
     scope.table_export_stem()?;
     #[derive(Deserialize)]
     struct Output<'a> {
@@ -62,7 +67,39 @@ fn table_exports(scope: &Scope, text: &str) -> Option<TableExports> {
         .map(RawValue::get)
         .filter(|raw| raw.len() <= MAX_TABLE_EXPORT_BYTES && is_columnar_table(raw))
         .map(Arc::from);
-    Some(TableExports { csv, json })
+    Some(TableExports {
+        csv,
+        json,
+        tsv: None,
+    })
+}
+
+fn workbench_exports(operation: &str, output: &str) -> Option<TableExports> {
+    #[derive(Deserialize)]
+    struct Output<'a> {
+        format: &'a str,
+        text: String,
+    }
+    let Output { format, text } = serde_json::from_str(output).ok()?;
+    if (operation != "query" && operation != format)
+        || text.is_empty()
+        || text.len() > MAX_TABLE_EXPORT_BYTES
+    {
+        return None;
+    }
+    let mut exports = TableExports::default();
+    match format {
+        "csv" => exports.csv = Some(text.into()),
+        "tsv" => exports.tsv = Some(text.into()),
+        "json"
+            if serde_json::from_str::<Vec<&RawValue>>(&text)
+                .is_ok_and(|rows| rows.iter().all(|row| row.get().starts_with('{'))) =>
+        {
+            exports.json = Some(text.into())
+        }
+        _ => return None,
+    }
+    Some(exports)
 }
 
 fn is_quality_report_json(text: &str) -> bool {
@@ -220,23 +257,26 @@ impl Store {
                 "contentVersion": sha256_hex(bytes),
             });
         }
-        if let Some(csv) = &table_exports.csv {
-            descriptor["csvExport"] = json!({
-                "mimeType": "text/csv",
-                "byteLength": csv.len(),
-                "contentVersion": sha256_hex(csv.as_bytes()),
-            });
-        }
-        if let Some(json) = table_exports
+        let json = table_exports
             .json
             .as_deref()
-            .or(quality_report_json.then_some(text.as_str()))
-        {
-            descriptor["jsonExport"] = json!({
-                "mimeType": "application/json",
-                "byteLength": json.len(),
-                "contentVersion": sha256_hex(json.as_bytes()),
-            });
+            .or(quality_report_json.then_some(text.as_str()));
+        for (name, mime, content) in [
+            ("csvExport", "text/csv", table_exports.csv.as_deref()),
+            (
+                "tsvExport",
+                "text/tab-separated-values",
+                table_exports.tsv.as_deref(),
+            ),
+            ("jsonExport", "application/json", json),
+        ] {
+            if let Some(content) = content {
+                descriptor[name] = json!({
+                    "mimeType": mime,
+                    "byteLength": content.len(),
+                    "contentVersion": sha256_hex(content.as_bytes()),
+                });
+            }
         }
         self.records.insert(
             id.clone(),
@@ -372,6 +412,29 @@ mod tests {
             table_exports(&scope, &text).unwrap().json.as_deref(),
             Some(empty)
         );
+    }
+
+    #[test]
+    fn workbench_exports_are_exact_and_bound_to_output_format() {
+        let table = r#" [ {"i": 18446744073709551615, "f": 1.2300e-7} ] "#;
+        let report = |format: &str, text: &str| json!({"format":format,"text":text}).to_string();
+        let exported = workbench_exports("json", &report("json", table)).unwrap();
+        assert_eq!(exported.json.as_deref(), Some(table));
+        assert_eq!(exported.payload_bytes(), table.len());
+        assert!(exported.csv.is_none() && exported.tsv.is_none());
+        assert!(workbench_exports("csv", &report("json", table)).is_none());
+        assert!(workbench_exports("json", &report("json", r#"[42]"#)).is_none());
+        assert!(workbench_exports("query", &report("json", r#"{"x":1}"#)).is_none());
+        assert!(workbench_exports("query", &report("plain", "unsupported")).is_none());
+        assert!(workbench_exports("query", &report("tsv", "")).is_none());
+        let tsv = "甲\t乙\r\n1\t2\r\n";
+        let exported = workbench_exports("query", &report("tsv", tsv)).unwrap();
+        assert_eq!(exported.tsv.as_deref(), Some(tsv));
+        assert_eq!(exported.payload_bytes(), tsv.len());
+        assert!(exported.csv.is_none() && exported.json.is_none());
+        let limit = "x".repeat(MAX_TABLE_EXPORT_BYTES);
+        assert!(workbench_exports("csv", &report("csv", &limit)).is_some());
+        assert!(workbench_exports("csv", &report("csv", &format!("{limit}x"))).is_none());
     }
 
     #[test]

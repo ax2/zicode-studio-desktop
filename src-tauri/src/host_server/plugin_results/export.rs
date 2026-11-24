@@ -11,6 +11,7 @@ enum Format {
     Text,
     Png,
     Csv,
+    Tsv,
     Json,
 }
 impl Format {
@@ -19,6 +20,7 @@ impl Format {
             Self::Text => "result.export.text.draft1",
             Self::Png => "result.export.png.v1",
             Self::Csv => "result.export.csv.v1",
+            Self::Tsv => "result.export.tsv.v1",
             Self::Json => "result.export.json.v1",
         }
     }
@@ -28,6 +30,7 @@ impl Format {
             Self::Text => "text/plain",
             Self::Png => "image/png",
             Self::Csv => "text/csv",
+            Self::Tsv => "text/tab-separated-values",
             Self::Json => "application/json",
         }
     }
@@ -37,6 +40,7 @@ impl Format {
             Self::Text => None,
             Self::Png => Some("png"),
             Self::Csv => Some("csv"),
+            Self::Tsv => Some("tsv"),
             Self::Json => Some("json"),
         }
     }
@@ -51,6 +55,12 @@ impl Format {
             Self::Csv => record
                 .table
                 .csv
+                .as_deref()
+                .map(str::as_bytes)
+                .ok_or_else(|| rejected("result_export_format_unavailable")),
+            Self::Tsv => record
+                .table
+                .tsv
                 .as_deref()
                 .map(str::as_bytes)
                 .ok_or_else(|| rejected("result_export_format_unavailable")),

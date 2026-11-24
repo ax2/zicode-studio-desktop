@@ -18,6 +18,7 @@ pub(crate) async fn select_result_text_export(app: AppHandle, window: WebviewWin
                     "json" => "JSON",
                     "png" => "PNG",
                     "csv" => "CSV",
+                    "tsv" => "TSV",
                     _ => "Text",
                 };
                 picker.add_filter(label, &[&extension])

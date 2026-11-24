@@ -172,6 +172,11 @@ it.each([
   { format: "json", capabilityId: "devtools.compute.quality.json", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compute.quality.csv", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compute.quality.tsv", mimeType: "application/json", label: "Save JSON as…" },
+  { format: "json", capabilityId: "devtools.compute.table.json", mimeType: "application/json", label: "Save JSON as…" },
+  { format: "csv", capabilityId: "devtools.compute.table.csv", mimeType: "text/csv", label: "Save CSV as…" },
+  { format: "json", capabilityId: "devtools.compute.table.query", mimeType: "application/json", label: "Save JSON as…" },
+  { format: "csv", capabilityId: "devtools.compute.table.query", mimeType: "text/csv", label: "Save CSV as…" },
+  { format: "tsv", capabilityId: "devtools.compute.table.query", mimeType: "text/tab-separated-values", label: "Save TSV as…" },
 ] as const)("saves only a Host-verified $format after choosing and confirming a destination", async ({
   format, capabilityId, mimeType, label,
 }) => {
@@ -213,4 +218,18 @@ it.each([
   expect(busy.mock.calls).toEqual([[true], [false]]);
   expect(container.querySelector("dialog")?.textContent).toContain("Saved copy:");
   expect(gateway.prepareSave).not.toHaveBeenCalled();
+});
+
+it("rejects a Workbench TSV descriptor labeled as CSV", async () => {
+  const owner = { ...scope, pluginId: "com.zicode.devtools.compute", capabilityId: "devtools.compute.table.query" };
+  const exports = { choose: vi.fn(), commit: vi.fn(), cancel: vi.fn(), verify: vi.fn() };
+  const resultId = "22222222-2222-4222-8222-222222222222";
+  const { container, render } = await mount(owner, exports);
+  await render(resultId, owner.workspaceId, {
+    result: { ok: true, data: { text: "report" } },
+    resultRef: { schemaVersion: 1, resultId, tsvExport: { mimeType: "text/csv", byteLength: 16, contentVersion: "a".repeat(64) } },
+  });
+  expect(container.textContent).not.toContain("Save TSV as…");
+  expect(container.textContent).not.toContain("Save CSV as…");
+  expect(exports.choose).not.toHaveBeenCalled();
 });

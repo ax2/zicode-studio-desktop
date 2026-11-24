@@ -29,6 +29,16 @@ impl Scope {
             )
     }
 
+    fn workbench_export_operation(&self) -> Option<&str> {
+        if self.plugin_id != "com.zicode.devtools.compute" {
+            return None;
+        }
+        match self.capability_id.strip_prefix("devtools.compute.table.")? {
+            operation @ ("json" | "csv" | "query") => Some(operation),
+            _ => None,
+        }
+    }
+
     fn table_export_stem(&self) -> Option<&'static str> {
         if self.plugin_id != "com.zicode.devtools.compute" {
             return None;
@@ -44,6 +54,7 @@ impl Scope {
             | "devtools.compute.merge.inner"
             | "devtools.compute.merge.append"
             | "devtools.compute.merge.columns" => Some("csv-merge"),
+            _ if self.workbench_export_operation().is_some() => Some("data-workbench"),
             _ => None,
         }
     }
