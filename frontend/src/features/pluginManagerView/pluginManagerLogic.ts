@@ -2,6 +2,16 @@ import { t } from "../../shared/i18n";
 
 export type PluginManagerFilter = "installed" | "builtIn" | "disabled" | "developer" | "signed";
 
+export interface PluginActivationReview {
+  packageRevision: string;
+  sceneRevision: string;
+}
+
+export interface PluginInstallReceipt {
+  pluginId: string;
+  packageRevision: string;
+}
+
 export interface ManagedPlugin {
   id: string;
   name: string;
@@ -16,6 +26,7 @@ export interface ManagedPlugin {
   publisherKeyId?: string;
   retainedVersions?: string[];
   permissions?: Record<string, boolean>;
+  activationReview?: PluginActivationReview | null;
   permissionDetails?: {
     required?: Array<{ name: string; reason?: string }>;
     optional?: Array<{ name: string; reason?: string }>;
@@ -72,6 +83,8 @@ export function helpPageForPlugin(pluginId: string): string | null {
 export function friendlyPluginError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   const fallbacks: Array<[RegExp, string]> = [
+    [/cannot replace signed plugin/i, t("A signed plugin with this ID is already installed.")],
+    [/changed after review/i, t("Plugin or permissions changed. Review them again.")],
     [/changed after preview/i, t("The plugin package changed after preview. Select it again.")],
     [/must use the \.zicode-plugin extension/i, t("Choose a .zicode-plugin package file.")],
     [

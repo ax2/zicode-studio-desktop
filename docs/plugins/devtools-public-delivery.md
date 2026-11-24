@@ -45,7 +45,7 @@ $result | Select-Object fileCount,logicalBytes,directoryIndex,signatureVerified
 (Resolve-Path "$dest/$dir").Path
 ```
 
-在 Studio 的插件管理中选择安装开发插件，选择最后一行输出的、直接包含 `plugin.json` 的目录。检查插件声明后按需启用和授权，再到工具中心搜索具体工具。这些候选未签名。文件收据用于核对包的来源字节，各工具的实际功能和 Windows 验收范围见[逐项接入记录](devtools-all-tools.md)。
+在 Studio 的插件管理中选择「安装本地插件」，打开命令最后一行列出的、包含 `plugin.json` 的目录，核对来源后确认安装。从 v0.7.9 起，安装后可直接核对权限用途，勾选所需权限并启用，或选择「保持停用」。无需权限的插件可直接按「启用插件」。启用后可从安装结果打开具体工具，也可在工具中心搜索。这些候选未签名。文件收据用于核对包的来源字节，各工具的实际功能和 Windows 验收范围见[逐项接入记录](devtools-all-tools.md)。
 
 本次在空目录按以上命令从公开提交取得 Inspect，工作树中只有所选候选、外部收据、字节属性和核验工具。616 个文件共 2341254 字节，目录索引 SHA-256 为 `1d3af04bb9e35fa9594a673ff71058e56ffbb94e516f4086dba275472d1678ee`。当前 Windows Studio 的真实 Host/Worker 隔离测试用这份下载完成 8 项 Inspect 操作。其他八包在本次只复核了目录与收据。
 

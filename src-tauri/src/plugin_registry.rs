@@ -111,6 +111,7 @@ struct PluginListing<'a> {
     permission_grants: BTreeMap<String, bool>,
     publisher_key_id: Option<String>,
     retained_versions: Vec<String>,
+    activation_review: Option<PluginActivationReview>,
 }
 
 impl PluginListing<'_> {
@@ -199,6 +200,20 @@ pub struct DeveloperPluginPreview {
     pub publisher: String,
     pub permissions: Vec<String>,
     pub capability_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PluginActivationReview {
+    pub package_revision: uuid::Uuid,
+    pub scene_revision: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PluginInstallReceipt {
+    pub plugin_id: String,
+    pub package_revision: uuid::Uuid,
 }
 
 #[derive(Clone, Debug)]
@@ -406,6 +421,7 @@ impl PluginRegistry {
                         .as_ref()
                         .map(|(key_id, _)| key_id.clone()),
                     retained_versions: plugin.retained_versions.clone(),
+                    activation_review: self.activation_review(scene_id, plugin),
                 }
             })
             .collect()
@@ -626,6 +642,83 @@ impl PluginRegistry {
         self.view_snapshot(scene_id, plugin_id, view_id)?.read()
     }
 
+    pub(crate) fn installation_receipt(
+        &self,
+        plugin_id: String,
+    ) -> Result<PluginInstallReceipt, String> {
+        let plugin = self.plugins.get(&plugin_id).ok_or("Installed plugin was not discovered")?;
+        Ok(PluginInstallReceipt {
+            plugin_id,
+            package_revision: plugin.execution_revision,
+        })
+    }
+
+    fn activation_review(
+        &self,
+        scene_id: &str,
+        plugin: &InstalledPlugin,
+    ) -> Option<PluginActivationReview> {
+        if plugin.origin == PluginOrigin::BuiltIn {
+            return None;
+        }
+        let (package_revision, state_revision) = self.execution_revision(scene_id, &plugin.manifest.id);
+        Some(PluginActivationReview {
+            package_revision,
+            scene_revision: format!("{scene_id}:{state_revision}"),
+        })
+    }
+
+    pub(crate) fn activate_reviewed(
+        &mut self,
+        scene_id: &str,
+        plugin_id: &str,
+        review: &PluginActivationReview,
+        grants: &[String],
+    ) -> Result<(), String> {
+        validate_scene_id(scene_id)?;
+        let plugin = self
+            .plugins
+            .get(plugin_id)
+            .ok_or("Reviewed plugin is no longer installed")?;
+        if self.activation_review(scene_id, plugin).as_ref() != Some(review) {
+            return Err("Plugin or permissions changed after review; review them again".into());
+        }
+        if self.plugin_enabled(scene_id, plugin) {
+            return Err("Reviewed plugin is already enabled".into());
+        }
+        let declared = all_permissions(&plugin.manifest);
+        if grants.iter().any(|grant| !declared.contains(grant)) {
+            return Err("Plugin activation contains an undeclared permission".into());
+        }
+        for permission in &plugin.manifest.permissions.required {
+            if !grants.contains(&permission.name)
+                && !self.plugin_permission_granted(scene_id, plugin, &permission.name)
+            {
+                return Err(format!("Required permission {} is not granted", permission.name));
+            }
+        }
+        let pi_granted = grants.iter().any(|grant| grant == "pi.tools.register")
+            || self.plugin_permission_granted(scene_id, plugin, "pi.tools.register");
+        self.ensure_pi_tool_names_available(scene_id, plugin_id, Some(pi_granted))?;
+
+        let mut next = self.state.clone();
+        let state = next
+            .scenes
+            .entry(scene_id.to_string())
+            .or_default()
+            .entry(plugin_id.to_string())
+            .or_default();
+        state.enabled = Some(true);
+        for grant in grants {
+            state.permissions.insert(grant.clone(), true);
+        }
+        state.execution_revision = uuid::Uuid::new_v4();
+        self.save_state(&next)?;
+        self.state = next;
+        self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Ok(())
+    }
+
     pub fn set_enabled(
         &mut self,
         scene_id: &str,
@@ -786,6 +879,13 @@ impl PluginRegistry {
         {
             return Err(format!(
                 "Developer package cannot replace built-in plugin {}",
+                manifest.id
+            ));
+        }
+
+        if self.root.join("signed").join(&manifest.id).exists() {
+            return Err(format!(
+                "Developer package cannot replace signed plugin {}",
                 manifest.id
             ));
         }
@@ -1536,22 +1636,22 @@ impl PluginRegistry {
     }
 
     fn save(&self) -> Result<(), String> {
-        self.result_epoch
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.save_state(&self.state)
+    }
+
+    fn save_state(&self, state: &RegistryState) -> Result<(), String> {
+        use std::io::Write as _;
+
         let destination = self.root.join("registry.json");
-        let temporary = self
-            .root
-            .join(format!("registry.json.tmp-{}", std::process::id()));
-        let bytes = serde_json::to_vec_pretty(&self.state)
-            .map_err(|error| format!("Cannot serialize plugin registry: {error}"))?;
-        fs::write(&temporary, bytes)
-            .map_err(|error| format!("Cannot write {}: {error}", temporary.display()))?;
-        if destination.exists() {
-            fs::remove_file(&destination)
-                .map_err(|error| format!("Cannot replace {}: {error}", destination.display()))?;
-        }
-        fs::rename(&temporary, &destination)
-            .map_err(|error| format!("Cannot finish {}: {error}", destination.display()))
+        let mut temporary = tempfile::NamedTempFile::new_in(&self.root)
+            .map_err(|error| format!("Cannot prepare plugin registry state: {error}"))?;
+        serde_json::to_writer_pretty(&mut temporary, state)
+            .map_err(|error| format!("Cannot write plugin registry state: {error}"))?;
+        temporary.flush().map_err(|error| format!("Cannot flush plugin registry state: {error}"))?;
+        temporary.persist(&destination)
+            .map_err(|error| format!("Cannot replace {}: {error}", destination.display()))?;
+        Ok(())
     }
 }
 

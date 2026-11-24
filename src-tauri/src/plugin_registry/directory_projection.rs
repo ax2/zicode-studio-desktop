@@ -58,6 +58,7 @@ pub(super) fn summary(plugin: &PluginListing<'_>) -> Value {
         "permissionGrants": plugin.permission_grants,
         "publisherKeyId": plugin.publisher_key_id,
         "retainedVersions": plugin.retained_versions,
+        "activationReview": plugin.activation_review,
     })
 }
 
@@ -102,6 +103,7 @@ mod tests {
             permission_grants: BTreeMap::new(),
             publisher_key_id: None,
             retained_versions: Vec::new(),
+            activation_review: None,
         };
         let output = summary(&plugin);
         assert_eq!(

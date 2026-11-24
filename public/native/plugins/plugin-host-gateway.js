@@ -32,6 +32,13 @@ export class PluginHostGateway {
     });
   }
 
+  activateReviewed(sceneId, pluginId, review, grants) {
+    return this.#request(this.#url("/v2/plugins/activate-reviewed"), {
+      method: "POST",
+      body: JSON.stringify({ sceneId, pluginId, review, grants }),
+    });
+  }
+
   setPermission(sceneId, pluginId, permission, granted) {
     return this.#request(this.#url("/v2/plugins/permission"), {
       method: "POST",

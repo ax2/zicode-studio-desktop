@@ -31,6 +31,70 @@ function registry() {
 
 const originalMatchMedia = globalThis.matchMedia;
 
+it("installs an independent tool, applies explicit authorization, and opens its current directory entry without running it", async () => {
+  const target = { sceneId: "programming", workspaceId: "fixture" };
+  const pluginId = "com.example.reviewed-json";
+  const packageRevision = "installation-1";
+  let installed = false;
+  let enabled = false;
+  const review = () => ({ packageRevision, sceneRevision: enabled ? "programming:enabled" : "programming:disabled" });
+  const base = { id: "core.chat", name: "Chat", origin: "builtIn", core: true, enabled: true };
+  const hostGateway = {
+    list: vi.fn(async () => ({ plugins: installed ? [base, {
+      id: pluginId, name: "JSON Files", origin: "developer", enabled, version: "0.1.0",
+      activationReview: review(), permissionGrants: { "resource.read": enabled },
+      permissions: { required: [{ name: "resource.read", reason: "Read the chosen file" }], optional: [] },
+      contributes: { capabilities: [{ id: "json.pretty", title: "Pretty JSON" }] },
+    }] : [base] })),
+    activateReviewed: vi.fn(async () => { enabled = true; }),
+  };
+  const pluginRegistry = new BuiltinPluginRegistry({ hostGateway });
+  const tool = {
+    toolId: "json-pretty", accessId: "manual.tool:json-pretty", pluginId, capabilityId: "json.pretty",
+    title: "Pretty JSON", applicationName: "JSON Files", version: "0.1.0", enabled: true, runtime: "wasi",
+  };
+  const capabilityGateway = {
+    searchTools: vi.fn(async () => ({ items: enabled ? [tool] : [], total: enabled ? 1 : 0, revision: "catalog", nextOffset: null })),
+    loadTool: vi.fn(async () => ({ pluginId, version: "0.1.0", revision: "catalog", enabled: true,
+      capability: { id: tool.capabilityId, inputSchema: { type: "object", properties: { text: { type: "string" } } } },
+      permissions: [] })),
+    invoke: vi.fn(),
+  };
+  const shell = setupPluginShell({
+    registry: pluginRegistry, capabilityGateway, getTarget: () => target,
+    selectDeveloperPlugin: async () => ({ pluginId, name: "JSON Files", version: "0.1.0", publisher: "Fixture",
+      sourcePath: "C:/fixtures", contentSha256: "a".repeat(64), capabilityCount: 1, permissions: ["resource.read"] }),
+    installDeveloperPlugin: async () => { installed = true; return { pluginId, packageRevision }; },
+  });
+  const byText = (text) => [...document.querySelectorAll("button")].find((button) => button.textContent === text);
+  const click = async (text) => {
+    await vi.waitFor(() => expect(byText(text)).toBeTruthy());
+    byText(text).click();
+  };
+  try {
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.chat"));
+    await shell.activate("core.pluginManager", { focus: false });
+    await click("Install local plugin");
+    await click("Install reviewed plugin");
+    await vi.waitFor(() => expect(document.querySelector(".plugin-onboarding-permissions input")).toBeTruthy());
+    expect(hostGateway.activateReviewed).not.toHaveBeenCalled();
+    document.querySelector(".plugin-onboarding-permissions input").click();
+    await click("Authorize and enable");
+    await vi.waitFor(() => expect(hostGateway.activateReviewed).toHaveBeenCalledWith(
+      "programming", pluginId, { packageRevision, sceneRevision: "programming:disabled" }, ["resource.read"],
+    ));
+    expect(capabilityGateway.invoke).not.toHaveBeenCalled();
+    await click("Open Pretty JSON");
+    await vi.waitFor(() => expect(capabilityGateway.loadTool).toHaveBeenCalledWith(
+      "programming", { pluginId, capabilityId: "json.pretty", revision: "catalog" },
+    ));
+    expect(shell.getActivePluginId()).toBe("core.tools");
+    expect(capabilityGateway.invoke).not.toHaveBeenCalled();
+  } finally {
+    shell.destroy();
+  }
+});
+
 it("revalidates a View operation before navigation and records recent only after acknowledgement", async () => {
   const target = { sceneId: "programming", workspaceId: "fixture", sessionId: "session-a" };
   const pluginId = "com.example.view-operation";

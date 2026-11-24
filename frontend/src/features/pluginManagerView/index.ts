@@ -7,7 +7,8 @@ import {
   PluginManagerViewApp,
 } from "./PluginManagerViewApp";
 import type { SignedPluginPreview } from "./SignedPluginPreviewCard";
-import type { PluginManagerFilter } from "./pluginManagerLogic";
+import type { PluginInstallReceipt, PluginManagerFilter } from "./pluginManagerLogic";
+import type { InstalledToolActions } from "./LocalPluginActivationCard";
 
 let activeRoot: Root | null = null;
 let activeWrapper: HTMLElement | null = null;
@@ -23,13 +24,14 @@ export interface PluginManagerViewOptions {
   notify?(message: string): void;
   renderIcon?(icon: string | undefined): HTMLElement;
   selectDeveloperPlugin?: (() => Promise<DeveloperPluginPreview | null | undefined>) | null;
-  installDeveloperPlugin?: ((sourcePath: string, contentSha256: string) => Promise<string | null | undefined>) | null;
+  installDeveloperPlugin?: ((sourcePath: string, contentSha256: string) => Promise<PluginInstallReceipt | null | undefined>) | null;
   selectSignedPlugin?: (() => Promise<SignedPluginPreview | null | undefined>) | null;
   installSignedPlugin?: ((
     packagePath: string,
     manifestSha256: string,
     requireConfirmation: boolean,
-  ) => Promise<string | null | undefined>) | null;
+  ) => Promise<PluginInstallReceipt | null | undefined>) | null;
+  installedTools?: InstalledToolActions;
   rollbackSignedPlugin?: ((id: string, version: string) => Promise<unknown>) | null;
   revokePublisher?: ((publisherKeyId: string) => Promise<unknown>) | null;
   initialFilter?: PluginManagerFilter;
@@ -72,6 +74,7 @@ export function renderPluginManagerView(options: PluginManagerViewOptions): void
         installDeveloperPlugin: rest.installDeveloperPlugin,
         selectSignedPlugin: rest.selectSignedPlugin,
         installSignedPlugin: rest.installSignedPlugin,
+        installedTools: rest.installedTools,
         rollbackSignedPlugin: rest.rollbackSignedPlugin,
         revokePublisher: rest.revokePublisher,
         openHelp: rest.openHelp,

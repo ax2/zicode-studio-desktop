@@ -205,3 +205,20 @@ describe("BuiltinPluginRegistry", () => {
     expect(registry.get("com.example.local")).toBeNull();
   });
 });
+
+it("keeps the post-activation snapshot when an older registry refresh arrives later", async () => {
+  const pluginId = "com.example.reviewed";
+  const enabled = { id: pluginId, name: "Reviewed tool", origin: "developer", enabled: true };
+  let finishOld;
+  const old = new Promise((resolve) => { finishOld = resolve; });
+  const list = vi.fn().mockReturnValueOnce(old).mockResolvedValue({ plugins: [enabled] });
+  const activateReviewed = vi.fn(async () => {});
+  const registry = new BuiltinPluginRegistry({ hostGateway: { list, activateReviewed } });
+  const pending = registry.setScene("programming");
+  const review = { packageRevision: "package", sceneRevision: "scene" };
+  await registry.activateReviewed(pluginId, review, ["resource.read"]);
+  finishOld({ plugins: [{ ...enabled, enabled: false }] });
+  await pending;
+  expect(registry.isEnabled(pluginId)).toBe(true);
+  expect(activateReviewed).toHaveBeenCalledWith("programming", pluginId, review, ["resource.read"]);
+});

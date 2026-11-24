@@ -3,12 +3,15 @@ import { flushSync } from "react-dom";
 import { matchesSearchTerms, prepareSearchQuery } from "../../shared/catalog-search";
 import { t } from "../../shared/i18n";
 import { PluginCatalog } from "./PluginCatalog";
+import { LocalPluginActivationCard, type InstalledToolActions } from "./LocalPluginActivationCard";
 import { SignedPluginPreviewCard, type SignedPluginPreview } from "./SignedPluginPreviewCard";
 import {
   friendlyPluginError,
   helpPageForPlugin,
   MANAGER_FILTERS,
   type ManagedPlugin,
+  type PluginActivationReview,
+  type PluginInstallReceipt,
   matchesFilter,
   type PluginManagerFilter,
 } from "./pluginManagerLogic";
@@ -18,6 +21,7 @@ export interface PluginManagerRegistry {
   diagnostics?(): Array<{ package: string; message: string }>;
   setEnabled?(id: string, enabled: boolean): Promise<unknown>;
   setPermission?(id: string, name: string, granted: boolean): Promise<unknown>;
+  activateReviewed?(id: string, review: PluginActivationReview, grants: string[]): Promise<unknown>;
   setScene?(sceneId: string): Promise<unknown>;
   reload?(): Promise<unknown>;
   uninstall?(id: string): Promise<unknown>;
@@ -77,6 +81,7 @@ export function PluginManagerViewApp({
   installDeveloperPlugin,
   selectSignedPlugin,
   installSignedPlugin,
+  installedTools,
   rollbackSignedPlugin,
   revokePublisher,
   initialFilter = "installed",
@@ -87,15 +92,16 @@ export function PluginManagerViewApp({
 }: {
   registry: PluginManagerRegistry;
   canManagePlugins?: boolean;
-  getTarget?(): { sceneId?: string } | null;
+  getTarget?(): { sceneId?: string; workspaceId?: string } | null;
   notify?(message: string): void;
   renderIcon?(icon: string | undefined): HTMLElement;
   selectDeveloperPlugin?: (() => Promise<DeveloperPluginPreview | null | undefined>) | null;
-  installDeveloperPlugin?: ((sourcePath: string, contentSha256: string) => Promise<string | null | undefined>) | null;
+  installDeveloperPlugin?: ((sourcePath: string, contentSha256: string) => Promise<PluginInstallReceipt | null | undefined>) | null;
   selectSignedPlugin?: (() => Promise<SignedPluginPreview | null | undefined>) | null;
   installSignedPlugin?:
-    | ((packagePath: string, manifestSha256: string, requireConfirmation: boolean) => Promise<string | null | undefined>)
+    | ((packagePath: string, manifestSha256: string, requireConfirmation: boolean) => Promise<PluginInstallReceipt | null | undefined>)
     | null;
+  installedTools?: InstalledToolActions;
   rollbackSignedPlugin?: ((id: string, version: string) => Promise<unknown>) | null;
   revokePublisher?: ((publisherKeyId: string) => Promise<unknown>) | null;
   initialFilter?: PluginManagerFilter;
@@ -110,6 +116,16 @@ export function PluginManagerViewApp({
   const [developerPreview, setDeveloperPreview] = useState<DeveloperPluginPreview | null>(null);
   const [signedPreview, setSignedPreview] = useState<SignedPluginPreview | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [activation, setActivation] = useState<PluginInstallReceipt | null>(null);
+  const [deferred, setDeferred] = useState(false);
+  const installBusy = Boolean(busy["preview-local"] || busy["preview-signed"] || busy["install-local"] || busy["install-signed"]);
+  const selectedPlugin = activation && registry.list().find((plugin) => plugin.id === activation.pluginId &&
+    plugin.activationReview?.packageRevision === activation.packageRevision);
+
+  const showActivation = (receipt: PluginInstallReceipt) => {
+    setActivation(receipt);
+    setDeferred(false);
+  };
 
   const setBusyKey = (key: string, value: boolean) => {
     setBusy((current) => ({ ...current, [key]: value }));
@@ -117,6 +133,17 @@ export function PluginManagerViewApp({
 
   const sceneId = getTarget?.()?.sceneId ?? "programming";
 
+  const scopeKey = () => {
+    const target = getTarget?.();
+    return JSON.stringify([target?.sceneId ?? "programming", target?.workspaceId ?? null]);
+  };
+  const completeInstall = async (receipt: PluginInstallReceipt, scope: string, closePreview: () => void) => {
+    closePreview();
+    if (scopeKey() !== scope) return;
+    await registry.setScene?.(sceneId);
+    if (scopeKey() !== scope) return;
+    showActivation(receipt);
+  };
   const categoryPlugins = registry.list().filter((plugin) => matchesFilter(plugin, activeFilter));
   const searchTerms = prepareSearchQuery(query);
   const plugins = categoryPlugins.filter((plugin) =>
@@ -152,6 +179,7 @@ export function PluginManagerViewApp({
   const renderCard = (plugin: ManagedPlugin) => {
     const isDeveloperOrSigned = plugin.origin === "developer" || plugin.origin === "signed";
     const helpPage = helpPageForPlugin(plugin.id);
+    const activationReview = plugin.activationReview;
     const permissions = [
       ...(plugin.permissionDetails?.required ?? []),
       ...(plugin.permissionDetails?.optional ?? []),
@@ -183,6 +211,10 @@ export function PluginManagerViewApp({
               v{plugin.version}
             </span>
           )}
+          {activationReview && !plugin.enabled ? (
+            <span className="ui-badge">{t(plugin.permissionDetails?.required?.some(({ name }) => !plugin.permissions?.[name])
+              ? "Permission required" : "Disabled")}</span>
+          ) : null}
           <code>{plugin.id}</code>
           <p>{t(plugin.description)}</p>
         </div>
@@ -194,10 +226,17 @@ export function PluginManagerViewApp({
               onClick={() => openHelp(helpPage)}
             />
           ) : null}
+          {!plugin.enabled && activationReview && registry.activateReviewed ? (
+            <ActionButton
+              label={t("Review and enable")}
+              disabled={!canManagePlugins || installBusy || Boolean(busy.activation)}
+              onClick={() => showActivation({ pluginId: plugin.id, packageRevision: activationReview.packageRevision })}
+            />
+          ) : (
           <ActionButton
             label={t(plugin.core ? "Required" : plugin.enabled ? "Enabled" : "Disabled")}
             variant={plugin.enabled ? "ui-button--secondary" : "ui-button--ghost"}
-            disabled={plugin.core || !canManagePlugins}
+            disabled={plugin.core || !canManagePlugins || Boolean(busy.activation)}
             busy={Boolean(busy[`toggle-${plugin.id}`])}
             ariaPressed={Boolean(plugin.enabled)}
             onClick={() => {
@@ -206,11 +245,12 @@ export function PluginManagerViewApp({
               });
             }}
           />
+          )}
           {isDeveloperOrSigned ? (
             <ActionButton
               label={t("Uninstall")}
               variant="ui-button--danger"
-              disabled={!canManagePlugins}
+              disabled={!canManagePlugins || Boolean(busy.activation)}
               busy={Boolean(busy[`uninstall-${plugin.id}`])}
               onClick={async () => {
                 if (
@@ -294,7 +334,7 @@ export function PluginManagerViewApp({
                   <ActionButton
                     label={t(granted ? "Allowed" : "Denied")}
                     variant="ui-button--ghost"
-                    disabled={!canManagePlugins}
+                    disabled={!canManagePlugins || Boolean(busy.activation)}
                     busy={Boolean(busy[`permission-${plugin.id}-${permission.name}`])}
                     ariaPressed={granted}
                     onClick={() => {
@@ -332,7 +372,7 @@ export function PluginManagerViewApp({
         <ActionButton
           label={t("Install local plugin")}
           variant="ui-button--primary"
-          disabled={!canManagePlugins || typeof selectDeveloperPlugin !== "function" || typeof installDeveloperPlugin !== "function"}
+          disabled={!canManagePlugins || installBusy || Boolean(busy.activation) || typeof selectDeveloperPlugin !== "function" || typeof installDeveloperPlugin !== "function"}
           title={
             typeof selectDeveloperPlugin !== "function" || typeof installDeveloperPlugin !== "function"
               ? t("Local plugin installation is available in the desktop application.")
@@ -352,7 +392,7 @@ export function PluginManagerViewApp({
           label={t("Install signed package")}
           variant="ui-button--secondary"
           disabled={
-            !canManagePlugins ||
+            !canManagePlugins || installBusy || Boolean(busy.activation) ||
             typeof selectSignedPlugin !== "function" ||
             typeof installSignedPlugin !== "function"
           }
@@ -369,7 +409,7 @@ export function PluginManagerViewApp({
         <ActionButton
           label={t("Refresh")}
           variant="ui-button--secondary"
-          disabled={!canManagePlugins}
+          disabled={!canManagePlugins || installBusy || Boolean(busy.activation)}
           busy={Boolean(busy.refresh)}
           onClick={() => {
             void runAction("refresh", async () => {
@@ -386,7 +426,7 @@ export function PluginManagerViewApp({
           <p><code>{developerPreview.pluginId}</code></p>
           <p>{`${t("Declared tools")}: ${developerPreview.capabilityCount}`}</p>
           <p>{`${t("Permissions")}: ${developerPreview.permissions.length ? developerPreview.permissions.join(", ") : t("No permissions requested")}`}</p>
-          <p>{t("Unsigned development package. It will be disabled until you enable it and grant permissions.")}</p>
+          <p>{t("Unsigned development package. Review its permissions after installing.")}</p>
           <div className="plugin-manager-preview-actions">
             <ActionButton
               label={t("Install reviewed plugin")}
@@ -394,11 +434,9 @@ export function PluginManagerViewApp({
               busy={Boolean(busy["install-local"])}
               onClick={() => {
                 void runAction("install-local", async () => {
-                  const pluginId = await installDeveloperPlugin?.(developerPreview.sourcePath, developerPreview.contentSha256);
-                  if (!pluginId) return;
-                  setDeveloperPreview(null);
-                  await registry.setScene?.(sceneId);
-                  notify?.(`${t("Installed")} ${pluginId}`);
+                  const scope = scopeKey();
+                  const receipt = await installDeveloperPlugin?.(developerPreview.sourcePath, developerPreview.contentSha256);
+                  if (receipt) await completeInstall(receipt, scope, () => setDeveloperPreview(null));
                 });
               }}
             />
@@ -413,6 +451,7 @@ export function PluginManagerViewApp({
           onCancel={() => setSignedPreview(null)}
           onInstall={() => {
             void runAction("install-signed", async () => {
+              const scope = scopeKey();
               const permissionSummary = signedPreview.permissions.length
                 ? signedPreview.permissions.join(", ")
                 : t("No permissions requested");
@@ -426,15 +465,33 @@ export function PluginManagerViewApp({
               ) {
                 return;
               }
-              const pluginId = await installSignedPlugin?.(signedPreview.packagePath, signedPreview.manifestSha256, !signedPreview.trusted);
-              if (!pluginId) return;
-              setSignedPreview(null);
-              await registry.setScene?.(sceneId);
-              notify?.(`${t("Installed")} ${pluginId}`);
+              if (scopeKey() !== scope) return;
+              const receipt = await installSignedPlugin?.(signedPreview.packagePath, signedPreview.manifestSha256, !signedPreview.trusted);
+              if (receipt) await completeInstall(receipt, scope, () => setSignedPreview(null));
             });
           }}
         />
       ) : null}
+      {selectedPlugin?.activationReview ? (
+        <LocalPluginActivationCard
+          key={selectedPlugin.activationReview.sceneRevision + selectedPlugin.activationReview.packageRevision}
+          plugin={selectedPlugin}
+          deferred={deferred}
+          busy={Boolean(busy.activation)}
+          installedTools={installedTools}
+          onError={(error) => notify?.(friendlyPluginError(error))}
+          onClose={() => setActivation(null)}
+          onDefer={() => setDeferred(true)}
+          onResume={() => setDeferred(false)}
+          onActivate={canManagePlugins && registry.activateReviewed ? (grants) => {
+            const review = selectedPlugin.activationReview;
+            if (!review) return;
+            void runAction("activation", async () => {
+              await registry.activateReviewed?.(selectedPlugin.id, review, grants);
+            });
+          } : undefined}
+        />
+      ) : activation ? <p role="status">{t("Plugin or permissions changed. Review them again.")}</p> : null}
       <div className="plugin-manager-filters" role="tablist" aria-label={t("Plugin filters")}>
         {MANAGER_FILTERS.map((filter) => (
           <button
