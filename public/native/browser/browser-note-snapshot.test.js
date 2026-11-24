@@ -266,3 +266,38 @@ it("stores the completed translation and its scope without writing the captured 
     setLocale(locale);
   }
 });
+
+
+it("stores only the explicitly chosen embedded selection and its reviewed source", async () => {
+  const { options, gateway, params } = setup();
+  const frames = [
+    { title: "First frame", url: "https://example.org/first", text: "Another frame body", selection: "Another frame selection" },
+    { title: "Second <frame>", url: "https://example.org/second", text: "Extra frame body",
+      selection: "Chosen frame <quote>", textTruncated: false, selectionTruncated: true,
+      tables: [{ caption: "Extra table", rows: [["Header"], ["Cell"]], firstRowHeader: true }] },
+  ];
+  options.capture = { ...capture, page: { ...capture.page, frames } };
+  options.readCurrent.mockResolvedValue({ ...options.capture, page: { ...options.capture.page, frames: [] } });
+  const result = await createBrowserNoteWriter(options).save({ ...params, frameSelectionIndex: 1,
+    includeFrames: true, includeTables: true, includeMedia: true, imageText: [{
+      source: { alt: "", url: "https://example.org/image.png" }, text: "Extra OCR",
+      capturedAt: capture.capturedAt, pageUrl: capture.page.url, documentRevision: capture.documentRevision,
+    }] });
+  expect(gateway.create).toHaveBeenCalledOnce();
+  expect(result.source).toEqual({ url: capture.page.url, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision });
+  expect(result.content).toContain(frames[1].url);
+  expect(result.content).toContain("Second &lt;frame&gt;");
+  expect(result.content).toContain("Chosen frame &lt;quote&gt;");
+  expect(result.content).toContain(t("Selected text was shortened"));
+  for (const omission of [capture.page.selection, "tracker.invalid", frames[0].url, frames[0].selection,
+    frames[1].text, "Extra table", "Extra OCR", t("Page content was shortened")]) {
+    expect(result.content).not.toContain(omission);
+  }
+});
+
+it("rejects a missing frame selection instead of silently saving the top-level page", async () => {
+  const { options, gateway, params } = setup();
+  await expect(createBrowserNoteWriter(options).save({ ...params, frameSelectionIndex: 0 }))
+    .rejects.toThrow(t("There is no page text to save."));
+  expect(gateway.create).not.toHaveBeenCalled();
+});

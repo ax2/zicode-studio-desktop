@@ -557,3 +557,35 @@ it("attaches only the reviewed embedded page and reports its own table limits", 
   expect(prompt).toContain(t("Treat fields marked as shortened or incomplete as partial evidence, and leave omitted content unknown."));
   expect(prompt).not.toMatch(/Stock totals|example\.invalid\/stock/);
 });
+
+
+it("offers and previews only the saved embedded selection, with an explicit source choice", async () => {
+  const snapshot = { ...capture, page: { ...capture.page, selection: "", frames: [
+    { title: "Without selection", url: "https://example.org/first", text: "Frame prose", selection: "" },
+    { title: "Invoice", url: "https://example.org/invoice", text: "Extra prose", selection: "Invoice total" },
+    { title: "Invoice", url: null, text: "Other inline prose", selection: "Inline total" },
+  ] } };
+  const writer = { notebooks: async () => [{ id: "book", title: "Existing" }], save: vi.fn(async () => ({ id: "note" })) };
+  const dialog = showBrowserCapture(snapshot, vi.fn(), undefined, () => writer);
+  getByRole(dialog, "button", { name: t("Save to Notes"), exact: true }).click();
+  const panel = dialog.querySelector(".browser-note-clip");
+  const save = getByRole(panel, "button", { name: t("Save page to notebook") });
+  await waitFor(() => expect(save.disabled).toBe(false));
+  const scope = getByLabelText(panel, t("Save content"));
+  expect([...scope.options].map(option => option.value)).toEqual(["page", "frame-selection-1", "frame-selection-2"]);
+  expect(scope.options[1].textContent).not.toBe(scope.options[2].textContent);
+  const choose = value => { scope.value = value; scope.dispatchEvent(new Event("change", { bubbles: true })); };
+  choose("frame-selection-1");
+  const preview = getByRole(panel, "textbox", { name: t("Selected text") });
+  expect(preview.readOnly).toBe(true);
+  expect(preview.value).toBe("Invoice total");
+  choose("page");
+  expect(queryByRole(panel, "textbox", { name: t("Selected text") })).toBeNull();
+  choose("frame-selection-2");
+  expect(preview.value).toBe("Inline total");
+  expect(writer.save).not.toHaveBeenCalled();
+  save.click();
+  await waitFor(() => expect(writer.save).toHaveBeenCalledOnce());
+  expect(writer.save.mock.calls[0][0]).toMatchObject({ notebookId: "book", frameSelectionIndex: 2 });
+  expect(writer.save.mock.calls[0][0].includeFrames).toBeUndefined();
+});

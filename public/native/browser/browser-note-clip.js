@@ -24,11 +24,27 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
   title.value = [...defaultTitle].slice(0, 200).join(""); field("Note title", title);
   const mode = node("select", "ui-select");
   const option = (value, label) => { const el = node("option", "", label); el.value = value; return el; };
+  const frameSelections = new Map();
+  const framePreview = node("textarea", "ui-textarea");
+  framePreview.readOnly = true; framePreview.rows = 2;
+  let framePreviewLabel;
   if (!analysis) {
     mode.append(option("page", t("Page content")));
     if (capture.page.selection.trim()) mode.append(option("selection", t("Selected text")));
+    for (const [index, frame] of (capture.page.frames ?? []).entries()) {
+      if (!frame.selection?.trim()) continue;
+      const value = `frame-selection-${index}`;
+      const name = t("Selected text from embedded page {number}").replace("{number}", String(index + 1));
+      const source = frame.title || frame.url || t("Inline frame");
+      frameSelections.set(value, { index, text: frame.selection });
+      mode.append(option(value, `${name} · ${source}`));
+    }
     if (canSaveImageText) mode.append(option("image-text", t("Only selected image text")));
     field("Save content", mode);
+    if (frameSelections.size) {
+      framePreviewLabel = field("Selected text", framePreview);
+      framePreviewLabel.hidden = true;
+    }
   }
   const status = node("p", "browser-note-clip-status"); status.setAttribute("role", "status");
   const save = node("button", "ui-button ui-button--primary", t(analysis ? "Save analysis to notebook" : "Save page to notebook"));
@@ -41,6 +57,11 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
   function updateScope() {
     const imageTextOnly = mode.value === "image-text";
     const missingImageText = imageTextOnly && !attachments().imageText?.length;
+    if (framePreviewLabel) {
+      const selection = frameSelections.get(mode.value);
+      framePreviewLabel.hidden = !selection;
+      framePreview.value = selection?.text ?? "";
+    }
     if (canSaveImageText && !saved) {
       save.textContent = t(imageTextOnly ? "Save image text to notebook" : "Save page to notebook");
     }
@@ -65,7 +86,9 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
     if (!ready || save.disabled || busy || saved || !canStart() || !isOpen()) return;
     busy = true; panel.disabled = true; button.disabled = true; setBusy(true); status.textContent = t("Saving…");
     try {
-      const content = mode.value === "image-text" ? { imageTextOnly: true, imageText: attachments().imageText } :
+      const frameSelection = frameSelections.get(mode.value);
+      const content = frameSelection ? { frameSelectionIndex: frameSelection.index } :
+        mode.value === "image-text" ? { imageTextOnly: true, imageText: attachments().imageText } :
         mode.value === "page" ? attachments() : {};
       await writer.save({ notebookId: notebook.value === "new" ? null : notebook.value,
         notebookTitle: notebookTitle.value, title: title.value, selectionOnly: mode.value === "selection", ...content });
