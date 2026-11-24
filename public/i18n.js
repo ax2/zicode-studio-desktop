@@ -1442,6 +1442,7 @@ const zhCN = {
   "Scroll tabs left": "向左浏览标签",
   "Vertical tabs": "垂直标签栏",
   "Site permissions and storage": "站点权限与存储",
+  "Confirm": "确认",
   "Clear site storage": "清除站点存储",
   "Clear host cookies": "清除主机 Cookie",
   "Clear cookies belonging only to this host across its ports? This may sign you out. Shared domain cookies are kept.": "清除仅属于此主机的 Cookie？这会影响该主机的所有端口，可能使你退出登录。与子域共享的 Cookie 将保留。",

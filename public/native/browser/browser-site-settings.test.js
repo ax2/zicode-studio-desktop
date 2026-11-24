@@ -46,6 +46,55 @@ it.each([
   expect(request.mock.calls).toEqual([[{type:"list"}],[{...action, confirmed:true}],[{type:"list"}]]);
 });
 
+it.each([
+  ["Clear site storage", "Remove this site's local storage, databases, offline caches and service workers? Cookies are kept."],
+  ["Clear host cookies", "Clear cookies belonging only to this host across its ports? This may sign you out. Shared domain cookies are kept."],
+  ["Revoke permission", "Revoke this permission for the displayed site?"],
+])("uses Escape to cancel only confirmation for %s and describes both review buttons", async (label, message) => {
+  const origin = "https://example.test:8443";
+  const request = vi.fn(async () => [{ permission: 2, allowed: true }]);
+  const closed = vi.fn();
+  showSiteSettings({ origin, request, onClose: closed });
+  const source = await waitFor(() => getByRole(document.body, "button", {
+    name: label === "Revoke permission" ? revokeName("Camera") : t(label),
+  }));
+  const dialog = source.closest("dialog");
+  source.click();
+  const review = dialog.querySelector("section");
+  const apply = getByRole(review, "button", { name: t("Confirm") });
+  const cancel = getByRole(review, "button", { name: t("Cancel") });
+  const requestCancel = () => {
+    if (dialog.dispatchEvent(new Event("cancel", { cancelable: true }))) dialog.close();
+  };
+
+  expect(document.activeElement).toBe(cancel);
+  const key = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+  cancel.dispatchEvent(key);
+  expect(key.defaultPrevented).toBe(true);
+  expect(dialog.open).toBe(true);
+  expect(review.hidden).toBe(true);
+  expect(document.activeElement).toBe(source);
+  apply.click();
+  expect(request.mock.calls).toEqual([[{ type: "list" }]]);
+  expect(closed).not.toHaveBeenCalled();
+
+  source.click();
+  for (const name of ["Cancel", "Confirm"]) {
+    const button = getByRole(review, "button", { name: t(name) });
+    const details = document.getElementById(button.getAttribute("aria-describedby"));
+    expect(details.textContent).toContain(origin);
+    expect(details.textContent).toContain(t(message));
+    if (label === "Revoke permission") expect(details.textContent).toContain(t("Camera"));
+  }
+  cancel.click(); // A review replaced after cancellation cannot affect the new one.
+  expect(review.hidden).toBe(false);
+  requestCancel();
+  requestCancel();
+  expect(dialog.open).toBe(false);
+  expect(closed).toHaveBeenCalledOnce();
+  expect(request.mock.calls).toEqual([[{ type: "list" }]]);
+});
+
 async function mountSiteSettings({ readUrl, twoTabs = false } = {}) {
   vi.stubGlobal("ResizeObserver", class { observe() {} });
   vi.spyOn(document, "hidden", "get").mockReturnValue(false);
