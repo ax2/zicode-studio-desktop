@@ -34,8 +34,16 @@
 - 最多访问 4096 个目录项，从根目录深度 0 开始下降 16 层，单条相对路径最多 2048 个 UTF-8 字节，编码后快照最多 2 MiB。
 - 可从 15 秒扫描预算返回部分结果。Host 旧有的 30 秒和票据剩余期限为硬截止。阻塞调用跨过硬截止或目录身份改变时，确认失败。
 - `limitReason` 可为 `entries`、`time`、`snapshot_bytes` 或 `null`。达到软限制或出现跳过项时，`partial:true`。提交回执含 `entryCount`、`partial` 和作用域资源引用。
-- 目录级汇总、总逻辑字节与最大文件排序由独立插件消费快照后生成。首批结果需保留部分结果标记。工作区外原生选择、Explorer 入口和完整插件发布继续由 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29) 跟踪。
+- 目录级汇总、总逻辑字节与最大文件排序由独立插件消费快照后生成。
+
+## Studio 工具入口
+
+在工具中心打开「目录空间分析」，在当前文件位置内选择目录并确认，再点击「执行工具」。结果显示逻辑字节总量、所选目录直接文件的用量、文件和目录数量，以及最大的一级子目录和文件。若扫描或分析达到预算，界面标记为部分结果并说明限制。长路径按 UTF-8 字节边界截短，显示为文本。
+
+候选包声明独立的目录用量权限，默认目录名称报告权限不足以执行。取消或关闭工具会释放已确认的资源。工作区外选择、Explorer 入口和候选分发仍由 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29) 跟踪。
 
 ## 验证
 
-Rust 测试 `usage_uses_only_relative_metadata_and_marks_bounded_reads_partial` 使用合成目录覆盖相对路径、字节值、时间和深度上限及协作取消。`confirmed_usage_snapshot_reaches_only_its_worker` 使用隔离 Host、生产 Worker 和独立的测试 WASM 复核传递内容。运行后者须指定 `ZICODE_TEST_RESOURCE_WORKER_EXE`。测试模块回传快照以核对合同；实际目录空间分析插件及用户界面需单独验收。
+Rust 测试 `usage_uses_only_relative_metadata_and_marks_bounded_reads_partial` 使用合成目录覆盖相对路径、字节值、时间和深度上限及协作取消。`confirmed_usage_snapshot_reaches_only_its_worker` 使用隔离 Host、生产 Worker 和独立的测试 WASM 复核传递内容。运行后者须指定 `ZICODE_TEST_RESOURCE_WORKER_EXE`。该测试的 Worker 回传快照以核对合同。
+
+Windows 实包测试 `frozen_disk_inspector_reports_real_confirmed_directories` 使用同一个生产 Worker，另需通过 `ZICODE_TEST_DISK_INSPECTOR_DIR` 和 `ZICODE_TEST_DISK_INSPECTOR_RECEIPT` 指定 Disk Inspector 0.1.0 candidate-01 及包外收据。测试在隔离资料中安装并授予候选权限，覆盖正常目录、Host 深度上限和 Worker 读取上限，输出的三份报告可用于前端渲染验证。

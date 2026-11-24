@@ -403,3 +403,41 @@ fn directory_targets_require_the_extra_grant_and_reject_mixed_filters() {
     };
     assert_eq!(registry.manual_catalog(&revoked).unwrap()["total"], 0);
 }
+
+#[test]
+fn directory_usage_catalog_only_accepts_the_dedicated_disk_scan() {
+    let mut registry = tests::registry();
+    let id = "com.zicode.devtools.disk-inspector";
+    let scan = "devtools.disk-inspector.scan";
+    let mut plugin = registry.plugins.remove("com.zicode.catalog-fixture").unwrap();
+    plugin.manifest.id = id.into();
+    plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+    plugin.manifest.contributes["capabilities"] = json!([
+        {"id":scan,"title":"Disk Inspector","resourceInputMimeTypes":["text/plain"]},
+        {"id":"devtools.disk-inspector.other","title":"Ordinary operation","resourceInputMimeTypes":["text/plain"]}
+    ]);
+    plugin.manifest.permissions.optional = serde_json::from_value(json!([
+        {"name":"resource.read","reason":"read approved resource"},
+        {"name":"resource.directory.read","reason":"read one level of names"},
+        {"name":"resource.directory.usage.read","reason":"read logical size of approved directory entries"}
+    ])).unwrap();
+    registry.plugins.insert(id.into(), plugin);
+    let query = CatalogQuery { scene_id: "programming".into(), plugin_id: Some(id.into()), directory_only: true,
+        ..Default::default() };
+    for permission in ["resource.read", "resource.directory.read"] {
+        registry.scene_plugin_state_mut("programming", id).permissions.insert(permission.into(), true);
+    }
+    let legacy = registry.manual_catalog(&query).unwrap();
+    assert_eq!(legacy["total"], 1);
+    assert_eq!(legacy["items"][0]["capabilityId"], "devtools.disk-inspector.other");
+    let grants = &mut registry.scene_plugin_state_mut("programming", id).permissions;
+    grants.insert("resource.directory.read".into(), false);
+    grants.insert("resource.directory.usage.read".into(), true);
+    let usage = registry.manual_catalog(&query).unwrap();
+    assert_eq!(usage["total"], 1);
+    assert_eq!(usage["items"][0]["capabilityId"], scan);
+    let file_targets = registry.manual_catalog(&CatalogQuery { directory_only: false, resource_only: true,
+        resource_mime_type: Some("text/plain".into()), ..query }).unwrap();
+    assert_eq!(file_targets["total"], 1);
+    assert_eq!(file_targets["items"][0]["capabilityId"], "devtools.disk-inspector.other");
+}

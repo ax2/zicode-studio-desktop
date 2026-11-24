@@ -82,7 +82,9 @@ export class PluginCapabilityGateway {
     this.projectDirectories = typeof pickProjectDirectory === "function" ? {
       choose: pickProjectDirectory,
       entry: getProjectDirectoryEntry,
-      prepare: (owner, relativePath) => this.#request(this.#url("/v2/plugin-resources/prepare-local-directory"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, relativePath }) }),
+      prepare: (owner, relativePath, profile) => this.#request(this.#url("/v2/plugin-resources/prepare-local-directory"), {
+        method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, relativePath, ...(profile ? { profile } : {}) }),
+      }),
       commit: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/commit-local-directory"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId, confirmed: true }) }),
       cancel: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/cancel-local-directory"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId }) }),
     } : null;

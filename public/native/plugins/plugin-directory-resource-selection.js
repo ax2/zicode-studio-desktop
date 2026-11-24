@@ -1,4 +1,5 @@
 import { t } from "../../i18n.js";
+import { directoryUsageProfile, isDiskInspector } from "./disk-inspector-result.js";
 
 function sameOwner(actual, expected) {
   return (
@@ -20,15 +21,19 @@ export function createPluginDirectoryResourceSelection({
   gateway,
   isCurrent,
   onResource,
+  directoryUsage = false,
 }) {
+  const usage = directoryUsage && isDiskInspector(plugin.id, plugin.capabilities[0].id);
+  const profile = usage ? directoryUsageProfile : "resource.local-directory.draft1";
   const panel = document.createElement("section");
   panel.className = "plugin-resource-selection";
   panel.setAttribute("aria-label", t("Studio directory selection"));
   const label = document.createElement("strong");
-  label.textContent = t("Studio · Share folder names with this plugin");
+  label.textContent = t(usage ? "Share folder usage with Disk Inspector" : "Studio · Share folder names with this plugin");
   const description = document.createElement("p");
   description.textContent = t(
-    "Only names and file or directory types from one level are shared. No file contents are read. Nothing is saved or sent to AI.",
+    usage ? "After confirmation, shares relative names, entry types and logical file sizes. File contents are not read." :
+      "Only names and file or directory types from one level are shared. No file contents are read. Nothing is saved or sent to AI.",
   );
   const choose = document.createElement("button");
   choose.type = "button";
@@ -89,9 +94,8 @@ export function createPluginDirectoryResourceSelection({
     choose.disabled = true;
     panel.setAttribute("aria-busy", "true");
     let stage = "picker";
-    status.textContent = t(
-      "Choose a folder within the current file location. Names are shared only after confirmation.",
-    );
+    status.textContent = t(usage ? "Choose a folder within the current file location to check its usage." :
+      "Choose a folder within the current file location. Names are shared only after confirmation.");
     try {
       const path = await gateway.projectDirectories.choose(target.workspaceId);
       if (!valid(token)) return;
@@ -99,10 +103,11 @@ export function createPluginDirectoryResourceSelection({
         status.textContent = t("Directory selection canceled.");
         return;
       }
-      if (typeof path !== "string" || !path || path.startsWith("/") || /^[A-Za-z]:/.test(path))
-        throw new Error("invalid path");
+      if (typeof path !== "string" || !path || path.startsWith("/") || /^[A-Za-z]:/.test(path) ||
+          (usage && path !== "." && (/[\\:\p{Cc}]/u.test(path) ||
+            path.split("/").some(part => !part || part === "." || part === "..")))) throw new Error("invalid path");
       stage = "prepare";
-      const prepared = await gateway.projectDirectories.prepare(owner, path);
+      const prepared = await gateway.projectDirectories.prepare(owner, path, ...(usage ? [profile] : []));
       stage = "response";
       if (!valid(token)) {
         if (prepared?.grantId)
@@ -110,7 +115,7 @@ export function createPluginDirectoryResourceSelection({
         return;
       }
       if (
-        prepared?.profile !== "resource.local-directory.draft1" ||
+        prepared?.profile !== profile ||
         prepared.confirmed !== false ||
         prepared.entryNamesRead !== false ||
         prepared.relativePath !== path ||
@@ -125,9 +130,10 @@ export function createPluginDirectoryResourceSelection({
       grant = prepared;
       confirm.disabled = false;
       status.textContent = t(
-        "Selected directory: {name} · plugin {plugin}. Confirm to share one level of names.",
+        usage ? "Selected directory: {name} · plugin {plugin}. Confirm to share directory usage." :
+          "Selected directory: {name} · plugin {plugin}. Confirm to share one level of names.",
       )
-        .replace("{name}", path)
+        .replace("{name}", usage && path === "." ? t("Current file location") : path)
         .replace("{plugin}", `${plugin.name} ${plugin.version}`);
     } catch (failure) {
       if (valid(token)) {
@@ -171,8 +177,9 @@ export function createPluginDirectoryResourceSelection({
         return;
       }
       if (
-        result?.profile !== "resource.local-directory.draft1" ||
+        result?.profile !== profile ||
         result.confirmed !== true ||
+        (usage && typeof result.partial !== "boolean") ||
         !Number.isInteger(result.entryCount) ||
         result.entryCount < 0 ||
         result.entryCount > 4096 ||
@@ -191,7 +198,8 @@ export function createPluginDirectoryResourceSelection({
         contentVersion: access.contentVersion,
       });
       status.textContent = t(
-        "Shared {count} directory entries. You can now execute the tool or cancel sharing.",
+        usage && result.partial ? "Shared partial usage for {count} directory entries. You can now execute the tool." :
+          "Shared {count} directory entries. You can now execute the tool or cancel sharing.",
       ).replace("{count}", result.entryCount);
     } catch {
       if (valid(token))
