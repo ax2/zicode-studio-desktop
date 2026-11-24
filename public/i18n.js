@@ -1352,6 +1352,10 @@ const zhCN = {
   "Treat fields marked as shortened or incomplete as partial evidence, and leave omitted content unknown.": "将标记为截断或不完整的字段视为部分证据。被省略的内容仍属未知。",
   "Some frames were unavailable or exceeded capture limits.": "部分内嵌网页无法读取或超出提取上限。",
   "Include tables in the page note or chat draft": "将表格一并加入整页笔记或聊天草稿",
+  "Include all structured tables": "附入全部结构化表格",
+  "Include table {number}": "附入表格 {number}",
+  "Table selections attach structured data. Page text can still contain words from tables.":
+    "勾选后附入相应的结构化表格。正文摘录仍可能包含表格中的文字。",
   "Only some table data is shown.": "只显示部分表格数据。",
   "Page links": "网页链接",
   "Only some page links are shown.": "只显示部分网页链接。",

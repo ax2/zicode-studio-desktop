@@ -2,9 +2,8 @@ import { createBrowserCompare } from "./browser-compare.js";
 import { createBrowserCaptureMedia } from "./browser-capture-media.js";
 import { createBrowserCaptureFrames } from "./browser-capture-frames.js";
 import { renderBrowserCaptureLinks } from "./browser-capture-links.js";
-import { renderBrowserCaptureTables } from "./browser-capture-tables.js";
+import { createBrowserCaptureTables } from "./browser-capture-tables.js";
 import { createBrowserNoteClip } from "./browser-note-clip.js";
-import { appendPartialCapture } from "./browser-capture-status.js";
 import { t } from "../../i18n.js";
 import { createBrowserModelAssistant } from "./browser-model-assistant.js";
 import { browserDraftPrompt } from "./browser-chat-draft.js";
@@ -48,7 +47,6 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   text.setAttribute("data-i18n-aria-label", "Page content");
   text.value = `${capture.page.selection ? `${t("Selected text")}\n${capture.page.selection}\n\n` : ""}${capture.page.text}`;
   const includeLinks = document.createElement("input"); includeLinks.type = "checkbox";
-  const includeTables = document.createElement("input"); includeTables.type = "checkbox";
   const recognizeImage = dock?.recognizeImage && (async (image, frame) => {
     if (busy || !isOpen()) return;
     setBusy(true);
@@ -63,33 +61,16 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   });
   const media = createBrowserCaptureMedia(capture.page, recognizeImage, reviewImage);
   const frames = createBrowserCaptureFrames(capture.page, recognizeImage, reviewImage);
+  const tables = createBrowserCaptureTables(capture.page);
   const attachments = () => {
     const imageText = [...media.imageText(), ...frames.imageText()];
     return {
-      includeLinks: includeLinks.checked, includeTables: includeTables.checked, includeMedia: media.include.checked,
-      ...frames.attachments(),
+      includeLinks: includeLinks.checked, includeMedia: media.include.checked,
+      ...tables.attachments(), ...frames.attachments(),
       ...(imageText.length ? { imageText } : {}),
     };
   };
   const links = renderBrowserCaptureLinks(capture.page, includeLinks);
-  let tables;
-  const capturedTables = capture.page.tables ?? [];
-  if (capturedTables.length || capture.page.tablesTruncated) {
-    tables = document.createElement("details"); tables.className = "browser-capture-tables";
-    const summary = document.createElement("summary");
-    summary.textContent = `${t("Page tables")} (${capturedTables.length})`;
-    if (capture.page.tablesTruncated) appendPartialCapture(summary);
-    tables.append(summary);
-    if (capturedTables.length) {
-      const share = document.createElement("label");
-      share.append(includeTables, t("Include tables in the page note or chat draft"));
-      tables.append(share, renderBrowserCaptureTables(capturedTables));
-    }
-    if (capture.page.tablesTruncated) {
-      const limit = document.createElement("p"); limit.textContent = t("Only some table data is shown.");
-      tables.append(limit);
-    }
-  }
   const note = document.createElement("p");
   const notices = [];
   if (capture.page.textTruncated ?? capture.page.truncated) notices.push("Page content was shortened");
@@ -98,7 +79,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (!hasShortenedText) notices.push(dock?.modelActions
     ? "Page content was collected locally."
     : "Content read locally. Nothing has been sent to AI.");
-  if (dock?.modelActions && (links || tables || media.element || frames.element)) {
+  if (dock?.modelActions && (links || tables.element || media.element || frames.element)) {
     notices.push("Page questions and summaries include the selected attachments.");
   }
   for (const key of notices) {
@@ -254,7 +235,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (hasShortenedText) dialog.append(note);
   dialog.append(text);
   if (links) dialog.append(links);
-  if (tables) dialog.append(tables);
+  if (tables.element) dialog.append(tables.element);
   if (media.element) dialog.append(media.element);
   if (frames.element) dialog.append(frames.element);
   if (questionLabel) dialog.append(questionLabel);
