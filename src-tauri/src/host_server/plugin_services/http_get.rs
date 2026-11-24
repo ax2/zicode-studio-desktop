@@ -932,6 +932,9 @@ async fn fetch_json_inner(
         })
 }
 
+#[path = "actuator_task.rs"]
+mod actuator_task;
+
 pub(in crate::host_server) async fn commit(
     State(state): State<Arc<HostState>>,
     headers: HeaderMap,
@@ -1053,6 +1056,7 @@ pub(in crate::host_server) async fn commit(
         }
         return Err(error);
     }
+    let task = actuator_task::ActuatorTask::start(Arc::clone(&state), &grant, &request.grant_id).await;
     #[cfg(test)]
     let trusted_root_certificates = state
         .http_get_grants
@@ -1069,61 +1073,42 @@ pub(in crate::host_server) async fn commit(
         trusted_root_certificates,
     )
     .await;
-    let current_version = {
-        let mut grants = state
-            .http_get_grants
-            .lock()
-            .map_err(|_| rejected(StatusCode::SERVICE_UNAVAILABLE, "http_service_unavailable"))?;
-        grants.finish(&request.operation_id);
-        (grants.revision_for(&owner.plugin_id), grants.generation)
-    };
-    let (result, resolved_address_class) = match result {
-        Ok(result) => result,
-        Err(failure) => {
-            let failure_context = AuditContext {
-                address_class: failure.address_class.unwrap_or(grant.address_class),
-                ..audit_context
-            };
-            append_audit(
-                &state,
-                &failure_context.event(
-                    "request_completed",
-                    "failed",
-                    AuditResponse {
-                        status: failure.http_status,
-                        response_bytes: Some(failure.response_bytes),
-                        error_code: Some(failure.code),
-                    },
-                ),
-            )?;
-            return Err(rejected(error_status(failure.code), failure.code));
-        }
-    };
-    let resolved_context = AuditContext {
-        address_class: resolved_address_class,
-        ..audit_context
-    };
-    if current_version != (expected_revision, expected_generation) {
-        append_audit(
-            &state,
-            &resolved_context.event(
-                "request_completed",
-                "failed",
-                AuditResponse {
-                    status: result["status"].as_u64().map(|status| status as u16),
-                    response_bytes: result["byteLength"].as_u64().map(|bytes| bytes as usize),
-                    error_code: Some("http_service_authorization_changed"),
-                },
-            ),
-        )?;
-        return Err(rejected(
-            StatusCode::CONFLICT,
-            "http_service_authorization_changed",
-        ));
-    }
-    match authorize(&state, &owner) {
-        Ok(scene) if scene == grant.scene => {}
-        Ok(_) => {
+    let response = (|| {
+        let current_version = {
+            let mut grants = state
+                .http_get_grants
+                .lock()
+                .map_err(|_| rejected(StatusCode::SERVICE_UNAVAILABLE, "http_service_unavailable"))?;
+            grants.finish(&request.operation_id);
+            (grants.revision_for(&owner.plugin_id), grants.generation)
+        };
+        let (result, resolved_address_class) = match result {
+            Ok(result) => result,
+            Err(failure) => {
+                let failure_context = AuditContext {
+                    address_class: failure.address_class.unwrap_or(grant.address_class),
+                    ..audit_context
+                };
+                append_audit(
+                    &state,
+                    &failure_context.event(
+                        "request_completed",
+                        "failed",
+                        AuditResponse {
+                            status: failure.http_status,
+                            response_bytes: Some(failure.response_bytes),
+                            error_code: Some(failure.code),
+                        },
+                    ),
+                )?;
+                return Err(rejected(error_status(failure.code), failure.code));
+            }
+        };
+        let resolved_context = AuditContext {
+            address_class: resolved_address_class,
+            ..audit_context
+        };
+        if current_version != (expected_revision, expected_generation) {
             append_audit(
                 &state,
                 &resolved_context.event(
@@ -1141,55 +1126,80 @@ pub(in crate::host_server) async fn commit(
                 "http_service_authorization_changed",
             ));
         }
-        Err(error) => {
-            append_audit(
-                &state,
-                &resolved_context.event(
-                    "request_completed",
-                    "failed",
-                    AuditResponse {
-                        status: result["status"].as_u64().map(|status| status as u16),
-                        response_bytes: result["byteLength"].as_u64().map(|bytes| bytes as usize),
-                        error_code: Some("http_service_authorization_changed"),
-                    },
-                ),
-            )?;
-            return Err(error);
+        match authorize(&state, &owner) {
+            Ok(scene) if scene == grant.scene => {}
+            Ok(_) => {
+                append_audit(
+                    &state,
+                    &resolved_context.event(
+                        "request_completed",
+                        "failed",
+                        AuditResponse {
+                            status: result["status"].as_u64().map(|status| status as u16),
+                            response_bytes: result["byteLength"].as_u64().map(|bytes| bytes as usize),
+                            error_code: Some("http_service_authorization_changed"),
+                        },
+                    ),
+                )?;
+                return Err(rejected(
+                    StatusCode::CONFLICT,
+                    "http_service_authorization_changed",
+                ));
+            }
+            Err(error) => {
+                append_audit(
+                    &state,
+                    &resolved_context.event(
+                        "request_completed",
+                        "failed",
+                        AuditResponse {
+                            status: result["status"].as_u64().map(|status| status as u16),
+                            response_bytes: result["byteLength"].as_u64().map(|bytes| bytes as usize),
+                            error_code: Some("http_service_authorization_changed"),
+                        },
+                    ),
+                )?;
+                return Err(error);
+            }
         }
+        let registry = state
+            .plugins
+            .lock()
+            .map_err(|_| rejected(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable"))?;
+        // A failed completion audit must not leave a newly captured result behind
+        // when the caller only receives an error.
+        append_audit(
+            &state,
+            &resolved_context.event(
+                "request_completed",
+                "succeeded",
+                AuditResponse {
+                    status: result["status"].as_u64().map(|status| status as u16),
+                    response_bytes: result["byteLength"].as_u64().map(|bytes| bytes as usize),
+                    ..AuditResponse::default()
+                },
+            ),
+        )?;
+        let result_ref = crate::host_server::plugin_results::capture_service_http(
+            &state,
+            &registry,
+            &owner.workspace_id,
+            &grant.scene,
+            &owner.plugin_id,
+            &result,
+        )
+        .ok();
+        let mut response = json!({"schemaVersion":1,"operation":"http.get","result":result});
+        match result_ref {
+            Some(reference) => response["resultRef"] = reference,
+            None => response["resultCaptureError"] = json!({"code":"result_capture_unavailable"}),
+        }
+        Ok(Json(response))
+    })();
+    if let Some(task) = task {
+        task.finish(response.as_ref().err());
     }
-    let registry = state
-        .plugins
-        .lock()
-        .map_err(|_| rejected(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable"))?;
-    // A failed completion audit must not leave a newly captured result behind
-    // when the caller only receives an error.
-    append_audit(
-        &state,
-        &resolved_context.event(
-            "request_completed",
-            "succeeded",
-            AuditResponse {
-                status: result["status"].as_u64().map(|status| status as u16),
-                response_bytes: result["byteLength"].as_u64().map(|bytes| bytes as usize),
-                ..AuditResponse::default()
-            },
-        ),
-    )?;
-    let result_ref = crate::host_server::plugin_results::capture_service_http(
-        &state,
-        &registry,
-        &owner.workspace_id,
-        &grant.scene,
-        &owner.plugin_id,
-        &result,
-    )
-    .ok();
-    let mut response = json!({"schemaVersion":1,"operation":"http.get","result":result});
-    match result_ref {
-        Some(reference) => response["resultRef"] = reference,
-        None => response["resultCaptureError"] = json!({"code":"result_capture_unavailable"}),
-    }
-    Ok(Json(response))
+    response
 }
 
 #[cfg(test)]
