@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
 import { ManualToolDetail } from "./ManualToolDetail";
+import { ManualToolInput } from "./ManualToolInput";
 import type { ManualTool, ManualToolApi } from "./manual-tools";
 import { toolFields } from "./manual-tool-fields";
 
@@ -169,4 +170,24 @@ it("keeps live character counts after the shell translates retained tool content
   translateDocument(container);
   expect(field("text").value).toBe("😀中abc");
   expect(container.textContent).toContain("5 characters · allowed 0–8192");
+});
+
+it.each([
+  ["string", "line 1\r\nline 2", "line 1\nline 3"],
+  ["object", '{\r\n  "value": 1\r\n}', '{\n  "value": 2\n}'],
+] as const)("preserves an unchanged %s textarea across newline normalization", async (kind, original, editing) => {
+  const rootElement = document.createElement("div");
+  document.body.append(rootElement);
+  const root = createRoot(rootElement);
+  roots.push(root);
+  const onChange = vi.fn();
+  await act(async () => root.render(<ManualToolInput id="test-newlines" value={original}
+    field={{ key: "text", label: "Source", required: true, kind }} disabled={false} invalid={false} onChange={onChange} />));
+  const editor = rootElement.querySelector("textarea");
+  if (!editor) throw Error("textarea not mounted");
+  expect(editor.value).toBe(original.replaceAll("\r\n", "\n"));
+  fireEvent.change(editor);
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.change(editor, { target: { value: editing } });
+  expect(onChange).toHaveBeenCalledExactlyOnceWith(editing);
 });

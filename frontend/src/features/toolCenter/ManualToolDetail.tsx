@@ -46,6 +46,10 @@ const jsonSchemaFileTargets = [
   { target: "schema-root", field: "schema", label: "Import JSON Schema…", inputLabel: "JSON Schema file", fieldLabel: "Root JSON Schema" },
 ] as const;
 
+const sqlFileTargets = [
+  { target: "sql-format", field: "text", label: "Import SQL file…", inputLabel: "SQL file", fieldLabel: "SQL text" },
+] as const;
+
 const independentMergeLabels = new Map([
   ["left", "Left table"], ["right", "Right table"],
   ["leftFormat", "Left table format"], ["rightFormat", "Right table format"],
@@ -180,7 +184,11 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const textDiff = comparePlugin && tool.capabilityId === "devtools.compare.text.diff";
   const jsonDiff = comparePlugin && /^devtools\.compare\.json\.diff\.(ordered|unordered)$/.test(tool.capabilityId);
   const jsonSchema = tool.pluginId === "com.zicode.devtools.json-schema" && tool.capabilityId === "devtools.json-schema.validate";
-  const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets : jsonSchema ? jsonSchemaFileTargets : [];
+  const sqlFormat = tool.pluginId === "com.zicode.devtools.text" && tool.capabilityId === "devtools.text.sql.format" &&
+    tool.version === "0.4.1" && tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version &&
+    fields?.some(field => field.key === "text" && field.kind === "string" && field.maxLength === 8192);
+  const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
+    jsonSchema ? jsonSchemaFileTargets : sqlFormat ? sqlFileTargets : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema;
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
@@ -317,8 +325,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     finally { if (ownsExecution()) setRecording(false); }
   }
   const documentFileButtons = documentFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
-    label={t(side.label)} inputLabel={t(side.inputLabel)} accept={jsonDocument ? ".json" : ""}
-    loadingLabel={jsonDocument ? "Reading JSON file…" : "Reading text file…"}
+    label={t(side.label)} inputLabel={t(side.inputLabel)} accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : ""}
+    loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" : "Reading text file…"}
     disabled={editingLocked || !detail?.enabled} loading={fileLoading === side.target}
     onPick={file => { void importFile(file, side.target); }} />);
   return <section className="ui-card tool-detail" aria-labelledby={`${detailId}-title`} aria-busy={running || resourceBusy || fileLoading !== null}>

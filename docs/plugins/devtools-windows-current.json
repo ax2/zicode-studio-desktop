@@ -1056,7 +1056,8 @@
         }
       ],
       "fullSourceScopeAccepted": false,
-      "blocker": "列出的受限插件操作已具备本地验证；独立工具完整范围、其余未映射操作仍需逐项迁移。",
+      "blocker": "冻结 Text 0.4.1 候选 02 的通用 SQL 已通过显式本机 UTF-8 SQL 文件导入、撤销及 Windows Worker。其他方言、独立布局选项、结果确认另存、系统文件窗口与更大输入待验。",
+      "sqlFileEvidence": "../iterations/2026-11-25-sql-file.md",
       "sourceScope": "通用 SQL、PostgreSQL、MySQL、SQLite、SQL Server/T-SQL 选项；支持 2/4 空格或 Tab 缩进及关键字大小写选择；宽窗口并排显示输入和结果，窄窗口纵向排列；使用 Rust sqlformat 进行本地空白与布局格式化，支持常见 CTE、JOIN、CASE、窗口函数、注释和参数占位符保留；MySQL/SQLite 使用通用词法模式。不是完整 AST 或语义校验器，不连接数据库、不执行 SQL。 同仓共享纯Rust格式化核心；文本WASI候选仅提供通用方言及默认格式选项，不能替代桌面端完整方言/缩进/大小写选项，Studio Host仍待验收。"
     },
     {
