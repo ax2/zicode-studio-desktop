@@ -62,6 +62,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const downloadObservers = new Set();
   const pageVersions = new Map();
   const documentRevisions = new Map();
+  const pdfDocuments = new Map();
   const control = request => invoke("browser_control", { request });
   const surface = createBrowserSurface(control);
   const paintStatus = () => {
@@ -279,6 +280,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     crashedTabs.delete(id);
     navigationStates.delete(id);
     documentRevisions.delete(id);
+    pdfDocuments.delete(id);
     historyStates.delete(id);
     if (!reopening) pageVersions.delete(id);
     favicons.delete(id);
@@ -289,6 +291,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     crashedTabs.add(id);
     navigationStates.delete(id);
     documentRevisions.delete(id);
+    pdfDocuments.delete(id);
     historyStates.delete(id);
     favicons.delete(id);
     pageVersions.set(id, (pageVersions.get(id) ?? 0) + 1);
@@ -390,10 +393,30 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   function writePageSetting(id, setting) {
     return control({ kind: setting.kind === "zoom" ? "setZoom" : "setMuted", tab: id, [setting.kind]: setting.value });
   }
+  async function focusPdfReader(id, current) {
+    const canFocus = () => current() && active === id && pageAvailable(id) && !blocked();
+    if (!canFocus()) return;
+    setStatus(t("Use the PDF toolbar for search and zoom."));
+    await syncSurface();
+    await surface.settled();
+    if (canFocus()) await control({ kind: "focusPage", tab: id });
+  }
+  function openPdfFind(id, current) {
+    const revision = pdfDocuments.get(id);
+    if (!revision || documentRevisions.get(id) !== revision) return null;
+    return focusPdfReader(id, () => current() && documentRevisions.get(id) === revision).then(() => true);
+  }
   async function changePageSettings(id, change) {
     const tab = tabs.find(tab => tab.id === id); if (!tab || !pageAvailable(id)) throw new Error(t("Browser tab is no longer available"));
-    await applyBrowserPageSetting({ change,
-      read: () => control({ kind: "pageSettings", tab: id }),
+    const version = pageVersions.get(id);
+    const before = await control({ kind: "pageSettings", tab: id });
+    const setting = typeof change === "function" ? change(before) : change;
+    if (setting.kind === "zoom" && before.pdfDocument === true) {
+      await focusPdfReader(id, () => pageVersions.get(id) === version);
+      return;
+    }
+    await applyBrowserPageSetting({ change: setting,
+      read: () => before,
       write: setting => writePageSetting(id, setting),
       persist: effective => persistPageSettings(id, effective),
     });
@@ -410,7 +433,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       // already have changed the live zoom before this work starts.
       const after = await control({ kind: "pageSettings", tab: id });
       const saved = tab.zoom ?? 1;
-      if (after.zoom === saved) return;
+      if (after.pdfDocument === true || after.zoom === saved) return;
       await persistBrowserPageSetting({ after,
         rollback: { kind: "zoom", value: saved },
         write: async setting => {
@@ -537,7 +560,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     revision = stored.session.revision; surface.seed(live.surfaceRevision);
     tabs = groupBrowserTabs(stored.session.tabs.map(tab => ({ zoom: 1, muted: false, ...tab }))); active = stored.session.activeTab; closedTabs = stored.session.closedTabs ?? [];
     const recentlyClosed = new Set(closedTabs.map(entry => entry.tab.id));
-    for (const { documentRevision, ...tab } of live.tabs) {
+    for (const { documentRevision, pdfDocument, ...tab } of live.tabs) {
       const saved = tabs.find(item => item.id === tab.id);
       if (tab.processFailed && saved) {
         nativeTabs.add(tab.id);
@@ -550,7 +573,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         continue;
       }
       nativeTabs.add(tab.id);
-      if (documentRevision) documentRevisions.set(tab.id, documentRevision);
+      if (documentRevision) {
+        documentRevisions.set(tab.id, documentRevision);
+        if (pdfDocument === true) pdfDocuments.set(tab.id, documentRevision);
+      }
       if (tab.history) historyStates.set(tab.id, tab.history);
       if (tab.favicon) favicons.set(tab.id, tab.favicon);
       if (saved) { saved.url = tab.url; if (typeof tab.title === "string") saved.title = tab.title || (tab.url === "about:blank" ? t("New tab") : ""); if (tab.settings) Object.assign(saved, tab.settings); } else tabs.push({ ...tab, title: tab.url });
@@ -628,6 +654,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         }
         return;
       }
+      if (payload.kind === "pdfDocument") {
+        if (documentRevisions.get(payload.tab) === payload.documentRevision) {
+          pdfDocuments.set(payload.tab, payload.documentRevision);
+        }
+        return;
+      }
       if (payload.kind === "navigationStarted" || payload.kind === "navigationFinished") {
         const id = payload.tab;
         // Restored tabs and links can start loading before their tab is saved.
@@ -635,9 +667,11 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (payload.kind === "navigationStarted") {
           navigationStates.set(id, "loading");
           documentRevisions.delete(id);
+          pdfDocuments.delete(id);
           if (tab) pageVersions.set(id, (pageVersions.get(id) ?? 0) + 1);
           if (id === active) {
             if (!tabSearch?.open) preview.clear();
+            if (statusMessage === t("Use the PDF toolbar for search and zoom.")) setStatus("");
             void find.close();
           }
         } else {
@@ -779,7 +813,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     startup = document.createElement("select"); startup.className = "ui-select"; startup.setAttribute("aria-label", t("Start Studio in")); startup.title = t("Start Studio in");
     for (const [value, label] of [["browser", "Browser"], ["workspace", "Workspace"]]) { const option = document.createElement("option"); option.value = value; option.textContent = t(label); startup.append(option); }
     startup.addEventListener("change", () => run(() => invoke("browser_set_startup_mode", { mode: startup.value })));
-    find = createBrowserFind({ control, getTab: selected, available: () => visible && initialized && !blocked() && pageAvailable(active), restoreFocus: async tab => {
+    find = createBrowserFind({ control, getTab: selected, available: () => visible && initialized && !blocked() && pageAvailable(active), openPdf: openPdfFind, restoreFocus: async tab => {
       await syncSurface();
       if (visible && initialized && !blocked() && selected()?.id === tab && find.element.hidden && pageAvailable(tab)) await control({ kind: "focusPage", tab });
     }, report });

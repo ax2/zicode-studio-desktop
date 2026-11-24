@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { getByRole, waitFor } from "@testing-library/dom";
+import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { t } from "../../i18n.js";
 import { applyBrowserPageSetting, createBrowserPageControls, nextPageZoom } from "./browser-page-controls.js";
 afterEach(() => document.body.replaceChildren());
@@ -27,6 +27,24 @@ it("refreshes from the native tab, applies reset/mute and disables bounds", asyn
   live.zoom = 5;await panel.refresh();expect(getByRole(panel.element, "button", { name: t("Zoom in") }).disabled).toBe(true);
   live.zoom = 0.25;await panel.refresh();expect(getByRole(panel.element, "button", { name: t("Zoom out") }).disabled).toBe(true);
 });
+it("shows the viewer guidance only for a confirmed PDF and retains tab mute", async () => {
+  let settings = { zoom: 1.5, muted: false, pdfDocument: true };
+  const change = vi.fn(async () => {});
+  const panel = createBrowserPageControls({ getTab: () => ({ id: "only" }), read: async () => settings, change });
+  document.body.append(panel.element);
+  await panel.refresh();
+  expect(queryByRole(panel.element, "button", { name: t("Reset page zoom") })).toBeNull();
+  expect(panel.element.querySelector(".browser-zoom-row").classList.contains("hidden")).toBe(true);
+  expect(panel.element.querySelector("[data-i18n-text]").textContent).toBe(t("Use the PDF toolbar for search and zoom."));
+  getByRole(panel.element, "button", { name: t("Mute tab") }).click();
+  await waitFor(() => expect(change).toHaveBeenCalledWith("only", { kind: "muted", value: true }));
+  await waitFor(() => expect(panel.element.disabled).toBe(false));
+  settings = { zoom: 1.25, muted: false };
+  await panel.refresh();
+  expect(getByRole(panel.element, "button", { name: t("Reset page zoom") }).textContent).toBe("125%");
+  expect(panel.element.querySelector("[data-i18n-text]").hidden).toBe(true);
+});
+
 it("rejects stale reads after a tab switch and disables missing tabs", async () => {
   let id = "old", resolveOld;const change = vi.fn();
   const panel = createBrowserPageControls({ getTab: () => id ? { id } : null, read: tab => tab === "old" ? new Promise(resolve => { resolveOld = resolve; }) : Promise.resolve({ zoom: 1.25, muted: false }), change });document.body.append(panel.element);

@@ -105,6 +105,7 @@ pub(super) fn execute(
                         title_result.map_err(|error| error.to_string())?;
                         let history = super::windows_policy::history_state(&view.webview()).map_err(|e|e.to_string())?;
                         Ok(json!({"id":id,"history":history,"title":title,"popupOpener":browser.engine.popup_opener(id),"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"favicon":browser.engine.favicon(id),"settings":super::engine::page_controls::read(view)?,
+                            "pdfDocument":browser.engine.is_pdf_document(id),
                             "documentRevision":browser.engine.export_ready(id).then(|| browser.engine.document_revision(id)).transpose()?}))
                     };
                     let snapshot = read();
@@ -271,8 +272,16 @@ pub(super) fn execute(
                 // Browser tabs keep automatic DevTools entry points disabled.
                 unsafe { view.webview().OpenDevToolsWindow() }.map_err(|e| e.to_string())?;
             }
-            Request::PageSettings { tab } => return serde_json::to_value(super::engine::page_controls::read(browser.engine.view(&tab)?)?).map_err(|e|e.to_string()),
-            Request::SetZoom { tab, zoom } => return serde_json::to_value(super::engine::page_controls::set_zoom(browser.engine.view(&tab)?,zoom)?).map_err(|e|e.to_string()),
+            Request::PageSettings { tab } => {
+                let settings = super::engine::page_controls::read(browser.engine.view(&tab)?)?;
+                return Ok(json!({ "zoom": settings.zoom, "muted": settings.muted, "pdfDocument": browser.engine.is_pdf_document(&tab) }));
+            }
+            Request::SetZoom { tab, zoom } => {
+                if browser.engine.is_pdf_document(&tab) {
+                    return Err("Use the PDF toolbar for search and zoom.".into());
+                }
+                return serde_json::to_value(super::engine::page_controls::set_zoom(browser.engine.view(&tab)?, zoom)?).map_err(|e| e.to_string());
+            }
             Request::SetMuted { tab, muted } => return serde_json::to_value(super::engine::page_controls::set_muted(browser.engine.view(&tab)?,muted)?).map_err(|e|e.to_string()),
             Request::Url { tab } => {
                 return Ok(
@@ -338,6 +347,9 @@ pub(super) fn start_find(window: &WebviewWindow, tab: String, text: String, case
     let completion = sender.clone();
     let result = WINDOWS.with(|slot| slot.with_mut(|windows| {
         let browser = windows.get(window.label()).ok_or("Browser unavailable")?;
+        if browser.engine.is_pdf_document(&tab) {
+            return Err("Use the PDF toolbar for search and zoom.".into());
+        }
         let (view, work) = browser.engine.begin_page_work(&tab)?;
         super::native_find::start(view, &text, case_sensitive, move |result| {
             drop(work);
