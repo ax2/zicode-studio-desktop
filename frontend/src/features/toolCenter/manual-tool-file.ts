@@ -1,6 +1,6 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 export type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // The frozen tool document input limit.
@@ -49,6 +49,12 @@ export async function readManualToolFile(
   }
 
   const name = file.name.toLowerCase();
+  if (target === "sql-format") {
+    if (!name.endsWith(".sql")) throw Error("Choose a SQL file.");
+    const text = await readUtf8ToolFile(file, "SQL files must be 8 KiB or smaller.", "Could not read the SQL file.");
+    if (!text.trim()) throw Error("The selected SQL file is empty.");
+    return { text };
+  }
   const format = tableFileFormats.find(extension => name.endsWith("." + extension));
   const jsonField = jsonFileFields.get(target);
   const jsonDocument = jsonField !== undefined;

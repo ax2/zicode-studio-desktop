@@ -7,6 +7,11 @@ export function ManualToolInput({ field, id, value, disabled, invalid, compact =
   function choiceLabel(choice: ToolScalar) {
     return typeof choice === "boolean" ? t(choice ? "True" : "False") : choice === "" ? t("Empty text") : String(choice);
   }
+  function changeText(updated: string) {
+    // The textarea normalizes imported CRLF. A blur without an edit should keep the source bytes and undo.
+    if (value !== undefined && updated === value.replace(/\r\n?/g, "\n")) return;
+    onChange(updated);
+  }
   const numeric = field.kind === "integer" || field.kind === "number";
   const structured = field.kind === "array" || field.kind === "object";
   const shortText = field.kind === "string" && (compact || (field.maxLength !== undefined && field.maxLength <= 128));
@@ -26,10 +31,10 @@ export function ManualToolInput({ field, id, value, disabled, invalid, compact =
       {field.choices.map((choice, index) => <option key={JSON.stringify(choice)} value={String(index)}>{choiceLabel(choice)}</option>)}
     </select> : field.kind === "string" ? <textarea id={id} className={shortText ? "ui-textarea tool-input-short-text" : "ui-textarea tool-input-long-text"} rows={shortText ? 1 : 6} value={value ?? ""} disabled={disabled} aria-invalid={invalid || lengthInvalid}
       aria-describedby={describedBy}
-      onChange={event => onChange(event.target.value)} /> : structured ? <>
+      onChange={event => changeText(event.currentTarget.value)} /> : structured ? <>
       <textarea id={id} className="ui-textarea" rows={4} maxLength={32768} value={value ?? ""} disabled={disabled} aria-invalid={invalid}
         aria-describedby={describedBy} spellCheck={false} placeholder={field.kind === "array" ? "[]" : "{}"}
-        onChange={event => onChange(event.target.value)} />
+        onChange={event => changeText(event.currentTarget.value)} />
       <span id={`${id}-hint`} className="tool-center-source">{t(field.kind === "array" ? "Enter a JSON array (up to 32 KiB)." : "Enter a JSON object (up to 32 KiB).")}</span>
     </> : <>
       <input id={id} type="text" inputMode={field.kind === "integer" ? "numeric" : "decimal"} className="ui-input" maxLength={128}
