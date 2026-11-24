@@ -33,7 +33,7 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
   dialog.setAttribute("aria-label", t("Site permissions and storage"));
   const list = el("div"), actions = el("fieldset"), confirm = el("section"), status = el("p");
   status.setAttribute("role", "status");
-  let stale = false;
+  let stale = false, cancelReview;
   const blocked = el("p");
   function setBlockedPermissions(permissions) {
     const text = stale ? "" : blockedPermissionText(permissions);
@@ -52,8 +52,7 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
     if (stale || !dialog.open) return;
     stale = true;
     setBlockedPermissions();
-    confirm.hidden = true;
-    confirm.replaceChildren();
+    clearReview();
     actions.disabled = true;
     list.setAttribute("aria-busy", "false");
     const changed = el("p", t(SITE_SETTINGS_CHANGED));
@@ -65,16 +64,26 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
     if (String(error?.message ?? error) === SITE_SETTINGS_CHANGED) invalidate();
     return stale;
   }
+  function clearReview() {
+    cancelReview = undefined;
+    confirm.hidden = true;
+    confirm.replaceChildren();
+  }
   function prompt(message, action, source, permissionName) {
     if (stale || !dialog.open || actions.disabled) return;
     actions.disabled = true; confirm.hidden = false;
-    const cancel = button("Cancel", () => {
-      if (stale || !dialog.open) return;
-      confirm.hidden = true; actions.disabled = false; source.focus();
-    });
+    const discard = () => {
+      if (stale || !dialog.open || cancelReview !== discard) return;
+      clearReview();
+      actions.disabled = false;
+      source.focus();
+    };
+    cancelReview = discard;
+    const cancel = button("Cancel", discard);
     const apply = button("Confirm", async () => {
-      if (stale || !dialog.open || apply.disabled) return;
-      apply.disabled = true; confirm.hidden = true; close.focus();
+      if (stale || !dialog.open || cancelReview !== discard) return;
+      clearReview();
+      close.focus();
       status.textContent = "";
       try {
         await request({ ...action, confirmed: true });
@@ -88,8 +97,14 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
         actions.disabled = stale;
       }
     });
-    const detail = permissionName ? [el("p", permissionName)] : [];
-    confirm.replaceChildren(el("p", origin), ...detail, el("p", t(message)), cancel, apply);
+    const details = el("div");
+    details.id = "browser-site-settings-review";
+    details.append(el("p", origin));
+    if (permissionName) details.append(el("p", permissionName));
+    details.append(el("p", t(message)));
+    cancel.setAttribute("aria-describedby", details.id);
+    apply.setAttribute("aria-describedby", details.id);
+    confirm.replaceChildren(details, cancel, apply);
     cancel.focus();
   }
   async function load() {
@@ -124,7 +139,18 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
       actions.disabled = stale;
     }
   }
-  dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
+  dialog.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || event.isComposing || !cancelReview) return;
+    event.preventDefault();
+    event.stopPropagation();
+    cancelReview();
+  });
+  dialog.addEventListener("cancel", event => {
+    if (!event.cancelable || !cancelReview) return;
+    event.preventDefault();
+    cancelReview();
+  });
+  dialog.addEventListener("close", () => { clearReview(); dialog.remove(); onClose(); }, { once: true });
   document.body.append(dialog);
   dialog.showModal();
   close.focus();
