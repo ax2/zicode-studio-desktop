@@ -7,7 +7,7 @@ use visual_assets::visual_assets_control;
 mod browser;
 use browser::browser_control;
 use browser::bookmark_files::browser_bookmark_file;
-use browser::{capture::browser_capture_page, image_ocr::browser_recognize_image_text, reader::browser_read_article, selection::browser_read_selection};
+use browser::{capture::browser_capture_page, image_ocr::{browser_preview_image, browser_recognize_image_text}, reader::browser_read_article, selection::browser_read_selection};
 #[path = "browser/store.rs"]
 mod browser_store;
 #[path = "browser/state_commands.rs"]
@@ -2221,6 +2221,7 @@ fn main() {
             desktop_window_control,
             browser_capture_page,
             browser_recognize_image_text,
+            browser_preview_image,
             browser_read_article,
             browser_read_selection,
             browser_get_state,

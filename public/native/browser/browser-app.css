@@ -108,6 +108,17 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-image-ocr { margin-block: var(--space-2); }
 .browser-image-ocr > [hidden] { display: none; }
 .browser-image-ocr > .ui-textarea { width: 100%; height: auto; box-sizing: border-box; }
+.browser-image-review[hidden], .browser-image-result-source[hidden] { display: none; }
+.browser-image-review img {
+  display: block;
+  max-inline-size: min(100%, calc(var(--space-12) * 4));
+  max-block-size: calc(var(--space-12) * 3);
+  object-fit: contain;
+}
+.browser-image-review dd, .browser-image-result-source dd {
+  margin-inline-start: var(--space-3);
+  overflow-wrap: anywhere;
+}
 .browser-capture-media-scroll li + li { margin-block-start: var(--space-1); }
 .browser-capture-dialog:has(> .browser-compare:not([hidden])) > :is(.browser-capture-text, .browser-capture-links, .browser-capture-tables, .browser-capture-media, .browser-capture-frames),
 .browser-capture-dialog:has(> .browser-compare:not([hidden])) .browser-capture-prepare { display: none; }

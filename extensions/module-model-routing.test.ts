@@ -29,6 +29,7 @@ it("persists only module references, checks revisions and preserves unreadable c
 it("routes through real Pi registry authentication with module override, inheritance, disable and cancellation", async () => {
   const directory = root();
   const requests: Array<{ url: string; model: string; authorization: string; limit: number; effort?: string }> = [];
+  const imageRequests: unknown[] = [];
   let hold = false;
   let held: ServerResponse | undefined;
   let observed: (() => void) | undefined;
@@ -37,6 +38,10 @@ it("routes through real Pi registry authentication with module override, inherit
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     requests.push({ url: request.url ?? "", model: body.model, authorization: request.headers.authorization ?? "", limit: body.max_tokens ?? body.max_completion_tokens ?? body.max_output_tokens, effort: body.reasoning?.effort });
+    if (Array.isArray(body.input)) {
+      imageRequests.push(...body.input.flatMap((message: { content?: unknown[] }) =>
+        Array.isArray(message.content) ? message.content.filter(part => (part as { type?: string }).type === "input_image") : []));
+    }
     if (JSON.stringify(body).includes("fixture-reject")) {
       response.writeHead(429, { "content-type": "application/json" });
       response.end(JSON.stringify({ error: { message: "untrusted fixture-only-a detail", type: "rate_limit_error" } }));
@@ -68,7 +73,7 @@ it("routes through real Pi registry authentication with module override, inherit
   writeFileSync(authPath, "{}");
   writeFileSync(modelsPath, JSON.stringify({ providers: Object.fromEntries(["a", "b"].map(id => [`fixture-${id}`, {
     baseUrl: `http://127.0.0.1:${address.port}/${id}/v1`, api: id === "a" ? "openai-completions" : "openai-responses", apiKey: `fixture-only-${id}`,
-    models: [{ id, name: `Model ${id}`, reasoning: id === "b", input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 32768, maxTokens: 2048 }],
+    models: [{ id, name: `Model ${id}`, reasoning: id === "b", input: id === "b" ? ["text", "image"] : ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 32768, maxTokens: 2048 }],
   }])) }));
   try {
     const runtime = await ModelRuntime.create({ modelsPath, authPath, allowModelNetwork: false });
@@ -124,6 +129,29 @@ it("routes through real Pi registry authentication with module override, inherit
     expect(await call("cancel_browser_model_request", { requestId: "fixture-cancel" })).toEqual({ cancelled: true });
     await rejection;
     expect(current?.id).toBe("a");
+
+    const pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jSQ0AAAAASUVORK5CYII=";
+    const visionRequest = { ...request, requestId: "fixture-image", prompt: "Describe the visible pixel.", image: pixel,
+      expectedRevision: inherited.revision, expectedModelFingerprint: inherited.effectiveBrowserModel.fingerprint };
+    const beforeImage = requests.length;
+    expect(inherited.effectiveBrowserModel.supportsImages).toBe(false);
+    await expect(call("browser_model_request", visionRequest)).rejects.toThrow("module_model_image_unsupported");
+    disabled.delete("fixture-b");
+    const selected = await call("save_module_model", { module: "browser", selection: { provider: "fixture-b", modelId: "b" }, expectedRevision: inherited.revision });
+    expect(selected.effectiveBrowserModel.supportsImages).toBe(true);
+    const confirmed = { ...visionRequest, expectedRevision: selected.revision,
+      expectedModelFingerprint: selected.effectiveBrowserModel.fingerprint };
+    await expect(call("browser_model_request", { ...confirmed, confirmed: false })).rejects.toThrow("module_model_confirmation_required");
+    await expect(call("browser_model_request", { ...confirmed, image: "https://example.org/never-fetch" })).rejects.toThrow("module_model_image_invalid");
+    const oversized = Buffer.from(pixel, "base64");
+    oversized.writeUInt32BE(385, 16);
+    await expect(call("browser_model_request", { ...confirmed, image: oversized.toString("base64") })).rejects.toThrow("module_model_image_invalid");
+    expect(requests).toHaveLength(beforeImage);
+    expect(imageRequests).toHaveLength(0);
+    const visual = await call("browser_model_request", confirmed);
+    expect(visual.text).toBe("routed:b");
+    expect(requests).toHaveLength(beforeImage + 1);
+    expect(imageRequests).toEqual([expect.objectContaining({ type: "input_image", image_url: `data:image/png;base64,${pixel}` })]);
   } finally {
     held?.destroy();
     server.closeAllConnections();

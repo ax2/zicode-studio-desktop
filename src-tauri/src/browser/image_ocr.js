@@ -1,5 +1,5 @@
 
-(approved, frame) => {
+(approved, frame, maxSide) => {
   // Only an already-loaded image matching the reviewed descriptor. No network or file reads.
   const excluded = 'input,textarea,select,[contenteditable],[hidden],[inert],[aria-hidden="true"]';
   const displayed = element => element.getClientRects().length && !element.closest(excluded)
@@ -26,7 +26,7 @@
     if (!image.complete || image.currentSrc !== approved.url ||
         image.naturalWidth !== approved.width || image.naturalHeight !== approved.height ||
         !displayed(image)) continue;
-    const scale = Math.min(1, 1536 / approved.width, 1536 / approved.height,
+    const scale = Math.min(1, maxSide / approved.width, maxSide / approved.height,
       Math.sqrt(1000000 / (approved.width * approved.height)));
     const canvas = doc.createElement("canvas");
     canvas.width = Math.max(1, Math.floor(approved.width * scale));

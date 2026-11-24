@@ -6,14 +6,39 @@ use super::capture::{FrameImageLocator, PageImage};
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ImageRecognition {
-    pub source: PageImage,
-    pub page_url: String,
-    pub document_revision: String,
-    pub captured_at: String,
-    pub text: String,
-    pub truncated: bool,
+    #[serde(flatten)]
+    provenance: ImageProvenance,
+    text: String,
+    truncated: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImagePreview {
+    #[serde(flatten)]
+    provenance: ImageProvenance,
+    png_base64: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageProvenance {
+    source: PageImage,
+    page_url: String,
+    document_revision: String,
+    captured_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    frame: Option<RecognizedFrame>,
+    frame: Option<CapturedFrame>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct ImageTarget {
+    tab: String,
+    expected_url: String,
+    expected_revision: String,
+    image: PageImage,
+    frame: Option<ImageFrameSource>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -26,7 +51,7 @@ pub(crate) struct ImageFrameSource {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct RecognizedFrame {
+struct CapturedFrame {
     title: String,
     url: Option<String>,
     document_revision: String,
@@ -48,7 +73,17 @@ pub(crate) async fn browser_recognize_image_text(
     }
     #[cfg(windows)]
     {
-        windows::recognize(window, tab, expected_url, expected_revision, image, frame).await
+        windows::recognize(
+            window,
+            ImageTarget {
+                tab,
+                expected_url,
+                expected_revision,
+                image,
+                frame,
+            },
+        )
+        .await
     }
     #[cfg(not(windows))]
     {
@@ -57,16 +92,39 @@ pub(crate) async fn browser_recognize_image_text(
     }
 }
 
+#[tauri::command]
+pub(crate) async fn browser_preview_image(
+    window: WebviewWindow,
+    target: ImageTarget,
+    confirmed: bool,
+) -> Result<ImagePreview, String> {
+    crate::require_workspace_window(&window)?;
+    if !confirmed {
+        return Err("Choose an image to preview first.".into());
+    }
+    #[cfg(windows)]
+    {
+        windows::preview(window, target).await
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = target;
+        Err("Integrated browser is currently available on Windows".into())
+    }
+}
+
 #[cfg(windows)]
 mod windows {
     use super::*;
-    use crate::browser::capture::{is_web_url, run};
+    use crate::browser::capture::{is_web_url, run, Capture};
     use base64::{engine::general_purpose::STANDARD, Engine};
     use image::{codecs::png::PngDecoder, DynamicImage, ImageDecoder, Limits};
     use std::io::Cursor;
 
     const MAX_RESPONSE: usize = 6 * 1024 * 1024;
     const MAX_SIDE: u32 = 1536;
+    const PREVIEW_SIDE: u32 = 384;
+    const MAX_PREVIEW_BASE64: usize = 800_000;
     const MAX_PIXELS: u64 = 1_000_000;
     const MAX_TEXT: usize = 8000;
     const PNG_PREFIX: &str = "data:image/png;base64,";
@@ -122,14 +180,18 @@ mod windows {
         DynamicImage::from_decoder(decoder).map_err(|_| "Invalid browser image response".into())
     }
 
-    pub(super) async fn recognize(
+    async fn capture_pixels(
         window: WebviewWindow,
-        tab: String,
-        expected_url: String,
-        expected_revision: String,
-        image: PageImage,
-        frame: Option<ImageFrameSource>,
-    ) -> Result<ImageRecognition, String> {
+        target: &ImageTarget,
+        max_side: u32,
+    ) -> Result<Capture<String>, String> {
+        let ImageTarget {
+            tab,
+            expected_url,
+            expected_revision,
+            image,
+            frame,
+        } = target;
         if expected_revision.is_empty()
             || expected_revision.len() > 128
             || image.alt.chars().count() > 160
@@ -146,46 +208,92 @@ mod windows {
                     !is_web_url(source)
                         || !reqwest::Url::parse(source)
                             .ok()
-                            .zip(reqwest::Url::parse(&expected_url).ok())
+                            .zip(reqwest::Url::parse(expected_url).ok())
                             .is_some_and(|(child, parent)| child.origin() == parent.origin())
                 })
         }) {
             return Err("Invalid browser image source.".into());
         }
-        let descriptor = serde_json::to_string(&image).map_err(|e| e.to_string())?;
-        let location = serde_json::to_string(&frame).map_err(|e| e.to_string())?;
+        let descriptor = serde_json::to_string(image).map_err(|e| e.to_string())?;
+        let location = serde_json::to_string(frame).map_err(|e| e.to_string())?;
         let script = format!(
-            "({})({descriptor}, {location})",
+            "({})({descriptor}, {location}, {max_side})",
             include_str!("image_ocr.js")
         );
-        let captured = run(
+        run(
             window,
-            tab,
+            tab.clone(),
             expected_url.clone(),
-            Some(expected_revision),
+            Some(expected_revision.clone()),
             script,
             parse_pixels,
         )
-        .await?;
+        .await
+    }
+
+    fn provenance(target: ImageTarget, captured: Capture<String>) -> ImageProvenance {
+        ImageProvenance {
+            source: target.image,
+            page_url: target.expected_url,
+            document_revision: captured.document_revision,
+            captured_at: captured.captured_at,
+            frame: target.frame.map(|source| CapturedFrame {
+                title: source.title,
+                url: source.url,
+                document_revision: source.locator.time_origin,
+            }),
+        }
+    }
+
+    fn encode_preview(data: &str) -> Result<String, String> {
+        let pixels = decode_png(data)?;
+        if pixels.width() > PREVIEW_SIDE || pixels.height() > PREVIEW_SIDE {
+            return Err("Browser image exceeded the preview size limit.".into());
+        }
+        // Send only pixels. Do not relay ancillary data from the page's PNG.
+        let mut bytes = Cursor::new(Vec::new());
+        DynamicImage::ImageRgb8(pixels.to_rgb8())
+            .write_to(&mut bytes, image::ImageFormat::Png)
+            .map_err(|_| "Invalid browser image response")?;
+        let data = STANDARD.encode(bytes.into_inner());
+        if data.len() > MAX_PREVIEW_BASE64 {
+            return Err("Browser image exceeded the preview size limit.".into());
+        }
+        Ok(data)
+    }
+
+    pub(super) async fn recognize(
+        window: WebviewWindow,
+        target: ImageTarget,
+    ) -> Result<ImageRecognition, String> {
+        let captured = capture_pixels(window, &target, MAX_SIDE).await?;
         tauri::async_runtime::spawn_blocking(move || {
             let pixels = decode_png(&captured.page)?;
             let result = crate::ocr::extract_decoded_text(&pixels, None, None)?;
             Ok(ImageRecognition {
-                source: image,
-                page_url: expected_url,
-                document_revision: captured.document_revision,
-                captured_at: captured.captured_at,
+                provenance: provenance(target, captured),
                 text: result.text.chars().take(MAX_TEXT).collect(),
                 truncated: result.char_count > MAX_TEXT,
-                frame: frame.map(|source| RecognizedFrame {
-                    title: source.title,
-                    url: source.url,
-                    document_revision: source.locator.time_origin,
-                }),
             })
         })
         .await
         .map_err(|_| "Browser image OCR worker stopped".to_owned())?
+    }
+
+    pub(super) async fn preview(
+        window: WebviewWindow,
+        target: ImageTarget,
+    ) -> Result<ImagePreview, String> {
+        let captured = capture_pixels(window, &target, PREVIEW_SIDE).await?;
+        tauri::async_runtime::spawn_blocking(move || {
+            let png_base64 = encode_preview(&captured.page)?;
+            Ok(ImagePreview {
+                provenance: provenance(target, captured),
+                png_base64,
+            })
+        })
+        .await
+        .map_err(|_| "Browser image preview worker stopped".to_owned())?
     }
 
     #[cfg(test)]
@@ -201,6 +309,17 @@ mod windows {
                 format!("{PNG_PREFIX}{}", STANDARD.encode(bytes.into_inner()))
             };
             let data = png(32);
+            let preview = encode_preview(&data).unwrap();
+            assert_eq!(
+                decode_png(&format!("{PNG_PREFIX}{preview}"))
+                    .unwrap()
+                    .width(),
+                32
+            );
+            assert_eq!(
+                encode_preview(&png(PREVIEW_SIDE + 1)).unwrap_err(),
+                "Browser image exceeded the preview size limit."
+            );
             let decoded = decode_png(&data).unwrap();
             assert_eq!((decoded.width(), decoded.height()), (32, 32));
             assert!(decode_png(&png(1001)).is_err());

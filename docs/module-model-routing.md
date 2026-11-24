@@ -8,6 +8,8 @@ Configure providers and several model IDs in the existing model-channel settings
 
 The destination is visible before **Send page and ask** or **Send page and summarize**. Only these explicit buttons send the reviewed captured text (and optional attachments selected by the user). The result is inert text with model identity and reported token usage. Existing Chat draft/summary/compare actions remain available. Independent browser requests use Pi's live ModelRegistry/authentication and never change Chat's current model or append to its history. They do not run the agent loop or expose tools to website text.
 
+For vision, open **Page images and details** or a permitted embedded page and choose **Preview image for AI** on one image. The preview uses already loaded pixels, capped at 384 pixels per side. **Send only this image** rechecks those pixels and the page and frame versions. It sends the reviewed PNG and a description prompt to the displayed browser model. The image's source URLs, capture time and document versions stay in the browser result. A text-only model cannot send this request. The local OCR action stays independent.
+
 Per Pi agent root, `module-models.json` contains only model references:
 
 ```json

@@ -434,6 +434,7 @@ permissions = [
   "allow-browser-control",
   "allow-browser-capture-page",
   "allow-browser-recognize-image-text",
+  "allow-browser-preview-image",
   "allow-browser-read-article",
   "allow-browser-read-selection",
   "allow-browser-get-state",
@@ -607,6 +608,11 @@ commands.allow = ["browser_capture_page"]
 identifier = "allow-browser-recognize-image-text"
 description = "Recognize text in one reviewed browser image locally."
 commands.allow = ["browser_recognize_image_text"]
+
+[[permission]]
+identifier = "allow-browser-preview-image"
+description = "Read one bounded image preview from the calling trusted browser window after explicit user selection."
+commands.allow = ["browser_preview_image"]
 
 [[permission]]
 identifier = "allow-browser-read-article"

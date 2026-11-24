@@ -54,8 +54,12 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
       return isOpen() ? result : undefined;
     } finally { setBusy(false); }
   });
-  const media = createBrowserCaptureMedia(capture.page, recognizeImage);
-  const frames = createBrowserCaptureFrames(capture.page, recognizeImage);
+  const reviewImage = dock?.previewImage && dock.modelActions && ((image, frame) => {
+    if (busy || !isOpen()) return;
+    return modelAssistant?.reviewImage(() => dock.previewImage(image, frame));
+  });
+  const media = createBrowserCaptureMedia(capture.page, recognizeImage, reviewImage);
+  const frames = createBrowserCaptureFrames(capture.page, recognizeImage, reviewImage);
   const attachments = () => {
     const imageText = [...media.imageText(), ...frames.imageText()];
     return {

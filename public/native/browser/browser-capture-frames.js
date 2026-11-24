@@ -8,7 +8,7 @@ function paragraph(value) {
   return element;
 }
 
-export function createBrowserCaptureFrames(page, recognizeImage) {
+export function createBrowserCaptureFrames(page, recognizeImage, reviewImage) {
   const frames = page.frames ?? [];
   const imageLists = [];
   const imageText = () => imageLists.flatMap(list => list.imageText());
@@ -46,10 +46,9 @@ export function createBrowserCaptureFrames(page, recognizeImage) {
     if (frame.selectionTruncated) details.append(paragraph(t("Selected text was shortened")));
     if (frame.tablesTruncated) details.append(paragraph(t("Only some table data is shown.")));
     if (frame.images?.length) {
-      const recognize = recognizeImage && frame.imageLocator && (image => recognizeImage(image, {
-        title: frame.title, url: frame.url, locator: frame.imageLocator,
-      }));
-      const images = createBrowserCaptureImageList(frame.images, recognize);
+      const target = { title: frame.title, url: frame.url, locator: frame.imageLocator };
+      const bound = action => action && frame.imageLocator && (image => action(image, target));
+      const images = createBrowserCaptureImageList(frame.images, bound(recognizeImage), bound(reviewImage));
       const scroll = document.createElement("div");
       scroll.className = "browser-capture-media-scroll";
       scroll.append(images.element);
