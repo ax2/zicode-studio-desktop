@@ -7,18 +7,17 @@ const script = readFileSync("src-tauri/src/browser/capture.js", "utf8");
 afterEach(() => { vi.restoreAllMocks(); document.body.replaceChildren(); });
 
 function capture(title, body, selection) {
-  const parentElement = { closest: () => null, getClientRects: () => [{}], querySelectorAll: () => [] };
+  const parentElement = { nodeType: 1, matches: () => false, closest: () => null, getClientRects: () => [{}], querySelectorAll: () => [] };
   const textNode = { nodeType: 3, nodeValue: body, parentElement };
   const range = { startContainer: textNode, endContainer: textNode, commonAncestorContainer: textNode };
-  const nodes = [textNode];
+  parentElement.childNodes = [textNode];
   return runInNewContext(script, {
     document: {
       title, body: parentElement, documentElement: {}, links: [], images: [],
-      createTreeWalker: () => ({ nextNode: () => nodes.shift() }),
       querySelectorAll: () => [], getElementsByTagName: () => [],
     },
     location: { href: "https://example.org/" },
-    Node: { ELEMENT_NODE: 1 }, NodeFilter: { SHOW_TEXT: 4 },
+    Node: { ELEMENT_NODE: 1, TEXT_NODE: 3 }, NodeFilter: { SHOW_TEXT: 4 },
     getComputedStyle: () => ({ display: "block", visibility: "visible" }),
     getSelection: () => ({ rangeCount: 1, isCollapsed: false, getRangeAt: () => range, toString: () => selection }),
   });
@@ -63,18 +62,15 @@ test.each([
 function captureFrames({ text = "Main body", selection = "Main selection", withImage = false, withLinks = false } = {}) {
   const origin = "https://example.org";
   const selectable = value => {
-    const visible = { closest: () => null, getClientRects: () => [{}], querySelectorAll: () => [] };
+    const visible = { nodeType: 1, matches: () => false, closest: () => null, getClientRects: () => [{}], querySelectorAll: () => [] };
     const node = { nodeType: 3, nodeValue: value, parentElement: visible };
+    visible.childNodes = [node];
     return { visible, node };
   };
   function doc(title, URL, body, value, frames = []) {
     const { visible, node } = selectable(body);
     return {
       title, URL, body: visible, documentElement: {}, links: [], images: [],
-      createTreeWalker() {
-        const nodes = [node];
-        return { nextNode: () => nodes.shift() };
-      },
       querySelectorAll: query => query === "iframe,frame" ? frames : [],
       getElementsByTagName: () => [],
       getSelection: () => ({
@@ -125,7 +121,7 @@ function captureFrames({ text = "Main body", selection = "Main selection", withI
   }
   return runInNewContext(script, {
     document, URL, location: { href: document.URL, origin },
-    Node: { ELEMENT_NODE: 1 }, NodeFilter: { SHOW_TEXT: 4 },
+    Node: { ELEMENT_NODE: 1, TEXT_NODE: 3 }, NodeFilter: { SHOW_TEXT: 4 },
     getComputedStyle: () => ({ display: "block", visibility: "visible" }),
     getSelection: document.getSelection,
   });
@@ -227,6 +223,22 @@ test("keeps a focused same-origin frame selection separate from the old main-pag
 
   selectRange(child.querySelector("output"));
   expect(captureSelection().frames[0]).toMatchObject({ selection: "", selectionTruncated: false });
+});
+
+test("captures rendered open components in order and keeps private and unslotted text out", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  document.body.innerHTML = '<p>Before</p><div id="host"><span slot="heading">Slotted heading</span><span>Not assigned</span></div><div id="closed"></div><p>After</p>';
+  const root = document.getElementById("host").attachShadow({ mode: "open" });
+  root.innerHTML = '<p>Component start</p><slot name="heading"><span>Unused fallback</span></slot><slot name="detail"><span>Visible fallback</span></slot><div id="nested"></div><div aria-hidden="true"><div id="hidden"></div></div><section contenteditable><div id="editable"></div></section>';
+  root.getElementById("nested").attachShadow({ mode: "open" }).innerHTML = "<p>Nested component</p>";
+  root.getElementById("hidden").attachShadow({ mode: "open" }).innerHTML = "<p>Hidden component</p>";
+  root.getElementById("editable").attachShadow({ mode: "open" }).innerHTML = "<p>Editable component</p>";
+  document.getElementById("closed").attachShadow({ mode: "closed" }).innerHTML = "<p>Closed component</p>";
+
+  expect(captureSelection()).toMatchObject({
+    text: "Before\nComponent start\nSlotted heading\nVisible fallback\nNested component\nAfter\n",
+    textTruncated: false,
+  });
 });
 
 test("keeps a paragraph selection on a page with many unrelated controls", () => {

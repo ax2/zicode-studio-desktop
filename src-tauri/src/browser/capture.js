@@ -1,9 +1,10 @@
 (() => {
   const excluded = 'script,style,noscript,template,input,textarea,select,option,[contenteditable], [hidden], [inert], [aria-hidden="true"]';
+  const styleOf = element => element.ownerDocument?.defaultView?.getComputedStyle(element) ?? getComputedStyle(element);
   const allowed = node => {
     const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
     if (!element || element.closest(excluded)) return false;
-    const style = element.ownerDocument?.defaultView?.getComputedStyle(element) ?? getComputedStyle(element);
+    const style = styleOf(element);
     return style.display !== 'none' && style.visibility !== 'hidden' &&
       element.getClientRects().length > 0 &&
       element.checkVisibility?.({ opacityProperty: true, visibilityProperty: true }) !== false;
@@ -26,17 +27,62 @@
   };
   let textRemaining = 48000;
   let nodesRemaining = 12000;
+  let structureRemaining = 24000;
   let selectionRemaining = 8192;
+  function renderedChildren(element) {
+    if (element.shadowRoot) return element.shadowRoot.childNodes;
+    if (element.localName === "slot" && element.getRootNode().host) {
+      const assigned = element.assignedNodes();
+      if (assigned.length) return assigned;
+    }
+    return element.childNodes;
+  }
+  function composedParent(node) {
+    return node.assignedSlot || node.parentElement || node.getRootNode().host;
+  }
   function readText(doc, limit) {
     const charLimit = Math.min(limit, textRemaining);
-    const walker = doc.createTreeWalker(doc.body || doc.documentElement, NodeFilter.SHOW_TEXT);
-    let text = '', textTruncated = false;
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const root = doc.body || doc.documentElement;
+    const pending = [[root].values()];
+    let text = '', textTruncated = false, textRange;
+    while (pending.length) {
+      const next = pending.at(-1).next();
+      if (next.done) { pending.pop(); continue; }
+      if (structureRemaining === 0) { textTruncated = true; break; }
+      structureRemaining--;
+      const node = next.value;
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (!node.matches(excluded)) pending.push(renderedChildren(node).values());
+        continue;
+      }
+      if (node.nodeType !== Node.TEXT_NODE) continue;
       if (nodesRemaining === 0) { textTruncated = true; break; }
       nodesRemaining--;
-      if (!allowed(node)) continue;
       const part = (node.nodeValue || '').trim();
       if (!part) continue;
+      const parent = composedParent(node);
+      if (!parent) continue;
+      if (node.parentElement === parent && parent.getClientRects().length > 0) {
+        if (!allowed(node)) continue;
+      } else {
+        // A slot, a display:contents parent, or a bare shadow text node has no useful parent box.
+        if (styleOf(parent).visibility !== 'visible') continue;
+        let hidden = false;
+        for (let ancestor = parent; ancestor; ancestor = composedParent(ancestor)) {
+          const style = styleOf(ancestor);
+          if (style.display === 'none' || style.opacity === '0' || style.contentVisibility === 'hidden' ||
+              (ancestor.getClientRects().length > 0 &&
+               ancestor.checkVisibility?.({ opacityProperty: true }) === false)) {
+            hidden = true;
+            break;
+          }
+          if (ancestor.getClientRects().length > 0 && ancestor.checkVisibility) break;
+        }
+        if (hidden) continue;
+        textRange ??= doc.createRange();
+        textRange.selectNodeContents(node);
+        if (!textRange.getClientRects().length) continue;
+      }
       const remaining = charLimit - text.length;
       if (part.length > remaining) { text += clip(part, remaining); textTruncated = true; break; }
       text += part;
