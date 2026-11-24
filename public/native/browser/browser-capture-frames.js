@@ -1,9 +1,10 @@
 import { t } from "../../i18n.js";
 import { createBrowserCaptureImageList } from "./browser-capture-media.js";
+import { renderBrowserCaptureLinks } from "./browser-capture-links.js";
 import { renderBrowserCaptureTables } from "./browser-capture-tables.js";
 import { appendPartialCapture, isFrameTextIncomplete } from "./browser-capture-status.js";
 
-const isFrameIncomplete = frame => isFrameTextIncomplete(frame) || frame.imagesTruncated;
+const isFrameIncomplete = frame => isFrameTextIncomplete(frame) || frame.imagesTruncated || frame.linksTruncated;
 
 function paragraph(value) {
   const element = document.createElement("p");
@@ -16,7 +17,8 @@ export function createBrowserCaptureFrames(page, recognizeImage, reviewImage) {
   const imageLists = [];
   const imageText = () => imageLists.flatMap(list => list.imageText());
   const include = document.createElement("input"); include.type = "checkbox";
-  if (!frames.length && !page.framesOmitted) return { include, imageText };
+  const includeLinks = document.createElement("input"); includeLinks.type = "checkbox"; includeLinks.disabled = true;
+  if (!frames.length && !page.framesOmitted) return { include, includeLinks, imageText };
 
   const element = document.createElement("details"); element.className = "browser-capture-frames";
   const summary = document.createElement("summary");
@@ -27,6 +29,12 @@ export function createBrowserCaptureFrames(page, recognizeImage, reviewImage) {
     const label = document.createElement("label");
     label.append(include, t("Include frames in the page note or chat draft"));
     element.append(label);
+    if (frames.some(frame => frame.links?.length || frame.linksTruncated)) {
+      const linksLabel = document.createElement("label");
+      linksLabel.append(includeLinks, t("Include links from embedded pages"));
+      include.addEventListener("change", () => { includeLinks.disabled = !include.checked; });
+      element.append(linksLabel);
+    }
   }
   for (const frame of frames) {
     const details = document.createElement("details");
@@ -46,6 +54,8 @@ export function createBrowserCaptureFrames(page, recognizeImage, reviewImage) {
       text.value = frame.text;
       details.append(text);
     }
+    const links = renderBrowserCaptureLinks(frame);
+    if (links) details.append(links);
     if (frame.tables?.length) details.append(renderBrowserCaptureTables(frame.tables));
     if (frame.textTruncated) details.append(paragraph(t("Page content was shortened")));
     if (frame.selectionTruncated) details.append(paragraph(t("Selected text was shortened")));
@@ -64,5 +74,5 @@ export function createBrowserCaptureFrames(page, recognizeImage, reviewImage) {
     element.append(details);
   }
   if (page.framesOmitted) element.append(paragraph(t("Some frames were unavailable or exceeded capture limits.")));
-  return { include, element, imageText };
+  return { include, includeLinks, element, imageText };
 }

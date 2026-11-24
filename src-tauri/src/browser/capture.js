@@ -65,21 +65,24 @@
   }
   const mainText = readText(document, textRemaining);
   const mainSelection = readSelection(document, getSelection());
-  const links = [];
-  const seen = new Set();
-  const anchors = document.links;
-  let linksTruncated = anchors.length > 1000;
-  for (let i = 0; i < Math.min(anchors.length, 1000); i++) {
-    const anchor = anchors[i];
-    if (anchor.localName !== "a" || !visible(anchor) ||
-        anchor.querySelector('input,textarea,select,[contenteditable]')) continue;
-    const url = webUrl(anchor.href);
-    if (!url || seen.has(url)) continue;
-    if (links.length === 20) { linksTruncated = true; break; }
-    seen.add(url);
-    const label = shortText(anchor.innerText, 120);
-    links.push({ label, url });
+  function readLinks(doc, limit, scan) {
+    const links = [];
+    const seen = new Set();
+    const anchors = doc.links;
+    let linksTruncated = anchors.length > scan;
+    for (let i = 0; i < Math.min(anchors.length, scan); i++) {
+      const anchor = anchors[i];
+      if (anchor.localName !== "a" || !visible(anchor) ||
+          anchor.querySelector('input,textarea,select,[contenteditable]')) continue;
+      const url = webUrl(anchor.href);
+      if (!url || seen.has(url)) continue;
+      if (links.length === limit) { linksTruncated = true; break; }
+      seen.add(url);
+      links.push({ label: shortText(anchor.innerText, 120), url });
+    }
+    return { links, linksTruncated };
   }
+  const mainLinks = readLinks(document, 20, 1000);
   let tablesRemaining = 4;
   let tablesToScan = 100;
   let tableTextRemaining = 3600;
@@ -182,6 +185,8 @@
   let framesOmitted = false;
   let framesToScan = 24;
   const origin = location.origin;
+  let frameLinksRemaining = 12;
+  let frameLinksToScan = 400;
   let frameImagesRemaining = 12;
   let frameImagesToScan = 400;
   function readFrames(doc, path) {
@@ -206,6 +211,10 @@
       const body = readText(child, 8000);
       const selection = readSelection(child, child.getSelection());
       const tables = readTables(child);
+      const linkScan = Math.min(child.links.length, frameLinksToScan);
+      frameLinksToScan -= linkScan;
+      const references = readLinks(child, Math.min(6, frameLinksRemaining), linkScan);
+      frameLinksRemaining -= references.links.length;
       const imageScan = Math.min(child.images?.length ?? 0, frameImagesToScan);
       frameImagesToScan -= imageScan;
       const media = readImages(child, Math.min(6, frameImagesRemaining), imageScan);
@@ -215,8 +224,9 @@
       const imageLocator = media.images.some(image => image.url) && Number.isFinite(timeOrigin)
         ? { path: childPath, timeOrigin: String(timeOrigin) } : undefined;
       if (body.text || selection.selection || tables.tables.length || media.images.length ||
-          body.textTruncated || selection.selectionTruncated || tables.tablesTruncated || media.imagesTruncated) {
-        frames.push({ title: clip(child.title || element.title || '', 512), url, ...body, ...selection, ...tables, ...media, imageLocator });
+          references.links.length || references.linksTruncated || body.textTruncated ||
+          selection.selectionTruncated || tables.tablesTruncated || media.imagesTruncated) {
+        frames.push({ title: clip(child.title || element.title || '', 512), url, ...body, ...selection, ...tables, ...references, ...media, imageLocator });
       }
       readFrames(child, childPath);
     }
@@ -229,5 +239,5 @@
   };
   return { title: clip(document.title, 512), url: location.href, ...mainText, ...mainSelection,
     truncated: mainText.textTruncated || mainSelection.selectionTruncated,
-    links, linksTruncated, ...mainTables, metadata, ...mainImages, frames, framesOmitted };
+    ...mainLinks, ...mainTables, metadata, ...mainImages, frames, framesOmitted };
 })()

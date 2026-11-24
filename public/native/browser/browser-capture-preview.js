@@ -1,6 +1,7 @@
 import { createBrowserCompare } from "./browser-compare.js";
 import { createBrowserCaptureMedia } from "./browser-capture-media.js";
 import { createBrowserCaptureFrames } from "./browser-capture-frames.js";
+import { renderBrowserCaptureLinks } from "./browser-capture-links.js";
 import { renderBrowserCaptureTables } from "./browser-capture-tables.js";
 import { createBrowserNoteClip } from "./browser-note-clip.js";
 import { appendPartialCapture } from "./browser-capture-status.js";
@@ -66,34 +67,11 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     return {
       includeLinks: includeLinks.checked, includeTables: includeTables.checked, includeMedia: media.include.checked,
       ...(frames.include.checked ? { includeFrames: true } : {}),
+      ...(frames.include.checked && frames.includeLinks.checked ? { includeFrameLinks: true } : {}),
       ...(imageText.length ? { imageText } : {}),
     };
   };
-  let links;
-  const capturedLinks = capture.page.links ?? [];
-  if (capturedLinks.length || capture.page.linksTruncated) {
-    links = document.createElement("details"); links.className = "browser-capture-links";
-    const summary = document.createElement("summary");
-    summary.textContent = `${t("Page links")} (${capturedLinks.length})`;
-    if (capture.page.linksTruncated) appendPartialCapture(summary);
-    const list = document.createElement("ul");
-    list.tabIndex = 0;
-    list.setAttribute("aria-label", t("Page links"));
-    for (const link of capturedLinks) {
-      const item = document.createElement("li");
-      const value = document.createElement("p");
-      value.textContent = link.label ? `${link.label} — ${link.url}` : link.url;
-      item.append(value); list.append(item);
-    }
-    const share = document.createElement("label");
-    share.append(includeLinks, t("Include links in the page note or chat draft"));
-    links.append(summary);
-    if (capturedLinks.length) links.append(share, list);
-    if (capture.page.linksTruncated) {
-      const limit = document.createElement("p"); limit.textContent = t("Only some page links are shown.");
-      links.append(limit);
-    }
-  }
+  const links = renderBrowserCaptureLinks(capture.page, includeLinks);
   let tables;
   const capturedTables = capture.page.tables ?? [];
   if (capturedTables.length || capture.page.tablesTruncated) {

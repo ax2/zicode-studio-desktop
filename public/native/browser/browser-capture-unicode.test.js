@@ -60,7 +60,7 @@ test.each([
 });
 
 
-function captureFrames({ text = "Main body", selection = "Main selection", withImage = false } = {}) {
+function captureFrames({ text = "Main body", selection = "Main selection", withImage = false, withLinks = false } = {}) {
   const origin = "https://example.org";
   const selectable = value => {
     const visible = { closest: () => null, getClientRects: () => [{}], querySelectorAll: () => [] };
@@ -107,6 +107,22 @@ function captureFrames({ text = "Main body", selection = "Main selection", withI
     iframe(sameOrigin), iframe(hidden, { hidden: true }), iframe(foreign),
     iframe(null), iframe(hidden, { sandbox: true }),
   ]);
+  if (withLinks) {
+    const anchor = (href, innerText, hidden = false) => ({
+      nodeType: 1, localName: "a", href, innerText, closest: () => null,
+      getClientRects: () => hidden ? [] : [{}], querySelector: () => null,
+    });
+    const refs = (name, count) => Array.from({ length: count }, (_, i) =>
+      anchor(`${origin}/${name}/${i}`, `${name} ${i}`));
+    document.links.push(anchor(`${origin}/main`, "Main"));
+    sameOrigin.links.push(...refs("embedded", 7), anchor(`${origin}/not-visible`, "Hidden", true));
+    nested.links.push(anchor("mailto:hello@example.org", "Email"), ...refs("nested", 6),
+      anchor(`${origin}/nested/0`, "Duplicate"));
+    foreign.links.push(anchor("https://example.com/foreign-link", "Foreign"));
+    const last = doc("Last", `${origin}/last`, "", "");
+    last.links.push(anchor(`${origin}/last-link`, "Last"));
+    document.querySelectorAll("iframe,frame").push(iframe(last));
+  }
   return runInNewContext(script, {
     document, URL, location: { href: document.URL, origin },
     Node: { ELEMENT_NODE: 1 }, NodeFilter: { SHOW_TEXT: 4 },
@@ -124,6 +140,16 @@ test("only reads visible loaded same-origin frames and keeps their source and se
     { title: "Inline title", url: null, text: "Nested document\n", selection: "" },
   ]);
   expect(page.framesOmitted).toBe(true);
+});
+
+test("keeps embedded links in their source frames and bounds the subpage budgets", () => {
+  const page = captureFrames({ withLinks: true });
+  expect(page.links).toEqual([{ label: "Main", url: "https://example.org/main" }]);
+  expect(page.linksTruncated).toBe(false);
+  expect(page.frames.map(({ links, linksTruncated }) => [links.length, linksTruncated])).toEqual([[6, true], [6, false], [0, true]]);
+  expect(page.frames[0].links[0]).toEqual({ label: "embedded 0", url: "https://example.org/embedded/0" });
+  expect(page.frames[1].links[5]).toEqual({ label: "nested 5", url: "https://example.org/nested/5" });
+  expect(JSON.stringify(page)).not.toMatch(/not-visible|foreign-link|mailto/);
 });
 
 test("embedded documents share the text and selection budget without splitting emoji", () => {

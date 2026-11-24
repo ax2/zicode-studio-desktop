@@ -14,7 +14,9 @@ function tableMarkdown({ caption, rows, firstRowHeader }) {
   const lines = [row(header.map(quote)), row(header.map(() => "---")), ...body.map(cells => row(cells.map(quote)))];
   return (caption ? quote(caption) + "\n\n" : "") + lines.join("\n");
 }
-function frameMarkdown(frame) {
+const linkMarkdown = ({ label, url }) => quotedPageText(label ? `${label} — ${url}` : url);
+
+function frameMarkdown(frame, includeLinks) {
   const label = frame.title || frame.url || t("Inline frame");
   return [
     `### ${quotedPageText(label.replace(/\s+/g, " "))}`,
@@ -22,6 +24,8 @@ function frameMarkdown(frame) {
     frame.selection ? `${t("Selected text")}:\n\n${quotedPageText(frame.selection)}` : "",
     frame.text ? quotedPageText(frame.text) : "",
     ...(frame.tables ?? []).map(tableMarkdown),
+    ...(includeLinks && frame.links?.length ? [t("Page links"), ...frame.links.map(linkMarkdown)] : []),
+    includeLinks && frame.linksTruncated ? t("Only some page links are shown.") : "",
     frame.textTruncated ? t("Page content was shortened") : "",
     frame.selectionTruncated ? t("Selected text was shortened") : "",
     frame.tablesTruncated ? t("Only some table data is shown.") : "",
@@ -42,7 +46,7 @@ function imageTextMarkdown(result) {
     result.truncated ? t("Recognized image text was shortened.") : "",
   ].filter(Boolean);
 }
-export function browserNoteContent(capture, selectionOnly = false, { includeLinks = false, includeTables = false, includeMedia = false, includeFrames = false, imageText = [] } = {}) {
+export function browserNoteContent(capture, selectionOnly = false, { includeLinks = false, includeTables = false, includeMedia = false, includeFrames = false, includeFrameLinks = false, imageText = [] } = {}) {
   const text = selectionOnly ? capture.page.selection : capture.page.text;
   const links = !selectionOnly && includeLinks ? capture.page.links : null;
   const tables = !selectionOnly && includeTables ? capture.page.tables : null;
@@ -61,14 +65,14 @@ export function browserNoteContent(capture, selectionOnly = false, { includeLink
     `${t("Captured at")}: ${quotedPageText(capture.capturedAt)}`,
     (shortened ?? capture.page.truncated) ? t(warning) : "",
     ...(text?.trim() ? [`## ${t(selectionOnly ? "Selected text" : "Page content")}`, quotedPageText(text)] : []),
-    ...(links?.length ? [`## ${t("Page links")}`, ...links.map(({ label, url }) => quotedPageText(label ? `${label} — ${url}` : url))] : []),
+    ...(links?.length ? [`## ${t("Page links")}`, ...links.map(linkMarkdown)] : []),
     links?.length && capture.page.linksTruncated ? t("Only some page links are shown.") : "",
     ...(tables?.length ? [`## ${t("Page tables")}`, ...tables.map(tableMarkdown)] : []),
     tables?.length && capture.page.tablesTruncated ? t("Only some table data is shown.") : "",
     ...(metadata.length ? [`## ${t("Page details")}`, ...metadata.map(([name, value]) => `${name}: ${quotedPageText(value)}`)] : []),
     ...(images.length ? [`## ${t("Page images")}`, ...images.map(image => quotedPageText(pageImageDescription(image)))] : []),
     images.length && media.imagesTruncated ? t("Only some loaded images are shown.") : "",
-    ...(frames.length ? [`## ${t("Page frames")}`, ...frames.flatMap(frameMarkdown)] : []),
+    ...(frames.length ? [`## ${t("Page frames")}`, ...frames.flatMap(frame => frameMarkdown(frame, includeFrameLinks))] : []),
     frames.length && capture.page.framesOmitted ? t("Some frames were unavailable or exceeded capture limits.") : "",
     ...(recognized.length ? [`## ${t("Recognized image text")}`, ...recognized.flatMap(imageTextMarkdown)] : []),
   ].filter(Boolean).join("\n\n");
@@ -116,13 +120,13 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
       if (!current()) throw new Error(t("Page or destination changed. Read the page again."));
       return result.snapshot.notebooks;
     },
-    async save({ notebookId, notebookTitle, title, selectionOnly, includeLinks, includeTables, includeMedia, includeFrames, imageText }) {
+    async save({ notebookId, notebookTitle, title, selectionOnly, includeLinks, includeTables, includeMedia, includeFrames, includeFrameLinks, imageText }) {
       if (saved) return saved;
       if (pending) throw new Error(t("Saving…"));
       pending = true;
       try {
         const content = analysis ? browserAnalysisNoteContent(capture, analysis)
-          : browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, includeMedia, includeFrames, imageText });
+          : browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, includeMedia, includeFrames, includeFrameLinks, imageText });
         title = title.trim(); notebookTitle = notebookTitle?.trim();
         if (!title || [...title].length > 200) throw new Error(t("Enter a note title of up to 200 characters."));
         if (!notebookId && (!notebookTitle || [...notebookTitle].length > 200)) throw new Error(t("Enter a notebook title of up to 200 characters."));
