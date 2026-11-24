@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { fireEvent, getByRole, queryByRole, waitFor, within } from "@testing-library/dom";
 import { getLocale, setLocale } from "../../i18n.js";
-import { navigateToNoteSource } from "../features/notes-navigation.js";
+import { navigateToBrowserSource } from "../features/browser-source-navigation.js";
 import { setupBrowserApp } from "./browser-app.js";
 
 const locale = getLocale();
@@ -79,11 +79,11 @@ it("routes a saved note source to a fresh browser tab without replacing the curr
   const { host, requests, calls } = setup();
   const source = "https://saved.invalid/article?lang=zh#section";
   let active = false;
-  await navigateToNoteSource(source, {
+  await navigateToBrowserSource(source, {
     scope: { workspaceId: "workspace", isCurrent: () => true },
     activate: async () => { active = true; },
     isActive: () => active,
-    open: (url, current) => app.openNoteSource(url, current),
+    open: (url, current) => app.openSource(url, current),
   });
   const selected = getByRole(host, "tab", { selected: true });
   const tabId = selected.closest("[data-browser-tab-id]").dataset.browserTabId;
@@ -97,7 +97,7 @@ it("routes a saved note source to a fresh browser tab without replacing the curr
 
 it("keeps saved browser tabs when a note link is opened but the session cannot restore", async () => {
   const { requests, calls } = setup({ stateError: new Error("state unavailable") });
-  await expect(app.openNoteSource("https://saved.invalid/", () => true)).rejects.toThrow("Could not restore the browser");
+  await expect(app.openSource("https://saved.invalid/", () => true)).rejects.toThrow("Could not restore the browser");
   expect(calls("create")).toHaveLength(0);
   expect(requests.mock.calls.some(([command]) => command === "browser_save_session")).toBe(false);
 });
@@ -106,7 +106,7 @@ it.each(["notes blocks leaving", "workspace changes"])("does not open a note URL
   let current = true;
   const open = vi.fn();
   const activate = vi.fn(async () => { if (reason === "workspace changes") current = false; });
-  await navigateToNoteSource("https://saved.invalid/", {
+  await navigateToBrowserSource("https://saved.invalid/", {
     scope: { workspaceId: "workspace", isCurrent: () => current },
     activate, isActive: () => reason !== "notes blocks leaving", open,
   });

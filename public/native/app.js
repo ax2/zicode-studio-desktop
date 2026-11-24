@@ -16,7 +16,8 @@ import {
 import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 import { dispatchSuperAgentTaskNative } from "../super-agent/native-dispatch.js";
 import { navigateToArtifact } from "./features/artifact-navigation.js";
-import { navigateToNote, navigateToNoteSource } from "./features/notes-navigation.js";
+import { navigateToNote } from "./features/notes-navigation.js";
+import { navigateToBrowserSource } from "./features/browser-source-navigation.js";
 import { openExplorerDirectoryTool } from "./features/explorer-directory-tool.js";
 import { isSuperAgentProjectPath } from "../super-agent/session.js";
 import { isSuperAgentEnabled } from "../super-agent/settings.js";
@@ -944,6 +945,14 @@ const notesGateway = new NotesGateway({
   fetchImpl: hostFetch,
   location: window.location,
 });
+const openBrowserSource = remoteAuth.clientType === "desktop" && globalThis.__TAURI__?.core?.invoke
+  ? (url, scope) => navigateToBrowserSource(url, {
+      scope,
+      activate: () => pluginShell?.activate("com.zicode.browser", { historyMode: "push" }),
+      isActive: () => pluginShell?.getActivePluginId() === "com.zicode.browser",
+      open: (source, current) => browserApp.openSource(source, current),
+    }).catch((error) => notifications.notify({ type: "error", message: t(error?.message ?? String(error)) }))
+  : undefined;
 const notesApp = setupNotesApp({
   gateway: notesGateway,
   getTarget: () => target,
@@ -952,14 +961,7 @@ const notesApp = setupNotesApp({
   invoke: globalThis.__TAURI__?.core?.invoke
     ? (command, params) => globalThis.__TAURI__.core.invoke(command, params)
     : undefined,
-  onOpenSource: remoteAuth.clientType === "desktop" && globalThis.__TAURI__?.core?.invoke
-    ? (url, scope) => navigateToNoteSource(url, {
-        scope,
-        activate: () => pluginShell?.activate("com.zicode.browser", { historyMode: "push" }),
-        isActive: () => pluginShell?.getActivePluginId() === "com.zicode.browser",
-        open: (source, current) => browserApp.openNoteSource(source, current),
-      }).catch((error) => notifications.notify({ type: "error", message: t(error?.message ?? String(error)) }))
-    : undefined,
+  onOpenSource: openBrowserSource,
   onUseInChat: createNotesChatHandoff({
     activate: () => pluginShell?.activate("core.chat"),
     getTarget: () => target,
@@ -973,6 +975,7 @@ const artifactApp = setupArtifactApp({
   getTarget: () => target,
   notify: notifications.notify,
   openApp: (pluginId) => pluginShell?.activate(pluginId),
+  onOpenSource: openBrowserSource,
   onUseInChat: (text) => prefillComposer(text),
 });
 const projectChatDraftHandoff = createChatDraftHandoff({
