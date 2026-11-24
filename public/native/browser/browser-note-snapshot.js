@@ -1,5 +1,6 @@
 import { pageImageDescription, pageMetadataRows } from "./browser-capture-media.js";
 import { selectCapturedFrames } from "./browser-capture-frames.js";
+import { selectCapturedLinks } from "./browser-capture-links.js";
 import { selectCapturedTables } from "./browser-capture-tables.js";
 import { t } from "../../i18n.js";
 import { browserAnalysisLabel, browserAnalysisPageSource } from "./browser-analysis-source.js";
@@ -50,10 +51,10 @@ function imageTextMarkdown(result) {
     result.truncated ? t("Recognized image text was shortened.") : "",
   ].filter(Boolean);
 }
-export function browserNoteContent(capture, selectionOnly = false, { includeLinks = false, includeTables = false, tableIndexes, includeMedia = false, includeFrames = false, frameIndexes, includeFrameLinks = false, imageText = [], imageTextOnly = false } = {}) {
+export function browserNoteContent(capture, selectionOnly = false, { includeLinks = false, linkIndexes, includeTables = false, tableIndexes, includeMedia = false, includeFrames = false, frameIndexes, includeFrameLinks = false, imageText = [], imageTextOnly = false } = {}) {
   const wholePage = !selectionOnly && !imageTextOnly;
   const text = imageTextOnly ? "" : selectionOnly ? capture.page.selection : capture.page.text;
-  const links = wholePage && includeLinks ? capture.page.links : null;
+  const links = wholePage && includeLinks ? selectCapturedLinks(capture.page.links, linkIndexes) : [];
   const tables = wholePage && includeTables ? selectCapturedTables(capture.page.tables, tableIndexes) : [];
   const media = wholePage && includeMedia ? capture.page : null;
   const frames = wholePage && includeFrames ? selectCapturedFrames(capture.page.frames, frameIndexes) : [];
@@ -66,7 +67,7 @@ export function browserNoteContent(capture, selectionOnly = false, { includeLink
   }
   const metadata = pageMetadataRows(media?.metadata);
   const images = media?.images ?? [];
-  if (!text?.trim() && !links?.length && !tables?.length && !metadata.length && !images.length && !frames.length && !recognized.length) {
+  if (!text?.trim() && !links.length && !tables?.length && !metadata.length && !images.length && !frames.length && !recognized.length) {
     throw new Error(t("There is no page text to save."));
   }
   const shortened = selectionOnly ? capture.page.selectionTruncated : capture.page.textTruncated;
@@ -76,8 +77,8 @@ export function browserNoteContent(capture, selectionOnly = false, { includeLink
     `${t("Captured at")}: ${quotedPageText(capture.capturedAt)}`,
     !imageTextOnly && (shortened ?? capture.page.truncated) ? t(warning) : "",
     ...(text?.trim() ? [`## ${t(selectionOnly ? "Selected text" : "Page content")}`, quotedPageText(text)] : []),
-    ...(links?.length ? [`## ${t("Page links")}`, ...links.map(linkMarkdown)] : []),
-    links?.length && capture.page.linksTruncated ? t("Only some page links are shown.") : "",
+    ...(links.length ? [`## ${t("Page links")}`, ...links.map(linkMarkdown)] : []),
+    links.length && capture.page.linksTruncated ? t("Only some page links are shown.") : "",
     ...(tables?.length ? [`## ${t("Page tables")}`, ...tables.map(tableMarkdown)] : []),
     tables?.length && capture.page.tablesTruncated ? t("Only some table data is shown.") : "",
     ...(metadata.length ? [`## ${t("Page details")}`, ...metadata.map(([name, value]) => `${name}: ${quotedPageText(value)}`)] : []),
@@ -149,14 +150,14 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
       if (!current()) throw new Error(t("Page or destination changed. Read the page again."));
       return result.snapshot.notebooks;
     },
-    async save({ notebookId, notebookTitle, title, selectionOnly, includeLinks, includeTables, tableIndexes, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText, imageTextOnly }) {
+    async save({ notebookId, notebookTitle, title, selectionOnly, includeLinks, linkIndexes, includeTables, tableIndexes, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText, imageTextOnly }) {
       if (saved) return saved;
       if (pending) throw new Error(t("Saving…"));
       pending = true;
       try {
         const analysisSource = analysis && browserAnalysisPageSource(capture, analysis);
         const content = analysisSource ? browserAnalysisNoteContent(analysisSource, analysis, capture)
-          : browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, tableIndexes, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText, imageTextOnly });
+          : browserNoteContent(capture, selectionOnly, { includeLinks, linkIndexes, includeTables, tableIndexes, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText, imageTextOnly });
         title = title.trim(); notebookTitle = notebookTitle?.trim();
         if (!title || [...title].length > 200) throw new Error(t("Enter a note title of up to 200 characters."));
         if (!notebookId && (!notebookTitle || [...notebookTitle].length > 200)) throw new Error(t("Enter a notebook title of up to 200 characters."));

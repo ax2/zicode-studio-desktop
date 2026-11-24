@@ -1,7 +1,7 @@
 import { createBrowserCompare } from "./browser-compare.js";
 import { createBrowserCaptureMedia } from "./browser-capture-media.js";
 import { createBrowserCaptureFrames } from "./browser-capture-frames.js";
-import { renderBrowserCaptureLinks } from "./browser-capture-links.js";
+import { createBrowserCaptureLinks } from "./browser-capture-links.js";
 import { createBrowserCaptureTables } from "./browser-capture-tables.js";
 import { createBrowserNoteClip } from "./browser-note-clip.js";
 import { t } from "../../i18n.js";
@@ -47,7 +47,6 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   text.setAttribute("data-i18n-aria-label", "Page content");
   const pagePreview = `${capture.page.selection ? `${t("Selected text")}\n${capture.page.selection}\n\n` : ""}${capture.page.text}`;
   text.value = pagePreview;
-  const includeLinks = document.createElement("input"); includeLinks.type = "checkbox";
   const recognizeImage = dock?.recognizeImage && (async (image, frame) => {
     if (busy || !isOpen()) return;
     setBusy(true);
@@ -63,15 +62,15 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   const media = createBrowserCaptureMedia(capture.page, recognizeImage, reviewImage);
   const frames = createBrowserCaptureFrames(capture.page, recognizeImage, reviewImage);
   const tables = createBrowserCaptureTables(capture.page);
+  const links = createBrowserCaptureLinks(capture.page, Boolean(prepareDraft || createNoteWriter || dock?.modelActions));
   const attachments = () => {
     const imageText = [...media.imageText(), ...frames.imageText()];
     return {
-      includeLinks: includeLinks.checked, includeMedia: media.include.checked,
-      ...tables.attachments(), ...frames.attachments(),
+      includeMedia: media.include.checked,
+      ...links.attachments(), ...tables.attachments(), ...frames.attachments(),
       ...(imageText.length ? { imageText } : {}),
     };
   };
-  const links = renderBrowserCaptureLinks(capture.page, includeLinks);
   let selectionScope, selectionLabel;
   if (capture.page.selection?.trim() && (prepareDraft || dock?.modelActions)) {
     selectionScope = document.createElement("input"); selectionScope.type = "checkbox";
@@ -98,7 +97,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (!hasShortenedText) notices.push(dock?.modelActions
     ? "Page content was collected locally."
     : "Content read locally. Nothing has been sent to AI.");
-  if (dock?.modelActions && (links || tables.element || media.element || frames.element)) {
+  if (dock?.modelActions && (links.element || tables.element || media.element || frames.element)) {
     notices.push("Page questions and summaries include the selected attachments.");
   }
   for (const key of notices) {
@@ -265,7 +264,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (hasShortenedText) dialog.append(note);
   dialog.append(text);
   if (selectionLabel) dialog.append(selectionLabel);
-  if (links) dialog.append(links);
+  if (links.element) dialog.append(links.element);
   if (tables.element) dialog.append(tables.element);
   if (media.element) dialog.append(media.element);
   if (frames.element) dialog.append(frames.element);

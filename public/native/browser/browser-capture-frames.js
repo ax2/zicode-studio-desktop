@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 import { createBrowserCaptureImageList } from "./browser-capture-media.js";
-import { renderBrowserCaptureLinks } from "./browser-capture-links.js";
+import { createBrowserCaptureLinks } from "./browser-capture-links.js";
 import { renderBrowserCaptureTables } from "./browser-capture-tables.js";
 import { appendPartialCapture, isFrameTextIncomplete } from "./browser-capture-status.js";
 
@@ -91,7 +91,7 @@ export function createBrowserCaptureFrames(page, recognizeImage, reviewImage) {
       text.value = frame.text;
       details.append(text);
     }
-    const links = renderBrowserCaptureLinks(frame);
+    const { element: links } = createBrowserCaptureLinks(frame, false);
     if (links) details.append(links);
     if (frame.tables?.length) details.append(renderBrowserCaptureTables(frame.tables));
     if (frame.textTruncated) details.append(paragraph(t("Page content was shortened")));

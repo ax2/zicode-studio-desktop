@@ -1377,6 +1377,7 @@ const zhCN = {
   "Only some table data is shown.": "只显示部分表格数据。",
   "Page links": "网页链接",
   "Only some page links are shown.": "只显示部分网页链接。",
+  "Include all page links": "附入全部网页链接",
   "Include links in the page note or chat draft": "将链接一并加入整页笔记或聊天草稿",
   "Selected text was shortened": "所选文字较长，已截取部分内容。",
   "Page content was shortened": "网页内容较长，已截取部分内容。",
