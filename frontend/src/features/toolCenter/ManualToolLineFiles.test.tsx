@@ -47,6 +47,6 @@ it("imports literal line breaks and downloads a valid empty result only on reque
 it("keeps the actual 8 KiB UTF-8 file boundary including BOM", async () => {
   const file = (text: string) => new NodeFile([text], "sample.log") as unknown as File;
   const boundary = "界".repeat(2729) + "xy";
-  await expect(readManualToolFile(file("\uFEFF" + boundary), {}, "text-lines")).resolves.toEqual({ text: boundary });
-  await expect(readManualToolFile(file("\uFEFF" + boundary + "!"), {}, "text-lines")).rejects.toThrow("8 KiB");
+  await expect(readManualToolFile(file("\uFEFF" + boundary), {}, "utf8-text")).resolves.toEqual({ text: boundary });
+  await expect(readManualToolFile(file("\uFEFF" + boundary + "!"), {}, "utf8-text")).rejects.toThrow("8 KiB");
 });

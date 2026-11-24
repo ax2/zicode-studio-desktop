@@ -61,8 +61,8 @@ const yamlFromJsonFiles = [
 const base64EncodeFiles = [
   { target: "base64-encode", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
 ] as const;
-const lineFileTargets = [
-  { target: "text-lines", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
+const utf8FileTargets = [
+  { target: "utf8-text", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
 ] as const;
 const base64DecodeFiles = [
   { target: "base64-decode", field: "text", label: "Import Base64 file…", inputLabel: "Base64 input file", fieldLabel: "Base64 text" },
@@ -210,8 +210,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const yamlToJson = yamlConverter && tool.capabilityId === "devtools.inspect.yaml.to_json";
   const yamlFromJson = yamlConverter && tool.capabilityId === "devtools.inspect.yaml.from_json";
   const textPlugin = boundedTextTool && tool.pluginId === "com.zicode.devtools.text" && tool.version === "0.4.1";
-  const textLines = boundedTextTool && tool.pluginId === "com.zicode.devtools.transforms" && tool.version === "0.1.1" &&
-    /^devtools\.transforms\.lines\.(deduplicate|ascending|descending|nonempty|trim)$/.test(tool.capabilityId);
+  const transformsTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.transforms" && tool.version === "0.1.1";
+  const textLines = transformsTool && /^devtools\.transforms\.lines\.(deduplicate|ascending|descending|nonempty|trim)$/.test(tool.capabilityId);
+  const textStatistics = transformsTool && tool.capabilityId === "devtools.transforms.stats.inspect";
   const sqlFormat = textPlugin && tool.capabilityId === "devtools.text.sql.format";
   const base64Encode = textPlugin && tool.capabilityId === "devtools.text.base64.encode";
   const base64Decode = textPlugin && tool.capabilityId === "devtools.text.base64.decode";
@@ -219,14 +220,15 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
     jsonSchema ? jsonSchemaFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
-        base64Encode ? base64EncodeFiles : base64Decode ? base64DecodeFiles : textLines ? lineFileTargets : [];
+        base64Encode ? base64EncodeFiles : base64Decode ? base64DecodeFiles : (textLines || textStatistics) ? utf8FileTargets : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
     : yamlToJson ? { label: "Download JSON", stem: "converted", extension: "json", mime: "application/json" }
     : yamlFromJson ? { label: "Download YAML", stem: "converted", extension: "yaml", mime: "application/yaml" }
     : base64Encode ? { label: "Download Base64 file", stem: "encoded", extension: "base64", mime: "text/plain" }
     : base64Decode ? { label: "Download decoded text", stem: "decoded", extension: "txt", mime: "text/plain;charset=utf-8" }
-    : textLines ? { label: "Download processed text", stem: "processed", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
+    : textLines ? { label: "Download processed text", stem: "processed", extension: "txt", mime: "text/plain;charset=utf-8" }
+    : textStatistics ? { label: "Download text statistics", stem: "text-statistics", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
