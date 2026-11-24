@@ -112,6 +112,36 @@ impl HostServer {
         .map_err(error_code)
     }
 
+    pub(crate) async fn prepare_native_directory_usage(
+        &self,
+        context: Context,
+        owner_value: Value,
+        path: PathBuf,
+    ) -> Result<Value, String> {
+        let owner = owner(owner_value)?;
+        let display_name = path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let state = self.state.clone();
+        blocking(state.clone(), move || {
+            let grant_id = issue_grant(
+                &state,
+                owner.clone(),
+                Purpose::Usage,
+                Selection::Picked(SelectedDirectory { context, path }),
+            )?;
+            Ok(json!({
+                "schemaVersion":1,"profile":usage::PROFILE,"grantId":grant_id,
+                "owner":owner,"displayName":display_name,"entryNamesRead":false,
+                "confirmed":false,"expiresInSeconds":120,
+            }))
+        })
+        .await
+        .map(|Json(result)| result)
+        .map_err(error_code)
+    }
+
     pub(crate) async fn prepare_native_checksum_files(
         &self,
         context: Context,
@@ -159,7 +189,7 @@ impl HostServer {
         .map_err(error_code)
     }
 
-    pub(crate) async fn commit_native_checksum_folder(
+    pub(crate) async fn commit_native_plugin_directory(
         &self,
         context: Context,
         owner_value: Value,
@@ -194,7 +224,7 @@ impl HostServer {
             .map_err(error_code)
     }
 
-    pub(crate) fn cancel_native_checksum_folder(
+    pub(crate) fn cancel_native_plugin_directory(
         &self,
         context: &Context,
         owner_value: Value,

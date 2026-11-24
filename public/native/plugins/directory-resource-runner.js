@@ -55,7 +55,8 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     return { destroy() { active = false; container.replaceChildren(); } };
   }
   const canChooseDirectory = ["choose", "prepare", "commit", "cancel"].every(key => typeof gateway.projectDirectories?.[key] === "function");
-  if (diskInspector && (tool.runtime !== "wasi" || !canChooseDirectory ||
+  const canChooseUsage = ["choose", "commit", "cancel"].every(key => typeof gateway.directoryUsage?.[key] === "function");
+  if (diskInspector && (tool.runtime !== "wasi" || !canChooseUsage ||
       !detail.permissions.some(permission => permission.name === directoryUsagePermission && permission.granted))) {
     status.textContent = t("Disk Inspector requires the desktop folder picker and its directory usage permission.");
     return { destroy() { active = false; container.replaceChildren(); } };

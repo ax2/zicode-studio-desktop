@@ -52,9 +52,14 @@ export class PluginCapabilityGateway {
     this.checksumFolders = typeof nativeInvoke === "function" ? {
       prepare: (workspaceId, owner, manifest) => nativeInvoke("select_checksum_folder", { workspaceId, owner, manifest }),
       prepareFiles: (workspaceId, owner) => nativeInvoke("select_checksum_files", { workspaceId, owner }),
-      commit: (workspaceId, owner, grantId) => nativeInvoke("commit_checksum_folder", { workspaceId, owner, grantId, confirmed: true }),
+      commit: (workspaceId, owner, grantId) => nativeInvoke("commit_plugin_directory", { workspaceId, owner, grantId, confirmed: true }),
       progress: (workspaceId, owner, grantId) => nativeInvoke("checksum_folder_progress", { workspaceId, owner, grantId }),
-      cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_checksum_folder", { workspaceId, owner, grantId }),
+      cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_plugin_directory", { workspaceId, owner, grantId }),
+    } : null;
+    this.directoryUsage = typeof nativeInvoke === "function" ? {
+      choose: (workspaceId, owner) => nativeInvoke("select_directory_usage", { workspaceId, owner }),
+      commit: (workspaceId, owner, grantId) => nativeInvoke("commit_plugin_directory", { workspaceId, owner, grantId, confirmed: true }),
+      cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_plugin_directory", { workspaceId, owner, grantId }),
     } : null;
     this.digestStreams = typeof nativeInvoke === "function" ? {
       choose: (workspaceId, owner) => nativeInvoke("select_digest_stream_files", { workspaceId, owner }),

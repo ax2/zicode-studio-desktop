@@ -300,6 +300,11 @@ description = "Select a local checksum folder and prepare a window-bound read gr
 commands.allow = ["select_checksum_folder"]
 
 [[permission]]
+identifier = "allow-select-directory-usage"
+description = "Select a local folder for explicit directory usage confirmation."
+commands.allow = ["select_directory_usage"]
+
+[[permission]]
 identifier = "allow-select-digest-files"
 description = "Select one to four files for a digest through the native dialog"
 commands.allow = ["select_digest_files"]
@@ -345,9 +350,9 @@ description = "Select one to 64 files from a local folder and prepare a window-b
 commands.allow = ["select_checksum_files"]
 
 [[permission]]
-identifier = "allow-commit-checksum-folder"
-description = "Confirm and consume a local checksum folder read grant."
-commands.allow = ["commit_checksum_folder"]
+identifier = "allow-commit-plugin-directory"
+description = "Confirm and consume a window-bound local directory read grant."
+commands.allow = ["commit_plugin_directory"]
 
 [[permission]]
 identifier = "allow-checksum-folder-progress"
@@ -355,9 +360,9 @@ description = "Read the current counters of a window-bound local checksum folder
 commands.allow = ["checksum_folder_progress"]
 
 [[permission]]
-identifier = "allow-cancel-checksum-folder"
-description = "Cancel a window-bound local checksum folder read grant."
-commands.allow = ["cancel_checksum_folder"]
+identifier = "allow-cancel-plugin-directory"
+description = "Cancel a window-bound local directory read grant."
+commands.allow = ["cancel_plugin_directory"]
 
 [[permission]]
 identifier = "allow-notes-sync-settings"
@@ -397,6 +402,7 @@ permissions = [
   "allow-select-project-resource-file",
   "allow-select-project-resource-directory",
   "allow-select-checksum-folder",
+  "allow-select-directory-usage",
   "allow-select-checksum-files",
   "allow-select-digest-files",
   "allow-commit-digest-file",
@@ -406,9 +412,9 @@ permissions = [
   "allow-digest-stream-progress",
   "allow-prepare-digest-stream-original",
   "allow-cancel-digest-stream",
-  "allow-commit-checksum-folder",
+  "allow-commit-plugin-directory",
   "allow-checksum-folder-progress",
-  "allow-cancel-checksum-folder",
+  "allow-cancel-plugin-directory",
   "allow-desktop-explorer-menu",
   "allow-list-automation-workspaces",
   "allow-background-automation-worker-status",

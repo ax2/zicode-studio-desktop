@@ -118,7 +118,7 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
         )
     };
     let commit = |grant: &str, confirmed: bool| {
-        host.commit_native_checksum_folder(
+        host.commit_native_plugin_directory(
             context.clone(),
             owner.clone(),
             grant.to_owned(),
@@ -158,12 +158,12 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
         "resource_confirmation_required"
     );
     let denied = host
-        .commit_native_checksum_folder(foreign_window, owner.clone(), grant_id.to_owned(), true)
+        .commit_native_plugin_directory(foreign_window, owner.clone(), grant_id.to_owned(), true)
         .await
         .unwrap_err();
     assert_eq!(denied, "resource_directory_grant_unavailable");
     let denied = host
-        .cancel_native_checksum_folder(&foreign_route, owner.clone(), grant_id.to_owned())
+        .cancel_native_plugin_directory(&foreign_route, owner.clone(), grant_id.to_owned())
         .unwrap_err();
     assert_eq!(denied, "resource_directory_grant_unavailable");
     let denied: Value = post(
@@ -397,7 +397,7 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
     let preview = prepare().await.unwrap();
     let grant_id = preview["grantId"].as_str().unwrap();
     let cancelled = host
-        .cancel_native_checksum_folder(&context, owner.clone(), grant_id.to_owned())
+        .cancel_native_plugin_directory(&context, owner.clone(), grant_id.to_owned())
         .unwrap();
     assert_eq!(cancelled["cancelled"], true, "{cancelled}");
     assert_eq!(

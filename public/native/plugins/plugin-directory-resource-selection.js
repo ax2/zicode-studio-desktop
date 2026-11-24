@@ -12,8 +12,12 @@ function sameOwner(actual, expected) {
   );
 }
 
-// Trusted Studio UI. The picker returns a project-relative path; only commit
-// enumerates names, and only the confirmed resource is passed to the Worker.
+function validDisplayName(value) {
+  return typeof value === "string" && value.length <= 255
+    && value !== "." && value !== ".." && !/[\/\\:\p{Cc}]/u.test(value);
+}
+
+// Trusted Studio UI. Only commit enumerates names and passes confirmed data to the Worker.
 export function createPluginDirectoryResourceSelection({
   container,
   plugin,
@@ -65,6 +69,9 @@ export function createPluginDirectoryResourceSelection({
     grant = null,
     access = null;
   const valid = (token) => active && revision === token && isCurrent();
+  const picker = usage ? gateway.directoryUsage : gateway.projectDirectories;
+  const grantArgs = usage ? [target.workspaceId, owner] : [owner];
+  const cancelGrant = id => picker.cancel(...grantArgs, id);
   function release() {
     if (!access) return;
     const old = access;
@@ -81,7 +88,7 @@ export function createPluginDirectoryResourceSelection({
     revision++;
     const old = grant;
     grant = null;
-    if (old) void gateway.projectDirectories.cancel(owner, old.grantId).catch(() => {});
+    if (old) void cancelGrant(old.grantId).catch(() => {});
     release();
     confirm.disabled = true;
     return old;
@@ -94,37 +101,41 @@ export function createPluginDirectoryResourceSelection({
     choose.disabled = true;
     panel.setAttribute("aria-busy", "true");
     let stage = "picker";
-    status.textContent = t(usage ? "Choose a folder within the current file location to check its usage." :
+    status.textContent = t(usage ? "Choose a local folder. Usage is shared only after confirmation." :
       "Choose a folder within the current file location. Names are shared only after confirmation.");
     try {
-      const path = await gateway.projectDirectories.choose(target.workspaceId);
-      if (!valid(token)) return;
-      if (path == null) {
+      const selected = await (usage
+        ? picker.choose(target.workspaceId, owner)
+        : picker.choose(target.workspaceId));
+      if (!valid(token)) {
+        if (usage && selected?.grantId) void cancelGrant(selected.grantId).catch(() => {});
+        return;
+      }
+      if (selected == null) {
         status.textContent = t("Directory selection canceled.");
         return;
       }
-      if (typeof path !== "string" || !path || path.startsWith("/") || /^[A-Za-z]:/.test(path) ||
-          (usage && path !== "." && (/[\\:\p{Cc}]/u.test(path) ||
-            path.split("/").some(part => !part || part === "." || part === "..")))) throw new Error("invalid path");
+      if (!usage && (typeof selected !== "string" || !selected || selected.startsWith("/") || /^[A-Za-z]:/.test(selected)))
+        throw new Error("invalid path");
       stage = "prepare";
-      const prepared = await gateway.projectDirectories.prepare(owner, path, ...(usage ? [profile] : []));
+      const prepared = usage ? selected : await picker.prepare(owner, selected);
       stage = "response";
       if (!valid(token)) {
         if (prepared?.grantId)
-          void gateway.projectDirectories.cancel(owner, prepared.grantId).catch(() => {});
+          void cancelGrant(prepared.grantId).catch(() => {});
         return;
       }
       if (
         prepared?.profile !== profile ||
         prepared.confirmed !== false ||
         prepared.entryNamesRead !== false ||
-        prepared.relativePath !== path ||
+        (usage ? !validDisplayName(prepared.displayName) : prepared.relativePath !== selected) ||
         !sameOwner(prepared.owner, owner) ||
         typeof prepared.grantId !== "string" ||
         !/^[0-9a-f-]{36}$/i.test(prepared.grantId)
       ) {
         if (prepared?.grantId)
-          void gateway.projectDirectories.cancel(owner, prepared.grantId).catch(() => {});
+          void cancelGrant(prepared.grantId).catch(() => {});
         throw new Error("invalid grant");
       }
       grant = prepared;
@@ -133,7 +144,7 @@ export function createPluginDirectoryResourceSelection({
         usage ? "Selected directory: {name} · plugin {plugin}. Confirm to share directory usage." :
           "Selected directory: {name} · plugin {plugin}. Confirm to share one level of names.",
       )
-        .replace("{name}", usage && path === "." ? t("Current file location") : path)
+        .replace("{name}", usage ? (prepared.displayName || t("Selected local folder")) : selected)
         .replace("{plugin}", `${plugin.name} ${plugin.version}`);
     } catch (failure) {
       if (valid(token)) {
@@ -143,9 +154,9 @@ export function createPluginDirectoryResourceSelection({
             : "unknown";
         status.textContent =
           stage === "picker"
-            ? t(
-                "Directory picker could not use this selection. Check the file location and retry.",
-              )
+            ? t(usage
+                ? "Directory picker could not use this folder. Choose a regular local folder and retry."
+                : "Directory picker could not use this selection. Check the file location and retry.")
             : stage === "prepare"
               ? t(
                   "Directory access could not be prepared ({code}). Check permission and retry.",
@@ -171,7 +182,7 @@ export function createPluginDirectoryResourceSelection({
     panel.setAttribute("aria-busy", "true");
     status.textContent = t("Sharing the confirmed directory snapshot…");
     try {
-      const result = await gateway.projectDirectories.commit(owner, pending.grantId);
+      const result = await picker.commit(...grantArgs, pending.grantId);
       if (!valid(token)) {
         if (result?.access) void gateway.revokeResource(result.access).catch(() => {});
         return;
@@ -207,7 +218,7 @@ export function createPluginDirectoryResourceSelection({
     } finally {
       if (grant === pending) {
         grant = null;
-        void gateway.projectDirectories.cancel(owner, pending.grantId).catch(() => {});
+        void cancelGrant(pending.grantId).catch(() => {});
       }
       busy = false;
       if (active && isCurrent()) {

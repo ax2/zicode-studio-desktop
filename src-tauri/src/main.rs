@@ -156,8 +156,8 @@ mod project_file_picker;
 mod resource_export_picker;
 mod result_text_export_picker;
 use checksum_folder_picker::{
-    cancel_checksum_folder, cancel_digest_file, checksum_folder_progress, commit_checksum_folder,
-    commit_digest_file, select_checksum_files, select_checksum_folder, select_digest_files,
+    cancel_plugin_directory, cancel_digest_file, checksum_folder_progress, commit_plugin_directory,
+    commit_digest_file, select_checksum_files, select_checksum_folder, select_digest_files, select_directory_usage,
     cancel_digest_stream, digest_stream_progress, prepare_digest_stream_original, run_digest_stream_files, select_digest_stream_files,
 };
 use result_text_export_picker::{select_result_text_export, commit_result_text_export, cancel_result_text_export, verify_result_text_export};
@@ -2154,6 +2154,7 @@ fn main() {
             verify_resource_export,
             select_project_resource_directory,
             select_checksum_folder,
+            select_directory_usage,
             select_checksum_files,
             select_digest_files,
             commit_digest_file,
@@ -2163,9 +2164,9 @@ fn main() {
             digest_stream_progress,
             prepare_digest_stream_original,
             cancel_digest_stream,
-            commit_checksum_folder,
+            commit_plugin_directory,
             checksum_folder_progress,
-            cancel_checksum_folder,
+            cancel_plugin_directory,
             get_project_resource_entry,
             get_project_resource_entries,
             get_project_directory_entry,
