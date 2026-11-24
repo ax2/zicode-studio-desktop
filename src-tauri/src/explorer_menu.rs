@@ -579,11 +579,11 @@ mod platform {
             std::fs::remove_dir(folder).unwrap();
             std::fs::remove_dir(temp).unwrap();
             assert_eq!(
-                command(exe, "%V", false).unwrap(),
+                command(exe, "%V", Verb::Folder).unwrap(),
                 format!("\"{exe}\" --open-folder \"%V\\.\"")
             );
-            assert!(command("C:\\bad\".exe", "%1", false).is_err());
-            assert!(command("C:\\bad\".exe", "%1", true).is_err());
+            assert!(command("C:\\bad\".exe", "%1", Verb::Folder).is_err());
+            assert!(command("C:\\bad\".exe", "%1", Verb::File).is_err());
         }
     }
 }
