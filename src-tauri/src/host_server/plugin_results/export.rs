@@ -54,6 +54,7 @@ impl Format {
                 .as_deref()
                 .map(str::as_bytes)
                 .ok_or_else(|| rejected("result_export_format_unavailable")),
+            Self::Json if record.quality_report_json => Ok(record.text.as_bytes()),
             Self::Json => record
                 .table
                 .json
@@ -179,10 +180,14 @@ impl HostServer {
             let (name, extension) = if source.format == Format::Png {
                 ("qr-code.png".into(), Some("png"))
             } else if let Some(extension) = source.format.required_extension() {
-                let stem = source
-                    .scope
-                    .table_export_stem()
-                    .ok_or_else(|| rejected("result_export_format_unavailable"))?;
+                let stem = if source.scope.is_quality_report() {
+                    "data-quality-report"
+                } else {
+                    source
+                        .scope
+                        .table_export_stem()
+                        .ok_or_else(|| rejected("result_export_format_unavailable"))?
+                };
                 (format!("{stem}.{extension}"), Some(extension))
             } else if source.scope.plugin_id == "com.zicode.devtools.checksum-manifest"
                 && source.scope.capability_id == "devtools.checksum-manifest.generate"

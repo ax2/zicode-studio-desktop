@@ -19,6 +19,16 @@ pub(super) struct Scope {
 }
 
 impl Scope {
+    fn is_quality_report(&self) -> bool {
+        self.plugin_id == "com.zicode.devtools.compute"
+            && matches!(
+                self.capability_id.as_str(),
+                "devtools.compute.quality.json"
+                    | "devtools.compute.quality.csv"
+                    | "devtools.compute.quality.tsv"
+            )
+    }
+
     fn table_export_stem(&self) -> Option<&'static str> {
         if self.plugin_id != "com.zicode.devtools.compute" {
             return None;
