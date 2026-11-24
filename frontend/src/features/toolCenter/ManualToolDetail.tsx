@@ -23,6 +23,11 @@ const hostResourceReceivers = new Map([
   ["com.zicode.text-inspector/text.inspect", "resource.host.text-input.v1"],
 ]);
 
+const diffFileTargets = [
+  { target: "diff-left", field: "left", label: "Import left text file…", inputLabel: "Left text file", fieldLabel: "Original text" },
+  { target: "diff-right", field: "right", label: "Import right text file…", inputLabel: "Right text file", fieldLabel: "Revised text" },
+] as const;
+
 export interface ManualToolDetailProps {
   tool: ManualTool; revision: string; api: ManualToolApi; scope: ToolAccessScope;
   accessStore?: ToolAccessStore; onOpenApplication?: () => void;
@@ -112,7 +117,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const qualityFormat = computePlugin
     ? tableFileFormats.find(format => tool.capabilityId === "devtools.compute.quality." + format)
     : undefined;
-  const jsonPath = tool.pluginId === "com.zicode.devtools.compare" && tool.capabilityId === "devtools.compare.json.path";
+  const comparePlugin = tool.pluginId === "com.zicode.devtools.compare";
+  const jsonPath = comparePlugin && tool.capabilityId === "devtools.compare.json.path";
+  const textDiff = comparePlugin && tool.capabilityId === "devtools.compare.text.diff";
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
@@ -144,7 +151,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
 
   async function importFile(file: File, target: ToolFileTarget) {
     const owner = fileRead.current;
-    const allowed = target === singleFileTarget || (tableMerge && (target === "left" || target === "right"));
+    const allowed = target === singleFileTarget || (tableMerge && (target === "left" || target === "right")) ||
+      (textDiff && diffFileTargets.some(side => side.target === target));
     if (!owner || owner.identity !== transformIdentity || owner.api !== api ||
         !allowed || !supported || !detail.enabled || editingLocked) return;
     const sequence = ++owner.sequence;
@@ -160,7 +168,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
         : current);
     } catch (reason) {
       if (isCurrent()) setError(reason instanceof Error ? reason.message :
-        jsonPath ? "Could not read the JSON file." : "Could not read the table file.");
+        textDiff ? "Could not read the text file." : jsonPath ? "Could not read the JSON file." : "Could not read the table file.");
     } finally {
       if (isCurrent()) setFileLoading(null);
     }
@@ -224,11 +232,15 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       {!detail.enabled && <p>{t("Enable this plugin in Plugin Manager before running its tools.")}</p>}
       {resourceTool ? <ResourceToolRunner tool={tool} detail={detail} api={api} getTarget={getResourceTarget} scope={scope}
         accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
-        {fields.map(field => <ManualToolInput key={field.key} id={`${detailId}-${field.key}`} field={field} value={values[field.key]}
-          disabled={editingLocked} invalid={invalidField === field.key}
-          onOmit={() => { setDraft(previous => { const next = { ...previous.values }; delete next[field.key]; return { values: next }; });
-            if (invalidField === field.key) { setInvalidField(""); setError(""); } }}
-          onChange={value => setDraft(previous => ({ values: { ...previous.values, [field.key]: value } }))} />)}
+        {fields.map(field => {
+          const side = textDiff ? diffFileTargets.find(target => target.field === field.key) : undefined;
+          return <ManualToolInput key={field.key} id={`${detailId}-${field.key}`}
+            field={side ? { ...field, label: t(side.fieldLabel) } : field} value={values[field.key]}
+            disabled={editingLocked} invalid={invalidField === field.key}
+            onOmit={() => { setDraft(previous => { const next = { ...previous.values }; delete next[field.key]; return { values: next }; });
+              if (invalidField === field.key) { setInvalidField(""); setError(""); } }}
+            onChange={value => setDraft(previous => ({ values: { ...previous.values, [field.key]: value } }))} />;
+        })}
         <div className="ui-toolbar">
           <button type="submit" className="ui-button ui-button--primary" disabled={editingLocked || !detail.enabled || call.supported === null}>
             <span key={running ? call.phase : "idle"}>{t(running ? call.phase === "preparing" ? "Preparing tool…" : "Running…" : "Execute tool")}</span>
@@ -240,6 +252,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
             loadingLabel={jsonPath ? "Reading JSON file…" : undefined}
             disabled={editingLocked || !detail.enabled} loading={fileLoading === singleFileTarget}
             onPick={file => { void importFile(file, singleFileTarget); }} />}
+          {textDiff && diffFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
+            label={t(side.label)} inputLabel={t(side.inputLabel)} accept="" loadingLabel="Reading text file…"
+            disabled={editingLocked || !detail.enabled} loading={fileLoading === side.target}
+            onPick={file => { void importFile(file, side.target); }} />)}
           {tableMerge && <>
             <FileImportButton key={"left:" + transformIdentity} label={t("Import left table…")}
               inputLabel={t("Left table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === "left"}

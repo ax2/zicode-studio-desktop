@@ -6,6 +6,12 @@
 
 Studio 工具中心已接入独立 Disk Inspector 0.1.0 候选。对工作区内选定目录单独确认后，查看文件逻辑大小、文件及目录数量、直属子目录和大文件排行。隔离 Windows 已验证完整、Host 深度受限和 Worker 分析预算受限的实际报告，中英文界面均有部分结果提示。系统文件夹窗口及日常安装分发见 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29)。见[接口与验证](local-directory-usage-snapshot-draft1.md)。
 
+## 2026-11-24 开发补充：文本差异对比的文件导入
+
+「文本差异对比」可分别导入原文和修改后的本机文件。每侧接受 8 KiB 以内的 UTF-8 内容，不要求特定后缀。可导入空文件，UTF-8 BOM 作为编码标记处理，保留文本空格和换行。取消选择或读取失败时保留草稿，导入只替换选定的一侧，可撤销上次导入。点击「执行工具」后才调用插件，原文件保持原样。
+
+使用冻结 Compare 0.1.0 候选 02 和生产 Windows Worker 核对实际差异。React 从文件选择事件提交两侧内容，真实 Host 核对中文、CRLF、尾部空格、空文件、末尾缺少换行和 8 KiB 边界。原生系统文件窗口、更大文件和报告另存由 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 继续跟踪。下方清点仍是历史验收记录。
+
 ## 2026-11-24 开发补充：CSV 合并的左右表导入
 
 四种合并操作均可选择 8 KiB 以内的同格式 UTF-8 CSV、TSV 或 JSON 文件作为左右表，保留已有设置，并撤销最近一次导入。完成后可确认另存 CSV 或列式 JSON。开发范围见 [Windows Worker 验收](../iterations/2026-11-24-csv-merge-file-input.md)。

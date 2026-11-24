@@ -1,6 +1,6 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "json-path" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "json-path" | "diff-left" | "diff-right" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // The frozen Compute and Compare document input limit.
@@ -34,6 +34,13 @@ function tableSettings(source: string, target: ToolFileTarget): TableSettings {
 export async function readManualToolFile(
   file: File, values: Record<string, string>, target: ToolFileTarget,
 ): Promise<Record<string, string>> {
+  if (target === "diff-left" || target === "diff-right") {
+    const sizeError = "Text files must be 8 KiB or smaller.";
+    if (file.size > maxFileBytes) throw Error(sizeError);
+    const text = await readUtf8ToolFile(file, sizeError, "Could not read the text file.");
+    return target === "diff-left" ? { left: text } : { right: text };
+  }
+
   const name = file.name.toLowerCase();
   const format = tableFileFormats.find(extension => name.endsWith("." + extension));
   const jsonDocument = target === "json-path";
@@ -52,19 +59,8 @@ export async function readManualToolFile(
     throw Error("Both tables must use the same file format.");
   }
 
-  let data: ArrayBuffer;
-  try {
-    data = await file.slice(0, maxFileBytes + 1).arrayBuffer();
-  } catch {
-    throw Error(jsonDocument ? "Could not read the JSON file." : "Could not read the table file.");
-  }
-  if (data.byteLength > maxFileBytes) throw Error(sizeError);
-  let text: string;
-  try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(data);
-  } catch {
-    throw Error("The file must contain valid UTF-8 text.");
-  }
+  const text = await readUtf8ToolFile(file, sizeError,
+    jsonDocument ? "Could not read the JSON file." : "Could not read the table file.");
   if (!text.trim()) throw Error(jsonDocument ? "The selected JSON file is empty." : "The selected table file is empty.");
 
   if (fixedFormat) return { text };
@@ -75,4 +71,19 @@ export async function readManualToolFile(
     throw Error("Tool options must be 16 KiB or smaller.");
   }
   return target === "right" ? { options } : { text, options };
+}
+
+async function readUtf8ToolFile(file: File, sizeError: string, readError: string): Promise<string> {
+  let data: ArrayBuffer;
+  try {
+    data = await file.slice(0, maxFileBytes + 1).arrayBuffer();
+  } catch {
+    throw Error(readError);
+  }
+  if (data.byteLength > maxFileBytes) throw Error(sizeError);
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(data);
+  } catch {
+    throw Error("The file must contain valid UTF-8 text.");
+  }
 }

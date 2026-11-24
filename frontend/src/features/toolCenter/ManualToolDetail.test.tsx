@@ -251,3 +251,80 @@ it.runIf(Boolean(compareWorker && compareModule))("queries a selected JSON file 
   expect(document.value).toBe(invalidJson);
   expect(store.mutate).toHaveBeenCalledTimes(2);
 }, 25_000);
+
+const diffTool = { ...jsonPathTool, capabilityId: "devtools.compare.text.diff" };
+const diffSchema = {
+  type: "object", required: ["left", "right"], additionalProperties: false,
+  properties: { left: { type: "string", maxLength: 8192 }, right: { type: "string", maxLength: 8192 } },
+};
+
+async function mountTextDiff() {
+  const view = await mount(diffTool, undefined, diffSchema);
+  const form = within(view.container);
+  const left = form.getByRole<HTMLTextAreaElement>("textbox", { name: /^原文/ });
+  const right = form.getByRole<HTMLTextAreaElement>("textbox", { name: /^修改后/ });
+  const pick = async (side: "left" | "right", files: NodeFile[]) => {
+    const label = side === "left" ? "左侧文本文件" : "右侧文本文件";
+    await act(async () => fireEvent.change(form.getByLabelText(label), { target: { files } }));
+  };
+  return { ...view, form, left, right, pick };
+}
+
+it("imports either text file without running and undoes only the last import", async () => {
+  const { api, form, left, right, pick } = await mountTextDiff();
+  fireEvent.change(left, { target: { value: "prior left" } });
+  fireEvent.change(right, { target: { value: "prior right" } });
+  await pick("left", [new NodeFile(["\uFEFF", "起先\r\n  尾空格  \r\n"], "before.rs")]);
+  expect(left.value).toBe("起先\n  尾空格  \n");
+  expect(right.value).toBe("prior right");
+  await pick("right", [new NodeFile([], "empty")]);
+  expect(left.value).toBe("起先\n  尾空格  \n");
+  expect(right.value).toBe("");
+  await pick("left", []);
+  expect(api.invoke).not.toHaveBeenCalled();
+  await act(async () => { form.getByRole("button", { name: "撤销上次导入" }).click(); });
+  expect(left.value).toBe("起先\n  尾空格  \n");
+  expect(right.value).toBe("prior right");
+});
+
+it("accepts exactly 8 KiB, retains both drafts on invalid UTF-8 or one extra byte", async () => {
+  const { form, left, right, pick, api } = await mountTextDiff();
+  const boundary = "中".repeat(2730) + "aa";
+  await pick("left", [new NodeFile([boundary], "before.log")]);
+  await pick("right", [new NodeFile([" \t\n"], "after")]);
+  expect(left.value).toBe(boundary);
+  expect(right.value).toBe(" \t\n");
+  await pick("left", [new NodeFile([boundary + "a"], "too-large.txt")]);
+  expect(form.getByRole("alert").textContent).toBe("文本文件不能超过 8 KiB。");
+  await pick("right", [new NodeFile([new Uint8Array([0xff])], "invalid.txt")]);
+  expect(form.getByRole("alert").textContent).toBe("文件必须使用有效的 UTF-8 编码。");
+  expect(left.value).toBe(boundary);
+  expect(right.value).toBe(" \t\n");
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
+it.runIf(Boolean(compareWorker && compareModule))("compares selected text files through the frozen Windows Worker", async () => {
+  const { api, container, pick, submit } = await mountTextDiff();
+  vi.mocked(api.invoke).mockImplementation(async (sceneId, _workspaceId, pluginId, capabilityId, input) => {
+    const output = spawnSync(compareWorker as string, ["--zicode-plugin-worker"], {
+      input: JSON.stringify({ workerPath: compareModule, workerKind: "wasi", pluginId, capabilityId, sceneId, input }),
+      windowsHide: true, encoding: "utf8", timeout: 15000,
+    });
+    expect(output.status).toBe(0);
+    return JSON.parse(output.stdout);
+  });
+  const left = "序言\r\n旧值  \r\n收尾\r\n";
+  const right = "序言\r\n新值  \r\n收尾\r\n";
+  await pick("left", [new NodeFile(["\uFEFF", left], "before.txt")]);
+  await pick("right", [new NodeFile([right], "revised.md")]);
+  expect(api.invoke).not.toHaveBeenCalled();
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ left, right });
+  const result = () => container.querySelector<HTMLTextAreaElement>("[data-tool-result]")?.value;
+  expect(result()).toContain("-旧值  \n+新值  \n");
+
+  await pick("left", [new NodeFile([], "empty.txt")]);
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[1][4]).toEqual({ left: "", right });
+  expect(result()).toContain("+新值  \n");
+}, 25_000);
