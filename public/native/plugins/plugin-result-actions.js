@@ -169,8 +169,10 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     const computeOutput = scope?.pluginId === "com.zicode.devtools.compute" && response?.result?.ok === true;
     const pngReference = computeOutput && scope.capabilityId === "devtools.compute.qr.png"
       ? exportReference(reference, reference?.pngExport, "image/png") : null;
-    const tableResult = computeOutput && (scope.capabilityId?.startsWith("devtools.compute.transform.") ||
-      /^devtools\.compute\.merge\.(left|inner|append|columns)$/.test(scope.capabilityId ?? ""));
+    const independentMerge = response?.result?.ok === true && scope?.pluginId === "com.zicode.devtools.table-merge" &&
+      /^devtools\.table-merge\.(left|inner|append|columns)$/.test(scope.capabilityId ?? "");
+    const tableResult = independentMerge || (computeOutput && (scope.capabilityId?.startsWith("devtools.compute.transform.") ||
+      /^devtools\.compute\.merge\.(left|inner|append|columns)$/.test(scope.capabilityId ?? "")));
     const workbench = computeOutput && /^devtools\.compute\.table\.(csv|json|query)$/.exec(scope.capabilityId ?? "")?.[1];
     const csvReference = tableResult || workbench === "csv" || workbench === "query"
       ? exportReference(reference, reference?.csvExport, "text/csv") : null;

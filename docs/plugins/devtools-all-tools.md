@@ -28,6 +28,10 @@ Compare 0.1.0 的「JSON 对比（数组按顺序）」和「JSON 对比（数�
 
 使用冻结 Compare 0.1.0 候选 02 和生产 Windows Worker 核对实际差异。React 从文件选择事件提交两侧内容，真实 Host 核对中文、CRLF、尾部空格、空文件、末尾缺少换行和 8 KiB 边界，并逐字节回读四份报告。系统文件窗口和更大文件由 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 继续跟踪。下方清点仍是历史验收记录。
 
+## 2026-11-25 开发补充：两表合并独立格式
+
+四种「独立格式」操作可在两侧分别导入 CSV、TSV 或 JSON，每侧最多 8 KiB。实际 Windows 验证了独立解析、类型关联、精确整数、预览和确认另存。见[独立格式范围及收据](../iterations/2026-11-24-csv-merge-file-input.md)。
+
 ## 2026-11-24 开发补充：CSV 合并的左右表导入
 
 四种合并操作均可选择 8 KiB 以内的同格式 UTF-8 CSV、TSV 或 JSON 文件作为左右表，保留已有设置，并撤销最近一次导入。执行后可查看统计和精确分页表格，并确认另存 CSV 或列式 JSON。开发范围见 [Windows Worker 验收](../iterations/2026-11-24-csv-merge-file-input.md)。

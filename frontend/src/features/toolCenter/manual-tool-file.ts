@@ -1,6 +1,6 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "json-path" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // The frozen Compute and Compare document input limit.
@@ -32,7 +32,7 @@ function tableSettings(source: string, target: ToolFileTarget): TableSettings {
 }
 
 export async function readManualToolFile(
-  file: File, values: Record<string, string>, target: ToolFileTarget,
+  file: File, values: Record<string, string>, target: ToolFileTarget, choices?: readonly unknown[],
 ): Promise<Record<string, string>> {
   if (target === "diff-left" || target === "diff-right") {
     const sizeError = "Text files must be 8 KiB or smaller.";
@@ -53,8 +53,12 @@ export async function readManualToolFile(
   const sizeError = jsonDocument ? "JSON files must be 8 KiB or smaller." : "Table files must be 8 KiB or smaller.";
   if (file.size > maxFileBytes) throw Error(sizeError);
 
+  const mergeSide = target === "merge-left" ? "left" : target === "merge-right" ? "right" : undefined;
+  const choice = mergeSide ? choices?.indexOf(format) ?? -1 : -1;
+  if (mergeSide && choice === -1) throw Error("This tool does not accept the selected table format.");
+
   const previousOptions = values.options ?? "";
-  const settings = fixedFormat ? {} : tableSettings(previousOptions, target);
+  const settings = fixedFormat || mergeSide ? {} : tableSettings(previousOptions, target);
   const otherTable = target === "left" ? settings.right : target === "right" ? values.text : undefined;
   if (typeof otherTable === "string" && otherTable.trim() && settings.format && settings.format !== format) {
     throw Error("Both tables must use the same file format.");
@@ -65,6 +69,7 @@ export async function readManualToolFile(
   if (!text.trim()) throw Error(jsonDocument ? "The selected JSON file is empty." : "The selected table file is empty.");
 
   if (fixedFormat) return { [jsonDiffSide ?? "text"]: text };
+  if (mergeSide) return { [mergeSide]: text, [mergeSide + "Format"]: String(choice) };
 
   const options = target === "right" ? JSON.stringify({ ...settings, format, right: text })
     : settings.format === format ? previousOptions : JSON.stringify({ ...settings, format });

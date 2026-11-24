@@ -322,10 +322,10 @@
   "counts": {
     "pilot_subset_verified": 3,
     "provider_candidate_received": 27,
-    "await_provider_package": 13,
+    "await_provider_package": 12,
     "await_host_extension": 43,
     "provider_not_implemented": 42,
-    "provider_partial": 21,
+    "provider_partial": 22,
     "await_host_mapping": 4,
     "await_host_conformance": 1
   },
@@ -3217,16 +3217,17 @@
       "category": "数据与格式",
       "sourceScope": "CSV/TSV/JSON 两表内连接与左连接、同名列按行追加、等行数拼列；重复键/未匹配统计、列名冲突处理、后台可取消预览、结果上限与单步撤销",
       "producerMigration": "compute_candidate",
-      "integrationStatus": "await_provider_package",
-      "requiredProfile": "compute.wasi.v1 / 新工具输入输出契约",
-      "reason": "没有交付该工具完整范围的独立WASI包；需固定输入/输出schema、工具版本、资源预算与正反例；首批仅text输入和8192字节不能直接覆盖所有新操作。",
+      "integrationStatus": "provider_partial",
+      "requiredProfile": "output.schema.v1 + tool.directory.v1",
+      "reason": "冻结独立格式候选经真实 Windows Host 与 Worker 验证。四种合并、左右各 8 KiB CSV/TSV/JSON、分页预览及真实 CSV/JSON 另存已覆盖此切片。",
       "owner": "DevTools提供方；Studio做包/schema与运行验收",
-      "unblockCondition": "交付独立包及fixtures，并通过真实Host/Worker/View/Pi、边界与撤权验收",
-      "workaround": "仅保留独立版使用；纯计算子功能可按新schema先交付，不读取或启动独立版。",
+      "unblockCondition": "使用独立测试验证更大输入、将结果应用到草稿及单步撤销；真实 Windows 文件窗口随版本集中验收。",
+      "workaround": "小表可安装独立格式候选，原 Compute 继续支持同格式。更大输入和结果应用继续用独立版。",
       "acceptedFullTool": false,
       "verifiedPilotCapabilities": [],
       "family": "compute",
-      "assessmentConfidence": "catalog_scope_review; not an implementation feasibility proof"
+      "assessmentConfidence": "receipt_verified_candidate_windows_host_production_worker",
+      "currentWindowsAcceptance": "../iterations/2026-11-24-csv-merge-file-input.md"
     },
     {
       "sourceToolId": "checksum-manifest",

@@ -432,3 +432,101 @@ it.runIf(Boolean(jsonSchemaPackage && jsonSchemaWorker))("runs offline JSON Sche
   expect(result).toContain("/项目~1名~0");
   expect(result).not.toContain("private-fixture");
 }, 15000);
+
+const mixedMergePlugin = "com.zicode.devtools.table-merge";
+const mixedMergePackage = process.env.ZICODE_TEST_TABLE_MERGE_PACKAGE;
+const mixedMergeWorker = process.env.ZICODE_TEST_WORKER_EXE;
+
+const mergeSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["left", "leftFormat", "right", "rightFormat"],
+  properties: {
+    left: { type: "string", maxLength: 8192 },
+    leftFormat: { type: "string", enum: ["json", "tsv", "csv"] },
+    right: { type: "string", maxLength: 8192 },
+    rightFormat: { type: "string", enum: ["tsv", "csv", "json"] },
+  },
+};
+
+async function mountMixedMerge(mode = "append", inputSchema: unknown = mergeSchema) {
+  const active = { ...tool, pluginId: mixedMergePlugin, capabilityId: "devtools.table-merge." + mode };
+  const fixture = await mount(active, undefined, inputSchema);
+  const form = within(fixture.container.querySelector("form") as HTMLFormElement);
+  const left = form.getByRole("textbox", { name: /^左表\s*\*?$/ }) as HTMLTextAreaElement;
+  const right = form.getByRole("textbox", { name: /^右表\s*\*?$/ }) as HTMLTextAreaElement;
+  const leftFormat = form.getByRole("combobox", { name: /左表格式/ }) as HTMLSelectElement;
+  const rightFormat = form.getByRole("combobox", { name: /右表格式/ }) as HTMLSelectElement;
+  async function choose(side: "left" | "right", files: NodeFile[]) {
+    const picker = form.getByLabelText(side === "left" ? "左表文件" : "右表文件", { exact: true });
+    await act(async () => { fireEvent.change(picker, { target: { files } }); });
+  }
+  return { ...fixture, form, left, right, leftFormat, rightFormat, choose };
+}
+
+it("changes only the chosen table and its declared format, and undoes the last import", async () => {
+  const { api, container, form, left, right, leftFormat, rightFormat, choose } = await mountMixedMerge();
+  const csv = "id,label\r\n1,甲";
+  const json = '[{"label":"乙","id":18446744073709551615}]';
+  await choose("left", [new NodeFile(["\uFEFF", csv], "left.CSV")]);
+  expect(left.value).toBe(csv.replaceAll("\r\n", "\n"));
+  expect(leftFormat.value).toBe("2");
+  await choose("right", [new NodeFile([json], "right.json")]);
+  expect(right.value).toBe(json);
+  expect(rightFormat.value).toBe("2");
+
+  await choose("left", []);
+  expect(leftFormat.value).toBe("2");
+  await choose("left", [new NodeFile([new Uint8Array([0xff])], "bad.tsv")]);
+  expect(within(container).getByRole("alert").textContent).toContain("UTF-8");
+  expect(left.value).toContain("1,甲");
+  expect(right.value).toBe(json);
+  expect(rightFormat.value).toBe("2");
+  await choose("left", [new NodeFile(["中".repeat(2731)], "large.tsv")]);
+  expect(within(container).getByRole("alert").textContent).toContain("8 KiB");
+  expect(right.value).toBe(json);
+
+  await act(async () => { form.getByRole("button", { name: "撤销上次导入" }).click(); });
+  expect(left.value).toContain("1,甲");
+  expect(leftFormat.value).toBe("2");
+  expect(right.value).toBe("");
+  expect(rightFormat.value).toBe("");
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
+it.runIf(Boolean(mixedMergePackage && mixedMergeWorker)).each([
+  ["append", "csv", "label,amount\n原件,001", "json", '{"headers":["amount","label"],"rows":[[18446744073709551615,"大数"]]}', "18446744073709551615"],
+  ["inner", "tsv", "id\tlabel\n1\tL", "csv", "id,team\n1,R", '"R"'],
+  ["left", "csv", "id,label\n1,L", "json", '[{"id":1,"amount":0},{"id":"1","amount":18446744073709551615}]', "18446744073709551615"],
+  ["columns", "json", '[{"id":9223372036854775807}]', "tsv", "id\tname\n001\t甲", "9223372036854775807"],
+])("uses the frozen independent-format plugin through the visible %s form", async (mode, leftFormat, left, rightFormat, right, expected) => {
+  const packagePath = mixedMergePackage as string;
+  const manifest = JSON.parse(readFileSync(join(packagePath, "plugin.json"), "utf8"));
+  const capability = manifest.contributes.capabilities.find((item: {id: string}) => item.id === "devtools.table-merge." + mode);
+  const { api, choose, submit, container, form } = await mountMixedMerge(mode, capability.inputSchema);
+  vi.mocked(api.invoke).mockImplementation(async (sceneId, _workspaceId, pluginId, capabilityId, input) => {
+    const worker = spawnSync(mixedMergeWorker as string, ["--zicode-plugin-worker"], {
+      input: JSON.stringify({ workerPath: join(packagePath, manifest.runtime.wasi), workerKind: "wasi", pluginId, capabilityId, sceneId, input }),
+      windowsHide: true, encoding: "utf8", timeout: 12000,
+    });
+    expect(worker.status).toBe(0);
+    return JSON.parse(worker.stdout);
+  });
+  await choose("right", [new NodeFile([right], "right." + rightFormat)]);
+  await choose("left", [new NodeFile([left], "left." + leftFormat)]);
+  const input = { left, right, leftFormat, rightFormat };
+  const keyFields = mode === "left" || mode === "inner" ? { leftKey: "id", rightKey: "id" } : {};
+  if (mode === "left" || mode === "inner") {
+    const leftKey = form.getByRole("textbox", { name: "左表关联列" }) as HTMLTextAreaElement;
+    const rightKey = form.getByRole("textbox", { name: "右表关联列" }) as HTMLTextAreaElement;
+    expect([leftKey.rows, rightKey.rows]).toEqual([1, 1]);
+    await act(async () => {
+      fireEvent.change(leftKey, { target: { value: "id" } });
+      fireEvent.change(rightKey, { target: { value: "id" } });
+    });
+  }
+  expect(api.invoke).not.toHaveBeenCalled();
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ ...input, ...keyFields });
+  expect(within(container).getByRole("table").textContent).toContain(expected);
+}, 15000);

@@ -61,6 +61,12 @@ impl Scope {
     }
 
     fn table_export_stem(&self) -> Option<&'static str> {
+        if self.plugin_id == "com.zicode.devtools.table-merge" {
+            return match self.capability_id.strip_prefix("devtools.table-merge.") {
+                Some("left" | "inner" | "append" | "columns") => Some("csv-merge"),
+                _ => None,
+            };
+        }
         if self.plugin_id != "com.zicode.devtools.compute" {
             return None;
         }

@@ -1,15 +1,15 @@
 import { getLocale, t } from "../../shared/i18n";
 import type { ToolField, ToolScalar } from "./manual-tool-fields";
 
-export function ManualToolInput({ field, id, value, disabled, invalid, onChange, onOmit }: {
-  field: ToolField; id: string; value?: string; disabled: boolean; invalid: boolean; onChange(value: string): void; onOmit?(): void;
+export function ManualToolInput({ field, id, value, disabled, invalid, compact = false, onChange, onOmit }: {
+  field: ToolField; id: string; value?: string; disabled: boolean; invalid: boolean; compact?: boolean; onChange(value: string): void; onOmit?(): void;
 }) {
   function choiceLabel(choice: ToolScalar) {
     return typeof choice === "boolean" ? t(choice ? "True" : "False") : choice === "" ? t("Empty text") : String(choice);
   }
   const numeric = field.kind === "integer" || field.kind === "number";
   const structured = field.kind === "array" || field.kind === "object";
-  const shortText = field.kind === "string" && field.maxLength !== undefined && field.maxLength <= 128;
+  const shortText = field.kind === "string" && (compact || (field.maxLength !== undefined && field.maxLength <= 128));
   const textCount = field.kind === "string" && !field.choices ? [...(value ?? "")].length : null;
   const minLength = field.minLength ?? 0;
   const maxLength = field.maxLength ?? 32768;
