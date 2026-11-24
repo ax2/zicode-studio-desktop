@@ -14,7 +14,11 @@ pub(crate) async fn select_result_text_export(app: AppHandle, window: WebviewWin
         let picker = app.dialog().file().set_directory(initial).set_file_name(name);
         let picker = match extension {
             Some(extension) => {
-                let label = if extension == "json" { "JSON" } else { "Text" };
+                let label = match extension.as_str() {
+                    "json" => "JSON",
+                    "png" => "PNG",
+                    _ => "Text",
+                };
                 picker.add_filter(label, &[&extension])
             }
             None => picker,

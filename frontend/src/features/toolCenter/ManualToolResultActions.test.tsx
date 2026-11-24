@@ -5,18 +5,19 @@ import { setLocale } from "../../shared/i18n";
 import { ManualToolResultActions } from "./ManualToolResultActions";
 import { webcrypto, createHash } from "node:crypto";
 import { emptyAccess } from "../commandPalette/tool-access";
-import type { CapturedToolResponse } from "../../../../public/native/plugins/plugin-result-actions.js";
+import type { CapturedToolResponse, ResultActionsGateway } from "../../../../public/native/plugins/plugin-result-actions.js";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 const roots: ReturnType<typeof createRoot>[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await act(async () => root.unmount()); document.body.replaceChildren(); vi.unstubAllGlobals(); });
 const scope = { sceneId: "programming", workspaceId: "workspace", pluginId: "source", capabilityId: "decode" };
-async function mount() {
+async function mount(owner = scope, textExports?: ResultActionsGateway["textExports"]) {
   setLocale("en");
   vi.stubGlobal("crypto", webcrypto);
   const store = { read: vi.fn(async () => emptyAccess()), mutate: vi.fn(async () => emptyAccess()) };
   const recentChanged = vi.fn();
   const gateway = {
+    textExports,
     prepareSave: vi.fn(async () => ({ grantId: "save-grant", preview: { title: "QA", text: "a+b 中", byteLength: 7, packageVersion: "1", workspaceId: "workspace" } })),
     commitSave: vi.fn(async () => ({ schemaVersion: 1, artifact: { id: "11111111-1111-4111-8111-111111111111" }, replayed: false })),
     saveStatus: vi.fn(async (): Promise<{ schemaVersion: number; status: "saved" | "unknown"; artifactId?: string }> => ({ schemaVersion: 1, status: "unknown" })),
@@ -32,7 +33,7 @@ async function mount() {
   const container = document.createElement("div"); document.body.append(container);
   const root = createRoot(container); roots.push(root);
   const render = async (resultId: string, workspaceId = "workspace", response: CapturedToolResponse = { result: {}, resultRef: { resultId } }) => { await act(async () => root.render(
-    <ManualToolResultActions response={response} scope={{ ...scope, workspaceId }} gateway={gateway} onBusy={busy} accessStore={store} onRecentChange={recentChanged} />)); };
+    <ManualToolResultActions response={response} scope={{ ...owner, workspaceId }} gateway={gateway} onBusy={busy} accessStore={store} onRecentChange={recentChanged} />)); };
   await render("source-result");
   const click = async (text: string) => { await act(async () => {
     const button = [...container.querySelectorAll("button")].find(node => node.textContent === text);
@@ -160,4 +161,42 @@ it("discards late previews when a new result or workspace replaces the source", 
   await act(async () => resolve({ grantId: "stale", preview: { title: "stale", text: "stale", byteLength: 5, packageVersion: "1", workspaceId: "workspace" } }));
   expect(container.textContent).not.toContain("stale");
   expect(gateway.commitSave).not.toHaveBeenCalled();
+});
+
+it("saves only a Host-verified QR PNG after choosing and confirming a destination", async () => {
+  const owner = { ...scope, pluginId: "com.zicode.devtools.compute", capabilityId: "devtools.compute.qr.png" };
+  const resultId = "22222222-2222-4222-8222-222222222222";
+  const grantId = "33333333-3333-4333-8333-333333333333";
+  const pngExport = { mimeType: "image/png", byteLength: 124, contentVersion: "a".repeat(64) };
+  const profile = "result.export.png.v1";
+  const preview = { ...pngExport, schemaVersion: 1, profile, grantId, resultId, destination: "D:/selected/qr-code.png" };
+  const exports = {
+    choose: vi.fn().mockResolvedValueOnce(null).mockResolvedValue({
+      schemaVersion: 1, profile, grantId, preview, expiresInSeconds: 60, operation: "create_new_file", requiresConfirmation: true, saved: false,
+    }),
+    commit: vi.fn(async () => ({ schemaVersion: 1, profile, status: "saved", saved: true, receipt: preview })),
+    cancel: vi.fn(async () => {}),
+    verify: vi.fn(),
+  };
+  const { container, click, render, busy, gateway } = await mount(owner, exports);
+  const result = { ok: true, data: { text: "displayed source" } };
+  await render(resultId, scope.workspaceId, { result, resultRef: { schemaVersion: 1, resultId } });
+  expect(container.textContent).not.toContain("Save PNG as…");
+  await render(resultId, scope.workspaceId, { result, resultRef: { schemaVersion: 1, resultId, pngExport } });
+  await click("Save PNG as…");
+  expect(container.querySelector("dialog")).toBeNull();
+  expect(exports.commit).not.toHaveBeenCalled();
+  await click("Save PNG as…");
+  expect(container.querySelector("dialog")?.textContent).toContain(preview.destination);
+  expect(exports.choose).toHaveBeenLastCalledWith(scope.workspaceId, { scope: owner, resultId, format: "png" });
+  expect(exports.commit).not.toHaveBeenCalled();
+  await click("Cancel save");
+  expect(exports.cancel).toHaveBeenCalledTimes(1);
+  expect(exports.commit).not.toHaveBeenCalled();
+  await click("Save PNG as…");
+  await click("Confirm save file");
+  expect(exports.commit).toHaveBeenCalledExactlyOnceWith(scope.workspaceId, { scope: owner, resultId, format: "png" }, grantId);
+  expect(busy.mock.calls).toEqual([[true], [false]]);
+  expect(container.querySelector("dialog")?.textContent).toContain("Saved copy:");
+  expect(gateway.prepareSave).not.toHaveBeenCalled();
 });

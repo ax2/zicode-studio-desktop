@@ -5,7 +5,7 @@ import { t } from "i18n";
 import { createPluginResultTransfer } from "./plugin-result-transfer.js";
 import { openSavedArtifact } from "../features/artifact-navigation.js";
 import { appendResultCaptureNotice } from "./plugin-result-capture-notice.js";
-import { createTextResultExport } from "./text-result-export.js";
+import { createPngResultExport, createTextResultExport } from "./text-result-export.js";
 export function createPluginResultActions({ container, gateway, isCurrent, onReceiverExecuted, onOpenSaved = openSavedArtifact, sourceResultDisplayed = false }) {
   const uuidPattern = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   const panel = document.createElement("section");
@@ -24,6 +24,14 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
         api: gateway.textExports,
         getTarget: () => current?.scope,
         isCurrent: () => valid(revision) && Boolean(current?.reportReference),
+      })
+    : null;
+
+  const pngExport = gateway.textExports
+    ? createPngResultExport({
+        api: gateway.textExports,
+        getTarget: () => current?.scope,
+        isCurrent: () => valid(revision) && Boolean(current?.pngReference),
       })
     : null;
 
@@ -105,6 +113,17 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           }
         })
       : null;
+    const png = pngExport && current.pngReference
+      ? button(t("Save PNG as…"), async () => {
+          if (!valid(token) || png.disabled) return;
+          png.disabled = true;
+          try {
+            await pngExport.open(current.pngReference, current.scope, container);
+          } finally {
+            if (valid(token)) png.disabled = false;
+          }
+        })
+      : null;
     const content = current.transferred ? element("pre", current.text) : null;
     content?.setAttribute("aria-label", t("Transferred result"));
     panel.replaceChildren(
@@ -112,7 +131,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
         "strong",
         current.transferred ? t("Studio · Receiver result") : t("Studio · Save tool result"),
       ),
-      ...[content, title, preview, report, send, status].filter(Boolean),
+      ...[content, png, title, preview, report, send, status].filter(Boolean),
     );
     if (current.saveOutcomeUnknown) {
       preview.disabled = true;
@@ -122,6 +141,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
   function show(response, scope, transferred = false) {
     revision += 1;
     reportExport?.clear();
+    pngExport?.clear();
     disposeCaptureNotice?.();
     disposeCaptureNotice = null;
     transfer?.destroy();
@@ -140,6 +160,13 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       /^[0-9a-f]{64}$/.test(reference.contentVersion ?? "") &&
       Number.isSafeInteger(reference.byteLength) && reference.byteLength > 0 &&
       reference.byteLength <= 64 * 1024 ? { ...reference } : null;
+    const png = reference?.pngExport;
+    const pngReference = scope?.pluginId === "com.zicode.devtools.compute" &&
+      scope.capabilityId === "devtools.compute.qr.png" && response?.result?.ok === true &&
+      reference?.schemaVersion === 1 && uuidPattern.test(reference.resultId ?? "") &&
+      png?.mimeType === "image/png" && /^[0-9a-f]{64}$/.test(png.contentVersion ?? "") &&
+      Number.isSafeInteger(png.byteLength) && png.byteLength > 0 && png.byteLength <= 48 * 1024
+      ? { ...png, resultId: reference.resultId } : null;
     const successful = httpResult || response?.result?.ok === true ||
       (response?.operation === "model.generate" && typeof resultText === "string");
     current = response?.resultRef
@@ -147,6 +174,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           scope,
           resultId: response.resultRef.resultId,
           reportReference,
+          pngReference,
           transferred,
           text: resultText,
         }
@@ -245,6 +273,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     clear() {
       revision += 1;
       reportExport?.clear();
+      pngExport?.clear();
       disposeCaptureNotice?.();
       disposeCaptureNotice = null;
       transfer?.destroy();
@@ -256,6 +285,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     destroy() {
       active = false;
       reportExport?.destroy();
+      pngExport?.destroy();
       disposeCaptureNotice?.();
       disposeCaptureNotice = null;
       transfer?.destroy();

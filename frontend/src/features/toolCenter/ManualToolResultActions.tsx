@@ -24,12 +24,21 @@ export function ManualToolResultActions({ response, scope, gateway, onBusy, acce
       try { return await gateway[kind](owner, grantId); }
       finally { if (active) busyCallback.current(false); }
     };
+    const nativeExports = gateway.textExports;
     const actions = createPluginResultActions({
       container: container.current,
       sourceResultDisplayed: true,
       gateway: {
         prepareSave: (...args) => gateway.prepareSave(...args),
         commitSave: (...args) => commit("commitSave", ...args),
+        ...(nativeExports ? { textExports: {
+          ...nativeExports,
+          commit: async (...args) => {
+            busyCallback.current(true);
+            try { return await nativeExports.commit(...args); }
+            finally { if (active) busyCallback.current(false); }
+          },
+        } } : {}),
         ...(gateway.saveStatus ? { saveStatus: gateway.saveStatus.bind(gateway) } : {}),
         searchTargets: (...args) => gateway.searchTargets(...args),
         prepareTransfer: (...args) => gateway.prepareTransfer(...args),
