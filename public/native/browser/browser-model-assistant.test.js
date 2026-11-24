@@ -3,9 +3,10 @@ import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 import { setLocale } from "../../i18n.js";
 import { createBrowserModelAssistant } from "./browser-model-assistant.js";
 import { createBrowserModelGateway } from "./browser-model-gateway.js";
+import { showBrowserCapture } from "./browser-capture-preview.js";
 
 const a = { provider: "fixture", modelId: "a", name: "A", fingerprint: "a".repeat(64) };
-const b = { provider: "fixture", modelId: "b", name: "B", fingerprint: "b".repeat(64) };
+const b = { provider: "fixture", modelId: "b", name: "B", fingerprint: "b".repeat(64), supportsImages: true };
 const state = (selection = null) => ({ schemaVersion: 1, revision: selection ? "override" : "initial", browser: selection,
   currentPiModel: a, effectiveBrowserModel: selection ? b : a, models: [a, b] });
 const controllers = [];
@@ -151,4 +152,108 @@ it("keeps the previous reviewed answer and its original model saveable when a mo
   await waitFor(() => expect(answer.hidden).toBe(true));
   expect(answer.value).toBe("");
   expect(f.el.querySelector('button[data-i18n-text="Open saved artifact"]').hidden).toBe(true);
+});
+
+
+const reviewedImage = {
+  pngBase64: "iVBORw0K",
+  source: { url: "https://assets.example.org/pixel.png", alt: "Fixture", width: 20, height: 30 },
+  pageUrl: "https://example.org/page", capturedAt: "2026-11-24T00:00:00Z", documentRevision: "main-r1",
+  frame: { url: "https://example.org/frame", title: "Embedded", documentRevision: "1000" },
+};
+
+async function selectVision(f) {
+  const select = getByRole(f.el, "combobox");
+  await waitFor(() => expect(select.disabled).toBe(false));
+  fireEvent.change(select, { target: { value: JSON.stringify(["fixture", "b"]) } });
+  await waitFor(() => expect(select.disabled).toBe(false));
+}
+
+it("reviews only the clicked embedded image, sends on separate confirmation and retains local source details", async () => {
+  setLocale("en");
+  const details = reviewedImage.frame;
+  const locator = { path: [0], timeOrigin: details.documentRevision };
+  const snapshot = { tab: "local", documentRevision: reviewedImage.documentRevision, capturedAt: reviewedImage.capturedAt,
+    page: { title: "Main", url: reviewedImage.pageUrl, text: "Private page fixture",
+      images: [{ ...reviewedImage.source, url: "https://example.org/different.png" }],
+      frames: [{ ...details, text: "Frame fixture", images: [reviewedImage.source], imageLocator: locator }] } };
+  const host = document.createElement("aside");
+  const trigger = document.createElement("button");
+  document.body.append(trigger, host);
+  const actions = {
+    autoLoad: () => true, load: vi.fn(async () => state({ provider: "fixture", modelId: "b" })),
+    ask: vi.fn(async () => ({ text: "Visual fixture answer.", model: b })), cancel: vi.fn(),
+  };
+  const previewImage = vi.fn(async () => reviewedImage);
+  const dialog = showBrowserCapture(snapshot, vi.fn(), undefined, undefined, undefined, false,
+    { host, trigger, modelActions: actions, previewImage });
+  try {
+    await waitFor(() => expect(getByRole(dialog, "combobox").disabled).toBe(false));
+    expect(previewImage).not.toHaveBeenCalled();
+    expect(actions.ask).not.toHaveBeenCalled();
+    const parent = dialog.querySelector(".browser-capture-frames");
+    parent.open = true;
+    parent.querySelector("details").open = true;
+    fireEvent.click(getByRole(parent, "button", { name: "Preview image for AI" }));
+    await waitFor(() => expect(getByRole(dialog, "img").getAttribute("src")).toBe("data:image/png;base64,iVBORw0K"));
+    expect(previewImage).toHaveBeenCalledWith(reviewedImage.source, { title: details.title, url: details.url, locator });
+    expect(previewImage).toHaveBeenCalledOnce();
+    expect(actions.ask).not.toHaveBeenCalled();
+    expect(dialog.textContent).toContain("Image destination: fixture / B");
+    fireEvent.click(getByRole(dialog, "button", { name: "Send only this image" }));
+    await waitFor(() => expect(getByRole(dialog, "textbox", { name: "Browser model answer" }).value).toBe("Visual fixture answer."));
+    expect(previewImage).toHaveBeenCalledTimes(2);
+    expect(actions.ask).toHaveBeenCalledOnce();
+    expect(actions.ask.mock.calls[0][0]).toEqual({
+      requestId: expect.any(String), confirmed: true, expectedRevision: "override", expectedModelFingerprint: b.fingerprint,
+      prompt: "Describe the visible content of this image.", image: reviewedImage.pngBase64,
+    });
+    const result = dialog.querySelector(".browser-image-result-source");
+    for (const value of [reviewedImage.pageUrl, reviewedImage.source.url, reviewedImage.capturedAt, reviewedImage.documentRevision, details.url, details.documentRevision]) {
+      expect(result.textContent).toContain(value);
+    }
+    expect(dialog.querySelector(".browser-image-review img").hasAttribute("src")).toBe(false);
+  } finally { dialog.disposeBrowserModel(); }
+});
+
+it("leaves image sending disabled for a text-only model without falling back to a page request", async () => {
+  const f = fixture();
+  await waitFor(() => expect(getByRole(f.el, "combobox").disabled).toBe(false));
+  const read = vi.fn(async () => reviewedImage);
+  await f.controller.reviewImage(read);
+  const send = getByRole(f.el, "button", { name: "Send only this image" });
+  expect(send.disabled).toBe(true);
+  expect(f.el.textContent).toContain("Use a browser model that supports images.");
+  fireEvent.click(send);
+  expect(read).toHaveBeenCalledOnce();
+  expect(f.actions.ask).not.toHaveBeenCalled();
+  expect(f.prompt).not.toHaveBeenCalled();
+});
+
+it("discards a changed frame before an authorized image can reach the selected model", async () => {
+  const f = fixture();
+  await selectVision(f);
+  const read = vi.fn().mockResolvedValueOnce(reviewedImage).mockResolvedValue({
+    ...reviewedImage, frame: { ...reviewedImage.frame, documentRevision: "replaced-frame" },
+  });
+  await f.controller.reviewImage(read);
+  fireEvent.click(getByRole(f.el, "button", { name: "Send only this image" }));
+  await waitFor(() => expect(f.el.textContent).toContain("The image changed. Preview it again."));
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(f.actions.ask).not.toHaveBeenCalled();
+  expect(f.el.querySelector(".browser-image-review").hidden).toBe(true);
+});
+
+it("cancels during local validation without invoking a provider", async () => {
+  const f = fixture();
+  await selectVision(f);
+  let finish;
+  const read = vi.fn().mockResolvedValueOnce(reviewedImage).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  await f.controller.reviewImage(read);
+  fireEvent.click(getByRole(f.el, "button", { name: "Send only this image" }));
+  fireEvent.click(getByRole(f.el, "button", { name: "Cancel model request" }));
+  finish(reviewedImage);
+  await waitFor(() => expect(f.el.textContent).toContain("Model request cancelled."));
+  expect(f.actions.ask).not.toHaveBeenCalled();
+  expect(f.actions.cancel).not.toHaveBeenCalled();
 });

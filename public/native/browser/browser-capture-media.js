@@ -13,7 +13,7 @@ export function pageImageDescription({ alt, width, height, url }) {
   return [alt || t("No alternative text"), `${width} × ${height}`, url].filter(Boolean).join(" — ");
 }
 
-export function createBrowserCaptureImageList(images, recognizeImage) {
+export function createBrowserCaptureImageList(images, recognizeImage, reviewImage) {
   const recognitions = [];
   const list = document.createElement("ul"); list.setAttribute("aria-label", t("Page images"));
   for (const image of images) {
@@ -23,14 +23,25 @@ export function createBrowserCaptureImageList(images, recognizeImage) {
       item.append(recognition.element);
       recognitions.push(recognition);
     }
+    if (reviewImage && image.url) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ui-button ui-button--secondary ui-button--sm";
+      button.dataset.i18nText = "Preview image for AI";
+      button.textContent = t("Preview image for AI");
+      button.addEventListener("click", () => void reviewImage(image));
+      const action = document.createElement("div");
+      action.append(button);
+      item.append(action);
+    }
     list.append(item);
   }
   return { element: list, imageText: () => recognitions.map(recognition => recognition.attachment()).filter(Boolean) };
 }
 
-export function createBrowserCaptureMedia(page, recognizeImage) {
+export function createBrowserCaptureMedia(page, recognizeImage, reviewImage) {
   const images = page.images ?? [];
-  const imageList = createBrowserCaptureImageList(images, recognizeImage);
+  const imageList = createBrowserCaptureImageList(images, recognizeImage, reviewImage);
   const { imageText } = imageList;
   const metadata = pageMetadataRows(page.metadata);
   const include = document.createElement("input"); include.type = "checkbox";

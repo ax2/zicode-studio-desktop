@@ -1,5 +1,6 @@
 import { t } from "../../i18n.js";
 import { randomId } from "../utils/random-id.js";
+import { createBrowserImageReview, sameReviewedImage } from "./browser-image-review.js";
 
 const label = (element, value) => { element.dataset.i18nText = value; element.textContent = t(value); };
 function button(value, listener) {
@@ -15,6 +16,8 @@ export function browserModelError(reason) {
   if (code === "module_model_request_timeout") return t("The model request timed out. It was not retried.");
   if (code === "module_model_config_changed") return t("Model configuration changed. Reload the models before sending.");
   if (code === "module_model_selection_unavailable") return t("The selected model is unavailable. Choose another model or configure Pi.");
+  if (code === "module_model_image_unsupported") return t("Use a browser model that supports images.");
+  if (code === "module_model_image_invalid") return t("Invalid browser image response");
   if (code.startsWith("module_model_")) return t("The model request could not be completed. Check the selected model and credentials.");
   return t("Could not load Pi models. Open Chat or model settings, then retry.");
 }
@@ -29,9 +32,10 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
   const destination = document.createElement("p"), status = document.createElement("p"); status.setAttribute("role", "status");
   const toolbar = document.createElement("div"); toolbar.className = "ui-toolbar";
   const refresh = button("Load Pi models", () => void load());
-  const ask = button("Send page and ask", () => void send(false));
-  const summarize = button("Send page and summarize", () => void send(true));
-  const cancel = button("Cancel model request", () => { if (requestId) void actions.cancel(requestId); });
+  const ask = button("Send page and ask", () => void send("analysis"));
+  const summarize = button("Send page and summarize", () => void send("summary"));
+  const cancel = button("Cancel model request", cancelRequest);
+  const imageReview = createBrowserImageReview(() => void send("image"), clearImage);
   const answer = document.createElement("textarea"); answer.className = "ui-textarea"; answer.rows = 5; answer.readOnly = true; answer.hidden = true;
   answer.setAttribute("aria-label", t("Browser model answer"));
   const save = button("Save analysis to Artifacts", () => void saveAnalysis());
@@ -41,14 +45,15 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
   });
   const saveStatus = document.createElement("p"); saveStatus.setAttribute("role", "status");
   let analysis, savedArtifact;
-  let snapshot, busy = false, disposed = false, requestId, generation = 0;
+  let snapshot, busy = false, disposed = false, pending, reviewed, generation = 0;
   const current = () => !disposed && isCurrent();
   function controls() {
     select.disabled = busy || !snapshot;
     refresh.disabled = busy;
     ask.disabled = busy || !snapshot?.effectiveBrowserModel || !question?.value.trim();
     summarize.disabled = busy || !snapshot?.effectiveBrowserModel;
-    cancel.hidden = !requestId;
+    cancel.hidden = !pending;
+    imageReview.controls(snapshot?.effectiveBrowserModel, busy);
     save.hidden = !artifacts || !analysis;
     save.disabled = busy || !analysis || Boolean(savedArtifact);
     open.hidden = !savedArtifact;
@@ -92,28 +97,86 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       if (current()) {
         analysis = undefined; savedArtifact = undefined; saveStatus.textContent = "";
         answer.hidden = true; answer.value = "";
+        imageReview.showResult();
         render(value);
       }
     } catch (reason) { if (current()) { render(before); status.textContent = browserModelError(reason); } }
     finally { if (current()) { busy = false; controls(); } }
   });
-  async function send(summary) {
-    if (busy || !snapshot?.effectiveBrowserModel || !current() || (!summary && !question?.value.trim())) return;
-    const mine = ++generation;
-    const requestedQuestion = summary ? "" : question.value.trim();
-    analysis = undefined; savedArtifact = undefined; saveStatus.textContent = "";
-    requestId = `browser-${randomId()}`; busy = true; setBusy(true); controls();
-    answer.hidden = true; answer.value = ""; status.textContent = t("Sending reviewed page content to the selected model…");
+  function clearImage() {
+    reviewed = undefined;
+    imageReview.clear();
+  }
+  function cancelRequest() {
+    if (!pending) return;
+    pending.cancelled = true;
+    if (pending.sent) void actions.cancel(pending.id);
+  }
+  async function reviewImage(read) {
+    if (busy || !current()) return;
+    clearImage();
+    busy = true; setBusy(true); controls();
+    status.textContent = t("Preparing image preview…");
     try {
-      const value = await actions.ask({ requestId, confirmed: true, prompt: prompt(summary), expectedRevision: snapshot.revision,
-        expectedModelFingerprint: snapshot.effectiveBrowserModel.fingerprint });
+      const preview = await read();
+      if (!current() || !preview) return;
+      reviewed = { preview, read };
+      imageReview.show(preview);
+      status.textContent = "";
+    } catch (reason) {
+      if (current()) status.textContent = t(String(reason?.message ?? reason));
+    } finally { busy = false; setBusy(false); if (current()) controls(); }
+  }
+  async function send(kind) {
+    const model = snapshot?.effectiveBrowserModel;
+    const visual = kind === "image" ? reviewed : undefined;
+    const reviewRequired = kind === "image" && (!visual || !model?.supportsImages);
+    if (busy || !model || !current() || reviewRequired || (kind === "analysis" && !question?.value.trim())) return;
+    const mine = ++generation;
+    const requestedQuestion = kind === "analysis" ? question.value.trim() : "";
+    const request = { id: `browser-${randomId()}`, cancelled: false, sent: false };
+    const expectedRevision = snapshot.revision;
+    analysis = undefined; savedArtifact = undefined; saveStatus.textContent = "";
+    imageReview.showResult();
+    pending = request; busy = true; setBusy(true); controls();
+    answer.hidden = true; answer.value = "";
+    status.textContent = t(visual ? "Preparing image preview…" : "Sending reviewed page content to the selected model…");
+    try {
+      if (visual) {
+        const latest = await visual.read();
+        if (request.cancelled) throw Error("module_model_request_cancelled");
+        if (!current() || mine !== generation) return;
+        if (!sameReviewedImage(visual.preview, latest)) {
+          clearImage();
+          status.textContent = t("The image changed. Preview it again.");
+          return;
+        }
+        status.textContent = t("Sending this image to the selected model…");
+      }
+      request.sent = true;
+      const value = await actions.ask({
+        requestId: request.id, confirmed: true, expectedRevision, expectedModelFingerprint: model.fingerprint,
+        ...(visual
+          ? { prompt: t("Describe the visible content of this image."), image: visual.preview.pngBase64 }
+          : { prompt: prompt(kind === "summary") }),
+      });
+      if (request.cancelled) throw Error("module_model_request_cancelled");
       if (!current() || mine !== generation) return;
-      analysis = { text: value.text, model: value.model, kind: summary ? "summary" : "analysis",
-        question: requestedQuestion, generatedAt: new Date().toISOString() };
+      if (visual) {
+        imageReview.showResult(visual.preview);
+        clearImage();
+      } else {
+        analysis = { text: value.text, model: value.model, kind, question: requestedQuestion, generatedAt: new Date().toISOString() };
+      }
       answer.value = value.text; answer.hidden = false;
-      status.textContent = `${name(value.model)}${Number.isSafeInteger(value.usage?.totalTokens) ? ` · ${value.usage.totalTokens} ${t("tokens")}` : ""}`;
-    } catch (reason) { if (current() && mine === generation) status.textContent = browserModelError(reason); }
-    finally { requestId = undefined; busy = false; setBusy(false); if (current()) controls(); }
+      const tokens = Number.isSafeInteger(value.usage?.totalTokens)
+        ? ` · ${value.usage.totalTokens} ${t("tokens")}` : "";
+      status.textContent = name(value.model) + tokens;
+    } catch (reason) {
+      if (!current() || mine !== generation) return;
+      status.textContent = visual && !request.sent && !request.cancelled
+        ? t(String(reason?.message ?? reason)) : browserModelError(reason);
+    } finally { pending = undefined; busy = false; setBusy(false); if (current()) controls(); }
   }
   async function saveAnalysis() {
     if (busy || !analysis || savedArtifact || !artifacts || !current()) return;
@@ -127,13 +190,14 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     } finally { busy = false; setBusy(false); if (current()) controls(); }
   }
   question?.addEventListener("input", controls);
-  toolbar.append(refresh, ask, summarize, cancel); element.append(field, hint, destination, toolbar, status, answer);
+  toolbar.append(refresh, ask, summarize, cancel); element.append(field, hint, destination, toolbar, imageReview.element, status, imageReview.resultSource, answer);
   if (artifacts) element.append(save, open, saveStatus);
   controls();
   if (actions.autoLoad()) queueMicrotask(() => void load());
-  return { element, cancel() { if (requestId) void actions.cancel(requestId); }, dispose() {
+  return { element, reviewImage, cancel: cancelRequest, dispose() {
     if (disposed) return; disposed = true; generation += 1;
     question?.removeEventListener("input", controls);
-    if (requestId) void actions.cancel(requestId);
+    clearImage();
+    cancelRequest();
   } };
 }

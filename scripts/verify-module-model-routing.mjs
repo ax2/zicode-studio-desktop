@@ -19,15 +19,19 @@ await mkdir(scratch, { recursive: true });
 const directory = await mkdtemp(join(scratch, "module-model-routing-pi-"));
 await writeFile(join(directory, "owner.json"), JSON.stringify({ purpose: "#79 actual Pi routing; generated fixtures only", lifetime: "remove on pass, retain on failure" }));
 const requests = [];
+const pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jSQ0AAAAASUVORK5CYII=";
 let hold = false, heldResponse, observeHeld;
 const server = createServer(async (request, response) => {
   const chunks = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
   const isB = request.url.startsWith("/b/");
+  const images = Array.isArray(body.input) ? body.input.flatMap(message =>
+    Array.isArray(message.content) ? message.content.filter(part => part.type === "input_image") : []) : [];
   requests.push({ path: request.url, model: body.model,
     authenticationMatched: request.headers.authorization === `Bearer fixture-only-${isB ? "b" : "a"}`,
-    maxTokens: body.max_output_tokens ?? body.max_tokens ?? body.max_completion_tokens, reasoningEffort: body.reasoning?.effort });
+    maxTokens: body.max_output_tokens ?? body.max_tokens ?? body.max_completion_tokens, reasoningEffort: body.reasoning?.effort, imageCount: images.length,
+    imageMatches: images[0]?.image_url === `data:image/png;base64,${pixel}` });
   response.writeHead(200, { "content-type": "text/event-stream" });
   if (isB) {
     const message = { id: "message-fixture", type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: "Pi routed responses-b", annotations: [] }] };
@@ -52,7 +56,7 @@ const address = server.address();
 assert(address && typeof address !== "string");
 const config = { providers: Object.fromEntries(["a", "b"].map(id => [`fixture-${id}`, {
   baseUrl: `http://127.0.0.1:${address.port}/${id}/v1`, api: id === "a" ? "openai-completions" : "openai-responses", apiKey: `fixture-only-${id}`,
-  models: [{ id: id === "a" ? "chat-a" : "responses-b", name: `Fixture ${id}`, input: ["text"], reasoning: id === "b",
+  models: [{ id: id === "a" ? "chat-a" : "responses-b", name: `Fixture ${id}`, input: id === "b" ? ["text", "image"] : ["text"], reasoning: id === "b",
     contextWindow: 32768, maxTokens: 2048, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }],
 }])) };
 await writeFile(join(directory, "models.json"), JSON.stringify(config));
@@ -136,11 +140,27 @@ try {
   assert.equal(result.ok, true);
   assert.equal(result.data.text, "Pi routed responses-b");
   assert.equal(result.data.model.provider, "fixture-b");
+  assert.equal(selected.data.effectiveBrowserModel.supportsImages, true);
+  const image = { ...ask, requestId: "native-browser-image", image: pixel, prompt: "Describe the visible pixel." };
+  const blocked = await pi.call("browser_model_request", { ...image, confirmed: false });
+  assert.equal(blocked.error, "module_model_confirmation_required");
+  assert.equal(requests.length, 1, "Unconfirmed image must not reach a provider");
+  const visual = await pi.call("browser_model_request", image);
+  assert.equal(visual.ok, true);
+  assert.equal(visual.data.text, "Pi routed responses-b");
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].imageCount, 1);
+  assert.equal(requests[1].imageMatches, true);
   assert(!JSON.stringify(result).includes("fixture-only-"));
   assert.deepEqual((await pi.rpc({ type: "get_state" })).data.model, before.data.model);
   assert.deepEqual((await pi.rpc({ type: "get_messages" })).data.messages, history.data.messages);
   const inherited = await pi.call("save_module_model", { module: "browser", selection: null, expectedRevision: selected.data.revision });
   assert.equal(inherited.ok, true);
+  assert.equal(inherited.data.effectiveBrowserModel.supportsImages, false);
+  const unsupported = await pi.call("browser_model_request", { ...image, requestId: "native-browser-text-only-image",
+    expectedRevision: inherited.data.revision, expectedModelFingerprint: inherited.data.effectiveBrowserModel.fingerprint });
+  assert.equal(unsupported.error, "module_model_image_unsupported");
+  assert.equal(requests.length, 2, "A text-only model must not receive or fall back from an image request");
   hold = true;
   const started = new Promise(done => { observeHeld = done; });
   const waiting = pi.call("browser_model_request", { ...ask, requestId: "native-browser-cancel", expectedRevision: inherited.data.revision,
@@ -161,14 +181,16 @@ try {
   assert.deepEqual(reopened.data.browser, { provider: "fixture-b", modelId: "responses-b" });
   assert.equal(reopened.data.currentPiModel.modelId, "chat-a");
   assert.equal(reopened.data.effectiveBrowserModel.modelId, "responses-b");
-  assert.equal(requests.length, 2);
+  assert.equal(requests.length, 3);
+  assert.deepEqual(requests.map(request => request.imageCount), [0, 1, 0]);
   assert(requests.every(request => request.authenticationMatched && request.maxTokens === 1024));
   assert.equal(requests[0].reasoningEffort, "low", "Reasoning Responses models must receive a supported low-budget effort");
-  assert.equal(requests[1].reasoningEffort, undefined, "Non-reasoning Chat Completions models must not acquire a reasoning effort");
+  assert.equal(requests[2].reasoningEffort, undefined, "Non-reasoning Chat Completions models must not acquire a reasoning effort");
   await pi.stop(); pi = undefined;
   const receipt = { schemaVersion: 1, verified: true, piVersion: expectedVersion,
     extensionSha256: createHash("sha256").update(await readFile(extension)).digest("hex"),
     requests, defaultPiUnchanged: true, chatHistoryUnchanged: true, explicitCancellation: true,
+    unconfirmedImageDenied: true, textOnlyImageDenied: true, exactImagePayloadVerified: true,
     moduleSelectionSurvivedProcessRestart: true, automaticModelCallsOnConfiguration: 0, syntheticCredentialsOnly: true };
   await writeFile(resolve(output), `${JSON.stringify(receipt, null, 2)}\n`);
   console.log(JSON.stringify(receipt));
