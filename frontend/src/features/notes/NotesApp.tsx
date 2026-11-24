@@ -1676,11 +1676,20 @@ function backlinkKindLabel(kind: string): string {
   return kind;
 }
 
+function noteSourceUrl(value?: string): URL | null {
+  if (!value || !URL.canParse(value)) return null;
+  const url = new URL(value);
+  return (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password ? url : null;
+}
+
 function NoteEditor({ store }: { store: NotesStore }) {
   const workflowBusy = store((state) => state.workflowBusy);
   const attachmentBusy = store((state) => state.attachmentBusy);
   const editorLocked = store((state) => state.editorLocked);
   const note = store((state) => state.selectedNote) as Note;
+  const openSource = store((state) => state.openSource);
+  const sourceUrl = noteSourceUrl(note.source?.url);
+  const [openingSource, setOpeningSource] = useState(false);
   const draftTitle = store((state) => state.draftTitle);
   const draftIcon = store((state) => state.draftIcon);
   const draftContent = store((state) => state.draftContent);
@@ -2318,9 +2327,19 @@ function NoteEditor({ store }: { store: NotesStore }) {
         <div className="notes-source">
           <p>
             {t("Source")}:{" "}
-            <a href={note.source.url} target="_blank" rel="noreferrer">
-              {note.source.url}
-            </a>
+            {sourceUrl ? (
+              <a href={sourceUrl.href} target="_blank" rel="noreferrer"
+                title={openSource ? t("Open source in Studio Browser") : undefined}
+                aria-busy={openingSource || undefined}
+                onClick={openSource ? (event) => {
+                  event.preventDefault();
+                  if (openingSource) return;
+                  setOpeningSource(true);
+                  void openSource(sourceUrl.href).finally(() => setOpeningSource(false));
+                } : undefined}>
+                {note.source.url}
+              </a>
+            ) : note.source.url}
             <button
               type="button"
               className="notes-source-copy"

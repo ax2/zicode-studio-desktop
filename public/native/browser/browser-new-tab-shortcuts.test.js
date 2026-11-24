@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { fireEvent, getByRole, queryByRole, waitFor, within } from "@testing-library/dom";
 import { getLocale, setLocale } from "../../i18n.js";
+import { navigateToNoteSource } from "../features/notes-navigation.js";
 import { setupBrowserApp } from "./browser-app.js";
 
 const locale = getLocale();
@@ -19,7 +20,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list, hide } = {}) {
+function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list, hide, stateError } = {}) {
   setLocale("en");
   vi.stubGlobal("ResizeObserver", class { observe() {} });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 20, y: 50, width: 900, height: 580 });
@@ -27,9 +28,10 @@ function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list
   document.body.append(host);
   let revision = 0;
   const requests = vi.fn(async (command, args) => {
-    if (command === "browser_get_state") return {
-      startupMode: "browser", private: privateWindow, session: { activeTab: active, revision, tabs: structuredClone(tabs) },
-    };
+    if (command === "browser_get_state") {
+      if (stateError) throw stateError;
+      return { startupMode: "browser", private: privateWindow, session: { activeTab: active, revision, tabs: structuredClone(tabs) } };
+    }
     if (command === "browser_save_session") return { revision: ++revision };
     if (command === "browser_bookmarks") return list ? list() : { bookmarks: [marked, ordinary], folders: [] };
     if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs: structuredClone(tabs) };
@@ -71,6 +73,45 @@ it("opens a marked website in the current new tab and retains the other open pag
       expect.objectContaining({ id: newId, url: marked.url }),
     ],
   }));
+});
+
+it("routes a saved note source to a fresh browser tab without replacing the current page", async () => {
+  const { host, requests, calls } = setup();
+  const source = "https://saved.invalid/article?lang=zh#section";
+  let active = false;
+  await navigateToNoteSource(source, {
+    scope: { workspaceId: "workspace", isCurrent: () => true },
+    activate: async () => { active = true; },
+    isActive: () => active,
+    open: (url, current) => app.openNoteSource(url, current),
+  });
+  const selected = getByRole(host, "tab", { selected: true });
+  const tabId = selected.closest("[data-browser-tab-id]").dataset.browserTabId;
+  expect(tabId).not.toBe(page.id);
+  expect(calls("create")).toContainEqual(expect.objectContaining({ tabId, url: source }));
+  expect(calls("present").at(-1)?.tab).toBe(tabId);
+  expect(requests).toHaveBeenCalledWith("browser_save_session", expect.objectContaining({
+    activeTab: tabId, tabs: [expect.objectContaining(page), expect.objectContaining({ id: tabId, url: source })],
+  }));
+});
+
+it("keeps saved browser tabs when a note link is opened but the session cannot restore", async () => {
+  const { requests, calls } = setup({ stateError: new Error("state unavailable") });
+  await expect(app.openNoteSource("https://saved.invalid/", () => true)).rejects.toThrow("Could not restore the browser");
+  expect(calls("create")).toHaveLength(0);
+  expect(requests.mock.calls.some(([command]) => command === "browser_save_session")).toBe(false);
+});
+
+it.each(["notes blocks leaving", "workspace changes"])("does not open a note URL when %s", async (reason) => {
+  let current = true;
+  const open = vi.fn();
+  const activate = vi.fn(async () => { if (reason === "workspace changes") current = false; });
+  await navigateToNoteSource("https://saved.invalid/", {
+    scope: { workspaceId: "workspace", isCurrent: () => current },
+    activate, isActive: () => reason !== "notes blocks leaving", open,
+  });
+  expect(activate).toHaveBeenCalledOnce();
+  expect(open).not.toHaveBeenCalled();
 });
 
 it("drops a restored blank tab's pending list after selecting an existing page", async () => {

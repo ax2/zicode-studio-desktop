@@ -1352,6 +1352,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   return {
     async finishWindowWrites() { await actionTail; await saveTail; },
+    async openNoteSource(url, current) {
+      await initPromise;
+      if (!current()) return;
+      if (!initialized) throw new Error(restoreError || t("This browser action is not available yet"));
+      await openSavedPage({ url, title: new URL(url).host }, { current: () => !blocked() && current() });
+    },
     renderContent(container) {
       if (!root) mount(); container.replaceChildren(root); visible = true;
       placeTabStrip();

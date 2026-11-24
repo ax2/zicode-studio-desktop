@@ -802,6 +802,38 @@ describe("notes store", () => {
     expect(source.textContent).toContain("剪藏于");
   });
 
+  it("opens the source explicitly in Studio with the current Notes scope", async () => {
+    const url = "https://example.invalid/article?q=one#part";
+    let finish!: () => void;
+    const onOpenSource = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+    const store = createNotesStore({
+      gateway: gatewayStub({ get: vi.fn(async () => ({ note: { ...NOTE, source: { url } } })) }),
+      getTarget: () => ({ sceneId: "scene", workspaceId: "workspace" }),
+      onOpenSource,
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const view = render(<NotesContent store={store} />);
+    const link = view.getByRole("link", { name: url });
+    expect(onOpenSource).not.toHaveBeenCalled();
+    expect(fireEvent.click(link)).toBe(false);
+    expect(fireEvent.click(link)).toBe(false);
+    expect(onOpenSource).toHaveBeenCalledOnce();
+    expect(onOpenSource).toHaveBeenCalledWith(url, expect.objectContaining({ sceneId: "scene", workspaceId: "workspace" }));
+    expect(link.getAttribute("aria-busy")).toBe("true");
+    finish();
+    await waitFor(() => expect(link.hasAttribute("aria-busy")).toBe(false));
+  });
+
+  it.each(["javascript:alert(1)", "https://user:password@example.invalid/"])("renders an unsafe source as text: %s", async (url) => {
+    const store = storeWithGateway({ get: vi.fn(async () => ({ note: { ...NOTE, source: { url } } })) });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const view = render(<NotesContent store={store} />);
+    expect(view.queryByRole("link", { name: url })).toBeNull();
+    expect(view.container.querySelector(".notes-source")?.textContent).toContain(url);
+  });
+
   it("copies the captured source URL", async () => {
     const writeText = vi.fn(async () => {});
     vi.stubGlobal("navigator", {

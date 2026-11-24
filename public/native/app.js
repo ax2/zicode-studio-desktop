@@ -16,7 +16,7 @@ import {
 import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 import { dispatchSuperAgentTaskNative } from "../super-agent/native-dispatch.js";
 import { navigateToArtifact } from "./features/artifact-navigation.js";
-import { navigateToNote } from "./features/notes-navigation.js";
+import { navigateToNote, navigateToNoteSource } from "./features/notes-navigation.js";
 import { openExplorerDirectoryTool } from "./features/explorer-directory-tool.js";
 import { isSuperAgentProjectPath } from "../super-agent/session.js";
 import { isSuperAgentEnabled } from "../super-agent/settings.js";
@@ -951,6 +951,14 @@ const notesApp = setupNotesApp({
   notify: notifications.notify,
   invoke: globalThis.__TAURI__?.core?.invoke
     ? (command, params) => globalThis.__TAURI__.core.invoke(command, params)
+    : undefined,
+  onOpenSource: remoteAuth.clientType === "desktop" && globalThis.__TAURI__?.core?.invoke
+    ? (url, scope) => navigateToNoteSource(url, {
+        scope,
+        activate: () => pluginShell?.activate("com.zicode.browser", { historyMode: "push" }),
+        isActive: () => pluginShell?.getActivePluginId() === "com.zicode.browser",
+        open: (source, current) => browserApp.openNoteSource(source, current),
+      }).catch((error) => notifications.notify({ type: "error", message: t(error?.message ?? String(error)) }))
     : undefined,
   onUseInChat: createNotesChatHandoff({
     activate: () => pluginShell?.activate("core.chat"),
