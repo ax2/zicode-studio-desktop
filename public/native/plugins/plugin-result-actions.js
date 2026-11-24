@@ -163,9 +163,10 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     const computeOutput = scope?.pluginId === "com.zicode.devtools.compute" && response?.result?.ok === true;
     const pngReference = computeOutput && scope.capabilityId === "devtools.compute.qr.png"
       ? exportReference(reference, reference?.pngExport, "image/png") : null;
-    const isTransform = computeOutput && scope.capabilityId?.startsWith("devtools.compute.transform.");
-    const csvReference = isTransform ? exportReference(reference, reference?.csvExport, "text/csv") : null;
-    const jsonReference = isTransform ? exportReference(reference, reference?.jsonExport, "application/json") : null;
+    const tableResult = computeOutput && (scope.capabilityId?.startsWith("devtools.compute.transform.") ||
+      /^devtools\.compute\.merge\.(left|inner|append|columns)$/.test(scope.capabilityId ?? ""));
+    const csvReference = tableResult ? exportReference(reference, reference?.csvExport, "text/csv") : null;
+    const jsonReference = tableResult ? exportReference(reference, reference?.jsonExport, "application/json") : null;
     const successful = httpResult || response?.result?.ok === true ||
       (response?.operation === "model.generate" && typeof resultText === "string");
     current = response?.resultRef

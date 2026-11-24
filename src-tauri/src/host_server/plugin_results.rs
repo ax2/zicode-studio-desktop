@@ -18,6 +18,27 @@ pub(super) struct Scope {
     capability_id: String,
 }
 
+impl Scope {
+    fn table_export_stem(&self) -> Option<&'static str> {
+        if self.plugin_id != "com.zicode.devtools.compute" {
+            return None;
+        }
+        if self
+            .capability_id
+            .starts_with("devtools.compute.transform.")
+        {
+            return Some("data-transform");
+        }
+        match self.capability_id.as_str() {
+            "devtools.compute.merge.left"
+            | "devtools.compute.merge.inner"
+            | "devtools.compute.merge.append"
+            | "devtools.compute.merge.columns" => Some("csv-merge"),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct Prepare {

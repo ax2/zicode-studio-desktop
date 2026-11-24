@@ -1,6 +1,6 @@
 ## 2026-11-24 开发补充：CSV 合并的左右表导入
 
-四种合并操作均可选择 8 KiB 以内的同格式 UTF-8 CSV、TSV 或 JSON 文件作为左右表，保留已有设置，并撤销最近一次导入。两版冻结 Compute 均通过 [Windows Worker 验收](../iterations/2026-11-24-csv-merge-file-input.md)。
+四种合并操作均可选择 8 KiB 以内的同格式 UTF-8 CSV、TSV 或 JSON 文件作为左右表，保留已有设置，并撤销最近一次导入。完成后可确认另存 CSV 或列式 JSON。开发范围见 [Windows Worker 验收](../iterations/2026-11-24-csv-merge-file-input.md)。
 
 ## 2026-11-24 开发补充：数据列变换的表格预览
 
