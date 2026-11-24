@@ -100,38 +100,83 @@ fn regular_metadata(metadata: &cap_std::fs::Metadata) -> bool {
     metadata.is_file()
 }
 
-fn digest_file(
+pub(super) enum DigestExpectation<'a> {
+    Current,
+    Inventory { size: u64, modified: Option<std::time::SystemTime> },
+    Identity(&'a (String, u64)),
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct DigestGuard<'a> {
+    pub(super) deadline: std::time::Instant,
+    pub(super) check_authority: &'a dyn Fn() -> Result<(), ApiError>,
+}
+
+pub(super) enum DigestOutcome {
+    Complete(String),
+    Changed,
+    Unreadable,
+    TimeLimit,
+}
+
+pub(super) fn read_digest(
     directory: &Dir,
     name: &str,
     control: &Control,
     buffer: &mut [u8],
-    selected: Option<&(String, u64)>,
-) -> Result<Option<String>, ApiError> {
+    selected: DigestExpectation<'_>,
+    guard: Option<DigestGuard<'_>>,
+) -> Result<DigestOutcome, ApiError> {
+    control.check()?;
+    if let Some(guard) = guard {
+        (guard.check_authority)()?;
+        if std::time::Instant::now() >= guard.deadline {
+            return Ok(DigestOutcome::TimeLimit);
+        }
+    }
     let Ok(mut file) = open_regular(directory, name) else {
-        return Ok(None);
+        return Ok(DigestOutcome::Unreadable);
     };
-    let Ok((before, length)) = local_file::files::regular_file_identity(&file) else {
-        return Ok(None);
+    let Ok(before @ (_, length)) = local_file::files::regular_file_identity(&file) else {
+        return Ok(DigestOutcome::Unreadable);
     };
-    let expected = (before, length);
-    if selected.is_some_and(|stamp| *stamp != expected) {
-        return Ok(None);
+    let matches = match selected {
+        DigestExpectation::Current => true,
+        DigestExpectation::Inventory { size, modified } => {
+            let Ok(opened) = file.metadata().and_then(|metadata| metadata.modified()) else {
+                return Ok(DigestOutcome::Unreadable);
+            };
+            size == length && modified == Some(opened)
+        }
+        DigestExpectation::Identity(expected) => *expected == before,
+    };
+    if !matches {
+        return Ok(DigestOutcome::Changed);
     }
     control.start_file(length);
     let mut sha = Sha256::new();
     let mut bytes = 0;
-    loop {
+    const AUTHORITY_INTERVAL: u64 = 4 * 1024 * 1024;
+    let mut check_at = AUTHORITY_INTERVAL;
+    while bytes < length {
         control.check()?;
-        let count = match file.read(buffer) {
-            Ok(0) => break,
+        if let Some(guard) = guard {
+            if std::time::Instant::now() >= guard.deadline {
+                return Ok(DigestOutcome::TimeLimit);
+            }
+            if bytes >= check_at {
+                (guard.check_authority)()?;
+                check_at = bytes + AUTHORITY_INTERVAL;
+            }
+        }
+        let remaining = (length - bytes).min(buffer.len() as u64) as usize;
+        let count = match file.read(&mut buffer[..remaining]) {
+            Ok(0) => return Ok(DigestOutcome::Changed),
             Ok(count) => count,
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
-            Err(_) => return Ok(None),
+            Err(_) => return Ok(DigestOutcome::Unreadable),
         };
         bytes += count as u64;
-        if bytes > length {
-            return Ok(None);
-        }
         sha.update(&buffer[..count]);
         control.read_bytes(bytes);
     }
@@ -139,11 +184,31 @@ fn digest_file(
     let reopened = open_regular(directory, name)
         .ok()
         .and_then(|file| local_file::files::regular_file_identity(&file).ok());
-    if bytes != length || after.as_ref() != Some(&expected) || reopened.as_ref() != Some(&expected)
-    {
-        return Ok(None);
+    if after.as_ref() != Some(&before) || reopened.as_ref() != Some(&before) {
+        return Ok(DigestOutcome::Changed);
     }
-    Ok(Some(format!("{:x}", sha.finalize())))
+    control.check()?;
+    if let Some(guard) = guard {
+        (guard.check_authority)()?;
+        if std::time::Instant::now() >= guard.deadline {
+            return Ok(DigestOutcome::TimeLimit);
+        }
+    }
+    Ok(DigestOutcome::Complete(format!("{:x}", sha.finalize())))
+}
+
+fn digest_file(
+    directory: &Dir,
+    name: &str,
+    control: &Control,
+    buffer: &mut [u8],
+    selected: Option<&(String, u64)>,
+) -> Result<Option<String>, ApiError> {
+    let selected = selected.map_or(DigestExpectation::Current, DigestExpectation::Identity);
+    Ok(match read_digest(directory, name, control, buffer, selected, None)? {
+        DigestOutcome::Complete(digest) => Some(digest),
+        _ => None,
+    })
 }
 
 pub(super) fn verify<'a>(

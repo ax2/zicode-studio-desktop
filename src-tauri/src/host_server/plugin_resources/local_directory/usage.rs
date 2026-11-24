@@ -7,23 +7,23 @@ pub(super) const PERMISSION: &str = "resource.directory.usage.read";
 pub(super) const PLUGIN: &str = "com.zicode.devtools.disk-inspector";
 pub(super) const CAPABILITY: &str = "devtools.disk-inspector.scan";
 
-const MAX_DEPTH: usize = 16;
+pub(super) const MAX_DEPTH: usize = 16;
 const MAX_RELATIVE_BYTES: usize = 2048;
 const SCAN_TIME: Duration = Duration::from_secs(15);
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Scan {
+pub(super) struct Scan {
     schema_version: u32,
     profile: &'static str,
-    entries: Vec<Entry>,
-    visited_entries: usize,
-    skipped_links: usize,
-    skipped_depth: usize,
-    skipped_names: usize,
-    unreadable: usize,
-    limit_reason: Option<&'static str>,
-    partial: bool,
+    pub(super) entries: Vec<Entry>,
+    pub(super) visited_entries: usize,
+    pub(super) skipped_links: usize,
+    pub(super) skipped_depth: usize,
+    pub(super) skipped_names: usize,
+    pub(super) unreadable: usize,
+    pub(super) limit_reason: Option<&'static str>,
+    pub(super) partial: bool,
 }
 
 impl Default for Scan {
@@ -45,11 +45,13 @@ impl Default for Scan {
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
-enum Entry {
+pub(super) enum Entry {
     File {
         path: String,
         #[serde(rename = "logicalBytes")]
         logical_bytes: String,
+        #[serde(skip)]
+        modified: Option<std::time::SystemTime>,
     },
     Directory {
         path: String,
@@ -70,10 +72,10 @@ pub(super) struct Snapshot {
     pub(super) partial: bool,
 }
 
-struct Limits {
-    entries: usize,
-    depth: usize,
-    deadline: Instant,
+pub(super) struct Limits {
+    pub(super) entries: usize,
+    pub(super) depth: usize,
+    pub(super) deadline: Instant,
 }
 
 pub(super) fn snapshot(
@@ -102,6 +104,26 @@ fn scan(
     check_authority: &impl Fn() -> Result<(), ApiError>,
     limits: Limits,
 ) -> Result<Snapshot, ApiError> {
+    let report = inventory(directory, expected, control, check_authority, limits)?;
+    let bytes =
+        serde_json::to_vec(&report).map_err(|_| rejected("resource_directory_unavailable"))?;
+    if bytes.len() > MAX_SNAPSHOT_BYTES {
+        return Err(rejected("resource_directory_budget_exceeded"));
+    }
+    Ok(Snapshot {
+        bytes,
+        entry_count: report.entries.len(),
+        partial: report.partial,
+    })
+}
+
+pub(super) fn inventory(
+    directory: &Dir,
+    expected: &str,
+    control: &Control,
+    check_authority: &impl Fn() -> Result<(), ApiError>,
+    limits: Limits,
+) -> Result<Scan, ApiError> {
     control.check()?;
     if stamp(directory)? != expected {
         return Err(rejected("resource_directory_changed"));
@@ -179,6 +201,7 @@ fn scan(
                 Entry::File {
                     path,
                     logical_bytes: metadata.len().to_string(),
+                    modified: metadata.modified().ok().map(|time| time.into_std()),
                 }
             } else if metadata.is_dir() {
                 if depth >= limits.depth {
@@ -213,19 +236,10 @@ fn scan(
     report.partial = report.limit_reason.is_some()
         || report.skipped_links + report.skipped_depth + report.skipped_names + report.unreadable
             > 0;
-    let bytes =
-        serde_json::to_vec(&report).map_err(|_| rejected("resource_directory_unavailable"))?;
-    if bytes.len() > MAX_SNAPSHOT_BYTES {
-        return Err(rejected("resource_directory_budget_exceeded"));
-    }
-    Ok(Snapshot {
-        bytes,
-        entry_count: report.entries.len(),
-        partial: report.partial,
-    })
+    Ok(report)
 }
 
-fn open_relative(root: &Dir, path: &str) -> Result<Dir, ApiError> {
+pub(super) fn open_relative(root: &Dir, path: &str) -> Result<Dir, ApiError> {
     let mut directory = root
         .try_clone()
         .map_err(|_| rejected("resource_directory_unavailable"))?;

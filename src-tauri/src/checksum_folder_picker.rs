@@ -36,6 +36,7 @@ pub(crate) async fn select_directory_usage(
     window: WebviewWindow,
     workspace_id: String,
     owner: Value,
+    profile: Option<String>,
 ) -> Result<Option<Value>, String> {
     let original = context(&window, &workspace_id)?;
     let initial = app
@@ -50,7 +51,7 @@ pub(crate) async fn select_directory_usage(
     };
     let preview = window
         .state::<HostServer>()
-        .prepare_native_directory_usage(original.clone(), owner.clone(), path)
+        .prepare_native_directory_analysis(original.clone(), owner.clone(), path, profile.as_deref())
         .await?;
     accept_preview(&window, &workspace_id, original, owner, preview)
 }

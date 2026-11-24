@@ -1,5 +1,7 @@
 # 目录空间分析资源快照 draft1
 
+读取同大小文件内容的独立入口见[重复文件检查的目录摘要合同](local-directory-duplicates-draft1.md)。
+
 ## 权限与交接
 
 `resource.local-directory.usage.draft1` 是目录空间分析插件的 Host 输入合同。候选接收者为 `com.zicode.devtools.disk-inspector` 的 `devtools.disk-inspector.scan`，需要活跃工具会话、WASI `resource.wasi.input.draft2`、`resource.read`，以及独立声明且获授的 `resource.directory.usage.read`。普通 `resource.directory.read` 保持单层名称和类型的语义。

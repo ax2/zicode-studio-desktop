@@ -400,7 +400,7 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
     host.stop_and_wait().await.unwrap();
 }
 
-async fn post(
+pub(super) async fn post(
     host: &HostServer,
     client: &reqwest::Client,
     operation: &str,
