@@ -69,6 +69,19 @@ pub(super) struct MenuCache {
     selection: Rc<RefCell<Selection>>,
 }
 
+fn can_translate_selection(target: &ICoreWebView2ContextMenuTarget) -> windows::core::Result<bool> {
+    let mut selected = BOOL::default();
+    let mut editable = BOOL::default();
+    let mut main_frame = BOOL::default();
+    unsafe {
+        target.HasSelection(&mut selected)?;
+        target.IsEditable(&mut editable)?;
+        target.IsRequestedForMainFrame(&mut main_frame)?;
+    }
+    // The explicit translation command reads only the top document's selection.
+    Ok(selected.as_bool() && !editable.as_bool() && main_frame.as_bool())
+}
+
 pub fn install(
     view: &wry::WebView,
     policy: BrowserPolicy,
@@ -136,8 +149,12 @@ pub fn install(
                         link: link.clone(),
                     };
                     let items = cache.items.as_ref().expect("initialized menu");
-                    let result =
-                        items.append(&args.MenuItems()?, history.as_ref(), link.is_some())?;
+                    let result = items.append(
+                        &args.MenuItems()?,
+                        history.as_ref(),
+                        link.is_some(),
+                        can_translate_selection(&target).unwrap_or(false),
+                    )?;
                     (owner.emit)(EngineEvent::ContextMenuReady {
                         tab: owner.tab.clone(),
                         actions: result.actions,
