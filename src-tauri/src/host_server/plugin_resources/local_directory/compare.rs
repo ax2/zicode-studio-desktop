@@ -294,7 +294,7 @@ impl AbsenceCheck<'_> {
             if self.remaining == 0 {
                 return Ok(Presence::Limited("entries"));
             }
-            if self.remaining % 128 == 0 {
+            if self.remaining.is_multiple_of(128) {
                 (self.guard.check_authority)()?;
             }
             self.remaining -= 1;
