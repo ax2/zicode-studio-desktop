@@ -31,6 +31,20 @@ describe("resource output reference boundary", () => {
       expect(() => normalizeHostReport({ ...response, reportResource: { ...report, ...fields } }, owner, profile)).toThrow("resource_response_invalid");
     expect(() => normalizeHostReport(response, { ...owner, capabilityId: "other" }, profile)).toThrow("resource_response_invalid");
   });
+  it("only accepts a Directory Compare CSV bound to the confirmed input", () => {
+    const plugin = "com.zicode.devtools.directory-compare";
+    const input = { ...source, capabilityId: "devtools.directory-compare.scan" };
+    const report = { ...row(), profile: "resource.host.directory-compare-csv.v1",
+      mimeType: "text/csv", origin: "host-report", byteLength: 128 * 1024 };
+    const response = { result: { ok: true }, reportResource: report };
+    expect(normalizeHostReport(response, input, null, plugin)).toMatchObject({ mimeType: "text/csv", resourceId: report.resourceId });
+    expect(() => normalizeHostReport(response, input, null, "com.example.other")).toThrow("resource_response_invalid");
+    for (const patch of [{ byteLength: 128 * 1024 + 1 }, { mimeType: "application/json" },
+      { derivedFrom: { ...source, contentVersion: "b".repeat(64) } }, { origin: "worker-output" }]) {
+      expect(() => normalizeHostReport({ ...response, reportResource: { ...report, ...patch } }, input, null, plugin))
+        .toThrow("resource_response_invalid");
+    }
+  });
   it("binds Markdown success to one complete HTML output and rejects missing negotiation, mismatched length and partial failures", () => {
     const owner={...source,capabilityId:"devtools.markdown.render"},profile="resource.wasi.markdown.v1";
     const html={...row(),mimeType:"text/html",byteLength:10486640};

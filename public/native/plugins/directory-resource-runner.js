@@ -9,6 +9,7 @@ import { createResourceComputation } from "./plugin-view-resource-compute.js";
 import { createResourcePreview } from "./plugin-resource-preview.js";
 import { createResourceTransfer } from "./plugin-resource-transfer.js";
 import { createResourceSave } from "./plugin-resource-save.js";
+import { createResourceExport } from "./plugin-resource-export.js";
 import { readPluginViewResource, resourceViewTarget } from "./plugin-view-resource.js";
 import { resourceCallRecoveryMessage } from "./resource-call-recovery-message.js";
 import { createResourceInputModes } from "./plugin-resource-input-modes.js";
@@ -161,11 +162,23 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const save = typeof gateway.prepareResourceSave === "function" ? createResourceSave({ gateway, getTarget, isCurrent: valid }) : null;
   const transfer = typeof gateway.prepareResourceTransfer === "function" ? createResourceTransfer({ gateway, getTarget, isCurrent: valid, mountInputs,
     onSave: save ? (...args) => save.open(...args) : undefined, onSaveClear: () => save?.clear(), onReceiverExecuted }) : null;
+  let comparisonCsv = null;
+  const compareExport = compare && gateway.exports ? createResourceExport({
+    api: gateway.exports, getTarget, isCurrent: () => valid() && comparisonCsv !== null,
+  }) : null;
   const preview = createResourcePreview({ container: outputs, plugin: { capabilities: [{ id: tool.capabilityId, title: tool.title }] }, executionProfile: detail.capability.executionProfile, isCurrent: valid, read,
     onSave: save ? (...args) => save.open(...args) : undefined, onTransfer: transfer ? (...args) => transfer.open(...args) : undefined,
-    onClear: () => { save?.clear(); transfer?.clear(); } });
+    onClear: () => {
+      save?.clear(); transfer?.clear();
+      comparisonCsv = null;
+      compareExport?.clear();
+    } });
   const computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid, recoverable: true, onOutputs: (items, owner, labels, reportResource) => {
-    if (directoryAnalysis || !valid() || reference !== executionAccess) return;
+    if (!valid() || reference !== executionAccess) return;
+    if (directoryAnalysis) {
+      if (compare && reportResource) comparisonCsv = { resource: reportResource, owner };
+      return;
+    }
     metadataResult?.setReportResource?.(reportResource, owner);
     if (fileDigest && reportResource) preview.show([reportResource], owner, ["File digest results"]);
     else if (["resource.wasi.image.metadata.v1", "resource.wasi.markdown.v1"].includes(detail.capability.executionProfile)) preview.show(items, owner, items.map(item => item.outputLabel));
@@ -334,7 +347,18 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
         if (response.result?.ok !== false && !render(result, response.result)) {
           status.textContent = t(compare ? "Folder comparison returned an invalid report." :
             duplicates ? "Duplicate file checking returned an invalid report." : "Disk Inspector returned an invalid report.");
+          comparisonCsv = null;
           return;
+        }
+        const csv = comparisonCsv;
+        if (compareExport && csv) {
+          const exportButton = button("Save CSV as…", async () => {
+            if (!valid() || comparisonCsv !== csv || exportButton.disabled) return;
+            exportButton.disabled = true;
+            try { await compareExport.open(csv.resource, csv.owner, outputs); }
+            finally { if (comparisonCsv === csv) exportButton.disabled = false; }
+          });
+          result.append(exportButton);
         }
       } else {
         const text = response.result?.data?.text ?? response.result?.text;
@@ -391,7 +415,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     if (!active) return;
     active = false; clearTimeout(timer);
     if (liveStream) void nativeStream.cancel(target.workspaceId, liveStream.owner, liveStream.grantId).catch(() => {});
-    releaseStreamReport(); computation.destroy(); selection.destroy(); preview.destroy(); manifestReview?.destroy(); folderReview?.destroy(); metadataResult?.destroy(); transfer?.destroy(); save?.destroy(); form?.destroy();
+    releaseStreamReport(); computation.destroy(); selection.destroy(); preview.destroy(); manifestReview?.destroy(); folderReview?.destroy(); metadataResult?.destroy(); transfer?.destroy(); save?.destroy(); compareExport?.destroy(); form?.destroy();
     container.replaceChildren();
   } };
 }

@@ -3,19 +3,22 @@ import { outputExtension } from "./plugin-output-formats.js";
 import { imageMetadataOutputPolicy } from "./image-metadata-output.js";
 import { IMAGE_METADATA_EXECUTION } from "./resource-save-policy.js";
 import { markdownOutputPolicy } from "./markdown-output-policy.js";
+import { isDirectoryCompare } from "./directory-compare-result.js";
 const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const HASH = /^[0-9a-f]{64}$/;
-export function normalizeHostReport(response, source, executionProfile) {
+export function normalizeHostReport(response, source, executionProfile, pluginId) {
   const row = response.reportResource;
   if (row === undefined) return null;
   const sources = [source, ...(source.additionalResources ?? [])];
   const digest = executionProfile === "resource.wasi.file-digest.v1" && source.capabilityId === "devtools.files.hash";
-  const profile = digest ? "resource.host.file-digest-report.draft1" : "resource.host.image-metadata-report.draft1";
-  if ((!digest && executionProfile !== IMAGE_METADATA_EXECUTION) || response.result?.ok !== true || row?.profile !== profile ||
+  const compare = isDirectoryCompare(pluginId, source.capabilityId);
+  const profile = compare ? "resource.host.directory-compare-csv.v1" :
+    digest ? "resource.host.file-digest-report.draft1" : "resource.host.image-metadata-report.draft1";
+  if ((!compare && !digest && executionProfile !== IMAGE_METADATA_EXECUTION) || response.result?.ok !== true || row?.profile !== profile ||
       row.index !== 0 || !UUID.test(row.resourceId ?? "") || sources.some(item => item.resourceId === row.resourceId) ||
       response.resources?.some(item => item.resourceId === row.resourceId) ||
-      !HASH.test(row.contentVersion ?? "") || row.mimeType !== "application/json" ||
-      !Number.isSafeInteger(row.byteLength) || row.byteLength < 1 || row.byteLength > (digest ? 8 : 48) * 1024 ||
+      !HASH.test(row.contentVersion ?? "") || row.mimeType !== (compare ? "text/csv" : "application/json") ||
+      !Number.isSafeInteger(row.byteLength) || row.byteLength < 1 || row.byteLength > (compare ? 128 : digest ? 8 : 48) * 1024 ||
       !Number.isSafeInteger(row.expiresInSeconds) || row.expiresInSeconds < 1 || row.expiresInSeconds > 900 ||
       row.origin !== "host-report" || row.saved !== false ||
       row.derivedFrom?.resourceId !== source.resourceId || row.derivedFrom?.contentVersion !== source.contentVersion)
