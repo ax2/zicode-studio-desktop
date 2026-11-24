@@ -38,6 +38,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
   const imageReview = createBrowserImageReview(() => void send("image"), clearImage);
   const answer = document.createElement("textarea"); answer.className = "ui-textarea"; answer.rows = 5; answer.readOnly = true; answer.hidden = true;
   answer.setAttribute("aria-label", t("Browser model answer"));
+  const answerModel = document.createElement("p"); answerModel.hidden = true; answerModel.setAttribute("role", "status");
   const save = button("Save analysis to Artifacts", () => void saveAnalysis());
   const open = button("Open saved artifact", () => {
     try { artifacts.open(savedArtifact); }
@@ -99,6 +100,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       if (current()) {
         analysis = undefined; savedArtifact = undefined; saveStatus.textContent = "";
         answer.hidden = true; answer.value = "";
+        answerModel.hidden = true; answerModel.textContent = "";
         imageReview.showResult();
         render(value);
       }
@@ -138,10 +140,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     const requestedQuestion = kind === "analysis" ? question.value.trim() : "";
     const request = { id: `browser-${randomId()}`, cancelled: false, sent: false };
     const expectedRevision = snapshot.revision;
-    analysis = undefined; savedArtifact = undefined; saveStatus.textContent = "";
-    imageReview.showResult();
     pending = request; busy = true; setBusy(true); controls();
-    answer.hidden = true; answer.value = "";
     status.textContent = t(visual ? "Preparing image preview…" : "Sending reviewed page content to the selected model…");
     try {
       if (visual) {
@@ -164,17 +163,19 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       });
       if (request.cancelled) throw Error("module_model_request_cancelled");
       if (!current() || mine !== generation) return;
+      savedArtifact = undefined; saveStatus.textContent = "";
       analysis = { text: value.text, model: value.model, kind, question: requestedQuestion, generatedAt: new Date().toISOString() };
+      imageReview.showResult(visual?.preview);
       if (visual) {
         const { source, pageUrl, capturedAt, documentRevision, frame } = visual.preview;
         analysis.image = { source, pageUrl, capturedAt, documentRevision, frame };
-        imageReview.showResult(visual.preview);
         clearImage();
       }
       answer.value = value.text; answer.hidden = false;
       const tokens = Number.isSafeInteger(value.usage?.totalTokens)
         ? ` · ${value.usage.totalTokens} ${t("tokens")}` : "";
-      status.textContent = name(value.model) + tokens;
+      answerModel.hidden = false; answerModel.textContent = name(value.model) + tokens;
+      status.textContent = "";
     } catch (reason) {
       if (!current() || mine !== generation) return;
       status.textContent = visual && !request.sent && !request.cancelled
@@ -193,7 +194,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     } finally { busy = false; setBusy(false); if (current()) controls(); }
   }
   question?.addEventListener("input", controls);
-  toolbar.append(refresh, ask, summarize, cancel); element.append(field, hint, destination, toolbar, imageReview.element, status, imageReview.resultSource, answer);
+  toolbar.append(refresh, ask, summarize, cancel); element.append(field, hint, destination, toolbar, imageReview.element, status, answerModel, imageReview.resultSource, answer);
   if (artifacts) element.append(save, open, saveStatus);
   controls();
   if (actions.autoLoad()) queueMicrotask(() => void load());
