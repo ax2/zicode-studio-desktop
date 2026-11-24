@@ -1,34 +1,6 @@
 name: Developer platform
 
 on:
-  # Documentation CI checks release issue plans alongside the release notes.
-  # Keep all plugin inputs, nested fixtures and packaged notices under platform checks.
-  # Any mixed code/workflow change still triggers the job.
-  pull_request:
-    paths-ignore:
-      - "AGENTS.md"
-      - "CONTEXT.md"
-      - "README.md"
-      - "docs/*.md"
-      - "docs/agents/*.md"
-      - "docs/adr/*.md"
-      - "docs/iterations/*.md"
-      - "docs/releases/*.md"
-      - "docs/releases/v*.*.*.issues.json"
-      - "docs/reviews/*.md"
-  push:
-    branches: [main]
-    paths-ignore:
-      - "AGENTS.md"
-      - "CONTEXT.md"
-      - "README.md"
-      - "docs/*.md"
-      - "docs/agents/*.md"
-      - "docs/adr/*.md"
-      - "docs/iterations/*.md"
-      - "docs/releases/*.md"
-      - "docs/releases/v*.*.*.issues.json"
-      - "docs/reviews/*.md"
   workflow_dispatch:
     inputs:
       platform:
@@ -45,8 +17,7 @@ permissions:
 
 concurrency:
   group: developer-platform-${{ github.workflow }}-${{ github.ref }}
-  # Let main finish and preserve dependency caches; PRs still discard stale work.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
   platform:

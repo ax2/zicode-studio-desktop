@@ -6,7 +6,7 @@ ZiCode Studio Desktop 是一款以 Windows 为首要交付平台的本地优先�
 
 在 [GitHub Releases](https://github.com/ax2/zicode-studio-desktop/releases/latest) 下载 Windows 10/11 x64 的 NSIS `.exe` 安装包。默认只构建和发布 Windows；只有明确要求时才构建其它平台。历史 macOS/Linux 包可从 [全部 Releases](https://github.com/ax2/zicode-studio-desktop/releases) 查找，不代表具备当前源码的全部功能。
 
-Windows 安装包内置 Pi、Bun、PortableGit（Git 与 Bash）和 WebView2 离线安装器。无需另行安装 Pi。下文说明以当前源码为准，已发布功能及限制请查看所安装版本的发布说明；日常安装请使用公开 Release。测试候选仅保存在 [Desktop release 的 Actions 构建产物](https://github.com/ax2/zicode-studio-desktop/actions/workflows/release.yml)，不列入正式发行。
+Windows 安装包内置 Pi、Bun、PortableGit（Git 与 Bash）和 WebView2 离线安装器。无需另行安装 Pi。下文说明以当前源码为准，已发布功能及限制请查看所安装版本的发布说明；日常安装请使用公开 Release。日常测试候选在本机构建，使用独立资料目录验收。
 
 Windows x64 用户可在「设置 → 软件更新」检查稳定版、查看发行说明并下载完整安装包。校验通过后，保存工作并点击「安装并退出」覆盖升级，继续使用原资料目录。v0.5.3 等旧版可从 [GitHub Releases](https://github.com/ax2/zicode-studio-desktop/releases/latest) 手动安装一次。详见[升级说明](docs/AUTO_UPDATER.md)。
 
@@ -70,7 +70,7 @@ bun install --frozen-lockfile
 bun run dev
 ```
 
-`bun run dev` 准备当前平台的运行时和前端资源。需要独立调试 EXE 时使用 `bun run build:local`，产物位于 `target/debug`。正式 Windows 安装包使用 `bun run build`，NSIS 产物位于 `target/release/bundle/nsis/`。
+`bun run dev` 准备当前平台的运行时和前端资源。按改动运行本地定向检查。同批改动需要桌面验证时，统一使用 `bun run build:local`，产物位于 `target/debug`。正式 Windows 安装包使用 `bun run build`，NSIS 产物位于 `target/release/bundle/nsis/`。
 
 ```text
 bun run check
@@ -97,7 +97,7 @@ bun run fetch:pi
 
 ### 发布
 
-正式发布使用 `bun run release VERSION`。发布脚本在干净的发布工作树校验版本并推送标签。[GitHub Actions 发布流程](.github/workflows/release.yml)默认只构建并核对 Windows 安装包后发布 Release。仅在用户明确要求时手动选择 `all`，才构建 macOS 和 Linux；开发平台 CI 同样默认只检查 Windows。发版前验证、回执复用和后续问题排期遵循[快速迭代与验证规则](docs/agents/project-management.md#快速迭代与验证用户规则2026-11-18)。
+正式发布使用 `bun run release VERSION`。发布脚本在干净的发布工作树校验版本并推送标签。[GitHub Actions 发布流程](.github/workflows/release.yml)默认只构建并核对 Windows 安装包后发布 Release。仅在用户明确要求时手动选择 `all`，才构建 macOS 和 Linux；开发平台、单元测试和文档的 GitHub 工作流可按需手动触发。发版前验证、回执复用和后续问题排期遵循[快速迭代与验证规则](docs/agents/project-management.md#快速迭代与验证用户规则2026-11-18)。
 
 ## 文档与许可
 
