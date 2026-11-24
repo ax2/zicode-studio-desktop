@@ -692,3 +692,6 @@ mod checksum_acceptance;
 
 #[cfg(test)]
 mod usage_tests;
+
+#[cfg(test)]
+mod usage_provider_tests;
