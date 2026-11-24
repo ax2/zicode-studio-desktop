@@ -21,6 +21,8 @@ const DISK_INSPECTOR: &str = "com.zicode.devtools.disk-inspector";
 const DISK_SCAN: &str = "devtools.disk-inspector.scan";
 const DUPLICATE_FILES: &str = "com.zicode.devtools.duplicate-files";
 const DUPLICATE_SCAN: &str = "devtools.duplicate-files.scan";
+const DIRECTORY_COMPARE: &str = "com.zicode.devtools.directory-compare";
+const COMPARE_SCAN: &str = "devtools.directory-compare.scan";
 
 pub(crate) fn tool_access_id(plugin_id: &str, capability_id: &str) -> String {
     let bytes = serde_json::to_vec(&(plugin_id, capability_id)).expect("string tuple");
@@ -284,7 +286,9 @@ impl PluginRegistry {
                 && has_directory_permission("resource.directory.usage.read");
             let directory_duplicates = request.directory_only && manifest.id == DUPLICATE_FILES
                 && has_directory_permission("resource.directory.duplicates.read");
-            if request.directory_only && !directory_metadata && !directory_usage && !directory_duplicates {
+            let directory_compare = request.directory_only && manifest.id == DIRECTORY_COMPARE
+                && has_directory_permission("resource.directory.compare.read");
+            if request.directory_only && !directory_metadata && !directory_usage && !directory_duplicates && !directory_compare {
                 continue;
             }
             for cap in caps {
@@ -319,14 +323,17 @@ impl PluginRegistry {
                 };
                 let disk_scan = manifest.id == DISK_INSPECTOR && id == DISK_SCAN;
                 let duplicate_scan = manifest.id == DUPLICATE_FILES && id == DUPLICATE_SCAN;
+                let compare_scan = manifest.id == DIRECTORY_COMPARE && id == COMPARE_SCAN;
                 let directory_target = if disk_scan {
                     directory_usage
                 } else if duplicate_scan {
                     directory_duplicates && super::resource_input_types::accepts(cap, "text/plain")
+                } else if compare_scan {
+                    directory_compare && super::resource_input_types::accepts(cap, "text/plain")
                 } else {
                     directory_metadata
                 };
-                if (request.resource_only && (disk_scan || duplicate_scan))
+                if (request.resource_only && (disk_scan || duplicate_scan || compare_scan))
                     || (request.directory_only && !directory_target) {
                     continue;
                 }

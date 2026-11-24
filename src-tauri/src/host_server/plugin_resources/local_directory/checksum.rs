@@ -1,5 +1,5 @@
 //! SHA256SUMS review for names explicitly confirmed in one open directory.
-use super::{local_file, rejected, ApiError, Control, Dir};
+use super::{local_file, rejected, stamp, usage, ApiError, Control, Dir};
 use cap_fs_ext::{FollowSymlinks, OpenOptionsFollowExt};
 use cap_std::fs::{OpenOptions, OpenOptionsExt};
 use sha2::{Digest, Sha256};
@@ -317,6 +317,31 @@ pub(super) fn generate<'a>(
     }
     control.check()?;
     Ok(hashes)
+}
+
+pub(super) fn digest_at(
+    directory: &Dir,
+    path: &str,
+    expected: DigestExpectation<'_>,
+    control: &Control,
+    buffer: &mut [u8],
+    guard: DigestGuard<'_>,
+) -> Result<DigestOutcome, ApiError> {
+    let (parent, name) = path.rsplit_once('/').unwrap_or(("", path));
+    let Ok(folder) = usage::open_relative(directory, parent) else {
+        return Ok(DigestOutcome::Changed);
+    };
+    let Ok(before) = stamp(&folder) else {
+        return Ok(DigestOutcome::Unreadable);
+    };
+    let result = read_digest(&folder, name, control, buffer, expected, Some(guard))?;
+    if matches!(result, DigestOutcome::Complete(_)) {
+        let current = usage::open_relative(directory, parent).and_then(|folder| stamp(&folder));
+        if !current.is_ok_and(|stamp| stamp == before) {
+            return Ok(DigestOutcome::Changed);
+        }
+    }
+    Ok(result)
 }
 
 #[cfg(test)]

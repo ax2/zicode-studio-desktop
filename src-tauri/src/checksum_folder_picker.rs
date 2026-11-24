@@ -42,13 +42,29 @@ pub(crate) async fn select_directory_usage(
     let initial = app
         .state::<HostServer>()
         .project_resource_root(&workspace_id)?;
-    let selected = pick_local_folder(app, initial).await?;
-    if context(&window, &workspace_id).ok().as_ref() != Some(&original) {
-        return Err("resource_directory_window_changed".into());
-    }
-    let Some(path) = selected else {
+    let compare = profile.as_deref() == Some("resource.local-directory.compare.draft1");
+    #[cfg(windows)]
+    let chinese = compare && crate::desktop_tray::translation_locale(&app).starts_with("zh");
+    #[cfg(not(windows))]
+    let chinese = false;
+    let [left_title, right_title] = if chinese {
+        ["选择左侧文件夹", "选择右侧文件夹"]
+    } else {
+        ["Select the left folder", "Select the right folder"]
+    };
+    let selected = pick_local_folder_named(app.clone(), initial.clone(), compare.then_some(left_title)).await?;
+    let Some(path) = ensure_picker_context(&window, &workspace_id, &original, selected)? else {
         return Ok(None);
     };
+    if compare {
+        let selected = pick_local_folder_named(app, initial, Some(right_title)).await?;
+        let Some(right) = ensure_picker_context(&window, &workspace_id, &original, selected)? else {
+            return Ok(None);
+        };
+        let preview = window.state::<HostServer>()
+            .prepare_native_directory_compare(original.clone(), owner.clone(), path, right).await?;
+        return accept_preview(&window, &workspace_id, original, owner, preview);
+    }
     let preview = window
         .state::<HostServer>()
         .prepare_native_directory_analysis(original.clone(), owner.clone(), path, profile.as_deref())
@@ -80,15 +96,37 @@ pub(crate) async fn prepare_explorer_directory_usage(
     accept_preview(&window, &workspace_id, original, owner, preview)
 }
 
+fn ensure_picker_context<T>(
+    window: &WebviewWindow,
+    workspace_id: &str,
+    expected: &crate::host_server::ResourceExportContext,
+    selected: Option<T>,
+) -> Result<Option<T>, String> {
+    if context(window, workspace_id).ok().as_ref() != Some(expected) {
+        return Err("resource_directory_window_changed".into());
+    }
+    Ok(selected)
+}
+
 async fn pick_local_folder(
     app: AppHandle,
     initial: std::path::PathBuf,
 ) -> Result<Option<std::path::PathBuf>, String> {
+    pick_local_folder_named(app, initial, None).await
+}
+
+async fn pick_local_folder_named(
+    app: AppHandle,
+    initial: std::path::PathBuf,
+    title: Option<&'static str>,
+) -> Result<Option<std::path::PathBuf>, String> {
     let selected = tauri::async_runtime::spawn_blocking(move || {
-        app.dialog()
-            .file()
-            .set_directory(initial)
-            .blocking_pick_folder()
+        let dialog = app.dialog().file().set_directory(initial);
+        let dialog = match title {
+            Some(title) => dialog.set_title(title),
+            None => dialog,
+        };
+        dialog.blocking_pick_folder()
     })
     .await
     .map_err(|_| "resource_directory_picker_unavailable")?;

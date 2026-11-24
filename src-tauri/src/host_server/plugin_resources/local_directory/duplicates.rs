@@ -170,7 +170,7 @@ fn scan(
                 size,
                 modified: candidate.modified,
             };
-            match digest_at(
+            match checksum::digest_at(
                 directory,
                 &candidate.path,
                 expected,
@@ -213,32 +213,6 @@ fn scan(
         entry_count: report.hashed_files,
         partial: report.partial,
     })
-}
-
-fn digest_at(
-    directory: &Dir,
-    path: &str,
-    expected: checksum::DigestExpectation<'_>,
-    control: &Control,
-    buffer: &mut [u8],
-    guard: checksum::DigestGuard<'_>,
-) -> Result<checksum::DigestOutcome, ApiError> {
-    use checksum::DigestOutcome;
-    let (parent, name) = path.rsplit_once('/').unwrap_or(("", path));
-    let Ok(folder) = usage::open_relative(directory, parent) else {
-        return Ok(DigestOutcome::Changed);
-    };
-    let Ok(before) = stamp(&folder) else {
-        return Ok(DigestOutcome::Unreadable);
-    };
-    let result = checksum::read_digest(&folder, name, control, buffer, expected, Some(guard))?;
-    if matches!(result, DigestOutcome::Complete(_)) {
-        let current = usage::open_relative(directory, parent).and_then(|folder| stamp(&folder));
-        if !current.is_ok_and(|stamp| stamp == before) {
-            return Ok(DigestOutcome::Changed);
-        }
-    }
-    Ok(result)
 }
 
 #[cfg(test)]
@@ -318,7 +292,7 @@ mod tests {
             modified: Some(original),
         };
         assert!(matches!(
-            digest_at(&directory, "a.txt", old, &control, &mut buffer, allow).unwrap(),
+            checksum::digest_at(&directory, "a.txt", old, &control, &mut buffer, allow).unwrap(),
             checksum::DigestOutcome::Changed
         ));
         let reads = Cell::new(0);
@@ -337,7 +311,7 @@ mod tests {
             size,
             modified: Some(updated),
         };
-        let result = digest_at(&directory, "a.txt", current, &control, &mut buffer, guard);
+        let result = checksum::digest_at(&directory, "a.txt", current, &control, &mut buffer, guard);
         assert_eq!(
             result.err().unwrap().1 .0["error"]["code"],
             "resource_authorization_changed"

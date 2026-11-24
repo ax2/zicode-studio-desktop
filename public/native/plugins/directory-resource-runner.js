@@ -4,6 +4,7 @@ import { createMultiResourceSelection } from "./plugin-multi-resource-selection.
 import { createPluginDirectoryResourceSelection } from "./plugin-directory-resource-selection.js";
 import { directoryUsagePermission, isDiskInspector, renderDiskInspectorResult } from "./disk-inspector-result.js";
 import { duplicateFilesPermission, isDuplicateFiles, renderDuplicateFilesResult } from "./duplicate-files-result.js";
+import { directoryComparePermission, isDirectoryCompare, renderDirectoryCompareResult } from "./directory-compare-result.js";
 import { createResourceComputation } from "./plugin-view-resource-compute.js";
 import { createResourcePreview } from "./plugin-resource-preview.js";
 import { createResourceTransfer } from "./plugin-resource-transfer.js";
@@ -41,8 +42,9 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const status = node("p"); status.setAttribute("role", "status");
   const diskInspector = isDiskInspector(tool.pluginId, tool.capabilityId);
   const duplicates = isDuplicateFiles(tool.pluginId, tool.capabilityId);
-  const directoryAnalysis = diskInspector || duplicates;
-  const result = directoryAnalysis ? node("div", null, duplicates ? "duplicate-files-result" : "disk-inspector-result") : node("pre", null, "tool-result");
+  const compare = isDirectoryCompare(tool.pluginId, tool.capabilityId);
+  const directoryAnalysis = diskInspector || duplicates || compare;
+  const result = directoryAnalysis ? node("div", null, compare ? "directory-compare-result" : duplicates ? "duplicate-files-result" : "disk-inspector-result") : node("pre", null, "tool-result");
   const parameters = node("div"), controls = node("div", null, "ui-toolbar"), outputs = node("div");
   const run = button("Execute tool", () => void execute()), cancel = button("Cancel tool", () => void stop());
   const check = button("Stop and recover call", () => void checkStatus()); check.hidden = true;
@@ -59,10 +61,11 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   }
   const canChooseDirectory = ["choose", "prepare", "commit", "cancel"].every(key => typeof gateway.projectDirectories?.[key] === "function");
   const canChooseUsage = ["choose", "commit", "cancel"].every(key => typeof gateway.directoryUsage?.[key] === "function");
-  const analysisPermission = duplicates ? duplicateFilesPermission : directoryUsagePermission;
+  const analysisPermission = compare ? directoryComparePermission : duplicates ? duplicateFilesPermission : directoryUsagePermission;
   if (directoryAnalysis && (tool.runtime !== "wasi" || !canChooseUsage ||
       !detail.permissions.some(permission => permission.name === analysisPermission && permission.granted))) {
-    status.textContent = t(duplicates ? "Duplicate file checking requires its own folder permission and the desktop folder picker." :
+    status.textContent = t(compare ? "Folder comparison requires the desktop folder picker and its own permission." :
+      duplicates ? "Duplicate file checking requires its own folder permission and the desktop folder picker." :
       "Disk Inspector requires the desktop folder picker and its directory usage permission.");
     return { destroy() { active = false; container.replaceChildren(); } };
   }
@@ -327,9 +330,10 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       const response = await computation.invoke({ ...access, toolCallId: callId, input });
       if (!valid() || reference !== access) return;
       if (directoryAnalysis) {
-        const render = duplicates ? renderDuplicateFilesResult : renderDiskInspectorResult;
+        const render = compare ? renderDirectoryCompareResult : duplicates ? renderDuplicateFilesResult : renderDiskInspectorResult;
         if (response.result?.ok !== false && !render(result, response.result)) {
-          status.textContent = t(duplicates ? "Duplicate file checking returned an invalid report." : "Disk Inspector returned an invalid report.");
+          status.textContent = t(compare ? "Folder comparison returned an invalid report." :
+            duplicates ? "Duplicate file checking returned an invalid report." : "Disk Inspector returned an invalid report.");
           return;
         }
       } else {
@@ -342,6 +346,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
         ? "Tool reported an error. Inputs are kept and no result was saved."
         : detail.capability.executionProfile === "resource.wasi.file-digest.v1" && tool.capabilityId === "devtools.files.hash"
         ? "File checks completed. Original files were not changed."
+        : compare ? "Folder comparison finished."
         : duplicates ? "Duplicate file check finished."
         : diskInspector ? "Directory usage analysis finished."
         : "Tool finished. Review the result and save any output files explicitly.");

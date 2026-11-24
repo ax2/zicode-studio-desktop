@@ -14,6 +14,7 @@ function fixture(overrides = {}, maxResources = 1, directory = false, receiver =
   if (receiver?.nativeDigestStream) detail.nativeDigestStream = true;
   if (receiver?.directoryUsage === true) detail.permissions.push({ name: "resource.directory.usage.read", granted: true });
   if (receiver?.duplicateFiles === true) detail.permissions.push({ name: "resource.directory.duplicates.read", granted: true });
+  if (receiver?.directoryCompare === true) detail.permissions.push({ name: "resource.directory.compare.read", granted: true });
   const gateway = { loadTool: vi.fn(async () => detail), prepareResource: vi.fn(async () => ({ resourceId: id })), appendResource: vi.fn(async () => ({ uploadedBytes: 3 })), commitResource: vi.fn(async access => ({ ...access, confirmed: true, byteLength: 3 })), revokeResource: vi.fn(async () => ({})), readResource: vi.fn(async () => ({})), cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })),
     invokeResource: vi.fn(async (owner, request) => ({ schemaVersion: 1, operationId: id, source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile }, result: { text: "received <script>literal</script>" } })), ...overrides };
   gateway.resourceCalls = { keep: vi.fn(async (target, owner, ticket) => ({ target, owner, ticket })), remove: vi.fn(async () => {}) };
@@ -91,6 +92,47 @@ function streamingFixture() {
 }
 afterEach(() => { for (const root of roots.splice(0)) root.destroy(); vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
 describe("directory-owned resource execution", () => {
+  it("uses ordered folder consent before comparison and sends only the native snapshot", async () => {
+    const receiver = { pluginId: "com.zicode.devtools.directory-compare", capabilityId: "devtools.directory-compare.scan",
+      title: "Directory Compare", directoryCompare: true, resourceInputMimeTypes: ["text/plain"] };
+    const owner = { runtimeId: "runtime", sessionId: "session", pluginId: receiver.pluginId, capabilityId: receiver.capabilityId };
+    const profile = "resource.local-directory.compare.draft1";
+    const access = { schemaVersion: 1, owner, resourceId: id, contentVersion: "b".repeat(64) };
+    const directoryUsage = {
+      entry: vi.fn(async () => null),
+      choose: vi.fn(async () => ({ profile, owner, grantId: id, confirmed: false, entryNamesRead: false, displayNames: ["左侧原件", "右侧原件"] })),
+      commit: vi.fn(async () => ({ profile, access, confirmed: true, partial: false, entryCount: 1 })),
+      cancel: vi.fn(async () => ({})),
+    };
+    const report = { ok: true, schemaVersion: 1, material: "directory-compare-report", coverageComplete: true,
+      partial: false, limitReasons: [], totalPaths: 1, sameFiles: 0, sameDirectories: 0, unassessedOneSide: 0,
+      differenceCount: 1, differenceCounts: { onlyLeft: 1, onlyRight: 0, typeMismatch: 0, sizeMismatch: 0,
+        contentMismatch: 0, unverified: 0, changed: 0, readError: 0 },
+      rows: [{ path: "合成文件.txt", difference: "onlyLeft", left: { kind: "file", logicalBytes: "47" } }],
+      projectionTruncated: false,
+    };
+    const invokeResource = vi.fn(async (_owner, request) => ({ schemaVersion: 1, operationId: id,
+      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result: report }));
+    const f = fixture({ directoryUsage, invokeResource }, 1, false, receiver);
+    expect(directoryUsage.entry).not.toHaveBeenCalled();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+    f.button("Choose left and right folders").click();
+    await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
+    expect(directoryUsage.choose).toHaveBeenCalledWith("workspace", owner, profile);
+    expect(directoryUsage.commit).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Left folder: 左侧原件. Right folder: 右侧原件");
+    expect(f.button("Execute tool").disabled).toBe(true);
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    expect(directoryUsage.commit).toHaveBeenCalledWith("workspace", owner, id);
+    expect(invokeResource).not.toHaveBeenCalled();
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    expect(document.querySelector(".directory-compare-result").textContent).toContain("合成文件.txt");
+    expect(invokeResource.mock.calls[0][1]).toMatchObject({ resourceId: id, input: {} });
+    expect(JSON.stringify(invokeResource.mock.calls[0][1])).not.toContain("左侧原件");
+    expect(f.gateway.prepareResource).not.toHaveBeenCalled();
+  });
   it("reads and groups duplicate candidates only after an explicit directory confirmation", async () => {
     const receiver = { pluginId: "com.zicode.devtools.duplicate-files", capabilityId: "devtools.duplicate-files.scan",
       title: "Duplicate Files", duplicateFiles: true, resourceInputMimeTypes: ["text/plain"] };

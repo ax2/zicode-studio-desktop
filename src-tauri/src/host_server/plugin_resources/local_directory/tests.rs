@@ -64,6 +64,7 @@ fn grant(root: &Path) -> Grant {
         proof: "proof".into(),
         registry_revision: "revision".into(),
         stamp: "stamp".into(),
+        companion_stamp: None,
         expires: Instant::now() + TTL,
     }
 }

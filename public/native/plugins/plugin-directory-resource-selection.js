@@ -1,6 +1,7 @@
 import { t } from "../../i18n.js";
 import { directoryUsageProfile, isDiskInspector } from "./disk-inspector-result.js";
 import { duplicateFilesProfile, isDuplicateFiles } from "./duplicate-files-result.js";
+import { directoryCompareProfile, isDirectoryCompare } from "./directory-compare-result.js";
 
 function sameOwner(actual, expected) {
   return (
@@ -30,16 +31,21 @@ export function createPluginDirectoryResourceSelection({
   onExplorerPreparing = () => {},
 }) {
   const duplicates = directoryUsage && isDuplicateFiles(plugin.id, plugin.capabilities[0].id);
-  const usage = directoryUsage && (duplicates || isDiskInspector(plugin.id, plugin.capabilities[0].id));
-  const profile = duplicates ? duplicateFilesProfile : usage ? directoryUsageProfile : "resource.local-directory.draft1";
+  const compare = directoryUsage && isDirectoryCompare(plugin.id, plugin.capabilities[0].id);
+  const usage = directoryUsage && (duplicates || compare || isDiskInspector(plugin.id, plugin.capabilities[0].id));
+  const profile = compare ? directoryCompareProfile : duplicates ? duplicateFilesProfile : usage ? directoryUsageProfile : "resource.local-directory.draft1";
+  const validSelection = (value, selected) => compare
+    ? Array.isArray(value.displayNames) && value.displayNames.length === 2 && value.displayNames.every(validDisplayName)
+    : usage ? validDisplayName(value.displayName) : value.relativePath === selected;
   const panel = document.createElement("section");
   panel.className = "plugin-resource-selection";
   panel.setAttribute("aria-label", t("Studio directory selection"));
   const label = document.createElement("strong");
-  label.textContent = t(duplicates ? "Check a folder for duplicate files" :
+  label.textContent = t(compare ? "Compare two folders" : duplicates ? "Check a folder for duplicate files" :
     usage ? "Share folder usage with Disk Inspector" : "Studio · Share folder names with this plugin");
   const description = document.createElement("p");
   description.textContent = t(
+    compare ? "Studio checks both folders after you confirm. The plugin receives relative paths, sizes and SHA-256 only." :
     duplicates ? "After confirmation, Studio reads same-size candidate files to calculate SHA-256. The plugin receives relative names, sizes and hashes." :
       usage ? "After confirmation, shares relative names, entry types and logical file sizes. File contents are not read." :
       "Only names and file or directory types from one level are shared. No file contents are read. Nothing is saved or sent to AI.",
@@ -47,7 +53,7 @@ export function createPluginDirectoryResourceSelection({
   const choose = document.createElement("button");
   choose.type = "button";
   choose.className = "ui-button ui-button--secondary";
-  choose.textContent = t("Choose a folder");
+  choose.textContent = t(compare ? "Choose left and right folders" : "Choose a folder");
   const confirm = document.createElement("button");
   confirm.type = "button";
   confirm.className = "ui-button ui-button--primary";
@@ -99,7 +105,7 @@ export function createPluginDirectoryResourceSelection({
     confirm.disabled = true;
     return old;
   }
-  const canReadExplorer = usage && !duplicates && typeof picker.entry === "function";
+  const canReadExplorer = usage && !duplicates && !compare && typeof picker.entry === "function";
   function resumeExplorer() {
     if (!explorerPending || !active || !isCurrent() || busy) return;
     explorerPending = false;
@@ -122,7 +128,8 @@ export function createPluginDirectoryResourceSelection({
     if (!active || !isCurrent() || busy) return;
     if (!fromExplorer) {
       clear();
-      status.textContent = t(duplicates ? "Choose a local folder. Candidate files are read only after confirmation." :
+      status.textContent = t(compare ? "Choose the left folder first, then the right folder." :
+        duplicates ? "Choose a local folder. Candidate files are read only after confirmation." :
         usage ? "Choose a local folder. Usage is shared only after confirmation." :
         "Choose a folder within the current file location. Names are shared only after confirmation.");
     }
@@ -135,7 +142,7 @@ export function createPluginDirectoryResourceSelection({
     try {
       const selected = await (fromExplorer
         ? picker.entry(target.workspaceId, owner)
-        : usage ? picker.choose(...grantArgs, ...(duplicates ? [profile] : [])) : picker.choose(target.workspaceId));
+        : usage ? picker.choose(...grantArgs, ...((duplicates || compare) ? [profile] : [])) : picker.choose(target.workspaceId));
       if (!valid(token)) {
         if (usage && selected?.grantId) void cancelGrant(selected.grantId).catch(() => {});
         return;
@@ -158,7 +165,7 @@ export function createPluginDirectoryResourceSelection({
         prepared?.profile !== profile ||
         prepared.confirmed !== false ||
         prepared.entryNamesRead !== false ||
-        (usage ? !validDisplayName(prepared.displayName) : prepared.relativePath !== selected) ||
+        !validSelection(prepared, selected) ||
         !sameOwner(prepared.owner, owner) ||
         typeof prepared.grantId !== "string" ||
         !/^[0-9a-f-]{36}$/i.test(prepared.grantId)
@@ -170,6 +177,12 @@ export function createPluginDirectoryResourceSelection({
       if (fromExplorer) clear();
       grant = prepared;
       confirm.disabled = false;
+      if (compare) {
+        const [left, right] = prepared.displayNames.map(name => name || t("Selected local folder"));
+        status.textContent = t("Left folder: {left}. Right folder: {right}. Confirm to compare.")
+          .replace(/\{(left|right)\}/g, (_, side) => side === "left" ? left : right);
+        return;
+      }
       status.textContent = t(
         duplicates ? "Selected directory: {name} · plugin {plugin}. Confirm to read duplicate candidates." :
           usage ? "Selected directory: {name} · plugin {plugin}. Confirm to share directory usage." :
@@ -179,6 +192,10 @@ export function createPluginDirectoryResourceSelection({
         .replace("{plugin}", `${plugin.name} ${plugin.version}`);
     } catch (failure) {
       if (valid(token)) {
+        if (compare && failure === "resource_directory_compare_same_folder") {
+          status.textContent = t("Choose two different folders to compare.");
+          return;
+        }
         const code =
           typeof failure?.code === "string" && /^[a-z_]{1,64}$/.test(failure.code)
             ? failure.code
@@ -212,7 +229,8 @@ export function createPluginDirectoryResourceSelection({
       pending = grant;
     choose.disabled = confirm.disabled = true;
     panel.setAttribute("aria-busy", "true");
-    status.textContent = t(duplicates ? "Checking sizes and hashing candidate files…" : "Sharing the confirmed directory snapshot…");
+    status.textContent = t(compare ? "Reading the confirmed folders for comparison…" :
+      duplicates ? "Checking sizes and hashing candidate files…" : "Sharing the confirmed directory snapshot…");
     try {
       const result = await picker.commit(...grantArgs, pending.grantId);
       if (!valid(token)) {
@@ -225,7 +243,7 @@ export function createPluginDirectoryResourceSelection({
         (usage && typeof result.partial !== "boolean") ||
         !Number.isInteger(result.entryCount) ||
         result.entryCount < 0 ||
-        result.entryCount > 4096 ||
+        result.entryCount > (compare ? 256 : 4096) ||
         !sameOwner(result.access?.owner, owner) ||
         typeof result.access?.resourceId !== "string" ||
         typeof result.access?.contentVersion !== "string"
@@ -241,6 +259,7 @@ export function createPluginDirectoryResourceSelection({
         contentVersion: access.contentVersion,
       });
       status.textContent = t(
+        compare ? "Prepared {count} paths. Execute the tool to compare the folders." :
         duplicates ? "Hashed {count} candidate files. Execute the tool to group matches." :
           usage && result.partial ? "Shared partial usage for {count} directory entries. You can now execute the tool." :
           "Shared {count} directory entries. You can now execute the tool or cancel sharing.",
