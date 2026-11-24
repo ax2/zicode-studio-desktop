@@ -55,3 +55,72 @@ it("keeps the active setting and typed address after the Host rejects a proxy", 
   expect(panel.textContent).toContain(t("System proxy"));
   expect(input.disabled).toBe(false);
 });
+
+function toggleSection(panel, open) {
+  return new Promise(resolve => {
+    panel.addEventListener("toggle", resolve, { once: true });
+    panel.open = open;
+  });
+}
+
+it("keeps an unsaved address across expansion while refreshing the saved proxy state", async () => {
+  const active = "http://127.0.0.1:8781";
+  const nextSaved = "http://saved.example.org:8181";
+  const draft = "http://draft.example.org:8888";
+  const control = vi.fn()
+    .mockResolvedValueOnce({ active, saved: active })
+    .mockResolvedValueOnce({ active, saved: nextSaved })
+    .mockResolvedValueOnce({ active, saved: draft });
+  const { panel, input, status } = mount(control);
+  await waitFor(() => expect(input.value).toBe(active));
+  fireEvent.input(input, { target: { value: draft } });
+
+  await toggleSection(panel, false);
+  await toggleSection(panel, true);
+  await waitFor(() => expect(status.textContent).toBe(t("Quit Studio completely, then reopen it to apply the saved proxy.")));
+  expect(input.value).toBe(draft);
+  expect(panel.textContent).toContain(active);
+  const edit = panel.querySelector('[data-i18n-text="Proxy address has unsaved changes."]');
+  expect(edit.hidden).toBe(false);
+  expect(control.mock.calls).toEqual([
+    [{ kind: "getHttpProxy" }],
+    [{ kind: "getHttpProxy" }],
+  ]);
+
+  panel.querySelector("button").click();
+  await waitFor(() => expect(edit.hidden).toBe(true));
+  expect(control).toHaveBeenLastCalledWith({ kind: "setHttpProxy", value: draft });
+  expect(input.value).toBe(draft);
+});
+
+it("keeps a draft and blocks writes after a refresh fails until the settings are read again", async () => {
+  const old = "http://old.example.org:8181";
+  const draft = "http://draft.example.org:8781";
+  const control = vi.fn()
+    .mockResolvedValueOnce({ active: null, saved: old })
+    .mockRejectedValueOnce(Error("Unavailable"))
+    .mockResolvedValueOnce({ active: null, saved: old });
+  const { panel, input, status } = mount(control);
+  await waitFor(() => expect(input.value).toBe(old));
+  fireEvent.input(input, { target: { value: draft } });
+
+  await toggleSection(panel, false);
+  await toggleSection(panel, true);
+  await waitFor(() => expect(status.textContent).toBe(t("Unavailable")));
+  const [save, reset] = panel.querySelectorAll("button");
+  expect(input.value).toBe(draft);
+  expect(input.disabled).toBe(true);
+  expect(save.disabled).toBe(true);
+  expect(reset.disabled).toBe(true);
+  save.click();
+  reset.click();
+  expect(control).toHaveBeenCalledTimes(2);
+
+  await toggleSection(panel, false);
+  await toggleSection(panel, true);
+  await waitFor(() => expect(input.disabled).toBe(false));
+  expect(input.value).toBe(draft);
+  expect(control.mock.calls.map(([request]) => request.kind)).toEqual([
+    "getHttpProxy", "getHttpProxy", "getHttpProxy",
+  ]);
+});
