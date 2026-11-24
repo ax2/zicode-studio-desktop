@@ -58,6 +58,22 @@ fn focus(window: &WebviewWindow, engine: &NativeBrowserEngine, tab: &str, page: 
     if page { view.focus().map_err(|e| e.to_string()) }
     else { let chrome: &tauri::Webview = window.as_ref(); chrome.set_focus().map_err(|e| e.to_string()) }
 }
+fn ready_web_document<'a>(
+    engine: &'a NativeBrowserEngine,
+    tab: &str,
+    expected_url: &str,
+) -> Result<&'a wry::WebView, String> {
+    let view = engine.view(tab)?;
+    let url = view.url().map_err(|e| e.to_string())?;
+    if !engine.export_ready(tab)
+        || url != expected_url
+        || !(url.starts_with("https://") || url.starts_with("http://"))
+    {
+        return Err("Wait for the current page to finish loading".into());
+    }
+    Ok(view)
+}
+
 pub(super) fn execute(
     window: &WebviewWindow,
     profile: Option<(PathBuf, Option<String>)>,
@@ -227,13 +243,19 @@ pub(super) fn execute(
             Request::FindStep { tab, backward } => super::native_find::step(browser.engine.view(&tab)?, backward)?,
             Request::FindStop { tab } => super::native_find::stop(browser.engine.view(&tab)?)?,
             Request::PrintPage { tab, expected_url } => {
-                let view = browser.engine.view(&tab)?;
-                let url = view.url().map_err(|e| e.to_string())?;
-                if !browser.engine.export_ready(&tab) || url != expected_url
-                    || !(url.starts_with("https://") || url.starts_with("http://")) {
-                    return Err("Wait for the current page to finish loading".into());
-                }
+                let view = ready_web_document(&browser.engine, &tab, &expected_url)?;
                 super::page_output::show_print_dialog(view)?;
+            }
+            Request::OpenDeveloperTools { tab, expected_url } => {
+                use wry::WebViewExtWindows;
+                let view = ready_web_document(&browser.engine, &tab, &expected_url)?;
+                let mut visible = windows::core::BOOL::default();
+                unsafe { view.controller().IsVisible(&mut visible) }.map_err(|e| e.to_string())?;
+                if !visible.as_bool() {
+                    return Err("Browser page is not visible".into());
+                }
+                // Browser tabs keep automatic DevTools entry points disabled.
+                unsafe { view.webview().OpenDevToolsWindow() }.map_err(|e| e.to_string())?;
             }
             Request::PageSettings { tab } => return serde_json::to_value(super::engine::page_controls::read(browser.engine.view(&tab)?)?).map_err(|e|e.to_string()),
             Request::SetZoom { tab, zoom } => return serde_json::to_value(super::engine::page_controls::set_zoom(browser.engine.view(&tab)?,zoom)?).map_err(|e|e.to_string()),
