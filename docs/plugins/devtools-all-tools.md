@@ -1,3 +1,7 @@
+## 2026-11-24 开发补充：CSV 合并的左右表导入
+
+四种合并操作均可选择 8 KiB 以内的同格式 UTF-8 CSV、TSV 或 JSON 文件作为左右表，保留已有设置，并撤销最近一次导入。两版冻结 Compute 均通过 [Windows Worker 验收](../iterations/2026-11-24-csv-merge-file-input.md)。
+
 ## 2026-11-24 开发补充：数据列变换的表格预览
 
 数据列变换执行成功后，在工具页分页查看完整返回表格和变更示例。原始输入保留，原始 JSON 和 CSV 结果仍可复制。转换失败时显示第一条无法转换的数据行与列名。见[表格预览验收](../iterations/2026-11-24-data-transform-preview.md)。可在确认应用后使用列式 JSON 继续工作，并撤销最近一次应用。Host 已捕获的 CSV 和列式 JSON 可选址、确认并另存为新文件，保留同名文件。可导入 8 KiB 以内的 UTF-8 CSV、TSV 或 JSON 文件并撤销导入。见[文件导入验收](../iterations/2026-11-24-data-transform-file-import.md)。系统文件窗口及更大输入由 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 跟踪。

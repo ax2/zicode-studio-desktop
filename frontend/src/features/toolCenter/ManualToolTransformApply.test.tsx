@@ -32,12 +32,12 @@ const failed = {
 beforeEach(() => setLocale("en"));
 afterEach(cleanup);
 
-function mount(handler: ManualToolApi["invoke"] = async () => ({ result: response(exactTable) })) {
+function mount(handler: ManualToolApi["invoke"] = async () => ({ result: response(exactTable) }), capabilityId = prefix + "integer") {
   const tool: ManualTool = {
     toolId: "compute/integer",
     accessId: "compute:integer",
     pluginId: "com.zicode.devtools.compute",
-    capabilityId: prefix + "integer",
+    capabilityId,
     title: "Integer column",
     applicationName: "Compute",
     publisher: "Zicode",
@@ -243,8 +243,8 @@ it("keeps rename and retained columns valid and accepts an empty typed table", (
 });
 
 
-function importFile(file: { name: string; size: number; slice(start?: number, end?: number): { arrayBuffer(): Promise<ArrayBuffer> } }) {
-  fireEvent.change(screen.getByLabelText("Table file"), { target: { files: [file] } });
+function importFile(file: { name: string; size: number; slice(start?: number, end?: number): { arrayBuffer(): Promise<ArrayBuffer> } }, label = "Table file") {
+  fireEvent.change(screen.getByLabelText(label), { target: { files: [file] } });
 }
 
 it("imports a selected UTF-8 table without executing and restores the previous draft on undo", async () => {
@@ -339,30 +339,63 @@ it("accepts exactly 8 KiB of UTF-8 table data", async () => {
   expect(source.value).toBe(content);
 });
 
+it("imports and undoes the two tables without changing join keys or running automatically", async () => {
+  const { api } = mount(undefined, "devtools.compute.merge.left");
+  const left = "id,name\r\n1,甲";
+  const right = "id,team\r\n1,组";
+  const { source, opts } = await fill("", '{"left_key":"id","right_key":"id"}');
+  importFile(new NodeFile(["\uFEFF", left], "left.CSV"), "Left table file");
+  await waitFor(() => expect(source.value).toBe("id,name\n1,甲"));
+  const beforeRight = opts.value;
+
+  importFile(new NodeFile(["id\tteam\n1\t组"], "right.tsv"), "Right table file");
+  expect((await screen.findByRole("alert")).textContent).toBe("Both tables must use the same file format.");
+  expect(opts.value).toBe(beforeRight);
+
+  importFile(new NodeFile([right], "right.csv"), "Right table file");
+  await waitFor(() => expect(JSON.parse(opts.value).right).toBe(right));
+  expect(api.invoke).not.toHaveBeenCalled();
+  expect(JSON.parse(opts.value)).toEqual({ format: "csv", left_key: "id", right_key: "id", right });
+
+  fireEvent.change(screen.getByLabelText("Right table file"), { target: { files: [] } });
+  expect(JSON.parse(opts.value).right).toBe(right);
+  run();
+  await waitFor(() => expect(button("Undo last import").disabled).toBe(false));
+  expect(api.invoke.mock.calls[0][4]).toEqual({ text: left, options: opts.value });
+  fireEvent.click(button("Undo last import"));
+  expect(source.value).toBe("id,name\n1,甲");
+  expect(opts.value).toBe(beforeRight);
+});
+
+it("retains the existing two tables if the encoded right-table options would exceed the Worker budget", async () => {
+  mount(undefined, "devtools.compute.merge.inner");
+  const settings = '{"format":"csv","left_key":"id","right_key":"id","right":"id\n1"}'.replace(/\n/g, "\\n");
+  const { source, opts } = await fill("id\n1", settings);
+  importFile(new NodeFile(['"'.repeat(8192)], "right.csv"), "Right table file");
+  expect((await screen.findByRole("alert")).textContent).toBe("Tool options must be 16 KiB or smaller.");
+  expect(opts.value).toBe(settings);
+  expect(source.value).toBe("id\n1");
+});
+
 const worker = process.env.ZICODE_TEST_TRANSFORM_WORKER;
 const modulePath = process.env.ZICODE_TEST_TRANSFORM_MODULE;
+const runFrozenWorker: ManualToolApi["invoke"] = async (sceneId, _workspaceId, pluginId, capabilityId, input) => {
+  const body = spawnSync(worker as string, ["--zicode-plugin-worker"], {
+    input: JSON.stringify({ workerPath: modulePath, workerKind: "wasi", pluginId, capabilityId, sceneId, input }),
+    windowsHide: true,
+    encoding: "utf8",
+    timeout: 15000,
+  });
+  expect(body.status).toBe(0);
+  const result = JSON.parse(body.stdout);
+  expect(result.result?.ok).toBe(true);
+  return result;
+};
+
 it.runIf(Boolean(worker && modulePath))(
   "imports all three table formats through the frozen Windows Worker",
   async () => {
-    const { api } = mount(async (...args) => {
-      const body = spawnSync(worker as string, ["--zicode-plugin-worker"], {
-        input: JSON.stringify({
-          workerPath: modulePath,
-          workerKind: "wasi",
-          pluginId: args[2],
-          capabilityId: args[3],
-          sceneId: args[0],
-          input: args[4],
-        }),
-        windowsHide: true,
-        encoding: "utf8",
-        timeout: 15000,
-      });
-      expect(body.status).toBe(0);
-      const result = JSON.parse(body.stdout);
-      expect(result.result?.ok).toBe(true);
-      return result;
-    });
+    const { api } = mount(runFrozenWorker);
     const { source, opts } = await fill("", options);
     importFile(new NodeFile(["amount,tag\n9223372036854775807,a\n-9223372036854775808,b"], "fixed.csv"));
     await screen.findByRole("button", { name: "Undo last import" });
@@ -396,3 +429,37 @@ it.runIf(Boolean(worker && modulePath))(
   },
   40_000,
 );
+it.runIf(Boolean(worker && modulePath)).each([
+  {
+    mode: "left", format: "csv", left: "id,name\n1,A\n2,B", right: "id,name\n1,X\n1,Y",
+    csv: "id,name,id_right1,name_right1\n1,A,1,X\n1,A,1,Y\n2,B,,\n",
+  },
+  {
+    mode: "inner", format: "tsv", left: "id\tname\n1\tA\n2\tB", right: "id\tname\n1\tX\n1\tY",
+    csv: "id,name,id_right1,name_right1\n1,A,1,X\n1,A,1,Y\n",
+  },
+  {
+    mode: "append", format: "json",
+    left: '{"headers":["id","name"],"rows":[["1","A"],["2","B"]]}',
+    right: '{"headers":["name","id"],"rows":[["X","3"],["Y","4"]]}',
+    csv: "id,name\n1,A\n2,B\n3,X\n4,Y\n",
+  },
+  {
+    mode: "columns", format: "csv", left: "id,name\n1,A\n2,B", right: "name,id\nX,3\nY,4",
+    csv: "id,name,name_right1,id_right1\n1,A,X,3\n2,B,Y,4\n",
+  },
+])("imports both files for $mode in the frozen Windows Worker", async ({ mode, format, left, right, csv }) => {
+  const { api } = mount(runFrozenWorker, "devtools.compute.merge." + mode);
+  const { source, opts } = await fill("", '{"left_key":"id","right_key":"id"}');
+  importFile(new NodeFile([right], "right." + format), "Right table file");
+  await waitFor(() => expect(JSON.parse(opts.value).right).toBe(right));
+  importFile(new NodeFile([left], "left." + format), "Left table file");
+  await waitFor(() => expect(source.value).toBe(left));
+
+  expect(api.invoke).not.toHaveBeenCalled();
+  run();
+  await screen.findByText("Tool completed");
+  expect(api.invoke.mock.calls[0][4]).toEqual({ text: left, options: opts.value });
+  const response = JSON.parse((screen.getByLabelText("Original response") as HTMLTextAreaElement).value);
+  expect(JSON.parse(response.data.text).csv).toBe(csv);
+}, 25_000);
