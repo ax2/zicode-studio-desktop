@@ -7,23 +7,32 @@ const WORKSPACE: &str = "27a89235-43d6-47be-9b76-b8578c05ea86";
 const PLUGIN: &str = "com.zicode.devtools.compute";
 
 async fn start_compute_host(purpose: &str) -> (PathBuf, HostServer) {
-    let candidate = PathBuf::from(std::env::var_os("ZICODE_TEST_COMPUTE_PACKAGE").unwrap());
+    start_frozen_export_host(purpose, "ZICODE_TEST_COMPUTE_PACKAGE", PLUGIN, 8).await
+}
+
+async fn start_frozen_export_host(
+    purpose: &str,
+    package: &str,
+    plugin: &str,
+    file_count: usize,
+) -> (PathBuf, HostServer) {
+    let candidate = PathBuf::from(std::env::var_os(package).unwrap());
     let receipt = candidate.with_file_name(format!(
         "{}-verification.json",
         candidate.file_name().unwrap().to_string_lossy(),
     ));
     let executable = PathBuf::from(std::env::var_os("ZICODE_TEST_WORKER_EXE").unwrap());
     let project = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    super::inspect_011_host_tests::verify_receipt(&project, &candidate, &receipt, 8);
+    super::inspect_011_host_tests::verify_receipt(&project, &candidate, &receipt, file_count);
 
     let root = project
         .join(".cache/task-scratch")
-        .join(format!("compute-{purpose}-{}", uuid::Uuid::new_v4()));
+        .join(format!("export-{purpose}-{}", uuid::Uuid::new_v4()));
     let public = root.join("public");
     std::fs::create_dir_all(&public).unwrap();
     std::fs::write(
         root.join("owner.json"),
-        json!({"purpose": format!("Compute {purpose} Host/Worker acceptance"), "lifetime": "remove on success; retain failures"}).to_string(),
+        json!({"purpose": format!("{purpose} Host/Worker acceptance"), "lifetime": "remove on success; retain failures"}).to_string(),
     )
     .unwrap();
     let metadata =
@@ -48,8 +57,8 @@ async fn start_compute_host(purpose: &str) -> (PathBuf, HostServer) {
     .unwrap();
     {
         let mut registry = host.state.plugins.lock().unwrap();
-        assert_eq!(registry.install_developer(&candidate).unwrap(), PLUGIN);
-        registry.set_enabled("programming", PLUGIN, true).unwrap();
+        assert_eq!(registry.install_developer(&candidate).unwrap(), plugin);
+        registry.set_enabled("programming", plugin, true).unwrap();
     }
     host.state
         .capability_broker
@@ -455,6 +464,82 @@ async fn data_workbench_frozen_host_exports() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires frozen Compare 0.1.0 candidate 02, its receipt and a production Windows Worker"]
+async fn json_path_frozen_host_exports() {
+    let plugin = "com.zicode.devtools.compare";
+    let (root, host) =
+        start_frozen_export_host("json-path", "ZICODE_TEST_COMPARE_PACKAGE", plugin, 10).await;
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let endpoint = format!("{}/v2/plugin-capabilities/invoke", host.origin());
+    let document = r#"{"项目":[{"金额":9223372036854775807},{"金额":18446744073709551615},{"金额":-9223372036854775808}]}"#;
+    let scope = json!({
+        "workspaceId": WORKSPACE, "sceneId": "programming", "pluginId": plugin,
+        "capabilityId": "devtools.compare.json.path",
+    });
+    for (name, text, query, expected) in [
+        (
+            "matched",
+            document,
+            r#"$.项目[*]["金额"]"#,
+            Some(json!([i64::MAX, u64::MAX, i64::MIN])),
+        ),
+        ("empty", document, "$.缺失[*]", Some(json!([]))),
+        ("invalid-query", document, "$..", None),
+        ("invalid-json", r#"{"项目":"#, "$.项目[*]", None),
+    ] {
+        let mut request = scope.clone();
+        request["captureResult"] = json!(true);
+        request["input"] = json!({"text": text, "query": query});
+        let response = client
+            .post(&endpoint)
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&request)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let response: Value = response.json().await.unwrap();
+        let result = &response["result"];
+        if let Some(expected) = expected {
+            assert_eq!(result["ok"], true, "{name}: {result}");
+            let output = result["data"]["text"].as_str().unwrap();
+            assert_eq!(serde_json::from_str::<Value>(output).unwrap(), expected);
+            assert_eq!(
+                response["resultRef"]["jsonExport"]["contentVersion"],
+                response["resultRef"]["contentVersion"]
+            );
+            assert!(
+                response["resultRef"]["csvExport"].is_null()
+                    && response["resultRef"]["tsvExport"].is_null()
+            );
+            verify_result_export(
+                &host,
+                &root,
+                WORKSPACE,
+                &scope,
+                &response,
+                ExportCase {
+                    format: "json",
+                    mime_type: "application/json",
+                    operation: name,
+                    stem: "json-path-result",
+                    expected: output,
+                    revoke: true,
+                },
+            );
+            println!("JSON_PATH_EXPORT {name} bytes={}", output.len());
+        } else {
+            assert_eq!(result["ok"], false, "{name}: {result}");
+            assert_eq!(result["error"]["code"], "INVALID_INPUT");
+            assert!(response["resultRef"].is_null());
+            println!("JSON_PATH_EXPORT {name} rejected before file grant");
+        }
+    }
+    host.stop_and_wait().await.unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 struct ExportCase<'a> {
     format: &'static str,
     mime_type: &'static str,
@@ -471,6 +556,22 @@ fn verify_table_export(
     response: &Value,
     case: ExportCase<'_>,
 ) -> PathBuf {
+    let scope = json!({
+        "workspaceId": workspace, "sceneId": "programming", "pluginId": PLUGIN,
+        "capabilityId": format!("devtools.compute.{}", case.operation),
+    });
+    verify_result_export(host, root, workspace, &scope, response, case)
+}
+
+fn verify_result_export(
+    host: &HostServer,
+    root: &std::path::Path,
+    workspace: &str,
+    scope: &Value,
+    response: &Value,
+    case: ExportCase<'_>,
+) -> PathBuf {
+    use super::plugin_resources::export::Context;
     let ExportCase {
         format,
         mime_type,
@@ -479,12 +580,7 @@ fn verify_table_export(
         expected,
         revoke,
     } = case;
-    use super::plugin_resources::export::Context;
-
-    let scope = json!({
-        "workspaceId": workspace, "sceneId": "programming",
-        "pluginId": "com.zicode.devtools.compute", "capabilityId": format!("devtools.compute.{operation}"),
-    });
+    let plugin = scope["pluginId"].as_str().unwrap();
     let reference = &response["resultRef"];
     let descriptor = &reference[format!("{format}Export")];
     assert_eq!(
@@ -601,7 +697,7 @@ fn verify_table_export(
             .plugins
             .lock()
             .unwrap()
-            .set_enabled("programming", "com.zicode.devtools.compute", false)
+            .set_enabled("programming", plugin, false)
             .unwrap();
         assert!(host
             .commit_result_text_export(context.clone(), source.clone(), revoked.clone(), true)
@@ -610,7 +706,7 @@ fn verify_table_export(
             .plugins
             .lock()
             .unwrap()
-            .set_enabled("programming", "com.zicode.devtools.compute", true)
+            .set_enabled("programming", plugin, true)
             .unwrap();
         host.cancel_result_text_export(context, source, revoked)
             .unwrap();

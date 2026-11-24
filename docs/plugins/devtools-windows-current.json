@@ -744,11 +744,11 @@
           "pluginId": "com.zicode.devtools.compare",
           "operationId": "devtools.compare.json.path",
           "kind": "capability",
-          "scope": "使用独立版共享 JSONPath 计算核心。Studio 可导入 8 KiB 内的 UTF-8 JSON 文件，保留查询与撤销。用户手动执行后显示可复制的 JSON 结果。"
+          "scope": "使用独立版共享 JSONPath 计算核心。Studio 可导入 8 KiB 内的 UTF-8 JSON 文件，保留查询与撤销。用户手动执行后可复制结果，也可确认另存该次查询的原始 JSON 数组，包括无匹配的空数组。"
         }
       ],
       "fullSourceScopeAccepted": false,
-      "blocker": "冻结 Compare 0.1.0 候选 02 已验证本机文件导入、撤销和查询结果。系统文件窗口、结果文件保存和完整原生输入范围仍需各自验收。",
+      "blocker": "冻结 Compare 0.1.0 候选 02 已验证本机文件导入、撤销、查询及确认另存。系统文件窗口和完整原生输入范围仍需各自验收。",
       "sourceScope": "JSONPath 子集：字段、数组索引、通配符与 JSON 结果导出；不含过滤器、递归和切片"
     },
     {

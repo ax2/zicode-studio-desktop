@@ -19,7 +19,7 @@ pub(super) struct Record {
     pub json_value: Option<Value>,
     pub qr_png: Option<Arc<[u8]>>,
     pub table: TableExports,
-    pub quality_report_json: bool,
+    pub whole_json_export: bool,
     expires: Instant,
 }
 
@@ -226,10 +226,12 @@ impl Store {
             .then(|| table_exports(&scope, &text))
             .flatten()
             .unwrap_or_default();
-        let quality_report_json = json_value.is_none()
-            && scope.is_quality_report()
+        let whole_json_export = json_value.is_none()
             && text.len() <= MAX_TABLE_EXPORT_BYTES
-            && is_quality_report_json(&text);
+            && ((scope.is_quality_report() && is_quality_report_json(&text))
+                || (scope.is_json_path()
+                    && serde_json::from_str::<&RawValue>(&text)
+                        .is_ok_and(|array| array.get().starts_with('['))));
         let bytes_added =
             text.len() + qr_png.as_ref().map_or(0, |png| png.len()) + table_exports.payload_bytes();
         if self
@@ -260,7 +262,7 @@ impl Store {
         let json = table_exports
             .json
             .as_deref()
-            .or(quality_report_json.then_some(text.as_str()));
+            .or(whole_json_export.then_some(text.as_str()));
         for (name, mime, content) in [
             ("csvExport", "text/csv", table_exports.csv.as_deref()),
             (
@@ -290,7 +292,7 @@ impl Store {
                 json_value,
                 qr_png,
                 table: table_exports,
-                quality_report_json,
+                whole_json_export,
                 expires: Instant::now() + RESULT_TTL,
             },
         );
@@ -473,7 +475,7 @@ mod tests {
             let record = store
                 .record(&scope, descriptor["resultId"].as_str().unwrap())
                 .unwrap();
-            assert!(record.quality_report_json);
+            assert!(record.whole_json_export);
             assert_eq!(record.payload_bytes(), text.len());
             assert_eq!(record.text, text);
         }
@@ -485,6 +487,58 @@ mod tests {
             ..scope
         };
         assert!(capture(&mut store, unrelated, report)["jsonExport"].is_null());
+    }
+
+    #[test]
+    fn json_path_capture_keeps_array_bytes_and_ignores_other_results() {
+        let scope = Scope {
+            workspace_id: "workspace".into(),
+            scene_id: "programming".into(),
+            plugin_id: "com.zicode.devtools.compare".into(),
+            capability_id: "devtools.compare.json.path".into(),
+        };
+        let mut store = Store::default();
+        let capture = |store: &mut Store, scope: Scope, text: &str| {
+            store
+                .capture(
+                    scope,
+                    "proof".into(),
+                    "1".into(),
+                    &json!({"ok":true,"data":{"text":text}}),
+                )
+                .unwrap()
+        };
+        let raw = r#" [18446744073709551615, -9223372036854775808, 1.2300e-7, {"字":true}] "#;
+        for text in [raw, "[]"] {
+            let descriptor = capture(&mut store, scope.clone(), text);
+            assert_eq!(
+                descriptor["jsonExport"],
+                json!({
+                    "mimeType": "application/json",
+                    "byteLength": text.len(),
+                    "contentVersion": sha256_hex(text.as_bytes()),
+                })
+            );
+            let record = store
+                .record(&scope, descriptor["resultId"].as_str().unwrap())
+                .unwrap();
+            assert!(record.whole_json_export);
+            assert_eq!(record.payload_bytes(), text.len());
+            assert_eq!(record.text, text);
+        }
+        for text in [
+            r#"{"x":1}"#,
+            "[",
+            "null",
+            &format!("[]{}", " ".repeat(MAX_TABLE_EXPORT_BYTES - 1)),
+        ] {
+            assert!(capture(&mut store, scope.clone(), text)["jsonExport"].is_null());
+        }
+        let wrong_plugin = Scope {
+            plugin_id: "fixture".into(),
+            ..scope
+        };
+        assert!(capture(&mut store, wrong_plugin, raw)["jsonExport"].is_null());
     }
 
     #[test]

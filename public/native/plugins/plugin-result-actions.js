@@ -173,7 +173,9 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     const tsvReference = workbench === "query"
       ? exportReference(reference, reference?.tsvExport, "text/tab-separated-values") : null;
     const qualityReport = computeOutput && /^devtools\.compute\.quality\.(json|csv|tsv)$/.test(scope.capabilityId ?? "");
-    const jsonReference = tableResult || qualityReport || workbench === "json" || workbench === "query"
+    const jsonPathResult = response?.result?.ok === true && scope?.pluginId === "com.zicode.devtools.compare" &&
+      scope.capabilityId === "devtools.compare.json.path";
+    const jsonReference = tableResult || qualityReport || jsonPathResult || workbench === "json" || workbench === "query"
       ? exportReference(reference, reference?.jsonExport, "application/json") : null;
     const successful = httpResult || response?.result?.ok === true ||
       (response?.operation === "model.generate" && typeof resultText === "string");

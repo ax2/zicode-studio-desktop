@@ -64,7 +64,7 @@ impl Format {
                 .as_deref()
                 .map(str::as_bytes)
                 .ok_or_else(|| rejected("result_export_format_unavailable")),
-            Self::Json if record.quality_report_json => Ok(record.text.as_bytes()),
+            Self::Json if record.whole_json_export => Ok(record.text.as_bytes()),
             Self::Json => record
                 .table
                 .json
@@ -192,6 +192,8 @@ impl HostServer {
             } else if let Some(extension) = source.format.required_extension() {
                 let stem = if source.scope.is_quality_report() {
                     "data-quality-report"
+                } else if source.scope.is_json_path() {
+                    "json-path-result"
                 } else {
                     source
                         .scope
