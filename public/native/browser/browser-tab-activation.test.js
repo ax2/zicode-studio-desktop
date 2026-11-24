@@ -13,7 +13,7 @@ async function mount(closedTabs = []) {
   let session = { revision: 1, tabs: [tab("a"), tab("b")], activeTab: "a", closedTabs };
   let visible = null;
   const views = new Set(), requests = [];
-  const hooks = { save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}) };
+  const hooks = { save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), navigate: async () => {} };
   const invoke = async (name, args) => {
     if (name === "browser_get_state") return { startupMode: "browser", session: structuredClone(session) };
     if (name === "browser_save_session") {
@@ -27,6 +27,7 @@ async function mount(closedTabs = []) {
       if (r.kind === "create") { await hooks.create(); views.add(r.tabId); }
       if (r.kind === "close") views.delete(r.tab);
       if (r.kind === "savePdf") return hooks.savePdf();
+      if (r.kind === "navigate") return hooks.navigate();
       if (r.kind === "hide") visible = null;
       if (r.kind === "present") { await hooks.present(); visible = r.tab; }
     }
@@ -124,6 +125,27 @@ it("does not retarget a queued developer tools action after switching tabs", asy
   menu.querySelector('[data-i18n-text="Developer tools"]').click();
   completeSave();
   await waitFor(() => expect(h.visible()).toBe("b"));
+  expect(h.requests.some(request => request.kind === "openDeveloperTools")).toBe(false);
+});
+
+it("drops a queued developer tools action after its tab navigates in place", async () => {
+  const h = await mount();
+  let finishNavigation;
+  h.hooks.navigate = () => new Promise(resolve => { finishNavigation = resolve; });
+  const address = h.root.querySelector(".browser-address");
+  address.focus();
+  address.value = "https://example.org/updated";
+  address.dispatchEvent(new Event("input", { bubbles: true }));
+  address.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  await waitFor(() => expect(finishNavigation).toBeTypeOf("function"));
+
+  const menu = h.root.querySelector(".browser-options");
+  menu.open = true;
+  menu.querySelector('[data-i18n-text="Developer tools"]').click();
+  finishNavigation();
+  await app.finishWindowWrites();
+  expect(h.saved().activeTab).toBe("a");
+  expect(h.saved().tabs[0].url).toBe("https://example.org/updated");
   expect(h.requests.some(request => request.kind === "openDeveloperTools")).toBe(false);
 });
 

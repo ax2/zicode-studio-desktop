@@ -181,6 +181,16 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     creatingTabs.set(tab.id, creation);
     return creation;
   }
+  function openDeveloperTools() {
+    const tab = selected();
+    if (!tab || blocked()) return;
+    const { id, url } = tab;
+    const version = pageVersions.get(id);
+    return act(() => {
+      if (selected()?.url !== url || pageVersions.get(id) !== version) return;
+      return runPageAction("developerTools", id);
+    });
+  }
   async function runPageAction(action, source) {
     if (!source || active !== source || blocked()) return;
     if (crashedTabs.has(source)) {
@@ -807,7 +817,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       },
       userAgentSettings: createBrowserUserAgentSettings(control),
       print: () => { const source = active; return act(() => runPageAction("print", source)); },
-      developerTools: () => { const source = active; return act(() => runPageAction("developerTools", source)); },
+      developerTools: openDeveloperTools,
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),
       pin: { state: pinState, toggle: () => act(togglePin) } });
     const layoutLabel = document.createElement("label");
