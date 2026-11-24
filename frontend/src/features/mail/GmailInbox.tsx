@@ -45,14 +45,14 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
   const [labels,setLabels]=useState<Label[]>([]);
   const [message,setMessage]=useState<Message|null>(null),[body,setBody]=useState<Body|null>(null);
   const [replyRefresh,setReplyRefresh]=useState(false);
-  const [online,setOnline]=useState(false),[busy,setBusy]=useState("init"),[notice,setNotice]=useState("");
+  const [serverPage,setServerPage]=useState(false),[busy,setBusy]=useState("init"),[notice,setNotice]=useState("");
   const epoch=useRef(0),operation=useRef("init"),grantCallback=useRef(onGrant);
   grantCallback.current=onGrant;
   const saveGrant=(g:Grant)=>{setGrant(g);grantCallback.current(Boolean(g.connected&&g.send))};
   useEffect(()=>{
     const gen=++epoch.current;
     operation.current="init"; setBusy("init");setGrant(none);grantCallback.current(false);
-    setPage(null);setMessage(null);setBody(null);setOnline(false);setNotice("");
+    setPage(null);setMessage(null);setBody(null);setServerPage(false);setNotice("");
     setLabels([]);setLabel("INBOX");
     void Promise.allSettled([
       invoke<Grant>({kind:"status",accountId:id}),
@@ -85,12 +85,38 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     catch(e){if(epoch.current===gen)setNotice(gmailError(e))}
     finally{if(epoch.current===gen){operation.current="";setBusy("")}}
   }
-  function load(server:boolean,cursor:string|null=null,selected=label){
-    void run("list",()=>invoke<Page|null>({kind:server?"list":"cachedPage",accountId:id,label:selected,cursor,limit:20}),p=>{
-      if(cursor&&p){setPage(old=>({...p,items:[...(old?.items??[]),...p.items.filter(x=>!old?.items.some(i=>i.id===x.id))]}))}
-      else if(!cursor){setPage(p);setBody(null);setMessage(null)}else setNotice(t("No older cached page is available."));
+  function load(server: boolean, cursor: string | null = null, selected = label, append = false) {
+    const resumeFromCache = append && serverPage && !server;
+    const readPage = (position: string | null) => invoke<Page | null>({
+      kind: server ? "list" : "cachedPage", accountId: id, label: selected, cursor: position, limit: 20,
+    });
+    void run("list", async isCurrent => {
+      let result = await readPage(resumeFromCache ? null : cursor);
+      if (!resumeFromCache) return result;
+      // Server tokens cannot advance a cached label. Skip local pages already on screen.
+      const visible = new Set(page?.items.map(item => item.id));
+      const visited = new Set<string>();
+      while (isCurrent() && result?.nextCursor && result.items.length && result.items.every(item => visible.has(item.id))) {
+        const next = result.nextCursor;
+        if (visited.has(next)) return { ...result, nextCursor: null };
+        visited.add(next);
+        result = await readPage(next);
+      }
+      return result;
+    }, p => {
+      if (!append) { setPage(p); setBody(null); setMessage(null); }
+      else if (p) {
+        setPage(old => {
+          const items = old?.items ?? [];
+          const visible = new Set(items.map(item => item.id));
+          return { ...p, items: [...items, ...p.items.filter(item => !visible.has(item.id))] };
+        });
+      } else {
+        setPage(old => old && { ...old, nextCursor: null });
+        setNotice(t("No older cached page is available."));
+      }
       if(server)window.dispatchEvent(new CustomEvent("studio-mail-cache-updated",{detail:id}));
-      setOnline(server);
+      setServerPage(server);
     });
   }
   function select(m:Message,server:boolean){
@@ -98,6 +124,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     void run("read",()=>invoke<Body|null>({kind:server?"read":"cachedBody",accountId:id,id:m.id}),setBody);
   }
   const disconnected=!grant.connected;
+  const readFromServer = serverPage && !disconnected && grant.read === true;
   return <section aria-label={t("Gmail inbox")}>
     <fieldset disabled={Boolean(busy)}><legend>{t("Mail connection")}</legend>
       <p translate="no">{address}</p>
@@ -107,15 +134,15 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       {!disconnected&&!grant.send&&<button className="ui-button" type="button" onClick={()=>connect(true)}>{t("Authorize sending with Gmail")}</button>}
       <MailDisconnect connected={!disconnected} label={t("Disconnect Gmail")} prompt={t("Disconnect Gmail on this device? Saved drafts will remain.")}
         disconnect={clear=>run("disconnect",()=>invoke<{revoked:boolean}>({kind:"disconnect",accountId:id,clearCache:clear}),r=>{
-          saveGrant(none);setOnline(false);
-          if(clear){setLabel("INBOX");setLabels([]);setPage(null);setMessage(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
+          saveGrant(none);
+          if(clear){setServerPage(false);setLabel("INBOX");setLabels([]);setPage(null);setMessage(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
           setNotice(t(r.revoked?"Gmail disconnected.":"Disconnected on this device. Review Google account permissions to confirm revocation."))
         })}/>
     </fieldset>
     {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button className="ui-button" type="button" onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
     <fieldset disabled={Boolean(busy)}><legend>{t("Inbox")}</legend>
       <label>{t("Gmail label")} <select className="ui-select" value={label} onChange={e=>{
-        const next=e.target.value;setLabel(next);setPage(null);setMessage(null);setBody(null);setOnline(false);load(false,null,next);
+        const next=e.target.value;setLabel(next);setPage(null);setMessage(null);setBody(null);setServerPage(false);load(false,null,next);
       }}>
         <option value="INBOX">{t("Inbox")}</option>
         {labels.filter(item=>item.id!=="INBOX").map(item=><option key={item.id} value={item.id} translate="no">{item.name}</option>)}
@@ -123,14 +150,14 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       <button className="ui-button" type="button" disabled={!grant.read} onClick={()=>void run("labels",()=>invoke<Label[]>({kind:"labels",accountId:id}),items=>{
         setLabels(items);
         window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: id }));
-        if(label!=="INBOX"&&!items.some(item=>item.id===label)){setLabel("INBOX");setPage(null);setMessage(null);setBody(null);setOnline(false)}
+        if(label!=="INBOX"&&!items.some(item=>item.id===label)){setLabel("INBOX");setPage(null);setMessage(null);setBody(null);setServerPage(false)}
       })}>{t("Refresh Gmail labels")}</button>
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(label==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
       <button className="ui-button" type="button" disabled={!grant.read} onClick={()=>load(true)}>{t("Refresh from server")}</button>
-      {page?<><p>{t(online?"Showing messages retrieved from the server.":"Showing messages saved on this device.")}</p>
+      {page?<><p>{t(readFromServer?"Showing messages retrieved from the server.":"Showing messages saved on this device.")}</p>
         {!page.items.length&&<p>{t("No messages on this page.")}</p>}
-        <ul className="mail-inbox-list">{page.items.map(m=><li key={m.id}><button className="ui-button" type="button" aria-pressed={message?.id===m.id} onClick={()=>select(m,online&&grant.read===true)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.from}</small></button></li>)}</ul>
-        {page.nextCursor&&<button className="ui-button" type="button" onClick={()=>load(online,page.nextCursor)}>{t("Load older messages")}</button>}
+        <ul className="mail-inbox-list">{page.items.map(m=><li key={m.id}><button className="ui-button" type="button" aria-pressed={message?.id===m.id} onClick={()=>select(m,readFromServer)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.from}</small></button></li>)}</ul>
+        {page.nextCursor&&<button className="ui-button" type="button" onClick={()=>load(readFromServer, page.nextCursor, label, true)}>{t("Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {message&&<article aria-label={t("Selected message")}><h3 translate="no">{message.subject||t("No subject")}</h3><p translate="no">{message.from}</p>
         {body?<><MailBody text={body.plainText} html={body.html}/><MailAttachments key={message.id} items={body.attachments} invoke={invoke} message={{accountId:id,id:message.id}}/></>:!busy&&<p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}

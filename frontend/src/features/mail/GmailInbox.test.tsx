@@ -147,3 +147,70 @@ it("offers Gmail sign-out with cache retention by default and account-scoped rem
     mail.unmount();
   }
 });
+
+it.each(["disconnect", "reauthorize"])("continues the selected Gmail label from local pages after %s", async change => {
+  const older = { ...entry, id: "older", subject: "Older stored message" };
+  const localCursor = "offline:Label_42:10:abc";
+  const v = fixture(async request => {
+    switch (request.kind) {
+      case "status": return { connected: true, read: true };
+      case "cachedLabels": return [{ id: "Label_42", name: "Invoices" }];
+      case "cachedPage":
+        if (request.label !== "Label_42") return null;
+        if (request.cursor === null) return { items: [entry], nextCursor: localCursor };
+        if (request.cursor === localCursor) return { items: [older], nextCursor: null };
+        throw Error("gmail_invalid");
+      case "list":
+        if (request.cursor) throw Error("gmail_reauthorize");
+        return { items: [entry], nextCursor: "remote-token" };
+      case "read": return { ...entry, plainText: "Keep this selected message" };
+      case "disconnect": return { revoked: true };
+      default: throw Error("Unexpected request " + request.kind);
+    }
+  });
+  const label = await screen.findByLabelText("Gmail label");
+  await waitFor(() => expect(label.matches(":disabled")).toBe(false));
+  fireEvent.change(label, { target: { value: "Label_42" } });
+  const refresh = screen.getByRole("button", { name: "Refresh from server" });
+  await waitFor(() => expect(refresh.matches(":disabled")).toBe(false));
+  fireEvent.click(refresh);
+  await screen.findByText("Showing messages retrieved from the server.");
+  fireEvent.click(screen.getByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Keep this selected message");
+  if (change === "disconnect") {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect Gmail" }));
+  } else {
+    fireEvent.click(screen.getByRole("button", { name: "Load older messages" }));
+  }
+  await screen.findByText("Gmail is not connected. Local drafts are still available.");
+  const initialCalls = v.calls.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Load older messages" }));
+  await screen.findByText("Older stored message");
+  expect(screen.getAllByRole("button", { name: /Inbox fixture/ })).toHaveLength(1);
+  expect(screen.getByText("Keep this selected message")).toBeTruthy();
+  expect(screen.getByText("Showing messages saved on this device.")).toBeTruthy();
+  expect((label as HTMLSelectElement).value).toBe("Label_42");
+  expect(v.calls.mock.calls.slice(initialCalls).map(([request]) => request)).toEqual([
+    { kind: "cachedPage", accountId: "one", label: "Label_42", cursor: null, limit: 20 },
+    { kind: "cachedPage", accountId: "one", label: "Label_42", cursor: localCursor, limit: 20 },
+  ]);
+});
+
+it("keeps the messages and dismisses unavailable pagination in a legacy offline Inbox", async () => {
+  const v = fixture(async request => {
+    if (request.kind === "status") return { connected: false };
+    if (request.kind === "cachedLabels") return [];
+    if (request.kind === "cachedPage") {
+      return request.cursor ? null : { items: [entry], nextCursor: "legacy-saved-token" };
+    }
+    throw Error("Unexpected request " + request.kind);
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Load older messages" }));
+  await screen.findByText("No older cached page is available.");
+  expect(screen.queryByRole("button", { name: "Load older messages" })).toBeNull();
+  expect(screen.getByRole("button", { name: /Inbox fixture/ })).toBeTruthy();
+  expect(v.calls).toHaveBeenLastCalledWith({
+    kind: "cachedPage", accountId: "one", label: "INBOX", cursor: "legacy-saved-token", limit: 20,
+  });
+});
