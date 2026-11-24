@@ -962,3 +962,6 @@ async fn csv_merge_preview_frozen_host_responses() {
     );
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[path = "devtools_table_merge_tests.rs"]
+mod table_merge_tests;

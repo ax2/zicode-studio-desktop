@@ -169,6 +169,8 @@ it.each([
   { format: "json", capabilityId: "devtools.compute.transform.integer", mimeType: "application/json", label: "Save JSON as…" },
   { format: "csv", capabilityId: "devtools.compute.merge.left", mimeType: "text/csv", label: "Save CSV as…" },
   { format: "json", capabilityId: "devtools.compute.merge.columns", mimeType: "application/json", label: "Save JSON as…" },
+  { format: "csv", capabilityId: "devtools.table-merge.left", mimeType: "text/csv", label: "Save CSV as…" },
+  { format: "json", capabilityId: "devtools.table-merge.append", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compute.quality.json", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compute.quality.csv", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compute.quality.tsv", mimeType: "application/json", label: "Save JSON as…" },
@@ -185,7 +187,7 @@ it.each([
   format, capabilityId, mimeType, label,
 }) => {
   const plainText = format === "text";
-  const pluginId = capabilityId.startsWith("devtools.compare.") ? "com.zicode.devtools.compare" : "com.zicode.devtools.compute";
+  const pluginId = "com.zicode." + capabilityId.split(".").slice(0, 2).join(".");
   const owner = { ...scope, pluginId, capabilityId };
   const resultId = "22222222-2222-4222-8222-222222222222";
   const grantId = "33333333-3333-4333-8333-333333333333";

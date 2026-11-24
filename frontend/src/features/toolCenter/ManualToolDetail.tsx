@@ -33,6 +33,12 @@ const jsonDiffFileTargets = [
   { target: "json-diff-right", field: "right", label: "Import right JSON file…", inputLabel: "Right JSON file", fieldLabel: "Revised JSON" },
 ] as const;
 
+const independentMergeLabels = new Map([
+  ["left", "Left table"], ["right", "Right table"],
+  ["leftFormat", "Left table format"], ["rightFormat", "Right table format"],
+  ["leftKey", "Left join column"], ["rightKey", "Right join column"],
+]);
+
 export interface ManualToolDetailProps {
   tool: ManualTool; revision: string; api: ManualToolApi; scope: ToolAccessScope;
   accessStore?: ToolAccessStore; onOpenApplication?: () => void;
@@ -115,8 +121,12 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     (tool.runtime === "builtin" && hostResourceProfile !== undefined && detail?.resourceInputProfile === hostResourceProfile);
   const dataTransform = isDataTransform(tool);
   const computePlugin = tool.pluginId === "com.zicode.devtools.compute";
-  const tableMerge = computePlugin &&
-    ["left", "inner", "append", "columns"].some(mode => tool.capabilityId === `devtools.compute.merge.${mode}`);
+  const legacyMerge = computePlugin && /^devtools\.compute\.merge\.(left|inner|append|columns)$/.test(tool.capabilityId);
+  const independentMerge = tool.pluginId === "com.zicode.devtools.table-merge" &&
+    /^devtools\.table-merge\.(left|inner|append|columns)$/.test(tool.capabilityId);
+  const tableMerge = legacyMerge || independentMerge;
+  const leftMergeTarget = independentMerge ? "merge-left" : "left";
+  const rightMergeTarget = independentMerge ? "merge-right" : "right";
   const tableWorkbench = computePlugin &&
     ["json", "csv", "query"].some(mode => tool.capabilityId === `devtools.compute.table.${mode}`);
   const qualityFormat = computePlugin
@@ -158,7 +168,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
 
   async function importFile(file: File, target: ToolFileTarget) {
     const owner = fileRead.current;
-    const allowed = target === singleFileTarget || (tableMerge && (target === "left" || target === "right")) ||
+    const allowed = target === singleFileTarget || (tableMerge && (target === leftMergeTarget || target === rightMergeTarget)) ||
       diffFileTargets.some(side => side.target === target);
     if (!owner || owner.identity !== transformIdentity || owner.api !== api ||
         !allowed || !supported || !detail.enabled || editingLocked) return;
@@ -167,7 +177,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     setFileLoading(target);
     setError("");
     try {
-      const next = await readManualToolFile(file, values, target);
+      const formatKey = target === "merge-left" ? "leftFormat" : target === "merge-right" ? "rightFormat" : undefined;
+      const choices = fields.find(field => field.key === formatKey)?.choices;
+      const next = await readManualToolFile(file, values, target, choices);
       if (!isCurrent()) return;
       setInvalidField("");
       setDraft(current => current.values === values
@@ -241,9 +253,11 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
         accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
         {fields.map(field => {
           const side = diffFileTargets.find(target => target.field === field.key);
+          const label = side?.fieldLabel ?? (independentMerge ? independentMergeLabels.get(field.key) : undefined);
           return <ManualToolInput key={field.key} id={`${detailId}-${field.key}`}
-            field={side ? { ...field, label: t(side.fieldLabel) } : field} value={values[field.key]}
+            field={label ? { ...field, label: t(label) } : field} value={values[field.key]}
             disabled={editingLocked} invalid={invalidField === field.key}
+            compact={independentMerge && (field.key === "leftKey" || field.key === "rightKey")}
             onOmit={() => { setDraft(previous => { const next = { ...previous.values }; delete next[field.key]; return { values: next }; });
               if (invalidField === field.key) { setInvalidField(""); setError(""); } }}
             onChange={value => setDraft(previous => ({ values: { ...previous.values, [field.key]: value } }))} />;
@@ -266,11 +280,11 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
             onPick={file => { void importFile(file, side.target); }} />)}
           {tableMerge && <>
             <FileImportButton key={"left:" + transformIdentity} label={t("Import left table…")}
-              inputLabel={t("Left table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === "left"}
-              onPick={file => { void importFile(file, "left"); }} />
+              inputLabel={t("Left table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === leftMergeTarget}
+              onPick={file => { void importFile(file, leftMergeTarget); }} />
             <FileImportButton key={"right:" + transformIdentity} label={t("Import right table…")}
-              inputLabel={t("Right table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === "right"}
-              onPick={file => { void importFile(file, "right"); }} />
+              inputLabel={t("Right table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === rightMergeTarget}
+              onPick={file => { void importFile(file, rightMergeTarget); }} />
           </>}
           {ownsUndo && <button type="button" className="ui-button ui-button--secondary" disabled={editingLocked}
             onClick={undoDraft}>{t(undo?.kind === "import" ? "Undo last import" : "Undo last application")}</button>}
