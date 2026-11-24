@@ -16,20 +16,26 @@ export function createBrowserUserAgentSettings(control) {
   save.type = reset.type = "button";
   for (const button of [save, reset]) button.className = "ui-button ui-button--secondary";
   save.textContent = t("Save"); reset.textContent = t("Restore default User-Agent");
-  let generation = 0;
+  let busy = false;
+  let loaded = false;
+  input.disabled = save.disabled = reset.disabled = true;
   async function request(action) {
-    const current = ++generation;
+    const saving = action.kind === "setUserAgent";
+    if (busy || (saving && !loaded)) return;
+    busy = true;
+    if (!saving) loaded = false;
     input.disabled = save.disabled = reset.disabled = true;
     status.textContent = "";
     try {
       const saved = await control(action);
-      if (generation !== current) return;
+      loaded = true;
       input.value = saved ?? "";
-      if (action.kind === "setUserAgent") status.textContent = t("User-Agent saved for new tabs");
+      if (saving) status.textContent = t("User-Agent saved for new tabs");
     } catch (error) {
-      if (generation === current) status.textContent = t(String(error?.message ?? error));
+      status.textContent = t(String(error?.message ?? error));
     } finally {
-      if (generation === current) input.disabled = save.disabled = reset.disabled = false;
+      busy = false;
+      input.disabled = save.disabled = reset.disabled = !loaded;
     }
   }
   details.addEventListener("toggle", () => { if (details.open) void request({ kind: "getUserAgent" }); });
