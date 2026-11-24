@@ -601,7 +601,7 @@ async fn commit_grant(
         match &grant.purpose {
             Purpose::Metadata | Purpose::Usage => {
                 let (profile, bytes, count, partial) = if matches!(grant.purpose, Purpose::Usage) {
-                    let scan = usage::snapshot(&directory, &grant.stamp, &control, &check_authority)?;
+                    let scan = usage::snapshot(&directory, &grant.stamp, &control, check_authority)?;
                     let current = grant.selection.open(&grant.root, access)?;
                     if stamp(&current)? != grant.stamp {
                         return Err(rejected("resource_directory_changed"));
