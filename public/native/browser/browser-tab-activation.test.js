@@ -13,7 +13,8 @@ async function mount(closedTabs = [], restoredDocument = null) {
   let session = { revision: 1, tabs: [tab("a"), tab("b")], activeTab: "a", closedTabs };
   let visible = null, emit;
   const views = new Set(), requests = [];
-  const hooks = { save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), navigate: async () => {}, developerTools: async () => {} };
+  const hooks = { save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), navigate: async () => {},
+    developerTools: async () => {}, pageSettings: async () => ({ zoom: 1, muted: false }), findStart: async () => ({}) };
   const invoke = async (name, args) => {
     if (name === "browser_get_state") return { startupMode: "browser", session: structuredClone(session) };
     if (name === "browser_save_session") {
@@ -39,6 +40,8 @@ async function mount(closedTabs = [], restoredDocument = null) {
       if (r.kind === "savePdf") return hooks.savePdf();
       if (r.kind === "navigate") return hooks.navigate();
       if (r.kind === "openDeveloperTools") return hooks.developerTools();
+      if (r.kind === "pageSettings") return hooks.pageSettings();
+      if (r.kind === "findStart") return hooks.findStart();
       if (r.kind === "hide") visible = null;
       if (r.kind === "present") { await hooks.present(); visible = r.tab; }
     }
@@ -89,6 +92,73 @@ it("routes only a currently confirmed PDF to its reader and keeps regular search
   expect(h.status()).toBe("");
   h.root.querySelector(".browser-address").dispatchEvent(new KeyboardEvent("keydown", { key: "f", ctrlKey: true, bubbles: true }));
   expect(h.root.querySelector(".browser-find").hidden).toBe(false);
+});
+
+
+it("hands an already-focused find panel to the confirmed PDF reader and drops its pending match", async () => {
+  const h = await mount();
+  let complete;
+  h.hooks.findStart = () => new Promise(resolve => { complete = resolve; });
+  const address = h.root.querySelector(".browser-address");
+  address.dispatchEvent(new KeyboardEvent("keydown", { key: "f", ctrlKey: true, bubbles: true }));
+  const find = h.root.querySelector(".browser-find");
+  const input = find.querySelector("input");
+  expect(document.activeElement).toBe(input);
+  input.value = "Before classification";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await waitFor(() => expect(complete).toBeTypeOf("function"));
+  try {
+    h.emit({ kind: "pdfDocument", tab: "a", documentRevision: "a:1" });
+    expect(find.hidden).toBe(true);
+    await waitFor(() => expect(h.requests).toContainEqual({ kind: "focusPage", tab: "a" }));
+    expect(h.status()).toBe(t("Use the PDF toolbar for search and zoom."));
+  } finally { complete({}); }
+  await waitFor(() => expect(h.requests).toContainEqual({ kind: "findStop", tab: "a" }));
+  expect(h.requests.some(r => r.kind === "findStatus")).toBe(false);
+});
+
+it("switches away from the old Find UI without moving focus from the address", async () => {
+  const h = await mount();
+  const address = h.root.querySelector(".browser-address");
+  address.dispatchEvent(new KeyboardEvent("keydown", { key: "f", ctrlKey: true, bubbles: true }));
+  const find = h.root.querySelector(".browser-find");
+  expect(find.hidden).toBe(false);
+  address.focus();
+  h.emit({ kind: "pdfDocument", tab: "a", documentRevision: "a:1" });
+  expect(find.hidden).toBe(true);
+  await waitFor(() => expect(h.requests).toContainEqual({ kind: "findStop", tab: "a" }));
+  expect(document.activeElement).toBe(address);
+  expect(h.requests.some(r => r.kind === "focusPage")).toBe(false);
+});
+
+it("updates an open zoom menu as PDF classification arrives and rejects older settings", async () => {
+  const h = await mount();
+  let completeOldSettings;
+  h.hooks.pageSettings = vi.fn()
+    .mockResolvedValue({ zoom: 1.25, muted: false, pdfDocument: false })
+    .mockImplementationOnce(() => new Promise(resolve => { completeOldSettings = resolve; }));
+  const menu = h.root.querySelector(".browser-options");
+  const controls = menu.querySelector(".browser-page-controls");
+  const zoom = controls.querySelector(".browser-zoom-row");
+  const guidance = controls.querySelector('[data-i18n-text="Use the PDF toolbar for search and zoom."]');
+  menu.open = true;
+  await waitFor(() => expect(completeOldSettings).toBeTypeOf("function"));
+  try {
+    h.emit({ kind: "pdfDocument", tab: "a", documentRevision: "a:1" });
+    expect(zoom.hidden).toBe(true);
+    expect(guidance.hidden).toBe(false);
+  } finally { completeOldSettings({ zoom: 2, muted: true, pdfDocument: false }); }
+  await waitFor(() => expect(controls.disabled).toBe(false));
+  expect(zoom.hidden).toBe(true);
+  expect(guidance.hidden).toBe(false);
+
+  h.emit({ kind: "navigationStarted", tab: "a" });
+  h.emit({ kind: "navigationFinished", tab: "a", success: true, documentRevision: "a:2" });
+  await waitFor(() => expect(zoom.hidden).toBe(false));
+  expect(zoom.querySelectorAll("button")[1].textContent).toBe("125%");
+  h.emit({ kind: "pdfDocument", tab: "a", documentRevision: "a:1" });
+  expect(guidance.hidden).toBe(true);
+  expect(zoom.hidden).toBe(false);
 });
 
 it("settles the export status layout before printing and keeps tab activation responsive", async () => {

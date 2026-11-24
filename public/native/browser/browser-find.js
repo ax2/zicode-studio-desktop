@@ -73,5 +73,6 @@ export function createBrowserFind({ control, getTab, available, openPdf, restore
   element.addEventListener("keydown", event => { if (event.isComposing) return; if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); void dismiss(); } else if (event.key === "Enter") { event.preventDefault(); step(event.shiftKey); } });
   const keydown = event => { if (!available() || event.isComposing || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "f") return; event.preventDefault(); event.stopPropagation(); open(); };
   document.addEventListener("keydown", keydown, true);
-  return { element, open, close, destroy() { document.removeEventListener("keydown", keydown, true); return close(); } };
+  return { element, open, close, isOpenFor: id => tab === id && !element.hidden,
+    destroy() { document.removeEventListener("keydown", keydown, true); return close(); } };
 }

@@ -18,10 +18,10 @@ export async function persistBrowserPageSetting({ after, rollback, write, persis
   }
   return after;
 }
-export function createBrowserPageControls({ getTab, read, change }) {
+export function createBrowserPageControls({ getTab, read, change, isPdf = () => false }) {
   let current = null, generation = 0, busy = false;
   const group = document.createElement("fieldset");group.className = "browser-page-controls";group.setAttribute("aria-label", t("Page controls"));
-  const row = document.createElement("div");row.className = "browser-zoom-row";
+  const row = document.createElement("div");row.className = "browser-zoom-row hidden";row.hidden = true;
   const label = document.createElement("span");label.textContent = t("Page zoom");
   const message = document.createElement("p");message.className = "browser-page-controls-status";message.setAttribute("role", "status");
   const pdfHelp = document.createElement("p");
@@ -36,7 +36,7 @@ export function createBrowserPageControls({ getTab, read, change }) {
     if (busy || !current) return;const selected = current;
     busy = true;group.disabled = true;message.textContent = "";
     try { await change(selected.id, action(selected)); }
-    catch (error) { message.textContent = t(String(error?.message ?? error)); }
+    catch (error) { if (current === selected) message.textContent = t(String(error?.message ?? error)); }
     finally { busy = false;await refresh(false); }
   }
   const smaller = button("−", "Zoom out", tab => ({ kind: "zoom", value: nextPageZoom(tab.zoom, -1) }));
@@ -46,21 +46,21 @@ export function createBrowserPageControls({ getTab, read, change }) {
   reset.title += " (Ctrl+0)";
   larger.title += " (Ctrl++)";
   const mute = button(t("Mute tab"), "Mute tab", tab => ({ kind: "muted", value: !tab.muted }));
+  function showPageType(pdf, ready) {
+    pdfHelp.hidden = !pdf;
+    row.hidden = pdf || !ready;
+    row.classList.toggle("hidden", row.hidden);
+  }
   async function refresh(clear = true) {
     const request = ++generation, tab = getTab();current = null;group.disabled = true;
     if (clear) message.textContent = "";
-    pdfHelp.hidden = true;
-    row.hidden = false;
-    row.classList.remove("hidden");
-    if (!tab) { reset.textContent = "100%";return; }
+    showPageType(isPdf(tab?.id), false);
+    if (!tab) return;
     try {
       const settings = await read(tab.id);
       if (request !== generation || getTab()?.id !== tab.id) return;
       current = { id: tab.id, ...settings };
-      const pdf = settings.pdfDocument === true;
-      pdfHelp.hidden = !pdf;
-      row.hidden = pdf;
-      row.classList.toggle("hidden", pdf);
+      showPageType(isPdf(tab.id) || settings.pdfDocument === true, true);
       reset.textContent = `${Math.round(settings.zoom * 100)}%`;smaller.disabled = settings.zoom <= 0.25;larger.disabled = settings.zoom >= 5;
       mute.textContent = t(settings.muted ? "Unmute tab" : "Mute tab");mute.title = mute.textContent;mute.setAttribute("aria-label", mute.textContent);group.disabled = busy;
     } catch (error) { if (request === generation) message.textContent = t(String(error?.message ?? error)); }
