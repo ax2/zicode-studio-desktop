@@ -21,6 +21,8 @@ mod compute_candidate_pi_tests;
 #[cfg(test)]
 mod devtools_data_transform_tests;
 #[cfg(test)]
+mod devtools_json_schema_tests;
+#[cfg(test)]
 mod devtools_json_candidate_pi_tests;
 #[cfg(test)]
 mod devtools_text_candidate03_pi_tests;
