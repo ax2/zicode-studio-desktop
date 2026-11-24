@@ -639,23 +639,23 @@
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.table.json",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON；选项JSON例如 {\"format\":\"csv\"}。可增加query关键词、sort列名、descending布尔值，返回可复制JSON与行数报告。"
+          "scope": "输入或导入 8 KiB 内的 UTF-8 CSV、TSV、JSON，可撤销导入。选项JSON例如 {\"format\":\"csv\"}。可增加query关键词、sort列名、descending布尔值，返回可复制JSON与行数报告。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.table.csv",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON；选项JSON例如 {\"format\":\"json\"}。可增加query关键词、sort列名、descending布尔值，返回带正确引号转义的CSV与行数报告。"
+          "scope": "输入或导入 8 KiB 内的 UTF-8 CSV、TSV、JSON，可撤销导入。选项JSON例如 {\"format\":\"json\"}。可增加query关键词、sort列名、descending布尔值，返回带正确引号转义的CSV与行数报告。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.table.query",
           "kind": "capability",
-          "scope": "输入表格；选项JSON例如 {\"format\":\"csv\",\"query\":\"Alice\",\"sort\":\"age\",\"descending\":false,\"output\":\"json\"}。output支持csv/tsv/json；CSV字段保持文本，JSON数值按数值排序。不读取文件。"
+          "scope": "输入或导入 8 KiB 内的 UTF-8 CSV、TSV、JSON，可撤销导入。选项JSON例如 {\"format\":\"csv\",\"query\":\"Alice\",\"sort\":\"age\",\"descending\":false,\"output\":\"json\"}。output支持csv/tsv/json；CSV字段保持文本，JSON数值按数值排序。"
         }
       ],
       "fullSourceScopeAccepted": false,
-      "blocker": "当前Windows有界计算操作已导入验证；文件获取/保存、原生大输入和完整工作流仍需各自迁移。",
+      "blocker": "冻结 Compute 0.2.0 候选 01 的三项操作已验证本机表格文件导入与撤销。系统文件窗口、结果文件保存、原生大输入与工作台其余流程仍需各自验收。",
       "sourceScope": "CSV/TSV、JSON 对象数组导入，筛选、排序、预览和导出；导出结果发送到其他文本工具，接收结果后本地解析预览；整列去空白/大小写、空值处理与重命名，预览应用及单步撤销；开发版支持命名多实例与主动保存/恢复快照 接收计算器数值类型JSON表格，默认新实例保留已有工作；类型对象经JSON导出可确认送回矩阵A，文本或近似数字模式明确显示类型/精度变化。 从已解析筛选排序视图选择行范围、具名列和列顺序，预览最多8×8数值后接力；CSV字面量精确或显式近似转换，JSON浮点明确近似，拒绝非数字/函数/赋值/空值，保留源工作。；首屏独立数值选取窗口、固定取消/预览操作，取消不发送；接收SQLite当前页类型化表格为新实例，保留已有工作；验证形状/2MiB输入预算后创建，直接可用并刷新可见行，空页保留列；不自动运行流程。 类型化表格接力草稿使用列结构JSON保留空表、列序和值类型，原实例保留。 新增可保存文本流程草稿，独立实例接收不自动运行，后台任务/取消/实例归属和快照恢复；不覆盖既有表格。 共用数据页面按实例当前入口显示导航名称，旧快照默认数据工作台。 JSON输入同时支持严格headers/rows列结构；所有类型化表格接力草稿使用列结构JSON，空表/列序/值类型在保存恢复后重解析保留，宽列名不再因对象数组重复列名而超限。拒绝重复模式字段、非法形状与空列名；流程表格审核后接收新实例。；固定工作实例管理栏，工具内容独立滚动，每实例每工作台保留滚动位置 统一结果接力对128 KiB内、非空且至少两列的CSV/TSV按数据工作台规则推荐目标；分隔符歧义、无效表头或超限不推荐。用户仍须选目标并确认，新实例保留原有工作。 修复统一接力弹窗保留上次滚动位置：新接力正文和目标回顶，规范化查询或分类变化重置目标列表及滚动惯性；普通重绘和选择目标保留滚动。 统一结果接力增加全部/收藏/最近/常用范围，复用工具库的工具ID偏好快照；保持格式入口区分、搜索相关度、材料兼容与显式确认，不另存接力正文或访问历史。 接力成功按实际接收工具ID记录一次访问，共用工作台不再归入通用入口；失败或取消不增加最近/常用记录。；接力目标搜索支持上下方向键选择、自动滚动和 Tab 到确认按钮，输入法组合期间不抢占方向键 接收目录差异与复制结果后默认折叠原始输入，直接展示可筛选排序的表格；可展开编辑，保留其他实例。"
     },
     {

@@ -104,12 +104,15 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const resourceTool = (detail?.resourceInputProfile === "resource.wasi.input.draft2" && tool.runtime === "wasi") ||
     (tool.runtime === "builtin" && hostResourceProfile !== undefined && detail?.resourceInputProfile === hostResourceProfile);
   const dataTransform = isDataTransform(tool);
-  const tableMerge = tool.pluginId === "com.zicode.devtools.compute" &&
+  const computePlugin = tool.pluginId === "com.zicode.devtools.compute";
+  const tableMerge = computePlugin &&
     ["left", "inner", "append", "columns"].some(mode => tool.capabilityId === `devtools.compute.merge.${mode}`);
-  const qualityFormat = tool.pluginId === "com.zicode.devtools.compute"
+  const tableWorkbench = computePlugin &&
+    ["json", "csv", "query"].some(mode => tool.capabilityId === `devtools.compute.table.${mode}`);
+  const qualityFormat = computePlugin
     ? tableFileFormats.find(format => tool.capabilityId === "devtools.compute.quality." + format)
     : undefined;
-  const singleTableTarget = dataTransform ? "transform" : qualityFormat;
+  const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
   useLayoutEffect(() => {
     fileRead.current = { identity: transformIdentity, api, sequence: 0 };
