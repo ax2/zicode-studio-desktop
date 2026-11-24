@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { getByRole, waitFor } from "@testing-library/dom";
+import { getByRole, waitFor, within } from "@testing-library/dom";
 import { getLocale, setLocale, t } from "../../i18n.js";
 import { setupBrowserApp } from "./browser-app.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
@@ -104,6 +104,72 @@ it("shows unavailable frames with zero items and leaves a complete capture unmar
   expect(panel.querySelector(".browser-capture-links > summary").textContent).toBe("Page links (1)");
   const complete = openDock(undefined).panel;
   expect(complete.textContent).not.toContain("Partial capture");
+});
+
+it("reviews only selected tab sources and hands off their bounded, distinctly marked comparison excerpts", async () => {
+  setLocale("en");
+  const host = document.createElement("main");
+  document.body.append(host);
+  vi.stubGlobal("ResizeObserver", class { observe() {} });
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 20, y: 50, width: 900, height: 580 });
+
+  const bodyPrefix = "x".repeat(11999);
+  const selectionPrefix = "字".repeat(3999);
+  const current = { ...capture, page: { ...capture.page, text: bodyPrefix + "🦊 end", selection: "Short English selection" } };
+  const chosen = { ...capture, tab: "chosen", documentRevision: 4, page: {
+    ...capture.page, title: "第二页", url: "https://example.org/chosen", text: "中文短正文。", selection: selectionPrefix + "😀结尾",
+  } };
+  const omitted = { ...capture, tab: "omitted", page: { ...capture.page, title: "Unselected", url: "https://example.org/omitted" } };
+  const sources = new Map([current, chosen, omitted].map(snapshot => [snapshot.tab, snapshot]));
+  const tabs = [...sources.values()].map(({ tab: id, page: { title, url } }) => ({ id, title, url }));
+  const invoke = vi.fn(async (command, args) => {
+    if (command === "browser_get_state") return { startupMode: "browser", session: { activeTab: current.tab, revision: 0, tabs } };
+    if (command === "browser_capture_page") {
+      const source = sources.get(args.tab);
+      expect(args.expectedUrl).toBe(source.page.url);
+      return source;
+    }
+    if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs };
+    return {};
+  });
+  const handoff = vi.fn();
+  const target = { sceneId: "programming", workspaceId: "test-workspace", sessionId: "test-session", runtimeMode: "ai" };
+  app = setupBrowserApp({ invoke, listen: vi.fn(async () => () => {}), onPrepareDraft: handoff, getTarget: () => target });
+  app.renderContent(host);
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_control", { request: expect.objectContaining({ kind: "present", tab: current.tab }) }));
+  getByRole(host, "button", { name: "Read page" }).click();
+  (await waitFor(() => getByRole(host, "button", { name: "Compare open tabs" }))).click();
+  const comparison = within(getByRole(host, "group", { name: "Compare open tabs" }));
+  comparison.getByRole("checkbox", { name: /第二页/ }).click();
+  comparison.getByRole("button", { name: "Read selected tabs" }).click();
+  const draft = comparison.getByRole("button", { name: "Prepare comparison draft" });
+  await waitFor(() => expect(draft.disabled).toBe(false));
+  expect(handoff).not.toHaveBeenCalled();
+  const details = host.querySelectorAll(".browser-compare-preview > details");
+  expect(details).toHaveLength(2);
+  expect(details[0].querySelector("summary").textContent).toBe("[1] Manual · Partial capture");
+  expect(details[1].querySelector("summary").textContent).toBe("[2] 第二页 · Partial capture");
+  expect(details[0].textContent).toContain("Page content was shortened");
+  expect(details[0].textContent).not.toContain("Selected text was shortened");
+  expect(details[1].textContent).toContain("Selected text was shortened");
+  expect(details[1].textContent).not.toContain("Page content was shortened");
+  expect(details[0].querySelector("textarea").value).toBe(`Selected text\nShort English selection\n\n${bodyPrefix}`);
+  expect(details[1].querySelector("textarea").value).toBe(`Selected text\n${selectionPrefix}\n\n中文短正文。`);
+
+  draft.click();
+  await waitFor(() => expect(handoff).toHaveBeenCalledOnce());
+  const { prompt } = handoff.mock.calls[0][0];
+  const [task, context, json] = prompt.split("\n\n");
+  expect(task).toContain("Cite each claim with its source number");
+  expect(context).toContain("leave omitted content unknown");
+  expect(JSON.parse(json).sources).toMatchObject([
+    { citation: "[1]", url: current.page.url, tab: current.tab, text: bodyPrefix, selection: current.page.selection,
+      textTruncated: true, selectionTruncated: false, truncated: true },
+    { citation: "[2]", url: chosen.page.url, tab: chosen.tab, text: chosen.page.text, selection: selectionPrefix,
+      textTruncated: false, selectionTruncated: true, truncated: true },
+  ]);
+  expect(invoke.mock.calls.filter(([command]) => command === "browser_capture_page").map(([, args]) => args.tab))
+    .toEqual([current.tab, chosen.tab, current.tab, chosen.tab]);
 });
 
 it("resizes the live surface around the open assistant and rejects the captured source after navigation", async () => {
