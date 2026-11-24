@@ -10,6 +10,7 @@ const WORKERS: usize = 3;
 pub(in crate::host_server) mod admission;
 mod directory_compare_csv;
 mod disk_usage_json;
+mod duplicate_files_json;
 mod host_image;
 mod host_ocr;
 mod host_text;
@@ -713,6 +714,14 @@ fn execute(
                 profile: disk_usage_json::PROFILE,
                 mime: "application/json",
                 source_profile: local_directory::DISK_INSPECTOR_PROFILE,
+            })
+        }
+        (local_directory::DUPLICATE_FILES_PLUGIN, local_directory::DUPLICATE_FILES_CAPABILITY) => {
+            duplicate_files_json::encode(result).map(|bytes| DirectoryReport {
+                bytes,
+                profile: duplicate_files_json::PROFILE,
+                mime: "application/json",
+                source_profile: local_directory::DUPLICATE_FILES_PROFILE,
             })
         }
         _ => None,

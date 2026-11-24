@@ -1,4 +1,7 @@
 //! Frozen Duplicate Files acceptance through the Windows Host and production Worker.
+use super::directory_export_tests::{
+    assert_directory_export_cancel_and_conflict, assert_directory_json_export,
+};
 use super::{usage_provider_tests::post, *};
 use crate::host_server::{HostMode, HostServer, RemoteAuth};
 use crate::native_pi_manager::NativePiManager;
@@ -34,6 +37,8 @@ async fn frozen_duplicate_files_groups_a_confirmed_directory() {
     fs::create_dir_all(&scratch).unwrap();
     let fixture = tempfile::tempdir_in(scratch.canonicalize().unwrap()).unwrap();
     let private = fixture.path().join("profile");
+    let exports = fixture.path().join("reports");
+    fs::create_dir_all(&exports).unwrap();
     let selected = fixture.path().join("共享测试文件夹");
     fs::create_dir_all(private.join("public")).unwrap();
     fs::create_dir_all(selected.join("副本")).unwrap();
@@ -241,6 +246,20 @@ async fn frozen_duplicate_files_groups_a_confirmed_directory() {
         json!({"case":"normal","report":report})
     );
 
+    assert_eq!(
+        reply["reportResource"]["profile"],
+        "resource.host.duplicate-files-json.v1"
+    );
+    let normal_export = assert_directory_json_export(
+        &host,
+        &context,
+        &owner,
+        &resource["access"],
+        &reply,
+        &exports.join("normal.json"),
+        None,
+    );
+
     let partial = selected.join("部分覆盖");
     fs::create_dir(&partial).unwrap();
     fs::write(partial.join("first"), b"same").unwrap();
@@ -259,7 +278,7 @@ async fn frozen_duplicate_files_groups_a_confirmed_directory() {
         .unwrap();
     let id = preview["grantId"].as_str().unwrap().to_owned();
     let resource = host
-        .commit_native_plugin_directory(context, owner.clone(), id, true)
+        .commit_native_plugin_directory(context.clone(), owner.clone(), id, true)
         .await
         .unwrap();
     assert_eq!(resource["partial"], true);
@@ -284,6 +303,81 @@ async fn frozen_duplicate_files_groups_a_confirmed_directory() {
         json!({"case":"partial","report":report})
     );
 
+    assert_eq!(
+        response["reportResource"]["profile"],
+        "resource.host.duplicate-files-json.v1"
+    );
+    let partial_export = assert_directory_json_export(
+        &host,
+        &context,
+        &owner,
+        &resource["access"],
+        &response,
+        &exports.join("partial.json"),
+        Some(&normal_export),
+    );
+    assert_directory_export_cancel_and_conflict(&host, &context, &partial_export, &exports);
+
+    let projected = selected.join("路径列表");
+    fs::create_dir(&projected).unwrap();
+    for index in 0..13 {
+        fs::write(projected.join(format!("copy-{index:02}.txt")), b"equal").unwrap();
+    }
+    let preview = host
+        .prepare_native_directory_analysis(
+            context.clone(),
+            owner.clone(),
+            projected.clone(),
+            Some(duplicates::PROFILE),
+        )
+        .await
+        .unwrap();
+    let id = preview["grantId"].as_str().unwrap().to_owned();
+    let resource = host
+        .commit_native_plugin_directory(context.clone(), owner.clone(), id, true)
+        .await
+        .unwrap();
+    let (status, response) = post(
+        &host,
+        &client,
+        "invoke-view",
+        json!({"access":resource["access"],"toolCallId":uuid::Uuid::new_v4(),"input":{}}),
+    )
+    .await;
+    assert!(status.is_success(), "{response}");
+    assert_eq!(response["result"]["partial"], false);
+    assert_eq!(response["result"]["projectionTruncated"], true);
+    assert_eq!(response["result"]["duplicateFileCount"], 13);
+    assert_eq!(
+        response["result"]["groups"][0]["paths"]
+            .as_array()
+            .unwrap()
+            .len(),
+        12
+    );
+    assert_eq!(
+        response["reportResource"]["profile"],
+        "resource.host.duplicate-files-json.v1"
+    );
+    let projected_export = assert_directory_json_export(
+        &host,
+        &context,
+        &owner,
+        &resource["access"],
+        &response,
+        &exports.join("projection.json"),
+        Some(&partial_export),
+    );
+    let revoked_path = exports.join("revoked.json");
+    let revoked = host
+        .prepare_resource_export(
+            context.clone(),
+            projected_export.clone(),
+            revoked_path.clone(),
+        )
+        .unwrap();
+    let revoked_grant = revoked["grantId"].as_str().unwrap().to_owned();
+
     host.state
         .plugins
         .lock()
@@ -297,5 +391,12 @@ async fn frozen_duplicate_files_groups_a_confirmed_directory() {
         .unwrap();
     let (status, _) = post(&host, &client, "invoke-view", request()).await;
     assert!(!status.is_success());
+    assert!(host
+        .commit_resource_export(context, projected_export, revoked_grant, true)
+        .is_err());
+    assert!(!revoked_path.exists());
+    assert_eq!(fs::read(selected.join("原件.txt")).unwrap(), b"abc");
+    assert_eq!(fs::read(selected.join("副本/副本.txt")).unwrap(), b"abc");
+    assert_eq!(fs::read(projected.join("copy-12.txt")).unwrap(), b"equal");
     host.stop_and_wait().await.unwrap();
 }

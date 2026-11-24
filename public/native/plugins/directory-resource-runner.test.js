@@ -161,9 +161,23 @@ describe("directory-owned resource execution", () => {
       source: { hashedFiles: 2, partial: true, limitReason: "hash_bytes", skippedBudget: 2 },
       groups: [{ logicalBytes: "3", redundantBytes: "3", sha256: "a".repeat(64), fileCount: 2, paths: ["备份/a.txt", "a.txt"] }],
     };
+    const reportResource = { profile: "resource.host.duplicate-files-json.v1", index: 0,
+      resourceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", contentVersion: "c".repeat(64),
+      mimeType: "application/json", byteLength: 600, expiresInSeconds: 900, origin: "host-report",
+      saved: false, derivedFrom: { resourceId: id, contentVersion: access.contentVersion } };
+    const exportProfile = "resource.export.file.draft1", grantId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const preview = { schemaVersion: 1, profile: exportProfile, grantId, destination: "D:/test/duplicates.json",
+      contentVersion: reportResource.contentVersion, mimeType: reportResource.mimeType, byteLength: 600 };
+    const exports = { choose: vi.fn(async (_workspace, source) => ({ schemaVersion: 1, profile: exportProfile, grantId,
+      saved: false, operation: "create_new_file", requiresConfirmation: true, expiresInSeconds: 60,
+      preview: { ...preview, source } })), cancel: vi.fn(async () => {}), verify: vi.fn(),
+      commit: vi.fn(async (_workspace, source) => ({ schemaVersion: 1, profile: exportProfile, saved: true,
+        status: "saved", receipt: { ...preview, source } })) };
     const invokeResource = vi.fn(async (_owner, request) => ({ schemaVersion: 1, operationId: id,
-      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result: report }));
-    const f = fixture({ directoryUsage, invokeResource }, 1, false, receiver);
+      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" },
+      result: report, reportResource }));
+    const f = fixture({ directoryUsage, invokeResource, exports }, 1, false, receiver);
+    expect(f.button("Save JSON as…")).toBeUndefined();
     expect(f.button("Execute tool").disabled).toBe(true);
     expect(directoryUsage.entry).not.toHaveBeenCalled();
     f.button("Choose a folder").click();
@@ -181,6 +195,37 @@ describe("directory-owned resource execution", () => {
     expect([...document.querySelectorAll(".duplicate-files-result bdi")].map(node => node.textContent))
       .toEqual(["备份/a.txt", "a.txt"]);
     expect(invokeResource.mock.calls[0][1]).toMatchObject({ resourceId: id, input: {} });
+    expect(exports.choose).not.toHaveBeenCalled();
+    f.button("Save JSON as…").click();
+    await vi.waitFor(() => expect(f.button("Confirm save file")).toBeTruthy());
+    const source = { schemaVersion: 1, owner, resourceId: reportResource.resourceId, contentVersion: reportResource.contentVersion };
+    expect(exports.choose).toHaveBeenCalledWith("workspace", source);
+    expect(exports.commit).not.toHaveBeenCalled();
+    f.button("Cancel save").click();
+    expect(exports.cancel).toHaveBeenCalledWith("workspace", source, grantId);
+    f.button("Save JSON as…").click();
+    await vi.waitFor(() => expect(f.button("Confirm save file")).toBeTruthy());
+    f.button("Confirm save file").click();
+    expect(exports.commit).toHaveBeenCalledWith("workspace", source, grantId);
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Saved copy: D:/test/duplicates.json"));
+
+    const nextResource = { ...reportResource, resourceId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", contentVersion: "f".repeat(64) };
+    let complete;
+    invokeResource.mockImplementationOnce((_owner, request) => new Promise(resolve => {
+      complete = () => resolve({ schemaVersion: 1, operationId: id,
+        source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" },
+        result: report, reportResource: nextResource });
+    }));
+    f.button("Execute tool").click();
+    expect(f.button("Save JSON as…")).toBeUndefined();
+    await vi.waitFor(() => expect(complete).toBeTypeOf("function"));
+    complete();
+    await vi.waitFor(() => expect(f.button("Save JSON as…")).toBeTruthy());
+    f.button("Save JSON as…").click();
+    const currentSource = { ...source, resourceId: nextResource.resourceId, contentVersion: nextResource.contentVersion };
+    expect(exports.choose).toHaveBeenLastCalledWith("workspace", currentSource);
+    f.button("Cancel directory sharing").click();
+    expect(f.button("Save JSON as…")).toBeUndefined();
   });
 
   it("prepares only the special directory usage profile, waits for approval, then displays the exact partial result", async () => {
