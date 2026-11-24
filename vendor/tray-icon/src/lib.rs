@@ -516,6 +516,12 @@ impl TrayIcon {
         self.tray.borrow().rect()
     }
 
+    /// Check whether Explorer has the icon registered and restore it if necessary.
+    #[cfg(windows)]
+    pub fn ensure_registered(&self) -> bool {
+        self.tray.borrow().ensure_registered()
+    }
+
     /// Get the tray icon's underlying [window handle](windows_sys::Win32::Foundation::HWND) **Windows only**.
     ///
     /// This window handle is valid as long as the tray icon.

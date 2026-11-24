@@ -185,8 +185,38 @@ pub(crate) fn translation_locale(app: &AppHandle) -> String {
         .unwrap_or_else(|| "zh-CN".into())
 }
 
-pub fn available(app: &AppHandle) -> bool {
-    app.try_state::<DesktopTray>().is_some()
+fn available(app: &AppHandle) -> bool {
+    let Some(tray) = app.try_state::<DesktopTray>() else {
+        return false;
+    };
+    #[cfg(windows)]
+    return tray
+        .icon
+        .with_inner_tray_icon(|icon| icon.ensure_registered())
+        .unwrap_or(false);
+    #[cfg(not(windows))]
+    {
+        let _ = tray;
+        true
+    }
+}
+
+pub(crate) fn dismiss_window(window: &tauri::Window, api: &tauri::CloseRequestApi) {
+    if available(window.app_handle()) {
+        api.prevent_close();
+        if let Err(error) = window.hide() {
+            log::warn!("[desktop-tray] could not hide window: {error}");
+        }
+        return;
+    }
+    #[cfg(windows)]
+    {
+        // Keep the taskbar button available while Explorer cannot host the icon.
+        api.prevent_close();
+        if let Err(error) = window.minimize() {
+            log::warn!("[desktop-tray] could not minimize window: {error}");
+        }
+    }
 }
 
 pub fn remember_focus(app: &AppHandle, label: &str) {
@@ -396,6 +426,9 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
                 }
                 "studio.show" => show_workspaces(app),
                 "studio.hide" => {
+                    if !available(app) {
+                        return;
+                    }
                     for (label, window) in app.webview_windows() {
                         if managed_window(&label) {
                             if let Err(error) = window.hide() {

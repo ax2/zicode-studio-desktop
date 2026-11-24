@@ -285,6 +285,10 @@ impl TrayIcon {
         Ok(())
     }
 
+    pub fn ensure_registered(&self) -> bool {
+        unsafe { SendMessageW(self.hwnd, WM_USER_SHOW_TRAYICON, 0, 0) != 0 }
+    }
+
     pub fn rect(&self) -> Option<Rect> {
         get_tray_rect(self.internal_id, self.hwnd).map(Into::into)
     }
@@ -348,12 +352,24 @@ unsafe extern "system" fn tray_proc(
             userdata.icon = *icon;
         }
         WM_USER_SHOW_TRAYICON => {
-            register_tray_icon(
-                userdata.hwnd,
-                userdata.internal_id,
-                &userdata.icon.as_ref().map(|i| i.inner.as_raw_handle()),
-                &userdata.tooltip,
-            );
+            let mut identity = NOTIFYICONDATAW {
+                cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+                uFlags: NIF_MESSAGE,
+                hWnd: userdata.hwnd,
+                uID: userdata.internal_id,
+                uCallbackMessage: WM_USER_TRAYICON,
+                ..std::mem::zeroed()
+            };
+            // An icon in the overflow can have no screen rectangle.
+            // NIM_MODIFY queries Explorer using the original icon identity.
+            let registered = Shell_NotifyIconW(NIM_MODIFY, &mut identity as _) != 0
+                || register_tray_icon(
+                    userdata.hwnd,
+                    userdata.internal_id,
+                    &userdata.icon.as_ref().map(|i| i.inner.as_raw_handle()),
+                    &userdata.tooltip,
+                );
+            return registered as LRESULT;
         }
         WM_USER_HIDE_TRAYICON => {
             remove_tray_icon(userdata.hwnd, userdata.internal_id);

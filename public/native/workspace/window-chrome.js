@@ -58,7 +58,8 @@ export function setupWindowChrome({ doc = document, invoke = globalThis.__TAURI_
   group.addEventListener("focusin", focusIn);
   group.addEventListener("focusout", focusOut);
   // Reserve space in the toolbar while layering the controls above the drawer.
-  header.append(grip, slot);
+  header.insertBefore(grip, header.querySelector("#page-header-actions"));
+  header.append(slot);
   layout.append(group);
   const positionControls = () => {
     const bounds = slot.getBoundingClientRect();
@@ -72,7 +73,8 @@ export function setupWindowChrome({ doc = document, invoke = globalThis.__TAURI_
   positionControls();
   draw();
   void refresh();
-  const draggable = event => event.button === 0 && (event.target === header || event.target.closest("[data-window-drag]"));
+  const dragSurfaces = "[data-window-drag], #page-header-actions, .browser-tabs, .browser-tabs-frame, .browser-tab-strip, .notes-editor-toolbar";
+  const draggable = event => event.button === 0 && (event.target === header || event.target.matches(dragSurfaces));
   const down = event => { if (draggable(event) && event.detail === 1) void control("drag").catch(report); };
   const doubleClick = event => { if (draggable(event)) void act("toggleMaximize"); };
   const resize = () => {

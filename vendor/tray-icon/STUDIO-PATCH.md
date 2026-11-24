@@ -15,3 +15,5 @@ Remove this Cargo patch once the selected Tauri dependency supports a tested ups
 The normalized Cargo.toml pins windows-sys =0.61.2 to retain Studio's pre-patch lock selection; the path-source resolver otherwise selected the existing 0.60.2. No Windows API binding upgrade/downgrade is intended.
 
 Studio #290 also preserves Windows button notifications when Explorer returns no icon rectangle. A click then reports the cursor position and zero size, and the native menu uses its normal cursor anchor. Hover events still require real bounds. The v0.7.2 Windows baseline discarded both left and right clicks on this path.
+
+Studio verifies that Explorer still recognizes the tray icon before hiding a window. The Windows-only guard tries NIM_MODIFY with the existing callback and retries NIM_ADD when registration is missing. This leaves the existing icon and tooltip intact when Explorer still knows the icon, including overflow entries without a rectangle.

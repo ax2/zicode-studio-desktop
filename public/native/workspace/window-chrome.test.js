@@ -4,7 +4,7 @@ import { setupWindowChrome } from "./window-chrome.js";
 let view;
 afterEach(() => { view?.dispose(); view = null; document.body.replaceChildren(); });
 function setup(invoke = vi.fn(async () => ({ maximized: false, fullscreen: false }))) {
-  document.body.innerHTML = '<div class="app-layout"><div class="session-header"><button class="existing">Existing tool</button></div></div>';
+  document.body.innerHTML = '<div class="app-layout"><div class="session-header"><button class="existing">Existing tool</button><div id="page-header-actions"><div class="browser-tab-strip"><button role="tab"><span>Open tab</span></button></div></div></div></div>';
   const report = vi.fn(); view = setupWindowChrome({ invoke, report }); return { invoke, report };
 }
 it("shares controls outside the changing page content and calls only the owning window command", async () => {
@@ -17,10 +17,18 @@ it("shares controls outside the changing page content and calls only the owning 
 });
 it("keeps drag gestures out of tool buttons and tab content", () => {
   const h = setup(); h.invoke.mockClear();
-  document.querySelector('.existing').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, detail: 1 }));
+  const press = (selector, button = 0) => document.querySelector(selector).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button, detail: 1 }));
+  press('.existing');
+  press('[role="tab"] span');
+  press('.browser-tab-strip', 2);
   expect(h.invoke).not.toHaveBeenCalled();
-  document.querySelector('.window-drag-handle').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, detail: 1 }));
-  expect(h.invoke).toHaveBeenCalledWith('desktop_window_control', { action: 'drag' });
+  expect(document.querySelector('#page-header-actions').previousElementSibling.matches('.window-drag-handle')).toBe(true);
+  press('.window-drag-handle');
+  press('.browser-tab-strip');
+  expect(h.invoke.mock.calls).toEqual([
+    ['desktop_window_control', { action: 'drag' }],
+    ['desktop_window_control', { action: 'drag' }],
+  ]);
 });
 it("coalesces repeated clicks while a native maximize is pending and reports errors", async () => {
   let finish; const h = setup(vi.fn(action => action === 'unused' ? undefined : Promise.resolve({ maximized: false, fullscreen: false })));

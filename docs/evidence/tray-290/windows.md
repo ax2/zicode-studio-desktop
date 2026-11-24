@@ -14,3 +14,11 @@ The harness first hid the Studio window with WM_CLOSE. It delivered right and le
 The native popup was inspected through its Win32 menu handle and dismissed between checks. The patched process also displayed the native confirmation dialog when its quit command was selected.
 
 The isolated process ran at low integrity. Explorer exposed a single Studio icon whose ownership could not be established without interacting with the daily instance. Physical mouse delivery from Explorer to a standard-user Studio icon remains for consolidated desktop acceptance.
+
+## November 24 release candidate follow-up
+
+The first consolidated acceptance candidate inherited a Low integrity executable label from the staging directory. Its exact binary failed to register the tray and hid the main window on close. Staging the same bytes in a normal user directory produced a Medium integrity process and passed two Windows close/restore cycles with Explorer registration.
+
+The patched v0.7.3 Windows executable had SHA-256 511035812AE9BF8C62B05273EE9B90F587EAB62075A62CEB20747C74646A83A9. At Medium integrity it passed two close/restore cycles, including one after explicitly removing only the probe instance's own Explorer entry. The close handler restored that entry and the left-button callback restored the original window. At Low integrity the patched process could not register the icon and minimized the same window to the taskbar. Both paths saved the restore geometry.
+
+The shared shell now shows a drag grip before the page controls. Blank portions of the browser tab and Notes toolbars also initiate drag; button, tab and right-button input are excluded. The workspace and browser suites passed 290 frontend tests. These checks cover native Windows close, Explorer registration, targeted tray notifications and frontend drag handling. Physical grip movement and Explorer menu acceptance are tracked in issue #290.
