@@ -20,6 +20,8 @@ export function browserAnalysisArtifact(capture, analysis) {
     for (const [index, entry] of sources.entries()) {
       details.push(`[${index + 1}] ${entry.title || entry.url}`, entry.url,
         `${t("Captured at")}: ${entry.capturedAt}`, `${t("Document revision")}: ${entry.documentRevision}`);
+      if (entry.selectionOnly) details.push(t("Source text") + ": " + t("Selected text"));
+      if (entry.selectionOnly && entry.selectionTruncated) details.push(t("Selected text was shortened"));
     }
   }
   if (source.image) {

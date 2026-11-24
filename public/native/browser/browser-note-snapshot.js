@@ -93,7 +93,9 @@ function browserAnalysisNoteContent(source, analysis, capture) {
       line("Source", entry.url),
       line("Captured at", entry.capturedAt),
       line("Document revision", entry.documentRevision),
-    ]),
+      entry.selectionOnly && line("Source text", t("Selected text")),
+      entry.selectionOnly && entry.selectionTruncated && t("Selected text was shortened"),
+    ].filter(Boolean)),
   ] : [];
   return [
     `## ${t(heading)}`,

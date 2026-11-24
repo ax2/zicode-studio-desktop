@@ -371,7 +371,7 @@ async function openControlledComparison(options) {
   (await waitFor(() => getByRole(host, "button", { name: "Compare open tabs" }))).click();
   const group = getByRole(host, "group", { name: "Compare open tabs" });
   const panel = within(group);
-  panel.getByRole("checkbox", { name: /Chosen page/ }).click();
+  panel.getByRole("checkbox", { name: /^Chosen page/ }).click();
   return { host, group, panel, readTabs };
 }
 
@@ -459,7 +459,7 @@ it("cancels an in-flight comparison read by Escape, keeps the selection and disc
     return new Promise(resolve => { finishOld = () => resolve({ ...source, page: { ...source.page, title: "Old delayed result" } }); });
   };
   const { group, panel, readTabs } = await openControlledComparison({ capturePage, handoff, target });
-  const extra = panel.getByRole("checkbox", { name: /Extra page/ });
+  const extra = panel.getByRole("checkbox", { name: /^Extra page/ });
   extra.click();
   const read = panel.getByRole("button", { name: "Read selected tabs" });
   const draft = panel.getByRole("button", { name: "Prepare comparison draft" });
@@ -471,7 +471,7 @@ it("cancels an in-flight comparison read by Escape, keeps the selection and disc
   cancel.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
   expect(group.isConnected).toBe(true);
   expect(extra.checked).toBe(true);
-  expect(panel.getByRole("checkbox", { name: /Chosen page/ }).checked).toBe(true);
+  expect(panel.getByRole("checkbox", { name: /^Chosen page/ }).checked).toBe(true);
   expect(panel.getByRole("status").textContent).toBe("Comparison cancelled. Your selections are kept.");
   expect(document.activeElement).toBe(read);
   expect(draft.disabled).toBe(true);
@@ -606,6 +606,91 @@ it("sends only the reviewed comparison to the configured browser model and keeps
   expect(readTabs()).toEqual(["source", "chosen", "source", "chosen"]);
 });
 
+it("uses the reviewed selection scope independently for each comparison source", async () => {
+  const modelGateway = comparisonGateway();
+  const handoff = vi.fn(), writes = new Map();
+  vi.stubGlobal("fetch", vi.fn(async (url, options) => {
+    if (url.pathname === "/v2/notes") return Response.json({ snapshot: { notebooks: [{ id: "book", title: "Research" }] } });
+    const body = JSON.parse(options.body);
+    writes.set(url.pathname, body);
+    if (url.pathname === "/v2/artifacts/create") return Response.json({ artifact: { id: "report" } });
+    if (url.pathname === "/v2/notes/create") return Response.json({ note: { ...body, id: "note" } });
+    throw Error("Unexpected request");
+  }));
+  const capturePage = source => source.tab === "chosen" ? { ...source, page: {
+    ...source.page, text: "Peer full-page material", textTruncated: true,
+    selection: "Peer reviewed selection", selectionTruncated: false,
+  } } : source;
+  const { host, panel } = await openControlledComparison({ handoff, capturePage, target: browserComparisonSession, modelGateway });
+  panel.getByRole("button", { name: "Read selected tabs" }).click();
+  const checkbox = await panel.findByRole("checkbox", { name: "Use only selected text · [2] Chosen page" });
+  const excerpts = panel.getAllByRole("textbox", { name: "Comparison source text" });
+  expect(excerpts[1].value).toContain("Peer full-page material");
+  const send = panel.getByRole("button", { name: "Send reviewed tabs and compare" });
+  expect(checkbox.checked).toBe(false);
+  checkbox.click();
+  expect(excerpts[1].value).toBe("Peer reviewed selection");
+  expect(excerpts[0].value).toContain(capture.page.text);
+  expect(modelRequests(modelGateway)).toHaveLength(0);
+  send.click();
+  await waitFor(() => getByRole(host, "textbox", { name: "Browser model answer" }));
+  expect(within(getByRole(host, "list", { name: "Comparison sources" })).getAllByRole("listitem")[1].textContent)
+    .toContain("Selected text");
+  const [, request] = modelRequests(modelGateway)[0];
+  expect(request.prompt).not.toContain("Peer full-page material");
+  const { sources } = JSON.parse(request.prompt.slice(request.prompt.indexOf("{\n")));
+  expect(sources[0]).toMatchObject({ text: capture.page.text, citation: "[1]" });
+  expect(sources[1]).toMatchObject({ selection: "Peer reviewed selection", selectionOnly: true,
+    selectionTruncated: false, truncated: false, citation: "[2]", url: "https://example.invalid/chosen" });
+  expect(sources[1]).not.toHaveProperty("text");
+  expect(sources[1]).not.toHaveProperty("textTruncated");
+
+  getByRole(host, "button", { name: "Save analysis to Artifacts" }).click();
+  await waitFor(() => getByRole(host, "button", { name: "Open saved artifact" }));
+  getByRole(host, "button", { name: "Save analysis to Notes" }).click();
+  const note = within(getByRole(host, "group", { name: "Save analysis to Notes" }));
+  const saveNote = note.getByRole("button", { name: "Save analysis to notebook" });
+  await waitFor(() => expect(saveNote.disabled).toBe(false));
+  saveNote.click();
+  await waitFor(() => getByRole(host, "button", { name: "Open saved note" }));
+  const artifact = writes.get("/v2/artifacts/create");
+  expect(artifact.provenance.sources[0]).not.toHaveProperty("selectionOnly");
+  expect(artifact.provenance.sources[1]).toMatchObject({ selectionOnly: true, selectionTruncated: false });
+  expect(artifact.content).toContain("Source text: Selected text");
+  expect(writes.get("/v2/notes/create").content).toContain("Source text: Selected text");
+
+  panel.getByRole("button", { name: "Prepare comparison draft" }).click();
+  await waitFor(() => expect(handoff).toHaveBeenCalledOnce());
+  expect(handoff.mock.calls[0][0].prompt).toBe(request.prompt);
+});
+
+it("keeps the selection-only scope after rereading a tab that no longer has selected text", async () => {
+  let chosenSelection = "First review";
+  const capturePage = source => source.tab === "chosen" ? { ...source, page: {
+    ...source.page, text: "Latest page excerpt", selection: chosenSelection,
+  } } : source;
+  const handoff = vi.fn();
+  const { panel } = await openControlledComparison({ handoff, capturePage, target: browserComparisonSession, modelGateway: comparisonGateway() });
+  const read = panel.getByRole("button", { name: "Read selected tabs" });
+  const send = panel.getByRole("button", { name: "Send reviewed tabs and compare" });
+  const draft = panel.getByRole("button", { name: "Prepare comparison draft" });
+  read.click();
+  (await panel.findByRole("checkbox", { name: "Use only selected text · [2] Chosen page" })).click();
+  chosenSelection = "";
+  read.click();
+  await waitFor(() => expect(panel.getByText("No selected text is available for this source. Select some text and read the tabs again, or use its page excerpt.")).toBeTruthy());
+  const choice = panel.getByRole("checkbox", { name: "Use only selected text · [2] Chosen page" });
+  expect(choice.checked).toBe(true);
+  expect(send.disabled).toBe(true);
+  expect(draft.disabled).toBe(true);
+  expect(panel.getAllByRole("textbox", { name: "Comparison source text" })).toHaveLength(1);
+  choice.click();
+  expect(draft.disabled).toBe(false);
+  expect(panel.getAllByRole("textbox", { name: "Comparison source text" })[1].value).toBe("Latest page excerpt");
+  expect(handoff).not.toHaveBeenCalled();
+});
+
+
 it("does not submit a reviewed tab after a same-address replacement", async () => {
   const modelGateway = comparisonGateway();
   let chosenReads = 0;
@@ -619,7 +704,7 @@ it("does not submit a reviewed tab after a same-address replacement", async () =
   send.click();
   await waitFor(() => expect(host.textContent).toContain("Page or conversation changed. Read the page again."));
   expect(modelRequests(modelGateway)).toHaveLength(0);
-  expect(panel.getByRole("checkbox", { name: /Chosen page/ }).checked).toBe(true);
+  expect(panel.getByRole("checkbox", { name: /^Chosen page/ }).checked).toBe(true);
   expect(queryByRole(host, "textbox", { name: "Browser model answer" })).toBeNull();
 });
 
@@ -651,14 +736,14 @@ it("can cancel both comparison source verification and a running request without
   await waitFor(() => expect(send.disabled).toBe(false));
   expect(modelRequests(modelGateway)).toHaveLength(1);
   expect(queryByRole(host, "textbox", { name: "Browser model answer" })).toBeNull();
-  expect(panel.getByRole("checkbox", { name: /Chosen page/ }).checked).toBe(true);
+  expect(panel.getByRole("checkbox", { name: /^Chosen page/ }).checked).toBe(true);
 });
 
 it("keeps an oversized reviewed comparison available for a draft without sending it to Pi", async () => {
   const modelGateway = comparisonGateway(), handoff = vi.fn();
   const capturePage = source => ({ ...source, page: { ...source.page, text: "\u0001".repeat(12_000), selection: "\u0001".repeat(4_000) } });
   const { panel } = await openControlledComparison({ handoff, target: browserComparisonSession, modelGateway, capturePage });
-  panel.getByRole("checkbox", { name: /Extra page/ }).click();
+  panel.getByRole("checkbox", { name: /^Extra page/ }).click();
   panel.getByRole("button", { name: "Read selected tabs" }).click();
   const send = panel.getByRole("button", { name: "Send reviewed tabs and compare" });
   const draft = panel.getByRole("button", { name: "Prepare comparison draft" });

@@ -1,5 +1,5 @@
 import { t } from "../../i18n.js";
-import { appendPartialCapture } from "./browser-capture-status.js";
+import { showBrowserComparisonEvidence } from "./browser-comparison-evidence.js";
 
 const maxPeers = 2;
 const textLimit = 12000;
@@ -62,44 +62,30 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
   panel.append(choices, toolbar);
   if (direct) panel.append(direct.notice);
   panel.append(status, preview);
-  let reviewed = null, pending = null;
+  const selectionOnlyTabs = new Set();
+  let review, reviewed = null, pending = null;
   const selected = () => inputs.filter(({ input }) => input.checked);
   function update() {
     const count = selected().length;
     const blocked = Boolean(pending) || !canStart();
     read.disabled = blocked || count < 1;
     draft.disabled = blocked || !reviewed;
+    review?.setDisabled(blocked);
     direct?.setSources(reviewed);
     cancel.hidden = !pending;
     cancel.classList.toggle("hidden", cancel.hidden);
     for (const { input } of inputs) input.disabled = blocked || (!input.checked && count >= maxPeers);
   }
-  function clearReview() { reviewed = null; preview.replaceChildren(); status.textContent = ""; update(); }
-  function showReview(sources) {
-    for (const [index, source] of sources.entries()) {
-      const details = document.createElement("details");
-      details.open = Boolean(direct);
-      const summary = document.createElement("summary"); summary.textContent = `[${index + 1}] ${source.title || source.url}`;
-      if (source.truncated) appendPartialCapture(summary);
-      const url = document.createElement("p"); url.textContent = source.url;
-      const time = document.createElement("p"); time.textContent = `${t("Captured at")}: ${source.capturedAt}`;
-      const excerpt = document.createElement("textarea"); excerpt.className = "ui-textarea"; excerpt.readOnly = true;
-      excerpt.setAttribute("aria-label", t("Comparison source text"));
-      excerpt.value = [source.selection && `${t("Selected text")}\n${source.selection}`, source.text].filter(Boolean).join("\n\n");
-      details.append(summary, url, time);
-      const notices = [
-        source.textTruncated && "Page content was shortened",
-        source.selectionTruncated && "Selected text was shortened",
-      ].filter(Boolean);
-      for (const key of notices) {
-        const limit = document.createElement("p");
-        limit.dataset.i18nText = key;
-        limit.textContent = t(key);
-        details.append(limit);
-      }
-      details.append(excerpt);
-      preview.append(details);
-    }
+  function clearReview() {
+    review = undefined;
+    reviewed = null;
+    preview.replaceChildren();
+    status.textContent = "";
+    update();
+  }
+  function refreshReview() {
+    reviewed = review.material();
+    update();
   }
   function finish(job) {
     if (pending !== job) return;
@@ -143,9 +129,8 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
         if (!current() || !isOpen()) return;
         sources.push(comparisonSource(page));
       }
-      preview.replaceChildren();
-      showReview(sources);
-      reviewed = sources;
+      review = showBrowserComparisonEvidence(preview, sources, selectionOnlyTabs, Boolean(direct), refreshReview);
+      refreshReview();
       status.textContent = t(direct ? "Review the excerpts before sending." : "Review the sources, then prepare an unsent draft.");
     });
   });
