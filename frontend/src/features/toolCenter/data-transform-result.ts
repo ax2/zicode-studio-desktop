@@ -72,40 +72,70 @@ function stringPair(value: unknown): value is [string, string] {
   );
 }
 
+function parseExactTableJson(text: string): unknown {
+  if (text.length > byteLimit || new TextEncoder().encode(text).length > byteLimit)
+    throw new Error("Table exceeds the result limit");
+  return JSON.parse(text, (_key, value: unknown, context?: { source?: string }) => {
+    if (typeof value !== "number") return value;
+    // Older engines can display safe numbers but cannot prove the original token for reuse.
+    if (context?.source) return new ExactNumber(context.source);
+    if (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value)))
+      throw new Error("Numeric token unavailable");
+    return new ExactNumber(JSON.stringify(value), false);
+  });
+}
+
+export function validTableHeaders(headers: unknown): headers is string[] {
+  return (
+    Array.isArray(headers) &&
+    headers.length > 0 &&
+    headers.length <= columnLimit &&
+    headers.every((header) => typeof header === "string" && header.trim().length > 0) &&
+    new Set(headers).size === headers.length
+  );
+}
+
 function readTableResult(text: string) {
-  if (text.length > byteLimit || new TextEncoder().encode(text).length > byteLimit) return null;
   try {
-    const parsed: unknown = JSON.parse(
-      text,
-      (_key, value: unknown, context?: { source?: string }) => {
-        if (typeof value !== "number") return value;
-        // Older engines do not expose the original token. Prefer the full text
-        // view if that engine has already rounded an integer in a table cell.
-        if (context?.source) return new ExactNumber(context.source);
-        if (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value))) {
-          throw new Error("Numeric token unavailable");
-        }
-        return new ExactNumber(JSON.stringify(value), false);
-      },
-    );
-    const result = object(parsed);
+    const result = object(parseExactTableJson(text));
     const table = object(result?.data);
     const headers = table?.headers;
     const rows = table?.rows;
     if (
       !result ||
-      !Array.isArray(headers) ||
-      headers.length === 0 ||
-      headers.length > columnLimit ||
-      headers.some((header) => typeof header !== "string" || !header.trim()) ||
-      new Set(headers).size !== headers.length ||
+      !validTableHeaders(headers) ||
       !Array.isArray(rows) ||
       rows.length > rowLimit ||
       !rows.every((row) => Array.isArray(row) && row.length === headers.length)
     )
       return null;
 
-    return { result, headers: headers as string[], rows: rows as unknown[][] };
+    return { result, headers, rows: rows as unknown[][] };
+  } catch {
+    return null;
+  }
+}
+
+export function workbenchJsonTableInput(
+  headers: string[],
+  text: string,
+  rowCount: number,
+): string | null {
+  try {
+    const parsed = parseExactTableJson(text);
+    if (!Array.isArray(parsed) || parsed.length !== rowCount || parsed.length > rowLimit)
+      return null;
+    const rows = parsed.map((item) => {
+      const row = object(item);
+      if (
+        !row ||
+        Object.keys(row).length !== headers.length ||
+        !headers.every((key) => Object.hasOwn(row, key))
+      )
+        throw new Error("Mismatched table columns");
+      return headers.map((key) => row[key]);
+    });
+    return encodeTableInput(headers, rows);
   } catch {
     return null;
   }

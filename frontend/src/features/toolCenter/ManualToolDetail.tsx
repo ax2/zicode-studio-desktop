@@ -16,6 +16,7 @@ import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
 import { dataMergePreview, dataTransformPreview, isDataTransform, type MergePreview, type TransformPreview } from "./data-transform-result";
 import { prepareTransformApply, type TransformInput } from "./data-transform-apply";
 import { MergeResultActions } from "./MergeResultActions";
+import { prepareWorkbenchApply, type WorkbenchDraft } from "./data-workbench-apply";
 import { prepareMergeApply, type MergeSide } from "./data-merge-apply";
 import { readManualToolFile, tableFileFormats, type ToolFileTarget } from "./manual-tool-file";
 
@@ -59,7 +60,7 @@ export interface ManualToolDetailProps {
 
 interface ToolDraft {
   values: Record<string, string>;
-  undo?: { identity: string; values: Record<string, string>; kind: "apply" | "import"; mergeSide?: MergeSide };
+  undo?: { identity: string; values: Record<string, string>; kind: "apply" | "import"; mergeSide?: MergeSide; scopeBound?: boolean };
 }
 
 interface DraftExecution {
@@ -71,6 +72,7 @@ interface DraftExecution {
 
 type TableExecution = DraftExecution & (
   | { kind: "transform"; preview: TransformPreview; next: TransformInput | null }
+  | { kind: "workbench"; next: WorkbenchDraft | null }
   | { kind: "merge"; preview: MergePreview; next: Record<MergeSide, Record<string, string> | null> }
 );
 
@@ -95,6 +97,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const [tableExecution, setTableExecution] = useState<TableExecution | null>(null);
   const transformed = tableExecution?.kind === "transform" ? tableExecution : null;
   const merged = tableExecution?.kind === "merge" ? tableExecution : null;
+  const singleDraft = tableExecution?.kind === "workbench" ? tableExecution : transformed;
   const executionSequence = useRef(0);
   const [captured, setCaptured] = useState<CapturedToolResponse | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -141,6 +144,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const rightMergeTarget = independentMerge ? "merge-right" : "right";
   const tableWorkbench = computePlugin &&
     ["json", "csv", "query"].some(mode => tool.capabilityId === `devtools.compute.table.${mode}`);
+  const workbenchApply = tableWorkbench && tool.version === "0.2.0" && detail?.version === tool.version;
   const qualityFormat = computePlugin
     ? tableFileFormats.find(format => tool.capabilityId === "devtools.compute.quality." + format)
     : undefined;
@@ -158,23 +162,25 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     draftOwner.current = { identity: transformIdentity, api, sequence: 0 };
     setFileLoading(null);
     setRecording(false);
-    setTableExecution(current => current?.kind === "merge" ? null : current);
-    setDraft(current => current.undo?.mergeSide ? { values: current.values } : current);
+    setTableExecution(current => current?.kind === "transform" ? current : null);
+    setDraft(current => current.undo?.scopeBound ? { values: current.values } : current);
     return () => { draftOwner.current = null; };
   }, [transformIdentity, api]);
   const ownsUndo = undo?.identity === transformIdentity;
   const inputsCurrent = tableExecution?.identity === transformIdentity &&
     tableExecution.sequence === executionSequence.current && tableExecution.api === api && tableExecution.source === values;
   const applyAllowed = inputsCurrent && supported && !resourceTool && tool.enabled && detail?.enabled && !editingLocked;
-  const alreadyCurrent = inputsCurrent && transformed?.next?.text === values.text &&
-    transformed?.next?.options === values.options;
-  const canApply = applyAllowed && Boolean(transformed?.next) && !alreadyCurrent;
+  const alreadyCurrent = inputsCurrent && singleDraft?.next?.text === values.text &&
+    singleDraft?.next?.options === values.options;
+  const canApply = applyAllowed && Boolean(singleDraft?.next) && !alreadyCurrent &&
+    (singleDraft?.kind !== "workbench" || workbenchApply);
   const applied = ownsUndo && undo?.kind === "apply" && undo.values === tableExecution?.source;
   function applyResult(next: TransformInput | Record<string, string> | null, mergeSide?: MergeSide) {
     if (!applyAllowed || !tableExecution || !next || tableExecution.sequence !== executionSequence.current) return;
     const { source } = tableExecution;
     setDraft(current => current.values === source
-      ? { values: { ...source, ...next }, undo: { identity: transformIdentity, values: source, kind: "apply", mergeSide } }
+      ? { values: { ...source, ...next }, undo: { identity: transformIdentity, values: source, kind: "apply",
+        mergeSide, scopeBound: tableExecution.kind !== "transform" } }
       : current);
   }
 
@@ -227,7 +233,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     try {
       const response = await call.run({ ...scope, pluginId: tool.pluginId, capabilityId: tool.capabilityId,
         input: prepared.input, catalogRevision: detail.revision, ...(supportsResultActions(api) ? { captureResult: true } : {}) });
-      if (!isLatest() || (independentMerge && !ownsExecution())) return;
+      if (!isLatest() || ((independentMerge || workbenchApply) && !ownsExecution())) return;
       const outcome = manualToolResult(response.result);
       const wire = response.result;
       const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
@@ -239,6 +245,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
           const right = prepareMergeApply("right", fields, values, preview.input);
           setTableExecution({ identity: transformIdentity, sequence, api, source: values, kind: "merge", preview, next: { left, right } });
         }
+      } else if (workbenchApply && outcome.successful && declared) {
+        const draft = prepareWorkbenchApply(tool.capabilityId, values, outcome.text);
+        const next = draft && !("error" in prepareToolInput(fields, { text: draft.text, options: draft.options })) ? draft : null;
+        setTableExecution({ identity: transformIdentity, sequence, api, source: values, kind: "workbench", next });
       } else if (dataTransform && outcome.successful) {
         const preview = dataTransformPreview(outcome.text);
         if (preview) {
@@ -343,16 +353,18 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       tableActions={merged ? <MergeResultActions
         enabled={Boolean(applyAllowed)} current={inputsCurrent} applied={applied ? undo?.mergeSide : undefined}
         left={Boolean(merged.next.left)} right={Boolean(merged.next.right)}
-        onApply={side => applyResult(merged.next[side], side)} /> : transformed && <div className="ui-toolbar">
+        onApply={side => applyResult(merged.next[side], side)} /> : singleDraft && <div className="ui-toolbar">
         {applied
-          ? <span role="status">{t("Applied to the input as a JSON table.")}</span>
+          ? <span role="status">{singleDraft.kind === "workbench" && singleDraft.next && singleDraft.next.format !== "json"
+              ? t("Applied to the input as {format}.").replace("{format}", singleDraft.next.format.toUpperCase())
+              : t("Applied to the input as a JSON table.")}</span>
           : alreadyCurrent ? <span role="status">{t("The result already matches the input.")}</span>
             : <>
             <button type="button" className="ui-button ui-button--secondary" disabled={!canApply}
-              onClick={() => applyResult(transformed.next)}>{t("Apply to input")}</button>
+              onClick={() => { if (canApply && singleDraft.next) applyResult({ text: singleDraft.next.text, options: singleDraft.next.options }); }}>{t("Apply to input")}</button>
             {!inputsCurrent
               ? <span className="tool-center-source">{t("The inputs changed. Run the tool again to apply a current result.")}</span>
-              : !transformed.next && <span className="tool-center-source">{t("This result cannot be applied within the tool’s input contract.")}</span>}
+              : !singleDraft.next && <span className="tool-center-source">{t("This result cannot be applied within the tool’s input contract.")}</span>}
           </>}
       </div>}
       sectionRef={resultRef} onBackToInputs={supported ? () => jumpTo(formRef.current) : undefined} />}

@@ -581,7 +581,7 @@ it.runIf(Boolean(hasWorkbench)).each(workbenchFileCases)(
   "imports $inputFormat and runs the workbench $operation through the frozen Windows Worker",
   async ({ operation, inputFormat, input, settings, inputRows, selectedRows, outputFormat, output }) => {
     const { api } = mount(runFrozenWorker, "devtools.compute.table." + operation);
-    const { opts } = await fill("", JSON.stringify(settings));
+    const { source, opts } = await fill("", JSON.stringify(settings));
     importFile(new NodeFile([input], "table." + inputFormat));
     await screen.findByRole("button", { name: "Undo last import" });
     expect(api.invoke).not.toHaveBeenCalled();
@@ -593,5 +593,70 @@ it.runIf(Boolean(hasWorkbench)).each(workbenchFileCases)(
     const report = JSON.parse(response.data.text);
     expect(report).toMatchObject({ inputRows, selectedRows, format: outputFormat });
     expect(outputFormat === "json" ? JSON.parse(report.text) : report.text).toEqual(output);
+    const before = { text: source.value, options: opts.value };
+    await waitFor(() => expect(button("Apply to input").disabled).toBe(false));
+    fireEvent.click(button("Apply to input"));
+    const applied = outputFormat === "json" ? '{"headers":["name","city"],"rows":[["张,三","北京"]]}' : report.text;
+    expect(source.value).toBe(applied);
+    expect(JSON.parse(opts.value)).toEqual({ format: outputFormat, ...settings });
+    expect(api.invoke).toHaveBeenCalledTimes(1);
+    run();
+    await screen.findByText("Tool completed");
+    expect(api.invoke.mock.calls[1][4]).toEqual({ text: applied, options: opts.value });
+    fireEvent.click(button("Undo last application"));
+    expect({ text: source.value, options: opts.value }).toEqual(before);
   }, 25_000,
 );
+
+const workbenchEnvelope = (text: string) => ({ contractVersion: "1.0.0-rc.1", ok: true, data: {
+  text: JSON.stringify({ format: "csv", columns: ["id"], text, inputRows: 1, selectedRows: 1 }),
+}, error: null });
+
+it("blocks a workbench result from replacing an edited or reopened draft", async () => {
+  const envelope = workbenchEnvelope("id\n42\n");
+  const { view, props, api } = mount(async () => ({ result: envelope }), "devtools.compute.table.csv");
+  const { source } = await fill("id\n7", '{"format":"csv"}');
+  run();
+  await waitFor(() => expect(button("Apply to input").disabled).toBe(false));
+  fireEvent.change(source, { target: { value: "id\n8" } });
+  expect(button("Apply to input").disabled).toBe(true);
+  run();
+  await waitFor(() => expect(button("Apply to input").disabled).toBe(false));
+  view.rerender(<ManualToolDetail {...props} scope={{ ...props.scope, workspaceId: "other" }} />);
+  view.rerender(<ManualToolDetail {...props} />);
+  expect(screen.queryByRole("button", { name: "Apply to input" })).toBeNull();
+  expect(source.value).toBe("id\n8");
+  expect(api.invoke).toHaveBeenCalledTimes(2);
+});
+
+it("keeps an oversized workbench result and its original draft available", async () => {
+  const result = workbenchEnvelope("id\n" + "文".repeat(2731) + "\n");
+  const { api } = mount(async () => ({ result }), "devtools.compute.table.csv");
+  const { source } = await fill("id\n7", '{"format":"csv"}');
+  run();
+  await waitFor(() => expect(button("Apply to input").disabled).toBe(true));
+  expect(screen.getByText("This result cannot be applied within the tool’s input contract.")).toBeTruthy();
+  expect((screen.getByLabelText("Original response") as HTMLTextAreaElement).value).toContain("文".repeat(30));
+  expect(source.value).toBe("id\n7");
+  expect(api.invoke).toHaveBeenCalledTimes(1);
+});
+
+it.runIf(Boolean(hasWorkbench))("reapplies empty and exact JSON workbench results with their original column order", async () => {
+  const { api } = mount(runFrozenWorker, "devtools.compute.table.query");
+  const original = '{"headers":["z","a"],"rows":[["keep",18446744073709551615],["skip",-9223372036854775808]]}';
+  const { source, opts } = await fill(original, '{"format":"json","query":"keep","sort":"z"}');
+  run();
+  await waitFor(() => expect(button("Apply to input").disabled).toBe(false));
+  fireEvent.click(button("Apply to input"));
+  expect(source.value).toBe('{"headers":["z","a"],"rows":[["keep",18446744073709551615]]}');
+  fireEvent.change(opts, { target: { value: '{"format":"json","query":"none","sort":"z"}' } });
+  run();
+  await waitFor(() => expect(button("Apply to input").disabled).toBe(false));
+  fireEvent.click(button("Apply to input"));
+  expect(source.value).toBe('{"headers":["z","a"],"rows":[]}');
+  run();
+  await screen.findByText("The result already matches the input.");
+  expect(api.invoke.mock.calls[2][4]).toEqual({ text: source.value, options: opts.value });
+  fireEvent.click(button("Undo last application"));
+  expect(source.value).toBe('{"headers":["z","a"],"rows":[["keep",18446744073709551615]]}');
+}, 25_000);

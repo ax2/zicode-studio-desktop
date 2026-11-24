@@ -1,5 +1,5 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
-type TableFileFormat = typeof tableFileFormats[number];
+export type TableFileFormat = typeof tableFileFormats[number];
 export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
@@ -20,7 +20,7 @@ const transformOptions = new Set(["format", "column", "value"]);
 const workbenchOptions = new Set(["format", "query", "sort", "output"]);
 const mergeOptions = new Set(["format", "left_key", "right_key", "right"]);
 
-function tableSettings(source: string, target: ToolFileTarget): TableSettings {
+export function tableSettings(source: string, target: ToolFileTarget): TableSettings {
   try {
     const parsed: unknown = source.trim() ? JSON.parse(source) : {};
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw Error();
