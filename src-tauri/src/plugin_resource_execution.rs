@@ -29,6 +29,9 @@ pub(crate) fn json_file_input_count(
 }
 pub(crate) const IMAGE_RESIZE_PROFILE: &str = "resource.wasi.image.resize.v1";
 pub(crate) const IMAGE_RESIZE_PROFILE_VERSION: &str = "1.0.0-preview.1";
+pub(crate) const IMAGE_CROP_PROFILE: &str = "resource.wasi.image.crop.v1";
+pub(crate) const IMAGE_CROP_PLUGIN_ID: &str = "com.zicode.devtools.image-crop";
+pub(crate) const IMAGE_CROP_CAPABILITY_ID: &str = "devtools.image.crop";
 pub(crate) const IMAGE_RESIZE_MEMORY_MIB: usize = 256;
 pub(crate) const IMAGE_RESIZE_FUEL: u64 = 30_000_000_000;
 pub(crate) const IMAGE_RESIZE_TIMEOUT_SECS: u64 = 10;
@@ -125,6 +128,10 @@ pub(crate) fn inspect_image(
 
 pub(crate) fn is_image_resize_profile(profile: Option<&str>) -> bool {
     profile == Some(IMAGE_RESIZE_PROFILE)
+}
+
+pub(crate) fn is_image_processing_profile(profile: Option<&str>) -> bool {
+    matches!(profile, Some(IMAGE_RESIZE_PROFILE | IMAGE_CROP_PROFILE))
 }
 
 #[cfg(test)]

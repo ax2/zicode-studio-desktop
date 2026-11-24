@@ -414,7 +414,7 @@ fn execute(
         let capability = registry
             .capability(&target.scene_id, &owner.plugin_id, &owner.capability_id)
             .ok_or_else(|| rejected("capability_unavailable"))?;
-        let image_resize_profile = crate::plugin_resource_execution::is_image_resize_profile(
+        let image_processing_profile = crate::plugin_resource_execution::is_image_processing_profile(
             capability.execution_profile.as_deref(),
         );
         let regex_replace_profile =
@@ -424,7 +424,7 @@ fn execute(
         let digest_profile = crate::plugin_resource_execution::file_digest::selected(capability.execution_profile.as_deref());
         let encoding_profile = crate::plugin_resource_execution::encoding::operation(capability.execution_profile.as_deref());
         let json_compare_profile = crate::plugin_resource_execution::json_file_selected(capability.execution_profile.as_deref());
-        if capability.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !json_compare_profile && encoding_profile.is_none()
+        if capability.execution_profile.is_some() && !image_processing_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !json_compare_profile && encoding_profile.is_none()
         {
             return Err(rejected("resource_execution_profile_unsupported"));
         }
@@ -435,7 +435,7 @@ fn execute(
             return Err(rejected("resource_profile_unsupported"));
         }
         // Negotiated heavy profiles share the same global memory reservation pool.
-        let profile_lease = if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
+        let profile_lease = if image_processing_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
             let call_lease = state
                 .plugin_resource_workers
                 .image_profile_slots
@@ -501,7 +501,7 @@ fn execute(
     {
         return Err(rejected("resource_input_type_unsupported"));
     }
-    let image_resize_profile = crate::plugin_resource_execution::is_image_resize_profile(
+    let image_processing_profile = crate::plugin_resource_execution::is_image_processing_profile(
         output_contract.execution_profile.as_deref(),
     );
     let regex_replace_profile =
@@ -531,7 +531,7 @@ fn execute(
             .collect::<Vec<_>>();
         crate::plugin_resource_regex::validate_resources(&metadata).map_err(rejected)?;
     }
-    if image_resize_profile {
+    if image_processing_profile {
         if request.accesses().count() != 1 || resources.len() != 1 {
             return Err(rejected("resource_profile_unsupported"));
         }
@@ -556,8 +556,14 @@ fn execute(
         "sceneId":scene,"input":request.input
     });
     let metadata_profile=crate::plugin_resource_execution::metadata::selected(output_contract.execution_profile.as_deref());
-    if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
-        worker_request["executionProfile"] = json!(output_contract.execution_profile);
+    if image_processing_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
+        // The existing Worker profile selects shared image budgets, not an operation.
+        // The Host separately negotiates the precise crop contract and validates its output.
+        worker_request["executionProfile"] = if image_processing_profile {
+            json!(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE)
+        } else {
+            json!(output_contract.execution_profile)
+        };
     }
     if binary {
         worker_request["resourceOutputProfile"] =
@@ -615,7 +621,7 @@ fn execute(
                     crate::plugin_resource_execution::metadata::TIMEOUT_SECS
                 } else if markdown_profile {
                     crate::plugin_resource_execution::markdown::TIMEOUT_SECS
-                } else if image_resize_profile {
+                } else if image_processing_profile {
                     crate::plugin_resource_execution::IMAGE_RESIZE_TIMEOUT_SECS
                 } else if regex_replace_profile {
                     crate::plugin_resource_regex::TIMEOUT_SECS
@@ -666,7 +672,7 @@ fn execute(
             output::Profiles {
                 output: output_profile,
                 extended_output_types,
-                image_resize: image_resize_profile,
+                image_processing: image_processing_profile,
                 source_bytes: &resources.iter().map(|resource| resource.bytes.as_slice()).collect::<Vec<_>>(),
                 package_version: package_version.as_deref().unwrap_or_default(),
                 module: &module,

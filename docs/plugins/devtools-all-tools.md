@@ -1,3 +1,7 @@
+## 2026-11-25 开发补充：单张图片裁剪
+
+审核并启用独立 Image Crop 0.1.0 候选后，在工具中心按像素裁剪一张本机静态 PNG、JPEG 或 WebP。确认提供文件并手动执行后，可预览无损 PNG，或按现有确认流程另存新文件。原件和同名目标保留。见[资源边界和 Windows 验收](../iterations/2026-11-25-image-crop.md)。标注与可视选区继续见 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29)。
+
 ## 2026-11-24 开发补充：JSON Schema 离线校验
 
 在插件管理中审核并启用独立 JSON Schema 0.1.0 候选 01 后，可在工具中心搜索「JSON Schema 校验」。分别粘贴或导入 UTF-8 JSON 实例和根 Schema（各 8 KiB），点击「执行工具」。通过 Schema 的 `$schema` 声明选择 Draft 4、6、7，未声明时按 Draft 7。可用当前文档内部引用。数据不符合规则时，报告会给出脱敏错误和 JSON Pointer 路径，最多 100 项，长路径提前截断。
