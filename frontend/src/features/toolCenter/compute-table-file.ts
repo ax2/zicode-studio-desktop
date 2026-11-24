@@ -1,7 +1,13 @@
-export type TableFileTarget = "transform" | "left" | "right";
+export const tableFileFormats = ["csv", "tsv", "json"] as const;
+type TableFileFormat = typeof tableFileFormats[number];
+export type TableFileTarget = "transform" | "left" | "right" | TableFileFormat;
 
 const maxFileBytes = 8192; // Frozen Compute input limit in UTF-8 bytes.
-const formats = new Set(["csv", "tsv", "json"]);
+const formatError = {
+  csv: "Choose a CSV file.",
+  tsv: "Choose a TSV file.",
+  json: "Choose a JSON file.",
+};
 const transformOptions = new Set(["format", "column", "value"]);
 const mergeOptions = new Set(["format", "left_key", "right_key", "right"]);
 
@@ -25,14 +31,17 @@ function tableSettings(source: string, target: TableFileTarget): Record<string, 
 export async function readComputeTableFile(
   file: File, values: Record<string, string>, target: TableFileTarget,
 ): Promise<Record<string, string>> {
-  const format = file.name.split(".").pop()?.toLowerCase() ?? "";
-  if (!file.name.includes(".") || !formats.has(format)) {
+  const name = file.name.toLowerCase();
+  const format = tableFileFormats.find(extension => name.endsWith("." + extension));
+  const fixedFormat = tableFileFormats.find(extension => extension === target);
+  if (fixedFormat && format !== fixedFormat) throw Error(formatError[fixedFormat]);
+  if (!format) {
     throw Error("Choose a CSV, TSV, or JSON file.");
   }
   if (file.size > maxFileBytes) throw Error("Table files must be 8 KiB or smaller.");
 
   const previousOptions = values.options ?? "";
-  const settings = tableSettings(previousOptions, target);
+  const settings = fixedFormat ? {} : tableSettings(previousOptions, target);
   const otherTable = target === "left" ? settings.right : target === "right" ? values.text : undefined;
   if (typeof otherTable === "string" && otherTable.trim() && settings.format && settings.format !== format) {
     throw Error("Both tables must use the same file format.");
@@ -52,6 +61,8 @@ export async function readComputeTableFile(
     throw Error("The file must contain valid UTF-8 text.");
   }
   if (!text.trim()) throw Error("The selected table file is empty.");
+
+  if (fixedFormat) return { text };
 
   const options = target === "right" ? JSON.stringify({ ...settings, format, right: text })
     : settings.format === format ? previousOptions : JSON.stringify({ ...settings, format });

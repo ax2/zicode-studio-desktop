@@ -463,3 +463,64 @@ it.runIf(Boolean(worker && modulePath)).each([
   const response = JSON.parse((screen.getByLabelText("Original response") as HTMLTextAreaElement).value);
   expect(JSON.parse(response.data.text).csv).toBe(csv);
 }, 25_000);
+
+it.each(["csv", "tsv", "json"] as const)("imports only a %s quality file and restores the draft on undo", async format => {
+  const { api } = mount(undefined, "devtools.compute.quality." + format);
+  const { source, opts } = await fill("Original draft", "");
+  const picker = screen.getByLabelText("Table file") as HTMLInputElement;
+  expect(picker.accept).toBe("." + format);
+
+  importFile(new NodeFile(["table data"], "wrong.txt"));
+  expect((await screen.findByRole("alert")).textContent).toBe("Choose a " + format.toUpperCase() + " file.");
+  expect(source.value).toBe("Original draft");
+  expect(screen.queryByRole("button", { name: "Undo last import" })).toBeNull();
+
+  const original = "[{\"amount\":9223372036854775807}]";
+  importFile(new NodeFile(["\uFEFF", original], "quality." + format.toUpperCase()));
+  await screen.findByRole("button", { name: "Undo last import" });
+  expect(source.value).toBe(original);
+  expect(opts.value).toBe("");
+  fireEvent.change(picker, { target: { files: [] } });
+  expect(source.value).toBe(original);
+  expect(api.invoke).not.toHaveBeenCalled();
+
+  fireEvent.click(button("Undo last import"));
+  expect(source.value).toBe("Original draft");
+  expect(opts.value).toBe("");
+});
+
+const qualityFixtures = [
+  {
+    format: "json",
+    input: '[{"amount":9223372036854775807},{"amount":9223372036854775806},{"amount":" "},{"amount":null},{"amount":9223372036854775807},{}]',
+    rows: 6, duplicateRowsAfterFirst: 2,
+    column: { column: "amount", missingOrNull: 2, blankStrings: 1, types: { null: 2, number: 3, string: 1 }, mixedNonNullTypes: true },
+  },
+  ...["csv", "tsv"].map(format => {
+    const delimiter = format === "csv" ? "," : "\t";
+    return {
+      format, input: [["城市", "标签"], ["广州", "a"], ["广州", "a"], ["北京", " "]].map(row => row.join(delimiter)).join("\r\n"),
+      rows: 3, duplicateRowsAfterFirst: 1,
+      column: { column: "标签", missingOrNull: 0, blankStrings: 1, types: { string: 3 }, mixedNonNullTypes: false },
+    };
+  }),
+];
+
+it.runIf(Boolean(worker && modulePath)).each(qualityFixtures)(
+  "imports a $format file and reports quality through the frozen Windows Worker",
+  async ({ format, input, rows, duplicateRowsAfterFirst, column }) => {
+    const { api } = mount(runFrozenWorker, "devtools.compute.quality." + format);
+    await fill("", "");
+    importFile(new NodeFile([input], "quality." + format));
+    await screen.findByRole("button", { name: "Undo last import" });
+    expect(api.invoke).not.toHaveBeenCalled();
+
+    run();
+    await screen.findByText("Tool completed");
+    expect(api.invoke.mock.calls[0][4]).toEqual({ text: input });
+    const response = JSON.parse((screen.getByLabelText("Original response") as HTMLTextAreaElement).value);
+    expect(JSON.parse(response.data.text)).toMatchObject({
+      rows, duplicateRowsAfterFirst, columns: expect.arrayContaining([column]),
+    });
+  }, 25_000,
+);
