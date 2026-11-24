@@ -887,3 +887,78 @@ async fn structured_json_diff_frozen_host_exports_original_reports() {
     host.stop();
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires frozen Compute candidate and Windows production Worker to capture merge preview samples"]
+async fn csv_merge_preview_frozen_host_responses() {
+    let (root, host) = start_compute_host("merge-table-view").await;
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let endpoint = format!("{}/v2/plugin-capabilities/invoke", host.origin());
+    let cases = [
+        (
+            "left",
+            "csv",
+            "id,label\n1,A\n2,B",
+            "id,label\n1,X\n1,Y",
+            "id",
+            "id",
+        ),
+        (
+            "inner",
+            "tsv",
+            "id\tlabel\n1\tA",
+            "id\tlabel\n2\tB",
+            "id",
+            "id",
+        ),
+        (
+            "append",
+            "json",
+            r#"{"headers":["amount","details"],"rows":[[9223372036854775807,{"nested":18446744073709551615}]]}"#,
+            r#"{"headers":["details","amount"],"rows":[[null,-9223372036854775808]]}"#,
+            "",
+            "",
+        ),
+        ("columns", "csv", "id,label\n1,A", "label,id\nX,3", "", ""),
+    ];
+    for (mode, format, left, right, left_key, right_key) in cases {
+        let request = json!({
+            "workspaceId": WORKSPACE, "sceneId": "programming", "pluginId": PLUGIN,
+            "capabilityId": format!("devtools.compute.merge.{mode}"), "captureResult": true,
+            "input": {"text": left, "options": json!({"format": format, "right": right, "left_key": left_key, "right_key": right_key}).to_string()},
+        });
+        let response = client
+            .post(&endpoint)
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&request)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "{mode}: {}",
+            response.text().await.unwrap()
+        );
+        let response: Value = response.json().await.unwrap();
+        let result = &response["result"];
+        assert_eq!(result["ok"], true, "{mode}: {result}");
+        assert_eq!(response["resultRef"]["csvExport"]["mimeType"], "text/csv");
+        assert_eq!(
+            response["resultRef"]["jsonExport"]["mimeType"],
+            "application/json"
+        );
+        println!(
+            "CSV_MERGE_RESPONSE {}",
+            json!({"name": mode, "result": result})
+        );
+    }
+    host.stop_and_wait().await.unwrap();
+    let scratch = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.cache/task-scratch");
+    assert!(
+        root.canonicalize()
+            .unwrap()
+            .starts_with(scratch.canonicalize().unwrap())
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}

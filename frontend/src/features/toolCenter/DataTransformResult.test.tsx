@@ -161,3 +161,79 @@ it.runIf(Boolean(hostResults))(
     }
   },
 );
+
+const mergeReport = (headers: string[], rows: unknown[][]) =>
+  JSON.stringify({
+    report: "Matched and unmatched row counts",
+    data: { headers, rows },
+    csv: "exact,csv\n",
+  });
+
+it("shows merge totals, pages through rows, and keeps the exact output below the grid", () => {
+  const text = mergeReport(
+    ["number", "detail"],
+    Array.from({ length: 26 }, (_, index) => [index, null]),
+  );
+  const { rerender } = render(
+    <ManualToolResultView result={manualToolResult(success(text))} dataMerge />,
+  );
+  expect(screen.getByText("Matched and unmatched row counts")).toBeTruthy();
+  expect(screen.getByText("26 rows × 2 columns")).toBeTruthy();
+  expect(table().getAllByRole("row")).toHaveLength(26);
+  expect(table().queryByRole("rowheader", { name: "26" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+  expect(table().getByRole("rowheader", { name: "26" })).toBeTruthy();
+  expect((screen.getByLabelText("Tool result") as HTMLTextAreaElement).value).toBe(text);
+
+  rerender(
+    <ManualToolResultView
+      result={manualToolResult(success(mergeReport(["number"], [])))}
+      dataMerge
+    />,
+  );
+  expect(table().getByRole("columnheader", { name: "number" })).toBeTruthy();
+  expect(screen.getByText("The result has column headers and no data rows.")).toBeTruthy();
+  expect(screen.queryByRole("navigation", { name: "Result pages" })).toBeNull();
+
+  const malformed = mergeReport(["number", "detail"], [[1]]);
+  rerender(<ManualToolResultView result={manualToolResult(success(malformed))} dataMerge />);
+  expect(screen.queryByRole("table")).toBeNull();
+  expect((screen.getByLabelText("Tool result") as HTMLTextAreaElement).value).toBe(malformed);
+});
+
+const mergeHostResults = process.env.ZICODE_TEST_CSV_MERGE_RESPONSES;
+it.runIf(Boolean(mergeHostResults))(
+  "renders the four exact merge responses from the Windows Host and Worker",
+  () => {
+    const evidence = readFileSync(mergeHostResults as string, "utf8")
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("CSV_MERGE_RESPONSE "))
+      .map(
+        (line) =>
+          JSON.parse(line.slice("CSV_MERGE_RESPONSE ".length)) as { name: string; result: unknown },
+      );
+    expect(evidence.map((item) => item.name)).toEqual(["left", "inner", "append", "columns"]);
+    for (const { name, result } of evidence) {
+      const output = manualToolResult(result);
+      const view = render(<ManualToolResultView result={output} dataMerge />);
+      expect(table().getByRole("table")).toBeTruthy();
+      const summary = JSON.parse(output.text).report;
+      expect(screen.getByText(summary)).toBeTruthy();
+      if (name === "left") {
+        expect(summary).toContain("重复键组");
+        expect(table().getByRole("columnheader", { name: "label_right1" })).toBeTruthy();
+        expect(table().getAllByText("null")).toHaveLength(2);
+      } else if (name === "inner") {
+        expect(screen.getByText("The result has column headers and no data rows.")).toBeTruthy();
+      } else if (name === "append") {
+        expect(table().getByText("9223372036854775807")).toBeTruthy();
+        expect(table().getByText("-9223372036854775808")).toBeTruthy();
+        expect(table().getByText('{"nested": 18446744073709551615}')).toBeTruthy();
+      } else {
+        expect(table().getByRole("columnheader", { name: "id_right1" })).toBeTruthy();
+      }
+      expect((screen.getByLabelText("Tool result") as HTMLTextAreaElement).value).toBe(output.text);
+      view.unmount();
+    }
+  },
+);

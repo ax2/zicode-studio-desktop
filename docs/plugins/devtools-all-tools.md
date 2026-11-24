@@ -30,7 +30,7 @@ Compare 0.1.0 的「JSON 对比（数组按顺序）」和「JSON 对比（数�
 
 ## 2026-11-24 开发补充：CSV 合并的左右表导入
 
-四种合并操作均可选择 8 KiB 以内的同格式 UTF-8 CSV、TSV 或 JSON 文件作为左右表，保留已有设置，并撤销最近一次导入。完成后可确认另存 CSV 或列式 JSON。开发范围见 [Windows Worker 验收](../iterations/2026-11-24-csv-merge-file-input.md)。
+四种合并操作均可选择 8 KiB 以内的同格式 UTF-8 CSV、TSV 或 JSON 文件作为左右表，保留已有设置，并撤销最近一次导入。执行后可查看统计和精确分页表格，并确认另存 CSV 或列式 JSON。开发范围见 [Windows Worker 验收](../iterations/2026-11-24-csv-merge-file-input.md)。
 
 ## 2026-11-24 开发补充：JSON 路径查询文件导入与另存
 

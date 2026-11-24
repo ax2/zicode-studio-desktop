@@ -1,6 +1,6 @@
 import { File as NodeFile } from "node:buffer";
 import { spawnSync } from "node:child_process";
-import { act, fireEvent, render, screen, waitFor, cleanup } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, cleanup, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
 import { ManualToolDetail } from "./ManualToolDetail";
@@ -461,7 +461,11 @@ it.runIf(Boolean(worker && modulePath)).each([
   await screen.findByText("Tool completed");
   expect(api.invoke.mock.calls[0][4]).toEqual({ text: left, options: opts.value });
   const response = JSON.parse((screen.getByLabelText("Original response") as HTMLTextAreaElement).value);
-  expect(JSON.parse(response.data.text).csv).toBe(csv);
+  const merged = JSON.parse(response.data.text);
+  expect(merged.csv).toBe(csv);
+  expect(screen.getByText(merged.report)).toBeTruthy();
+  const preview = within(screen.getByRole("region", { name: "Table preview" }));
+  expect(preview.getAllByRole("row")).toHaveLength(merged.data.rows.length + 1);
 }, 25_000);
 
 it.each(["csv", "tsv", "json"] as const)("imports only a %s quality file and restores the draft on undo", async format => {

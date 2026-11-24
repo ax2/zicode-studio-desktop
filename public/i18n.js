@@ -2185,6 +2185,7 @@ const zhCN = {
   "Tool could not complete. Check its inputs and try again.": "工具未能完成，请检查输入后重试。",
   "Original response": "原始响应",
   "Table preview": "表格预览",
+  "{rows} rows × {columns} columns": "{rows} 行 × {columns} 列",
   "{rows} rows × {columns} columns · {changed} changes": "{rows} 行 × {columns} 列 · {changed} 处变更",
   "Data row": "数据行",
   "The result has column headers and no data rows.": "结果只包含表头，没有数据行。",

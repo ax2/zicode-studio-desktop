@@ -11,10 +11,17 @@ export function isDataTransform(tool: Pick<ManualTool, "pluginId" | "capabilityI
   );
 }
 
-export interface TransformPreview {
-  input: string | null;
+interface TablePreview {
   headers: string[];
   rows: { number: number; cells: string[] }[];
+}
+
+export interface MergePreview extends TablePreview {
+  report: string;
+}
+
+export interface TransformPreview extends TablePreview {
+  input: string | null;
   changed: number;
   examples: [string, string][];
 }
@@ -64,7 +71,7 @@ function stringPair(value: unknown): value is [string, string] {
   );
 }
 
-export function dataTransformPreview(text: string): TransformPreview | null {
+function readTableResult(text: string) {
   if (text.length > byteLimit || new TextEncoder().encode(text).length > byteLimit) return null;
   try {
     const parsed: unknown = JSON.parse(
@@ -84,10 +91,8 @@ export function dataTransformPreview(text: string): TransformPreview | null {
     const table = object(result?.data);
     const headers = table?.headers;
     const rows = table?.rows;
-    const examples = result?.examples;
-    const count = result?.changed;
     if (
-      !(count instanceof ExactNumber) ||
+      !result ||
       !Array.isArray(headers) ||
       headers.length === 0 ||
       headers.length > columnLimit ||
@@ -95,27 +100,64 @@ export function dataTransformPreview(text: string): TransformPreview | null {
       new Set(headers).size !== headers.length ||
       !Array.isArray(rows) ||
       rows.length > rowLimit ||
-      !rows.every((row) => Array.isArray(row) && row.length === headers.length) ||
-      !Array.isArray(examples) ||
-      examples.length > 6 ||
-      !examples.every(stringPair)
+      !rows.every((row) => Array.isArray(row) && row.length === headers.length)
     )
       return null;
 
-    const changed = Number(count.source);
+    return { result, headers: headers as string[], rows: rows as unknown[][] };
+  } catch {
+    return null;
+  }
+}
+
+function previewRows(rows: unknown[][]): TablePreview["rows"] {
+  return rows.map((row, index) => ({
+    number: index + 1,
+    cells: row.map((cell) => renderCell(cell)),
+  }));
+}
+
+export function dataMergePreview(text: string): MergePreview | null {
+  const table = readTableResult(text);
+  const report = table?.result.report;
+  if (
+    !table ||
+    typeof report !== "string" ||
+    !report.trim() ||
+    typeof table.result.csv !== "string"
+  )
+    return null;
+  try {
+    return { report, headers: table.headers, rows: previewRows(table.rows) };
+  } catch {
+    return null;
+  }
+}
+
+export function dataTransformPreview(text: string): TransformPreview | null {
+  const table = readTableResult(text);
+  if (!table) return null;
+  const { result, headers, rows } = table;
+  const { changed: count, examples } = result;
+  if (
+    !(count instanceof ExactNumber) ||
+    !Array.isArray(examples) ||
+    examples.length > 6 ||
+    !examples.every(stringPair)
+  )
+    return null;
+
+  const changed = Number(count.source);
+  try {
     if (!Number.isInteger(changed) || changed < 0 || changed > Math.max(rowLimit, columnLimit))
       return null;
-    const previewRows = rows.map((row, index) => ({
-      number: index + 1,
-      cells: row.map((cell: unknown) => renderCell(cell)),
-    }));
     const distinctExamples = [
       ...new Map(examples.map((pair) => [JSON.stringify(pair), pair])).values(),
     ];
     return {
       input: encodeTableInput(headers, rows),
       headers,
-      rows: previewRows,
+      rows: previewRows(rows),
       changed,
       examples: distinctExamples,
     };
