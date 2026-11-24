@@ -29,6 +29,8 @@ mod runtime;
 mod proxy;
 #[cfg(all(windows, test))]
 mod native_proxy_test;
+#[cfg(all(windows, test))]
+mod native_pdf_viewer_probe;
 #[cfg(any(windows, test))]
 pub(crate) mod proxy_endpoint;
 #[cfg(windows)]

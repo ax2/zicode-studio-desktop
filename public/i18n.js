@@ -1056,6 +1056,7 @@ const zhCN = {
 
   "Page controls": "网页设置",
   "Page zoom": "网页缩放",
+  "Use the PDF toolbar for search and zoom.": "请在 PDF 自带工具栏中查找和缩放。",
   "Zoom out": "缩小网页",
   "Zoom in": "放大网页",
   "Reset page zoom": "重置网页缩放",

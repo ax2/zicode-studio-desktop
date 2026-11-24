@@ -24,6 +24,10 @@ export function createBrowserPageControls({ getTab, read, change }) {
   const row = document.createElement("div");row.className = "browser-zoom-row";
   const label = document.createElement("span");label.textContent = t("Page zoom");
   const message = document.createElement("p");message.className = "browser-page-controls-status";message.setAttribute("role", "status");
+  const pdfHelp = document.createElement("p");
+  pdfHelp.dataset.i18nText = "Use the PDF toolbar for search and zoom.";
+  pdfHelp.textContent = t("Use the PDF toolbar for search and zoom.");
+  pdfHelp.hidden = true;
   const button = (text, name, action) => {
     const button = document.createElement("button");button.type = "button";button.className = "ui-button ui-button--secondary";button.textContent = text;button.title = t(name);button.setAttribute("aria-label", t(name));
     button.addEventListener("click", () => void run(action));return button;
@@ -45,15 +49,22 @@ export function createBrowserPageControls({ getTab, read, change }) {
   async function refresh(clear = true) {
     const request = ++generation, tab = getTab();current = null;group.disabled = true;
     if (clear) message.textContent = "";
+    pdfHelp.hidden = true;
+    row.hidden = false;
+    row.classList.remove("hidden");
     if (!tab) { reset.textContent = "100%";return; }
     try {
       const settings = await read(tab.id);
       if (request !== generation || getTab()?.id !== tab.id) return;
       current = { id: tab.id, ...settings };
+      const pdf = settings.pdfDocument === true;
+      pdfHelp.hidden = !pdf;
+      row.hidden = pdf;
+      row.classList.toggle("hidden", pdf);
       reset.textContent = `${Math.round(settings.zoom * 100)}%`;smaller.disabled = settings.zoom <= 0.25;larger.disabled = settings.zoom >= 5;
       mute.textContent = t(settings.muted ? "Unmute tab" : "Mute tab");mute.title = mute.textContent;mute.setAttribute("aria-label", mute.textContent);group.disabled = busy;
     } catch (error) { if (request === generation) message.textContent = t(String(error?.message ?? error)); }
   }
-  row.append(label, smaller, reset, larger);group.append(row, mute, message);group.disabled = true;
+  row.append(label, smaller, reset, larger);group.append(row, pdfHelp, mute, message);group.disabled = true;
   return { element: group, refresh };
 }

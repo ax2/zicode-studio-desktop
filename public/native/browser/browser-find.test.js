@@ -39,6 +39,36 @@ it("debounces composition, supports Ctrl+F and Escape, and respects inactive or 
   available = true; const key = new KeyboardEvent("keydown", { key: "f", ctrlKey: true, cancelable: true }); document.dispatchEvent(key); expect(key.defaultPrevented).toBe(true); expect(document.activeElement).toBe(ui.input);
 });
 
+it("routes a confirmed PDF without starting Studio search and preserves normal page search", async () => {
+  let pdf = true;
+  const openPdf = vi.fn(async () => pdf);
+  const control = vi.fn(async () => {});
+  find = createBrowserFind({ control, getTab: () => ({ id: "active" }), available: () => true, openPdf });
+  document.body.append(find.element);
+  await find.open();
+  expect(openPdf).toHaveBeenCalledWith("active", expect.any(Function));
+  expect(find.element.hidden).toBe(true);
+  expect(control).not.toHaveBeenCalled();
+  pdf = false;
+  await find.open();
+  expect(document.activeElement).toBe(getByRole(find.element, "searchbox"));
+});
+
+it("does not open any search view after its document closes during routing", async () => {
+  let finish;
+  const openPdf = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  const control = vi.fn(async () => {});
+  find = createBrowserFind({ control, getTab: () => ({ id: "active" }), available: () => true, openPdf });
+  document.body.append(find.element);
+  const requested = find.open();
+  await find.close();
+  expect(openPdf.mock.calls[0][1]()).toBe(false);
+  finish(false);
+  await requested;
+  expect(find.element.hidden).toBe(true);
+  expect(control).not.toHaveBeenCalled();
+});
+
 it("restores native page focus only after manual dismissal completes", async () => {
   const restoreFocus = vi.fn(async () => {}), control = vi.fn(async () => {});
   vi.useFakeTimers(); find = createBrowserFind({ control, getTab: () => ({ id: "a" }), available: () => true, restoreFocus }); document.body.append(find.element); find.open();

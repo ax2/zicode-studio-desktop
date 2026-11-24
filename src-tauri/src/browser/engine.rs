@@ -106,6 +106,11 @@ pub(super) enum EngineEvent {
     NavigationStarted {
         tab: String,
     },
+    PdfDocument {
+        tab: String,
+        #[serde(rename = "documentRevision")]
+        document_revision: String,
+    },
     NavigationFinished {
         tab: String,
         success: bool,
@@ -410,6 +415,10 @@ impl NativeBrowserEngine {
     #[allow(dead_code)] // Only Studio exports viewport images.
     pub fn export_ready(&self, tab: &str) -> bool {
         self.views.get(tab).is_some_and(|view| !view.closing.get() && view.events.is_live() && view.navigation.ready())
+    }
+    #[allow(dead_code)] // Only Studio exposes current PDF mode to browser chrome.
+    pub(super) fn is_pdf_document(&self, tab: &str) -> bool {
+        self.live_view(tab).is_some_and(|view| view.navigation.is_pdf_document())
     }
     pub fn view_if_open(&self, tab: &str) -> Option<&WebView> {
         self.live_view(tab).map(|view| &view.webview)

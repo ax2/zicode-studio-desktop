@@ -70,6 +70,26 @@ it("keeps the current document and page search during a delayed or failed select
   expect(h.selected()).toBe("b"); expect(h.saved().activeTab).toBe("b"); expect(h.status()).toBe("");
   expect(h.root.querySelector(".browser-find").hidden).toBe(true);
 });
+it("routes only a currently confirmed PDF to its reader and keeps regular search on the next document", async () => {
+  const h = await mount();
+  const menu = h.root.querySelector(".browser-options");
+  const findEntry = menu.querySelector(".browser-find-open");
+  h.emit({ kind: "pdfDocument", tab: "a", documentRevision: "a:1" });
+  menu.open = true;
+  findEntry.click();
+  await waitFor(() => expect(h.requests).toContainEqual({ kind: "focusPage", tab: "a" }));
+  expect(h.status()).toBe(t("Use the PDF toolbar for search and zoom."));
+  expect(h.root.querySelector(".browser-find").hidden).toBe(true);
+  expect(h.requests.some(request => request.kind === "findStart")).toBe(false);
+
+  h.emit({ kind: "navigationStarted", tab: "a" });
+  h.emit({ kind: "navigationFinished", tab: "a", success: true, documentRevision: "a:2" });
+  h.emit({ kind: "pdfDocument", tab: "a", documentRevision: "a:1" });
+  expect(h.status()).toBe("");
+  h.root.querySelector(".browser-address").dispatchEvent(new KeyboardEvent("keydown", { key: "f", ctrlKey: true, bubbles: true }));
+  expect(h.root.querySelector(".browser-find").hidden).toBe(false);
+});
+
 it("settles the export status layout before printing and keeps tab activation responsive", async () => {
   const h = await mount();
   const preparing = t("Preparing page PDF…");

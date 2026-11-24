@@ -1,4 +1,7 @@
 use super::{engine::EngineEvent, policy::BrowserPolicy};
+
+#[path = "native_document_kind.rs"]
+mod native_document_kind;
 use std::{cell::Cell, rc::Rc, sync::Arc};
 use webview2_com::{
     take_pwstr, HistoryChangedEventHandler, Microsoft::Web::WebView2::Win32::*,
@@ -59,11 +62,17 @@ fn emit_visit(
 pub(super) struct NavigationState {
     pending: Rc<Cell<Option<u64>>>,
     loaded: Rc<Cell<bool>>,
+    pdf_document: Rc<Cell<bool>>,
+    latest_commit: Rc<Cell<Option<u64>>>,
 }
 
 impl NavigationState {
     pub(super) fn ready(&self) -> bool {
         self.pending.get().is_none() && self.loaded.get()
+    }
+
+    pub(super) fn is_pdf_document(&self) -> bool {
+        self.ready() && self.pdf_document.get()
     }
 }
 
@@ -121,6 +130,8 @@ pub(super) fn install(
         // WebView2 can start a replacement before the previous navigation completes.
         let current_navigation = navigation.pending.clone();
         let started_navigation = current_navigation.clone();
+        let started_pdf = navigation.pdf_document.clone();
+        let started_commit = navigation.latest_commit.clone();
         let started_emit = emit.clone();
         let started_tab = tab.clone();
         native.add_NavigationStarting(
@@ -132,6 +143,8 @@ pub(super) fn install(
                     args.NavigationId(&mut id)?;
                     if !canceled.as_bool() && started_navigation.get() != Some(id) {
                         started_navigation.set(Some(id));
+                        started_pdf.set(false);
+                        started_commit.set(None);
                         started_emit(EngineEvent::NavigationStarted {
                             tab: started_tab.clone(),
                         });
@@ -164,6 +177,8 @@ pub(super) fn install(
         let nav_emit = emit.clone();
         let nav_policy = policy.clone();
         let nav_tab = tab.clone();
+        let pdf_document = navigation.pdf_document.clone();
+        let latest_commit = navigation.latest_commit.clone();
         native.add_NavigationCompleted(
             &NavigationCompletedEventHandler::create(Box::new(move |sender, args| {
                 if let Some(args) = args {
@@ -181,14 +196,32 @@ pub(super) fn install(
                     if !canceled {
                         has_document.set(success.as_bool());
                     }
+                    let committed_revision = has_document.get().then(&document_revision);
                     nav_emit(EngineEvent::NavigationFinished {
                         tab: nav_tab.clone(),
                         success: success.as_bool(),
                         canceled,
-                        document_revision: has_document.get().then(&document_revision),
+                        document_revision: committed_revision.clone(),
                     });
-                    if let Some(sender) = sender.filter(|_| success.as_bool()) {
-                        emit_visit(&sender, &nav_policy, nav_emit.as_ref(), &nav_tab, false)?;
+                    if let Some(sender) = sender {
+                        if let Some(document_revision) = committed_revision {
+                            latest_commit.set(Some(id));
+                            let current_commit = latest_commit.clone();
+                            let current_type = pdf_document.clone();
+                            let emit_type = nav_emit.clone();
+                            let type_tab = nav_tab.clone();
+                            if let Err(error) = native_document_kind::classify_pdf(&sender, move |pdf| {
+                                if pdf && current_commit.get() == Some(id) {
+                                    current_type.set(true);
+                                    emit_type(EngineEvent::PdfDocument { tab: type_tab, document_revision });
+                                }
+                            }) {
+                                log::debug!("Could not identify the browser document type: {error}");
+                            }
+                        }
+                        if success.as_bool() {
+                            emit_visit(&sender, &nav_policy, nav_emit.as_ref(), &nav_tab, false)?;
+                        }
                     }
                 }
                 Ok(())

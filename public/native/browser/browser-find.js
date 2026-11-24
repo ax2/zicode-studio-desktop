@@ -2,7 +2,7 @@ import { t } from "../../i18n.js";
 
 // Serial native operations and an epoch prevent late results from a previous
 // query, navigation or tab from changing the visible search state.
-export function createBrowserFind({ control, getTab, available, restoreFocus = async () => {}, report = () => {} }) {
+export function createBrowserFind({ control, getTab, available, openPdf, restoreFocus = async () => {}, report = () => {} }) {
   let tab = null, epoch = 0, timer, poll, tail = Promise.resolve();
   const element = document.createElement("form"); element.className = "browser-find"; element.hidden = true; element.setAttribute("role", "search"); element.setAttribute("aria-label", t("Find in page"));
   const input = document.createElement("input"); input.className = "ui-input ui-input--sm"; input.type = "search"; input.maxLength = 256; input.placeholder = t("Find in page"); input.setAttribute("aria-label", t("Find in page"));
@@ -52,9 +52,21 @@ export function createBrowserFind({ control, getTab, available, restoreFocus = a
     }
   }
   function open() {
-    if (!available() || !getTab()) return;
-    if (tab !== getTab().id) { void close(); tab = getTab().id; input.value = ""; counter.textContent = ""; previous.disabled = next.disabled = true; }
-    element.hidden = false; input.focus(); input.select();
+    const selected = getTab();
+    if (!available() || !selected) return;
+    const show = () => {
+      if (tab !== selected.id) { void close(); tab = selected.id; input.value = ""; counter.textContent = ""; previous.disabled = next.disabled = true; }
+      element.hidden = false; input.focus(); input.select();
+    };
+    const version = epoch;
+    const current = () => available() && getTab()?.id === selected.id && epoch === version;
+    const routing = openPdf?.(selected.id, current);
+    if (!routing) { show(); return; }
+    return routing.then(handled => {
+      if (!current()) return;
+      if (handled) { if (tab === selected.id) return close(); }
+      else show();
+    }).catch(error => { if (current()) report(error); });
   }
   input.addEventListener("input", event => { if (!event.isComposing) search(); }); input.addEventListener("compositionend", search);
   element.addEventListener("submit", event => { event.preventDefault(); step(false); });
