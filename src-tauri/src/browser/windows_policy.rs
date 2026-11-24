@@ -199,6 +199,10 @@ pub(super) fn install(
             &PermissionRequestedEventHandler::create(Box::new(move |_, args| {
                 if let Some(args) = args {
                     args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY)?;
+                    // The default denial is not a saved site preference.
+                    if let Ok(persistence) = args.cast::<ICoreWebView2PermissionRequestedEventArgs3>() {
+                        persistence.SetSavesInProfile(false)?;
+                    }
                     let mut kind = COREWEBVIEW2_PERMISSION_KIND::default();
                     args.PermissionKind(&mut kind)?;
                     emit(EngineEvent::PermissionBlocked {
