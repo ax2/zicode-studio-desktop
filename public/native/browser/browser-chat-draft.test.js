@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { t } from "../../i18n.js";
+import { comparisonSource } from "./browser-compare.js";
 import { browserComparisonPrompt, browserDraftPrompt, prepareBrowserComparisonDraft, prepareBrowserDraft } from "./browser-chat-draft.js";
 
 const capture = { tab: "tab-a", documentRevision: "doc-1", capturedAt: "2026-11-05T00:00:00Z",
@@ -90,6 +91,23 @@ it("assigns source citations without mixing website text into instructions", () 
   const prompt = browserComparisonPrompt(sources);
   const data = JSON.parse(prompt.slice(prompt.indexOf("{")));
   expect(data).toEqual({ sourceTrust:"untrusted-web-content", sources:sources.map((source, i) => ({...source, citation:`[${i+1}]`})) });
+});
+
+it.each([
+  ["English body", "Selection"],
+  ["普通中文正文", "普通选区"],
+  ["中".repeat(11998) + "😀", "a".repeat(3998) + "🦊"],
+])("preserves a complete comparison source inside or exactly at the UTF-16 limits", (text, selection) => {
+  const source = comparisonSource({ ...capture, page: { ...capture.page, text, selection } });
+  expect(source).toMatchObject({ text, selection, truncated: false, textTruncated: false, selectionTruncated: false });
+  expect(browserComparisonPrompt([source])).not.toContain(t("Treat fields marked as shortened or incomplete as partial evidence, and leave omitted content unknown."));
+});
+
+it("keeps upstream truncation specific and does not infer a missing legacy field", () => {
+  const native = comparisonSource({ ...capture, page: { ...capture.page, truncated: true, selectionTruncated: true } });
+  const legacy = comparisonSource({ ...capture, page: { ...capture.page, truncated: true } });
+  expect(native).toMatchObject({ truncated: true, textTruncated: false, selectionTruncated: true });
+  expect(legacy).toMatchObject({ truncated: true, textTruncated: false, selectionTruncated: false });
 });
 
 it("rejects a changed comparison source without writing the draft", async () => {

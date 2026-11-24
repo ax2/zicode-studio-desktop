@@ -1,12 +1,25 @@
 import { t } from "../../i18n.js";
+import { appendPartialCapture } from "./browser-capture-status.js";
 
 const maxPeers = 2;
+const textLimit = 12000;
+const selectionLimit = 4000;
+
+function clipExcerpt(value, limit) {
+  if (value.length <= limit) return value;
+  // The budgets count UTF-16 units. Leave room for the entire character or omit it.
+  const last = value.charCodeAt(limit - 1);
+  return value.slice(0, last >= 0xd800 && last <= 0xdbff ? limit - 1 : limit);
+}
 
 export function comparisonSource(capture) {
-  const { title, url, text, selection, truncated } = capture.page;
+  const { title, url, text, selection, truncated, textTruncated, selectionTruncated } = capture.page;
+  const bodyShortened = Boolean(textTruncated) || text.length > textLimit;
+  const selectionShortened = Boolean(selectionTruncated) || selection.length > selectionLimit;
   return {
-    title, url, text: text.slice(0, 12000), selection: selection.slice(0, 4000),
-    truncated: truncated || text.length > 12000 || selection.length > 4000,
+    title, url, text: clipExcerpt(text, textLimit), selection: clipExcerpt(selection, selectionLimit),
+    textTruncated: bodyShortened, selectionTruncated: selectionShortened,
+    truncated: bodyShortened || selectionShortened || Boolean(truncated),
     tab: capture.tab, documentRevision: capture.documentRevision, capturedAt: capture.capturedAt,
   };
 }
@@ -52,15 +65,24 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
     for (const [index, source] of sources.entries()) {
       const details = document.createElement("details");
       const summary = document.createElement("summary"); summary.textContent = `[${index + 1}] ${source.title || source.url}`;
+      if (source.truncated) appendPartialCapture(summary);
       const url = document.createElement("p"); url.textContent = source.url;
       const time = document.createElement("p"); time.textContent = `${t("Captured at")}: ${source.capturedAt}`;
       const excerpt = document.createElement("textarea"); excerpt.className = "ui-textarea"; excerpt.readOnly = true;
       excerpt.setAttribute("aria-label", t("Comparison source text"));
       excerpt.value = [source.selection && `${t("Selected text")}\n${source.selection}`, source.text].filter(Boolean).join("\n\n");
-      details.append(summary, url, time, excerpt);
-      if (source.truncated) {
-        const limit = document.createElement("p"); limit.textContent = t("Page content was shortened"); details.append(limit);
+      details.append(summary, url, time);
+      const notices = [
+        source.textTruncated && "Page content was shortened",
+        source.selectionTruncated && "Selected text was shortened",
+      ].filter(Boolean);
+      for (const key of notices) {
+        const limit = document.createElement("p");
+        limit.dataset.i18nText = key;
+        limit.textContent = t(key);
+        details.append(limit);
       }
+      details.append(excerpt);
       preview.append(details);
     }
   }
