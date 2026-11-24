@@ -2276,6 +2276,7 @@ const zhCN = {
   "Base64 text": "Base64 文本",
   "Download Base64 file": "下载 Base64 文件",
   "Download decoded text": "下载解码文本",
+  "Download processed text": "下载整理后的文本",
   "YAML files must be 8 KiB or smaller.": "YAML 文件不能超过 8 KiB。",
   "Could not read the YAML file.": "无法读取 YAML 文件。",
   "The selected YAML file is empty.": "所选 YAML 文件为空。",

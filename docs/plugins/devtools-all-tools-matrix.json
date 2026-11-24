@@ -2431,6 +2431,7 @@
     },
     {
       "sourceToolId": "lines",
+      "currentWindowsAcceptance": "../iterations/2026-11-25-line-tool-files.md",
       "title": "文本行处理",
       "sourceToolVersion": "1.0.2",
       "sourceStatus": "implemented",
