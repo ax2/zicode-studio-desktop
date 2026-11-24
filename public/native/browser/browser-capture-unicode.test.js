@@ -1,8 +1,10 @@
-import { expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 
 const script = readFileSync("src-tauri/src/browser/capture.js", "utf8");
+
+afterEach(() => { vi.restoreAllMocks(); document.body.replaceChildren(); });
 
 function capture(title, body, selection) {
   const parentElement = { closest: () => null, getClientRects: () => [{}] };
@@ -140,4 +142,63 @@ test("captures image-only embedded documents with a distinct navigation locator"
     images: [{ alt: "Embedded scan", width: 320, height: 160, url: "https://example.org/scan.png" }],
     imageLocator: { path: [0, 0], timeOrigin: "45.5" },
   });
+});
+
+
+function captureSelection(owner = document) {
+  return runInNewContext(script, {
+    document: owner, location: { href: "https://example.org/", origin: "https://example.org" },
+    Node, NodeFilter, URL, getComputedStyle, getSelection: () => owner.getSelection(),
+  });
+}
+
+function selectRange(start, end = start) {
+  const owner = start.ownerDocument;
+  const range = owner.createRange();
+  range.setStart(start.firstChild, 0);
+  range.setEnd(end.lastChild, end.lastChild.length);
+  const selection = owner.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+test("retains normal text selection but omits a protected form or a range crossing it", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  document.body.innerHTML = '<p id="before">Before</p><form><output>Form data</output></form><p id="after">After</p>';
+  const before = document.getElementById("before");
+  selectRange(before);
+  expect(captureSelection()).toMatchObject({ selection: "Before", selectionTruncated: false });
+
+  selectRange(document.querySelector("output"));
+  expect(captureSelection()).toMatchObject({ selection: "", selectionTruncated: false });
+  selectRange(before, document.getElementById("after"));
+  expect(captureSelection()).toMatchObject({ selection: "", selectionTruncated: false });
+});
+
+test("ignores an old page selection while an input has focus", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  document.body.innerHTML = "<p>Previously selected text</p><input>";
+  document.querySelector("input").focus();
+  selectRange(document.querySelector("p"));
+  expect(document.getSelection().toString()).toBe("Previously selected text");
+  expect(captureSelection()).toMatchObject({ selection: "", selectionTruncated: false });
+});
+
+test("keeps a focused same-origin frame selection separate from the old main-page selection", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  document.body.innerHTML = "<p>Previous main-page selection</p><iframe></iframe>";
+  const frame = document.querySelector("iframe");
+  const child = frame.contentDocument;
+  vi.spyOn(frame.contentWindow.HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  child.body.innerHTML = "<p>Public frame text</p><form><output>Frame form data</output></form>";
+  frame.focus();
+  selectRange(document.querySelector("p"));
+  selectRange(child.querySelector("p"));
+  expect(captureSelection()).toMatchObject({
+    selection: "",
+    frames: [{ selection: "Public frame text", selectionTruncated: false }],
+  });
+
+  selectRange(child.querySelector("output"));
+  expect(captureSelection().frames[0]).toMatchObject({ selection: "", selectionTruncated: false });
 });

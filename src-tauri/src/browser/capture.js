@@ -46,14 +46,15 @@
     return { text, textTruncated };
   }
   function readSelection(doc, selection) {
-    // A selection intersecting an editable/form region is not shared.
-    if (!selection?.rangeCount || selection.isCollapsed) return { selection: '', selectionTruncated: false };
+    const empty = { selection: '', selectionTruncated: false };
+    const editable = 'form,input,textarea,select,button,[contenteditable]';
+    // Focus in an editable region or child frame can leave an unrelated selection in this document.
+    if (selection?.rangeCount !== 1 || selection.isCollapsed ||
+        doc.activeElement?.closest(editable + ',iframe,frame')) return empty;
     const range = selection.getRangeAt(0);
-    const controls = doc.querySelectorAll('input,textarea,select,[contenteditable]');
-    if (!allowed(range.startContainer) || !allowed(range.endContainer) || controls.length > 256 ||
-        Array.from(controls).some(element => range.intersectsNode(element))) {
-      return { selection: '', selectionTruncated: false };
-    }
+    if (!allowed(range.startContainer) || !allowed(range.endContainer)) return empty;
+    const controls = doc.querySelectorAll(editable);
+    if (controls.length > 256 || Array.from(controls).some(element => range.intersectsNode(element))) return empty;
     const value = selection.toString();
     const selected = clip(value, selectionRemaining);
     selectionRemaining -= selected.length;
