@@ -56,6 +56,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     ask.disabled = busy || !snapshot?.effectiveBrowserModel || !question?.value.trim();
     summarize.disabled = busy || !snapshot?.effectiveBrowserModel;
     cancel.hidden = !pending;
+    cancel.setAttribute("aria-disabled", String(pending?.cancelled === true));
     imageReview.controls(snapshot?.effectiveBrowserModel, busy);
     save.hidden = !artifacts || !analysis;
     save.disabled = busy || !analysis || Boolean(savedArtifact);
@@ -131,9 +132,15 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     imageReview.clear();
   }
   function cancelRequest() {
-    if (!pending) return;
+    if (!pending) return false;
+    if (pending.cancelled) return true;
     pending.cancelled = true;
+    if (current()) {
+      status.textContent = t("Cancelling model request…");
+      controls();
+    }
     if (pending.sent) void actions.cancel(pending.id);
+    return true;
   }
   async function reviewImage(read) {
     if (busy || !current()) return;
@@ -159,7 +166,9 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     const requestedQuestion = kind === "analysis" ? question.value.trim() : "";
     const request = { id: `browser-${randomId()}`, cancelled: false, sent: false };
     const expectedRevision = snapshot.revision;
+    const trigger = element.contains(document.activeElement) ? document.activeElement : null;
     pending = request; busy = true; setBusy(true); controls();
+    if (trigger) cancel.focus({ preventScroll: true });
     status.textContent = t(visual ? "Preparing image preview…" : "Sending reviewed page content to the selected model…");
     try {
       if (visual) {
@@ -198,9 +207,15 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       status.textContent = "";
     } catch (reason) {
       if (!current() || mine !== generation) return;
-      status.textContent = visual && !request.sent && !request.cancelled
+      if (request.cancelled) status.textContent = t("Model request cancelled.");
+      else status.textContent = visual && !request.sent
         ? t(String(reason?.message ?? reason)) : browserModelError(reason);
-    } finally { pending = undefined; busy = false; setBusy(false); if (current()) controls(); }
+    } finally {
+      const restoreFocus = current() && document.activeElement === cancel;
+      pending = undefined; busy = false; setBusy(false);
+      if (current()) controls();
+      if (restoreFocus) trigger?.focus({ preventScroll: true });
+    }
   }
   async function saveAnalysis() {
     if (busy || !analysis || savedArtifact || !artifacts || !current()) return;

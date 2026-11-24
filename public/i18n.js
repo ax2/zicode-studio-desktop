@@ -244,6 +244,7 @@ const zhCN = {
   "Page content is sent only when you choose Ask or Summarize. Destination: {model}": "只有点击提问或总结才会发送网页内容，接收模型：{model}",
   "Sending reviewed page content to the selected model…": "正在将已审核的网页内容发送给所选模型…",
   "Open Chat to load Pi models, then return to this page.": "请先打开聊天读取 Pi 模型，再返回此网页。",
+  "Cancelling model request…": "正在取消模型请求…",
   "Model request cancelled.": "模型请求已取消。",
   "The model request timed out. It was not retried.": "模型请求已超时，没有自动重试。",
   "Model configuration changed. Reload the models before sending.": "模型配置已变化，请重新读取模型后再发送。",
