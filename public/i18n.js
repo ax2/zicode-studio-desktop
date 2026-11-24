@@ -1221,6 +1221,9 @@ const zhCN = {
   "Restore the latest closed tab. The last 50 are kept after restart.":
     "恢复最近关闭的标签页，重启后仍保留最近 50 个。",
   "Prepare chat draft": "准备对话草稿",
+  "Preparing page draft…": "正在准备网页草稿…",
+  "Cancel draft preparation": "取消准备草稿",
+  "Draft preparation cancelled. Your question and selections are kept.": "已取消准备草稿，问题和已选内容已保留。",
   "Adds this snapshot to the current conversation. Nothing is sent until you press Send.":
     "将这份网页快照加入当前对话的草稿，点击发送前不会发送给 AI。",
   "Discuss this captured web page. I will add my question before sending.":

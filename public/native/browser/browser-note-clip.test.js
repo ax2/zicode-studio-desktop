@@ -89,7 +89,7 @@ it("reviews embedded content before explicitly attaching it to a local draft", a
   expect(details.querySelector("img,a")).toBeNull();
   include.click();
   getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
-  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ includeFrames: true })));
+  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ includeFrames: true }), expect.any(Function)));
 });
 
 
@@ -178,7 +178,7 @@ it("requests OCR only on its own action and separately opts in to including the 
   expect(media.querySelector("em")).toBeNull();
   include.click();
   getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
-  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ imageText: [recognized], includeMedia: false })));
+  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ imageText: [recognized], includeMedia: false }), expect.any(Function)));
 });
 
 
@@ -206,7 +206,7 @@ it("recognizes an image-only frame with its reviewed locator and opts into its r
   expect(includeImage.checked).toBe(false);
   includeImage.click();
   getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
-  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ imageText: [recognized] })));
+  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ imageText: [recognized] }), expect.any(Function)));
   expect(prepare.mock.calls[0][0]).not.toHaveProperty("includeFrames");
 });
 
