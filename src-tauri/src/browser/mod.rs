@@ -71,6 +71,11 @@ pub enum Request {
     Snapshot { tab: String },
     SaveScreenshot { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
     PrintPage { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
+    OpenDeveloperTools {
+        tab: String,
+        #[serde(rename = "expectedUrl")]
+        expected_url: String,
+    },
     SavePdf { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
     GetUserAgent,
     SetUserAgent { value: Option<String> },

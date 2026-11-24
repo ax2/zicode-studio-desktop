@@ -17,6 +17,7 @@ const paths = {
   "Save viewport PNG to Downloads": "M3 7h4l2-3h6l2 3h4v13H3z M16 13a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
   "Print page…": "M7 8V3h10v5 M7 17H3V9h18v8h-4 M7 14h10v7H7z",
   "Save page PDF to Downloads": "M5 3h9l5 5v13H5z M14 3v6h5 M8 15h8",
+  "Developer tools": "M3 4h18v16H3z M8 8l-3 3 3 3 M16 8l3 3-3 3 M13 7l-2 9",
   "Select all page text": "M4 8V4h4 M16 4h4v4 M20 16v4h-4 M8 20H4v-4 M8 10h8 M8 14h6",
   "Enter fullscreen": "M3 9V3h6 M15 3h6v6 M21 15v6h-6 M9 21H3v-6",
   "Pin tab": "M8 3h8l-1 6 3 4H6l3-4z M12 13v8",

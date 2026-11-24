@@ -81,6 +81,52 @@ it("settles the export status layout before printing and keeps tab activation re
   await waitFor(() => expect(h.status()).toBe(t("Browser page changed")));
   expect(h.selected()).toBe("b");
 });
+it("opens developer tools only from the menu for the current visible browser tab", async () => {
+  const h = await mount();
+  const requests = () => h.requests.filter(request => request.kind === "openDeveloperTools");
+  const menu = h.root.querySelector(".browser-options");
+  const entry = menu.querySelector('[data-i18n-text="Developer tools"]');
+  expect(entry).not.toBeNull();
+  expect(requests()).toEqual([]);
+
+  h.select("b");
+  await waitFor(() => expect(h.visible()).toBe("b"));
+  menu.open = true;
+  entry.click();
+  await waitFor(() => expect(requests()).toEqual([
+    { kind: "openDeveloperTools", tab: "b", expectedUrl: "https://example.org/b" },
+  ]));
+  expect(menu.open).toBe(false);
+  expect(h.visible()).toBe("b");
+  expect(h.saved().activeTab).toBe("b");
+});
+
+it("discards developer tools actions while the browser surface is inactive", async () => {
+  const h = await mount();
+  const menu = h.root.querySelector(".browser-options");
+  const entry = menu.querySelector('[data-i18n-text="Developer tools"]');
+  h.root.setAttribute("inert", "");
+  menu.open = true;
+  entry.click();
+  await app.canDeactivate();
+  expect(h.requests.some(request => request.kind === "openDeveloperTools")).toBe(false);
+});
+
+it("does not retarget a queued developer tools action after switching tabs", async () => {
+  const h = await mount();
+  let completeSave;
+  h.hooks.save = () => new Promise(resolve => { completeSave = resolve; });
+  h.select("b");
+  await waitFor(() => expect(completeSave).toBeTypeOf("function"));
+
+  const menu = h.root.querySelector(".browser-options");
+  menu.open = true;
+  menu.querySelector('[data-i18n-text="Developer tools"]').click();
+  completeSave();
+  await waitFor(() => expect(h.visible()).toBe("b"));
+  expect(h.requests.some(request => request.kind === "openDeveloperTools")).toBe(false);
+});
+
 it("discards only the unsaved new view and retries without phantom tabs or closed history", async () => {
   const h = await mount(), before = h.saved(); h.requests.length = 0;
   h.hooks.save = async () => { throw Error("Storage busy"); }; h.add();

@@ -2,7 +2,7 @@ import { t } from "../../i18n.js";
 
 import { decorateBrowserCommands } from "./browser-menu-icons.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, downloads, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print, userAgentSettings, websiteShortcuts } = {}) {
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, downloads, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print, developerTools, userAgentSettings, websiteShortcuts } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -128,7 +128,7 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     button.addEventListener("click", async () => { await open(); menu.open = false; });
     (name === "Site permissions and storage" ? settings : library).append(button);
   }
-  for (const [name, action] of [["Reading mode", reader], ["Translate selected text", translateSelection], ["Save viewport PNG to Downloads", screenshot], ["Print page…", print], ["Save page PDF to Downloads", savePdf]]) {
+  for (const [name, action] of [["Reading mode", reader], ["Translate selected text", translateSelection], ["Save viewport PNG to Downloads", screenshot], ["Print page…", print], ["Save page PDF to Downloads", savePdf], ["Developer tools", developerTools]]) {
     if (!action) continue;
     const button = document.createElement("button");
     button.type = "button";

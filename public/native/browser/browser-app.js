@@ -191,15 +191,19 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       }
       return;
     }
-    if (action === "print") {
+    if (action === "print" || action === "developerTools") {
       const expectedUrl = selected()?.url;
+      const version = pageVersions.get(source);
       if (!nativeTabs.has(source) || !/^https?:/.test(expectedUrl ?? "") || navigationStates.get(source) === "loading") {
         setStatus(t("Wait for the current page to finish loading"));
         return;
       }
       await syncSurface();
       await surface.settled();
-      if (active === source && !blocked()) await control({ kind: "printPage", tab: source, expectedUrl });
+      if (blocked() || active !== source || selected()?.url !== expectedUrl || pageVersions.get(source) !== version) return;
+      const kind = action === "print" ? "printPage" : "openDeveloperTools";
+      try { await control({ kind, tab: source, expectedUrl }); }
+      catch (error) { report(t(String(error?.message ?? error))); }
       return;
     }
     if (action === "zoomIn" || action === "zoomOut" || action === "zoomReset") {
@@ -803,6 +807,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       },
       userAgentSettings: createBrowserUserAgentSettings(control),
       print: () => { const source = active; return act(() => runPageAction("print", source)); },
+      developerTools: () => { const source = active; return act(() => runPageAction("developerTools", source)); },
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),
       pin: { state: pinState, toggle: () => act(togglePin) } });
     const layoutLabel = document.createElement("label");
