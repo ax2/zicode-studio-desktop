@@ -504,10 +504,27 @@ it("uses the native folder picker and sends only the returned one-use grant on c
   expect(nativeInvoke.mock.calls).toEqual([
     ["select_checksum_folder", { workspaceId: "workspace", owner, manifest }],
     ["select_checksum_files", { workspaceId: "workspace", owner }],
-    ["commit_checksum_folder", { workspaceId: "workspace", owner, grantId: "grant", confirmed: true }],
+    ["commit_plugin_directory", { workspaceId: "workspace", owner, grantId: "grant", confirmed: true }],
     ["checksum_folder_progress", { workspaceId: "workspace", owner, grantId: "grant" }],
-    ["cancel_checksum_folder", { workspaceId: "workspace", owner, grantId: "grant" }],
+    ["cancel_plugin_directory", { workspaceId: "workspace", owner, grantId: "grant" }],
   ]);
   expect(fetchImpl).not.toHaveBeenCalled();
   expect(new PluginCapabilityGateway({ fetchImpl, nativeInvoke: null }).checksumFolders).toBeNull();
+});
+
+it("sends the folder usage owner and one-use grant through native commands without any path", async () => {
+  const nativeInvoke = vi.fn(async () => null), fetchImpl = vi.fn();
+  const gateway = new PluginCapabilityGateway({ nativeInvoke, fetchImpl });
+  const owner = { runtimeId: "runtime", sessionId: "session",
+    pluginId: "com.zicode.devtools.disk-inspector", capabilityId: "devtools.disk-inspector.scan" };
+  await gateway.directoryUsage.choose("workspace", owner);
+  await gateway.directoryUsage.commit("workspace", owner, "grant");
+  await gateway.directoryUsage.cancel("workspace", owner, "grant");
+  expect(nativeInvoke.mock.calls).toEqual([
+    ["select_directory_usage", { workspaceId: "workspace", owner }],
+    ["commit_plugin_directory", { workspaceId: "workspace", owner, grantId: "grant", confirmed: true }],
+    ["cancel_plugin_directory", { workspaceId: "workspace", owner, grantId: "grant" }],
+  ]);
+  expect(fetchImpl).not.toHaveBeenCalled();
+  expect(new PluginCapabilityGateway({ fetchImpl, nativeInvoke: null }).directoryUsage).toBeNull();
 });

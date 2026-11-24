@@ -29,7 +29,7 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
 
     let scratch = project.join(".cache/task-scratch");
     fs::create_dir_all(&scratch).unwrap();
-    let fixture = tempfile::tempdir_in(scratch).unwrap();
+    let fixture = tempfile::tempdir_in(&scratch).unwrap();
     let root = fixture.path().canonicalize().unwrap();
     fs::create_dir(root.join("public")).unwrap();
     fs::create_dir_all(root.join("normal/archive/quarter")).unwrap();
@@ -258,6 +258,117 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
         );
         last_access = access.clone();
     }
+
+    let selected_fixture = tempfile::tempdir_in(&scratch).unwrap();
+    let selected = selected_fixture
+        .path()
+        .canonicalize()
+        .unwrap()
+        .join("外部资料");
+    assert!(!selected.starts_with(&root));
+    fs::create_dir_all(selected.join("子目录")).unwrap();
+    fs::write(selected.join("子目录/样例.txt"), b"12345").unwrap();
+    let context = Context {
+        window: "native-workspace-disk-inspector".into(),
+        workspace: target.workspace_id.clone(),
+        route: "/workspace".into(),
+    };
+    let other_window = Context {
+        window: "native-workspace-other".into(),
+        ..context.clone()
+    };
+    let other_workspace = Context {
+        workspace: "other-workspace".into(),
+        ..context.clone()
+    };
+    let (_, denied) = post(
+        &host,
+        &client,
+        "prepare-local-directory",
+        prepare_body("../external"),
+    )
+    .await;
+    assert_eq!(denied["error"]["code"], "resource_file_path_invalid");
+    let denied = host
+        .prepare_native_directory_usage(other_workspace, owner.clone(), selected.clone())
+        .await
+        .unwrap_err();
+    assert_eq!(denied, "resource_authorization_changed");
+    let prepare_selected = || {
+        host.prepare_native_directory_usage(context.clone(), owner.clone(), selected.clone())
+    };
+    let cancelled = prepare_selected().await.unwrap();
+    let cancelled_id = cancelled["grantId"].as_str().unwrap().to_owned();
+    let cancelled = host
+        .cancel_native_plugin_directory(&context, owner.clone(), cancelled_id.clone())
+        .unwrap();
+    assert_eq!(cancelled["cancelled"], true);
+    assert_eq!(
+        host.commit_native_plugin_directory(context.clone(), owner.clone(), cancelled_id, true)
+            .await
+            .unwrap_err(),
+        "resource_directory_grant_unavailable"
+    );
+    let preview = prepare_selected().await.unwrap();
+    assert_eq!(preview["profile"], usage::PROFILE);
+    assert_eq!(preview["displayName"], "外部资料");
+    assert_eq!(preview["entryNamesRead"], false);
+    assert_eq!(preview["confirmed"], false);
+    assert!(preview.get("relativePath").is_none());
+    assert!(!preview.to_string().contains("样例.txt"));
+    let id = preview["grantId"].as_str().unwrap();
+    for (scope, confirmed, code) in [
+        (context.clone(), false, "resource_confirmation_required"),
+        (other_window, true, "resource_directory_grant_unavailable"),
+    ] {
+        assert_eq!(
+            host.commit_native_plugin_directory(scope, owner.clone(), id.to_owned(), confirmed)
+                .await
+                .unwrap_err(),
+            code
+        );
+    }
+    let (_, denied) = post(
+        &host,
+        &client,
+        "commit-local-directory",
+        grant_body(&preview, true),
+    )
+    .await;
+    assert_eq!(
+        denied["error"]["code"],
+        "resource_directory_grant_unavailable"
+    );
+    let resource = host
+        .commit_native_plugin_directory(context.clone(), owner.clone(), id.to_owned(), true)
+        .await
+        .unwrap();
+    assert_eq!(resource["entryCount"], 2);
+    assert_eq!(resource["partial"], false);
+    assert_eq!(
+        host.commit_native_plugin_directory(context, owner.clone(), id.to_owned(), true)
+            .await
+            .unwrap_err(),
+        "resource_directory_grant_unavailable"
+    );
+    let (status, response) = post(
+        &host,
+        &client,
+        "invoke-view",
+        invoke_body(&resource["access"]),
+    )
+    .await;
+    assert!(status.is_success(), "{response}");
+    let report = &response["result"];
+    assert_eq!(report["logicalBytes"], "5");
+    assert_eq!(report["fileCount"], 1);
+    assert_eq!(report["partial"], false);
+    assert_eq!(report["largestFiles"][0]["path"], "子目录/样例.txt");
+    assert!(!report.to_string().contains("外部资料"));
+    println!(
+        "DISK_INSPECTOR_REPORT {}",
+        json!({"case":"native_outside","report":report})
+    );
 
     host.state
         .plugins

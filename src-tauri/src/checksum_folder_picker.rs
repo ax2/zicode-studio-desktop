@@ -16,6 +16,49 @@ pub(crate) async fn select_checksum_folder(
     let initial = app
         .state::<HostServer>()
         .project_resource_root(&workspace_id)?;
+    let selected = pick_local_folder(app, initial).await?;
+    if context(&window, &workspace_id).ok().as_ref() != Some(&original) {
+        return Err("resource_directory_window_changed".into());
+    }
+    let Some(path) = selected else {
+        return Ok(None);
+    };
+    let host = window.state::<HostServer>();
+    let preview = host
+        .prepare_native_checksum_folder(original.clone(), owner.clone(), manifest, path)
+        .await?;
+    accept_preview(&window, &workspace_id, original, owner, preview)
+}
+
+#[tauri::command]
+pub(crate) async fn select_directory_usage(
+    app: AppHandle,
+    window: WebviewWindow,
+    workspace_id: String,
+    owner: Value,
+) -> Result<Option<Value>, String> {
+    let original = context(&window, &workspace_id)?;
+    let initial = app
+        .state::<HostServer>()
+        .project_resource_root(&workspace_id)?;
+    let selected = pick_local_folder(app, initial).await?;
+    if context(&window, &workspace_id).ok().as_ref() != Some(&original) {
+        return Err("resource_directory_window_changed".into());
+    }
+    let Some(path) = selected else {
+        return Ok(None);
+    };
+    let preview = window
+        .state::<HostServer>()
+        .prepare_native_directory_usage(original.clone(), owner.clone(), path)
+        .await?;
+    accept_preview(&window, &workspace_id, original, owner, preview)
+}
+
+async fn pick_local_folder(
+    app: AppHandle,
+    initial: std::path::PathBuf,
+) -> Result<Option<std::path::PathBuf>, String> {
     let selected = tauri::async_runtime::spawn_blocking(move || {
         app.dialog()
             .file()
@@ -24,20 +67,13 @@ pub(crate) async fn select_checksum_folder(
     })
     .await
     .map_err(|_| "resource_directory_picker_unavailable")?;
-    if context(&window, &workspace_id)? != original {
-        return Err("resource_directory_window_changed".into());
-    }
-    let Some(selected) = selected else {
-        return Ok(None);
-    };
-    let path = selected
-        .into_path()
-        .map_err(|_| "resource_directory_path_invalid")?;
-    let host = window.state::<HostServer>();
-    let preview = host
-        .prepare_native_checksum_folder(original.clone(), owner.clone(), manifest, path)
-        .await?;
-    accept_preview(&window, &workspace_id, original, owner, preview)
+    selected
+        .map(|folder| {
+            folder
+                .into_path()
+                .map_err(|_| "resource_directory_path_invalid".to_owned())
+        })
+        .transpose()
 }
 
 fn accept_preview(
@@ -49,7 +85,7 @@ fn accept_preview(
 ) -> Result<Option<Value>, String> {
     if context(window, workspace_id).ok().as_ref() != Some(&original) {
         if let Some(grant) = preview["grantId"].as_str() {
-            let _ = window.state::<HostServer>().cancel_native_checksum_folder(
+            let _ = window.state::<HostServer>().cancel_native_plugin_directory(
                 &original,
                 owner,
                 grant.to_owned(),
@@ -157,7 +193,7 @@ pub(crate) async fn commit_digest_file(
         .commit_native_digest_file(original.clone(), owner, grant_id, confirmed)
         .await?;
     if context(&window, &workspace_id).ok().as_ref() != Some(&original) {
-        host.discard_native_digest_snapshot(&result);
+        host.discard_native_resource(&result);
         return Err("resource_directory_window_changed".into());
     }
     Ok(result)
@@ -206,7 +242,7 @@ pub(crate) async fn run_digest_stream_files(
     let original = context(&window, &workspace_id)?;
     let result = window.state::<HostServer>().run_native_digest_stream(original.clone(), owner, grant_id, confirmed, expected).await?;
     if context(&window, &workspace_id).ok().as_ref() != Some(&original) {
-        window.state::<HostServer>().discard_native_digest_snapshot(&serde_json::json!({"access":result["reportAccess"]}));
+        window.state::<HostServer>().discard_native_resource(&serde_json::json!({"access":result["reportAccess"]}));
         return Err("resource_directory_window_changed".into());
     }
     Ok(result)
@@ -234,7 +270,7 @@ pub(crate) fn cancel_digest_stream(
 }
 
 #[tauri::command]
-pub(crate) async fn commit_checksum_folder(
+pub(crate) async fn commit_plugin_directory(
     window: WebviewWindow,
     workspace_id: String,
     owner: Value,
@@ -242,14 +278,15 @@ pub(crate) async fn commit_checksum_folder(
     confirmed: bool,
 ) -> Result<Value, String> {
     let original = context(&window, &workspace_id)?;
-    let report = window
-        .state::<HostServer>()
-        .commit_native_checksum_folder(original.clone(), owner, grant_id, confirmed)
+    let host = window.state::<HostServer>();
+    let result = host
+        .commit_native_plugin_directory(original.clone(), owner, grant_id, confirmed)
         .await?;
-    if context(&window, &workspace_id)? != original {
+    if context(&window, &workspace_id).ok().as_ref() != Some(&original) {
+        host.discard_native_resource(&result);
         return Err("resource_directory_window_changed".into());
     }
-    Ok(report)
+    Ok(result)
 }
 
 #[tauri::command]
@@ -265,13 +302,13 @@ pub(crate) fn checksum_folder_progress(
 }
 
 #[tauri::command]
-pub(crate) fn cancel_checksum_folder(
+pub(crate) fn cancel_plugin_directory(
     window: WebviewWindow,
     workspace_id: String,
     owner: Value,
     grant_id: String,
 ) -> Result<Value, String> {
-    window.state::<HostServer>().cancel_native_checksum_folder(
+    window.state::<HostServer>().cancel_native_plugin_directory(
         &context(&window, &workspace_id)?,
         owner,
         grant_id,

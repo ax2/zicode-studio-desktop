@@ -38,10 +38,9 @@ function diskInspectorFixture({ granted = true, report } = {}) {
   const owner = { runtimeId: "runtime", sessionId: "session", pluginId: receiver.pluginId, capabilityId: receiver.capabilityId };
   const directoryProfile = "resource.local-directory.usage.draft1";
   const access = { schemaVersion: 1, owner, resourceId: id, contentVersion: "a".repeat(64) };
-  const projectDirectories = {
-    choose: vi.fn(async () => "."),
-    prepare: vi.fn(async () => ({ schemaVersion: 1, profile: directoryProfile, confirmed: false, entryNamesRead: false,
-      relativePath: ".", owner, grantId: id })),
+  const directoryUsage = {
+    choose: vi.fn(async () => ({ schemaVersion: 1, profile: directoryProfile, confirmed: false, entryNamesRead: false,
+      displayName: "外部资料", owner, grantId: id })),
     commit: vi.fn(async () => ({ schemaVersion: 1, profile: directoryProfile, confirmed: true, entryCount: 3, partial: true, access })),
     cancel: vi.fn(async () => ({})),
   };
@@ -60,8 +59,8 @@ function diskInspectorFixture({ granted = true, report } = {}) {
   };
   const invokeResource = vi.fn(async (_owner, request) => ({ schemaVersion: 1, operationId: id,
     source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result }));
-  const f = fixture({ projectDirectories, invokeResource }, 1, true, receiver);
-  return { f, projectDirectories, owner, directoryProfile, access, result };
+  const f = fixture({ directoryUsage, projectDirectories: { choose: vi.fn() }, invokeResource }, 1, true, receiver);
+  return { f, directoryUsage, owner, directoryProfile, access, result };
 }
 
 function streamingFixture() {
@@ -91,20 +90,20 @@ function streamingFixture() {
 afterEach(() => { for (const root of roots.splice(0)) root.destroy(); vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
 describe("directory-owned resource execution", () => {
   it("prepares only the special directory usage profile, waits for approval, then displays the exact partial result", async () => {
-    const { f, projectDirectories, owner, directoryProfile, access } = diskInspectorFixture();
+    const { f, directoryUsage, owner, directoryProfile, access } = diskInspectorFixture();
     expect(document.querySelector('input[type="file"]')).toBeNull();
     expect(f.button("Files")).toBeUndefined();
     f.button("Choose a folder").click();
     await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
-    expect(projectDirectories.choose).toHaveBeenCalledWith("workspace");
-    expect(projectDirectories.prepare).toHaveBeenCalledWith(owner, ".", directoryProfile);
-    expect(document.body.textContent).toContain("Current file location");
-    expect(projectDirectories.commit).not.toHaveBeenCalled();
+    expect(directoryUsage.choose).toHaveBeenCalledWith("workspace", owner);
+    expect(f.gateway.projectDirectories.choose).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("外部资料");
+    expect(directoryUsage.commit).not.toHaveBeenCalled();
     expect(f.gateway.invokeResource).not.toHaveBeenCalled();
 
     f.button("Confirm directory sharing").click();
     await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
-    expect(projectDirectories.commit).toHaveBeenCalledWith(owner, id);
+    expect(directoryUsage.commit).toHaveBeenCalledWith("workspace", owner, id);
     expect(document.body.textContent).toContain("Shared partial usage");
     expect(f.gateway.invokeResource).not.toHaveBeenCalled();
 
@@ -153,27 +152,52 @@ describe("directory-owned resource execution", () => {
   });
 
   it("keeps Disk Inspector unavailable with only the old directory grant", () => {
-    const { f, projectDirectories } = diskInspectorFixture({ granted: false });
+    const { f, directoryUsage } = diskInspectorFixture({ granted: false });
     expect(f.button("Choose a folder")).toBeUndefined();
     expect(f.button("Execute tool").disabled).toBe(true);
-    expect(projectDirectories.choose).not.toHaveBeenCalled();
+    expect(directoryUsage.choose).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain("directory usage permission");
   });
 
   it("cancels a pending directory scan and revokes a late resource with the original scope", async () => {
-    const { f, projectDirectories, owner, directoryProfile, access } = diskInspectorFixture();
+    const { f, directoryUsage, owner, directoryProfile, access } = diskInspectorFixture();
     let finish;
-    projectDirectories.commit.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    directoryUsage.commit.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
     f.button("Choose a folder").click();
     await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
     f.button("Confirm directory sharing").click();
     await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
     f.button("Cancel directory sharing").click();
-    expect(projectDirectories.cancel).toHaveBeenCalledWith(owner, id);
+    expect(directoryUsage.cancel).toHaveBeenCalledWith("workspace", owner, id);
     finish({ profile: directoryProfile, confirmed: true, entryCount: 3, partial: false, access });
     await vi.waitFor(() => expect(f.gateway.revokeResource).toHaveBeenCalledWith(access));
     expect(f.button("Execute tool").disabled).toBe(true);
     expect(f.gateway.invokeResource).not.toHaveBeenCalled();
+  });
+
+  it("releases a native grant that arrives after switching the tool target", async () => {
+    const { f, directoryUsage, owner, directoryProfile } = diskInspectorFixture();
+    let finish;
+    directoryUsage.choose.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    f.button("Choose a folder").click();
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    f.switchTarget();
+    finish({ profile: directoryProfile, confirmed: false, entryNamesRead: false,
+      displayName: "相同名称", owner, grantId: id });
+    await vi.waitFor(() => expect(directoryUsage.cancel).toHaveBeenCalledWith("workspace", owner, id));
+    expect(f.button("Confirm directory sharing").disabled).toBe(true);
+    expect(directoryUsage.commit).not.toHaveBeenCalled();
+  });
+
+  it("rejects a native preview that exposes a full path as the folder name", async () => {
+    const { f, directoryUsage, owner, directoryProfile } = diskInspectorFixture();
+    directoryUsage.choose.mockResolvedValue({ profile: directoryProfile, confirmed: false, entryNamesRead: false,
+      displayName: "D:\\private\\folder", owner, grantId: id });
+    f.button("Choose a folder").click();
+    await vi.waitFor(() => expect(directoryUsage.cancel).toHaveBeenCalledWith("workspace", owner, id));
+    expect(f.button("Confirm directory sharing").disabled).toBe(true);
+    expect(document.body.textContent).not.toContain("private");
+    expect(directoryUsage.commit).not.toHaveBeenCalled();
   });
 
   it("runs native streaming from the existing browse action and offers save and original relay", async () => {

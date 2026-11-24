@@ -144,7 +144,7 @@ impl HostServer {
             .map_err(error_code)
     }
 
-    pub(crate) fn discard_native_digest_snapshot(&self, result: &Value) {
+    pub(crate) fn discard_native_resource(&self, result: &Value) {
         if let Ok(access) = serde_json::from_value::<Access>(result["access"].clone()) {
             if let Ok(mut store) = self.state.plugin_resources.lock() {
                 let _ = store.revoke(&access);
