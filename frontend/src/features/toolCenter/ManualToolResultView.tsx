@@ -28,10 +28,8 @@ export function ManualToolResultView({ result, dataTransform = false, dataMerge 
     {onBackToInputs && <button type="button" className="ui-button ui-button--secondary" onClick={onBackToInputs}>{t("Back to inputs")}</button>}
     {result.successful ? <>
       <p role="status">{t("Tool completed")}</p>
-      {preview ? <>
-        {tableActions}
-        <DataTransformResult key={result.text} result={preview} text={result.text} />
-      </>
+      {tableActions}
+      {preview ? <DataTransformResult key={result.text} result={preview} text={result.text} />
         : image ? <ToolResultImage key={result.text} image={image} text={result.text} />
         : <ToolResultText key={result.text} text={result.text} />}
     </> : <div role="alert">

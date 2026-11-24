@@ -2263,6 +2263,7 @@ const zhCN = {
   "Fix the tool options before importing a file.": "请修正工具选项后再导入文件。",
   "Could not read the table file.": "无法读取表格文件。",
   "The result already matches the input.": "结果与当前输入一致。",
+  "Applied to the input as {format}.": "已将结果作为 {format} 应用到输入。",
   "Applied to the input as a JSON table.": "已将结果作为 JSON 表格应用到输入。",
   "The inputs changed. Run the tool again to apply a current result.": "输入有变化。重新执行后可应用当前结果。",
   "This result cannot be applied within the tool’s input contract.": "此结果不符合该工具的输入格式或大小限制，无法应用。",
