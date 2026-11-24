@@ -6,6 +6,7 @@ import { showBrowserCapture } from "./browser-capture-preview.js";
 import { browserDraftPrompt } from "./browser-chat-draft.js";
 import { navigateToNote } from "../features/notes-navigation.js";
 import { NotesGateway } from "../plugins/notes-gateway.js";
+import { createChatDraftHandoff } from "../features/chat-draft-handoff.js";
 import analysisNote from "../../../tests/fixtures/browser-analysis-note.json";
 
 const capture = {
@@ -327,4 +328,110 @@ it("ignores a browser Notes link when the workspace changes during activation", 
   await navigateToNote(detail, options);
   expect(activate).toHaveBeenCalledOnce();
   expect(open).not.toHaveBeenCalled();
+});
+
+async function openControlledComparison({ capturePage, handoff, target }) {
+  setLocale("en");
+  const host = document.createElement("main");
+  document.body.append(host);
+  vi.stubGlobal("ResizeObserver", class { observe() {} });
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 20, y: 50, width: 900, height: 580 });
+  const pages = [capture, ...["chosen", "extra"].map(tab => ({
+    ...capture, tab, documentRevision: 1,
+    page: { ...capture.page, title: tab === "chosen" ? "Chosen page" : "Extra page", url: "https://example.invalid/" + tab },
+  }))];
+  const tabs = pages.map(({ tab: id, page: { title, url } }) => ({ id, title, url }));
+  const invoke = vi.fn(async (command, args) => {
+    if (command === "browser_get_state") return { startupMode: "browser", session: { activeTab: capture.tab, revision: 0, tabs } };
+    if (command === "browser_capture_page") {
+      const source = pages.find(source => source.tab === args.tab);
+      expect(args.expectedUrl).toBe(source.page.url);
+      return capturePage?.(source) ?? source;
+    }
+    if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs };
+    return {};
+  });
+  app = setupBrowserApp({ invoke, listen: vi.fn(async () => () => {}), onPrepareDraft: handoff,
+    getTarget: () => target });
+  app.renderContent(host);
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_control", { request: expect.objectContaining({ kind: "present", tab: capture.tab }) }));
+  getByRole(host, "button", { name: "Read page" }).click();
+  (await waitFor(() => getByRole(host, "button", { name: "Compare open tabs" }))).click();
+  const group = getByRole(host, "group", { name: "Compare open tabs" });
+  const panel = within(group);
+  panel.getByRole("checkbox", { name: /Chosen page/ }).click();
+  const readTabs = () => invoke.mock.calls.filter(([command]) => command === "browser_capture_page").map(([, args]) => args.tab);
+  return { host, group, panel, readTabs };
+}
+
+it("cancels an in-flight comparison read by Escape, keeps the selection and discards the late result", async () => {
+  let finishOld, chosenReads = 0;
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "session", runtimeMode: "ai" };
+  const handoff = vi.fn();
+  const capturePage = source => {
+    if (source.tab !== "chosen") return source;
+    if (++chosenReads !== 1) return source;
+    return new Promise(resolve => { finishOld = () => resolve({ ...source, page: { ...source.page, title: "Old delayed result" } }); });
+  };
+  const { group, panel, readTabs } = await openControlledComparison({ capturePage, handoff, target });
+  const extra = panel.getByRole("checkbox", { name: /Extra page/ });
+  extra.click();
+  const read = panel.getByRole("button", { name: "Read selected tabs" });
+  const draft = panel.getByRole("button", { name: "Prepare comparison draft" });
+  read.click();
+  await waitFor(() => expect(finishOld).toBeTypeOf("function"));
+  const cancel = panel.getByRole("button", { name: "Cancel comparison" });
+  expect(document.activeElement).toBe(cancel);
+  expect(read.disabled).toBe(true);
+  cancel.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  expect(group.isConnected).toBe(true);
+  expect(extra.checked).toBe(true);
+  expect(panel.getByRole("checkbox", { name: /Chosen page/ }).checked).toBe(true);
+  expect(panel.getByRole("status").textContent).toBe("Comparison cancelled. Your selections are kept.");
+  expect(document.activeElement).toBe(read);
+  expect(draft.disabled).toBe(true);
+  expect(readTabs()).toEqual([capture.tab, "chosen"]);
+
+  read.click();
+  await waitFor(() => expect(draft.disabled).toBe(false));
+  finishOld();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(readTabs()).toEqual([capture.tab, "chosen", "chosen", "extra"]);
+  expect(group.querySelectorAll(".browser-compare-preview > details")).toHaveLength(3);
+  expect(group.textContent).not.toContain("Old delayed result");
+  expect(handoff).not.toHaveBeenCalled();
+});
+
+it("keeps reviewed sources and the existing Chat draft when comparison is cancelled before insertion", async () => {
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "session", runtimeMode: "ai" };
+  const composer = document.createElement("textarea");
+  composer.value = "Existing draft, keep exactly";
+  document.body.append(composer);
+  let finishActivation, chatActive = false;
+  const activate = vi.fn(async () => { chatActive = true; })
+    .mockImplementationOnce(() => new Promise(resolve => { finishActivation = () => { chatActive = true; resolve(); }; }));
+  const syncDraft = vi.fn();
+  const handoff = vi.fn(createChatDraftHandoff({ activate, getTarget: () => target,
+    isChatActive: () => chatActive, getInput: () => composer, syncDraft }));
+  const { group, panel } = await openControlledComparison({ handoff, target });
+  panel.getByRole("button", { name: "Read selected tabs" }).click();
+  const draft = panel.getByRole("button", { name: "Prepare comparison draft" });
+  await waitFor(() => expect(draft.disabled).toBe(false));
+  draft.click();
+  await waitFor(() => expect(finishActivation).toBeTypeOf("function"));
+  panel.getByRole("button", { name: "Cancel comparison" }).click();
+  expect(document.activeElement).toBe(draft);
+  expect(draft.disabled).toBe(false);
+  expect(group.querySelectorAll(".browser-compare-preview > details")).toHaveLength(2);
+  finishActivation();
+  await expect(handoff.mock.results[0].value).rejects.toThrow("The source or chat target changed");
+  expect(composer.value).toBe("Existing draft, keep exactly");
+  expect(syncDraft).not.toHaveBeenCalled();
+
+  draft.click();
+  await waitFor(() => expect(syncDraft).toHaveBeenCalledOnce());
+  expect(composer.value).toContain("Existing draft, keep exactly\n\n");
+  expect(composer.value).toContain("https://example.invalid/chosen");
+  expect(handoff).toHaveBeenCalledTimes(2);
+  await waitFor(() => expect(group.isConnected).toBe(false));
 });

@@ -15,7 +15,7 @@ function setLabel(element, key) {
 }
 
 export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWriter, comparison, opensChat = false, dock) {
-  let busy = false;
+  let busy = false, busyCount = 0;
   let modelAssistant;
   const dialog = document.createElement(dock ? "section" : "dialog");
   dialog.className = dock ? "browser-capture-panel" : "browser-capture-dialog ui-panel";
@@ -150,11 +150,14 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   }
   const pausedActions = [];
   const setBusy = value => {
-    busy = value;
-    if (dock) dialog.setAttribute("aria-busy", String(value));
-    if (question) question.disabled = value;
-    for (const button of dialog.querySelectorAll(".browser-image-ocr button")) button.disabled = value;
-    if (value) {
+    busyCount = Math.max(0, busyCount + (value ? 1 : -1));
+    const next = busyCount > 0;
+    if (next === busy) return;
+    busy = next;
+    if (dock) dialog.setAttribute("aria-busy", String(busy));
+    if (question) question.disabled = busy;
+    for (const button of dialog.querySelectorAll(".browser-image-ocr button")) button.disabled = busy;
+    if (busy) {
       for (const button of actions.querySelectorAll("button:not(:disabled)")) {
         button.disabled = true;
         pausedActions.push(button);

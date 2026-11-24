@@ -1234,6 +1234,9 @@ const zhCN = {
   "Prepare comparison draft": "准备对比草稿",
   "Comparison source text": "对比来源正文",
   "Reading selected tabs…": "正在读取所选标签…",
+  "Cancel comparison": "取消比较",
+  "Comparison cancelled. Your selections are kept.": "已取消比较，保留所选网页。",
+  "Preparing comparison draft…": "正在准备比较草稿…",
   "Review the sources, then prepare an unsent draft.": "请检查各个来源，再准备未发送的草稿。",
   "Compare these web sources. Cite each claim with its source number, and distinguish agreements, disagreements, and missing evidence.":
     "比较这些网页来源。请用来源编号标注各项判断，区分一致之处、分歧和证据不足的地方。",
