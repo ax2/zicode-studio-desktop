@@ -81,7 +81,7 @@ export function browserNoteContent(capture, selectionOnly = false, { includeLink
     ...(recognized.length ? [`## ${t("Recognized image text")}`, ...recognized.flatMap(imageTextMarkdown)] : []),
   ].filter(Boolean).join("\n\n");
 }
-function browserAnalysisNoteContent(source, analysis) {
+function browserAnalysisNoteContent(source, analysis, capture) {
   const { title, url, image, frame, capturedAt, documentRevision } = source;
   const { question, generatedAt, kind, model } = analysis;
   const line = (name, value) => `${t(name)}: ${quotedPageText(value)}`;
@@ -109,6 +109,8 @@ function browserAnalysisNoteContent(source, analysis) {
     line("Generated at", generatedAt),
     line("Browser model", `${model.provider} / ${model.modelId}`),
     question && line("Browser analysis question", question),
+    analysis.selectionOnly && line("Source text", t("Selected text")),
+    analysis.selectionOnly && capture.page.selectionTruncated && t("Selected text was shortened"),
     ...browserTranslationDetails(analysis.translation).map(([label, value]) => line(label, value)),
     ...sources,
     `### ${t("Browser model answer")}`,
@@ -144,7 +146,7 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
       pending = true;
       try {
         const analysisSource = analysis && browserAnalysisPageSource(capture, analysis);
-        const content = analysisSource ? browserAnalysisNoteContent(analysisSource, analysis)
+        const content = analysisSource ? browserAnalysisNoteContent(analysisSource, analysis, capture)
           : browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, tableIndexes, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText });
         title = title.trim(); notebookTitle = notebookTitle?.trim();
         if (!title || [...title].length > 200) throw new Error(t("Enter a note title of up to 200 characters."));

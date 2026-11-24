@@ -45,7 +45,8 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   const text = document.createElement("textarea"); text.className = "ui-textarea browser-capture-text"; text.readOnly = true;
   text.setAttribute("aria-label", t("Page content"));
   text.setAttribute("data-i18n-aria-label", "Page content");
-  text.value = `${capture.page.selection ? `${t("Selected text")}\n${capture.page.selection}\n\n` : ""}${capture.page.text}`;
+  const pagePreview = `${capture.page.selection ? `${t("Selected text")}\n${capture.page.selection}\n\n` : ""}${capture.page.text}`;
+  text.value = pagePreview;
   const includeLinks = document.createElement("input"); includeLinks.type = "checkbox";
   const recognizeImage = dock?.recognizeImage && (async (image, frame) => {
     if (busy || !isOpen()) return;
@@ -71,6 +72,24 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     };
   };
   const links = renderBrowserCaptureLinks(capture.page, includeLinks);
+  let selectionScope, selectionLabel;
+  if (capture.page.selection?.trim() && (prepareDraft || dock?.modelActions)) {
+    selectionScope = document.createElement("input"); selectionScope.type = "checkbox";
+    selectionLabel = document.createElement("label");
+    selectionLabel.className = "ui-toolbar browser-capture-prepare";
+    const scopeText = document.createElement("span");
+    setLabel(scopeText, "Use only selected text for AI and Chat drafts");
+    selectionLabel.append(selectionScope, scopeText);
+    selectionScope.addEventListener("change", () => {
+      const name = selectionScope.checked ? "Selected text" : "Page content";
+      text.setAttribute("aria-label", t(name));
+      text.setAttribute("data-i18n-aria-label", name);
+      text.value = selectionScope.checked ? capture.page.selection : pagePreview;
+      text.setSelectionRange(0, 0);
+      text.scrollTop = 0;
+    });
+  }
+  const aiAttachments = () => selectionScope?.checked ? { selectionOnly: true } : attachments();
   const note = document.createElement("p");
   const notices = [];
   if (capture.page.textTruncated ?? capture.page.truncated) notices.push("Page content was shortened");
@@ -85,6 +104,10 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   for (const key of notices) {
     const label = document.createElement("span");
     setLabel(label, key);
+    if (selectionScope && (key === "Page content was shortened" ||
+        key === "Page questions and summaries include the selected attachments.")) {
+      selectionScope.addEventListener("change", () => { label.hidden = selectionScope.checked; });
+    }
     if (note.childNodes.length) note.append(" ");
     note.append(label);
   }
@@ -146,7 +169,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     draftCancelButton.addEventListener("click", cancelDraft);
     const stageDraft = async (trigger, intent) => {
       if (busy || !isOpen()) return;
-      const material = { ...attachments(), ...intent };
+      const material = { ...aiAttachments(), ...intent };
       const choices = dialog.querySelectorAll('input[type="checkbox"]:not(:disabled)');
       const job = { trigger, choices };
       const isPreparing = () => pending === job;
@@ -190,6 +213,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     busy = next;
     if (dock) dialog.setAttribute("aria-busy", String(busy));
     if (question) question.disabled = busy;
+    if (selectionScope) selectionScope.disabled = busy;
     for (const button of dialog.querySelectorAll(".browser-image-ocr button")) button.disabled = busy;
     if (busy) {
       for (const button of actions.querySelectorAll("button:not(:disabled)")) {
@@ -204,8 +228,8 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     compare?.update?.();
   };
   if (dock?.modelActions) {
-    modelAssistant = createBrowserModelAssistant({ actions: dock.modelActions, question,
-      prompt: summarize => browserDraftPrompt(capture, { ...attachments(), question: question?.value, summarize }),
+    modelAssistant = createBrowserModelAssistant({ actions: dock.modelActions, question, selectionScope,
+      prompt: summarize => browserDraftPrompt(capture, { ...aiAttachments(), question: question?.value, summarize }),
       isCurrent: isOpen, setBusy, artifacts: dock.analysisArtifacts,
       canStart: () => !busy, verifyPage: dock.verifyPage, verifyComparison: comparison?.verify,
       translationSource: dock.verifyPage && browserTranslationSource(capture),
@@ -234,6 +258,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (dock) dialog.append(time);
   if (hasShortenedText) dialog.append(note);
   dialog.append(text);
+  if (selectionLabel) dialog.append(selectionLabel);
   if (links) dialog.append(links);
   if (tables.element) dialog.append(tables.element);
   if (media.element) dialog.append(media.element);

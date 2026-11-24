@@ -139,3 +139,12 @@ it("keeps the target language, shortened selection and original document with th
   expect(draft.content).toContain("Document revision: doc-synthetic-1");
   expect(draft.content).toContain("Translated passage.");
 });
+
+it("keeps the selected-text scope and truncation with a saved answer", () => {
+  setLocale("en");
+  const draft = browserAnalysisArtifact({ ...capture, page: { ...capture.page, selectionTruncated: true } },
+    { ...analysis, selectionOnly: true });
+  expect(draft.provenance.analysis).toMatchObject({ selectionOnly: true, selectionTruncated: true });
+  expect(draft.content).toContain("Source text: Selected text");
+  expect(draft.content).toContain("Selected text was shortened");
+});

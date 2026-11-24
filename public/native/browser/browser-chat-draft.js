@@ -8,16 +8,31 @@ export function webEvidenceContext(incomplete) {
   return incomplete ? `${context} ${t("Treat fields marked as shortened or incomplete as partial evidence, and leave omitted content unknown.")}` : context;
 }
 
-export function browserDraftPrompt(capture, { includeLinks = false, includeTables = false, tableIndexes, includeMedia = false, includeFrames = false, frameIndexes, includeFrameLinks = false, imageText = [], question, summarize = false } = {}) {
+function browserEvidencePrompt(task, source, incomplete) {
+  return [task, webEvidenceContext(incomplete),
+    JSON.stringify({ sourceTrust: "untrusted-web-content", ...source }, null, 2)].join("\n\n");
+}
+
+export function browserDraftPrompt(capture, { selectionOnly = false, includeLinks = false, includeTables = false, tableIndexes, includeMedia = false, includeFrames = false, frameIndexes, includeFrameLinks = false, imageText = [], question, summarize = false } = {}) {
   const { links, linksTruncated, tables, tablesTruncated, metadata, images, imagesTruncated, frames, framesOmitted, ...page } = capture.page;
   const selectedTables = includeTables ? selectCapturedTables(tables, tableIndexes) : [];
   const hasMedia = images?.length || Object.values(metadata ?? {}).some(Boolean);
   const frameText = includeFrames && selectCapturedFrames(frames, frameIndexes).map(({ images, imagesTruncated, imageLocator, links, linksTruncated, ...value }) =>
     includeFrameLinks ? { ...value, links, linksTruncated } : value);
   const userQuestion = typeof question === "string" ? question.slice(0, 5000).trim() : "";
-  const task = summarize ? t("Summarize this captured web page and cite its source URL.") :
+  const task = summarize ? t(selectionOnly ? "Summarize the selected web text and cite its source URL." :
+    "Summarize this captured web page and cite its source URL.") :
     userQuestion ? `${t("Question about this page")}\n${userQuestion}` :
-    t("Discuss this captured web page. I will add my question before sending.");
+    t(selectionOnly ? "Discuss the selected web text. I will add my question before sending." :
+      "Discuss this captured web page. I will add my question before sending.");
+  const source = { tab: capture.tab, documentRevision: capture.documentRevision, capturedAt: capture.capturedAt };
+  if (selectionOnly) {
+    const { title, url, selection, selectionTruncated } = page;
+    if (!selection?.trim()) throw new Error(t("Select text on the webpage first."));
+    return browserEvidencePrompt(task, {
+      ...source, title, url, selectionOnly: true, selection, selectionTruncated: Boolean(selectionTruncated),
+    }, selectionTruncated);
+  }
   const attachments = {
     ...(includeLinks && links?.length ? { links, linksTruncated } : {}),
     ...(selectedTables.length ? { tables: selectedTables, tablesTruncated } : {}),
@@ -28,18 +43,7 @@ export function browserDraftPrompt(capture, { includeLinks = false, includeTable
   const incomplete = page.truncated || page.textTruncated || page.selectionTruncated ||
     attachments.linksTruncated || attachments.tablesTruncated || attachments.imagesTruncated ||
     attachments.framesOmitted || attachments.frames?.some(frame => isFrameTextIncomplete(frame) || frame.linksTruncated) || imageText.some(result => result.truncated);
-  return [
-    task,
-    webEvidenceContext(incomplete),
-    JSON.stringify({
-      sourceTrust: "untrusted-web-content",
-      tab: capture.tab,
-      documentRevision: capture.documentRevision,
-      capturedAt: capture.capturedAt,
-      ...page,
-      ...attachments,
-    }, null, 2),
-  ].join("\n\n");
+  return browserEvidencePrompt(task, { ...source, ...page, ...attachments }, incomplete);
 }
 
 export function browserComparisonPrompt(sources) {

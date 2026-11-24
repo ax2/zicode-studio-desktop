@@ -911,3 +911,73 @@ it("uses the checked tables for a saved note and a separately prepared Chat draf
   expect(JSON.parse(prompt.slice(prompt.indexOf("{")))).toMatchObject({ tables: [inventory], tablesTruncated: true });
   expect(write).toHaveBeenCalledOnce();
 });
+
+it("blocks an oversized page locally and sends exactly the reviewed selection when the user retries", async () => {
+  const gateway = comparisonGateway();
+  let hold = false, finishCheck, statusReads = 0;
+  const selected = "Selected \ud83e\udd8a passage";
+  const { assistant } = await openControlledAssistant({
+    target: browserComparisonSession, handoff: vi.fn(), modelGateway: gateway,
+    capturePage: source => ({ ...source, page: { ...source.page, text: "\u0001".repeat(48_000),
+      selection: selected, selectionTruncated: true,
+      links: [{ label: "Unshared link", url: "https://example.invalid/unshared" }] } }),
+    getNativeStatus: snapshot => {
+      statusReads += 1;
+      return hold ? new Promise(resolve => { finishCheck = () => resolve(snapshot); }) : snapshot;
+    },
+  });
+  const question = getByRole(assistant, "textbox", { name: "Question about this page" });
+  question.value = "What is the passage about?";
+  question.dispatchEvent(new Event("input", { bubbles: true }));
+  const sendPage = getByRole(assistant, "button", { name: "Send page and ask" });
+  await waitFor(() => expect(sendPage.disabled).toBe(false));
+  const before = statusReads;
+  sendPage.click();
+  await waitFor(() => expect(assistant.textContent).toContain("This request exceeds the model input limit."));
+  expect(statusReads).toBe(before);
+  expect(modelRequests(gateway)).toHaveLength(0);
+  expect(question.value).toBe("What is the passage about?");
+
+  assistant.querySelector(".browser-capture-links").open = true;
+  const attach = getByRole(assistant, "checkbox", { name: "Include links in the page note or chat draft" });
+  attach.click();
+  const scope = getByRole(assistant, "checkbox", { name: "Use only selected text for AI and Chat drafts" });
+  expect(scope.checked).toBe(false);
+  scope.click();
+  expect(getByRole(assistant, "textbox", { name: "Selected text" }).value).toBe(selected);
+  expect(within(assistant).getByText("Page questions and summaries include the selected attachments.").hidden).toBe(true);
+  const send = getByRole(assistant, "button", { name: "Send selection and ask" });
+  hold = true;
+  send.click();
+  await waitFor(() => expect(finishCheck).toBeTypeOf("function"));
+  expect(scope.disabled).toBe(true);
+  scope.checked = false;
+  question.value = "An edit after send";
+  finishCheck();
+  await waitFor(() => expect(modelRequests(gateway)).toHaveLength(1));
+  const [, request] = modelRequests(gateway)[0];
+  const payload = JSON.parse(request.prompt.slice(request.prompt.indexOf("{")));
+  expect(payload).toEqual({ sourceTrust: "untrusted-web-content", tab: capture.tab, capturedAt: capture.capturedAt,
+    documentRevision: capture.documentRevision, title: capture.page.title, url: capture.page.url,
+    selectionOnly: true, selection: selected, selectionTruncated: true });
+  expect(request.prompt).toContain("What is the passage about?");
+  expect(request.prompt).not.toContain("An edit after send");
+  expect(request.prompt).not.toContain("Unshared link");
+  expect(attach.checked).toBe(true);
+});
+
+it("prepares only the selected passage as a Chat summary draft without requesting a model", async () => {
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "session", runtimeMode: "ai" };
+  const handoff = vi.fn(async () => {});
+  const { assistant } = await openControlledAssistant({ target, handoff });
+  getByRole(assistant, "checkbox", { name: "Use only selected text for AI and Chat drafts" }).click();
+  getByRole(assistant, "button", { name: "Prepare summary draft" }).click();
+  await waitFor(() => expect(handoff).toHaveBeenCalledOnce());
+  const { prompt } = handoff.mock.calls[0][0];
+  expect(prompt).toContain("Summarize the selected web text");
+  expect(JSON.parse(prompt.slice(prompt.indexOf("{")))).toMatchObject({
+    selection: capture.page.selection, selectionOnly: true, url: capture.page.url,
+    capturedAt: capture.capturedAt, documentRevision: capture.documentRevision,
+  });
+  expect(prompt).not.toContain(capture.page.text);
+});

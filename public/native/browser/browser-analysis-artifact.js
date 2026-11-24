@@ -30,6 +30,10 @@ export function browserAnalysisArtifact(capture, analysis) {
     }
   }
   const readableTitle = `${label} · ${source.image?.alt || title || url}`.replace(/\p{Cc}/gu, " ").replace(/\s+/gu, " ").trim();
+  if (analysis.selectionOnly) {
+    details.push(`${t("Source text")}: ${t("Selected text")}`);
+    if (capture.page.selectionTruncated) details.push(t("Selected text was shortened"));
+  }
   if (analysis.translation) {
     details.push(`${t("Document revision")}: ${source.documentRevision}`,
       ...browserTranslationDetails(analysis.translation).map(([label, value]) => `${t(label)}: ${value}`));
@@ -45,6 +49,7 @@ export function browserAnalysisArtifact(capture, analysis) {
       ...(analysis.kind === "comparison" ? { sources: analysis.sources } : {}),
       analysis: { kind: analysis.kind, generatedAt: analysis.generatedAt, question: analysis.question || "",
         ...(analysis.translation && { translation: analysis.translation }),
+        ...(analysis.selectionOnly && { selectionOnly: true, selectionTruncated: Boolean(capture.page.selectionTruncated) }),
         model: { provider: analysis.model.provider, modelId: analysis.model.modelId } } },
   };
 }

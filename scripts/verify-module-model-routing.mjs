@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { smokeRuntimeEnvironment } from "./smoke-runtime-environment.js";
-import { browserComparisonPrompt } from "../public/native/browser/browser-chat-draft.js";
+import { browserComparisonPrompt, browserDraftPrompt } from "../public/native/browser/browser-chat-draft.js";
 import { browserTranslationPrompt, browserTranslationSource } from "../public/native/browser/browser-translation.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -31,6 +31,11 @@ const translationSource = browserTranslationSource({
   capturedAt: "2026-11-24T00:00:00Z", documentRevision: "reviewed-translation",
   page: { title: "Sample article", url: "https://example.invalid/article", text: "Unselected page body.", selection: "This is the reviewed passage." },
 });
+const selectionPrompt = browserDraftPrompt({
+  tab: "reviewed-selection", capturedAt: translationSource.capturedAt, documentRevision: translationSource.documentRevision,
+  page: { title: translationSource.title, url: translationSource.url, text: "Unshared page body.", selection: translationSource.text,
+    selectionTruncated: true, links: [{ label: "Unshared link", url: "https://example.invalid/unshared" }] },
+}, { selectionOnly: true, includeLinks: true, summarize: true });
 const translationPrompt = browserTranslationPrompt(translationSource, "zh-CN");
 const longTranslationPrompt = browserTranslationPrompt({ ...translationSource, text: "Stop the model at its output limit." }, "zh-CN");
 const pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jSQ0AAAAASUVORK5CYII=";
@@ -50,6 +55,8 @@ const server = createServer(async (request, response) => {
     message.content.includes("Translate only the supplied reviewed text") && message.content.includes("untrusted data"));
   requests.push({ path: request.url, model: body.model,
     translationPromptMatched: translationOnly, translationPolicy,
+    selectionPromptMatched: userTexts.length === 1 && userTexts[0] === selectionPrompt &&
+      !userTexts[0].includes("Unshared page body") && !userTexts[0].includes("Unshared link"),
     comparisonPromptMatched: userTexts.length === 1 && userTexts[0] === comparisonPrompt,
     authenticationMatched: request.headers.authorization === `Bearer fixture-only-${isB ? "b" : "a"}`,
     maxTokens: body.max_output_tokens ?? body.max_tokens ?? body.max_completion_tokens, reasoningEffort: body.reasoning?.effort, imageCount: images.length,
@@ -203,6 +210,12 @@ try {
   assert.equal(shortened.error, "module_model_translation_incomplete");
   assert.equal(shortened.data, undefined);
   assert.deepEqual((await pi.rpc({ type: "get_messages" })).data.messages, history.data.messages);
+  const selection = { ...translation, requestId: "native-browser-reviewed-selection", purpose: undefined, prompt: selectionPrompt };
+  assert.equal((await pi.call("browser_model_request", { ...selection, confirmed: false })).error, "module_model_confirmation_required");
+  assert.equal(requests.length, 4);
+  assert.equal((await pi.call("browser_model_request", selection)).ok, true);
+  assert.equal(requests[4].selectionPromptMatched, true, "Pi must forward the reviewed text without the page body or attached links");
+  assert.deepEqual((await pi.rpc({ type: "get_messages" })).data.messages, history.data.messages);
   hold = true;
   const started = new Promise(done => { observeHeld = done; });
   const waiting = pi.call("browser_model_request", { ...ask, requestId: "native-browser-cancel", expectedRevision: inherited.data.revision,
@@ -223,8 +236,8 @@ try {
   assert.deepEqual(reopened.data.browser, { provider: "fixture-b", modelId: "responses-b" });
   assert.equal(reopened.data.currentPiModel.modelId, "chat-a");
   assert.equal(reopened.data.effectiveBrowserModel.modelId, "responses-b");
-  assert.equal(requests.length, 5);
-  assert.deepEqual(requests.map(request => request.imageCount), [0, 1, 0, 0, 0]);
+  assert.equal(requests.length, 6);
+  assert.deepEqual(requests.map(request => request.imageCount), [0, 1, 0, 0, 0, 0]);
   assert(requests.every(request => request.authenticationMatched && request.maxTokens === 1024));
   assert.equal(requests[0].reasoningEffort, "low", "Reasoning Responses models must receive a supported low-budget effort");
   assert.equal(requests[2].reasoningEffort, undefined, "Non-reasoning Chat Completions models must not acquire a reasoning effort");
@@ -235,6 +248,7 @@ try {
     unconfirmedImageDenied: true, textOnlyImageDenied: true, exactImagePayloadVerified: true,
     unconfirmedComparisonDenied: true, exactComparisonPromptVerified: true,
     unconfirmedTranslationDenied: true, exactTranslationPromptVerified: true, incompleteTranslationRejected: true,
+    exactSelectionPromptVerified: true, unconfirmedSelectionDenied: true,
     moduleSelectionSurvivedProcessRestart: true, automaticModelCallsOnConfiguration: 0, syntheticCredentialsOnly: true };
   await writeFile(resolve(output), `${JSON.stringify(receipt, null, 2)}\n`);
   console.log(JSON.stringify(receipt));
