@@ -1310,8 +1310,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (!isCurrent()) throw new Error(t("Page changed. Read it again."));
       return result;
     };
-    captureElement = showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? attachments => prepareBrowserDraft({
-      capture, isCurrent, getTarget, handoff: onPrepareDraft, attachments, openConversation,
+    captureElement = showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? (attachments, isPreparing) => prepareBrowserDraft({
+      capture, isCurrent: () => isPreparing() && isCurrent(), getTarget, handoff: onPrepareDraft, attachments, openConversation,
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
     }) : undefined, (isOpen, analysis) => createBrowserNoteWriter({ capture, getTarget, analysis,
       isCurrent: () => isOpen() && isCurrent(), gateway: new NotesGateway(),

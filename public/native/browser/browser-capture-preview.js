@@ -16,7 +16,7 @@ function setLabel(element, key) {
 
 export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWriter, comparison, opensChat = false, dock) {
   let busy = false, busyCount = 0;
-  let modelAssistant;
+  let modelAssistant, cancelDraft, draftCancelButton;
   const dialog = document.createElement(dock ? "section" : "dialog");
   dialog.className = dock ? "browser-capture-panel" : "browser-capture-dialog ui-panel";
   if (!dock) dialog.setAttribute("aria-label", t("Page content"));
@@ -104,15 +104,21 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   const close = document.createElement("button"); close.type = "button"; close.className = "ui-button ui-button--primary";
   setLabel(close, "Close");
   close.addEventListener("click", () => { if (!busy) dismiss(true); });
-  dialog.addEventListener("cancel", event => { if (busy) event.preventDefault(); });
+  dialog.addEventListener("cancel", event => { if (cancelDraft?.() || busy) event.preventDefault(); });
   dialog.addEventListener("close", () => { modelAssistant?.dispose(); dialog.remove(); onClose(); }, { once: true });
-  if (dock) dialog.addEventListener("keydown", event => {
-    if (event.key !== "Escape" || busy || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
-    event.preventDefault();
-    dismiss(true);
+  dialog.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+    if (cancelDraft?.()) {
+      event.preventDefault();
+      event.stopPropagation();
+    } else if (dock && !busy) {
+      event.preventDefault();
+      dismiss(true);
+    }
   });
   const actions = document.createElement("div"); actions.className = "ui-toolbar";
   const error = document.createElement("p"); error.setAttribute("role", "alert");
+  const draftStatus = document.createElement("span"); draftStatus.setAttribute("role", "status");
   let questionLabel, question;
   if (dock && prepareDraft) {
     questionLabel = document.createElement("label"); questionLabel.className = "browser-capture-question";
@@ -127,14 +133,54 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     const help = "Adds this snapshot to the current conversation. Nothing is sent until you press Send.";
     prepare.title = t(help);
     prepare.setAttribute("data-i18n-title", help);
-    const stageDraft = async intent => {
-      if (busy || !isOpen()) return;
-      setBusy(true); error.textContent = "";
-      try { await prepareDraft({ ...attachments(), ...intent }); dismiss(); }
-      catch (reason) { error.textContent = String(reason?.message ?? reason); }
-      finally { setBusy(false); }
+    draftCancelButton = document.createElement("button");
+    draftCancelButton.type = "button";
+    draftCancelButton.className = "ui-button ui-button--secondary hidden";
+    draftCancelButton.hidden = true;
+    setLabel(draftCancelButton, "Cancel draft preparation");
+    let pending;
+    const finish = job => {
+      if (pending !== job) return;
+      const restoreFocus = isOpen() && document.activeElement === draftCancelButton;
+      pending = undefined;
+      for (const input of job.choices) input.disabled = false;
+      draftCancelButton.hidden = true;
+      draftCancelButton.classList.add("hidden");
+      setBusy(false);
+      if (restoreFocus) job.trigger.focus({ preventScroll: true });
     };
-    prepare.addEventListener("click", () => void stageDraft({ question: question?.value }));
+    cancelDraft = () => {
+      if (!pending) return false;
+      setLabel(draftStatus, "Draft preparation cancelled. Your question and selections are kept.");
+      finish(pending);
+      return true;
+    };
+    draftCancelButton.addEventListener("click", cancelDraft);
+    const stageDraft = async (trigger, intent) => {
+      if (busy || !isOpen()) return;
+      const material = { ...attachments(), ...intent };
+      const choices = dialog.querySelectorAll('input[type="checkbox"]:not(:disabled)');
+      const job = { trigger, choices };
+      const isPreparing = () => pending === job;
+      pending = job;
+      for (const input of choices) input.disabled = true;
+      setLabel(draftStatus, "Preparing page draft…");
+      error.textContent = "";
+      setBusy(true);
+      draftCancelButton.hidden = false;
+      draftCancelButton.classList.remove("hidden");
+      draftCancelButton.focus();
+      try {
+        await prepareDraft(material, isPreparing);
+        if (isPreparing()) dismiss();
+      } catch (reason) {
+        if (!isPreparing()) return;
+        draftStatus.textContent = "";
+        delete draftStatus.dataset.i18nText;
+        error.textContent = String(reason?.message ?? reason);
+      } finally { finish(job); }
+    };
+    prepare.addEventListener("click", () => void stageDraft(prepare, { question: question?.value }));
     actions.append(prepare);
     if (dock) {
       const summarize = document.createElement("button");
@@ -143,9 +189,10 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
       setLabel(summarize, "Prepare summary draft");
       summarize.title = prepare.title;
       summarize.setAttribute("data-i18n-title", help);
-      summarize.addEventListener("click", () => void stageDraft({ summarize: true }));
+      summarize.addEventListener("click", () => void stageDraft(summarize, { summarize: true }));
       actions.append(summarize);
     }
+    actions.append(draftCancelButton);
   }
   const pausedActions = [];
   const setBusy = value => {
@@ -158,6 +205,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     for (const button of dialog.querySelectorAll(".browser-image-ocr button")) button.disabled = busy;
     if (busy) {
       for (const button of actions.querySelectorAll("button:not(:disabled)")) {
+        if (button === draftCancelButton) continue;
         button.disabled = true;
         pausedActions.push(button);
       }
@@ -202,7 +250,9 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     dialog.cancelBrowserModel = () => modelAssistant.cancel();
   }
   if (!hasShortenedText) dialog.append(note);
-  dialog.append(error, actions);
+  dialog.append(error);
+  if (prepareDraft) dialog.append(draftStatus);
+  dialog.append(actions);
   if (clip) dialog.append(clip.panel);
   if (compare) dialog.append(compare.panel);
   if (dock) {

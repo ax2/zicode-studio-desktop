@@ -52,7 +52,7 @@ it("keeps the source and question after a rejected handoff and Escape returns fo
   question.value = "What is reviewed?";
   getByRole(panel, "button", { name: t("Prepare chat draft") }).click();
   await waitFor(() => expect(getByRole(panel, "alert").textContent).toBe("Conversation changed"));
-  expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ question: "What is reviewed?" }));
+  expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ question: "What is reviewed?" }), expect.any(Function));
   expect(question.value).toBe("What is reviewed?");
   expect(host.hidden).toBe(false);
 
@@ -330,7 +330,7 @@ it("ignores a browser Notes link when the workspace changes during activation", 
   expect(open).not.toHaveBeenCalled();
 });
 
-async function openControlledComparison({ capturePage, handoff, target }) {
+async function openControlledAssistant({ capturePage, handoff, target }) {
   setLocale("en");
   const host = document.createElement("main");
   document.body.append(host);
@@ -356,13 +356,93 @@ async function openControlledComparison({ capturePage, handoff, target }) {
   app.renderContent(host);
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_control", { request: expect.objectContaining({ kind: "present", tab: capture.tab }) }));
   getByRole(host, "button", { name: "Read page" }).click();
+  const assistant = await waitFor(() => getByRole(host, "complementary", { name: "Browser assistant" }));
+  const readTabs = () => invoke.mock.calls.filter(([command]) => command === "browser_capture_page").map(([, args]) => args.tab);
+  return { host, assistant, readTabs };
+}
+
+async function openControlledComparison(options) {
+  const { host, readTabs } = await openControlledAssistant(options);
   (await waitFor(() => getByRole(host, "button", { name: "Compare open tabs" }))).click();
   const group = getByRole(host, "group", { name: "Compare open tabs" });
   const panel = within(group);
   panel.getByRole("checkbox", { name: /Chosen page/ }).click();
-  const readTabs = () => invoke.mock.calls.filter(([command]) => command === "browser_capture_page").map(([, args]) => args.tab);
   return { host, group, panel, readTabs };
 }
+
+it("cancels a page draft while rereading its source and preserves the question and attachments", async () => {
+  let finishRead, readCount = 0;
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "session", runtimeMode: "ai" };
+  const reference = "https://example.org/reference";
+  const capturePage = source => {
+    const report = { ...source, page: { ...source.page, links: [{ label: "Reference", url: reference }] } };
+    if (++readCount !== 2) return report;
+    return new Promise(resolve => { finishRead = () => resolve(report); });
+  };
+  const handoff = vi.fn();
+  const { assistant } = await openControlledAssistant({ capturePage, handoff, target });
+  const panel = within(assistant);
+  const question = panel.getByRole("textbox", { name: "Question about this page" });
+  question.value = "What changed in the policy?";
+  const links = panel.getByRole("checkbox", { name: /Include links/ });
+  links.click();
+  const prepare = panel.getByRole("button", { name: "Prepare chat draft" });
+  prepare.click();
+  await waitFor(() => expect(finishRead).toBeTypeOf("function"));
+  const cancel = panel.getByRole("button", { name: "Cancel draft preparation" });
+  expect(document.activeElement).toBe(cancel);
+  expect(links.disabled).toBe(true);
+  cancel.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true, isComposing: true }));
+  expect(cancel.hidden).toBe(false);
+  cancel.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  expect(panel.getByRole("status").textContent).toBe("Draft preparation cancelled. Your question and selections are kept.");
+  expect(document.activeElement).toBe(prepare);
+  expect(question.value).toBe("What changed in the policy?");
+  expect(links.checked).toBe(true);
+  expect(links.disabled).toBe(false);
+  expect(assistant.hidden).toBe(false);
+  expect(handoff).not.toHaveBeenCalled();
+
+  prepare.click();
+  await waitFor(() => expect(handoff).toHaveBeenCalledOnce());
+  finishRead();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(handoff).toHaveBeenCalledOnce();
+  const { prompt } = handoff.mock.calls[0][0];
+  expect(prompt).toContain(question.value);
+  expect(prompt).toContain(reference);
+});
+
+it("preserves an existing Chat draft when summary preparation is cancelled during activation", async () => {
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "session", runtimeMode: "ai" };
+  const composer = document.createElement("textarea");
+  composer.value = "Existing draft, keep exactly";
+  document.body.append(composer);
+  let finishActivation, chatActive = false;
+  const activate = vi.fn(async () => { chatActive = true; })
+    .mockImplementationOnce(() => new Promise(resolve => { finishActivation = () => { chatActive = true; resolve(); }; }));
+  const syncDraft = vi.fn();
+  const handoff = vi.fn(createChatDraftHandoff({ activate, getTarget: () => target,
+    isChatActive: () => chatActive, getInput: () => composer, syncDraft }));
+  const { assistant } = await openControlledAssistant({ handoff, target });
+  const panel = within(assistant);
+  const summarize = panel.getByRole("button", { name: "Prepare summary draft" });
+  summarize.click();
+  await waitFor(() => expect(finishActivation).toBeTypeOf("function"));
+  panel.getByRole("button", { name: "Cancel draft preparation" }).click();
+  expect(document.activeElement).toBe(summarize);
+  expect(summarize.disabled).toBe(false);
+  finishActivation();
+  await expect(handoff.mock.results[0].value).rejects.toThrow("The source or chat target changed");
+  expect(composer.value).toBe("Existing draft, keep exactly");
+  expect(syncDraft).not.toHaveBeenCalled();
+
+  summarize.click();
+  await waitFor(() => expect(syncDraft).toHaveBeenCalledOnce());
+  expect(composer.value).toMatch(/^Existing draft, keep exactly\n\nSummarize this captured web page/);
+  expect(handoff).toHaveBeenCalledTimes(2);
+  await waitFor(() => expect(assistant.hidden).toBe(true));
+});
 
 it("cancels an in-flight comparison read by Escape, keeps the selection and discards the late result", async () => {
   let finishOld, chosenReads = 0;
