@@ -15,7 +15,7 @@ import type { ResourceSessionOwner } from "./resource-session-owner";
 import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
 import { dataTransformPreview, isDataTransform, type TransformPreview } from "./data-transform-result";
 import { prepareTransformApply, type TransformInput } from "./data-transform-apply";
-import { readComputeTableFile, tableFileFormats, type TableFileTarget } from "./compute-table-file";
+import { readManualToolFile, tableFileFormats, type ToolFileTarget } from "./manual-tool-file";
 
 const hostResourceReceivers = new Map([
   ["com.zicode.resource-inspector/image.inspect", "resource.host.image-input.v1"],
@@ -71,7 +71,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const [captured, setCaptured] = useState<CapturedToolResponse | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [resourceBusy, setResourceBusy] = useState(false);
-  const [fileLoading, setFileLoading] = useState<TableFileTarget | null>(null);
+  const [fileLoading, setFileLoading] = useState<ToolFileTarget | null>(null);
   const editingLocked = running || actionBusy || fileLoading !== null;
   const fileRead = useRef<{ identity: string; api: ManualToolApi; sequence: number } | null>(null);
   const alive = useRef(true);
@@ -112,7 +112,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const qualityFormat = computePlugin
     ? tableFileFormats.find(format => tool.capabilityId === "devtools.compute.quality." + format)
     : undefined;
+  const jsonPath = tool.pluginId === "com.zicode.devtools.compare" && tool.capabilityId === "devtools.compare.json.path";
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
+  const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
   useLayoutEffect(() => {
     fileRead.current = { identity: transformIdentity, api, sequence: 0 };
@@ -140,9 +142,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     setDraft(current => undo && current.undo === undo ? { values: undo.values } : current);
   }
 
-  async function importTableFile(file: File, target: TableFileTarget) {
+  async function importFile(file: File, target: ToolFileTarget) {
     const owner = fileRead.current;
-    const allowed = target === singleTableTarget || (tableMerge && (target === "left" || target === "right"));
+    const allowed = target === singleFileTarget || (tableMerge && (target === "left" || target === "right"));
     if (!owner || owner.identity !== transformIdentity || owner.api !== api ||
         !allowed || !supported || !detail.enabled || editingLocked) return;
     const sequence = ++owner.sequence;
@@ -150,14 +152,15 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     setFileLoading(target);
     setError("");
     try {
-      const next = await readComputeTableFile(file, values, target);
+      const next = await readManualToolFile(file, values, target);
       if (!isCurrent()) return;
       setInvalidField("");
       setDraft(current => current.values === values
         ? { values: { ...values, ...next }, undo: { identity: transformIdentity, values, kind: "import" } }
         : current);
     } catch (reason) {
-      if (isCurrent()) setError(reason instanceof Error ? reason.message : "Could not read the table file.");
+      if (isCurrent()) setError(reason instanceof Error ? reason.message :
+        jsonPath ? "Could not read the JSON file." : "Could not read the table file.");
     } finally {
       if (isCurrent()) setFileLoading(null);
     }
@@ -230,17 +233,20 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
           <button type="submit" className="ui-button ui-button--primary" disabled={editingLocked || !detail.enabled || call.supported === null}>
             <span key={running ? call.phase : "idle"}>{t(running ? call.phase === "preparing" ? "Preparing tool…" : "Running…" : "Execute tool")}</span>
           </button>
-          {singleTableTarget && <TableImportButton key={transformIdentity} label={t("Import table file…")}
-            inputLabel={t("Table file")} accept={qualityFormat && "." + qualityFormat}
-            disabled={editingLocked || !detail.enabled} loading={fileLoading === singleTableTarget}
-            onPick={file => { void importTableFile(file, singleTableTarget); }} />}
+          {singleFileTarget && <FileImportButton key={transformIdentity}
+            label={t(jsonPath ? "Import JSON file…" : "Import table file…")}
+            inputLabel={t(jsonPath ? "JSON input file" : "Table file")}
+            accept={jsonPath ? ".json" : qualityFormat && "." + qualityFormat}
+            loadingLabel={jsonPath ? "Reading JSON file…" : undefined}
+            disabled={editingLocked || !detail.enabled} loading={fileLoading === singleFileTarget}
+            onPick={file => { void importFile(file, singleFileTarget); }} />}
           {tableMerge && <>
-            <TableImportButton key={"left:" + transformIdentity} label={t("Import left table…")}
+            <FileImportButton key={"left:" + transformIdentity} label={t("Import left table…")}
               inputLabel={t("Left table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === "left"}
-              onPick={file => { void importTableFile(file, "left"); }} />
-            <TableImportButton key={"right:" + transformIdentity} label={t("Import right table…")}
+              onPick={file => { void importFile(file, "left"); }} />
+            <FileImportButton key={"right:" + transformIdentity} label={t("Import right table…")}
               inputLabel={t("Right table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === "right"}
-              onPick={file => { void importTableFile(file, "right"); }} />
+              onPick={file => { void importFile(file, "right"); }} />
           </>}
           {ownsUndo && <button type="button" className="ui-button ui-button--secondary" disabled={editingLocked}
             onClick={undoDraft}>{t(undo?.kind === "import" ? "Undo last import" : "Undo last application")}</button>}
@@ -281,8 +287,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   </section>;
 }
 
-function TableImportButton({ label, inputLabel, disabled, loading, accept = ".csv,.tsv,.json", onPick }: {
-  label: string; inputLabel: string; disabled: boolean; loading: boolean; accept?: string; onPick(file: File): void;
+function FileImportButton({ label, inputLabel, disabled, loading, accept = ".csv,.tsv,.json", loadingLabel = "Reading table file…", onPick }: {
+  label: string; inputLabel: string; disabled: boolean; loading: boolean; accept?: string; loadingLabel?: string; onPick(file: File): void;
 }) {
   const picker = useRef<HTMLInputElement>(null);
   return <>
@@ -292,7 +298,7 @@ function TableImportButton({ label, inputLabel, disabled, loading, accept = ".cs
       if (file) onPick(file);
     }} />
     <button type="button" className="ui-button ui-button--secondary" disabled={disabled}
-      onClick={() => picker.current?.click()}>{loading ? t("Reading table file…") : label}</button>
+      onClick={() => picker.current?.click()}>{loading ? t(loadingLabel) : label}</button>
   </>;
 }
 
