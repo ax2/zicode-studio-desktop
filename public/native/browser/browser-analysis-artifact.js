@@ -13,13 +13,26 @@ function webUrl(value) {
 export function browserAnalysisArtifact(capture, analysis) {
   const { url, title } = capture.page;
   const sourceUrl = webUrl(url);
-  const labels = { summary: "Page summary", analysis: "Page analysis", image: "Image analysis" };
+  const labels = { summary: "Page summary", analysis: "Page analysis", image: "Image analysis", comparison: "Web page comparison" };
   if (!sourceUrl || !analysis?.text?.trim() || !Object.hasOwn(labels, analysis.kind)) {
     throw new Error(t("This analysis cannot be saved."));
   }
   const source = { url, title, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision };
   const label = t(labels[analysis.kind]);
   const details = [label, title || url, url];
+  if (analysis.kind === "comparison") {
+    const sources = analysis.sources;
+    if (!Array.isArray(sources) || sources.length < 2 || sources.length > 3 ||
+        sources[0]?.url !== url || sources[0]?.documentRevision !== capture.documentRevision ||
+        sources.some(entry => !webUrl(entry?.url) || !entry.capturedAt || !entry.documentRevision)) {
+      throw new Error(t("This analysis cannot be saved."));
+    }
+    details.push("", t("Comparison sources"));
+    for (const [index, entry] of sources.entries()) {
+      details.push(`[${index + 1}] ${entry.title || entry.url}`, entry.url,
+        `${t("Captured at")}: ${entry.capturedAt}`, `${t("Document revision")}: ${entry.documentRevision}`);
+    }
+  }
   if (analysis.kind === "image") {
     const image = analysis.image;
     const frame = image?.frame;
@@ -45,6 +58,7 @@ export function browserAnalysisArtifact(capture, analysis) {
     content: details.join("\n"),
     provenance: { producer: "browser.analysis", sourceTrust: "untrusted-web-content", contentTrust: "untrusted-model-output",
       source,
+      ...(analysis.kind === "comparison" ? { sources: analysis.sources } : {}),
       analysis: { kind: analysis.kind, generatedAt: analysis.generatedAt, question: analysis.question || "",
         model: { provider: analysis.model.provider, modelId: analysis.model.modelId } } },
   };

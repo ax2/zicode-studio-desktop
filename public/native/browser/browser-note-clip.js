@@ -18,7 +18,8 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
   const newTitle = field("New notebook title", notebookTitle); newTitle.hidden = true;
   const title = node("input", "ui-input"); title.maxLength = 200;
   const sourceTitle = capture.page.title || capture.page.url;
-  const defaultTitle = analysis ? `${t(analysis.kind === "summary" ? "Page summary" : "Page analysis")} · ${sourceTitle}` : sourceTitle;
+  const heading = analysis?.kind === "comparison" ? "Web page comparison" : analysis?.kind === "summary" ? "Page summary" : "Page analysis";
+  const defaultTitle = analysis ? `${t(heading)} · ${sourceTitle}` : sourceTitle;
   title.value = [...defaultTitle].slice(0, 200).join(""); field("Note title", title);
   const mode = node("select", "ui-select");
   const option = (value, label) => { const el = node("option", "", label); el.value = value; return el; };

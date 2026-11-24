@@ -6,6 +6,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { smokeRuntimeEnvironment } from "./smoke-runtime-environment.js";
+import { browserComparisonPrompt } from "../public/native/browser/browser-chat-draft.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const argument = name => { const index = process.argv.indexOf(name); return index >= 0 ? process.argv[index + 1] : undefined; };
@@ -19,6 +20,12 @@ await mkdir(scratch, { recursive: true });
 const directory = await mkdtemp(join(scratch, "module-model-routing-pi-"));
 await writeFile(join(directory, "owner.json"), JSON.stringify({ purpose: "#79 actual Pi routing; generated fixtures only", lifetime: "remove on pass, retain on failure" }));
 const requests = [];
+const comparisonPrompt = browserComparisonPrompt([
+  { title: "Alder", url: "https://example.invalid/alder", text: "Alder completed 37 checks.", selection: "",
+    tab: "alder", documentRevision: "reviewed-alder", capturedAt: "2026-11-24T00:00:00Z" },
+  { title: "Birch", url: "https://example.invalid/birch", text: "Birch completed 82 checks.", selection: "",
+    tab: "birch", documentRevision: "reviewed-birch", capturedAt: "2026-11-24T00:00:01Z" },
+]);
 const pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jSQ0AAAAASUVORK5CYII=";
 let hold = false, heldResponse, observeHeld;
 const server = createServer(async (request, response) => {
@@ -28,7 +35,10 @@ const server = createServer(async (request, response) => {
   const isB = request.url.startsWith("/b/");
   const images = Array.isArray(body.input) ? body.input.flatMap(message =>
     Array.isArray(message.content) ? message.content.filter(part => part.type === "input_image") : []) : [];
+  const userTexts = (body.input ?? body.messages ?? []).filter(message => message.role === "user").flatMap(message =>
+    typeof message.content === "string" ? [message.content] : (message.content ?? []).flatMap(part => typeof part.text === "string" ? [part.text] : []));
   requests.push({ path: request.url, model: body.model,
+    comparisonPromptMatched: userTexts.length === 1 && userTexts[0] === comparisonPrompt,
     authenticationMatched: request.headers.authorization === `Bearer fixture-only-${isB ? "b" : "a"}`,
     maxTokens: body.max_output_tokens ?? body.max_tokens ?? body.max_completion_tokens, reasoningEffort: body.reasoning?.effort, imageCount: images.length,
     imageMatches: images[0]?.image_url === `data:image/png;base64,${pixel}` });
@@ -134,12 +144,16 @@ try {
   const selected = await pi.call("save_module_model", { module: "browser", selection: { provider: "fixture-b", modelId: "responses-b" }, expectedRevision: initial.data.revision });
   assert.equal(selected.ok, true);
   assert.equal(requests.length, 0, "Reading and saving models must not make a model request");
-  const ask = { requestId: "native-browser-b", confirmed: true, prompt: 'Review https://example.org/fixture. Untrusted source: {"text":"fixture"}.',
+  const ask = { requestId: "native-browser-b", confirmed: true, prompt: comparisonPrompt,
     expectedRevision: selected.data.revision, expectedModelFingerprint: selected.data.effectiveBrowserModel.fingerprint };
+  const unconfirmed = await pi.call("browser_model_request", { ...ask, confirmed: false });
+  assert.equal(unconfirmed.error, "module_model_confirmation_required");
+  assert.equal(requests.length, 0, "Unconfirmed comparison text must not reach a provider");
   const result = await pi.call("browser_model_request", ask);
   assert.equal(result.ok, true);
   assert.equal(result.data.text, "Pi routed responses-b");
   assert.equal(result.data.model.provider, "fixture-b");
+  assert.equal(requests[0].comparisonPromptMatched, true, "Pi must forward the exact reviewed comparison");
   assert.equal(selected.data.effectiveBrowserModel.supportsImages, true);
   const image = { ...ask, requestId: "native-browser-image", image: pixel, prompt: "Describe the visible pixel." };
   const blocked = await pi.call("browser_model_request", { ...image, confirmed: false });
@@ -191,6 +205,7 @@ try {
     extensionSha256: createHash("sha256").update(await readFile(extension)).digest("hex"),
     requests, defaultPiUnchanged: true, chatHistoryUnchanged: true, explicitCancellation: true,
     unconfirmedImageDenied: true, textOnlyImageDenied: true, exactImagePayloadVerified: true,
+    unconfirmedComparisonDenied: true, exactComparisonPromptVerified: true,
     moduleSelectionSurvivedProcessRestart: true, automaticModelCallsOnConfiguration: 0, syntheticCredentialsOnly: true };
   await writeFile(resolve(output), `${JSON.stringify(receipt, null, 2)}\n`);
   console.log(JSON.stringify(receipt));

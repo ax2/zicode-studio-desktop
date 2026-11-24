@@ -79,14 +79,24 @@ export function browserNoteContent(capture, selectionOnly = false, { includeLink
   ].filter(Boolean).join("\n\n");
 }
 export function browserAnalysisNoteContent(capture, analysis) {
-  if (!analysis?.text?.trim() || (analysis.kind !== "summary" && analysis.kind !== "analysis")) {
+  if (!analysis?.text?.trim() || !["summary", "analysis", "comparison"].includes(analysis.kind)) {
     throw new Error(t("This analysis cannot be saved."));
   }
   const { title, url } = capture.page;
   const { question, generatedAt, kind, model } = analysis;
   const line = (name, value) => `${t(name)}: ${quotedPageText(value)}`;
+  const heading = kind === "comparison" ? "Web page comparison" : kind === "summary" ? "Page summary" : "Page analysis";
+  const sources = kind === "comparison" ? [
+    `### ${t("Comparison sources")}`,
+    ...analysis.sources.flatMap((entry, index) => [
+      `**[${index + 1}]** ${quotedPageText(entry.title || entry.url)}`,
+      line("Source", entry.url),
+      line("Captured at", entry.capturedAt),
+      line("Document revision", entry.documentRevision),
+    ]),
+  ] : [];
   return [
-    `## ${t(kind === "summary" ? "Page summary" : "Page analysis")}`,
+    `## ${t(heading)}`,
     title && line("Page title", title),
     line("Source", url),
     line("Captured at", capture.capturedAt),
@@ -94,6 +104,7 @@ export function browserAnalysisNoteContent(capture, analysis) {
     line("Generated at", generatedAt),
     line("Browser model", `${model.provider} / ${model.modelId}`),
     question && line("Browser analysis question", question),
+    ...sources,
     `### ${t("Browser model answer")}`,
     quotedPageText(analysis.text),
   ].filter(Boolean).join("\n\n");

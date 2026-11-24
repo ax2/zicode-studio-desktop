@@ -16,7 +16,7 @@ function setLabel(element, key) {
 
 export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWriter, comparison, opensChat = false, dock) {
   let busy = false, busyCount = 0;
-  let modelAssistant, cancelDraft, draftCancelButton;
+  let modelAssistant, compare, cancelDraft, draftCancelButton;
   const dialog = document.createElement(dock ? "section" : "dialog");
   dialog.className = dock ? "browser-capture-panel" : "browser-capture-dialog ui-panel";
   if (!dock) dialog.setAttribute("aria-label", t("Page content"));
@@ -213,9 +213,18 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     } else {
       for (const button of pausedActions.splice(0)) button.disabled = false;
     }
+    modelAssistant?.controls();
+    compare?.update?.();
   };
-  const compare = comparison && createBrowserCompare({ ...comparison, capture, setBusy, opensChat,
-    isOpen, onPrepared: dismiss,
+  if (dock?.modelActions) {
+    modelAssistant = createBrowserModelAssistant({ actions: dock.modelActions, question,
+      prompt: summarize => browserDraftPrompt(capture, { ...attachments(), question: question?.value, summarize }),
+      isCurrent: isOpen, setBusy, artifacts: dock.analysisArtifacts,
+      canStart: () => !busy, verifyComparison: comparison?.verify,
+      notes: createNoteWriter && { capture, writer: createNoteWriter } });
+  }
+  compare = comparison && createBrowserCompare({ ...comparison, capture, setBusy, opensChat,
+    isOpen, onPrepared: dismiss, direct: modelAssistant?.compare, canStart: () => !busy,
   });
   if (compare) actions.append(compare.button);
   let clip;
@@ -242,11 +251,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (media.element) dialog.append(media.element);
   if (frames.element) dialog.append(frames.element);
   if (questionLabel) dialog.append(questionLabel);
-  if (dock?.modelActions) {
-    modelAssistant = createBrowserModelAssistant({ actions: dock.modelActions, question,
-      prompt: summarize => browserDraftPrompt(capture, { ...attachments(), question: question?.value, summarize }),
-      isCurrent: isOpen, setBusy, artifacts: dock.analysisArtifacts,
-      notes: createNoteWriter && { capture, writer: createNoteWriter } });
+  if (modelAssistant) {
     dialog.append(modelAssistant.element);
     dialog.disposeBrowserModel = () => modelAssistant.dispose();
     dialog.cancelBrowserModel = () => modelAssistant.cancel();
