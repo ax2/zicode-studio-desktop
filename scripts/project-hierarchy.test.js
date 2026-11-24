@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, it, vi } from "vitest";
-import { loadMissingParents, openIssuesInPublishedMilestones, summarizeHierarchy } from "./project-hierarchy.mjs";
+import { loadMissingParents, openIssuesInPublishedMilestones, summarizeHierarchy, summarizeVersionReserve } from "./project-hierarchy.mjs";
 
 const repository = "owner/studio";
 function issue(number, {state = "open", version = "v1.2.3", epic = false} = {}) {
@@ -65,6 +65,28 @@ it("matches open issues to published releases by exact milestone, including publ
     {tag_name:"v1.2.3-rc.1",draft:false,prerelease:true,published_at:"2026-11-19"},
   ];
   expect(numbers(openIssuesInPublishedMilestones(issues, releases))).toEqual([1,4]);
+});
+
+it("counts open unpublished versions with a Project view toward the five-version reserve", () => {
+  const milestone = (title, state = "open") => ({title, state, html_url: title});
+  const pending = ["v1.2.4", "v1.2.5", "v1.2.6"].map(title => milestone(title));
+  const withoutView = milestone("v1.2.7");
+  const milestones = [
+    ...pending, withoutView, milestone("v1.2.3"), milestone("v1.2.8", "closed"),
+    milestone("v0.0.0"), milestone("backlog"),
+  ];
+  const releases = [
+    {tag_name:"v1.2.3",draft:false,published_at:"2026-11-20"},
+    {tag_name:"v1.2.4",draft:true,published_at:null},
+  ];
+  const version = /^v\d+\.\d+\.\d+$/;
+  expect(summarizeVersionReserve(milestones, releases, version, [withoutView])).toEqual({
+    minimum: 5,
+    planned: pending.map(({title}) => ({title, url: title})),
+    missingViews: [{title: "v1.2.7", url: "v1.2.7"}],
+    shortfall: 2,
+  });
+  expect(summarizeVersionReserve([...milestones, milestone("v1.2.9")], releases, version, []).shortfall).toBe(0);
 });
 
 it("reuses Project parents including confirmed roots and batches only missing repository nodes", () => {
