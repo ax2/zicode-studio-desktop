@@ -131,7 +131,14 @@ impl HostServer {
         let owner = owner(owner_value)?;
         let (purpose, profile) = match profile {
             None => (Purpose::Usage, usage::PROFILE),
-            Some(duplicates::PROFILE) => (Purpose::Duplicates, duplicates::PROFILE),
+            Some(duplicates::PROFILE) => {
+                let (workspace, session) = crate::desktop_tools::route_identity(&context.route)
+                    .map_err(|_| "resource_authorization_changed")?;
+                if context.workspace != workspace || owner.session_id != session {
+                    return Err("resource_authorization_changed".into());
+                }
+                (Purpose::Duplicates, duplicates::PROFILE)
+            }
             _ => return Err("resource_directory_profile_unsupported".into()),
         };
         let display_name = path

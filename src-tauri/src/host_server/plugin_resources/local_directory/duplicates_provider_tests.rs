@@ -32,7 +32,7 @@ async fn frozen_duplicate_files_groups_a_confirmed_directory() {
 
     let scratch = project.join(".cache/task-scratch");
     fs::create_dir_all(&scratch).unwrap();
-    let fixture = tempfile::tempdir_in(scratch).unwrap();
+    let fixture = tempfile::tempdir_in(scratch.canonicalize().unwrap()).unwrap();
     let private = fixture.path().join("profile");
     let selected = fixture.path().join("共享测试文件夹");
     fs::create_dir_all(private.join("public")).unwrap();
@@ -137,6 +137,25 @@ async fn frozen_duplicate_files_groups_a_confirmed_directory() {
         refused["error"]["code"],
         "resource_directory_profile_unsupported"
     );
+    let wrong_session = Context {
+        route: format!(
+            "/app/workspaces/{}/sessions/another-session",
+            target.workspace_id
+        ),
+        ..context.clone()
+    };
+    assert_eq!(
+        host.prepare_native_directory_analysis(
+            wrong_session,
+            owner.clone(),
+            selected.clone(),
+            Some(duplicates::PROFILE)
+        )
+        .await
+        .unwrap_err(),
+        "resource_authorization_changed"
+    );
+
     let cancelled = host
         .prepare_native_directory_analysis(
             context.clone(),
