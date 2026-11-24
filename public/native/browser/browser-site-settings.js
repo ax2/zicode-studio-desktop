@@ -29,7 +29,7 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
     return node;
   };
   const dialog = el("dialog");
-  dialog.className = "browser-history-dialog ui-panel";
+  dialog.className = "browser-history-dialog browser-site-settings ui-panel";
   dialog.setAttribute("aria-label", t("Site permissions and storage"));
   const list = el("div"), actions = el("fieldset"), confirm = el("section"), status = el("p");
   status.setAttribute("role", "status");
@@ -54,6 +54,7 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
     setBlockedPermissions();
     clearReview();
     actions.disabled = true;
+    status.textContent = "";
     list.setAttribute("aria-busy", "false");
     const changed = el("p", t(SITE_SETTINGS_CHANGED));
     changed.setAttribute("role", "alert");
@@ -84,17 +85,21 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
       if (stale || !dialog.open || cancelReview !== discard) return;
       clearReview();
       close.focus();
-      status.textContent = "";
+      status.textContent = t("Applying site settings…");
+      let failed = false;
       try {
         await request({ ...action, confirmed: true });
-        if (!dialog.open) return;
+        if (!dialog.open || stale) return;
         status.textContent = permissionName
           ? `${t("Site permission revoked")} · ${permissionName}` : t("Site settings updated");
         await load();
       } catch (error) {
-        if (dialog.open && !invalidatedBy(error)) status.textContent = errorText(error);
+        if (!dialog.open || invalidatedBy(error)) return;
+        failed = true;
+        status.textContent = errorText(error);
       } finally {
         actions.disabled = stale;
+        if (failed && document.activeElement === close) source.focus({ preventScroll: true });
       }
     });
     const details = el("div");

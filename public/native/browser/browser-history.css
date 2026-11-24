@@ -11,3 +11,5 @@
 .browser-history-confirm .ui-button { margin-right: var(--space-2); }
 
 .browser-history-content > [hidden] { display: none; }
+
+.browser-site-settings p { overflow-wrap: anywhere; }
