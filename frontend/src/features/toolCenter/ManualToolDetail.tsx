@@ -35,6 +35,11 @@ const jsonDiffFileTargets = [
   { target: "json-diff-right", field: "right", label: "Import right JSON file…", inputLabel: "Right JSON file", fieldLabel: "Revised JSON" },
 ] as const;
 
+const jsonSchemaFileTargets = [
+  { target: "schema-instance", field: "instance", label: "Import JSON instance…", inputLabel: "JSON instance file", fieldLabel: "JSON instance" },
+  { target: "schema-root", field: "schema", label: "Import JSON Schema…", inputLabel: "JSON Schema file", fieldLabel: "Root JSON Schema" },
+] as const;
+
 const independentMergeLabels = new Map([
   ["left", "Left table"], ["right", "Right table"],
   ["leftFormat", "Left table format"], ["rightFormat", "Right table format"],
@@ -143,7 +148,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const jsonPath = comparePlugin && tool.capabilityId === "devtools.compare.json.path";
   const textDiff = comparePlugin && tool.capabilityId === "devtools.compare.text.diff";
   const jsonDiff = comparePlugin && /^devtools\.compare\.json\.diff\.(ordered|unordered)$/.test(tool.capabilityId);
-  const diffFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets : [];
+  const jsonSchema = tool.pluginId === "com.zicode.devtools.json-schema" && tool.capabilityId === "devtools.json-schema.validate";
+  const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets : jsonSchema ? jsonSchemaFileTargets : [];
+  const jsonDocument = jsonPath || jsonDiff || jsonSchema;
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
@@ -179,7 +186,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   async function importFile(file: File, target: ToolFileTarget) {
     const owner = draftOwner.current;
     const allowed = target === singleFileTarget || (tableMerge && (target === leftMergeTarget || target === rightMergeTarget)) ||
-      diffFileTargets.some(side => side.target === target);
+      documentFileTargets.some(side => side.target === target);
     if (!owner || owner.identity !== transformIdentity || owner.api !== api ||
         !allowed || !supported || !detail.enabled || editingLocked) return;
     const sequence = ++owner.sequence;
@@ -197,7 +204,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
         : current);
     } catch (reason) {
       if (isCurrent()) setError(reason instanceof Error ? reason.message :
-        textDiff ? "Could not read the text file." : jsonPath || jsonDiff ? "Could not read the JSON file." : "Could not read the table file.");
+        textDiff ? "Could not read the text file." : jsonDocument ? "Could not read the JSON file." : "Could not read the table file.");
     } finally {
       if (isCurrent()) setFileLoading(null);
     }
@@ -257,6 +264,11 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     }
     finally { if (ownsExecution()) setRecording(false); }
   }
+  const documentFileButtons = documentFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
+    label={t(side.label)} inputLabel={t(side.inputLabel)} accept={jsonDocument ? ".json" : ""}
+    loadingLabel={jsonDocument ? "Reading JSON file…" : "Reading text file…"}
+    disabled={editingLocked || !detail?.enabled} loading={fileLoading === side.target}
+    onPick={file => { void importFile(file, side.target); }} />);
   return <section className="ui-card tool-detail" aria-labelledby={`${detailId}-title`} aria-busy={running || resourceBusy || fileLoading !== null}>
     <h2 id={`${detailId}-title`}>{tool.title}</h2>
     <ManualToolInformation tool={tool} detail={detail} busy={editingLocked || resourceBusy} onOpenApplication={detail && !resourceTool && !supported ? undefined : onOpenApplication} />
@@ -276,7 +288,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       {resourceTool ? <ResourceToolRunner tool={tool} detail={detail} api={api} getTarget={getResourceTarget} scope={scope}
         accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
         {fields.map(field => {
-          const side = diffFileTargets.find(target => target.field === field.key);
+          const side = documentFileTargets.find(target => target.field === field.key);
           const label = side?.fieldLabel ?? (independentMerge ? independentMergeLabels.get(field.key) : undefined);
           return <ManualToolInput key={field.key} id={`${detailId}-${field.key}`}
             field={label ? { ...field, label: t(label) } : field} value={values[field.key]}
@@ -286,6 +298,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
               if (invalidField === field.key) { setInvalidField(""); setError(""); } }}
             onChange={value => setDraft(previous => ({ values: { ...previous.values, [field.key]: value } }))} />;
         })}
+        {jsonSchema && <>
+          <div className="ui-toolbar">{documentFileButtons}</div>
+          <p className="tool-center-source">{t("Choose Draft 4, 6 or 7 with $schema. Without it, Draft 7 is used. References must stay in the same schema document.")}</p>
+        </>}
         <div className="ui-toolbar">
           <button type="submit" className="ui-button ui-button--primary" disabled={editingLocked || !detail.enabled || call.supported === null}>
             <span key={running ? call.phase : "idle"}>{t(running ? call.phase === "preparing" ? "Preparing tool…" : "Running…" : "Execute tool")}</span>
@@ -297,11 +313,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
             loadingLabel={jsonPath ? "Reading JSON file…" : undefined}
             disabled={editingLocked || !detail.enabled} loading={fileLoading === singleFileTarget}
             onPick={file => { void importFile(file, singleFileTarget); }} />}
-          {diffFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
-            label={t(side.label)} inputLabel={t(side.inputLabel)} accept={jsonDiff ? ".json" : ""}
-            loadingLabel={jsonDiff ? "Reading JSON file…" : "Reading text file…"}
-            disabled={editingLocked || !detail.enabled} loading={fileLoading === side.target}
-            onPick={file => { void importFile(file, side.target); }} />)}
+          {!jsonSchema && documentFileButtons}
           {tableMerge && <>
             <FileImportButton key={"left:" + transformIdentity} label={t("Import left table…")}
               inputLabel={t("Left table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === leftMergeTarget}
