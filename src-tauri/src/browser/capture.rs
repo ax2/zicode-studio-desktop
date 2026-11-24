@@ -144,25 +144,25 @@ pub(super) fn decode(raw: &str, native_url: &str) -> Result<PageText, String> {
     {
         return Err("Browser page changed or exceeded capture limits".into());
     }
-    if !links_valid(&page.links, 20)
-        || page.frames.iter().map(|frame| frame.links.len()).sum::<usize>() > 12
-        || page.frames.iter().any(|frame| !links_valid(&frame.links, 6))
-    {
+    if !links_valid(&page.links, 20) {
         return Err("Invalid browser links response".into());
     }
     let mut body_chars = page.text.chars().count();
     let mut selection_chars = page.selection.chars().count();
     let origin = reqwest::Url::parse(native_url).ok().map(|url| url.origin());
     let mut frame_images = 0;
+    let mut frame_links = 0;
     if page.frames.len() > 6
         || page.frames.iter().any(|frame| {
             let frame_chars = frame.text.chars().count();
             body_chars += frame_chars;
             selection_chars += frame.selection.chars().count();
             frame_images += frame.images.len();
+            frame_links += frame.links.len();
             frame.title.chars().count() > 512
                 || frame_chars > 8000
                 || frame.images.len() > 6
+                || !links_valid(&frame.links, 6)
                 || frame
                     .image_locator
                     .as_ref()
@@ -174,6 +174,7 @@ pub(super) fn decode(raw: &str, native_url: &str) -> Result<PageText, String> {
         || body_chars > 48000
         || selection_chars > 8192
         || frame_images > 12
+        || frame_links > 12
     {
         return Err("Invalid browser frames response".into());
     }
