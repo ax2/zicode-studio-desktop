@@ -1,3 +1,7 @@
+## 2026-11-24 开发补充：数据列变换的表格预览
+
+数据列变换执行成功后，在工具页分页查看完整返回表格和变更示例。原始输入保留，原始 JSON 和 CSV 结果仍可复制。转换失败时显示第一条无法转换的数据行与列名。见[表格预览验收](../iterations/2026-11-24-data-transform-preview.md)。显式应用、撤销和原生输入上限仍由 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 跟踪。
+
 ## 2026-11-24 开发补充：二维码 PNG 另存
 
 二维码工具保留图像预览和下载，并加入「将 PNG 另存为…」。在 Windows 系统窗口选择新文件，再在 Studio 复核位置、类型和字节数并确认。Studio 保存独立 Compute 插件生成的 PNG 原始字节，支持对完整文件回读校验，已有同名文件保持原样。见[二维码另存验收](../iterations/2026-11-24-qr-png-export.md)。本次属于 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 的隔离开发范围，安装清点沿用以下历史记录。

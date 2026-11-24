@@ -1,3 +1,4 @@
+import { fireEvent } from "@testing-library/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
@@ -125,4 +126,26 @@ it("keeps the interface as the single primary action when the tool needs its own
   expect(container.querySelector("form")).toBeNull();
   await act(async () => button?.click());
   expect(open).toHaveBeenCalledTimes(1); expect(api.invoke).not.toHaveBeenCalled();
+});
+
+it("preserves the column-transform input and latest error when a partially valid table fails", async () => {
+  const input = "amount,active\n42,true\ninvalid,false\n56,true";
+  const options = '{"format":"csv","column":"amount"}';
+  const transform = { ...tool, pluginId: "com.zicode.devtools.compute", capabilityId: "devtools.compute.transform.integer" };
+  const schema = { type: "object", properties: { text: { type: "string" }, options: { type: "string" } }, required: ["text"] };
+  const { api, container, store, submit } = await mount(transform, undefined, schema);
+  const text = container.querySelector("textarea[id$='-text']") as HTMLTextAreaElement;
+  const settings = container.querySelector("textarea[id$='-options']") as HTMLTextAreaElement;
+  await act(async () => {
+    fireEvent.change(text, { target: { value: input } });
+    fireEvent.change(settings, { target: { value: options } });
+  });
+  vi.mocked(api.invoke).mockResolvedValueOnce({ result: { contractVersion: "1.0.0-rc.1", ok: false, data: null,
+    error: { code: "INVALID_INPUT", message: "第 2 行，列 amount 转换失败；原数据未修改" } } });
+  await submit();
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("第 2 条数据 · amount 列");
+  expect(text.value).toBe(input);
+  expect(settings.value).toBe(options);
+  expect(container.querySelector("table")).toBeNull();
+  expect(store.mutate).not.toHaveBeenCalled();
 });

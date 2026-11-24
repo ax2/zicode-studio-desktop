@@ -348,11 +348,11 @@
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.qr.png",
           "kind": "capability",
-          "scope": "输入最多2048 UTF-8字节，选项留空；返回包含PNG dataUrl的JSON，可复制保存或在浏览器查看。"
+          "scope": "文本生成上限2048 UTF-8字节，仍受原Worker预算。浏览器预览与下载保留；Windows原生另存经选址和另行确认后创建新文件，保留实际Worker PNG原字节，并可完整回读校验。"
         }
       ],
       "fullSourceScopeAccepted": false,
-      "blocker": "当前Windows有界计算操作已导入验证；文件获取/保存、原生大输入和完整工作流仍需各自迁移。",
+      "blocker": "已合入Windows PNG另存并通过隔离Host/Worker验证；系统文件对话框随版本集中验收，完整大输入范围继续核对。",
       "sourceScope": "从文本生成二维码并保存 PNG"
     },
     {
@@ -819,71 +819,71 @@
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.trim",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.lower",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.upper",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.empty_null",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.fill_null",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.rename",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.text",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.integer",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.number",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.bool",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.select",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回预览和可复制CSV，原输入不修改。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回可分页的整表预览、变更示例和可复制CSV；原始输入保持。"
         }
       ],
       "fullSourceScopeAccepted": false,
-      "blocker": "当前Windows有界计算操作已导入验证；文件获取/保存、原生大输入和完整工作流仍需各自迁移。",
+      "blocker": "已在Windows隔离验证整表预览和失败行反馈，显式应用、单步撤销、文件导入/保存、原生大输入仍待覆盖。",
       "sourceScope": "选择保留列、重命名、文本清理、空值处理、显式文本/整数/数字/布尔转换；整列预览、失败行提示、原始输入保留及单步撤销"
     },
     {
