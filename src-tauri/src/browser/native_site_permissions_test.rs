@@ -1,8 +1,7 @@
-//! Native-only acceptance fixture. Production Studio can revoke permissions;
-//! only the test seeds an autoplay grant, in a freshly created synthetic profile.
+//! Native acceptance with loopback pages and synthetic browser profiles.
 use super::*;
 use crate::browser::{
-    engine::{native_privacy_tests::HiddenOwner, Bounds, NativeBrowserEngine},
+    engine::{native_privacy_tests::HiddenOwner, Bounds, EngineEvent, NativeBrowserEngine},
     policy::BrowserPolicy,
 };
 use std::{
@@ -14,6 +13,13 @@ use std::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, PeekMessageW, TranslateMessage, MSG, PM_REMOVE,
+};
+
+const BOUNDS: Bounds = Bounds {
+    x: 0.0,
+    y: 0.0,
+    width: 600.0,
+    height: 400.0,
 };
 
 fn site() -> String {
@@ -62,28 +68,17 @@ fn open(
     owner: &HiddenOwner,
     path: &std::path::Path,
     origin: &str,
+    emit: impl Fn(EngineEvent) + Send + Sync + 'static,
 ) -> (NativeBrowserEngine, String) {
     let mut engine = NativeBrowserEngine::new(
         path.to_owned(),
         BrowserPolicy::isolated_probe(origin).unwrap(),
-        Arc::new(|_| {}),
+        Arc::new(emit),
     )
     .unwrap();
     let id = uuid::Uuid::new_v4().to_string();
     engine
-        .create(
-            owner,
-            &id,
-            origin,
-            Bounds {
-                x: 0.,
-                y: 0.,
-                width: 600.,
-                height: 400.,
-            },
-            1.,
-            false,
-        )
+        .create(owner, &id, origin, BOUNDS, 1.0, false)
         .unwrap();
     wait(|| {
         engine
@@ -148,14 +143,14 @@ fn remembered_autoplay_revocation_preserves_other_origin() {
     let grant = json!([{"permission":kind,"allowed":true}]);
     let deny = json!([{"permission":kind,"allowed":false}]);
     {
-        let (engine, id) = open(&owner, &profile, &first);
+        let (engine, id) = open(&owner, &profile, &first, |_| {});
         let view = engine.view(&id).unwrap();
         seed(view, &first);
         seed(view, &neighbor);
         assert_eq!(action(view, &first, SiteAction::List).unwrap(), grant);
     }
     {
-        let (engine, id) = open(&owner, &profile, &first);
+        let (engine, id) = open(&owner, &profile, &first, |_| {});
         let view = engine.view(&id).unwrap();
         assert_eq!(action(view, &first, SiteAction::List).unwrap(), grant);
         assert!(action(
@@ -189,15 +184,60 @@ fn remembered_autoplay_revocation_preserves_other_origin() {
         assert_eq!(action(view, &first, SiteAction::List).unwrap(), deny);
     }
     {
-        let (engine, id) = open(&owner, &profile, &neighbor);
+        let (engine, id) = open(&owner, &profile, &neighbor, |_| {});
         assert_eq!(
             action(engine.view(&id).unwrap(), &neighbor, SiteAction::List).unwrap(),
             grant
         );
     }
-    let (engine, id) = open(&owner, &profile, &first);
+    let (engine, id) = open(&owner, &profile, &first, |_| {});
     assert_eq!(
         action(engine.view(&id).unwrap(), &first, SiteAction::List).unwrap(),
         deny
+    );
+}
+
+#[test]
+#[ignore = "Explicit Windows WebView2 acceptance; private fixture, loopback only"]
+fn automatic_denial_stays_out_of_saved_site_permissions() {
+    let root = tempfile::tempdir().unwrap();
+    let profile = root.path().join("profile");
+    let owner = HiddenOwner::new();
+    let origin = site();
+    let (send, blocked) = mpsc::channel();
+    {
+        let (engine, id) = open(&owner, &profile, &origin, move |event| {
+            if let EngineEvent::PermissionBlocked { permission_kind, .. } = event {
+                let _ = send.send(permission_kind);
+            }
+        });
+        wait(|| engine.export_ready(&id).then_some(()));
+        // Geolocation requests wait for a visible document. Show only the child
+        // controller, under the hidden owner and without moving keyboard focus.
+        engine.activate(Some(&id), BOUNDS, false).unwrap();
+        let view = engine.view(&id).unwrap();
+        let (send_state, state) = mpsc::channel();
+        view.evaluate_script_with_callback(
+            "({secure: isSecureContext, visible: document.visibilityState === 'visible'})",
+            move |value| {
+                let _ = send_state.send(value);
+            },
+        )
+        .unwrap();
+        let page: Value = serde_json::from_str(&wait(|| state.try_recv().ok())).unwrap();
+        assert_eq!(page, json!({"secure":true,"visible":true}));
+        assert_eq!(action(view, &origin, SiteAction::List).unwrap(), json!([]));
+        view.evaluate_script("navigator.geolocation.getCurrentPosition(() => {}, () => {});")
+            .unwrap();
+        assert_eq!(
+            wait(|| blocked.try_recv().ok()),
+            COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION.0
+        );
+        assert_eq!(action(view, &origin, SiteAction::List).unwrap(), json!([]));
+    }
+    let (engine, id) = open(&owner, &profile, &origin, |_| {});
+    assert_eq!(
+        action(engine.view(&id).unwrap(), &origin, SiteAction::List).unwrap(),
+        json!([])
     );
 }
