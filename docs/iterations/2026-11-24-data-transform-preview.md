@@ -26,4 +26,4 @@
 - 工具中心、结果动作和矩阵共 207 项前端回归通过，TypeScript、双语、设计检查和严格 MkDocs 通过。窄窗下的视觉检查随版本集中验收。
 - 覆盖整表翻页、表头无数据行、长列名和重复列名、嵌套值、长整数、部分行失败、原响应可读和原始输入不变。
 - Host 验证使用含独立收据的 Compute 0.2.0 候选 01 和生产 Windows Worker，运行 `data_transform_preview_frozen_host_results`。该测试输出以 `DATA_TRANSFORM_RESPONSE` 开头的合成回执，将完整输出文件设为 `ZICODE_TEST_DATA_TRANSFORM_RESPONSES` 可把它作为 React 工具页验收输入。
-- 文件导入、原生大输入和完整工作流仍归 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28)。当前日常安装清点和完整源工具计数继续沿用原记录。
+- [文件导入](2026-11-24-data-transform-file-import.md)已用两版冻结 Compute 的 Windows Worker 复验。系统文件窗口、原生大输入和完整工作流仍归 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28)。当前日常安装清点和完整源工具计数继续沿用原记录。
