@@ -13,7 +13,7 @@ async function mount(closedTabs = [], restoredDocument = null) {
   let session = { revision: 1, tabs: [tab("a"), tab("b")], activeTab: "a", closedTabs };
   let visible = null, emit;
   const views = new Set(), requests = [];
-  const hooks = { save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), navigate: async () => {} };
+  const hooks = { save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), navigate: async () => {}, developerTools: async () => {} };
   const invoke = async (name, args) => {
     if (name === "browser_get_state") return { startupMode: "browser", session: structuredClone(session) };
     if (name === "browser_save_session") {
@@ -38,6 +38,7 @@ async function mount(closedTabs = [], restoredDocument = null) {
       if (r.kind === "close") views.delete(r.tab);
       if (r.kind === "savePdf") return hooks.savePdf();
       if (r.kind === "navigate") return hooks.navigate();
+      if (r.kind === "openDeveloperTools") return hooks.developerTools();
       if (r.kind === "hide") visible = null;
       if (r.kind === "present") { await hooks.present(); visible = r.tab; }
     }
@@ -131,6 +132,93 @@ it("opens developer tools only from the menu for the current visible browser tab
   expect(menu.open).toBe(false);
   expect(h.visible()).toBe("b");
   expect(h.saved().activeTab).toBe("b");
+});
+
+
+it("shows the DevTools target and explains loading and blank tabs without opening a window", async () => {
+  const h = await mount();
+  const menu = h.root.querySelector(".browser-options");
+  const entry = menu.querySelector('[data-i18n-text="Developer tools"]');
+  const context = h.root.querySelector("#browser-developer-tools-context");
+  expect(entry.getAttribute("aria-describedby")).toBe(context.id);
+  expect(entry.disabled).toBe(false);
+  expect(context.textContent).toBe("example.org");
+
+  menu.open = true;
+  h.emit({ kind: "navigationStarted", tab: "a" });
+  expect(entry.disabled).toBe(true);
+  expect(context.textContent).toBe(t("Wait for the current page to finish loading"));
+  entry.click();
+  expect(menu.open).toBe(true);
+  expect(h.requests.some(r => r.kind === "openDeveloperTools")).toBe(false);
+
+  h.emit({ kind: "navigationFinished", tab: "a", success: false });
+  expect(context.textContent).toBe(t("Reload this page to use developer tools."));
+  h.emit({ kind: "navigationFinished", tab: "a", success: true, documentRevision: "a:2" });
+  expect(entry.disabled).toBe(false);
+  expect(context.textContent).toBe("example.org");
+
+  menu.open = false;
+  h.add();
+  await waitFor(() => expect(h.saved().tabs.some(item => item.url === "about:blank")).toBe(true));
+  expect(entry.disabled).toBe(true);
+  expect(context.textContent).toBe(t("Open a webpage to use developer tools."));
+  expect(h.requests.some(r => r.kind === "openDeveloperTools")).toBe(false);
+});
+
+it("keeps only one DevTools request pending and allows retry after an actionable failure", async () => {
+  const h = await mount();
+  const menu = h.root.querySelector(".browser-options");
+  const entry = menu.querySelector('[data-i18n-text="Developer tools"]');
+  const context = h.root.querySelector("#browser-developer-tools-context");
+  let fail;
+  h.hooks.developerTools = () => new Promise((_, reject) => { fail = reject; });
+  menu.open = true;
+  entry.click();
+  await waitFor(() => expect(fail).toBeTypeOf("function"));
+  menu.open = true;
+  expect(entry.disabled).toBe(true);
+  expect(context.textContent).toBe(t("Opening developer tools…"));
+  entry.click();
+  expect(menu.open).toBe(true);
+  const requests = () => h.requests.filter(r => r.kind === "openDeveloperTools");
+  expect(requests()).toHaveLength(1);
+
+  fail(Error("Synthetic WebView failure"));
+  await waitFor(() => expect(entry.disabled).toBe(false));
+  expect(h.status()).toBe(t("Could not open developer tools for this page."));
+  expect(context.textContent).toBe("example.org");
+  h.hooks.developerTools = async () => {};
+  entry.click();
+  await app.finishWindowWrites();
+  expect(requests()).toHaveLength(2);
+  expect(requests()[0]).toEqual(requests()[1]);
+  expect(h.status()).toBe("");
+
+  h.hooks.developerTools = async () => { throw Error("Browser page is not visible"); };
+  entry.click();
+  await waitFor(() => expect(h.status()).toBe(t("Browser page is not visible")));
+  h.emit({ kind: "navigationStarted", tab: "a" });
+  expect(h.status()).toBe("");
+});
+
+it("does not report a DevTools failure for the previous document after same-address navigation", async () => {
+  const h = await mount();
+  const entry = h.root.querySelector('.browser-options [data-i18n-text="Developer tools"]');
+  let fail;
+  h.hooks.developerTools = () => new Promise((_, reject) => { fail = reject; });
+  entry.click();
+  await waitFor(() => expect(fail).toBeTypeOf("function"));
+  h.emit({ kind: "navigationStarted", tab: "a" });
+  h.emit({ kind: "navigationFinished", tab: "a", success: true, documentRevision: "a:2" });
+  fail(Error("Browser page changed"));
+  await waitFor(() => expect(entry.disabled).toBe(false));
+  expect(h.status()).toBe("");
+  expect(h.requests.filter(r => r.kind === "openDeveloperTools").map(r => r.expectedDocumentRevision)).toEqual(["a:1"]);
+  h.hooks.developerTools = async () => {};
+  entry.click();
+  await app.finishWindowWrites();
+  expect(h.requests.filter(r => r.kind === "openDeveloperTools").map(r => r.expectedDocumentRevision)).toEqual(["a:1", "a:2"]);
 });
 
 it("uses the native document revision even when the tab reloads the same address", async () => {
