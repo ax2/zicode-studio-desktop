@@ -402,29 +402,25 @@ mod platform {
         use super::*;
         #[test]
         fn private_registry_roundtrip_and_foreign_ownership() {
-            let root = RegKey::predef(winreg::enums::HKEY_CURRENT_USER);
-            let base = format!(
-                "Software\\ZiCodeStudio.Tests\\explorer-{}",
-                uuid::Uuid::new_v4()
-            );
-            let temp =
-                std::env::temp_dir().join(format!("studio-shell-test-{}", uuid::Uuid::new_v4()));
-            let folder = temp.join("测试 & 空格");
+            let temp = tempfile::tempdir().unwrap();
+            let root = RegKey::load_app_key(temp.path().join("explorer.dat"), true).unwrap();
+            let base = "Software\\Classes";
+            let folder = temp.path().join("测试 & 空格");
             std::fs::create_dir_all(&folder).unwrap();
             let dll = folder.join(SELECTION_DLL);
             std::fs::write(&dll, b"MZ").unwrap();
             let exe_path = folder.join("zicode-studio-desktop.exe");
             let exe = exe_path.to_str().unwrap();
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Status).unwrap()["installed"],
+                apply(&root, base, exe, MenuAction::Status).unwrap()["installed"],
                 0
             );
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"],
+                apply(&root, base, exe, MenuAction::Install).unwrap()["installed"],
                 6
             );
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Status).unwrap()["installed"],
+                apply(&root, base, exe, MenuAction::Status).unwrap()["installed"],
                 6
             );
             let selection = root
@@ -469,15 +465,15 @@ mod platform {
                 .unwrap();
             drop(file_command);
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Status).unwrap()["stale"],
+                apply(&root, base, exe, MenuAction::Status).unwrap()["stale"],
                 1
             );
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Install).unwrap()["stale"],
+                apply(&root, base, exe, MenuAction::Install).unwrap()["stale"],
                 0
             );
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Status).unwrap()["stale"],
+                apply(&root, base, exe, MenuAction::Status).unwrap()["stale"],
                 0
             );
             let background = root
@@ -504,11 +500,11 @@ mod platform {
             root.delete_subkey_all(&analysis_path).unwrap();
             root.delete_subkey_all(&file_path).unwrap();
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Status).unwrap()["installed"],
+                apply(&root, base, exe, MenuAction::Status).unwrap()["installed"],
                 4
             );
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"],
+                apply(&root, base, exe, MenuAction::Install).unwrap()["installed"],
                 6
             );
             let file = root
@@ -516,8 +512,8 @@ mod platform {
                 .unwrap();
             file.set_value("ZiCodeStudioOwner", &"foreign-file")
                 .unwrap();
-            assert!(apply(&root, &base, exe, MenuAction::Remove).is_err());
-            assert!(apply(&root, &base, exe, MenuAction::Install).is_err());
+            assert!(apply(&root, base, exe, MenuAction::Remove).is_err());
+            assert!(apply(&root, base, exe, MenuAction::Install).is_err());
             assert!(root
                 .open_subkey(format!("{base}\\Directory\\shell\\ZiCodeStudio.OpenFolder"))
                 .is_ok());
@@ -528,8 +524,8 @@ mod platform {
                 .open_subkey_with_flags(&path, winreg::enums::KEY_WRITE)
                 .unwrap();
             key.set_value("ZiCodeStudioOwner", &"foreign").unwrap();
-            assert!(apply(&root, &base, exe, MenuAction::Remove).is_err());
-            assert!(apply(&root, &base, exe, MenuAction::Install).is_err());
+            assert!(apply(&root, base, exe, MenuAction::Remove).is_err());
+            assert!(apply(&root, base, exe, MenuAction::Install).is_err());
             assert!(root
                 .open_subkey(format!("{base}\\Drive\\shell\\ZiCodeStudio.OpenFolder"))
                 .is_ok());
@@ -537,16 +533,16 @@ mod platform {
             drop(key);
             let other_install = "C:\\new-install\\zicode-studio-desktop.exe";
             assert_eq!(
-                apply(&root, &base, other_install, MenuAction::RemoveCurrent).unwrap()["installed"],
+                apply(&root, base, other_install, MenuAction::RemoveCurrent).unwrap()["installed"],
                 6
             );
             assert!(root.open_subkey(&file_path).is_ok());
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::RemoveCurrent).unwrap()["installed"],
+                apply(&root, base, exe, MenuAction::RemoveCurrent).unwrap()["installed"],
                 0
             );
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"],
+                apply(&root, base, exe, MenuAction::Install).unwrap()["installed"],
                 6
             );
             let file_command = root
@@ -556,28 +552,24 @@ mod platform {
                 .set_value("", &command(old_exe, "%1", Verb::File).unwrap())
                 .unwrap();
             drop(file_command);
-            let retained = apply(&root, &base, exe, MenuAction::RemoveCurrent).unwrap();
+            let retained = apply(&root, base, exe, MenuAction::RemoveCurrent).unwrap();
             assert_eq!(retained["installed"], 1);
             assert_eq!(retained["stale"], 1);
             assert!(root.open_subkey(&file_path).is_ok());
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"],
+                apply(&root, base, exe, MenuAction::Install).unwrap()["installed"],
                 6
             );
-            assert!(apply(&root, &base, "C:\\another.exe", MenuAction::Remove).is_err());
+            assert!(apply(&root, base, "C:\\another.exe", MenuAction::Remove).is_err());
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Remove).unwrap()["installed"],
+                apply(&root, base, exe, MenuAction::Remove).unwrap()["installed"],
                 0
             );
             assert_eq!(
-                apply(&root, &base, exe, MenuAction::Remove).unwrap()["installed"],
+                apply(&root, base, exe, MenuAction::Remove).unwrap()["installed"],
                 0
             );
-            assert!(base.starts_with("Software\\ZiCodeStudio.Tests\\explorer-"));
-            root.delete_subkey_all(&base).unwrap();
-            std::fs::remove_file(dll).unwrap();
-            std::fs::remove_dir(folder).unwrap();
-            std::fs::remove_dir(temp).unwrap();
+            assert!(root.open_subkey(&analysis_path).is_err());
             assert_eq!(
                 command(exe, "%V", Verb::Folder).unwrap(),
                 format!("\"{exe}\" --open-folder \"%V\\.\"")
