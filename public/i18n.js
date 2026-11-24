@@ -1067,6 +1067,7 @@ const zhCN = {
   "Choose a local folder. Usage is shared only after confirmation.": "请选择本机文件夹。确认后才会共享用量。",
   "Selected directory: {name} · plugin {plugin}. Confirm to share directory usage.": "所选目录：{name} · 插件 {plugin}。请确认共享目录用量。",
   "Selected local folder": "所选本机文件夹",
+  "Install and enable Disk Inspector to analyze the folder selected in Explorer.": "请安装并启用目录空间分析，再检查资源管理器中选中的文件夹。",
   "Directory picker could not use this folder. Choose a regular local folder and retry.": "无法选择此文件夹。请选择普通的本机文件夹后重试。",
   "Shared partial usage for {count} directory entries. You can now execute the tool.": "已共享 {count} 个目录条目的部分用量。现在可以执行工具。",
   "Disk Inspector requires the desktop folder picker and its directory usage permission.": "目录空间分析需要桌面文件夹选择器及专用目录用量权限。",

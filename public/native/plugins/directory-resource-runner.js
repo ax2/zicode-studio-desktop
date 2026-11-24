@@ -34,7 +34,7 @@ function button(text, action) { const el = node("button", text, "ui-button ui-bu
 // The directory owns the trusted resource UI; no provider view, path, or owner override.
 export function createDirectoryResourceRunner({ container, tool, detail, gateway, getTarget, onBusy = () => {}, onSuccess = () => {}, onReceiverExecuted, receiveNoteDraft, mountInputs = inputs }) {
   const target = getTarget?.(), original = resourceViewTarget(target);
-  let active = true, reference = null, executionAccess = null, form = null, running = false, reviewBusy = false, folderBusy = false, callId = null, timer = null, invoking = false, cancelRequested = false;
+  let active = true, reference = null, executionAccess = null, form = null, running = false, reviewBusy = false, folderBusy = false, directoryPreparing = false, callId = null, timer = null, invoking = false, cancelRequested = false;
   let streamedReport = null, liveStream = null, openingOriginal = false;
   const valid = () => active && original === resourceViewTarget(getTarget?.());
   const status = node("p"); status.setAttribute("role", "status");
@@ -126,7 +126,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     if (!active) return;
     const busy = running || reviewBusy || folderBusy;
     onBusy(busy);
-    run.disabled = busy || !reference || !form || reference.digestStream?.used === true;
+    run.disabled = busy || directoryPreparing || !reference || !form || reference.digestStream?.used === true;
     form?.setDisabled(busy);
     selectionContainer.inert = busy;
     manifestReview?.setBlocked(running || folderBusy);
@@ -195,11 +195,14 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     isCurrent: () => valid() && !running,
     onResource: value => {
       clearTimeout(timer); releaseStreamReport(); reference = value; result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
-      run.disabled = !value || !form || running || reviewBusy || folderBusy;
+      run.disabled = !value || !form || running || reviewBusy || folderBusy || directoryPreparing;
     } };
   const directoryAvailable = canChooseDirectory && detail.permissions.some(p => p.name === "resource.directory.read" && p.granted);
   const selectInputs = options => createResourceInputModes(options, select, acceptedTypes, detail.capability.executionProfile);
-  let selection = diskInspector ? createPluginDirectoryResourceSelection({ ...selectionOptions, directoryUsage: true }) : selectInputs(selectionOptions);
+  let selection = diskInspector ? createPluginDirectoryResourceSelection({
+    ...selectionOptions, directoryUsage: true,
+    onExplorerPreparing(value) { directoryPreparing = value; refreshReviewControls(); },
+  }) : selectInputs(selectionOptions);
   if (!diskInspector && directoryAvailable) {
     const mode = node("div", null, "ui-toolbar");
     const files = button("Files", () => switchMode("files"));
@@ -246,6 +249,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       status.textContent = t(resourceCallRecoveryMessage(state));
       if (state.executionFinished) {
         running = false; callId = null; check.hidden = true; cancel.disabled = true; refreshReviewControls();
+        selection.resumeExplorer?.();
       }
     } catch (error) { if (valid()) status.textContent = t(resourceCallRecoveryMessage(null, error)); }
     finally { if (valid()) check.disabled = false; }
@@ -300,7 +304,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     }
   }
   async function execute() {
-    if (!valid() || running || reviewBusy || folderBusy || !reference || !form) return;
+    if (!valid() || running || reviewBusy || folderBusy || directoryPreparing || !reference || !form) return;
     const prepared = form.prepare(); if (prepared.error) { status.textContent = t(prepared.error); return; }
     const input = diskInspector ? {} : { ...prepared.input, ...selection.getInputOptions?.() };
     if (reference.digestStream) return executeStream(reference, input);
@@ -368,6 +372,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       running = computation.unresolved(callId); invoking = false; executionAccess = null; refreshReviewControls();
       if (!running) callId = null;
       if (valid()) { cancel.disabled = !running; check.hidden = !running; }
+      selection.resumeExplorer?.();
     }
   }
   return { destroy() {

@@ -55,6 +55,30 @@ pub(crate) async fn select_directory_usage(
     accept_preview(&window, &workspace_id, original, owner, preview)
 }
 
+#[tauri::command]
+pub(crate) async fn prepare_explorer_directory_usage(
+    window: WebviewWindow,
+    workspace_id: String,
+    owner: Value,
+) -> Result<Option<Value>, String> {
+    let original = context(&window, &workspace_id)?;
+    let (_, session) = crate::desktop_tools::route_identity(&original.route)?;
+    if owner.get("sessionId").and_then(Value::as_str) != Some(session) {
+        return Err("resource_authorization_changed".into());
+    }
+    let Some(path) = window
+        .state::<crate::explorer_launch_state::ExplorerLaunchState>()
+        .take_directory_usage(&original.window, &original.route)?
+    else {
+        return Ok(None);
+    };
+    let preview = window
+        .state::<HostServer>()
+        .prepare_native_directory_usage(original.clone(), owner.clone(), path)
+        .await?;
+    accept_preview(&window, &workspace_id, original, owner, preview)
+}
+
 async fn pick_local_folder(
     app: AppHandle,
     initial: std::path::PathBuf,

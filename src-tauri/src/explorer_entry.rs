@@ -7,6 +7,7 @@ use tauri::Manager;
 use crate::explorer_launch_state::{EntryIntent, ExplorerLaunchState, WidgetAction};
 
 static FOLDER: OnceLock<PathBuf> = OnceLock::new();
+static DIRECTORY_USAGE: OnceLock<PathBuf> = OnceLock::new();
 static WIDGET: OnceLock<WidgetAction> = OnceLock::new();
 static TOOLS_ONLY: OnceLock<bool> = OnceLock::new();
 static FILE: OnceLock<PathBuf> = OnceLock::new();
@@ -24,6 +25,7 @@ pub enum MenuAction {
 struct ParsedEntry {
     widget: Option<WidgetAction>,
     folder: Option<PathBuf>,
+    directory_usage: Option<PathBuf>,
     action: Option<MenuAction>,
     tools: bool,
     file: Option<PathBuf>,
@@ -37,6 +39,7 @@ pub fn tools_only() -> bool {
     TOOLS_ONLY.get().copied().unwrap_or(false)
         || FILE.get().is_some()
         || SELECTION.get().is_some()
+        || DIRECTORY_USAGE.get().is_some()
         || drive_root_folder()
 }
 
@@ -69,7 +72,9 @@ pub fn initial_intent() -> Option<EntryIntent> {
     if let Some(action) = WIDGET.get() {
         return Some(EntryIntent::NotesWidget(*action));
     }
-    if let Some(paths) = selection() {
+    if let Some(path) = DIRECTORY_USAGE.get() {
+        Some(EntryIntent::DirectoryUsage(Some(path.clone())))
+    } else if let Some(paths) = selection() {
         Some(EntryIntent::Selection(paths.to_vec()))
     } else if let Some(path) = file() {
         Some(EntryIntent::File(path.to_path_buf()))
@@ -150,6 +155,9 @@ pub fn forwarded_intent(args: &[String]) -> Result<Option<EntryIntent>, String> 
         [flag, count, paths @ ..] if *flag == "--open-selection" => {
             Ok(Some(EntryIntent::Selection(selection_paths(count, paths)?)))
         }
+        [flag, path] if *flag == "--analyze-folder" => Ok(Some(EntryIntent::DirectoryUsage(Some(
+            directory_usage_path(PathBuf::from(*path))?,
+        )))),
         [flag, path] if *flag == "--open-folder" => {
             let path = local_folder(PathBuf::from(*path))?;
             Ok(Some(if drive_root(&path) {
@@ -190,6 +198,7 @@ pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<Menu
     let ParsedEntry {
         widget,
         folder: path,
+        directory_usage,
         action,
         tools,
         file,
@@ -208,6 +217,11 @@ pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<Menu
             .set(path)
             .map_err(|_| "Folder entry already configured")?;
     }
+    if let Some(path) = directory_usage {
+        DIRECTORY_USAGE
+            .set(path)
+            .map_err(|_| "Directory analysis entry already configured")?;
+    }
     if let Some(file) = file {
         FILE.set(file)
             .map_err(|_| "File entry already configured")?;
@@ -223,6 +237,7 @@ pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<Menu
 fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String> {
     let mut args = args.into_iter();
     let mut folder = None;
+    let mut directory_usage = None;
     let mut action = None;
     let mut tools = false;
     let mut file = None;
@@ -269,6 +284,15 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
                     return Err("Only one tools-only entry may be selected".into());
                 }
                 tools = true;
+            }
+            Some("--analyze-folder") => {
+                if directory_usage.is_some() {
+                    return Err("Only one directory may be analyzed".into());
+                }
+                let path = args
+                    .next()
+                    .ok_or("--analyze-folder requires an absolute directory")?;
+                directory_usage = Some(directory_usage_path(PathBuf::from(path))?);
             }
             Some("--open-folder") => {
                 if folder.is_some() {
@@ -327,9 +351,21 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
     {
         return Err("Widget launch must be separate from other operations".into());
     }
+    if directory_usage.is_some()
+        && (unknown
+            || tools
+            || folder.is_some()
+            || file.is_some()
+            || selection.is_some()
+            || action.is_some()
+            || widget.is_some())
+    {
+        return Err("Directory analysis must be a separate launch".into());
+    }
     Ok(ParsedEntry {
         widget,
         folder,
+        directory_usage,
         action,
         tools,
         file,
@@ -367,6 +403,24 @@ fn selection_paths(count: &str, paths: &[&str]) -> Result<Vec<PathBuf>, String> 
         return Err("Selected files must be distinct".into());
     }
     Ok(selected)
+}
+
+fn directory_usage_path(path: PathBuf) -> Result<PathBuf, String> {
+    if !path.is_absolute()
+        || path.to_str().is_none()
+        || path.components().any(|part| matches!(part, std::path::Component::ParentDir))
+    {
+        return Err("Choose an absolute local folder for directory analysis".into());
+    }
+    #[cfg(windows)]
+    if !matches!(path.components().next(), Some(std::path::Component::Prefix(prefix))
+        if matches!(prefix.kind(), std::path::Prefix::Disk(_) | std::path::Prefix::VerbatimDisk(_)))
+    {
+        return Err("Directory analysis accepts local folders only".into());
+    }
+    // Keep the selected path intact. The Host opens each component without
+    // following links and checks that the drive is local before issuing a grant.
+    Ok(path)
 }
 
 fn local_folder(path: PathBuf) -> Result<PathBuf, String> {
@@ -578,6 +632,30 @@ mod tests {
     fn args(values: &[&str]) -> Vec<OsString> {
         values.iter().map(OsString::from).collect()
     }
+    #[test]
+    fn directory_usage_keeps_the_selected_path_in_cold_and_secondary_launches() {
+        let path = std::env::temp_dir().join("文件夹 & 示例").join(".");
+        let text = path.to_str().unwrap();
+        let parsed = parse(args(&["--analyze-folder", text])).unwrap();
+        assert_eq!(parsed.directory_usage.as_ref(), Some(&path));
+        assert!(parsed.folder.is_none());
+        let exe = std::env::current_exe().unwrap();
+        let launch = vec![exe.to_str().unwrap().into(), "--analyze-folder".into(), text.into()];
+        assert_eq!(
+            forwarded_intent(&launch).unwrap(),
+            Some(EntryIntent::DirectoryUsage(Some(path.clone())))
+        );
+        for invalid in [
+            vec!["--analyze-folder"],
+            vec!["--analyze-folder", "relative"],
+            vec!["--analyze-folder", text, "--tools-only"],
+            vec!["--analyze-folder", text, "--analyze-folder", text],
+            vec!["--analyze-folder", text, "--explorer-menu-status"],
+        ] {
+            assert!(parse(args(&invalid)).is_err());
+        }
+    }
+
     #[test]
     fn explicit_operations_and_invalid_inputs() {
         assert!(parse(args(&["--tools-only"])).unwrap().tools);

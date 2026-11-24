@@ -271,7 +271,7 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
     let context = Context {
         window: "native-workspace-disk-inspector".into(),
         workspace: target.workspace_id.clone(),
-        route: "/workspace".into(),
+        route: format!("/app/workspaces/{}/sessions/{}", target.workspace_id, target.session_id),
     };
     let other_window = Context {
         window: "native-workspace-other".into(),
@@ -309,7 +309,26 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
             .unwrap_err(),
         "resource_directory_grant_unavailable"
     );
-    let preview = prepare_selected().await.unwrap();
+    // Start the same confirmed Host path from the one-use Explorer hint.
+    let launch = crate::explorer_launch_state::ExplorerLaunchState::default();
+    launch.bind(
+        &context.window,
+        &context.workspace,
+        &target.session_id,
+        crate::explorer_launch_state::EntryIntent::DirectoryUsage(Some(selected.join("."))),
+    ).unwrap();
+    let selected = launch
+        .take_directory_usage(&context.window, &context.route)
+        .unwrap()
+        .unwrap();
+    assert!(launch
+        .take_directory_usage(&context.window, &context.route)
+        .unwrap()
+        .is_none());
+    let preview = host
+        .prepare_native_directory_usage(context.clone(), owner.clone(), selected)
+        .await
+        .unwrap();
     assert_eq!(preview["profile"], usage::PROFILE);
     assert_eq!(preview["displayName"], "外部资料");
     assert_eq!(preview["entryNamesRead"], false);

@@ -30,7 +30,7 @@ function fixture(overrides = {}, maxResources = 1, directory = false, receiver =
   }
   return { gateway, form, onBusy, onSuccess, controller, button, share, switchTarget: () => { target = { ...target, sessionId: "other" }; } };
 }
-function diskInspectorFixture({ granted = true, report } = {}) {
+function diskInspectorFixture({ granted = true, report, explorer } = {}) {
   const receiver = {
     pluginId: "com.zicode.devtools.disk-inspector", capabilityId: "devtools.disk-inspector.scan",
     title: "Disk Inspector", directoryUsage: granted, resourceInputMimeTypes: ["text/plain"],
@@ -39,6 +39,7 @@ function diskInspectorFixture({ granted = true, report } = {}) {
   const directoryProfile = "resource.local-directory.usage.draft1";
   const access = { schemaVersion: 1, owner, resourceId: id, contentVersion: "a".repeat(64) };
   const directoryUsage = {
+    ...(explorer ? { entry: explorer } : {}),
     choose: vi.fn(async () => ({ schemaVersion: 1, profile: directoryProfile, confirmed: false, entryNamesRead: false,
       displayName: "外部资料", owner, grantId: id })),
     commit: vi.fn(async () => ({ schemaVersion: 1, profile: directoryProfile, confirmed: true, entryCount: 3, partial: true, access })),
@@ -121,6 +122,57 @@ describe("directory-owned resource execution", () => {
     f.button("Cancel directory sharing").click();
     expect(f.gateway.revokeResource).toHaveBeenCalledWith(access);
     expect(result.textContent).toBe("");
+  });
+
+  it("shows the Explorer folder pending confirmation without another picker or a read", async () => {
+    let preview;
+    const entry = vi.fn(async () => { await Promise.resolve(); return preview; });
+    const { f, owner, directoryProfile, directoryUsage } = diskInspectorFixture({ explorer: entry });
+    preview = { schemaVersion: 1, profile: directoryProfile, owner, grantId: id,
+      confirmed: false, entryNamesRead: false, displayName: "资源管理器样例" };
+    entry.mockResolvedValue(preview);
+    await vi.waitFor(() => expect(document.body.textContent).toContain("资源管理器样例"));
+    expect(entry).toHaveBeenCalledWith("workspace", owner);
+    expect(directoryUsage.choose).not.toHaveBeenCalled();
+    expect(directoryUsage.commit).not.toHaveBeenCalled();
+    expect(f.gateway.invokeResource).not.toHaveBeenCalled();
+    expect(f.button("Execute tool").disabled).toBe(true);
+
+    const next = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    entry.mockResolvedValue({ ...preview, grantId: next, displayName: "另一已选择目录" });
+    window.dispatchEvent(new Event("zicode:entry-changed"));
+    await vi.waitFor(() => expect(document.body.textContent).toContain("另一已选择目录"));
+    expect(directoryUsage.cancel).toHaveBeenCalledWith("workspace", owner, id);
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    expect(directoryUsage.commit).toHaveBeenCalledWith("workspace", owner, next);
+    expect(f.gateway.invokeResource).not.toHaveBeenCalled();
+  });
+
+  it("blocks execution of the old selection while waiting for a new Explorer folder", async () => {
+    const entry = vi.fn(async () => null);
+    const { f, owner, directoryProfile, directoryUsage, access } = diskInspectorFixture({ explorer: entry });
+    await vi.waitFor(() => expect(f.button("Choose a folder").disabled).toBe(false));
+    f.button("Choose a folder").click();
+    await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+
+    let complete;
+    entry.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    window.dispatchEvent(new Event("zicode:entry-changed"));
+    expect(f.button("Execute tool").disabled).toBe(true);
+    f.button("Execute tool").click();
+    expect(f.gateway.invokeResource).not.toHaveBeenCalled();
+    const next = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    complete({ profile: directoryProfile, confirmed: false, entryNamesRead: false,
+      owner, grantId: next, displayName: "新选目录" });
+    await vi.waitFor(() => expect(document.body.textContent).toContain("新选目录"));
+    expect(f.gateway.revokeResource).toHaveBeenCalledWith(access);
+    expect(f.button("Execute tool").disabled).toBe(true);
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    expect(directoryUsage.commit).toHaveBeenCalledWith("workspace", owner, next);
   });
 
   it("shows only a fixed error if the report contains an absolute path", async () => {

@@ -517,10 +517,12 @@ it("sends the folder usage owner and one-use grant through native commands witho
   const gateway = new PluginCapabilityGateway({ nativeInvoke, fetchImpl });
   const owner = { runtimeId: "runtime", sessionId: "session",
     pluginId: "com.zicode.devtools.disk-inspector", capabilityId: "devtools.disk-inspector.scan" };
+  await gateway.directoryUsage.entry("workspace", owner);
   await gateway.directoryUsage.choose("workspace", owner);
   await gateway.directoryUsage.commit("workspace", owner, "grant");
   await gateway.directoryUsage.cancel("workspace", owner, "grant");
   expect(nativeInvoke.mock.calls).toEqual([
+    ["prepare_explorer_directory_usage", { workspaceId: "workspace", owner }],
     ["select_directory_usage", { workspaceId: "workspace", owner }],
     ["commit_plugin_directory", { workspaceId: "workspace", owner, grantId: "grant", confirmed: true }],
     ["cancel_plugin_directory", { workspaceId: "workspace", owner, grantId: "grant" }],
