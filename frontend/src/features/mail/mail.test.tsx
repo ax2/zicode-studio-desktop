@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {afterEach,expect,it,vi} from "vitest";
-import {Mail,setupMailApp} from "./index";
+import {Mail,setupMailApp,type Invoke} from "./index";
 import {setLocale} from "../../shared/i18n";
 afterEach(()=>{cleanup();vi.restoreAllMocks()});
 it("keeps composing local, saves explicitly, reopens and deletes without sending",async()=>{
@@ -93,4 +93,119 @@ it("keeps attachments on picker cancellation and removes only the selected saved
   expect(calls.find(request=>request.kind==="removeAttachment")).toEqual({kind:"removeAttachment",account:"a",id:"d",revision:4,attachment:"second"});
   expect(screen.queryByText(/second\.bin/)).toBeNull();
   expect(screen.getByText(/first\.bin/)).toBeTruthy();
+});
+
+
+function setupCachedReply() {
+  setLocale("en");
+  const accounts = [
+    { id: "current", address: "current@example.test", provider: "gmail" },
+    { id: "source", address: "source@example.test", provider: "alibaba" },
+  ];
+  const hits = [
+    { account: "source", address: accounts[1].address, provider: "alibaba", folder: "Archive", epoch: 9, id: "42",
+      subject: "Archived supplier message", sender: "supplier@example.test" },
+    { account: "current", address: accounts[0].address, provider: "gmail", epoch: null, id: "42",
+      subject: "Gmail message with the same ID", sender: "different@example.test" },
+  ];
+  const reply = { id: "reply", revision: 1, recipient: "reply@example.test", subject: "Re: Archived supplier message", body: "" };
+  const original = { id: "existing", revision: 2, recipient: "keep@example.test", subject: "Original source draft", body: "keep" };
+  const invoke = vi.fn(async (request: Record<string, unknown>) => {
+    switch (request.kind) {
+      case "accounts": return accounts;
+      case "drafts": return request.account === "source" ? [original] : [];
+      case "search": return { items: hits, more: false };
+      default: throw Error("Unexpected local operation");
+    }
+  });
+  const transport = vi.fn(async (request: Record<string, unknown>) => {
+    switch (request.kind) {
+      case "credentialStatus": return { configured: false, enabled: false };
+      case "cachedPage": return null;
+      case "cachedFolders": return [];
+      case "cachedBody": throw Error("mail_cache_empty");
+      case "replyDraft": return reply;
+      default: throw Error("Unexpected Alibaba operation");
+    }
+  });
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  render(<Mail invoke={invoke as Invoke} transport={transport as Invoke}/>);
+  return { invoke, transport, confirm, reply };
+}
+
+async function showCachedAlibabaMessage() {
+  fireEvent.change(await screen.findByLabelText("Search scope"), { target: { value: "" } });
+  fireEvent.change(screen.getByRole("searchbox", { name: "Search cached mail" }), { target: { value: "message" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Archived supplier message/ }));
+  const read = within(screen.getByRole("article", { name: "Cached message" }));
+  await read.findByRole("button", { name: "Download message body" });
+  return read;
+}
+
+it("creates an offline reply on the result's account and opens the saved draft", async () => {
+  const { transport, confirm, reply } = setupCachedReply();
+  const read = await showCachedAlibabaMessage();
+  const edit = screen.getByLabelText<HTMLInputElement>("Mail subject");
+  fireEvent.change(edit, { target: { value: "Keep unsaved changes" } });
+  const create = read.getByRole("button", { name: "Create reply draft" });
+  await act(async () => { fireEvent.click(create); });
+  expect(confirm).toHaveBeenCalledWith("Discard unsaved draft changes?");
+  expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("current");
+  expect(edit.value).toBe("Keep unsaved changes");
+  expect(transport.mock.calls.filter(([r]) => r.kind === "replyDraft")).toHaveLength(0);
+
+  const backend = transport.getMockImplementation();
+  let finishMailbox: (status: { configured: boolean; enabled: boolean }) => void = () => {};
+  transport.mockImplementation(request => request.kind === "credentialStatus"
+    ? new Promise(resolve => { finishMailbox = resolve; }) : backend?.(request) ?? Promise.reject(Error("Missing fixture")));
+  confirm.mockReturnValue(true);
+  await act(async () => { fireEvent.click(create); fireEvent.click(create); });
+  await waitFor(() => expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("source"));
+  expect(screen.getByLabelText<HTMLInputElement>("Mail subject").value).toBe(reply.subject);
+  expect(screen.getByLabelText<HTMLInputElement>("Recipient").value).toBe(reply.recipient);
+  expect(screen.getByRole("button", { name: "Original source draft" })).toBeTruthy();
+  const body = screen.getByLabelText<HTMLTextAreaElement>("Message body");
+  expect(body.matches(":disabled")).toBe(true);
+  await act(async () => finishMailbox({ configured: false, enabled: false }));
+  await waitFor(() => expect(document.activeElement).toBe(body));
+  expect(transport.mock.calls.filter(([r]) => r.kind === "replyDraft").map(([r]) => r)).toEqual([
+    { kind: "replyDraft", accountId: "source", folder: "Archive", uidValidity: 9, uid: 42 },
+  ]);
+  expect(transport.mock.calls.some(([r]) => r.kind === "read" || r.kind === "send")).toBe(false);
+});
+
+it("does not create a reply after the search source changes during confirmation", async () => {
+  const { transport, confirm } = setupCachedReply();
+  const read = await showCachedAlibabaMessage();
+  const edit = screen.getByLabelText<HTMLInputElement>("Mail subject");
+  fireEvent.change(edit, { target: { value: "Existing unsaved draft" } });
+  let confirmLater: (choice: boolean) => void = () => {};
+  confirm.mockReturnValue(new Promise<boolean>(resolve => { confirmLater = resolve; }) as unknown as boolean);
+  fireEvent.click(read.getByRole("button", { name: "Create reply draft" }));
+  await waitFor(() => expect(confirm).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole("button", { name: /Gmail message with the same ID/ }));
+  await act(async () => confirmLater(true));
+  expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("current");
+  expect(edit.value).toBe("Existing unsaved draft");
+  expect(transport.mock.calls.some(([r]) => r.kind === "replyDraft")).toBe(false);
+  const gmail = within(screen.getByRole("article", { name: "Cached message" }));
+  expect(gmail.getByText("Gmail message with the same ID")).toBeTruthy();
+  expect(gmail.queryByRole("button", { name: "Create reply draft" })).toBeNull();
+});
+
+it("reports a stale cached source next to the reply action and permits retry", async () => {
+  const { transport, reply } = setupCachedReply();
+  const read = await showCachedAlibabaMessage();
+  const backend = transport.getMockImplementation();
+  transport.mockImplementation(request => request.kind === "replyDraft"
+    ? Promise.reject(Error("mail_cache_empty")) : backend?.(request) ?? Promise.reject(Error("Missing fixture")));
+  fireEvent.click(read.getByRole("button", { name: "Create reply draft" }));
+  expect((await read.findByRole("alert")).textContent).toBe("This cached message is unavailable. Search again before replying.");
+  expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("current");
+
+  transport.mockImplementation(request => request.kind === "replyDraft" ? Promise.resolve(reply) : backend?.(request) ?? Promise.reject(Error("Missing fixture")));
+  fireEvent.click(read.getByRole("button", { name: "Create reply draft" }));
+  await waitFor(() => expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("source"));
+  expect(transport.mock.calls.filter(([r]) => r.kind === "replyDraft")).toHaveLength(2);
 });

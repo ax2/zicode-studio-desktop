@@ -3,7 +3,7 @@ import { t } from "../../shared/i18n";
 import { MailAttachments } from "./MailAttachments";
 import { MailBody } from "./MailBody";
 import { searchBodyAccess, type SearchMailBody } from "./mail-search-body";
-import type { Invoke } from "./index";
+import type { Draft, Invoke } from "./index";
 
 type Account = { id: string; address: string; provider: string };
 type Hit = { folder?:string; account: string; address: string; provider: string; id: string; epoch: number | null; subject: string; sender: string };
@@ -18,8 +18,10 @@ function isSameMessage(left: Hit, right: Hit): boolean {
     left.epoch === right.epoch && left.id === right.id;
 }
 
-export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, label}: {
+export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, label, onReply, replyBlocked = false}: {
   accounts: Account[]; current: string; invoke: Invoke; gmail?: Invoke; alibaba?: Invoke; label?:string;
+  onReply?(account: string, create: () => Promise<Draft>, isCurrent: () => boolean): Promise<void>;
+  replyBlocked?: boolean;
 }) {
   const [scope, setScope] = useState(current);
   const [labelOnly,setLabelOnly]=useState(false);
@@ -27,6 +29,9 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
   const [page, setPage] = useState<Page | null>(null);
   const [offset, setOffset] = useState(0);
   const [reading, setReading] = useState<Reading | null>(null);
+  const [replying, setReplying] = useState(false);
+  const [replyError, setReplyError] = useState("");
+  const replyPending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const searchGeneration = useRef(0);
@@ -45,6 +50,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
     if (account && readingRequest.current?.hit.account !== account) return;
     readingRequest.current = null;
     setReading(null);
+    setReplyError("");
   }, []);
   const clear=useCallback(()=>{
     requestedOffset.current = null;
@@ -123,6 +129,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
     if (previous?.pending && isSameMessage(previous.hit, hit)) return;
     const request = { hit, pending: true, canDownload: false };
     readingRequest.current = request;
+    setReplyError("");
     const access = searchBodyAccess(hit, gmail, alibaba);
     if (!access) {
       request.pending = false;
@@ -144,6 +151,25 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
       request.pending = false;
     }
   }
+  async function replyToReading() {
+    const source = readingRequest.current;
+    if (replyBlocked || replyPending.current || !reading || source?.hit !== reading.hit ||
+        !onReply || !readingAccess?.replyDraft || source.pending) return;
+    const isCurrent = () => readingRequest.current === source;
+    replyPending.current = true;
+    setReplying(true);
+    setReplyError("");
+    try {
+      await onReply(reading.hit.account, readingAccess.replyDraft, isCurrent);
+    } catch (reason) {
+      if (!isCurrent()) return;
+      const sourceUnavailable = /^(?:Error:\s*)?mail_(?:cache_empty|inbox_changed)$/.test(String(reason));
+      setReplyError(sourceUnavailable ? t("This cached message is unavailable. Search again before replying.") : readingAccess.error(reason));
+    } finally {
+      replyPending.current = false;
+      setReplying(false);
+    }
+  }
   return <fieldset><legend>{t("Search cached inboxes")}</legend>
     <form onSubmit={e=>{e.preventDefault(); if(query.trim()) void search(0)}}>
       <label>{t("Search scope")}<select className="ui-select" value={scope} onChange={e=>{clear();setLabelOnly(false);setScope(e.target.value)}}>
@@ -163,7 +189,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
       {offset>0 && <button className="ui-button" type="button" disabled={busy || loadingBody} onClick={()=>void search(offset-40)}>{t("Previous")}</button>}
       {page.more && <button className="ui-button" type="button" disabled={busy || loadingBody} onClick={()=>void search(offset+40)}>{t("Next")}</button>}
     </>}
-    {reading && <article aria-label={t("Cached message")} aria-busy={loadingBody}><h3 translate="no">{reading.hit.subject||t("No subject")}</h3>
+    {reading && <article aria-label={t("Cached message")} aria-busy={loadingBody || replying}><h3 translate="no">{reading.hit.subject||t("No subject")}</h3>
       <p translate="no">{reading.hit.sender} · {reading.hit.address}</p>
       {reading.status === "loading" && <p role="status">{t("Loading…")}</p>}
       {(reading.status === "failed" || reading.status === "missing") && reading.error && <p role="alert">{reading.error}</p>}
@@ -179,6 +205,12 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
         {readingAccess && <MailAttachments key={JSON.stringify(readingAccess.message)} items={reading.body.attachments}
           invoke={readingAccess.invoke} message={readingAccess.message}/>}
       </>}
+      {onReply && readingAccess?.replyDraft && (reading.status === "ready" || reading.status === "missing") &&
+        <button className="ui-button" type="button" disabled={replying || replyBlocked} onClick={() => void replyToReading()}>
+          {t("Create reply draft")}
+        </button>}
+      {replying && <p role="status">{t("Saving…")}</p>}
+      {replyError && <p role="alert">{replyError}</p>}
     </article>}
   </fieldset>;
 }

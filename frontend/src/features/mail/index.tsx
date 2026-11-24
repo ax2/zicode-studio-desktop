@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import { t } from "../../shared/i18n";
@@ -28,25 +28,51 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   const [drafts,setDrafts]=useState<Draft[]>([]), [edit,setEdit]=useState<Draft>(blank);
   const [dirty,setDirty]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState("");
   const lock=useRef(true);
+  const composeBody=useRef<HTMLTextAreaElement>(null);
+  const focusReply=useRef<string | undefined>(undefined);
   const [passwordOwner,setPasswordOwner]=useState("");
-  const [mailBusy,setMailBusy]=useState(false);
+  const [mailActivity,setMailActivity]=useState<{account:string;busy:boolean}|null>(null);
   const owner=accounts.find(a=>a.id===account);
   const [label,setLabel]=useState("INBOX");
   const [gmailSendOwner,setGmailSendOwner]=useState("");
   const gmail=owner?.provider==="gmail"&&gmailTransport;
   const alibaba=owner?.provider==="alibaba"&&transport;
-  async function run(fn:()=>Promise<void>) {
+  const mailBusy=Boolean(alibaba&&(!mailActivity||mailActivity.account!==account||mailActivity.busy));
+  const reportAlibabaBusy=useCallback((busy:boolean)=>setMailActivity({account,busy}),[account]);
+  async function run(fn:()=>Promise<void>, onError?:(error:unknown)=>void) {
     if(lock.current)return;
     lock.current=true;setBusy(true);setError("");
     try{await fn()}catch(e){
+      if(onError){onError(e);return}
       const msg=String(e);
       const code = Object.keys(localMailErrors).find(key => msg.includes(key));
       setError(t(code ? localMailErrors[code] : "Could not access local mail data."));
     }finally{lock.current=false;setBusy(false)}
   }
+  function applyAccount(id:string, rows:Draft[]){
+    if(id!==account){setLabel("INBOX");setPasswordOwner("");setGmailSendOwner("");setMailActivity(null)}
+    setAccount(id);setDrafts(rows);setEdit(blank());setDirty(false);
+  }
   async function load(id:string){
-    const rows=id?await invoke<Draft[]>({kind:"drafts",account:id}):[];
-    if(id!==account){setLabel("INBOX");setPasswordOwner("");setGmailSendOwner("")};setMailBusy(false);setAccount(id);setDrafts(rows);setEdit(blank());setDirty(false);
+    applyAccount(id, id ? await invoke<Draft[]>({kind:"drafts",account:id}) : []);
+  }
+  function openReply(draft:Draft){
+    setDrafts(old=>[draft,...old.filter(item=>item.id!==draft.id)]);
+    setEdit(draft);setDirty(false);
+    focusReply.current=draft.id;
+  }
+  async function replyFromSearch(id:string, create:()=>Promise<Draft>, isCurrent:()=>boolean){
+    if(mailBusy || !isCurrent() || !accounts.some(row=>row.id===id && row.provider==="alibaba"))return;
+    await run(async()=>{
+      if(!await discard() || !isCurrent())return;
+      const rows=id===account ? undefined : await invoke<Draft[]>({kind:"drafts",account:id});
+      if(!isCurrent())return;
+      const draft=await create();
+      if(!isCurrent())return;
+      if(!draft?.id || !Number.isSafeInteger(draft.revision) || draft.revision<1)throw Error("mail_storage");
+      if(rows)applyAccount(id,rows);
+      openReply(draft);
+    }, reason=>{throw reason});
   }
   useEffect(()=>{let live=true;lock.current=true;setBusy(true);void (async()=>{
     try{const rows=await invoke<Account[]>({kind:"accounts"});const id=rows[0]?.id??"";
@@ -60,6 +86,16 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     window.addEventListener("beforeunload",warn);
     return()=>window.removeEventListener("beforeunload",warn);
   },[dirty]);
+  useEffect(()=>{
+    if(busy||mailBusy||!edit.id||focusReply.current!==edit.id)return;
+    const timer=setTimeout(()=>{
+      const body=composeBody.current;
+      if(!body || body.matches(":disabled"))return;
+      body.focus();
+      if(document.activeElement===body)focusReply.current=undefined;
+    });
+    return()=>clearTimeout(timer);
+  },[busy,mailBusy,edit.id]);
   const discard=async()=>!dirty||await window.confirm(t("Discard unsaved draft changes?"));
   function change(key:"recipient"|"subject"|"body",value:string){setEdit({...edit,[key]:value});setDirty(true)}
   async function changeAttachment(attachment?:string) {
@@ -82,17 +118,17 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     })}}><label>{t("Mail provider")}<select className="ui-select" value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
     <label>{t("Email address")}<input className="ui-input" required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button className="ui-button ui-button--primary" type="submit">{t("Add local account")}</button></form></fieldset>
-    {account&&<CachedMailSearch key={"search-"+account} label={gmail||alibaba?label:undefined} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport}/>}
+    {account&&<CachedMailSearch key={"search-"+account} label={gmail||alibaba?label:undefined} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport} onReply={replyFromSearch} replyBlocked={busy||mailBusy}/>}
     {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}/>}
-    {alibaba&&<AlibabaInbox key={account} id={account} folder={label} setFolder={setLabel} invoke={alibaba} discard={discard} onBusy={setMailBusy}
-      onConfigured={v=>setPasswordOwner(v?account:"")} onReply={d=>{setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);setEdit(d);setDirty(false);requestAnimationFrame(()=>document.getElementById("studio-mail-compose-body")?.focus())}}/>}
+    {alibaba&&<AlibabaInbox key={account} id={account} folder={label} setFolder={setLabel} invoke={alibaba} discard={discard} onBusy={reportAlibabaBusy}
+      onConfigured={v=>setPasswordOwner(v?account:"")} onReply={openReply} draftBusy={busy}/>}
     {account&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
     <div className="mail-list"><button className="ui-button" type="button" onClick={()=>void run(async()=>{if(await discard()){setEdit(blank());setDirty(false)}})}>{t("New draft")}</button>
     <button className="ui-button" type="button" onClick={()=>void run(async()=>{if(await discard())await load(account)})}>{t("Reload drafts")}</button>
     {drafts.map(d=><button className="ui-button" key={d.id} type="button" aria-pressed={edit.id===d.id} onClick={()=>void run(async()=>{if(await discard()){setEdit(d);setDirty(false)}})}>{d.subject||d.recipient||t("Untitled draft")}</button>)}</div>
     <label>{t("Recipient")}<input className="ui-input" value={edit.recipient} onChange={e=>change("recipient",e.target.value)} /></label>
     <label>{t("Mail subject")}<input className="ui-input" value={edit.subject} onChange={e=>change("subject",e.target.value)} /></label>
-    <label>{t("Message body")}<textarea className="ui-textarea" id="studio-mail-compose-body" rows={8} value={edit.body} onChange={e=>change("body",e.target.value)} /></label>
+    <label>{t("Message body")}<textarea className="ui-textarea" id="studio-mail-compose-body" ref={composeBody} rows={8} value={edit.body} onChange={e=>change("body",e.target.value)} /></label>
     <button className="ui-button" type="button" disabled={!dirty} onClick={()=>void run(async()=>{
       const saved=await invoke<{id:string,revision:number}>({kind:"save",account,id:edit.id,revision:edit.revision,recipient:edit.recipient,subject:edit.subject,body:edit.body});const d={...edit,...saved};setEdit(d);setDirty(false);setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);
     })}>{t("Save draft")}</button>
