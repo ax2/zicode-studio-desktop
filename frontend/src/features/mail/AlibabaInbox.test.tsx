@@ -54,7 +54,7 @@ it("switches to an offline folder and reads the same UID in that folder",async()
 });
 it("reads cached headers without network, paginates only on demand, and creates an offline reply",async()=>{
   const a=setup();await screen.findByRole("button",{name:/Inbox fixture/});
-  expect(a.kinds()).toEqual(["credentialStatus","cachedPage","cachedFolders"]);
+  expect(a.kinds()).toEqual(["cachedFolders","credentialStatus","cachedPage","cachedFolders"]);
   fireEvent.click(screen.getByRole("button",{name:/Inbox fixture/}));
   await screen.findByText(/not available offline/);
   expect(a.kinds()).not.toContain("read");

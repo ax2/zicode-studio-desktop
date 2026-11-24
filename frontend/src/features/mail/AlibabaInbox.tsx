@@ -109,7 +109,9 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
         const next=e.target.value;setFolder(next);setPage(null);setBody(null);setSelected(null);setOnline(false);load(false,null,next);
       }}><option value="INBOX">{t("Inbox")}</option>{folders.filter(f=>f.id!=="INBOX").map(f=><option key={f.id} value={f.id} translate="no">{f.name}</option>)}</select></label>
       <button className="ui-button" type="button" disabled={!configured} onClick={()=>void run(()=>req<{id:string;name:string}[]>("folders"),items=>{
-        setFolders(items);if(folder!=="INBOX"&&!items.some(f=>f.id===folder)){setFolder("INBOX");setPage(null);setSelected(null);setBody(null);setOnline(false)}
+        setFolders(items);
+        window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: id }));
+        if(folder!=="INBOX"&&!items.some(f=>f.id===folder)){setFolder("INBOX");setPage(null);setSelected(null);setBody(null);setOnline(false)}
       })}>{t("Refresh folder list")}</button>
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(folder==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
       <button className="ui-button" type="button" disabled={!configured} onClick={()=>load(true)}>{t("Refresh from server")}</button>

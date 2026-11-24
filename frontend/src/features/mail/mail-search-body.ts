@@ -10,7 +10,7 @@ export type SearchMailBody = {
   bodyLimited?: boolean;
 };
 
-type SearchMessage = { account: string; provider: string; id: string; epoch: number | null; folder?: string };
+type SearchMessage = { account: string; provider: string; id: string; epoch: number | null; folder?: string | null };
 type SearchBodyAccess = {
   invoke: Invoke;
   message: MessageRef;

@@ -7,7 +7,8 @@ import { searchBodyAccess, type SearchMailBody } from "./mail-search-body";
 import type { Invoke } from "./index";
 
 type Account = { id: string; address: string; provider: string };
-type Hit = { folder?:string; account: string; address: string; provider: string; id: string; epoch: number | null; subject: string; sender: string };
+type Folder = { id: string; name: string };
+type Hit = { folder?: string | null; account: string; address: string; provider: string; id: string; epoch: number | null; subject: string; sender: string };
 type Page = { items: Hit[]; more: boolean };
 type Reading = { hit: Hit } & (
   { status: "loading" } | { status: "missing"; error?: string } |
@@ -19,13 +20,17 @@ function isSameMessage(left: Hit, right: Hit): boolean {
     left.epoch === right.epoch && left.id === right.id;
 }
 
-export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, label, onReply, replyBlocked = false}: {
-  accounts: Account[]; current: string; invoke: Invoke; gmail?: Invoke; alibaba?: Invoke; label?:string;
+export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onReply, replyBlocked = false}: {
+  accounts: Account[]; current: string; invoke: Invoke; gmail?: Invoke; alibaba?: Invoke;
   onReply?: CreateMailReply;
   replyBlocked?: boolean;
 }) {
   const [scope, setScope] = useState(current);
-  const [labelOnly,setLabelOnly]=useState(false);
+  const [folder, setFolder] = useState("");
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const provider = accounts.find(account => account.id === scope)?.provider;
+  const directoryInvoke = provider === "gmail" ? gmail : provider === "alibaba" ? alibaba : undefined;
+  const directoryKind = provider === "gmail" ? "cachedLabels" : "cachedFolders";
   const [query, setQuery] = useState("");
   const [page, setPage] = useState<Page | null>(null);
   const [offset, setOffset] = useState(0);
@@ -41,7 +46,6 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
   const loadingBody = reading?.status === "loading";
   const updatedAccounts = useRef(new Set<string>());
   const requestedOffset = useRef<number | null>(null);
-  const previousLabel = useRef(label);
   useEffect(() => () => {
     ++searchGeneration.current;
     readingRequest.current = null;
@@ -62,10 +66,39 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
     closeReading();
     setError(false);
   },[closeReading]);
-  useEffect(()=>{
-    if(previousLabel.current!==label && labelOnly) clear();
-    previousLabel.current=label;
-  },[label,labelOnly,clear]);
+  useEffect(() => {
+    const invokeDirectory = directoryInvoke;
+    if (!invokeDirectory) return;
+    let version = 0;
+    const readDirectory = async () => {
+      const request = ++version;
+      try {
+        const rows = await invokeDirectory<Folder[] | null>({ kind: directoryKind, accountId: scope });
+        if (request === version) setFolders(Array.isArray(rows) ? rows : []);
+      } catch {
+        // Search remains available for the inbox and across all local folders.
+      }
+    };
+    function directoryChanged(event: Event) {
+      if ((event as CustomEvent<string>).detail !== scope) return;
+      if (event.type === "studio-mail-cache-cleared") setFolders([]);
+      void readDirectory();
+    }
+    void readDirectory();
+    window.addEventListener("studio-mail-directory-updated", directoryChanged);
+    window.addEventListener("studio-mail-cache-cleared", directoryChanged);
+    return () => {
+      ++version;
+      window.removeEventListener("studio-mail-directory-updated", directoryChanged);
+      window.removeEventListener("studio-mail-cache-cleared", directoryChanged);
+    };
+  }, [scope, directoryKind, directoryInvoke]);
+  useEffect(() => {
+    if (folder && folder !== "INBOX" && !folders.some(item => item.id === folder)) {
+      setFolder("");
+      clear();
+    }
+  }, [folder, folders, clear]);
   const search = useCallback(async (start: number, background = false) => {
     requestedOffset.current = start;
     const version = ++searchGeneration.current;
@@ -77,7 +110,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
     }
     try {
       const readPage = (position: number) => invoke<Page>({
-        kind: "search", account: scope || null, ...(labelOnly && scope === current && label ? { label } : {}),
+        kind: "search", account: scope || null, ...(folder ? { label: folder } : {}),
         query: query.trim(), offset: position,
       });
       let results = await readPage(start);
@@ -103,7 +136,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
         if (!background) setPage(null);
       }
     } finally { if (version === searchGeneration.current) setBusy(false); }
-  }, [invoke, scope, query, labelOnly, current, label, closeReading]);
+  }, [invoke, scope, query, folder, closeReading]);
   useEffect(()=>{
     function cacheChanged(event:Event) {
       const account=(event as CustomEvent<string>).detail;
@@ -176,11 +209,18 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
   }
   return <fieldset><legend>{t("Search cached inboxes")}</legend>
     <form onSubmit={e=>{e.preventDefault(); if(query.trim()) void search(0)}}>
-      <label>{t("Search scope")}<select className="ui-select" value={scope} onChange={e=>{clear();setLabelOnly(false);setScope(e.target.value)}}>
+      <label>{t("Search scope")}<select className="ui-select" value={scope} onChange={e => { clear(); setFolder(""); setFolders([]); setScope(e.target.value); }}>
         {accounts.map(a=><option key={a.id} value={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}
         <option value="">{t("All local mail accounts")}</option>
       </select></label>
-      {label && scope===current && <label><input type="checkbox" checked={labelOnly} onChange={e=>{clear();setLabelOnly(e.target.checked)}}/>{t(accounts.find(a=>a.id===current)?.provider==="gmail"?"Search only the selected Gmail label":"Search only the selected folder")}</label>}
+      {scope && <label>{t(provider === "gmail" ? "Search Gmail label" : "Search IMAP folder")}
+        <select className="ui-select" value={folder} onChange={e => { clear(); setFolder(e.target.value); }}>
+          <option value="">{t(provider === "gmail" ? "All Gmail labels" : "All folders")}</option>
+          <option value="INBOX">{t("Inbox")}</option>
+          {folders.filter(item => item.id !== "INBOX").map(item =>
+            <option key={item.id} value={item.id} translate="no">{item.name}</option>)}
+        </select>
+      </label>}
       <label>{t("Search cached mail")}<input className="ui-input" type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
       <button className="ui-button" type="submit" disabled={busy || loadingBody || !query.trim()}>{t("Search")}</button>
     </form>
@@ -188,8 +228,10 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
     {page && <>
       {!page.items.length && <p role="status">{t("No matching cached messages.")}</p>}
       <ul className="mail-inbox-list">{page.items.map(hit=><li key={JSON.stringify([hit.account,hit.folder,hit.epoch,hit.id])}>
-        <button className="ui-button" type="button" onClick={()=>void open(hit)}><strong translate="no">{hit.subject || t("No subject")}</strong>
-          <small translate="no">{hit.sender} · {hit.address}</small></button></li>)}</ul>
+        <button className="ui-button" type="button" aria-pressed={Boolean(reading && isSameMessage(reading.hit, hit))}
+          onClick={()=>void open(hit)}><strong translate="no">{hit.subject || t("No subject")}</strong>
+          <small translate="no">{hit.sender} · {hit.address}{hit.folder && <> · {hit.folder === "INBOX" ? t("Inbox") : hit.folder}</>}</small>
+        </button></li>)}</ul>
       {offset>0 && <button className="ui-button" type="button" disabled={busy || loadingBody} onClick={()=>void search(offset-40)}>{t("Previous")}</button>}
       {page.more && <button className="ui-button" type="button" disabled={busy || loadingBody} onClick={()=>void search(offset+40)}>{t("Next")}</button>}
     </>}
