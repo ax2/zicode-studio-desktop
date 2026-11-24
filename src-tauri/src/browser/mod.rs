@@ -28,6 +28,8 @@ mod runtime;
 #[cfg(windows)]
 mod proxy;
 #[cfg(all(windows, test))]
+mod native_boundary_test;
+#[cfg(all(windows, test))]
 mod native_proxy_test;
 #[cfg(all(windows, test))]
 mod native_pdf_viewer_probe;
