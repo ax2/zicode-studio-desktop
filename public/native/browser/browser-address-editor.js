@@ -35,8 +35,8 @@ export function createBrowserAddressEditor(input) {
       currentUrl = tab?.url === "about:blank" ? "" : tab?.url ?? "";
       update();
     },
-    submission() {
-      if (!composing) return { text: input.value.trim(), editVersion };
+    submission(text = input.value) {
+      if (!composing) return { text: text.trim(), editVersion };
     },
     accepted(submission) {
       if (editVersion === submission.editVersion && !composing) draft = false;

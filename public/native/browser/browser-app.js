@@ -27,6 +27,7 @@ import { showSiteSettings } from "./browser-site-settings.js";
 import { showBrowserBookmarks } from "./browser-bookmarks.js";
 import { createBrowserSurface } from "./browser-surface.js";
 import { createBrowserOptions } from "./browser-options.js";
+import { createBrowserNewTabShortcuts } from "./browser-new-tab-shortcuts.js";
 import { prepareBrowserComparisonDraft, prepareBrowserDraft } from "./browser-chat-draft.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
 import { createBrowserModelGateway } from "./browser-model-gateway.js";
@@ -43,6 +44,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   let root, viewport, assistant, read, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
   let initialized = false, initPromise, lastSurface = "", surfaceError = "", saveTail = Promise.resolve();
+  let shortcutSurface;
   let actionTail = Promise.resolve(), restoreError = "", statusMessage = "";
   const enqueue = work => { const result = actionTail.then(work); actionTail = result.catch(report); return result; };
   const act = work => enqueue(work).catch(() => {});
@@ -78,6 +80,25 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const run = work => Promise.resolve().then(work).catch(report);
   const browserWindow = observeBrowserWindow(nativeWindow, () => void run(syncSurface));
   const selected = () => tabs.find(tab => tab.id === active);
+  const listWebsiteShortcuts = async () => (await invoke("browser_bookmarks", { request: { kind: "list" } })).bookmarks.filter(item => item.shortcut);
+  const newTabShortcuts = createBrowserNewTabShortcuts({
+    list: listWebsiteShortcuts,
+    open: (item, source) => void act(async () => {
+      if (shortcutTab() !== source || blocked()) return;
+      const submission = addressEditor.submission(item.url);
+      if (!submission) return;
+      await navigate(submission, source);
+      await syncSurface();
+    }),
+    manage: () => void act(() => openBookmarks(false)),
+    onChange: () => void run(syncSurface),
+  });
+  function shortcutTab() {
+    const tab = selected();
+    return visible && tab?.url === "about:blank" && !tab.popupOpener &&
+      !crashedTabs.has(tab.id) && !navigationStates.has(tab.id) &&
+      !root.hasAttribute("data-private-browser") ? tab.id : null;
+  }
   function bounds() {
     const r = viewport.getBoundingClientRect();
     return { x: r.x, y: r.y, width: r.width, height: r.height };
@@ -118,6 +139,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function syncSurface() {
     if (!initialized || !invoke) return;
     await browserWindow.ready;
+    const shortcut = shortcutTab();
+    if (shortcutSurface?.tab !== shortcut) shortcutSurface = undefined;
+    newTabShortcuts.select(shortcut);
     const r = bounds();
     if (!selected()) finishStartup();
     if (blocked() || r.width < 1 || r.height < 1 || !selected()) {
@@ -130,9 +154,23 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       return;
     }
     try {
+      if (newTabShortcuts.ready(shortcut)) {
+        // A restored tab can already be visible before this frontend presents it.
+        if (!shortcutSurface || lastSurface) shortcutSurface = { tab: shortcut, hidden: hide() };
+        await shortcutSurface.hidden;
+        if (!blocked() && shortcutTab() === shortcut && newTabShortcuts.ready(shortcut)) {
+          preview.clear();
+          newTabShortcuts.show(viewport);
+          finishStartup();
+        }
+        return;
+      }
+      shortcutSurface = undefined;
+      newTabShortcuts.clear();
       const tab = selected();
       await ensureView(tab);
-      const current = () => !blocked() && selected()?.id === tab.id && !crashedTabs.has(tab.id);
+      const current = () => !blocked() && selected()?.id === tab.id &&
+        !crashedTabs.has(tab.id) && !newTabShortcuts.ready(shortcutTab());
       if (!current()) return;
       const key = JSON.stringify([tab.id, bounds()]);
       if (key === lastSurface) return;
@@ -144,6 +182,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       void preview.releaseWhenPresented(() => current() && lastSurface === key);
       finishStartup();
     } catch (error) {
+      if (shortcutSurface?.tab === shortcut) shortcutSurface = undefined;
       // Minimize can win the race before its resize notification reaches JS.
       if (isBrowserViewportMismatch(error) && await browserWindow.refresh()) {
         if (lastSurface) await hide();
@@ -524,7 +563,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (focusedTab && !ordering.dragging) tabStripControls.focusTab(focusedTab.id, focusedTab.selector);
     addressEditor.sync(selected());
     if (!tabs.length) { preview.clear(); viewport.textContent = t("Open a new tab to browse"); }
-    else if (!startupState.pending() && !viewport.querySelector(".browser-overlay-preview")) viewport.textContent = "";
+    else if (!startupState.pending() && !viewport.querySelector(".browser-overlay-preview, .browser-new-tab-shortcuts")) viewport.textContent = "";
   }
   function makeButton(label, action) {
     const button = document.createElement("button"); button.type = "button";
@@ -881,7 +920,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       }),
       screenshot: () => exportPage("saveScreenshot", "Screenshot saved to Downloads"),
       websiteShortcuts: {
-        list: async () => (await invoke("browser_bookmarks", { request: { kind: "list" } })).bookmarks.filter(item => item.shortcut),
+        list: listWebsiteShortcuts,
         open: item => void openSavedPage(item).catch(report),
         report,
       },
@@ -1004,7 +1043,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   function restorePanelPage(tab) {
     void run(async () => {
       await syncSurface();
-      if (tab && active === tab && !blocked() && pageAvailable(tab)) await control({ kind: "focusPage", tab });
+      if (tab && active === tab && !blocked() && pageAvailable(tab)) {
+        if (newTabShortcuts.ready(shortcutTab())) address.focus();
+        else await control({ kind: "focusPage", tab });
+      }
     });
   }
   async function openBookmarks(editCurrent, returnToPage) {
@@ -1015,7 +1057,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (active === selectedTab.id && /^https?:/.test(url)) current = { url, title: url === selectedTab.url ? selectedTab.title : url };
     }
     await hide(true);
-    showBrowserBookmarks({ invoke, current, editCurrent, onClose: () => restorePanelPage(returnToPage),
+    showBrowserBookmarks({ invoke, current, editCurrent, onClose: () => {
+      newTabShortcuts.refresh();
+      restorePanelPage(returnToPage);
+    },
       onOpen: openSavedPage,
     });
   }
@@ -1208,7 +1253,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       initPromise ??= restore();
       void initPromise.then(() => run(syncSurface));
     },
-    async canDeactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); await fullscreen?.leave(); await find?.close(); ordering?.cancel(); visible = false; await initPromise; await hide(); return true; },
-    deactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); void fullscreen?.leave(); void find?.close(); ordering?.cancel(); visible = false; void run(hide); },
+    async canDeactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); await fullscreen?.leave(); await find?.close(); ordering?.cancel(); visible = false; newTabShortcuts.select(null); await initPromise; await hide(); return true; },
+    deactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); void fullscreen?.leave(); void find?.close(); ordering?.cancel(); visible = false; newTabShortcuts.select(null); void run(hide); },
   };
 }
