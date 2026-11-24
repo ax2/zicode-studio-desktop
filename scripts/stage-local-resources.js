@@ -14,11 +14,20 @@ function primaryCheckout(configDir) {
   const prefix = "worktree ";
   const checkouts = records.filter((record) => record.startsWith(prefix))
     .map((record) => record.slice(prefix.length));
-  const current = fs.realpathSync(path.dirname(configDir));
-  if (records[1] === "bare" || !checkouts.some((checkout) => path.relative(current, checkout) === "")) {
+  const current = fs.realpathSync.native(path.dirname(configDir));
+  const registered = checkouts.some((checkout) => {
+    try {
+      // Git's registered path can have a different spelling from the live Windows path.
+      return path.relative(current, fs.realpathSync.native(checkout)) === "";
+    } catch {
+      // An unavailable worktree cannot establish membership.
+      return false;
+    }
+  });
+  if (records[1] === "bare" || !registered) {
     throw Error("Shared runtime resources require a Git checkout.");
   }
-  return fs.realpathSync(checkouts[0]);
+  return fs.realpathSync.native(checkouts[0]);
 }
 
 function digest(file) {
@@ -54,7 +63,7 @@ function stageLocalResources(configDir, debugDir, resources) {
 
     primary ??= primaryCheckout(configDir);
     const expected = path.join(primary, "src-tauri", resourcePath);
-    const resolved = fs.realpathSync(candidate);
+    const resolved = fs.realpathSync.native(candidate);
     if (path.relative(expected, resolved) !== "" || !fs.lstatSync(expected).isDirectory()) {
       throw Error(`Shared runtime must point to the corresponding primary checkout directory: ${source}`);
     }
