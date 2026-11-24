@@ -3,11 +3,12 @@ import { closeOnSearchEscape } from "./browser-manager-keyboard.js";
 import { createBackgroundOpenButton } from "./browser-background-open.js";
 
 export function showBrowserHistory({ invoke, onOpen, onClose }) {
-  let page = { entries: [], nextBefore: null, latestId: 0 }, query = "", busy = false;
+  let page = { entries: [], nextBefore: null, latestId: 0, query: null }, submittedQuery = "", busy = false;
   const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
   const dialog = el("dialog", "browser-history-dialog ui-panel"); dialog.setAttribute("aria-label", t("Browsing history"));
   const content = el("fieldset", "browser-history-content");
   const message = el("p"); message.setAttribute("role", "status");
+  const filter = el("p", "browser-history-filter ui-muted"); filter.hidden = true;
   const run = async (work, nextFocus) => {
     if (busy) return;
     const previous = document.activeElement;
@@ -19,6 +20,7 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
     finally {
       busy = false;
       content.disabled = false;
+      renderFilter();
       const active = document.activeElement;
       if (dialog.open && (active === previous || active === dialog || active === document.body)) {
         const target = nextFocus ? nextFocus() : previous;
@@ -40,16 +42,24 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
   const toolbar = el("div", "ui-toolbar browser-history-toolbar");
   const confirm = el("div", "browser-history-confirm"); confirm.hidden = true;
   const list = el("div", "browser-history-list"); list.setAttribute("role", "list");
-  const load = async (before = null) => {
+  function renderFilter() {
+    filter.hidden = page.query === null || page.query === submittedQuery;
+    if (!filter.hidden) {
+      filter.textContent = page.query ? t("Showing earlier results for “{query}”.").replace("{query}", () => page.query)
+        : t("Showing unfiltered history.");
+    }
+  }
+  const load = async (query, before = null) => {
     const result = await request({ kind: "list", query, before });
     if (!dialog.open) return;
-    page = { ...result, entries: before ? [...page.entries, ...result.entries] : result.entries };
+    page = { ...result, query, entries: before ? [...page.entries, ...result.entries] : result.entries };
     hideClear(); render();
   };
-  const submitSearch = () => run(async () => { query = search.value.trim(); await load(); }, () => search);
+  const submitSearch = () => run(async () => { submittedQuery = search.value.trim(); await load(submittedQuery); }, () => search);
   form.addEventListener("submit", event => { event.preventDefault(); void submitSearch(); });
-  search.addEventListener("search", () => { if (!search.value && query) void submitSearch(); });
-  const more = button("Show older visits", () => load(page.nextBefore));
+  search.addEventListener("search", () => { if (!search.value && (submittedQuery || page.query)) void submitSearch(); });
+  const more = button("Show older visits", () => load(page.query, page.nextBefore));
+  more.hidden = true;
   function hideClear() {
     confirm.hidden = true;
     confirm.replaceChildren();
@@ -68,7 +78,7 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
     const apply = button("Confirm clear history", async () => {
       if (!dialog.open || confirm.hidden || apply.parentNode !== confirm) return;
       await request({ kind: "clear", throughId });
-      await load();
+      await load(page.query);
       message.textContent = t("Browsing history cleared");
     }, "danger");
     apply.setAttribute("aria-describedby", details.id);
@@ -76,7 +86,8 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
     confirm.replaceChildren(details, apply, cancelClear);
     confirm.hidden = false;
   }, "secondary", () => cancelClear);
-  toolbar.append(button("Refresh history", () => load()), clear);
+  clear.disabled = true;
+  toolbar.append(button("Refresh history", () => load(submittedQuery)), clear);
   function render() {
     list.replaceChildren(); clear.disabled = !page.latestId; more.hidden = !page.nextBefore;
     if (!page.entries.length) list.append(el("p", "", t("No browsing history found")));
@@ -88,7 +99,7 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
       const url = el("span", "browser-history-meta", visit.url); url.title = visit.url;
       const time = el("time", "browser-history-meta", new Date(visit.visitedAt).toLocaleString()); time.dateTime = visit.visitedAt;
       details.append(title, url, time);
-      const remove = button("Remove visit", async () => { await request({ kind: "remove", id: visit.id }); await load(); });
+      const remove = button("Remove visit", async () => { await request({ kind: "remove", id: visit.id }); await load(page.query); });
       remove.setAttribute("aria-label", `${t("Remove visit")}: ${visit.title || visit.url}`);
       const actions = el("div", "ui-toolbar");
       actions.append(createBackgroundOpenButton(visit, { onOpen, run, message }), remove);
@@ -96,7 +107,7 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
     }
   }
   const close = el("button", "ui-button ui-button--secondary", t("Close")); close.type = "button"; close.addEventListener("click", () => dialog.close());
-  content.append(form, toolbar, confirm, list, more);
+  content.append(form, filter, toolbar, confirm, list, more);
   dialog.append(el("h2", "", t("Browsing history")), content, message, close);
   dialog.addEventListener("cancel", event => {
     if (event.cancelable && discardClear()) event.preventDefault();
@@ -105,6 +116,6 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
   document.body.append(dialog);
   dialog.showModal();
   close.focus({ preventScroll: true });
-  void run(() => load(), () => search);
+  void run(() => load(submittedQuery), () => search);
   return dialog;
 }

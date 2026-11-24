@@ -126,3 +126,77 @@ it.each(["native cancel", "search Escape"])("discards only the clear review thro
   expect(dialog.open).toBe(false);
   expect(history.onClose).toHaveBeenCalledOnce();
 });
+
+
+it("keeps paging and row updates on the displayed query when a newer search fails", async () => {
+  const previous = "invoice $&_%";
+  let newerReads = 0;
+  let removed = false;
+  const row = (id, title) => ({ ...visit(id), title });
+  const history = await open({ handle: request => {
+    if (request.kind === "remove") { removed = true; return null; }
+    if (request.query === "newsletter") {
+      if (request.before === null && ++newerReads === 1) throw Error("Search temporarily unavailable");
+      return { entries: [row(9, "Newsletter")], nextBefore: null, latestId: 12 };
+    }
+    return { entries: request.before ? [row(3, "Earlier invoice")] : [row(removed ? 8 : 12, removed ? "Second invoice" : "Latest invoice")],
+      nextBefore: request.before ? null : 6, latestId: 12 };
+  } });
+  const { dialog, calls } = history;
+  const query = getByRole(dialog, "searchbox");
+  const submit = async value => {
+    fireEvent.input(query, { target: { value } });
+    fireEvent.submit(dialog.querySelector("form"));
+    await idle(dialog);
+  };
+  await submit(previous);
+  await submit("newsletter");
+  expect(getByRole(dialog, "status").textContent).toBe("Search temporarily unavailable");
+  expect(dialog.querySelector('[data-visit-id="12"]')).not.toBeNull();
+
+  getByRole(dialog, "button", { name: t("Show older visits") }).click();
+  await idle(dialog);
+  expect(calls.at(-1)).toEqual({ kind: "list", query: previous, before: 6 });
+  expect(dialog.querySelector('[data-visit-id="3"]')).not.toBeNull();
+  expect(dialog.querySelector('[data-visit-id="9"]')).toBeNull();
+  const filter = dialog.querySelector(".browser-history-filter");
+  expect(filter.hidden).toBe(false);
+  expect(filter.textContent).toContain(previous);
+
+  getByRole(dialog, "button", { name: t("Remove visit") + ": Latest invoice" }).click();
+  await idle(dialog);
+  expect(calls.at(-2)).toEqual({ kind: "remove", id: 12 });
+  expect(calls.at(-1)).toEqual({ kind: "list", query: previous, before: null });
+  expect(dialog.querySelector('[data-visit-id="8"]')).not.toBeNull();
+  expect(filter.hidden).toBe(false);
+
+  getByRole(dialog, "button", { name: t("Refresh history") }).click();
+  await idle(dialog);
+  expect(calls.at(-1)).toEqual({ kind: "list", query: "newsletter", before: null });
+  expect(dialog.querySelectorAll("[data-visit-id]")).toHaveLength(1);
+  expect(dialog.querySelector('[data-visit-id="9"]')).not.toBeNull();
+  expect(filter.hidden).toBe(true);
+});
+
+it("identifies previously unfiltered history after a failed search", async () => {
+  const { dialog } = await open({ handle: request => {
+    if (request.query) throw Error("Unavailable");
+    return { entries: [visit(1)], nextBefore: null, latestId: 1 };
+  } });
+  fireEvent.input(getByRole(dialog, "searchbox"), { target: { value: "new filter" } });
+  fireEvent.submit(dialog.querySelector("form"));
+  await idle(dialog);
+  const filter = dialog.querySelector(".browser-history-filter");
+  expect(filter?.hidden).toBe(false);
+  expect(filter.textContent).toBe(t("Showing unfiltered history."));
+});
+
+
+it("does not offer paging or clearing before the first successful history read", async () => {
+  const { dialog, calls } = await open({ handle: () => { throw Error("History unavailable"); } });
+  expect(getByRole(dialog, "status").textContent).toBe("History unavailable");
+  expect(dialog.querySelector(".browser-history-filter").hidden).toBe(true);
+  expect(getByRole(dialog, "button", { name: t("Clear browsing history") }).disabled).toBe(true);
+  expect(dialog.querySelector(".browser-history-content > button").hidden).toBe(true);
+  expect(calls).toEqual([{ kind: "list", query: "", before: null }]);
+});

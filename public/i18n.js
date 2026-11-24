@@ -1194,6 +1194,8 @@ const zhCN = {
     "拖动可调整顺序。聚焦标签后，按 Alt+Shift+左/右方向键移动。",
   "Browsing history": "浏览历史",
   "Search browsing history": "搜索浏览历史",
+  "Showing earlier results for “{query}”.": "当前显示上次搜索「{query}」的结果。",
+  "Showing unfiltered history.": "当前显示未筛选的浏览历史。",
   "Show older visits": "显示更早的访问",
   "Clear browsing history": "清空浏览历史",
   "Remove all visits recorded so far, including results outside this search? Bookmarks, tabs and site data will be kept.":
