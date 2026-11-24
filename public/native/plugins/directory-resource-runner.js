@@ -163,7 +163,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const transfer = typeof gateway.prepareResourceTransfer === "function" ? createResourceTransfer({ gateway, getTarget, isCurrent: valid, mountInputs,
     onSave: save ? (...args) => save.open(...args) : undefined, onSaveClear: () => save?.clear(), onReceiverExecuted }) : null;
   let directoryReport = null;
-  const reportExport = (compare || diskInspector) && gateway.exports ? createResourceExport({
+  const reportExport = directoryAnalysis && gateway.exports ? createResourceExport({
     api: gateway.exports, getTarget, isCurrent: () => valid() && directoryReport !== null,
   }) : null;
   const preview = createResourcePreview({ container: outputs, plugin: { capabilities: [{ id: tool.capabilityId, title: tool.title }] }, executionProfile: detail.capability.executionProfile, isCurrent: valid, read,
@@ -176,7 +176,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid, recoverable: true, onOutputs: (items, owner, labels, reportResource) => {
     if (!valid() || reference !== executionAccess) return;
     if (directoryAnalysis) {
-      if ((compare || diskInspector) && reportResource) directoryReport = { resource: reportResource, owner };
+      if (reportResource) directoryReport = { resource: reportResource, owner };
       return;
     }
     metadataResult?.setReportResource?.(reportResource, owner);

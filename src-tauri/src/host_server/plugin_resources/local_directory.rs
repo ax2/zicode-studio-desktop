@@ -7,10 +7,14 @@ mod duplicates;
 mod compare;
 mod usage;
 #[cfg(all(test, windows))]
-mod usage_export_tests;
+mod directory_export_tests;
 pub(super) use native_checksum::open_picked_file;
 pub(super) use compare::{
     CAPABILITY as COMPARE_CAPABILITY, PLUGIN as COMPARE_PLUGIN, PROFILE as COMPARE_PROFILE,
+};
+pub(super) use duplicates::{
+    CAPABILITY as DUPLICATE_FILES_CAPABILITY, PLUGIN as DUPLICATE_FILES_PLUGIN,
+    PROFILE as DUPLICATE_FILES_PROFILE,
 };
 pub(super) use usage::{
     CAPABILITY as DISK_INSPECTOR_CAPABILITY, PLUGIN as DISK_INSPECTOR_PLUGIN,

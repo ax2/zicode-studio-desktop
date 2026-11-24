@@ -3272,6 +3272,7 @@
     },
     {
       "sourceToolId": "duplicate-files",
+      "currentWindowsAcceptance": "local-directory-duplicates-draft1.md#另存当次报告",
       "title": "重复文件检查",
       "sourceToolVersion": "1.0.0",
       "sourceStatus": "implemented",

@@ -3,10 +3,10 @@ use super::{checksum, usage, *};
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-pub(super) const PROFILE: &str = "resource.local-directory.duplicates.draft1";
+pub(in crate::host_server::plugin_resources) const PROFILE: &str = "resource.local-directory.duplicates.draft1";
 pub(super) const PERMISSION: &str = "resource.directory.duplicates.read";
-pub(super) const PLUGIN: &str = "com.zicode.devtools.duplicate-files";
-pub(super) const CAPABILITY: &str = "devtools.duplicate-files.scan";
+pub(in crate::host_server::plugin_resources) const PLUGIN: &str = "com.zicode.devtools.duplicate-files";
+pub(in crate::host_server::plugin_resources) const CAPABILITY: &str = "devtools.duplicate-files.scan";
 
 const SCAN_TIME: Duration = Duration::from_secs(20);
 const MAX_CANDIDATES: usize = 256;

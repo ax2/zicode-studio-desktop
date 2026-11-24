@@ -60,6 +60,22 @@ describe("resource output reference boundary", () => {
         .toThrow("resource_response_invalid");
     }
   });
+  it("binds duplicate-files JSON to the one confirmed matching directory", () => {
+    const plugin = "com.zicode.devtools.duplicate-files";
+    const input = { ...source, capabilityId: "devtools.duplicate-files.scan" };
+    const report = { ...row(), profile: "resource.host.duplicate-files-json.v1",
+      mimeType: "application/json", origin: "host-report", byteLength: 48 * 1024 };
+    const response = { result: { ok: true }, reportResource: report };
+    expect(normalizeHostReport(response, input, null, plugin)).toMatchObject({
+      mimeType: report.mimeType, resourceId: report.resourceId,
+    });
+    for (const patch of [{ profile: "resource.host.directory-usage-json.v1" },
+      { byteLength: 48 * 1024 + 1 }, { derivedFrom: { ...source, contentVersion: "c".repeat(64) } }]) {
+      expect(() => normalizeHostReport({ ...response, reportResource: { ...report, ...patch } }, input, null, plugin))
+        .toThrow("resource_response_invalid");
+    }
+    expect(() => normalizeHostReport(response, input, null, "com.zicode.devtools.disk-inspector")).toThrow("resource_response_invalid");
+  });
   it("binds Markdown success to one complete HTML output and rejects missing negotiation, mismatched length and partial failures", () => {
     const owner={...source,capabilityId:"devtools.markdown.render"},profile="resource.wasi.markdown.v1";
     const html={...row(),mimeType:"text/html",byteLength:10486640};

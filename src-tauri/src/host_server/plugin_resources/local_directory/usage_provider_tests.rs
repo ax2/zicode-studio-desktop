@@ -1,6 +1,6 @@
 //! Installs the independent frozen Disk Inspector and exercises its real Windows input path.
 use super::*;
-use super::usage_export_tests::{assert_disk_usage_cancel_and_conflict, assert_disk_usage_export};
+use super::directory_export_tests::{assert_directory_export_cancel_and_conflict, assert_directory_json_export};
 use crate::host_server::{HostMode, HostServer, RemoteAuth};
 use crate::native_pi_manager::NativePiManager;
 use crate::runtime_coordinator::RuntimeTarget;
@@ -265,7 +265,8 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
             "DISK_INSPECTOR_REPORT {}",
             json!({"case":path,"report":report})
         );
-        let report_access = assert_disk_usage_export(&host, &context, &owner, access, &response,
+        assert_eq!(response["reportResource"]["profile"], "resource.host.directory-usage-json.v1");
+        let report_access = assert_directory_json_export(&host, &context, &owner, access, &response,
             &exports.join(format!("{path}.json")), last_export.as_ref());
         last_export = Some(report_access);
         last_access = access.clone();
@@ -396,9 +397,10 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
         json!({"case":"native_outside","report":report})
     );
 
-    let native_export = assert_disk_usage_export(&host, &context, &owner, &resource["access"], &response,
+    assert_eq!(response["reportResource"]["profile"], "resource.host.directory-usage-json.v1");
+    let native_export = assert_directory_json_export(&host, &context, &owner, &resource["access"], &response,
         &exports.join("native.json"), last_export.as_ref());
-    assert_disk_usage_cancel_and_conflict(&host, &context, &native_export, &exports);
+    assert_directory_export_cancel_and_conflict(&host, &context, &native_export, &exports);
     let revoked = exports.join("revoked.json");
     let revoked_grant = host.prepare_resource_export(context.clone(), native_export.clone(), revoked.clone()).unwrap();
     assert_eq!(fs::read(root.join("normal/archive/报告.txt")).unwrap(), b"private fixture contents");

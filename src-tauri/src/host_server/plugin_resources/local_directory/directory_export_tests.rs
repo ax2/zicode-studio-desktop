@@ -1,7 +1,7 @@
 use super::*;
 use crate::host_server::HostServer;
 
-pub(super) fn assert_disk_usage_export(
+pub(super) fn assert_directory_json_export(
     host: &HostServer,
     context: &Context,
     owner: &Value,
@@ -11,10 +11,6 @@ pub(super) fn assert_disk_usage_export(
     alternate: Option<&Value>,
 ) -> Value {
     let descriptor = &response["reportResource"];
-    assert_eq!(
-        descriptor["profile"], "resource.host.directory-usage-json.v1",
-        "{response}"
-    );
     assert_eq!(descriptor["mimeType"], "application/json");
     assert_eq!(descriptor["origin"], "host-report");
     assert_eq!(descriptor["saved"], false);
@@ -74,11 +70,11 @@ pub(super) fn assert_disk_usage_export(
     assert!(host
         .prepare_resource_export(context.clone(), access.clone(), path.to_path_buf())
         .is_err());
-    println!("DISK_INSPECTOR_SAVED {} bytes", bytes.len());
+    println!("DIRECTORY_REPORT_SAVED {} bytes", bytes.len());
     access
 }
 
-pub(super) fn assert_disk_usage_cancel_and_conflict(
+pub(super) fn assert_directory_export_cancel_and_conflict(
     host: &HostServer,
     context: &Context,
     access: &Value,
