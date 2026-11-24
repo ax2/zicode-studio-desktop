@@ -146,6 +146,96 @@ async fn verify_directory(host: &HostServer, client: &reqwest::Client, plugin_id
     );
 }
 
+fn verify_diagnostic_report_export(
+    host: &HostServer,
+    workspace_id: &str,
+    plugin_id: &str,
+    root: &Path,
+    response: &Value,
+) {
+    let context = crate::host_server::ResourceExportContext {
+        window: "main".into(),
+        workspace: workspace_id.into(),
+        route: "/tool-center".into(),
+    };
+    let source = json!({
+        "scope": {
+            "workspaceId": workspace_id,
+            "sceneId": "programming",
+            "pluginId": plugin_id,
+            "capabilityId": PROFILE,
+        },
+        "resultId": response["resultRef"]["resultId"],
+    });
+    let bytes = serde_json::to_vec(&response["result"]).unwrap();
+    let digest = crate::host_server::sha256_hex(&bytes);
+    assert_eq!(response["resultRef"]["contentVersion"], digest);
+    assert_eq!(response["resultRef"]["byteLength"], bytes.len());
+    let metadata = host
+        .result_text_export_metadata(&context, source.clone())
+        .unwrap();
+    assert_eq!(metadata["suggestedFileName"], "actuator-response.json");
+    assert_eq!(metadata["extension"], "json");
+    assert_eq!(metadata["contentVersion"], digest);
+
+    let directory = root.join("selected-output");
+    fs::create_dir(&directory).unwrap();
+    let destination = directory.join("saved-actuator-report.json");
+    let prepare = |path: PathBuf| {
+        host.prepare_result_text_export(context.clone(), source.clone(), path)
+            .unwrap()["grantId"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let commit = |owner: crate::host_server::ResourceExportContext, id: &str, confirmed| {
+        host.commit_result_text_export(owner, source.clone(), id.into(), confirmed)
+    };
+    let cancelled = prepare(destination.clone());
+    host.cancel_result_text_export(context.clone(), source.clone(), cancelled.clone())
+        .unwrap();
+    assert!(commit(context.clone(), &cancelled, true).is_err());
+
+    let grant = prepare(destination.clone());
+    assert_eq!(
+        commit(context.clone(), &grant, false).unwrap_err(),
+        "result_confirmation_required"
+    );
+    let mut other_route = context.clone();
+    other_route.route = "/another-view".into();
+    assert!(commit(other_route, &grant, true).is_err());
+    assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
+    let saved = commit(context.clone(), &grant, true).unwrap();
+    assert_eq!(saved["receipt"]["contentVersion"], digest);
+    assert_eq!(saved["receipt"]["byteLength"], bytes.len());
+    assert_eq!(fs::read(&destination).unwrap(), bytes);
+    assert_eq!(
+        host.verify_result_text_export(context.clone(), source.clone(), grant.clone())
+            .unwrap()["status"],
+        "verified"
+    );
+    assert!(commit(context.clone(), &grant, true).is_err());
+    assert_eq!(
+        host.prepare_result_text_export(context.clone(), source.clone(), destination.clone())
+            .unwrap_err(),
+        "resource_export_conflict"
+    );
+
+    let revoked = prepare(directory.join("rejected.json"));
+    host.state
+        .plugins
+        .lock()
+        .unwrap()
+        .set_permission("programming", plugin_id, "service.http.read", false)
+        .unwrap();
+    assert_eq!(
+        commit(context, &revoked, true).unwrap_err(),
+        "result_source_unavailable"
+    );
+    assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
+    assert_eq!(fs::read(&destination).unwrap(), bytes);
+}
+
 async fn verify_candidate(candidate: Candidate, live: Option<LiveActuator>) {
     let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../tests/fixtures")
@@ -357,6 +447,9 @@ async fn verify_candidate(candidate: Candidate, live: Option<LiveActuator>) {
         let down = read(&live.down, "health", true).await;
         assert_eq!(down["result"]["status"], 503);
         assert_eq!(down["result"]["data"]["status"], "DOWN");
+        if candidate == Candidate::DirectoryView {
+            verify_diagnostic_report_export(&host, workspace_id, plugin_id, &root, &down);
+        }
     } else {
         let listener = listener.unwrap();
         let operation_id = uuid::Uuid::new_v4().to_string();

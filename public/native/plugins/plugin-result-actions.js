@@ -5,8 +5,9 @@ import { t } from "i18n";
 import { createPluginResultTransfer } from "./plugin-result-transfer.js";
 import { openSavedArtifact } from "../features/artifact-navigation.js";
 import { appendResultCaptureNotice } from "./plugin-result-capture-notice.js";
+import { createTextResultExport } from "./text-result-export.js";
 export function createPluginResultActions({ container, gateway, isCurrent, onReceiverExecuted, onOpenSaved = openSavedArtifact, sourceResultDisplayed = false }) {
-  const artifactIdPattern = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+  const uuidPattern = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   const panel = document.createElement("section");
   panel.className = "plugin-result-actions";
   panel.hidden = true;
@@ -18,6 +19,13 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
   let transfer = null;
   let disposeCaptureNotice = null;
   const valid = (token) => active && token === revision && isCurrent(current?.scope);
+  const reportExport = gateway.textExports
+    ? createTextResultExport({
+        api: gateway.textExports,
+        getTarget: () => current?.scope,
+        isCurrent: () => valid(revision) && Boolean(current?.reportReference),
+      })
+    : null;
 
   function element(tag, text, className) {
     const node = document.createElement(tag);
@@ -86,6 +94,17 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
             });
           })
         : null;
+    const report = reportExport && current.reportReference
+      ? button(t("Save diagnostic JSON as…"), async () => {
+          if (!valid(token) || report.disabled) return;
+          report.disabled = true;
+          try {
+            await reportExport.open(current.reportReference, current.scope, container);
+          } finally {
+            if (valid(token)) report.disabled = false;
+          }
+        })
+      : null;
     const content = current.transferred ? element("pre", current.text) : null;
     content?.setAttribute("aria-label", t("Transferred result"));
     panel.replaceChildren(
@@ -93,7 +112,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
         "strong",
         current.transferred ? t("Studio · Receiver result") : t("Studio · Save tool result"),
       ),
-      ...[content, title, preview, send, status].filter(Boolean),
+      ...[content, title, preview, report, send, status].filter(Boolean),
     );
     if (current.saveOutcomeUnknown) {
       preview.disabled = true;
@@ -102,6 +121,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
   }
   function show(response, scope, transferred = false) {
     revision += 1;
+    reportExport?.clear();
     disposeCaptureNotice?.();
     disposeCaptureNotice = null;
     transfer?.destroy();
@@ -112,12 +132,21 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       : typeof response?.result?.text === "string"
         ? response.result.text
         : undefined;
-    const successful = response?.result?.ok === true ||
+    const httpResult = scope?.capabilityId === "service.http.get.v1" &&
+      response?.operation === "http.get" && response.result != null;
+    const reference = response?.resultRef;
+    const reportReference = httpResult && reference?.schemaVersion === 1 &&
+      reference.mimeType === "text/plain" && uuidPattern.test(reference.resultId ?? "") &&
+      /^[0-9a-f]{64}$/.test(reference.contentVersion ?? "") &&
+      Number.isSafeInteger(reference.byteLength) && reference.byteLength > 0 &&
+      reference.byteLength <= 64 * 1024 ? { ...reference } : null;
+    const successful = httpResult || response?.result?.ok === true ||
       (response?.operation === "model.generate" && typeof resultText === "string");
     current = response?.resultRef
       ? {
           scope,
           resultId: response.resultRef.resultId,
+          reportReference,
           transferred,
           text: resultText,
         }
@@ -129,7 +158,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     else if (successful && response.resultCaptureError) {
       panel.hidden = false;
       // Receiver results are owned here even when the original source has a React result view.
-      if ((!sourceResultDisplayed || transferred) && typeof resultText === "string") {
+      if (!httpResult && (!sourceResultDisplayed || transferred) && typeof resultText === "string") {
         const content = element("pre", resultText);
         if (transferred) content.setAttribute("aria-label", t("Transferred result"));
         panel.append(content);
@@ -151,7 +180,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
         const saved = await gateway.commitSave(current.scope, response.grantId);
         if (!valid(token)) return;
         if (saved?.schemaVersion !== 1 || typeof saved.replayed !== "boolean" ||
-            !artifactIdPattern.test(saved.artifact?.id ?? "")) throw new Error("invalid_save_receipt");
+            !uuidPattern.test(saved.artifact?.id ?? "")) throw new Error("invalid_save_receipt");
         panel.replaceChildren(element("p", t("Saved to results.")));
         panel.append(button(t("View saved artifact"), () => {
           if (valid(token)) onOpenSaved(saved.artifact.id, current.scope);
@@ -172,7 +201,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
               try {
                 const outcome = await gateway.saveStatus(current.scope, response.grantId);
                 if (!valid(token)) return;
-                if (outcome?.schemaVersion === 1 && outcome.status === "saved" && artifactIdPattern.test(outcome.artifactId ?? "")) {
+                if (outcome?.schemaVersion === 1 && outcome.status === "saved" && uuidPattern.test(outcome.artifactId ?? "")) {
                   panel.replaceChildren(element("p", t("Verified saved result.")),
                     button(t("View saved artifact"), () => { if (valid(token)) onOpenSaved(outcome.artifactId, current.scope); }));
                   return;
@@ -215,6 +244,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
   return {
     clear() {
       revision += 1;
+      reportExport?.clear();
       disposeCaptureNotice?.();
       disposeCaptureNotice = null;
       transfer?.destroy();
@@ -225,6 +255,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     show,
     destroy() {
       active = false;
+      reportExport?.destroy();
       disposeCaptureNotice?.();
       disposeCaptureNotice = null;
       transfer?.destroy();

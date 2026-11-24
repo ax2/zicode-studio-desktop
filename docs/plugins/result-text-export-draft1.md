@@ -4,6 +4,8 @@
 
 输入 `source={scope:{workspaceId,sceneId,pluginId,capabilityId},resultId}` 指向 Host 已捕获的成功 `text/plain` 结果。结果沿用捕获池限制：单项64KiB、共64项/2MiB、有效15分钟。创建授权时及写入前均复核结果与启用插件的版本/权限证明；不能由前端传入或替换原文。工作区关闭、窗口或路由改变、结果过期、插件停用/修改均拒绝新的写入。已明确生成的结果是其独立快照；文件摘要面板在生成前后及选址/保存前另外复核原文件授权，撤销时清除显示与待保存入口。
 
+Spring Actuator 的一次已确认 GET 可由 Studio 结果面板另存为 JSON。Host 保存同一份已捕获的响应对象序列化快照，默认文件名为 `actuator-response.json`。原生出口仍传递相同的文本句柄和 SHA-256 证明，既有项目产物和文本转交使用同一份内容。选址和写入需要各自操作，权限撤销后需重新授权并读取才能另存。
+
 命令：
 
 - `select_result_text_export(workspaceId,source)`：复核来源后显示系统另存窗口；取消返回null。选择位置后准备60秒有效的授权，最多16项；返回 `schemaVersion=1`、`profile=result.export.text.draft1`、`operation=create_new_file`、`requiresConfirmation=true`、`saved=false`、grantId及preview。

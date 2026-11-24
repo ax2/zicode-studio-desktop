@@ -9,11 +9,12 @@ const scope = {
   capabilityId: "echo",
 };
 const savedId = "22222222-2222-4222-8222-222222222222";
-function setup(locale = "zh-CN", onOpenSaved, options = {}) {
+function setup(locale = "zh-CN", onOpenSaved, { textExports, ...options } = {}) {
   setLocale(locale);
   document.body.replaceChildren();
   let target = "workspace";
   const gateway = {
+    textExports,
     prepareSave: vi.fn(async () => ({
       grantId: "grant",
       preview: {
@@ -338,4 +339,87 @@ it("treats an invalid save receipt as uncertain rather than claiming success", a
   click("Preview save"); await vi.waitFor(() => expect(document.querySelector("pre")).toBeTruthy());
   click("Confirm save"); await vi.waitFor(() => expect(document.body.textContent).toContain("could not be verified"));
   expect(document.body.textContent).not.toContain("View saved artifact"); expect(open).not.toHaveBeenCalled();
+});
+
+
+const reportScope = {
+  ...scope,
+  pluginId: "com.zicode.devtools.spring-actuator",
+  capabilityId: "service.http.get.v1",
+};
+const report = {
+  operation: "http.get",
+  result: { status: 503, data: { status: "DOWN" } },
+  resultRef: {
+    schemaVersion: 1,
+    resultId: "33333333-3333-4333-8333-333333333333",
+    contentVersion: "b".repeat(64),
+    byteLength: 56,
+    mimeType: "text/plain",
+  },
+};
+function exportGrant(grantId) {
+  return {
+    schemaVersion: 1,
+    profile: "result.export.text.draft1",
+    operation: "create_new_file",
+    grantId,
+    saved: false,
+    requiresConfirmation: true,
+    expiresInSeconds: 60,
+    preview: { ...report.resultRef, profile: "result.export.text.draft1",
+      grantId, destination: "C:/selected/spring-health.json" },
+  };
+}
+
+it("keeps the diagnostic after cancelling location selection and writes only after its own confirmation", async () => {
+  const grant = exportGrant("44444444-4444-4444-8444-444444444444");
+  const textExports = {
+    choose: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(grant),
+    commit: vi.fn(async () => ({ schemaVersion: 1, profile: grant.profile,
+      saved: true, status: "saved", receipt: grant.preview })),
+    cancel: vi.fn(async () => {}),
+  };
+  const { actions, gateway } = setup("en", undefined, { textExports });
+  actions.show(report, reportScope);
+  const label = "Save diagnostic JSON as…";
+  click(label);
+  await vi.waitFor(() => expect(textExports.choose).toHaveBeenCalledTimes(1));
+  const button = () => [...document.querySelectorAll("button")].find(node => node.textContent === label);
+  await vi.waitFor(() => expect(button()?.disabled).toBe(false));
+  expect(document.querySelector("dialog")).toBeNull();
+  expect(textExports.commit).not.toHaveBeenCalled();
+
+  click(label);
+  await vi.waitFor(() => expect(document.querySelector("dialog")?.textContent).toContain(grant.preview.destination));
+  expect(textExports.choose).toHaveBeenCalledWith(scope.workspaceId, {
+    scope: reportScope,
+    resultId: report.resultRef.resultId,
+  });
+  expect(textExports.commit).not.toHaveBeenCalled();
+  click("Confirm save file");
+  await vi.waitFor(() => expect(document.querySelector("dialog")?.textContent).toContain("Saved copy:"));
+  expect(textExports.commit).toHaveBeenCalledExactlyOnceWith(scope.workspaceId, {
+    scope: reportScope,
+    resultId: report.resultRef.resultId,
+  }, grant.grantId);
+  expect(gateway.prepareSave).not.toHaveBeenCalled();
+});
+
+it("releases a late diagnostic export grant when the view drops its result", async () => {
+  const grant = exportGrant("55555555-5555-4555-8555-555555555555");
+  let selected;
+  const textExports = {
+    choose: vi.fn(() => new Promise(resolve => { selected = resolve; })),
+    commit: vi.fn(),
+    cancel: vi.fn(async () => {}),
+  };
+  const { actions } = setup("en", undefined, { textExports });
+  actions.show(report, reportScope);
+  click("Save diagnostic JSON as…");
+  actions.clear();
+  selected(grant);
+  await vi.waitFor(() => expect(textExports.cancel).toHaveBeenCalledTimes(1));
+  expect(document.querySelector("dialog")).toBeNull();
+  expect(textExports.commit).not.toHaveBeenCalled();
 });
