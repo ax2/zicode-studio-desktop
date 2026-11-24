@@ -100,11 +100,22 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
             registry.install_developer(&candidate).unwrap(),
             usage::PLUGIN
         );
-        registry
+        assert!(registry
             .set_enabled("programming", usage::PLUGIN, true)
-            .unwrap();
+            .unwrap_err()
+            .contains("resource.read"));
         registry
             .set_permission("programming", usage::PLUGIN, "resource.read", true)
+            .unwrap();
+        assert!(registry
+            .set_enabled("programming", usage::PLUGIN, true)
+            .unwrap_err()
+            .contains(usage::PERMISSION));
+        registry
+            .set_permission("programming", usage::PLUGIN, usage::PERMISSION, true)
+            .unwrap();
+        registry
+            .set_enabled("programming", usage::PLUGIN, true)
             .unwrap();
     }
 
@@ -128,24 +139,7 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
             "access": access, "toolCallId": uuid::Uuid::new_v4(), "input": {},
         })
     };
-    let allow_usage = |allowed| {
-        host.state
-            .plugins
-            .lock()
-            .unwrap()
-            .set_permission("programming", usage::PLUGIN, usage::PERMISSION, allowed)
-            .unwrap();
-    };
 
-    let denied = post(
-        &host,
-        &client,
-        "prepare-local-directory",
-        prepare_body("normal"),
-    )
-    .await;
-    assert_eq!(denied.1["error"]["code"], "permission_denied");
-    allow_usage(true);
     let (status, preview) = post(
         &host,
         &client,
@@ -265,7 +259,12 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
         last_access = access.clone();
     }
 
-    allow_usage(false);
+    host.state
+        .plugins
+        .lock()
+        .unwrap()
+        .set_permission("programming", usage::PLUGIN, usage::PERMISSION, false)
+        .unwrap();
     let (status, _) = post(&host, &client, "invoke-view", invoke_body(&last_access)).await;
     assert!(!status.is_success());
     host.stop_and_wait().await.unwrap();
