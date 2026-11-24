@@ -5,7 +5,7 @@
 #[cfg(test)]
 #[path = "native_privacy_tests.rs"]
 pub(crate) mod native_privacy_tests;
-use super::policy::BrowserPolicy;
+use super::{policy::BrowserPolicy, proxy_endpoint::HttpProxy};
 #[path = "event_lifetime.rs"]
 mod event_lifetime;
 #[path = "native_view.rs"]
@@ -141,6 +141,7 @@ enum ViewStart<'a> {
 
 pub struct NativeBrowserEngine {
     pub(super) user_agent: Option<String>,
+    pub(super) http_proxy: Option<HttpProxy>,
     pub(super) private:bool,
     // Drop native views before their shared browser context.
     pub menu_chinese: Arc<std::sync::atomic::AtomicBool>,
@@ -163,6 +164,7 @@ impl NativeBrowserEngine {
         std::fs::create_dir_all(&profile).map_err(|error| error.to_string())?;
         Ok(Self {
             user_agent: None,
+            http_proxy: None,
             private:false,
             menu_chinese: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             downloads: native_downloads::Downloads::new(emit.clone()),
@@ -261,7 +263,7 @@ impl NativeBrowserEngine {
             .with_visible(false)
             .with_focused(false)
             // Preserve SmartScreen; don't inherit Wry's app-shell disabling flag.
-            .with_additional_browser_args("--disable-features=msWebOOUI,msPdfOOUI")
+            .with_additional_browser_args(HttpProxy::browser_arguments(self.http_proxy.as_ref()))
             .with_devtools(false)
             .with_clipboard(false)
             // General form data must not be retained without a Studio privacy setting.

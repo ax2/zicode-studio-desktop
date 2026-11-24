@@ -2,6 +2,7 @@ import { copyText } from "../../ui/copy.js";
 import { createBrowserTabActivation } from "./browser-tab-activation.js";
 import { createBrowserStartup } from "./browser-startup.js";
 import { createBrowserUserAgentSettings } from "./browser-user-agent-settings.js";
+import { createBrowserProxySettings } from "./browser-proxy-settings.js";
 import { createBrowserAddressEditor } from "./browser-address-editor.js";
 import { resolveBrowserAddress } from "./browser-address.js";
 import { createBrowserSearchSettings } from "./browser-search-settings.js";
@@ -816,6 +817,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         report,
       },
       userAgentSettings: createBrowserUserAgentSettings(control),
+      proxySettings: createBrowserProxySettings(control),
       print: () => { const source = active; return act(() => runPageAction("print", source)); },
       developerTools: openDeveloperTools,
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),

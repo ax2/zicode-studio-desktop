@@ -138,8 +138,8 @@ body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-
 .browser-options-panel { position: absolute; inset-inline-end: 0; top: calc(100% + var(--space-1)); z-index: 20; display: grid; gap: var(--space-2); width: min(21rem, calc(100vw - var(--space-8))); padding: var(--space-3); max-height: 70vh; overflow: auto; background: var(--bg-solid); box-shadow: var(--shadow-lg); }
 .browser-options-panel [role="group"]:has(.browser-site-shortcut) { display: grid; gap: var(--space-1); max-height: 32vh; overflow: auto; }
 .browser-site-shortcut { display: block; overflow: hidden; text-align: start; text-overflow: ellipsis; white-space: nowrap; }
-.browser-user-agent-fields { display: grid; gap: var(--space-1); }
-.browser-user-agent input { min-width: 0; width: 100%; }
+.browser-user-agent-fields, .browser-proxy-fields { display: grid; gap: var(--space-1); }
+.browser-user-agent input, .browser-proxy input { min-width: 0; width: 100%; }
 .browser-options-panel label { display: grid; gap: var(--space-1); }
 .browser-options-panel .ui-select { width: 100%; max-width: none; }
 

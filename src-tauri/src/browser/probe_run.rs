@@ -1,5 +1,8 @@
 #[path = "engine.rs"]
 mod engine;
+#[allow(dead_code)] // The regular engine probe does not configure per-profile proxies.
+#[path = "proxy_endpoint.rs"]
+mod proxy_endpoint;
 #[path = "policy.rs"]
 mod policy;
 mod probe_messaging;

@@ -2,7 +2,7 @@ import { t } from "../../i18n.js";
 
 import { decorateBrowserCommands } from "./browser-menu-icons.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, downloads, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print, developerTools, userAgentSettings, websiteShortcuts } = {}) {
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, downloads, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print, developerTools, userAgentSettings, proxySettings, websiteShortcuts } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -140,6 +140,7 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     page.append(button);
   }
   if (userAgentSettings) settings.append(userAgentSettings);
+  if (proxySettings) settings.append(proxySettings);
   if (searchSettings) settings.append(searchSettings.element);
   settings.append(label); menu.append(trigger, panel);
   decorateBrowserCommands(panel);
