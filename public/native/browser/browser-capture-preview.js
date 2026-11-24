@@ -220,8 +220,9 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (compare) actions.append(compare.button);
   let clip;
   if (createNoteWriter) {
-    clip = createBrowserNoteClip({ capture, writer: createNoteWriter(() => dialog.isConnected),
-      isOpen: () => dialog.isConnected,
+    clip = createBrowserNoteClip({ capture, writer: createNoteWriter(isOpen),
+      isOpen,
+      onOpened: dock ? undefined : () => dismiss(),
       attachments,
       setBusy,
     });
@@ -254,7 +255,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   dialog.append(error);
   if (prepareDraft) dialog.append(draftStatus);
   dialog.append(actions);
-  if (clip) dialog.append(clip.panel);
+  if (clip) dialog.append(clip.panel, clip.open);
   if (compare) dialog.append(compare.panel);
   if (dock) {
     for (const previous of dock.host.children) previous.disposeBrowserModel?.();
