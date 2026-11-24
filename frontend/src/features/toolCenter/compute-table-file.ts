@@ -1,6 +1,7 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 type TableFileFormat = typeof tableFileFormats[number];
-export type TableFileTarget = "transform" | "left" | "right" | TableFileFormat;
+export type TableFileTarget = "transform" | "workbench" | "left" | "right" | TableFileFormat;
+type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // Frozen Compute input limit in UTF-8 bytes.
 const formatError = {
@@ -9,20 +10,22 @@ const formatError = {
   json: "Choose a JSON file.",
 };
 const transformOptions = new Set(["format", "column", "value"]);
+const workbenchOptions = new Set(["format", "query", "sort", "output"]);
 const mergeOptions = new Set(["format", "left_key", "right_key", "right"]);
 
-function tableSettings(source: string, target: TableFileTarget): Record<string, string | string[]> {
+function tableSettings(source: string, target: TableFileTarget): TableSettings {
   try {
     const parsed: unknown = source.trim() ? JSON.parse(source) : {};
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw Error();
-    const keys = target === "transform" ? transformOptions : mergeOptions;
+    const keys = target === "transform" ? transformOptions : target === "workbench" ? workbenchOptions : mergeOptions;
     for (const [key, value] of Object.entries(parsed)) {
       if (keys.has(key) && typeof value === "string") continue;
+      if (target === "workbench" && key === "descending" && typeof value === "boolean") continue;
       if (target === "transform" && key === "keep" && Array.isArray(value) &&
           value.every(item => typeof item === "string")) continue;
       throw Error();
     }
-    return parsed as Record<string, string | string[]>;
+    return parsed as TableSettings;
   } catch {
     throw Error("Fix the tool options before importing a file.");
   }

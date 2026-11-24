@@ -524,3 +524,70 @@ it.runIf(Boolean(worker && modulePath)).each(qualityFixtures)(
     });
   }, 25_000,
 );
+
+const workbenchFileCases = [
+  {
+    operation: "json", inputFormat: "csv", input: 'name,city\r\n"张,三",北京\r\n李四,上海',
+    settings: { query: "北京", sort: "name", descending: false },
+    inputRows: 2, selectedRows: 1, outputFormat: "json", output: [{ name: "张,三", city: "北京" }],
+  },
+  {
+    operation: "csv", inputFormat: "json",
+    input: '[{"id":9223372036854775807,"name":"甲"},{"id":-9223372036854775808,"name":"乙"},{"id":18446744073709551615,"name":"丙"}]',
+    settings: { descending: false }, inputRows: 3, selectedRows: 3, outputFormat: "csv",
+    output: "id,name\n9223372036854775807,甲\n-9223372036854775808,乙\n18446744073709551615,丙\n",
+  },
+  {
+    operation: "query", inputFormat: "tsv", input: "id\t姓名\r\n1\t甲\r\n3\t乙\r\n2\t甲乙",
+    settings: { query: "甲", sort: "id", descending: true, output: "tsv" },
+    inputRows: 3, selectedRows: 2, outputFormat: "tsv", output: "id\t姓名\n2\t甲乙\n1\t甲\n",
+  },
+];
+
+it.each(workbenchFileCases)("imports $inputFormat for the workbench $operation without applying it", async ({
+  operation, inputFormat, input, settings,
+}) => {
+  const { api } = mount(undefined, "devtools.compute.table." + operation);
+  const previousOptions = " " + JSON.stringify({ format: inputFormat === "csv" ? "json" : "csv", ...settings }) + " ";
+  const { source, opts } = await fill("Previous draft", previousOptions);
+  importFile(new NodeFile(["\uFEFF", input], "table." + inputFormat.toUpperCase()));
+  const undo = await screen.findByRole("button", { name: "Undo last import" });
+  expect(source.value).toBe(input.replaceAll("\r\n", "\n"));
+  expect(JSON.parse(opts.value)).toEqual({ format: inputFormat, ...settings });
+  expect(api.invoke).not.toHaveBeenCalled();
+  fireEvent.click(undo);
+  expect(source.value).toBe("Previous draft");
+  expect(opts.value).toBe(previousOptions);
+});
+
+it("preserves the workbench draft when its sort direction is not a boolean", async () => {
+  const { api } = mount(undefined, "devtools.compute.table.query");
+  const settings = '{"format":"csv","descending":"false"}';
+  const { source, opts } = await fill("Previous draft", settings);
+  importFile(new NodeFile(["id\n1"], "table.csv"));
+  expect((await screen.findByRole("alert")).textContent).toBe("Fix the tool options before importing a file.");
+  expect(source.value).toBe("Previous draft");
+  expect(opts.value).toBe(settings);
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
+// The 0.1 series does not declare any workbench capabilities.
+const hasWorkbench = worker && modulePath && process.env.ZICODE_TEST_COMPUTE_WORKBENCH === "1";
+it.runIf(Boolean(hasWorkbench)).each(workbenchFileCases)(
+  "imports $inputFormat and runs the workbench $operation through the frozen Windows Worker",
+  async ({ operation, inputFormat, input, settings, inputRows, selectedRows, outputFormat, output }) => {
+    const { api } = mount(runFrozenWorker, "devtools.compute.table." + operation);
+    const { opts } = await fill("", JSON.stringify(settings));
+    importFile(new NodeFile([input], "table." + inputFormat));
+    await screen.findByRole("button", { name: "Undo last import" });
+    expect(api.invoke).not.toHaveBeenCalled();
+    run();
+    await screen.findByText("Tool completed");
+    expect(api.invoke.mock.calls[0][4]).toEqual({ text: input, options: opts.value });
+    expect(JSON.parse(opts.value)).toEqual({ format: inputFormat, ...settings });
+    const response = JSON.parse((screen.getByLabelText("Original response") as HTMLTextAreaElement).value);
+    const report = JSON.parse(response.data.text);
+    expect(report).toMatchObject({ inputRows, selectedRows, format: outputFormat });
+    expect(outputFormat === "json" ? JSON.parse(report.text) : report.text).toEqual(output);
+  }, 25_000,
+);
