@@ -26,9 +26,9 @@ Compare 0.1.0 的「JSON 对比（数组按顺序）」和「JSON 对比（数�
 
 冻结 Compare 候选 02 和生产 Windows Worker 验证了实际 JSON Pointer 转义、相邻的 u64 数值、i64 最小值、相同文档、数组重排和重复元素。Windows Host 逐字节回读了六份报告，并核对拒绝、取消和撤权。大文件仍可使用[专用 JSON 文件工具](json-file-compare.md)。系统文件窗口和其余源工具范围由 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 跟踪。
 
-## 2026-11-25 开发补充：SQL 文件导入
+## 2026-11-25 开发补充：SQL 文件导入与结果下载
 
-「SQL 格式化」可选取 8 KiB 以内的本机 UTF-8 SQL 文件，可撤销，保留原文件及原始换行。用户手动执行后继续使用通用方言。见[输入范围及 Windows 验收](../iterations/2026-11-25-sql-file.md)。
+「SQL 格式化」可选取 8 KiB 以内的本机 UTF-8 SQL 文件，可撤销，保留原文件及原始换行。手动执行成功后，点击「下载格式化 SQL」获得一份独立的 UTF-8 `.sql` 文件。修改输入后需要重新执行。见[使用范围及 Windows 验收](../iterations/2026-11-25-sql-file.md)。
 
 ## 2026-11-24 开发补充：文本差异文件导入与报告另存
 

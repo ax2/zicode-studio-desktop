@@ -10,6 +10,7 @@ import { ManualToolInformation } from "./ManualToolInformation";
 import type { CapturedToolResponse } from "../../../../public/native/plugins/plugin-result-actions.js";
 import { ManualToolResultActions } from "./ManualToolResultActions";
 import { ManualToolResultView } from "./ManualToolResultView";
+import { downloadFile } from "../../shared/download-file";
 import { type ManualToolResult, manualToolResult } from "./manual-tool-result";
 import { useManualToolCall } from "./use-manual-tool-call";
 import { ResourceToolRunner, type ResourceTargetProvider, type ReceiveNoteDraft } from "./ResourceToolRunner";
@@ -110,6 +111,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const [recording, setRecording] = useState(false);
   const running = call.busy || recording;
   const [result, setResult] = useState<ManualToolResult | null>(null);
+  const [sqlExecution, setSqlExecution] = useState<(DraftExecution & { text: string }) | null>(null);
+  const [sqlDownloadFailed, setSqlDownloadFailed] = useState(false);
   const [tableExecution, setTableExecution] = useState<TableExecution | null>(null);
   const transformed = tableExecution?.kind === "transform" ? tableExecution : null;
   const merged = tableExecution?.kind === "merge" ? tableExecution : null;
@@ -198,9 +201,24 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     setFileLoading(null);
     setRecording(false);
     setTableExecution(current => current?.kind === "transform" ? current : null);
+    setSqlExecution(null); setSqlDownloadFailed(false);
     setDraft(current => current.undo?.scopeBound ? { values: current.values } : current);
     return () => { draftOwner.current = null; };
   }, [transformIdentity, api]);
+  const currentSqlResult = sqlFormat && detail?.revision === revision && detail.pluginId === tool.pluginId &&
+    detail.capability.id === tool.capabilityId && tool.enabled && sqlExecution?.identity === transformIdentity &&
+    sqlExecution.api === api && sqlExecution.sequence === executionSequence.current && sqlExecution.source === values
+    ? sqlExecution : null;
+  function downloadSqlResult() {
+    if (editingLocked || !currentSqlResult || currentSqlResult.sequence !== executionSequence.current) return;
+    setSqlDownloadFailed(false);
+    try {
+      downloadFile(`formatted-sql-${Date.now()}.sql`, currentSqlResult.text, "application/sql");
+    } catch {
+      setSqlDownloadFailed(true);
+    }
+  }
+
   const ownsUndo = undo?.identity === transformIdentity;
   const inputsCurrent = tableExecution?.identity === transformIdentity &&
     tableExecution.sequence === executionSequence.current && tableExecution.api === api && tableExecution.source === values;
@@ -274,6 +292,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     const isLatest = () => alive.current && sequence === executionSequence.current;
     const ownsExecution = () => isLatest() && owner === draftOwner.current;
     setError(""); setStale(false); setInvalidField(""); setResult(null); setCaptured(null); setTableExecution(null);
+    setSqlExecution(null); setSqlDownloadFailed(false);
     if ("error" in prepared) {
       setError(prepared.error); setInvalidField(prepared.field);
       document.getElementById(`${detailId}-${prepared.field}`)?.focus();
@@ -288,6 +307,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const wire = response.result;
       const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
         wire.contractVersion === "1.0.0-rc.1";
+      if (sqlFormat && ownsExecution() && outcome.successful && declared && outcome.text.trim().length > 0) {
+        setSqlExecution({ identity: transformIdentity, sequence, api, source: values, text: outcome.text });
+      }
       if (independentMerge && outcome.successful) {
         const preview = dataMergePreview(outcome.text, declared);
         if (preview) {
@@ -402,7 +424,13 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     </>}
     {result !== null && <ManualToolResultView result={result} dataTransform={dataTransform} dataMerge={tableMerge}
       tablePreview={dataTransform ? transformed?.preview ?? null : merged?.preview}
-      tableActions={merged ? <MergeResultActions
+      actions={currentSqlResult ? <>
+        <div className="ui-toolbar">
+          <button type="button" className="ui-button ui-button--secondary" disabled={editingLocked}
+            onClick={downloadSqlResult}>{t("Download formatted SQL")}</button>
+        </div>
+        {sqlDownloadFailed && <p role="alert">{t("Could not download formatted SQL.")}</p>}
+      </> : merged ? <MergeResultActions
         enabled={Boolean(applyAllowed)} current={inputsCurrent} applied={applied ? undo?.mergeSide : undefined}
         left={Boolean(merged.next.left)} right={Boolean(merged.next.right)}
         onApply={side => applyResult(merged.next[side], side)} /> : singleDraft && <>

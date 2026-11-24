@@ -2,6 +2,7 @@ import { File as NodeFile } from "node:buffer";
 import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
+import * as downloads from "../../shared/download-file";
 import { ManualToolDetail } from "./ManualToolDetail";
 import type { ManualTool, ManualToolApi } from "./manual-tools";
 
@@ -91,4 +92,47 @@ it("only exposes SQL file import for the existing enabled compatible formatter",
   }
   const { form } = await open({ ...tool, enabled: false });
   expect(form.queryByLabelText("SQL file", { exact: true })).toBeNull();
+});
+
+it("downloads only a fresh successful SQL response as a separate file", async () => {
+  const download = vi.spyOn(downloads, "downloadFile").mockImplementation(() => {});
+  try {
+    const { api, form, view } = await open();
+    const label = "Download formatted SQL";
+    const editor = form.getByRole("textbox", { name: /SQL text/ });
+    const execute = form.getByRole("button", { name: "Execute tool" });
+    const output = "-- 格式化\r\nSELECT '保留' AS example;\n";
+    const success = { contractVersion: "1.0.0-rc.1", ok: true, data: { text: output }, error: null };
+    fireEvent.change(editor, { target: { value: "select '保留' as example;" } });
+    expect(view.queryByRole("button", { name: label })).toBeNull();
+    vi.mocked(api.invoke).mockResolvedValueOnce({ result: success });
+    await act(async () => { fireEvent.click(execute); });
+    expect(download).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: label }));
+    expect(download).toHaveBeenCalledWith(expect.stringMatching(/^formatted-sql-\d+\.sql$/), output, "application/sql");
+
+    fireEvent.change(editor, { target: { value: "select 'new';" } });
+    expect(view.queryByRole("button", { name: label })).toBeNull();
+    for (const result of [output, { ...success, error: { code: "unexpected" } }, { ...success, data: { text: "" } }]) {
+      vi.mocked(api.invoke).mockResolvedValueOnce({ result });
+      await act(async () => { fireEvent.click(execute); });
+      expect(view.queryByRole("button", { name: label })).toBeNull();
+    }
+
+    vi.mocked(api.invoke).mockResolvedValueOnce({ result: success });
+    await act(async () => { fireEvent.click(execute); });
+    expect(view.queryByRole("button", { name: label })).not.toBeNull();
+    vi.mocked(api.invoke).mockRejectedValueOnce({ code: "worker_cancelled" });
+    await act(async () => { fireEvent.click(execute); });
+    expect(view.queryByRole("button", { name: label })).toBeNull();
+    vi.mocked(api.invoke).mockResolvedValueOnce({ result: success });
+    await act(async () => { fireEvent.click(execute); });
+    view.getByRole("button", { name: label });
+    for (const workspaceId of ["another-workspace", "isolated"]) {
+      view.rerender(<ManualToolDetail tool={tool} revision="sql-revision"
+        scope={{ sceneId: "programming", workspaceId }} api={api} />);
+      expect(view.queryByRole("button", { name: label })).toBeNull();
+    }
+    expect(download).toHaveBeenCalledTimes(1);
+  } finally { download.mockRestore(); }
 });

@@ -2254,6 +2254,8 @@ const zhCN = {
   "Text files must be 8 KiB or smaller.": "文本文件不能超过 8 KiB。",
   "Could not read the text file.": "无法读取文本文件。",
   "Import SQL file…": "导入 SQL 文件…",
+  "Download formatted SQL": "下载格式化 SQL",
+  "Could not download formatted SQL.": "无法下载格式化后的 SQL。",
   "SQL file": "SQL 文件",
   "SQL text": "SQL 文本",
   "Reading SQL file…": "正在读取 SQL 文件…",
