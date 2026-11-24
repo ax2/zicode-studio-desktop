@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { ToolAccessScope, ToolAccessStore } from "../commandPalette/tool-access";
 import { type ManualTool, type ManualToolApi, type ToolDetail, manualToolError, supportsResultActions } from "./manual-tools";
@@ -15,6 +15,7 @@ import type { ResourceSessionOwner } from "./resource-session-owner";
 import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
 import { dataTransformPreview, isDataTransform, type TransformPreview } from "./data-transform-result";
 import { prepareTransformApply, type TransformInput } from "./data-transform-apply";
+import { readTransformFile } from "./data-transform-file";
 
 const hostResourceReceivers = new Map([
   ["com.zicode.resource-inspector/image.inspect", "resource.host.image-input.v1"],
@@ -35,7 +36,7 @@ export interface ManualToolDetailProps {
 
 interface ToolDraft {
   values: Record<string, string>;
-  undo?: { identity: string; values: Record<string, string> };
+  undo?: { identity: string; values: Record<string, string>; kind: "apply" | "import" };
 }
 
 interface TransformExecution {
@@ -70,6 +71,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const [captured, setCaptured] = useState<CapturedToolResponse | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [resourceBusy, setResourceBusy] = useState(false);
+  const [fileLoading, setFileLoading] = useState(false);
+  const editingLocked = running || actionBusy || fileLoading;
+  const filePicker = useRef<HTMLInputElement>(null);
+  const fileRead = useRef(0);
   const alive = useRef(true);
   const formRef = useRef<HTMLFormElement>(null);
   const resultRef = useRef<HTMLElement>(null);
@@ -79,13 +84,13 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   }
   const busyCallback = useRef(onBusy);
   busyCallback.current = onBusy;
-  useEffect(() => { busyCallback.current?.(running || actionBusy || resourceBusy); }, [running, actionBusy, resourceBusy]);
+  useEffect(() => { busyCallback.current?.(editingLocked || resourceBusy); }, [editingLocked, resourceBusy]);
   useEffect(() => {
-    if (!running && !actionBusy && !resourceBusy) return;
+    if (!editingLocked && !resourceBusy) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [running, actionBusy, resourceBusy]);
+  }, [editingLocked, resourceBusy]);
   useEffect(() => {
     alive.current = true;
     void api.loadTool(scope.sceneId, { pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision })
@@ -101,29 +106,52 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     (tool.runtime === "builtin" && hostResourceProfile !== undefined && detail?.resourceInputProfile === hostResourceProfile);
   const dataTransform = isDataTransform(tool);
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
+  useLayoutEffect(() => {
+    setFileLoading(false);
+    return () => { fileRead.current += 1; };
+  }, [transformIdentity, api]);
   const ownsUndo = undo?.identity === transformIdentity;
   const inputsCurrent = transformed?.identity === transformIdentity && transformed.api === api && transformed.source === values;
-  const applyAllowed = inputsCurrent && supported && !resourceTool && tool.enabled && detail?.enabled && !running && !actionBusy;
+  const applyAllowed = inputsCurrent && supported && !resourceTool && tool.enabled && detail?.enabled && !editingLocked;
   const alreadyCurrent = inputsCurrent && transformed?.next?.text === values.text &&
     transformed?.next?.options === values.options;
   const canApply = applyAllowed && Boolean(transformed?.next) && !alreadyCurrent;
-  const applied = ownsUndo && undo?.values === transformed?.source;
+  const applied = ownsUndo && undo?.kind === "apply" && undo.values === transformed?.source;
   function applyTransform() {
     if (!canApply || !transformed || transformed.sequence !== executionSequence.current) return;
     const { next, source } = transformed;
     if (!next) return;
     setDraft(current => current.values === source
-      ? { values: { ...source, ...next }, undo: { identity: transformIdentity, values: source } }
+      ? { values: { ...source, ...next }, undo: { identity: transformIdentity, values: source, kind: "apply" } }
       : current);
   }
 
   function undoTransform() {
-    if (!ownsUndo || running || actionBusy) return;
+    if (!ownsUndo || editingLocked) return;
     setDraft(current => undo && current.undo === undo ? { values: undo.values } : current);
   }
 
+  async function importTransformFile(file: File) {
+    if (!dataTransform || !supported || !detail.enabled || editingLocked) return;
+    const sequence = ++fileRead.current;
+    setFileLoading(true);
+    setError("");
+    try {
+      const next = await readTransformFile(file, values.options);
+      if (sequence !== fileRead.current) return;
+      setInvalidField("");
+      setDraft(current => current.values === values
+        ? { values: { ...values, ...next }, undo: { identity: transformIdentity, values, kind: "import" } }
+        : current);
+    } catch (reason) {
+      if (sequence === fileRead.current) setError(reason instanceof Error ? reason.message : "Could not read the table file.");
+    } finally {
+      if (sequence === fileRead.current) setFileLoading(false);
+    }
+  }
+
   async function execute() {
-    if (!supported || running || actionBusy || !detail?.enabled || call.supported === null) return;
+    if (!supported || editingLocked || !detail?.enabled || call.supported === null) return;
     const prepared = prepareToolInput(fields, values);
     const sequence = ++executionSequence.current;
     setError(""); setStale(false); setInvalidField(""); setResult(null); setCaptured(null); setTransformed(null);
@@ -162,13 +190,13 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     }
     finally { if (alive.current) setRecording(false); }
   }
-  return <section className="ui-card tool-detail" aria-labelledby={`${detailId}-title`} aria-busy={running || resourceBusy}>
+  return <section className="ui-card tool-detail" aria-labelledby={`${detailId}-title`} aria-busy={running || resourceBusy || fileLoading}>
     <h2 id={`${detailId}-title`}>{tool.title}</h2>
-    <ManualToolInformation tool={tool} detail={detail} busy={running || actionBusy || resourceBusy} onOpenApplication={detail && !resourceTool && !supported ? undefined : onOpenApplication} />
+    <ManualToolInformation tool={tool} detail={detail} busy={editingLocked || resourceBusy} onOpenApplication={detail && !resourceTool && !supported ? undefined : onOpenApplication} />
     {!detail && !error && <p role="status">{t("Loading tool details…")}</p>}
     {error && !call.notice && call.phase !== "cancelled" && <p role="alert">{t(error)}</p>}
     {stale && onReload && <button type="button" className="ui-button ui-button--secondary"
-      disabled={running || actionBusy || resourceBusy || reloading} onClick={() => {
+      disabled={editingLocked || resourceBusy || reloading} onClick={() => {
         setReloading(true);
         void onReload().catch(reason => { if (alive.current) setError(manualToolError(reason)); })
           .finally(() => { if (alive.current) setReloading(false); });
@@ -181,16 +209,26 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       {resourceTool ? <ResourceToolRunner tool={tool} detail={detail} api={api} getTarget={getResourceTarget} scope={scope}
         accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
         {fields.map(field => <ManualToolInput key={field.key} id={`${detailId}-${field.key}`} field={field} value={values[field.key]}
-          disabled={running || actionBusy} invalid={invalidField === field.key}
+          disabled={editingLocked} invalid={invalidField === field.key}
           onOmit={() => { setDraft(previous => { const next = { ...previous.values }; delete next[field.key]; return { values: next }; });
             if (invalidField === field.key) { setInvalidField(""); setError(""); } }}
           onChange={value => setDraft(previous => ({ values: { ...previous.values, [field.key]: value } }))} />)}
         <div className="ui-toolbar">
-          <button type="submit" className="ui-button ui-button--primary" disabled={running || actionBusy || !detail.enabled || call.supported === null}>
+          <button type="submit" className="ui-button ui-button--primary" disabled={editingLocked || !detail.enabled || call.supported === null}>
             <span key={running ? call.phase : "idle"}>{t(running ? call.phase === "preparing" ? "Preparing tool…" : "Running…" : "Execute tool")}</span>
           </button>
-          {ownsUndo && <button type="button" className="ui-button ui-button--secondary" disabled={running || actionBusy}
-            onClick={undoTransform}>{t("Undo last application")}</button>}
+          {dataTransform && <>
+            <input ref={filePicker} type="file" hidden accept=".csv,.tsv,.json" aria-label={t("Table file")}
+              onChange={event => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = "";
+                if (file) void importTransformFile(file);
+              }} />
+            <button type="button" className="ui-button ui-button--secondary" disabled={editingLocked || !detail.enabled}
+              onClick={() => filePicker.current?.click()}>{t(fileLoading ? "Reading table file…" : "Import table file…")}</button>
+          </>}
+          {ownsUndo && <button type="button" className="ui-button ui-button--secondary" disabled={editingLocked}
+            onClick={undoTransform}>{t(undo?.kind === "import" ? "Undo last import" : "Undo last application")}</button>}
           {result !== null && <button type="button" className="ui-button ui-button--secondary" onClick={() => jumpTo(resultRef.current)}>{t("View latest execution")}</button>}
           {call.supported && call.busy && <button type="button" className="ui-button ui-button--danger"
             disabled={call.phase === "preparing" || call.phase === "cancelling"} onClick={() => { void call.cancel(); }}>
