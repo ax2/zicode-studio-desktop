@@ -37,19 +37,27 @@ const BOUNDS: Bounds = Bounds {
     height: 600.0,
 };
 
-fn pdf_fixture() -> Vec<u8> {
-    // The colored block is deliberately off-center so the preview proves PDF rendering.
-    let content = "0.89 0.13 0.63 rg\n56 174 142 86 re f\n0 0 0 rg\nBT /F1 16 Tf 35 280 Td (Studio reader fixture text) Tj ET\n";
-    let objects = [
+fn pdf_fixture(colors: &[&str]) -> Vec<u8> {
+    let font = colors.len() * 2 + 3;
+    let kids = (0..colors.len())
+        .map(|index| format!("{} 0 R", 3 + 2 * index))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut objects = vec![
         "<< /Type /Catalog /Pages 2 0 R >>".to_owned(),
-        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_owned(),
-        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 340 340] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>".to_owned(),
-        format!(
+        format!("<< /Type /Pages /Kids [{kids}] /Count {} >>", colors.len()),
+    ];
+    for (index, color) in colors.iter().enumerate() {
+        // The colored block is deliberately off-center so the preview proves PDF rendering.
+        let content = format!("{color} rg\n56 174 142 86 re f\n0 0 0 rg\nBT /F1 16 Tf 35 280 Td (Studio reader fixture text) Tj ET\n");
+        let content_object = 4 + 2 * index;
+        objects.push(format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 340 340] /Contents {content_object} 0 R /Resources << /Font << /F1 {font} 0 R >> >> >>"));
+        objects.push(format!(
             "<< /Length {} >>\nstream\n{content}endstream",
             content.len()
-        ),
-        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_owned(),
-    ];
+        ));
+    }
+    objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_owned());
     let mut pdf = b"%PDF-1.4\n".to_vec();
     let mut offsets = Vec::new();
     for (index, entry) in objects.iter().enumerate() {
@@ -71,12 +79,15 @@ fn pdf_fixture() -> Vec<u8> {
 }
 
 fn inline_pdf(publish_html: Arc<AtomicBool>) -> String {
+    serve_inline_pdf(pdf_fixture(&["0.89 0.13 0.63"]), publish_html)
+}
+
+fn serve_inline_pdf(pdf: Vec<u8>, publish_html: Arc<AtomicBool>) -> String {
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     listener.set_nonblocking(true).unwrap();
     let origin = format!("http://{}", listener.local_addr().unwrap());
     std::thread::spawn(move || {
         let deadline = Instant::now() + Duration::from_secs(50);
-        let pdf = pdf_fixture();
         let html = b"<!doctype html><title>HTML fixture, not the PDF</title><iframe src='/nested-pdf'></iframe>";
         while Instant::now() < deadline {
             let Ok((mut stream, _)) = listener.accept() else {

@@ -1,5 +1,7 @@
 //! Only the built-in PDF viewer belonging to this synthetic, hidden tab is driven.
-use super::{inline_pdf, marker_pixels, picture, wait, BOUNDS, DOCUMENT, TAB};
+use super::{
+    inline_pdf, marker_pixels, pdf_fixture, picture, serve_inline_pdf, wait, BOUNDS, DOCUMENT, TAB,
+};
 use crate::browser::{
     engine::{native_privacy_tests::HiddenOwner, NativeBrowserEngine},
     policy::BrowserPolicy,
@@ -89,47 +91,41 @@ fn owned_reader(view: &wry::WebView, url: &str) -> String {
     reply["sessionId"].as_str().unwrap().to_owned()
 }
 
-fn zoom_positions(view: &wry::WebView, session: &str) -> Option<[[u32; 2]; 2]> {
-    let expression = r#"(() => {
-        function find(root, id) {
+fn toolbar_position(view: &wry::WebView, session: &str, id: &str) -> Option<[u32; 2]> {
+    let expression = r#"((id) => {
+        function find(root) {
             const local = root.getElementById(id);
             if (local) return local;
             for (const element of root.querySelectorAll('*')) {
                 if (element.shadowRoot) {
-                    const nested = find(element.shadowRoot, id);
+                    const nested = find(element.shadowRoot);
                     if (nested) return nested;
                 }
             }
             return null;
         }
         if (!document.body) return null;
-        return ['zoom-in','zoom-out'].map(id => {
-            const button = find(document, id);
-            if (button?.localName !== 'button' || button.disabled) return null;
-            const bounds = button.getBoundingClientRect();
-            if (bounds.width <= 0 || bounds.height <= 0) return null;
-            const x = Math.round(bounds.x + bounds.width / 2);
-            const y = Math.round(bounds.y + bounds.height / 2);
-            if (!button.contains(button.getRootNode().elementFromPoint(x, y))) return null;
-            return [x, y];
-        });
-    })()"#;
+        const control = find(document);
+        if (!control?.matches('button,input') || control.disabled) return null;
+        const bounds = control.getBoundingClientRect();
+        if (bounds.width <= 0 || bounds.height <= 0) return null;
+        const x = Math.round(bounds.x + bounds.width / 2);
+        const y = Math.round(bounds.y + bounds.height / 2);
+        if (!control.contains(control.getRootNode().elementFromPoint(x, y))) return null;
+        return [x, y];
+    })(__ID__)"#
+        .replace("__ID__", &serde_json::to_string(id).unwrap());
     let reply = call(
         view,
         Some(session),
         "Runtime.evaluate",
-        json!({
-            "expression":expression,"returnByValue":true,
-        }),
+        json!({ "expression":expression,"returnByValue":true }),
     );
     serde_json::from_value(reply["result"]["value"].clone()).ok()
 }
 
-fn click_zoom(view: &wry::WebView, session: &str, [x, y]: [u32; 2]) {
-    assert!(
-        x < 800 && y < 80,
-        "zoom button is not inside the test toolbar"
-    );
+fn click_toolbar(view: &wry::WebView, session: &str, [x, y]: [u32; 2]) {
+    assert!(x < 800 && y < 80, "control is not inside the test toolbar");
     call(
         view,
         Some(session),
@@ -206,19 +202,130 @@ fn native_pdf_toolbar_zoom_changes_and_restores_rendered_pixels() {
     });
     let reader = owned_reader(view, &url);
     let baseline = stable_marker(view, "rendered PDF marker", |count| count > 1500);
-    let [zoom_in, _] = wait("visible PDF zoom buttons", || zoom_positions(view, &reader));
+    let zoom_in = wait("visible PDF zoom-in button", || {
+        toolbar_position(view, &reader, "zoom-in")
+    });
     println!("Click the PDF reader zoom-in button at {zoom_in:?}");
-    click_zoom(view, &reader, zoom_in);
+    click_toolbar(view, &reader, zoom_in);
     let enlarged = stable_marker(view, "enlarged PDF marker", |count| {
         count > baseline * 11 / 10
     });
-    let [_, zoom_out] = wait("visible PDF zoom out after enlargement", || {
-        zoom_positions(view, &reader)
+    let zoom_out = wait("visible PDF zoom out after enlargement", || {
+        toolbar_position(view, &reader, "zoom-out")
     });
     println!("Click the PDF reader zoom-out button at {zoom_out:?}");
-    click_zoom(view, &reader, zoom_out);
+    click_toolbar(view, &reader, zoom_out);
     let restored = stable_marker(view, "restored PDF marker", |count| {
         count.abs_diff(baseline) <= baseline / 100
     });
     println!("PDF zoom in {zoom_in:?}, out {zoom_out:?}: {baseline} -> {enlarged} -> {restored} marker pixels");
+}
+
+fn select_page(view: &wry::WebView, reader: &str, number: u8) {
+    let selector = wait("visible PDF page selector", || {
+        toolbar_position(view, reader, "pageselector")
+    });
+    click_toolbar(view, reader, selector);
+
+    for kind in ["keyDown", "keyUp"] {
+        call(
+            view,
+            Some(reader),
+            "Input.dispatchKeyEvent",
+            json!({"type":kind, "key":"a", "code":"KeyA", "modifiers":2,
+                "windowsVirtualKeyCode":65, "nativeVirtualKeyCode":65, "commands":["selectAll"]}),
+        );
+    }
+    call(
+        view,
+        Some(reader),
+        "Input.insertText",
+        json!({"text":number.to_string()}),
+    );
+    let entered = call(
+        view,
+        Some(reader),
+        "Runtime.evaluate",
+        json!({
+            "expression": r#"(() => {
+            let focused = document.activeElement;
+            while (focused?.shadowRoot?.activeElement) focused = focused.shadowRoot.activeElement;
+            return focused?.id === 'pageselector' ? focused.value : null;
+        })()"#,
+            "returnByValue": true
+        }),
+    );
+    assert_eq!(entered["result"]["value"], number.to_string());
+    call(
+        view,
+        Some(reader),
+        "Input.dispatchKeyEvent",
+        json!({"type":"keyDown", "key":"Enter", "code":"Enter", "text":"\r",
+            "windowsVirtualKeyCode":13, "nativeVirtualKeyCode":13}),
+    );
+    call(
+        view,
+        Some(reader),
+        "Input.dispatchKeyEvent",
+        json!({"type":"keyUp", "key":"Enter", "code":"Enter",
+            "windowsVirtualKeyCode":13, "nativeVirtualKeyCode":13}),
+    );
+}
+
+fn page_marker(view: &wry::WebView, page: u8) -> usize {
+    // Compare channel relationships so the proof survives PDF color management.
+    let pixels = image::load_from_memory(&picture(view)).unwrap().to_rgb8();
+    (90..400)
+        .flat_map(|y| (150..650).map(move |x| (x, y)))
+        .filter(|(x, y)| {
+            let [r, g, b] = pixels.get_pixel(*x, *y).0.map(i16::from);
+            match page {
+                1 => r - g > 90 && b - g > 75,
+                2 => g - r > 45 && g - b > 45,
+                3 => b - r > 75 && b - g > 75,
+                _ => unreachable!(),
+            }
+        })
+        .count()
+}
+
+#[test]
+#[ignore = "Opt-in real WebView2 built-in PDF page selection, requires the Edge PDF reader target"]
+fn native_pdf_page_selector_jumps_to_the_requested_document_page() {
+    const COLORS: [&str; 3] = ["0.89 0.13 0.63", "0.12 0.67 0.31", "0.16 0.29 0.88"];
+    let profile = tempfile::tempdir().unwrap();
+    let origin = serve_inline_pdf(pdf_fixture(&COLORS), Arc::new(AtomicBool::new(false)));
+    let url = format!("{origin}{DOCUMENT}");
+    let owner = HiddenOwner::new();
+    let mut engine = NativeBrowserEngine::new(
+        profile.path().join("browser"),
+        BrowserPolicy::isolated_probe(&origin).unwrap(),
+        Arc::new(|_| {}),
+    )
+    .unwrap();
+    engine
+        .create(&owner, TAB, &url, BOUNDS, 1.0, false)
+        .unwrap();
+    engine.activate(Some(TAB), BOUNDS, false).unwrap();
+    wait("owned three-page PDF loaded", || {
+        engine.is_pdf_document(TAB).then_some(())
+    });
+    let view = engine.view(TAB).unwrap();
+    let mut version = PWSTR::null();
+    unsafe { view.environment().BrowserVersionString(&mut version) }.unwrap();
+    println!("WebView2 {}", take_pwstr(version));
+    let reader = owned_reader(view, &url);
+
+    for (step, page) in [1, 3, 2, 1].into_iter().enumerate() {
+        if step > 0 {
+            select_page(view, &reader, page);
+        }
+        println!("Waiting for requested PDF page {page}");
+        let pixels = wait("requested PDF page rendered", || {
+            let count = page_marker(view, page);
+            (count > 8_000).then_some(count)
+        });
+        println!("PDF page {page}: {pixels} matching marker pixels");
+        assert_eq!(view.url().unwrap(), url);
+    }
 }
