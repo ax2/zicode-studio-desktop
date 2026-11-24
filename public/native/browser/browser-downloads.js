@@ -9,7 +9,8 @@ export function downloadSize(bytes) {
   return `${(bytes / unit).toFixed(1)} ${unit === 1024 ? "KB" : unit === 1024 ** 2 ? "MB" : "GB"}`;
 }
 export function showBrowserDownloads({ invoke, onClose, subscribe }) {
-  let closed = false, loading = false, generation = 0, timer, nextBefore = null, acting = null;
+  let closed = false, generation = 0, timer, nextBefore = null, acting = null;
+  let loadingBefore, pendingOlder = false;
   let records = new Map(), loadedOlder = false, query = "", awaitingFirstPage = true;
   const rows = new Map(), liveUpdates = new Map();
   const el = (tag, className = "", text) => {
@@ -39,7 +40,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
   async function action(kind, id) {
     if (closed || acting) return;
     const focused = rows.get(id)?.element.contains(document.activeElement) ? document.activeElement : null;
-    acting = id; generation++; actionError = ""; updateMessage(); render();
+    acting = id; generation++; pendingOlder = false; actionError = ""; updateMessage(); render();
     try {
       await request({ kind, id });
       if (!closed && kind === "downloadRemove") {
@@ -112,11 +113,13 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     }
     if (!acting && list.contains(focused) && mayRestore(focused) &&
         (!available(focused) || document.activeElement !== focused)) restoreRowFocus(focused);
-    more.hidden = nextBefore === null; more.disabled = loading;
+    more.hidden = nextBefore === null;
   }
   async function load(before = null) {
-    if (closed || loading || acting) return;
-    clearTimeout(timer); loading = true; more.disabled = true;
+    if (closed || loadingBefore !== undefined || acting) return;
+    clearTimeout(timer);
+    loadingBefore = before;
+    if (before !== null) more.setAttribute("aria-disabled", "true");
     const version = generation, requestedQuery = query;
     liveUpdates.clear();
     try {
@@ -125,6 +128,8 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
       if (before === null) awaitingFirstPage = false;
       loadError = ""; updateMessage();
       const entries = page.entries.map(record => liveUpdates.get(record.id) ?? record);
+      const focusOlder = before !== null && document.activeElement === more;
+      let firstAdded;
       directory.textContent = `${t("Default download location")}: ${page.directory}`;
       if (before === null) {
         // The first page is authoritative for current ordering. Keep any
@@ -134,11 +139,21 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
         records = current;
         if (!loadedOlder) nextBefore = page.nextBefore;
       } else {
-        for (const record of entries) records.set(record.id, record);
+        for (const record of entries) {
+          if (firstAdded === undefined && !records.has(record.id)) firstAdded = record.id;
+          records.set(record.id, record);
+        }
         loadedOlder = true;
         nextBefore = page.nextBefore;
       }
       render();
+      if (focusOlder) {
+        const row = rows.get(firstAdded)?.element;
+        if (row) {
+          row.tabIndex = -1;
+          row.focus();
+        } else if (more.hidden) search.focus({ preventScroll: true });
+      }
     } catch (error) {
       if (!closed && version === generation) {
         if (before === null) awaitingFirstPage = false;
@@ -146,10 +161,14 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
       }
     }
     finally {
-      loading = false; more.disabled = false;
+      loadingBefore = undefined;
+      more.removeAttribute("aria-disabled");
       if (!closed && !acting) {
+        const showOlder = pendingOlder && nextBefore !== null;
+        pendingOlder = false;
         // A new search can have the same text after two edits.
         if (version !== generation) void load();
+        else if (showOlder) void load(nextBefore);
         else timer = setTimeout(() => void load(), 500);
       }
     }
@@ -169,6 +188,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     if (next === query) return;
     query = next;
     generation++;
+    pendingOlder = false;
     records.clear();
     rows.clear();
     list.replaceChildren(empty);
@@ -181,7 +201,12 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
   }
   form.addEventListener("submit", event => { event.preventDefault(); applyQuery(); });
   search.addEventListener("search", () => { if (!search.value) applyQuery(); });
-  const more = button("Show older downloads", () => load(nextBefore)); more.hidden = true;
+  const more = button("Show older downloads", () => {
+    if (closed || acting || nextBefore === null) return;
+    if (loadingBefore === null) pendingOlder = true;
+    else if (loadingBefore === undefined) void load(nextBefore);
+  });
+  more.hidden = true;
   const close = button("Close", () => dialog.close());
   const header = el("header", "browser-library-heading");
   header.append(el("h2", "", t("Downloads")), close);
@@ -192,7 +217,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     // or insert records outside the current search through this update path.
     if (closed || !records.has(download.id)) return;
     records.set(download.id, download);
-    if (loading) liveUpdates.set(download.id, download);
+    if (loadingBefore !== undefined) liveUpdates.set(download.id, download);
     render();
   });
   dialog.addEventListener("close", () => { closed = true; unsubscribe?.(); generation++; clearTimeout(timer); dialog.remove(); onClose?.(); }, { once: true });
