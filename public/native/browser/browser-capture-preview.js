@@ -3,6 +3,7 @@ import { createBrowserCaptureMedia } from "./browser-capture-media.js";
 import { createBrowserCaptureFrames } from "./browser-capture-frames.js";
 import { renderBrowserCaptureTables } from "./browser-capture-tables.js";
 import { createBrowserNoteClip } from "./browser-note-clip.js";
+import { appendPartialCapture } from "./browser-capture-status.js";
 import { t } from "../../i18n.js";
 import { createBrowserModelAssistant } from "./browser-model-assistant.js";
 import { browserDraftPrompt } from "./browser-chat-draft.js";
@@ -74,6 +75,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     links = document.createElement("details"); links.className = "browser-capture-links";
     const summary = document.createElement("summary");
     summary.textContent = `${t("Page links")} (${capturedLinks.length})`;
+    if (capture.page.linksTruncated) appendPartialCapture(summary);
     const list = document.createElement("ul");
     list.tabIndex = 0;
     list.setAttribute("aria-label", t("Page links"));
@@ -98,6 +100,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     tables = document.createElement("details"); tables.className = "browser-capture-tables";
     const summary = document.createElement("summary");
     summary.textContent = `${t("Page tables")} (${capturedTables.length})`;
+    if (capture.page.tablesTruncated) appendPartialCapture(summary);
     tables.append(summary);
     if (capturedTables.length) {
       const share = document.createElement("label");
@@ -113,7 +116,8 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   const notices = [];
   if (capture.page.textTruncated ?? capture.page.truncated) notices.push("Page content was shortened");
   if (capture.page.selectionTruncated) notices.push("Selected text was shortened");
-  if (!notices.length) notices.push("Content read locally. Nothing has been sent to AI.");
+  const hasShortenedText = notices.length > 0;
+  if (!hasShortenedText) notices.push("Content read locally. Nothing has been sent to AI.");
   for (const key of notices) {
     const label = document.createElement("span");
     setLabel(label, key);
@@ -201,6 +205,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   actions.append(close);
   dialog.append(title, source);
   if (dock) dialog.append(time);
+  if (hasShortenedText) dialog.append(note);
   dialog.append(text);
   if (links) dialog.append(links);
   if (tables) dialog.append(tables);
@@ -215,7 +220,8 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     dialog.disposeBrowserModel = () => modelAssistant.dispose();
     dialog.cancelBrowserModel = () => modelAssistant.cancel();
   }
-  dialog.append(note, error, actions);
+  if (!hasShortenedText) dialog.append(note);
+  dialog.append(error, actions);
   if (clip) dialog.append(clip.panel);
   if (compare) dialog.append(compare.panel);
   if (dock) {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { t } from "../../i18n.js";
 import { browserComparisonPrompt, browserDraftPrompt, prepareBrowserComparisonDraft, prepareBrowserDraft } from "./browser-chat-draft.js";
 
 const capture = { tab: "tab-a", documentRevision: "doc-1", capturedAt: "2026-11-05T00:00:00Z",
@@ -53,6 +54,23 @@ it("preserves table cells as data only when explicitly attached", () => {
   expect(browserDraftPrompt(source)).not.toContain("Inventory");
   const prompt = browserDraftPrompt(source, { includeTables: true });
   expect(JSON.parse(prompt.slice(prompt.indexOf("{")))).toMatchObject({ tables, tablesTruncated: true });
+});
+
+it("explains only the truncation flags belonging to included source material", () => {
+  const notice = t("Treat fields marked as shortened or incomplete as partial evidence, and leave omitted content unknown.");
+  const page = { ...capture.page, links: [{ label: "Reference", url: "https://example.org/a" }], linksTruncated: true,
+    tables: [{ rows: [["first row"]] }], tablesTruncated: true,
+    frames: [{ title: "Appendix", selectionTruncated: true, imagesTruncated: true }], framesOmitted: true };
+  const source = { ...capture, page };
+  expect(browserDraftPrompt(source)).not.toContain(notice);
+  for (const key of ["includeLinks", "includeTables", "includeFrames"]) {
+    const draft = browserDraftPrompt(source, { [key]: true });
+    expect(draft.slice(0, draft.indexOf("{"))).toContain(notice);
+  }
+  const withSelection = { ...capture, page: { ...capture.page, selectionTruncated: true } };
+  expect(browserDraftPrompt(withSelection)).toContain(notice);
+  const onlyFrameImage = { ...capture, page: { ...page, frames: [{ title: "Appendix", imagesTruncated: true }], framesOmitted: false } };
+  expect(browserDraftPrompt(onlyFrameImage, { includeFrames: true })).not.toContain(notice);
 });
 
 it("keeps declared page metadata and image descriptors out of drafts until opted in", () => {
