@@ -80,7 +80,6 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
     review = undefined;
     reviewed = null;
     preview.replaceChildren();
-    status.textContent = "";
     update();
   }
   function refreshReview() {
@@ -119,10 +118,15 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
     event.preventDefault(); event.stopPropagation();
     cancelWork();
   });
-  for (const { input } of inputs) input.addEventListener("change", () => { if (!pending) clearReview(); });
+  for (const { input } of inputs) input.addEventListener("change", () => {
+    if (pending) return;
+    status.textContent = "";
+    clearReview();
+  });
   read.addEventListener("click", () => {
     const targets = selected().map(({ source }) => source);
     void work(read, "Reading selected tabs…", async current => {
+      clearReview();
       const sources = [comparisonSource(capture)];
       for (const source of targets) {
         const page = await readSource(source);
