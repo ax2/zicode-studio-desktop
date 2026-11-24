@@ -187,6 +187,9 @@ fn dispatch(app: &AppHandle, args: &[String]) -> Result<(), String> {
             desktop_tools::open_from_explorer(app, &root, EntryIntent::Selection(files))
         }
         Some(EntryIntent::Folder(folder)) => open_folder(app, &folder),
+        Some(intent @ EntryIntent::DirectoryUsage(_)) => {
+            desktop_tools::open_from_explorer(app, &crate::app_paths::global_workspace_root()?, intent)
+        }
         Some(EntryIntent::Drive) => desktop_tools::open_from_explorer(
             app,
             &crate::app_paths::global_workspace_root()?,

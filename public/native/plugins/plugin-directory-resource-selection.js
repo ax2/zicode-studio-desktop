@@ -68,6 +68,7 @@ export function createPluginDirectoryResourceSelection({
     busy = false,
     grant = null,
     access = null;
+  let explorerPending = false;
   const valid = (token) => active && revision === token && isCurrent();
   const picker = usage ? gateway.directoryUsage : gateway.projectDirectories;
   const grantArgs = usage ? [target.workspaceId, owner] : [owner];
@@ -93,26 +94,46 @@ export function createPluginDirectoryResourceSelection({
     confirm.disabled = true;
     return old;
   }
-  choose.addEventListener("click", async () => {
+  const canReadExplorer = usage && typeof picker.entry === "function";
+  function resumeExplorer() {
+    if (!explorerPending || !active || !isCurrent() || busy) return;
+    explorerPending = false;
+    void chooseFolder(true);
+  }
+  function receiveExplorer() {
+    explorerPending = true;
+    resumeExplorer();
+  }
+  function finish() {
+    busy = false;
+    if (active && isCurrent()) {
+      choose.disabled = false;
+      panel.removeAttribute("aria-busy");
+    }
+    resumeExplorer();
+  }
+  async function chooseFolder(fromExplorer = false) {
     if (!active || !isCurrent() || busy) return;
-    clear();
+    if (!fromExplorer) {
+      clear();
+      status.textContent = t(usage ? "Choose a local folder. Usage is shared only after confirmation." :
+        "Choose a folder within the current file location. Names are shared only after confirmation.");
+    }
     busy = true;
     const token = revision;
     choose.disabled = true;
     panel.setAttribute("aria-busy", "true");
     let stage = "picker";
-    status.textContent = t(usage ? "Choose a local folder. Usage is shared only after confirmation." :
-      "Choose a folder within the current file location. Names are shared only after confirmation.");
     try {
-      const selected = await (usage
-        ? picker.choose(target.workspaceId, owner)
-        : picker.choose(target.workspaceId));
+      const selected = await (fromExplorer
+        ? picker.entry(target.workspaceId, owner)
+        : usage ? picker.choose(target.workspaceId, owner) : picker.choose(target.workspaceId));
       if (!valid(token)) {
         if (usage && selected?.grantId) void cancelGrant(selected.grantId).catch(() => {});
         return;
       }
       if (selected == null) {
-        status.textContent = t("Directory selection canceled.");
+        if (!fromExplorer) status.textContent = t("Directory selection canceled.");
         return;
       }
       if (!usage && (typeof selected !== "string" || !selected || selected.startsWith("/") || /^[A-Za-z]:/.test(selected)))
@@ -138,6 +159,7 @@ export function createPluginDirectoryResourceSelection({
           void cancelGrant(prepared.grantId).catch(() => {});
         throw new Error("invalid grant");
       }
+      if (fromExplorer) clear();
       grant = prepared;
       confirm.disabled = false;
       status.textContent = t(
@@ -166,13 +188,14 @@ export function createPluginDirectoryResourceSelection({
                 );
       }
     } finally {
-      busy = false;
-      if (active && isCurrent()) {
-        choose.disabled = false;
-        panel.removeAttribute("aria-busy");
-      }
+      finish();
     }
-  });
+  }
+  choose.addEventListener("click", () => void chooseFolder());
+  if (canReadExplorer) {
+    window.addEventListener("zicode:entry-changed", receiveExplorer);
+    receiveExplorer();
+  }
   confirm.addEventListener("click", async () => {
     if (!grant || !active || !isCurrent() || busy) return;
     busy = true;
@@ -220,11 +243,7 @@ export function createPluginDirectoryResourceSelection({
         grant = null;
         void cancelGrant(pending.grantId).catch(() => {});
       }
-      busy = false;
-      if (active && isCurrent()) {
-        choose.disabled = false;
-        panel.removeAttribute("aria-busy");
-      }
+      finish();
     }
   });
   cancel.addEventListener("click", () => {
@@ -238,9 +257,11 @@ export function createPluginDirectoryResourceSelection({
     choose.focus();
   });
   return {
+    resumeExplorer,
     destroy() {
       if (!active) return;
       active = false;
+      if (canReadExplorer) window.removeEventListener("zicode:entry-changed", receiveExplorer);
       clear();
       panel.remove();
     },

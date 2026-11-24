@@ -305,6 +305,11 @@ description = "Select a local folder for explicit directory usage confirmation."
 commands.allow = ["select_directory_usage"]
 
 [[permission]]
+identifier = "allow-prepare-explorer-directory-usage"
+description = "Prepare the local folder selected in Explorer for explicit directory usage confirmation."
+commands.allow = ["prepare_explorer_directory_usage"]
+
+[[permission]]
 identifier = "allow-select-digest-files"
 description = "Select one to four files for a digest through the native dialog"
 commands.allow = ["select_digest_files"]
@@ -403,6 +408,7 @@ permissions = [
   "allow-select-project-resource-directory",
   "allow-select-checksum-folder",
   "allow-select-directory-usage",
+  "allow-prepare-explorer-directory-usage",
   "allow-select-checksum-files",
   "allow-select-digest-files",
   "allow-commit-digest-file",

@@ -246,6 +246,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       status.textContent = t(resourceCallRecoveryMessage(state));
       if (state.executionFinished) {
         running = false; callId = null; check.hidden = true; cancel.disabled = true; refreshReviewControls();
+        selection.resumeExplorer?.();
       }
     } catch (error) { if (valid()) status.textContent = t(resourceCallRecoveryMessage(null, error)); }
     finally { if (valid()) check.disabled = false; }
@@ -368,6 +369,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       running = computation.unresolved(callId); invoking = false; executionAccess = null; refreshReviewControls();
       if (!running) callId = null;
       if (valid()) { cancel.disabled = !running; check.hidden = !running; }
+      selection.resumeExplorer?.();
     }
   }
   return { destroy() {

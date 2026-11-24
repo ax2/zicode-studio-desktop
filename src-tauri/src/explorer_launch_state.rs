@@ -9,6 +9,7 @@ pub enum EntryIntent {
     File(PathBuf),
     Selection(Vec<PathBuf>),
     Folder(PathBuf),
+    DirectoryUsage(Option<PathBuf>),
     Drive,
     Tools,
     NotesWidget(WidgetAction),
@@ -39,6 +40,7 @@ impl EntryIntent {
             Self::File(_) => "file",
             Self::Selection(_) => "selection",
             Self::Folder(_) => "folder",
+            Self::DirectoryUsage(_) => "directoryUsage",
             Self::Drive => "drive",
             Self::Tools => "tools",
             Self::NotesWidget(_) => "notesWidget",
@@ -135,6 +137,21 @@ impl ExplorerLaunchState {
         Ok(action)
     }
 
+    pub fn take_directory_usage(&self, label: &str, route: &str) -> Result<Option<PathBuf>, String> {
+        let mut entries = self
+            .0
+            .lock()
+            .map_err(|_| "Window launch state is unavailable")?;
+        let Some(bound) = entries.get_mut(label).filter(|bound| bound.route == route) else {
+            return Ok(None);
+        };
+        let EntryIntent::DirectoryUsage(path) = &mut bound.intent else {
+            return Ok(None);
+        };
+        // Preserve the navigation mode if the tool panel receives the event first.
+        Ok(path.take())
+    }
+
     pub fn forget(&self, label: &str) {
         if let Ok(mut entries) = self.0.lock() {
             entries.remove(label);
@@ -176,6 +193,22 @@ mod tests {
             None
         );
     }
+    #[test]
+    fn directory_usage_is_consumed_only_by_the_bound_window_and_route() {
+        let state = ExplorerLaunchState::default();
+        let window = "native-workspace-tools-center";
+        let route = "/app/workspaces/a/sessions/tools-1";
+        let selected = PathBuf::from("selected-folder");
+        state
+            .bind(window, "a", "tools-1", EntryIntent::DirectoryUsage(Some(selected.clone())))
+            .unwrap();
+        assert_eq!(state.take_directory_usage("native-workspace-other", route).unwrap(), None);
+        assert_eq!(state.take_directory_usage(window, "/app/workspaces/b/sessions/tools-1").unwrap(), None);
+        assert_eq!(state.take_directory_usage(window, route).unwrap(), Some(selected));
+        assert_eq!(state.take_directory_usage(window, route).unwrap(), None);
+        assert_eq!(state.intent(window, route).unwrap().unwrap().mode(), "directoryUsage");
+    }
+
     #[test]
     fn launch_intents_follow_window_and_session() {
         let state = ExplorerLaunchState::default();

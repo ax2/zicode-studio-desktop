@@ -57,6 +57,7 @@ export class PluginCapabilityGateway {
       cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_plugin_directory", { workspaceId, owner, grantId }),
     } : null;
     this.directoryUsage = typeof nativeInvoke === "function" ? {
+      entry: (workspaceId, owner) => nativeInvoke("prepare_explorer_directory_usage", { workspaceId, owner }),
       choose: (workspaceId, owner) => nativeInvoke("select_directory_usage", { workspaceId, owner }),
       commit: (workspaceId, owner, grantId) => nativeInvoke("commit_plugin_directory", { workspaceId, owner, grantId, confirmed: true }),
       cancel: (workspaceId, owner, grantId) => nativeInvoke("cancel_plugin_directory", { workspaceId, owner, grantId }),

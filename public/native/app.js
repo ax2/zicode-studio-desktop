@@ -17,6 +17,7 @@ import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 import { dispatchSuperAgentTaskNative } from "../super-agent/native-dispatch.js";
 import { navigateToArtifact } from "./features/artifact-navigation.js";
 import { navigateToNote } from "./features/notes-navigation.js";
+import { openExplorerDirectoryTool } from "./features/explorer-directory-tool.js";
 import { isSuperAgentProjectPath } from "../super-agent/session.js";
 import { isSuperAgentEnabled } from "../super-agent/settings.js";
 import { selectSuperAgentStartupAction } from "../super-agent/startup-flow.js";
@@ -1588,8 +1589,18 @@ try {
       if (pluginShell.getActivePluginId() !== "com.zicode.notes") return;
       await notesApp.openWidgetShortcut(action);
     };
-    window.addEventListener("zicode:entry-changed", () => { void openWidgetNote().catch(showError); });
-    await openWidgetNote();
+    const openDesktopEntry = async () => {
+      try {
+        const handled = await openExplorerDirectoryTool({
+          entryMode: () => globalThis.__TAURI__.core.invoke("desktop_entry_mode"),
+          api: pluginCapabilityGateway, getTarget: () => target,
+          openTool: (tool, revision, scope) => pluginShell.openManualTool(tool, revision, scope),
+        });
+        if (!handled) await openWidgetNote();
+      } catch (error) { showError(error); }
+    };
+    window.addEventListener("zicode:entry-changed", () => void openDesktopEntry());
+    await openDesktopEntry();
   }
   await Promise.all([
     loadCommands()

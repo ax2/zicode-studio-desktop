@@ -54,23 +54,53 @@ mod platform {
     const OWNER: &str = "zicode-studio-desktop.explorer.v1";
     const SELECTION_CLSID: &str = "{ADA43B0A-52BF-4319-9285-8E5F131C4300}";
     const SELECTION_DLL: &str = "zicode_studio_shell.dll";
-    const ENTRIES: [(&str, &str, bool); 4] = [
-        ("Directory", "%1", false),
-        ("Directory\\Background", "%V", false),
-        ("Drive", "%1", false),
-        ("*", "%1", true),
+    #[derive(Clone, Copy)]
+    enum Verb {
+        Folder,
+        File,
+        DirectoryUsage,
+    }
+
+    impl Verb {
+        fn key(self) -> &'static str {
+            match self {
+                Self::Folder => "OpenFolder",
+                Self::File => "OpenFile",
+                Self::DirectoryUsage => "AnalyzeFolder",
+            }
+        }
+
+        fn label(self) -> &'static str {
+            match self {
+                Self::Folder => "在 ZiCode Studio 中打开",
+                Self::File => "在 Studio 中选择文件工具",
+                Self::DirectoryUsage => "在 Studio 中分析目录空间",
+            }
+        }
+
+        fn suffix(self, path: &str) -> String {
+            match self {
+                Self::Folder => format!("\" --open-folder \"{path}\\.\""),
+                Self::File => format!("\" --open-file \"{path}\""),
+                Self::DirectoryUsage => format!("\" --analyze-folder \"{path}\\.\""),
+            }
+        }
+    }
+
+    const ENTRIES: [(&str, &str, Verb); 5] = [
+        ("Directory", "%1", Verb::Folder),
+        ("Directory\\Background", "%V", Verb::Folder),
+        ("Drive", "%1", Verb::Folder),
+        ("*", "%1", Verb::File),
+        ("Directory", "%1", Verb::DirectoryUsage),
     ];
 
-    fn command(exe: &str, placeholder: &str, file: bool) -> Result<String, String> {
+    fn command(exe: &str, placeholder: &str, verb: Verb) -> Result<String, String> {
         if !std::path::Path::new(exe).is_absolute() || exe.contains(['"', '\r', '\n']) {
             return Err("Invalid executable path".into());
         }
         // Appending \. avoids a drive-root trailing backslash escaping its quote.
-        Ok(if file {
-            format!("\"{exe}\" --open-file \"{placeholder}\"")
-        } else {
-            format!("\"{exe}\" --open-folder \"{placeholder}\\.\"")
-        })
+        Ok(format!("\"{exe}{}", verb.suffix(placeholder)))
     }
 
     #[derive(Clone, Copy, PartialEq, Eq)]
@@ -243,7 +273,7 @@ mod platform {
         path: &str,
         expected: &str,
         placeholder: &str,
-        file: bool,
+        verb: Verb,
     ) -> Result<EntryState, String> {
         let key = match root.open_subkey_with_flags(path, KEY_READ) {
             Ok(key) => key,
@@ -260,11 +290,7 @@ mod platform {
         if owner != OWNER {
             return Err("Explorer entry belongs to another command or installation".into());
         }
-        let suffix = if file {
-            format!("\" --open-file \"{placeholder}\"")
-        } else {
-            format!("\" --open-folder \"{placeholder}\\.\"")
-        };
+        let suffix = verb.suffix(placeholder);
         let old_exe = actual
             .strip_prefix('"')
             .and_then(|value| value.strip_suffix(&suffix))
@@ -276,7 +302,7 @@ mod platform {
         let old_path = std::path::Path::new(old_exe);
         if !old_path.is_absolute()
             || old_path.file_name() != std::path::Path::new(current_exe).file_name()
-            || command(old_exe, placeholder, file)? != actual
+            || command(old_exe, placeholder, verb)? != actual
         {
             return Err("Explorer entry belongs to another command or installation".into());
         }
@@ -300,20 +326,19 @@ mod platform {
     ) -> Result<Value, String> {
         let plans: Vec<_> = ENTRIES
             .iter()
-            .map(|(kind, placeholder, file)| {
-                let verb = if *file { "OpenFile" } else { "OpenFolder" };
+            .map(|(kind, placeholder, verb)| {
                 Ok((
-                    format!("{base}\\{kind}\\shell\\ZiCodeStudio.{verb}"),
-                    command(exe, placeholder, *file)?,
+                    format!("{base}\\{kind}\\shell\\ZiCodeStudio.{}", verb.key()),
+                    command(exe, placeholder, *verb)?,
                     *placeholder,
-                    *file,
+                    *verb,
                 ))
             })
             .collect::<Result<_, String>>()?;
         // Preflight every verb before any mutation. A foreign entry blocks the operation.
         let installed = plans
             .iter()
-            .map(|(path, cmd, placeholder, file)| inspect(root, path, cmd, placeholder, *file))
+            .map(|(path, cmd, placeholder, verb)| inspect(root, path, cmd, placeholder, *verb))
             .collect::<Result<Vec<_>, _>>()?;
         let selection = inspect_selection(root, base, exe)?;
         if action == MenuAction::Install && !selection_dll(exe)?.is_file() {
@@ -321,7 +346,7 @@ mod platform {
                 "Studio selection Shell DLL is missing; rebuild the complete runtime".into(),
             );
         }
-        for ((path, cmd, placeholder, file), present) in plans.iter().zip(&installed) {
+        for ((path, cmd, placeholder, verb), present) in plans.iter().zip(&installed) {
             match action {
                 MenuAction::Install => {
                     let (key, _) = root
@@ -329,12 +354,7 @@ mod platform {
                         .map_err(|e| format!("Cannot create Explorer entry: {e}"))?;
                     key.set_value("ZiCodeStudioOwner", &OWNER)
                         .map_err(|e| e.to_string())?;
-                    let label = if *file {
-                        "在 Studio 中选择文件工具"
-                    } else {
-                        "在 ZiCode Studio 中打开"
-                    };
-                    key.set_value("MUIVerb", &label)
+                    key.set_value("MUIVerb", &verb.label())
                         .map_err(|e| e.to_string())?;
                     key.set_value("Icon", &format!("\"{exe}\",0"))
                         .map_err(|e| e.to_string())?;
@@ -355,13 +375,13 @@ mod platform {
                         .map_err(|e| e.to_string())?;
                 }
                 MenuAction::Remove if *present != EntryState::Missing => {
-                    inspect(root, path, cmd, placeholder, *file)?;
+                    inspect(root, path, cmd, placeholder, *verb)?;
                     root.delete_subkey_all(path)
                         .map_err(|e| format!("Cannot remove owned Explorer entry: {e}"))?;
                 }
                 MenuAction::RemoveCurrent if *present == EntryState::Current => {
                     // Recheck just before removing this exact product-owned subtree.
-                    inspect(root, path, cmd, placeholder, *file)?;
+                    inspect(root, path, cmd, placeholder, *verb)?;
                     root.delete_subkey_all(path)
                         .map_err(|e| format!("Cannot remove owned Explorer entry: {e}"))?;
                 }
@@ -401,11 +421,11 @@ mod platform {
             );
             assert_eq!(
                 apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"],
-                5
+                6
             );
             assert_eq!(
                 apply(&root, &base, exe, MenuAction::Status).unwrap()["installed"],
-                5
+                6
             );
             let selection = root
                 .open_subkey(format!("{base}\\*\\shell\\ZiCodeStudio.OpenSelection"))
@@ -445,7 +465,7 @@ mod platform {
                 .open_subkey_with_flags(format!("{file_path}\\command"), winreg::enums::KEY_WRITE)
                 .unwrap();
             file_command
-                .set_value("", &command(old_exe, "%1", true).unwrap())
+                .set_value("", &command(old_exe, "%1", Verb::File).unwrap())
                 .unwrap();
             drop(file_command);
             assert_eq!(
@@ -469,7 +489,19 @@ mod platform {
                 .get_value::<String, _>("MultiSelectModel")
                 .is_err());
             drop(background);
-            // Simulate an older installation with only the three folder verbs.
+            let analysis_path = format!("{base}\\Directory\\shell\\ZiCodeStudio.AnalyzeFolder");
+            let analysis = root.open_subkey(&analysis_path).unwrap();
+            assert_eq!(
+                analysis.get_value::<String, _>("MUIVerb").unwrap(),
+                "在 Studio 中分析目录空间"
+            );
+            assert_eq!(
+                analysis.open_subkey("command").unwrap().get_value::<String, _>("").unwrap(),
+                format!("\"{exe}\" --analyze-folder \"%1\\.\"")
+            );
+            drop(analysis);
+            // Simulate an older installation without the new folder verb or single-file verb.
+            root.delete_subkey_all(&analysis_path).unwrap();
             root.delete_subkey_all(&file_path).unwrap();
             assert_eq!(
                 apply(&root, &base, exe, MenuAction::Status).unwrap()["installed"],
@@ -477,7 +509,7 @@ mod platform {
             );
             assert_eq!(
                 apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"],
-                5
+                6
             );
             let file = root
                 .open_subkey_with_flags(&file_path, winreg::enums::KEY_WRITE)
@@ -506,7 +538,7 @@ mod platform {
             let other_install = "C:\\new-install\\zicode-studio-desktop.exe";
             assert_eq!(
                 apply(&root, &base, other_install, MenuAction::RemoveCurrent).unwrap()["installed"],
-                5
+                6
             );
             assert!(root.open_subkey(&file_path).is_ok());
             assert_eq!(
@@ -515,13 +547,13 @@ mod platform {
             );
             assert_eq!(
                 apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"],
-                5
+                6
             );
             let file_command = root
                 .open_subkey_with_flags(format!("{file_path}\\command"), winreg::enums::KEY_WRITE)
                 .unwrap();
             file_command
-                .set_value("", &command(old_exe, "%1", true).unwrap())
+                .set_value("", &command(old_exe, "%1", Verb::File).unwrap())
                 .unwrap();
             drop(file_command);
             let retained = apply(&root, &base, exe, MenuAction::RemoveCurrent).unwrap();
@@ -530,7 +562,7 @@ mod platform {
             assert!(root.open_subkey(&file_path).is_ok());
             assert_eq!(
                 apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"],
-                5
+                6
             );
             assert!(apply(&root, &base, "C:\\another.exe", MenuAction::Remove).is_err());
             assert_eq!(
