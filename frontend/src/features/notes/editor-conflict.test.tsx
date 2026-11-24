@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { NotesContent } from "./NotesApp";
+import { t } from "../../shared/i18n";
+import { NotesContent, NotesNav } from "./NotesApp";
 import type { NoteDraft, NoteDraftRepository } from "./draft-repository";
 import type { Note } from "./notesLogic";
 import { createNotesStore, type NotesGatewayLike } from "./notesStore";
@@ -32,7 +33,8 @@ async function fixture() {
     create: vi.fn(async (_scene: string, _workspace: string, notebookId: string, params: Partial<Note>) => ({ note: { ...saved, ...params, notebookId, id: "copy-note", version: 1 } })),
   } as unknown as NotesGatewayLike;
   const notify = vi.fn();
-  const store = createNotesStore({ gateway, draftRepository: repository, notify, getTarget: () => ({ sceneId: "programming", workspaceId: "conflict-workspace" }) });
+  const target = { sceneId: "programming", workspaceId: "conflict-workspace" };
+  const store = createNotesStore({ gateway, draftRepository: repository, notify, getTarget: () => target });
   stores.push(store);
   await store.getState().load();
   await store.getState().selectNote(saved);
@@ -42,8 +44,8 @@ async function fixture() {
   saved = { ...saved, title: "Elsewhere", content: "Saved elsewhere", tags: ["remote"], version: 2 };
   await store.getState().saveEditor(true);
   expect(store.getState().dirty).toBe(true);
-  expect((store.getState().error as Error & { code?: string }).code).toBe("version_conflict");
-  return { store, get, save, records, repository, notify, gateway, saved: () => saved };
+  expect(store.getState().editorConflict).toBeInstanceOf(Error);
+  return { store, get, save, records, repository, notify, gateway, target, saved: () => saved };
 }
 
 it("reloads a conflicted dirty note from its banner and keeps an independent recovery copy", async () => {
@@ -71,17 +73,51 @@ it("reloads a conflicted dirty note from its banner and keeps an independent rec
   expect(store.getState().recoveryDrafts.some((draft) => draft.id === retained.id)).toBe(true);
 });
 
+it("keeps the conflict recovery action through a notebook search refresh", async () => {
+  const { store, gateway, records } = await fixture();
+  const view = render(<><NotesNav store={store} /><NotesContent store={store} /></>);
+  const reload = () => view.getByRole("button", { name: t("Reload saved version") });
+  expect(reload()).toBeTruthy();
+  const list = vi.spyOn(gateway, "list");
+  fireEvent.change(view.getByRole("searchbox", { name: t("Search notes") }), {
+    target: { value: "find a different note" },
+  });
+  await waitFor(() => expect(list).toHaveBeenCalledWith(
+    "programming", "conflict-workspace", expect.objectContaining({ query: "find a different note" }),
+  ));
+  await waitFor(() => expect(store.getState().loading).toBe(false));
+  expect(store.getState()).toMatchObject({ dirty: true, draftContent: "My unsaved 中文 edits" });
+
+  list.mockRejectedValueOnce(new Error("The notebook list is temporarily unavailable"));
+  await act(() => store.getState().load());
+  expect(view.getByText("The notebook list is temporarily unavailable")).toBeTruthy();
+
+  fireEvent.click(reload());
+  await waitFor(() => expect(store.getState().selectedNote?.version).toBe(2));
+  expect(store.getState()).toMatchObject({ dirty: false, draftContent: "Saved elsewhere" });
+  expect(view.queryByRole("button", { name: t("Reload saved version") })).toBeNull();
+  expect([...records.values()].some((draft) => draft.content === "My unsaved 中文 edits")).toBe(true);
+});
+
+it("clears the editor conflict when changing workspaces", async () => {
+  const { store, target } = await fixture();
+  expect(store.getState().editorConflict).toBeInstanceOf(Error);
+  target.workspaceId = "other-workspace";
+  await store.getState().setTarget();
+  expect(store.getState()).toMatchObject({ selectedNote: null, dirty: false, editorConflict: null });
+});
+
 it("keeps the dirty editor intact when local recovery cannot be written and supports retry", async () => {
   const { store, repository, get } = await fixture();
   const originalPut = repository.put;
   repository.put = vi.fn(async () => { throw new Error("disk full"); });
   await store.getState().reloadConflictedNote();
   expect(store.getState()).toMatchObject({ dirty: true, editorLocked: false, draftContent: "My unsaved 中文 edits", selectedNote: { version: 1 } });
-  expect((store.getState().error as Error & { code?: string }).code).toBe("version_conflict");
+  expect(store.getState().editorConflict).toBeInstanceOf(Error);
   expect(get).toHaveBeenCalledTimes(2);
   repository.put = originalPut;
   await store.getState().reloadConflictedNote();
-  expect(store.getState()).toMatchObject({ dirty: false, error: null, draftContent: "Saved elsewhere" });
+  expect(store.getState()).toMatchObject({ dirty: false, editorConflict: null, draftContent: "Saved elsewhere" });
 });
 
 it("keeps local edits and permits retry when the saved note is unavailable", async () => {
@@ -91,7 +127,7 @@ it("keeps local edits and permits retry when the saved note is unavailable", asy
   expect(store.getState()).toMatchObject({ dirty: true, editorLocked: false, draftContent: "My unsaved 中文 edits", selectedNote: { version: 1 } });
   expect([...records.values()].filter((draft) => draft.id.includes('"conflict"'))).toHaveLength(0);
   await store.getState().reloadConflictedNote();
-  expect(store.getState()).toMatchObject({ dirty: false, error: null, selectedNote: { version: 2 } });
+  expect(store.getState()).toMatchObject({ dirty: false, editorConflict: null, selectedNote: { version: 2 } });
 });
 
 it("deduplicates reloads and prevents typing or blur saves while recovery is being secured", async () => {

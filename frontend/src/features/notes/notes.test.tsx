@@ -3850,7 +3850,8 @@ describe("notes React components", () => {
     await store.getState().load();
     await store.getState().selectNote(SNAPSHOT.notes[0]);
     store.setState({
-      error: Object.assign(new Error("conflict"), { code: "version_conflict" }),
+      dirty: true,
+      editorConflict: new Error("conflict"),
     });
     const reloadSpy = vi.spyOn(store.getState(), "reloadConflictedNote");
     const { container } = render(<NotesContent store={store} />);

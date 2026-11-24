@@ -1701,6 +1701,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const dirty = store((state) => state.dirty);
   const saveDisabled = store((state) => state.saveDisabled);
   const saveState = store((state) => state.saveState);
+  const editorConflict = store((state) => state.editorConflict);
   const error = store((state) => state.error);
   const setDraft = store((state) => state.setDraft);
   const setPreview = store((state) => state.setPreview);
@@ -2241,25 +2242,22 @@ function NoteEditor({ store }: { store: NotesStore }) {
           {renderSecondaryActions("menuitem")}
         </div>
       ) : null}
-      {error ? (
+      {editorConflict && dirty ? (
         <div className="notes-error-banner" role="alert">
-          {(error as Error & { code?: string }).code === "version_conflict" ? (
-            <span className="notes-error-inline">
-              {error.message}
-              <button
-                type="button"
-                className="ui-button ui-button--ghost ui-button--sm"
-                disabled={editorLocked}
-                onClick={() => void store.getState().reloadConflictedNote()}
-              >
-                {t("Reload saved version")}
-              </button>
-            </span>
-          ) : (
-            error.message
-          )}
+          <span className="notes-error-inline">
+            {editorConflict.message}
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              disabled={editorLocked}
+              onClick={() => void store.getState().reloadConflictedNote()}
+            >
+              {t("Reload saved version")}
+            </button>
+          </span>
         </div>
       ) : null}
+      {error && <div className="notes-error-banner" role="alert">{error.message}</div>}
       <div className="notes-title-row">
         <div className="notes-icon-box">
           <EmojiPicker
