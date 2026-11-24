@@ -172,6 +172,7 @@ it.each([
   { format: "json", capabilityId: "devtools.compute.quality.json", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compute.quality.csv", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compute.quality.tsv", mimeType: "application/json", label: "Save JSON as…" },
+  { format: "json", capabilityId: "devtools.compare.json.path", mimeType: "application/json", label: "Save JSON as…" },
   { format: "json", capabilityId: "devtools.compute.table.json", mimeType: "application/json", label: "Save JSON as…" },
   { format: "csv", capabilityId: "devtools.compute.table.csv", mimeType: "text/csv", label: "Save CSV as…" },
   { format: "json", capabilityId: "devtools.compute.table.query", mimeType: "application/json", label: "Save JSON as…" },
@@ -180,7 +181,8 @@ it.each([
 ] as const)("saves only a Host-verified $format after choosing and confirming a destination", async ({
   format, capabilityId, mimeType, label,
 }) => {
-  const owner = { ...scope, pluginId: "com.zicode.devtools.compute", capabilityId };
+  const pluginId = capabilityId === "devtools.compare.json.path" ? "com.zicode.devtools.compare" : "com.zicode.devtools.compute";
+  const owner = { ...scope, pluginId, capabilityId };
   const resultId = "22222222-2222-4222-8222-222222222222";
   const grantId = "33333333-3333-4333-8333-333333333333";
   const exportDescriptor = { mimeType, byteLength: 124, contentVersion: "a".repeat(64) };
