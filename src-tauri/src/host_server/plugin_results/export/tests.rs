@@ -4,7 +4,7 @@ fn fixture() -> (Context, Source, store::Record, Store) {
     let context = Context { window:"main".into(), workspace:scope.workspace_id.clone(), route:"/app/workspaces/w/sessions/s".into() };
     let mut store = Store::default();
     let captured = store.capture(scope.clone(),"proof".into(),"1".into(),&json!({"ok":true,"data":{"text":"abc\n"}})).unwrap();
-    let source = Source { scope, result_id:captured["resultId"].as_str().unwrap().into() };
+    let source = Source { scope, result_id:captured["resultId"].as_str().unwrap().into(), format: Format::Text };
     let record = store.record(&source.scope,&source.result_id).unwrap();
     (context,source,record,store)
 }

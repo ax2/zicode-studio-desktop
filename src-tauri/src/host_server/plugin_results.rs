@@ -1,6 +1,7 @@
 //! Desktop-owned result snapshots and explicit, version-bound save grants.
 pub(super) mod module_snapshot;
 pub(super) mod export;
+mod qr_png;
 mod store;
 pub(super) mod transfer;
 use super::*;

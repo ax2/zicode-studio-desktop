@@ -15,6 +15,7 @@ pub(super) struct Record {
     pub text: String,
     pub mime_type: &'static str,
     pub json_value: Option<Value>,
+    pub qr_png: Option<Arc<[u8]>>,
     expires: Instant,
 }
 
@@ -91,15 +92,22 @@ impl Store {
         json_value: Option<Value>,
     ) -> Result<Value, ApiError> {
         self.prune();
-        if text.len() > MAX_TEXT_BYTES
-            || self.records.len() >= MAX_RESULTS
-            || self
-                .records
-                .values()
-                .map(|record| record.text.len())
-                .sum::<usize>()
-                + text.len()
-                > MAX_TOTAL_BYTES
+        if text.len() > MAX_TEXT_BYTES || self.records.len() >= MAX_RESULTS {
+            return Err(rejected("result_budget_exceeded"));
+        }
+        let qr_png = if json_value.is_none() && super::qr_png::matches(&scope) {
+            super::qr_png::decode(&text)
+        } else {
+            None
+        };
+        let bytes_added = text.len() + qr_png.as_ref().map_or(0, |png| png.len());
+        if self
+            .records
+            .values()
+            .map(|record| record.text.len() + record.qr_png.as_ref().map_or(0, |png| png.len()))
+            .sum::<usize>()
+            + bytes_added
+            > MAX_TOTAL_BYTES
         {
             return Err(rejected("result_budget_exceeded"));
         }
@@ -109,8 +117,15 @@ impl Store {
         } else {
             "text/plain"
         };
-        let descriptor = json!({"schemaVersion":if json_value.is_some() { 2 } else { 1 },"resultId":id,"mimeType":mime_type,
+        let mut descriptor = json!({"schemaVersion":if json_value.is_some() { 2 } else { 1 },"resultId":id,"mimeType":mime_type,
             "byteLength":text.len(),"contentVersion":sha256_hex(text.as_bytes()),"packageVersion":package_version});
+        if let Some(bytes) = &qr_png {
+            descriptor["pngExport"] = json!({
+                "mimeType": "image/png",
+                "byteLength": bytes.len(),
+                "contentVersion": sha256_hex(bytes),
+            });
+        }
         self.records.insert(
             id.clone(),
             Record {
@@ -121,6 +136,7 @@ impl Store {
                 text,
                 mime_type,
                 json_value,
+                qr_png,
                 expires: Instant::now() + RESULT_TTL,
             },
         );

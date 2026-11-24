@@ -1,3 +1,7 @@
+## 2026-11-24 开发补充：二维码 PNG 另存
+
+二维码工具保留图像预览和下载，并加入「将 PNG 另存为…」。在 Windows 系统窗口选择新文件，再在 Studio 复核位置、类型和字节数并确认。Studio 保存独立 Compute 插件生成的 PNG 原始字节，支持对完整文件回读校验，已有同名文件保持原样。见[二维码另存验收](../iterations/2026-11-24-qr-png-export.md)。本次属于 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 的隔离开发范围，安装清点沿用以下历史记录。
+
 ## 2026-11-23 开发补充：Spring Actuator 真实服务
 
 Windows 隔离 Studio Host 用冻结 Spring Actuator 0.1.1 候选联调真实 Spring Boot 3.5.11。合成回归与真实服务用例 2/2 通过。服务日志仅记录 4 次确认后的 GET，分别返回健康 `UP`、应用信息、JVM 指标列表和健康 `503/DOWN`，没有 Cookie 或 Authorization。未授权、拒绝确认、确认凭据重放均未触发额外请求。首次失败源于测试误判内容协商，Host 明确请求 `application/json`，修正断言后通过。此回执覆盖本机无认证只读服务和 Host 确认接口，原生 View 操作、远端认证、后台任务、报告导出和 Pi 集成仍属剩余范围。日常安装矩阵继续沿用此前的实测记录。见[复现步骤](https://github.com/ax2/zicode-studio-desktop/blob/ceded471cec33bd46493e7fa8cdd85d0b20fb79b/tests/spring-actuator-conformance/README.md)。
