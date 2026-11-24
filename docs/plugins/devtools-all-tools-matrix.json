@@ -1192,6 +1192,7 @@
     },
     {
       "sourceToolId": "text-stats",
+      "currentWindowsAcceptance": "../iterations/2026-11-25-text-statistics-files.md",
       "title": "文本统计",
       "sourceToolVersion": "1.0.2",
       "sourceStatus": "implemented",

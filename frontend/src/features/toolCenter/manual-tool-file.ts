@@ -1,6 +1,6 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 export type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "base64-encode" | "base64-decode" | "text-lines" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "base64-encode" | "base64-decode" | "utf8-text" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // The frozen tool document input limit.
@@ -49,7 +49,7 @@ export async function readManualToolFile(
     return target === "diff-left" ? { left: text } : { right: text };
   }
 
-  if (target === "base64-encode" || target === "base64-decode" || target === "text-lines") {
+  if (target === "base64-encode" || target === "base64-decode" || target === "utf8-text") {
     const encode = target === "base64-encode";
     const text = await readUtf8ToolFile(file, "Text files must be 8 KiB or smaller.", "Could not read the text file.", maxFileBytes, encode);
     return { text: target === "base64-decode" ? text.replace(/[\r\n]/g, "") : text };
