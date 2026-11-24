@@ -143,12 +143,16 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
         }
         checkDestination();
         const tags = analysis ? ["web-clip", "browser-analysis"] : ["web-clip"];
-        const result = await gateway.create(scene, workspace, notebookId, { title, content,
-          tags, icon: "🌐", source: { url: capture.page.url, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision } });
-        if (analysis && (!result?.note?.id || result.note.notebookId !== notebookId)) {
-          throw new Error(t("Could not save analysis. Try again."));
+        const source = { url: capture.page.url, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision };
+        const result = await gateway.create(scene, workspace, notebookId, { title, content, tags, icon: "🌐", source });
+        const note = result?.note;
+        // Notes normalizes line endings but returns the same source citation.
+        if (typeof note?.id !== "string" || !note.id.trim() || note.notebookId !== notebookId || note.title !== title ||
+          note.content !== content.replace(/\r\n?/g, "\n") || note.source?.url !== source.url ||
+          note.source?.capturedAt !== source.capturedAt || note.source?.documentRevision !== source.documentRevision) {
+          throw new Error(t("The save result is uncertain. Check the destination notebook before retrying."));
         }
-        saved = result.note; return saved;
+        saved = note; return saved;
       } finally { pending = false; }
     },
     open() {

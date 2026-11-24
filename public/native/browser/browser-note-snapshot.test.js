@@ -6,7 +6,7 @@ const capture = { tab: "tab", documentRevision: "doc-1", capturedAt: "2026-11-09
   page: { url: "https://example.org/page?one=1&two=2", title: "Article", text: 'Body\n![remote](https://tracker.invalid/pixel) <script>alert(1)</script>', selection: "Chosen words", truncated: true } };
 function setup() {
   const target = { sceneId: "programming", workspaceId: "a", runtimeMode: "tools" };
-  const gateway = { list: vi.fn(async () => ({ snapshot: { notebooks: [] } })), createNotebook: vi.fn(async () => ({ notebook: { id: "new-book" } })), create: vi.fn(async () => ({ note: { id: "saved" } })) };
+  const gateway = { list: vi.fn(async () => ({ snapshot: { notebooks: [] } })), createNotebook: vi.fn(async () => ({ notebook: { id: "new-book" } })), create: vi.fn(async (_scene, _workspace, notebookId, note) => ({ note: { ...note, id: "saved", notebookId } })) };
   const options = { capture, getTarget: () => target, readCurrent: vi.fn(async () => capture), isCurrent: () => true, gateway };
   return { target, gateway, options, params: { notebookId: "book", title: "Saved article", selectionOnly: false } };
 }
@@ -37,6 +37,29 @@ it.each(["navigation", "scope", "closed"])("rejects %s changes before writing", 
   });
   await expect(createBrowserNoteWriter(options).save(params)).rejects.toThrow(); expect(gateway.create).not.toHaveBeenCalled();
 });
+it.each([
+  ["missing ID", note => ({ ...note, id: "" })],
+  ["invalid ID", note => ({ ...note, id: 123 })],
+  ["other notebook", note => ({ ...note, notebookId: "other-book" })],
+  ["different snapshot", note => ({ ...note, source: { ...note.source, documentRevision: "other-revision" } })],
+])("does not open a write whose receipt has a %s", async (_label, change) => {
+  const { options, gateway, params } = setup();
+  gateway.create.mockImplementationOnce(async (_scene, _workspace, notebookId, draft) => ({
+    note: change({ ...draft, id: "saved", notebookId }),
+  }));
+  const writer = createBrowserNoteWriter(options);
+  const open = vi.fn();
+  window.addEventListener("zicode:open-note", open);
+  try {
+    await expect(writer.save(params)).rejects.toThrow(t("The save result is uncertain. Check the destination notebook before retrying."));
+    writer.open();
+    expect(open).not.toHaveBeenCalled();
+    expect(gateway.create).toHaveBeenCalledOnce();
+  } finally {
+    window.removeEventListener("zicode:open-note", open);
+  }
+});
+
 it("rechecks after creating a notebook and reuses it after a failed note save", async () => {
   const { options, gateway, params } = setup(); params.notebookId = null; params.notebookTitle = "Clips";
   gateway.create.mockRejectedValueOnce(Error("Storage unavailable"));
@@ -142,7 +165,7 @@ it("stores a summary as literal text and reuses a new notebook after a failed wr
   const writer = createBrowserNoteWriter({ ...options, analysis: {
     kind: "summary", text, generatedAt: "2026-11-09T03:31:00Z", model: { provider: "fixture", modelId: "notes" },
   } });
-  gateway.create.mockRejectedValueOnce(Error("Storage unavailable")).mockResolvedValueOnce({ note: { id: "saved", notebookId: "new-book" } });
+  gateway.create.mockRejectedValueOnce(Error("Storage unavailable"));
   const destination = { ...params, notebookId: null, notebookTitle: "Research" };
   await expect(writer.save(destination)).rejects.toThrow("Storage unavailable");
   await writer.save(destination);

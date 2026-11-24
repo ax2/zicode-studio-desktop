@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 
-export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attachments = () => ({}), analysis, canStart = () => true }) {
+export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attachments = () => ({}), analysis, canStart = () => true, onOpened }) {
   let ready = false, busy = false, saved = false;
   const node = (tag, className = "", text) => {
     const el = document.createElement(tag); el.className = className;
@@ -10,8 +10,8 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
   const button = node("button", "ui-button ui-button--secondary", t(action)); button.type = "button";
   const panel = node("fieldset", "browser-note-clip"); panel.hidden = true;
   panel.append(node("legend", "", t(action)));
-  const open = analysis ? node("button", "ui-button ui-button--secondary hidden", t("Open saved note")) : null;
-  if (open) { open.type = "button"; open.hidden = true; }
+  const open = node("button", "ui-button ui-button--secondary hidden", t("Open saved note"));
+  open.type = "button"; open.hidden = true;
   const field = (label, input) => { input.setAttribute("aria-label", t(label)); const el = node("label", "", t(label)); el.append(input); panel.append(el); return el; };
   const notebook = node("select", "ui-select"); field("Notebook", notebook);
   const notebookTitle = node("input", "ui-input"); notebookTitle.maxLength = 200; notebookTitle.value = t("Web clippings");
@@ -55,11 +55,11 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
       save.textContent = t("Saved to Notes");
     } catch (error) { status.textContent = String(error?.message ?? error); }
     finally { busy = false; setBusy(false); panel.disabled = saved; button.disabled = saved; }
-    if (saved && open && isOpen()) { open.hidden = false; open.classList.remove("hidden"); open.focus(); }
+    if (saved && isOpen()) { open.hidden = false; open.classList.remove("hidden"); open.focus(); }
   });
-  open?.addEventListener("click", () => {
+  open.addEventListener("click", () => {
     if (!saved || !canStart() || !isOpen()) return;
-    try { writer.open(); }
+    try { writer.open(); onOpened?.(); }
     catch { status.textContent = t("Page or destination changed. Read the page again."); }
   });
   return { button, panel, open };

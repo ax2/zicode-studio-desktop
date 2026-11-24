@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
-import { getByRole, getByLabelText, waitFor } from "@testing-library/dom";
+import { getByRole, getByLabelText, queryByRole, waitFor } from "@testing-library/dom";
 import { t } from "../../i18n.js";
+import { navigateToNote } from "../features/notes-navigation.js";
+import { NotesGateway } from "../plugins/notes-gateway.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
 import { browserDraftPrompt } from "./browser-chat-draft.js";
 import { browserNoteContent, createBrowserNoteWriter } from "./browser-note-snapshot.js";
@@ -21,11 +23,13 @@ it("requires an explicit save, keeps errors retryable and suppresses duplicate s
   const writer = { notebooks: vi.fn(async () => [{ id: "book", title: "Existing" }]), save: vi.fn().mockRejectedValueOnce(Error("Storage unavailable")).mockImplementationOnce(() => new Promise(done => { complete = done; })) };
   const dialog = showBrowserCapture(capture, vi.fn(), undefined, () => writer);
   expect(writer.notebooks).not.toHaveBeenCalled(); expect(writer.save).not.toHaveBeenCalled(); expect(dialog.querySelector("img")).toBeNull();
+  expect(queryByRole(dialog, "button", { name: t("Open saved note") })).toBeNull();
   getByRole(dialog, "button", { name: t("Save to Notes"), exact: true }).click();
   const save = getByRole(dialog, "button", { name: t("Save page to notebook") });
   await waitFor(() => expect(save.disabled).toBe(false));
   getByLabelText(dialog, t("Save content")).value = "selection";
   save.click(); await waitFor(() => expect(dialog.textContent).toContain("Storage unavailable"));
+  expect(queryByRole(dialog, "button", { name: t("Open saved note") })).toBeNull();
   save.click(); save.click();
   expect(writer.save).toHaveBeenCalledTimes(2);
   expect(writer.save.mock.calls[1][0]).toMatchObject({ notebookId: "book", selectionOnly: true });
@@ -35,6 +39,68 @@ it("requires an explicit save, keeps errors retryable and suppresses duplicate s
   expect(save.closest("fieldset").disabled).toBe(true);
   expect(getByRole(dialog, "button", { name: t("Close"), exact: true }).disabled).toBe(false);
 });
+it.each(["page", "selection"])("opens the saved %s note with the original source in the current workspace", async mode => {
+  const snapshot = { ...capture, tab: "source-tab", documentRevision: "source-revision", capturedAt: "2026-11-24T00:00:00Z" };
+  const target = { sceneId: "programming", workspaceId: "source-workspace" };
+  const originalTarget = { ...target };
+  let stored, reopened, navigation;
+  const fetchImpl = vi.fn(async (url, request) => {
+    if (url.pathname === "/v2/notes") return Response.json({ snapshot: { notebooks: [{ id: "book", title: "Existing" }] } });
+    if (url.pathname === "/v2/notes/create") {
+      const { sceneId, workspaceId, ...draft } = JSON.parse(request.body);
+      expect({ sceneId, workspaceId }).toEqual(originalTarget);
+      stored = { ...draft, id: "saved-note", source: { ...draft.source, contentHash: "host-computed" } };
+      return Response.json({ note: stored });
+    }
+    if (url.pathname === "/v2/notes/note") {
+      expect(Object.fromEntries(url.searchParams)).toEqual({ ...originalTarget, notebookId: "book", noteId: "saved-note" });
+      return Response.json({ note: stored });
+    }
+    throw Error("Unexpected Notes route");
+  });
+  const gateway = new NotesGateway({ fetchImpl });
+  const readCurrent = vi.fn(async () => snapshot);
+  const closed = vi.fn();
+  const dialog = showBrowserCapture(snapshot, closed, undefined, isCurrent => createBrowserNoteWriter({
+    capture: snapshot, readCurrent, isCurrent, getTarget: () => target, gateway,
+  }));
+  const listener = vi.fn(({ detail }) => {
+    expect(detail).toEqual({ ...originalTarget, notebookId: "book", noteId: "saved-note" });
+    navigation = navigateToNote(detail, { getTarget: () => target, activate: async () => {},
+      isActive: () => true, open: async (notebook, id) => { reopened = await gateway.get(target.sceneId, target.workspaceId, notebook, id); },
+    });
+  });
+  window.addEventListener("zicode:open-note", listener);
+  try {
+    getByRole(dialog, "button", { name: t("Save to Notes"), exact: true }).click();
+    const save = getByRole(dialog, "button", { name: t("Save page to notebook") });
+    await waitFor(() => expect(save.disabled).toBe(false));
+    getByLabelText(dialog, t("Save content")).value = mode;
+    save.click();
+    const open = await waitFor(() => getByRole(dialog, "button", { name: t("Open saved note") }));
+    expect(document.activeElement).toBe(open);
+    target.workspaceId = "other-workspace";
+    open.click();
+    expect(listener).not.toHaveBeenCalled();
+    expect(closed).not.toHaveBeenCalled();
+    target.workspaceId = originalTarget.workspaceId;
+    open.click();
+    await navigation;
+    expect(listener).toHaveBeenCalledOnce();
+    expect(closed).toHaveBeenCalledOnce();
+    expect(readCurrent).toHaveBeenCalledOnce();
+    expect(reopened).toEqual({ note: stored });
+    expect(reopened.note.content).toContain(mode === "selection" ? snapshot.page.selection : snapshot.page.text);
+    expect(reopened.note.content).not.toContain(mode === "selection" ? snapshot.page.text : snapshot.page.selection);
+    expect(reopened.note.source).toEqual({
+      url: snapshot.page.url, capturedAt: snapshot.capturedAt, documentRevision: snapshot.documentRevision, contentHash: "host-computed",
+    });
+    expect(fetchImpl.mock.calls.map(([url]) => url.pathname)).toEqual(["/v2/notes", "/v2/notes/create", "/v2/notes/note"]);
+  } finally {
+    window.removeEventListener("zicode:open-note", listener);
+  }
+});
+
 it("offers a named notebook when no notebook exists", async () => {
   const writer = { notebooks: async () => [], save: vi.fn(async () => ({ id: "note" })) };
   const dialog = showBrowserCapture(capture, vi.fn(), undefined, () => writer);
@@ -106,7 +172,7 @@ it("previews embedded links and requires separate opt-in for a draft or note", a
   const prepare = vi.fn(async options => preview(options));
   const gateway = {
     list: async () => ({ snapshot: { notebooks: [{ id: "book", title: "Existing" }] } }),
-    create: vi.fn(async () => ({ note: { id: "note", notebookId: "book" } })),
+    create: vi.fn(async (_scene, _workspace, notebookId, note) => ({ note: { ...note, id: "note", notebookId } })),
   };
   const dialog = showBrowserCapture(snapshot, vi.fn(), prepare, isCurrent => createBrowserNoteWriter({
     capture: snapshot, readCurrent: async () => snapshot, isCurrent,
@@ -242,7 +308,7 @@ it("attaches only the reviewed embedded page and reports its own table limits", 
   const prepare = vi.fn(async options => browserDraftPrompt(snapshot, options));
   const gateway = {
     list: async () => ({ snapshot: { notebooks: [{ id: "book", title: "Local notebook" }] } }),
-    create: vi.fn(async () => ({ note: { id: "note", notebookId: "book" } })),
+    create: vi.fn(async (_scene, _workspace, notebookId, note) => ({ note: { ...note, id: "note", notebookId } })),
   };
   const dialog = showBrowserCapture(snapshot, vi.fn(), prepare, isCurrent => createBrowserNoteWriter({
     capture: snapshot, readCurrent: async () => snapshot, isCurrent,
