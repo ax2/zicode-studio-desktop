@@ -4,7 +4,7 @@ use serde_json::value::RawValue;
 const MAX_RESULTS: usize = 64;
 const MAX_TOTAL_BYTES: usize = 2 * 1024 * 1024;
 const MAX_TEXT_BYTES: usize = 64 * 1024;
-const MAX_TRANSFORM_EXPORT_BYTES: usize = 48 * 1024;
+const MAX_TABLE_EXPORT_BYTES: usize = 48 * 1024;
 const RESULT_TTL: Duration = Duration::from_secs(900);
 const GRANT_TTL: Duration = Duration::from_secs(120);
 
@@ -18,7 +18,7 @@ pub(super) struct Record {
     pub mime_type: &'static str,
     pub json_value: Option<Value>,
     pub qr_png: Option<Arc<[u8]>>,
-    pub transform: TransformExports,
+    pub table: TableExports,
     expires: Instant,
 }
 
@@ -26,31 +26,25 @@ impl Record {
     fn payload_bytes(&self) -> usize {
         self.text.len()
             + self.qr_png.as_ref().map_or(0, |png| png.len())
-            + self.transform.payload_bytes()
+            + self.table.payload_bytes()
     }
 }
 
 #[derive(Clone, Default)]
-pub(super) struct TransformExports {
+pub(super) struct TableExports {
     pub csv: Option<Arc<str>>,
     pub json: Option<Arc<str>>,
 }
 
-impl TransformExports {
+impl TableExports {
     fn payload_bytes(&self) -> usize {
         self.csv.as_ref().map_or(0, |csv| csv.len())
             + self.json.as_ref().map_or(0, |json| json.len())
     }
 }
 
-fn transform_exports(scope: &Scope, text: &str) -> Option<TransformExports> {
-    if scope.plugin_id != "com.zicode.devtools.compute"
-        || !scope
-            .capability_id
-            .starts_with("devtools.compute.transform.")
-    {
-        return None;
-    }
+fn table_exports(scope: &Scope, text: &str) -> Option<TableExports> {
+    scope.table_export_stem()?;
     #[derive(Deserialize)]
     struct Output<'a> {
         #[serde(borrow)]
@@ -61,13 +55,13 @@ fn transform_exports(scope: &Scope, text: &str) -> Option<TransformExports> {
     let Output { csv, data } = serde_json::from_str(text).ok()?;
     let csv = csv
         .and_then(|raw| serde_json::from_str::<String>(raw.get()).ok())
-        .filter(|csv| !csv.is_empty() && csv.len() <= MAX_TRANSFORM_EXPORT_BYTES)
+        .filter(|csv| !csv.is_empty() && csv.len() <= MAX_TABLE_EXPORT_BYTES)
         .map(Arc::from);
     let json = data
         .map(RawValue::get)
-        .filter(|raw| raw.len() <= MAX_TRANSFORM_EXPORT_BYTES && is_columnar_table(raw))
+        .filter(|raw| raw.len() <= MAX_TABLE_EXPORT_BYTES && is_columnar_table(raw))
         .map(Arc::from);
-    Some(TransformExports { csv, json })
+    Some(TableExports { csv, json })
 }
 
 fn is_columnar_table(raw: &str) -> bool {
@@ -175,13 +169,13 @@ impl Store {
         } else {
             None
         };
-        let transform = json_value
+        let table_exports = json_value
             .is_none()
-            .then(|| transform_exports(&scope, &text))
+            .then(|| table_exports(&scope, &text))
             .flatten()
             .unwrap_or_default();
         let bytes_added =
-            text.len() + qr_png.as_ref().map_or(0, |png| png.len()) + transform.payload_bytes();
+            text.len() + qr_png.as_ref().map_or(0, |png| png.len()) + table_exports.payload_bytes();
         if self
             .records
             .values()
@@ -207,14 +201,14 @@ impl Store {
                 "contentVersion": sha256_hex(bytes),
             });
         }
-        if let Some(csv) = &transform.csv {
+        if let Some(csv) = &table_exports.csv {
             descriptor["csvExport"] = json!({
                 "mimeType": "text/csv",
                 "byteLength": csv.len(),
                 "contentVersion": sha256_hex(csv.as_bytes()),
             });
         }
-        if let Some(table) = &transform.json {
+        if let Some(table) = &table_exports.json {
             descriptor["jsonExport"] = json!({
                 "mimeType": "application/json",
                 "byteLength": table.len(),
@@ -232,7 +226,7 @@ impl Store {
                 mime_type,
                 json_value,
                 qr_png,
-                transform,
+                table: table_exports,
                 expires: Instant::now() + RESULT_TTL,
             },
         );
@@ -332,7 +326,7 @@ mod tests {
         };
         let table = r#"{"headers":["名称","值"], "rows":[["甲\n乙",{"n":18446744073709551615,"f":1.2300e-7,"b":true}]]}"#;
         let text = format!(r#"{{"data":{table},"csv":42}}"#);
-        let result = transform_exports(&scope, &text).unwrap();
+        let result = table_exports(&scope, &text).unwrap();
         assert_eq!(result.json.as_deref(), Some(table));
         assert!(result.csv.is_none());
 
@@ -344,14 +338,14 @@ mod tests {
             r#"[{"x":1}]"#,
         ] {
             let text = format!(r#"{{"data":{data},"csv":"x\n1\n"}}"#);
-            let result = transform_exports(&scope, &text).unwrap();
+            let result = table_exports(&scope, &text).unwrap();
             assert!(result.json.is_none());
             assert_eq!(result.csv.as_deref(), Some("x\n1\n"));
         }
         let empty = r#"{"headers":["x"],"rows":[]}"#;
         let text = format!(r#"{{"data":{empty}}}"#);
         assert_eq!(
-            transform_exports(&scope, &text).unwrap().json.as_deref(),
+            table_exports(&scope, &text).unwrap().json.as_deref(),
             Some(empty)
         );
     }

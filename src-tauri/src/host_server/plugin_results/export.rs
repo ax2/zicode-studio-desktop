@@ -49,13 +49,13 @@ impl Format {
                 .as_deref()
                 .ok_or_else(|| rejected("result_export_format_unavailable")),
             Self::Csv => record
-                .transform
+                .table
                 .csv
                 .as_deref()
                 .map(str::as_bytes)
                 .ok_or_else(|| rejected("result_export_format_unavailable")),
             Self::Json => record
-                .transform
+                .table
                 .json
                 .as_deref()
                 .map(str::as_bytes)
@@ -177,21 +177,23 @@ impl HostServer {
             let record = record(&self.state, &source)?;
             let bytes = source.format.bytes(&record)?;
             let (name, extension) = if source.format == Format::Png {
-                ("qr-code.png", Some("png"))
-            } else if source.format == Format::Csv {
-                ("data-transform.csv", Some("csv"))
-            } else if source.format == Format::Json {
-                ("data-transform.json", Some("json"))
+                ("qr-code.png".into(), Some("png"))
+            } else if let Some(extension) = source.format.required_extension() {
+                let stem = source
+                    .scope
+                    .table_export_stem()
+                    .ok_or_else(|| rejected("result_export_format_unavailable"))?;
+                (format!("{stem}.{extension}"), Some(extension))
             } else if source.scope.plugin_id == "com.zicode.devtools.checksum-manifest"
                 && source.scope.capability_id == "devtools.checksum-manifest.generate"
             {
-                ("SHA256SUMS", None)
+                ("SHA256SUMS".into(), None)
             } else if source.scope.capability_id
                 == crate::host_server::plugin_services::HTTP_GET_PROFILE
             {
-                ("actuator-response.json", Some("json"))
+                ("actuator-response.json".into(), Some("json"))
             } else {
-                ("result.txt", Some("txt"))
+                ("result.txt".into(), Some("txt"))
             };
             Ok(json!({
                 "mimeType":source.format.mime_type(),"suggestedFileName":name,"extension":extension,

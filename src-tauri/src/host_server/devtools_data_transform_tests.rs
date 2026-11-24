@@ -125,7 +125,7 @@ async fn data_transform_preview_frozen_host_results() {
                         ]
                     );
                     let raw: HashMap<String, &RawValue> = serde_json::from_str(text).unwrap();
-                    verify_transform_export(
+                    verify_table_export(
                         &host,
                         &root,
                         workspace,
@@ -133,12 +133,13 @@ async fn data_transform_preview_frozen_host_results() {
                         ExportCase {
                             format: "json",
                             mime_type: "application/json",
-                            operation: op,
+                            operation: &format!("transform.{op}"),
+                            stem: "data-transform",
                             expected: raw["data"].get(),
                             revoke: false,
                         },
                     );
-                    verify_transform_export(
+                    verify_table_export(
                         &host,
                         &root,
                         workspace,
@@ -146,7 +147,8 @@ async fn data_transform_preview_frozen_host_results() {
                         ExportCase {
                             format: "csv",
                             mime_type: "text/csv",
-                            operation: op,
+                            operation: &format!("transform.{op}"),
+                            stem: "data-transform",
                             expected: csv,
                             revoke: true,
                         },
@@ -165,7 +167,7 @@ async fn data_transform_preview_frozen_host_results() {
                     assert_eq!(parsed["data"]["rows"][0][1]["amount"], u64::MAX);
                     assert_eq!(parsed["data"]["rows"][0][1]["flags"][2]["tag"], "保留");
                     let raw: HashMap<String, &RawValue> = serde_json::from_str(text).unwrap();
-                    let file = verify_transform_export(
+                    let file = verify_table_export(
                         &host,
                         &root,
                         workspace,
@@ -173,7 +175,8 @@ async fn data_transform_preview_frozen_host_results() {
                         ExportCase {
                             format: "json",
                             mime_type: "application/json",
-                            operation: op,
+                            operation: &format!("transform.{op}"),
+                            stem: "data-transform",
                             expected: raw["data"].get(),
                             revoke: true,
                         },
@@ -203,6 +206,105 @@ async fn data_transform_preview_frozen_host_results() {
             json!({"name":name,"request":body["input"],"result":result})
         );
     }
+    let pairs = [
+        (
+            "left",
+            "csv",
+            "id,name\n1,A\n2,B",
+            "id,name\n1,X\n1,Y",
+            "id,name,id_right1,name_right1\n1,A,1,X\n1,A,1,Y\n2,B,,\n",
+        ),
+        (
+            "inner",
+            "tsv",
+            "id\tname\n1\tA\n2\tB",
+            "id\tname\n1\tX\n1\tY",
+            "id,name,id_right1,name_right1\n1,A,1,X\n1,A,1,Y\n",
+        ),
+        (
+            "append",
+            "json",
+            r#"{"headers":["id","name"],"rows":[[9223372036854775807,"甲"],[-9223372036854775808,"乙"]]}"#,
+            r#"{"headers":["name","id"],"rows":[["丙",18446744073709551615]]}"#,
+            "id,name\n9223372036854775807,甲\n-9223372036854775808,乙\n18446744073709551615,丙\n",
+        ),
+        (
+            "columns",
+            "csv",
+            "id,name\n1,A\n2,B",
+            "name,id\nX,3\nY,4",
+            "id,name,name_right1,id_right1\n1,A,X,3\n2,B,Y,4\n",
+        ),
+    ];
+    for (mode, format, left, right, expected_csv) in pairs {
+        let operation = format!("merge.{mode}");
+        let capability_id = format!("devtools.compute.{operation}");
+        let body = json!({
+            "workspaceId": workspace,
+            "sceneId": "programming",
+            "pluginId": plugin,
+            "capabilityId": capability_id,
+            "captureResult": true,
+            "input": {"text": left, "options": json!({
+                "format": format, "right": right, "left_key": "id", "right_key": "id"
+            }).to_string()}
+        });
+        let response = client
+            .post(&endpoint)
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&body)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let response: Value = response.json().await.unwrap();
+        assert_eq!(response["result"]["ok"], true, "{mode}: {response}");
+        let text = response["result"]["data"]["text"].as_str().unwrap();
+        let fields: HashMap<String, &RawValue> = serde_json::from_str(text).unwrap();
+        let csv: String = serde_json::from_str(fields["csv"].get()).unwrap();
+        assert_eq!(csv, expected_csv, "{mode}");
+        let table = fields["data"].get();
+        verify_table_export(
+            &host,
+            &root,
+            workspace,
+            &response,
+            ExportCase {
+                format: "csv",
+                mime_type: "text/csv",
+                operation: &operation,
+                stem: "csv-merge",
+                expected: expected_csv,
+                revoke: false,
+            },
+        );
+        let file = verify_table_export(
+            &host,
+            &root,
+            workspace,
+            &response,
+            ExportCase {
+                format: "json",
+                mime_type: "application/json",
+                operation: &operation,
+                stem: "csv-merge",
+                expected: table,
+                revoke: true,
+            },
+        );
+        if mode == "append" {
+            let read_back = std::fs::read_to_string(file).unwrap();
+            let table: Value = serde_json::from_str(&read_back).unwrap();
+            assert_eq!(table["rows"][0][0], i64::MAX);
+            assert_eq!(table["rows"][1][0], i64::MIN);
+            assert_eq!(table["rows"][2][0], u64::MAX);
+        }
+        println!(
+            "CSV_MERGE_EXPORT mode={mode} csv_bytes={} json_bytes={}",
+            expected_csv.len(),
+            table.len()
+        );
+    }
     host.stop_and_wait().await.unwrap();
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -211,11 +313,12 @@ struct ExportCase<'a> {
     format: &'static str,
     mime_type: &'static str,
     operation: &'a str,
+    stem: &'static str,
     expected: &'a str,
     revoke: bool,
 }
 
-fn verify_transform_export(
+fn verify_table_export(
     host: &HostServer,
     root: &std::path::Path,
     workspace: &str,
@@ -226,6 +329,7 @@ fn verify_transform_export(
         format,
         mime_type,
         operation,
+        stem,
         expected,
         revoke,
     } = case;
@@ -233,7 +337,7 @@ fn verify_transform_export(
 
     let scope = json!({
         "workspaceId": workspace, "sceneId": "programming",
-        "pluginId": "com.zicode.devtools.compute", "capabilityId": format!("devtools.compute.transform.{operation}"),
+        "pluginId": "com.zicode.devtools.compute", "capabilityId": format!("devtools.compute.{operation}"),
     });
     let reference = &response["resultRef"];
     let descriptor = &reference[format!("{format}Export")];
@@ -254,10 +358,7 @@ fn verify_transform_export(
     let metadata = host
         .result_text_export_metadata(&context, source.clone())
         .unwrap();
-    assert_eq!(
-        metadata["suggestedFileName"],
-        format!("data-transform.{format}")
-    );
+    assert_eq!(metadata["suggestedFileName"], format!("{stem}.{format}"));
     assert_eq!(metadata["extension"], format);
     assert_eq!(metadata["mimeType"], mime_type);
     assert_eq!(metadata["contentVersion"], descriptor["contentVersion"]);
@@ -339,12 +440,15 @@ fn verify_transform_export(
     let collision = prepare(&collision_name);
     std::fs::write(folder.join(&collision_name), b"existing").unwrap();
     assert!(host
-        .commit_result_text_export(context.clone(), source.clone(), collision, true)
+        .commit_result_text_export(context.clone(), source.clone(), collision.clone(), true)
         .is_err());
     assert_eq!(
         std::fs::read(folder.join(&collision_name)).unwrap(),
         b"existing"
     );
+    // The dialog cancels its unused grant when closed after a rejected write.
+    host.cancel_result_text_export(context.clone(), source.clone(), collision)
+        .unwrap();
     if revoke {
         let revoked = prepare(&format!("revoked.{format}"));
         host.state
@@ -354,13 +458,15 @@ fn verify_transform_export(
             .set_enabled("programming", "com.zicode.devtools.compute", false)
             .unwrap();
         assert!(host
-            .commit_result_text_export(context, source, revoked, true)
+            .commit_result_text_export(context.clone(), source.clone(), revoked.clone(), true)
             .is_err());
         host.state
             .plugins
             .lock()
             .unwrap()
             .set_enabled("programming", "com.zicode.devtools.compute", true)
+            .unwrap();
+        host.cancel_result_text_export(context, source, revoked)
             .unwrap();
     }
     assert_eq!(std::fs::read_dir(folder).unwrap().count(), 2);

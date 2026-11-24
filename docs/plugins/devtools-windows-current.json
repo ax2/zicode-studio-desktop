@@ -920,7 +920,7 @@
         }
       ],
       "fullSourceScopeAccepted": false,
-      "blocker": "两版冻结 Compute 的 Windows Worker 已验证可选择并撤销导入同格式 UTF-8 CSV、TSV 或 JSON 左右表。每个文件8192字节、选项16384字节。系统文件窗口、结果另存和更大输入仍待验证。",
+      "blocker": "两个冻结 Compute 版本覆盖同格式 UTF-8 CSV、TSV、JSON 左右表导入及撤销，并可确认另存已捕获的 CSV 和列式 JSON。每文件8192字节、选项16384字节。系统文件窗口和更大输入仍待验收。",
       "sourceScope": "CSV/TSV/JSON 两表内连接与左连接、同名列按行追加、等行数拼列；重复键/未匹配统计、列名冲突处理、后台可取消预览、结果上限与单步撤销"
     },
     {
