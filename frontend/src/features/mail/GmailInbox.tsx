@@ -122,6 +122,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       </select></label>
       <button className="ui-button" type="button" disabled={!grant.read} onClick={()=>void run("labels",()=>invoke<Label[]>({kind:"labels",accountId:id}),items=>{
         setLabels(items);
+        window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: id }));
         if(label!=="INBOX"&&!items.some(item=>item.id===label)){setLabel("INBOX");setPage(null);setMessage(null);setBody(null);setOnline(false)}
       })}>{t("Refresh Gmail labels")}</button>
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(label==="INBOX"?"Show offline inbox":"Show saved messages")}</button>

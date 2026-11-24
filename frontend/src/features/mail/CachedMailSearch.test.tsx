@@ -5,21 +5,94 @@ import { setLocale } from "../../shared/i18n";
 import type { Invoke } from "./index";
 
 afterEach(cleanup);
-it("limits offline searches to the selected label and retains the query when switching labels",async()=>{
+it("filters the cached Gmail labels of another account without changing the active mailbox", async () => {
   setLocale("en");
-  const accounts=[{id:"a",address:"first@example.test",provider:"gmail"}];
-  const local=vi.fn(async()=>({items:[],more:false}));
-  const view=(label:string)=><CachedMailSearch accounts={accounts} current="a" label={label} invoke={local as Invoke}/>;
-  const rendered=render(view("Label_42"));
-  fireEvent.click(screen.getByLabelText("Search only the selected Gmail label"));
-  fireEvent.change(screen.getByLabelText("Search cached mail"),{target:{value:"invoice"}});
-  fireEvent.click(screen.getByRole("button",{name:"Search"}));
+  const accounts = [
+    { id: "a", address: "first@example.test", provider: "alibaba" },
+    { id: "b", address: "second@example.test", provider: "gmail" },
+  ];
+  const local = vi.fn(async (_request: Record<string, unknown>) => ({ items: [], more: false }));
+  const gmail = vi.fn(async (_request: Record<string, unknown>) => [{ id: "Label_42", name: "Invoices" }]);
+  render(<CachedMailSearch accounts={accounts} current="a" invoke={local as Invoke} gmail={gmail as Invoke} />);
+  fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "invoice" } });
+  fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "b" } });
+  await screen.findByRole("option", { name: "Invoices" });
+  expect(gmail).toHaveBeenCalledExactlyOnceWith({ kind: "cachedLabels", accountId: "b" });
+  fireEvent.change(screen.getByLabelText("Search Gmail label"), { target: { value: "Label_42" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
   await screen.findByText("No matching cached messages.");
-  expect(local).toHaveBeenCalledWith({kind:"search",account:"a",label:"Label_42",query:"invoice",offset:0});
-  rendered.rerender(view("INBOX"));
+  expect(local).toHaveBeenLastCalledWith({ kind: "search", account: "b", label: "Label_42", query: "invoice", offset: 0 });
+  fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "" } });
+  expect(screen.queryByLabelText("Search Gmail label")).toBeNull();
   expect(screen.queryByText("No matching cached messages.")).toBeNull();
   expect(screen.getByDisplayValue("invoice")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await screen.findByText("No matching cached messages.");
+  expect(local).toHaveBeenLastCalledWith({ kind: "search", account: null, query: "invoice", offset: 0 });
 });
+
+it("shows which IMAP folder each match belongs to and searches only the chosen folder", async () => {
+  setLocale("en");
+  const account = { id: "a", address: "first@example.test", provider: "alibaba" };
+  const hit = { account: account.id, address: account.address, provider: account.provider, id: "42", epoch: 7, subject: "Invoice", sender: "Fixture" };
+  const local = vi.fn(async (request: Record<string, unknown>) => ({
+    items: [{ ...hit, folder: "Archive" }, { ...hit, folder: "INBOX" }].filter(item => !request.label || request.label === item.folder),
+    more: false,
+  }));
+  const alibaba = vi.fn(async (request: Record<string, unknown>) => request.kind === "cachedFolders"
+    ? [{ id: "Archive", name: "Archive" }, { id: "INBOX", name: "INBOX" }] : { text: "Archived invoice" });
+  render(<CachedMailSearch accounts={[account]} current="a" invoke={local as Invoke} alibaba={alibaba as Invoke} />);
+  await screen.findByRole("option", { name: "Archive" });
+  expect(alibaba).toHaveBeenLastCalledWith({ kind: "cachedFolders", accountId: "a" });
+  fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "invoice" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  const archived = await screen.findByRole("button", { name: /Invoice.*Archive/ });
+  expect(screen.getByRole("button", { name: /Invoice.*Inbox/ })).toBeTruthy();
+  fireEvent.click(archived);
+  await screen.findByText("Archived invoice");
+  expect(archived.getAttribute("aria-pressed")).toBe("true");
+  expect(alibaba).toHaveBeenLastCalledWith({ kind: "cachedBody", accountId: "a", folder: "Archive", uidValidity: 7, uid: 42 });
+  fireEvent.change(screen.getByLabelText("Search IMAP folder"), { target: { value: "Archive" } });
+  expect(screen.queryByText("Archived invoice")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await screen.findByRole("button", { name: /Invoice.*Archive/ });
+  expect(local).toHaveBeenLastCalledWith({ kind: "search", account: "a", label: "Archive", query: "invoice", offset: 0 });
+  expect(screen.queryByRole("button", { name: /Invoice.*Inbox/ })).toBeNull();
+});
+
+it("discards stale label lists and resets a removed folder without replaying a wider search", async () => {
+  setLocale("en");
+  const accounts = [
+    { id: "a", address: "first@example.test", provider: "gmail" },
+    { id: "b", address: "second@example.test", provider: "alibaba" },
+  ];
+  const local = vi.fn(async (_request: Record<string, unknown>) => ({ items: [], more: false }));
+  let resolveLabels!: (labels: Array<{ id: string; name: string }>) => void;
+  const gmail = vi.fn(() => new Promise(resolve => { resolveLabels = resolve; }));
+  const alibaba = vi.fn().mockResolvedValueOnce([{ id: "Archive", name: "Archive" }]).mockResolvedValueOnce([]);
+  render(<CachedMailSearch accounts={accounts} current="a" invoke={local as Invoke} gmail={gmail as Invoke} alibaba={alibaba as Invoke} />);
+  fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "b" } });
+  await screen.findByRole("option", { name: "Archive" });
+  await act(async () => resolveLabels([{ id: "Late_Gmail", name: "Late Gmail label" }]));
+  expect(screen.queryByRole("option", { name: "Late Gmail label" })).toBeNull();
+  fireEvent.change(screen.getByLabelText("Search IMAP folder"), { target: { value: "Archive" } });
+  fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "invoice" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await screen.findByText("No matching cached messages.");
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: "b" })));
+  expect((screen.getByLabelText("Search IMAP folder") as HTMLSelectElement).value).toBe("");
+  expect(screen.queryByText("No matching cached messages.")).toBeNull();
+  expect(screen.getByDisplayValue("invoice")).toBeTruthy();
+  expect(local).toHaveBeenCalledExactlyOnceWith({ kind: "search", account: "b", label: "Archive", query: "invoice", offset: 0 });
+});
+
+function emptyDirectory(invoke: Invoke): Invoke {
+  return async <T,>(request: Record<string, unknown>) => {
+    if (request.kind === "cachedFolders" || request.kind === "cachedLabels") return [] as T;
+    return invoke<T>(request);
+  };
+}
+
 it("opens an identically numbered result through its owning account without requesting mail from a server", async () => {
   setLocale("en");
   const accounts = [
@@ -29,7 +102,7 @@ it("opens an identically numbered result through its owning account without requ
   const local = vi.fn(async () => ({items:accounts.map(a=>({account:a.id,address:a.address,provider:a.provider,id:"42",epoch:a.id==="a"?7:null,subject:"Shared subject",sender:a.address})),more:false}));
   const gmail = vi.fn(async()=>({plainText:"Gmail offline fixture"}));
   const ali = vi.fn(async()=>({text:"Alibaba offline fixture"}));
-  render(<CachedMailSearch accounts={accounts} current="a" invoke={local as Invoke} gmail={gmail as Invoke} alibaba={ali as Invoke}/>);
+  render(<CachedMailSearch accounts={accounts} current="a" invoke={local as Invoke} gmail={emptyDirectory(gmail as Invoke)} alibaba={emptyDirectory(ali as Invoke)}/>);
   expect((screen.getByLabelText("Search scope") as HTMLSelectElement).value).toBe("a");
   fireEvent.change(screen.getByLabelText("Search scope"),{target:{value:""}});
   fireEvent.change(screen.getByLabelText("Search cached mail"),{target:{value:"fixture"}});
@@ -54,7 +127,7 @@ it.each(["studio-mail-cache-cleared","studio-mail-cache-updated"])("refreshes ch
   const invoke=vi.fn().mockResolvedValueOnce({items,more:true}).mockResolvedValueOnce({items:items.slice(1),more:false});
   let finish:(value:unknown)=>void=()=>{};
   const gmail=vi.fn(()=>new Promise(resolve=>{finish=resolve}));
-  render(<CachedMailSearch accounts={accounts} current="a" invoke={invoke as Invoke} gmail={gmail as Invoke}/>);
+  render(<CachedMailSearch accounts={accounts} current="a" invoke={invoke as Invoke} gmail={emptyDirectory(gmail as Invoke)}/>);
   fireEvent.change(screen.getByLabelText("Search scope"),{target:{value:""}});
   fireEvent.change(screen.getByLabelText("Search cached mail"),{target:{value:"fixture"}});
   fireEvent.click(screen.getByRole("button",{name:"Search"}));
@@ -74,7 +147,7 @@ function beginAllAccountSearch(invoke: Invoke, gmail: Invoke) {
     { id: "a", address: "first@example.test", provider: "gmail" },
     { id: "b", address: "second@example.test", provider: "gmail" },
   ];
-  render(<CachedMailSearch accounts={accounts} current="a" invoke={invoke} gmail={gmail} />);
+  render(<CachedMailSearch accounts={accounts} current="a" invoke={invoke} gmail={emptyDirectory(gmail)} />);
   fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "" } });
   fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "fixture" } });
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
@@ -127,7 +200,7 @@ it("closes an old IMAP body when a refresh replaces the same message number with
   const invoke = vi.fn().mockResolvedValueOnce({ items: [oldHit], more: false }).mockResolvedValueOnce({ items: [newHit], more: false });
   let finish!: (body: { text: string }) => void;
   const alibaba = vi.fn(() => new Promise(resolve => { finish = resolve; }));
-  render(<CachedMailSearch accounts={[account]} current="a" invoke={invoke as Invoke} alibaba={alibaba as Invoke} />);
+  render(<CachedMailSearch accounts={[account]} current="a" invoke={invoke as Invoke} alibaba={emptyDirectory(alibaba as Invoke)} />);
   fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "fixture" } });
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
   fireEvent.click(await screen.findByRole("button", { name: /First fixture/ }));
@@ -230,7 +303,7 @@ it("uses the Alibaba search hit's folder and UID validity and allows retry after
   const alibaba = vi.fn().mockRejectedValueOnce(Error("mail_cache_empty"))
     .mockRejectedValueOnce(Error("mail_connect"))
     .mockResolvedValueOnce({ text: "Downloaded from the matching IMAP folder", bodyLimited: true });
-  render(<CachedMailSearch accounts={[account]} current="a" invoke={local as Invoke} alibaba={alibaba as Invoke} />);
+  render(<CachedMailSearch accounts={[account]} current="a" invoke={local as Invoke} alibaba={emptyDirectory(alibaba as Invoke)} />);
   fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "fixture" } });
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
   fireEvent.click(await screen.findByRole("button", { name: /First fixture/ }));

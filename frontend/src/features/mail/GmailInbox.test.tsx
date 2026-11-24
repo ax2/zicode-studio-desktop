@@ -29,7 +29,7 @@ it("starts from cache, requests separate read and send grants, and never sends w
     }
   });
   const sign=await screen.findByRole("button",{name:"Sign in to read Gmail"});await waitFor(()=>expect(sign.matches(":disabled")).toBe(false));
-  expect(view.calls.mock.calls.map(([r])=>r.kind)).toEqual(["status","cachedPage","cachedLabels"]);
+  expect(view.calls.mock.calls.map(([r])=>r.kind)).toEqual(["cachedLabels","status","cachedPage","cachedLabels"]);
   fireEvent.click(sign);await screen.findByText("Gmail is connected for reading.");
   fireEvent.click(screen.getByRole("button",{name:"Refresh from server"}));fireEvent.click(await screen.findByRole("button",{name:/Inbox fixture/}));
   await screen.findByText("<img src='https://invalid.test/tracker'>");expect(view.container.querySelector("img")).toBe(null);
