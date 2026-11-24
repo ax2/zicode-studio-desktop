@@ -111,9 +111,14 @@ describe("directory-owned resource execution", () => {
       rows: [{ path: "合成文件.txt", difference: "onlyLeft", left: { kind: "file", logicalBytes: "47" } }],
       projectionTruncated: false,
     };
+    const csv = { profile: "resource.host.directory-compare-csv.v1", index: 0,
+      resourceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", contentVersion: "c".repeat(64),
+      mimeType: "text/csv", byteLength: 182, expiresInSeconds: 900, origin: "host-report",
+      saved: false, derivedFrom: { resourceId: id, contentVersion: access.contentVersion } };
     const invokeResource = vi.fn(async (_owner, request) => ({ schemaVersion: 1, operationId: id,
-      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result: report }));
-    const f = fixture({ directoryUsage, invokeResource }, 1, false, receiver);
+      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result: report, reportResource: csv }));
+    const exports = { choose: vi.fn(async () => null), commit: vi.fn(), cancel: vi.fn(), verify: vi.fn() };
+    const f = fixture({ directoryUsage, invokeResource, exports }, 1, false, receiver);
     expect(directoryUsage.entry).not.toHaveBeenCalled();
     expect(document.querySelector('input[type="file"]')).toBeNull();
     f.button("Choose left and right folders").click();
@@ -129,6 +134,11 @@ describe("directory-owned resource execution", () => {
     f.button("Execute tool").click();
     await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
     expect(document.querySelector(".directory-compare-result").textContent).toContain("合成文件.txt");
+    expect(exports.choose).not.toHaveBeenCalled();
+    f.button("Save CSV as…").click();
+    expect(exports.choose).toHaveBeenCalledWith("workspace", { schemaVersion: 1, owner,
+      resourceId: csv.resourceId, contentVersion: csv.contentVersion });
+    expect(exports.commit).not.toHaveBeenCalled();
     expect(invokeResource.mock.calls[0][1]).toMatchObject({ resourceId: id, input: {} });
     expect(JSON.stringify(invokeResource.mock.calls[0][1])).not.toContain("左侧原件");
     expect(f.gateway.prepareResource).not.toHaveBeenCalled();

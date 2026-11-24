@@ -126,7 +126,16 @@ impl Pending {
         &mut self, report: &Value, report_profile: &str, max_bytes: usize,
     ) -> Result<(), ApiError> {
         let bytes = serde_json::to_vec_pretty(report).map_err(|_| rejected("invalid_output"))?;
-        if bytes.is_empty() || bytes.len() > max_bytes || self.host_report.is_some() {
+        if bytes.len() > max_bytes {
+            return Err(rejected("invalid_output"));
+        }
+        self.attach_host_report_bytes(bytes, report_profile, "application/json")
+    }
+
+    pub(in crate::host_server::plugin_resources) fn attach_host_report_bytes(
+        &mut self, bytes: Vec<u8>, report_profile: &str, mime: &str,
+    ) -> Result<(), ApiError> {
+        if bytes.is_empty() || self.host_report.is_some() {
             return Err(rejected("invalid_output"));
         }
         let source = self.sources.first().ok_or_else(|| rejected("resource_metadata_invalid"))?;
@@ -134,7 +143,7 @@ impl Pending {
         let version = sha256_hex(&bytes);
         let length = bytes.len();
         let mut descriptor = json!({"profile":report_profile,"index":0,"resourceId":id,"contentVersion":version,
-            "mimeType":"application/json","byteLength":length,"expiresInSeconds":900,
+            "mimeType":mime,"byteLength":length,"expiresInSeconds":900,
             "origin":"host-report","saved":false,
             "derivedFrom":{"resourceId":source.resource_id,"contentVersion":source.content_version}});
         if self.sources.len() > 1 {
@@ -144,7 +153,7 @@ impl Pending {
         }
         self.records.push((id, Record {
             output_profile: Profile::Draft1, owner: source.owner.clone(), proof: self.proof.clone(),
-            mime:"application/json".into(), expected:length, version,
+            mime:mime.into(), expected:length, version,
             chunks:vec![bytes.into()], uploaded:length, confirmed:true,
             expires:Instant::now()+Duration::from_secs(900),
             original: None,

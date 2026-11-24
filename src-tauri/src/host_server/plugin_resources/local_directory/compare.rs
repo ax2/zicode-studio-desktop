@@ -10,8 +10,8 @@ use std::{
 
 pub(super) const PROFILE: &str = "resource.local-directory.compare.draft1";
 pub(super) const PERMISSION: &str = "resource.directory.compare.read";
-pub(super) const PLUGIN: &str = "com.zicode.devtools.directory-compare";
-pub(super) const CAPABILITY: &str = "devtools.directory-compare.scan";
+pub(in crate::host_server::plugin_resources) const PLUGIN: &str = "com.zicode.devtools.directory-compare";
+pub(in crate::host_server::plugin_resources) const CAPABILITY: &str = "devtools.directory-compare.scan";
 
 const MAX_PAIRS: usize = 256;
 const HASH_BYTES: u64 = 256 * 1024 * 1024;

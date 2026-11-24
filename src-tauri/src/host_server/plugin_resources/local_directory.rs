@@ -7,6 +7,7 @@ mod duplicates;
 mod compare;
 mod usage;
 pub(super) use native_checksum::open_picked_file;
+pub(super) use compare::{CAPABILITY as COMPARE_CAPABILITY, PLUGIN as COMPARE_PLUGIN};
 
 use super::{export::Context, *};
 use cap_fs_ext::DirExt;
