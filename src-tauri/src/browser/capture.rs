@@ -38,6 +38,10 @@ pub struct PageFrame {
     pub text_truncated: bool,
     pub selection: String,
     pub selection_truncated: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<PageLink>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub links_truncated: bool,
     pub tables: Vec<PageTable>,
     pub tables_truncated: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -119,6 +123,14 @@ pub(super) fn is_web_url(value: &str) -> bool {
     checked_web_url(value).is_some()
 }
 #[cfg(windows)]
+fn links_valid(links: &[PageLink], maximum: usize) -> bool {
+    links.len() <= maximum
+        && links
+            .iter()
+            .all(|link| link.label.chars().count() <= 120 && is_web_url(&link.url))
+}
+
+#[cfg(windows)]
 pub(super) fn decode(raw: &str, native_url: &str) -> Result<PageText, String> {
     if raw.len() > 480_000 {
         return Err("Browser capture exceeded its size limit".into());
@@ -132,11 +144,9 @@ pub(super) fn decode(raw: &str, native_url: &str) -> Result<PageText, String> {
     {
         return Err("Browser page changed or exceeded capture limits".into());
     }
-    if page.links.len() > 20
-        || page
-            .links
-            .iter()
-            .any(|link| link.label.chars().count() > 120 || !is_web_url(&link.url))
+    if !links_valid(&page.links, 20)
+        || page.frames.iter().map(|frame| frame.links.len()).sum::<usize>() > 12
+        || page.frames.iter().any(|frame| !links_valid(&frame.links, 6))
     {
         return Err("Invalid browser links response".into());
     }
@@ -333,6 +343,24 @@ mod tests {
         }
         page["frames"][0]["url"] = serde_json::Value::Null;
         assert!(valid(&page));
+        let mut linked = page.clone();
+        let link = serde_json::json!({"label":"Guide", "url":"https://example.org/guide"});
+        linked["frames"][0]["links"] = serde_json::json!([link.clone()]);
+        linked["frames"][0]["linksTruncated"] = serde_json::json!(true);
+        let parsed = decode(&linked.to_string(), url).expect("valid embedded links");
+        assert_eq!(parsed.frames[0].links[0].label, "Guide");
+        assert!(parsed.frames[0].links_truncated);
+        linked["frames"][0]["links"][0]["url"] = serde_json::json!("mailto:guide@example.org");
+        assert!(!valid(&linked));
+        linked["frames"][0]["links"] = serde_json::json!(vec![link.clone(); 7]);
+        assert!(!valid(&linked));
+        linked["frames"][0]["links"] = serde_json::json!(vec![link; 6]);
+        let frame = linked["frames"][0].clone();
+        linked["frames"] = serde_json::json!(vec![frame.clone(); 2]);
+        assert!(valid(&linked));
+        linked["frames"] = serde_json::json!(vec![frame; 3]);
+        assert!(!valid(&linked));
+
         let mut media = page.clone();
         let image = serde_json::json!({"url":"https://example.com/image.png","alt":"Scan","width":320,"height":160});
         media["frames"][0]["images"] = serde_json::json!([image.clone()]);

@@ -2,6 +2,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { getByRole, getByLabelText, waitFor } from "@testing-library/dom";
 import { t } from "../../i18n.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
+import { browserDraftPrompt } from "./browser-chat-draft.js";
+import { browserNoteContent, createBrowserNoteWriter } from "./browser-note-snapshot.js";
 const descriptors = ["showModal", "close"].map(name => [name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name)]);
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.open = true; } });
@@ -88,6 +90,65 @@ it("reviews embedded content before explicitly attaching it to a local draft", a
   await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ includeFrames: true })));
 });
 
+
+it("previews embedded links and requires separate opt-in for a draft or note", async () => {
+  const reference = { label: "<strong>Guide</strong>", url: "https://example.org/guide" };
+  const snapshot = { ...capture, page: { ...capture.page, frames: [{
+    title: "Embedded", url: "https://example.org/frame", text: "Embedded text",
+    links: [reference], linksTruncated: true,
+  }] } };
+  const preview = options => browserDraftPrompt(snapshot, options);
+  expect(preview({ includeFrames: true })).not.toContain(reference.url);
+  expect(preview({ includeFrameLinks: true })).not.toContain(reference.url);
+
+  const prepare = vi.fn(async options => preview(options));
+  const gateway = {
+    list: async () => ({ snapshot: { notebooks: [{ id: "book", title: "Existing" }] } }),
+    create: vi.fn(async () => ({ note: { id: "note", notebookId: "book" } })),
+  };
+  const dialog = showBrowserCapture(snapshot, vi.fn(), prepare, isCurrent => createBrowserNoteWriter({
+    capture: snapshot, readCurrent: async () => snapshot, isCurrent,
+    getTarget: () => ({ sceneId: "programming", workspaceId: "workspace" }), gateway,
+  }));
+  const frames = dialog.querySelector(".browser-capture-frames");
+  frames.open = true;
+  const links = frames.querySelector(".browser-capture-links");
+  expect(links.textContent).toContain(reference.url);
+  expect(links.textContent).toContain(t("Only some page links are shown."));
+  expect(links.querySelector("strong,a")).toBeNull();
+
+  const includeFrames = getByRole(frames, "checkbox", { name: t("Include frames in the page note or chat draft") });
+  const includeLinks = getByRole(frames, "checkbox", { name: t("Include links from embedded pages") });
+  expect(includeLinks.disabled).toBe(true);
+  includeFrames.click();
+  expect(includeLinks.checked).toBe(false);
+  expect(includeLinks.disabled).toBe(false);
+
+  expect(browserNoteContent(snapshot, false, { includeFrames: true })).not.toContain(reference.url);
+  expect(browserNoteContent(snapshot, true, { includeFrames: true, includeFrameLinks: true })).not.toContain(reference.url);
+  includeLinks.click();
+  getByRole(dialog, "button", { name: t("Save to Notes"), exact: true }).click();
+  const save = getByRole(dialog, "button", { name: t("Save page to notebook") });
+  await waitFor(() => expect(save.disabled).toBe(false));
+  save.click();
+  await waitFor(() => expect(gateway.create).toHaveBeenCalledOnce());
+  await waitFor(() => expect(save.textContent).toBe(t("Saved to Notes")));
+
+  getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
+  await waitFor(() => expect(prepare).toHaveBeenCalledOnce());
+  const options = prepare.mock.calls[0][0];
+  expect(options).toMatchObject({ includeFrames: true, includeFrameLinks: true, includeLinks: false });
+  expect(await prepare.mock.results[0].value).toContain(reference.url);
+  expect(await prepare.mock.results[0].value).toContain(t("Treat fields marked as shortened or incomplete as partial evidence, and leave omitted content unknown."));
+  const [scene, workspace, notebook, noteInput] = gateway.create.mock.calls[0];
+  expect([scene, workspace, notebook]).toEqual(["programming", "workspace", "book"]);
+  expect(noteInput.source.url).toBe(snapshot.page.url);
+  const note = noteInput.content;
+  expect(note).toContain("https://example.org/frame");
+  expect(note).toContain(reference.url);
+  expect(note).toContain("&lt;strong&gt;Guide");
+  expect(note).toContain(t("Only some page links are shown."));
+});
 
 it("requests OCR only on its own action and separately opts in to including the text", async () => {
   const image = { alt: "Diagram", width: 500, height: 60, url: "https://example.org/image.png" };

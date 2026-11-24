@@ -6,11 +6,11 @@ function webEvidenceContext(incomplete) {
   return incomplete ? `${context} ${t("Treat fields marked as shortened or incomplete as partial evidence, and leave omitted content unknown.")}` : context;
 }
 
-export function browserDraftPrompt(capture, { includeLinks = false, includeTables = false, includeMedia = false, includeFrames = false, imageText = [], question, summarize = false } = {}) {
+export function browserDraftPrompt(capture, { includeLinks = false, includeTables = false, includeMedia = false, includeFrames = false, includeFrameLinks = false, imageText = [], question, summarize = false } = {}) {
   const { links, linksTruncated, tables, tablesTruncated, metadata, images, imagesTruncated, frames, framesOmitted, ...page } = capture.page;
   const hasMedia = images?.length || Object.values(metadata ?? {}).some(Boolean);
-  // The text-only frame attachment does not include image previews or recognition locators.
-  const frameText = includeFrames && frames?.map(({ images, imagesTruncated, imageLocator, ...value }) => value);
+  const frameText = includeFrames && frames?.map(({ images, imagesTruncated, imageLocator, links, linksTruncated, ...value }) =>
+    includeFrameLinks ? { ...value, links, linksTruncated } : value);
   const userQuestion = typeof question === "string" ? question.slice(0, 5000).trim() : "";
   const task = summarize ? t("Summarize this captured web page and cite its source URL.") :
     userQuestion ? `${t("Question about this page")}\n${userQuestion}` :
@@ -24,7 +24,7 @@ export function browserDraftPrompt(capture, { includeLinks = false, includeTable
   };
   const incomplete = page.truncated || page.textTruncated || page.selectionTruncated ||
     attachments.linksTruncated || attachments.tablesTruncated || attachments.imagesTruncated ||
-    attachments.framesOmitted || attachments.frames?.some(isFrameTextIncomplete) || imageText.some(result => result.truncated);
+    attachments.framesOmitted || attachments.frames?.some(frame => isFrameTextIncomplete(frame) || frame.linksTruncated) || imageText.some(result => result.truncated);
   return [
     task,
     webEvidenceContext(incomplete),
