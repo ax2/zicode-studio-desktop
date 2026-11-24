@@ -133,6 +133,10 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (dock && prepareDraft) {
     questionLabel = document.createElement("label"); questionLabel.className = "browser-capture-question";
     question = document.createElement("textarea"); question.className = "ui-textarea"; question.rows = 2; question.maxLength = 5000;
+    if (dock.questionDraft) {
+      question.value = dock.questionDraft.value;
+      question.addEventListener("input", () => dock.questionDraft.remember(question.value));
+    }
     const label = document.createElement("span");
     setLabel(label, "Question about this page");
     questionLabel.append(label, question);
@@ -182,7 +186,10 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
       draftCancelButton.focus();
       try {
         await prepareDraft(material, isPreparing);
-        if (isPreparing()) dismiss();
+        if (isPreparing()) {
+          if (intent.question?.trim()) dock?.questionDraft?.clear();
+          dismiss();
+        }
       } catch (reason) {
         if (!isPreparing()) return;
         draftStatus.textContent = "";
@@ -282,6 +289,11 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   if (clip) dialog.append(clip.panel, clip.open);
   if (compare) dialog.append(compare.panel);
   if (dock) {
+    dialog.invalidateBrowserCapture = restoreFocus => {
+      const ownedFocus = restoreFocus && dialog.contains(document.activeElement);
+      cancelDraft?.();
+      dismiss(ownedFocus);
+    };
     for (const previous of dock.host.children) previous.disposeBrowserModel?.();
     dock.host.replaceChildren(dialog);
     dock.host.hidden = false;

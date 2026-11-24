@@ -177,7 +177,7 @@ it("reviews only selected tab sources and hands off their bounded, distinctly ma
     .toEqual([current.tab, chosen.tab, current.tab, chosen.tab]);
 });
 
-it("resizes the live surface around the open assistant and rejects the captured source after navigation", async () => {
+it("resizes the live surface around the assistant and closes the stale preview after navigation", async () => {
   setLocale("zh-CN");
   const host = document.createElement("main");
   document.body.append(host);
@@ -222,11 +222,14 @@ it("resizes the live surface around the open assistant and rejects the captured 
   expect(getByRole(panel, "textbox", { name: "Question about this page" })).toBe(question);
   expect(getByRole(panel, "button", { name: "Prepare summary draft" })).toBeTruthy();
   expect(question.value).toBe("What changed?");
+  const staleDraft = getByRole(panel, "button", { name: t("Prepare chat draft") });
+  invoke.mockClear();
   publish({ kind: "navigationStarted", tab: capture.tab });
-  getByRole(panel, "button", { name: t("Prepare chat draft") }).click();
-  await waitFor(() => expect(getByRole(panel, "alert").textContent).toBe(t("Page or conversation changed. Read the page again.")));
+  expect(panel.hidden).toBe(true);
+  expect(question.isConnected).toBe(false);
+  staleDraft.click();
+  await waitFor(() => present(900));
   expect(handoff).not.toHaveBeenCalled();
-  expect(question.value).toBe("What changed?");
 });
 
 it("saves a reviewed browser answer to Notes and reopens the saved document with its source", async () => {
@@ -338,6 +341,7 @@ async function openControlledAssistant({ capturePage, handoff, target, modelGate
   document.body.append(host);
   vi.stubGlobal("ResizeObserver", class { observe() {} });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 20, y: 50, width: 900, height: 580 });
+  let emit;
   const pages = [capture, ...["chosen", "extra"].map(tab => ({
     ...capture, tab, documentRevision: 1,
     page: { ...capture.page, title: tab === "chosen" ? "Chosen page" : "Extra page", url: "https://example.invalid/" + tab },
@@ -356,14 +360,14 @@ async function openControlledAssistant({ capturePage, handoff, target, modelGate
     }
     return {};
   });
-  app = setupBrowserApp({ invoke, listen: vi.fn(async () => () => {}), onPrepareDraft: handoff,
+  app = setupBrowserApp({ invoke, listen: vi.fn(async (_name, callback) => { emit = payload => callback({ payload }); return () => {}; }), onPrepareDraft: handoff,
     getTarget: () => target, modelGateway });
   app.renderContent(host);
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_control", { request: expect.objectContaining({ kind: "present", tab: capture.tab }) }));
   getByRole(host, "button", { name: "Read page" }).click();
   const assistant = await waitFor(() => getByRole(host, "complementary", { name: "Browser assistant" }));
   const readTabs = () => invoke.mock.calls.filter(([command]) => command === "browser_capture_page").map(([, args]) => args.tab);
-  return { host, assistant, readTabs };
+  return { host, assistant, readTabs, emit };
 }
 
 async function openControlledComparison(options) {
@@ -374,6 +378,82 @@ async function openControlledComparison(options) {
   panel.getByRole("checkbox", { name: /^Chosen page/ }).click();
   return { host, group, panel, readTabs };
 }
+
+it("keeps an unsent question for its document and hides the old preview when the tab changes", async () => {
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "session", runtimeMode: "ai" };
+  const handoff = vi.fn();
+  let revision = capture.documentRevision;
+  const capturePage = source => source.tab === capture.tab ? { ...source, documentRevision: revision } : source;
+  const { host, assistant, emit } = await openControlledAssistant({ capturePage, handoff, target });
+  const panel = within(assistant);
+  const question = () => panel.getByRole("textbox", { name: "Question about this page" });
+  const read = getByRole(host, "button", { name: "Read page" });
+  const open = async value => {
+    read.click();
+    await waitFor(() => expect(question().value).toBe(value));
+    expect(document.activeElement).toBe(question());
+  };
+  const activate = async title => {
+    const tab = getByRole(host, "tab", { name: title });
+    tab.click();
+    await waitFor(() => expect(getByRole(host, "tab", { name: title }).getAttribute("aria-selected")).toBe("true"));
+  };
+
+  question().value = "What changed in the reviewed source?";
+  question().dispatchEvent(new Event("input", { bubbles: true }));
+  question().dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  expect(assistant.hidden).toBe(true);
+  await open("What changed in the reviewed source?");
+
+  await activate("Chosen page");
+  expect(assistant.hidden).toBe(true);
+  expect(assistant.textContent).not.toContain(capture.page.url);
+  await open("");
+  question().value = "Question for the other tab";
+  question().dispatchEvent(new Event("input", { bubbles: true }));
+  await activate("Manual");
+  await open("What changed in the reviewed source?");
+
+  emit({ kind: "navigationStarted", tab: capture.tab });
+  revision = capture.documentRevision + 1;
+  emit({ kind: "navigationFinished", tab: capture.tab, documentRevision: revision, success: true });
+  expect(assistant.hidden).toBe(true);
+  await open("");
+  await activate("Chosen page");
+  await open("Question for the other tab");
+  expect(handoff).not.toHaveBeenCalled();
+});
+
+it("does not restore a typed question into a different Chat session", async () => {
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "original", runtimeMode: "ai" };
+  const handoff = vi.fn();
+  const { host, assistant } = await openControlledAssistant({ handoff, target });
+  const panel = within(assistant);
+  const question = () => panel.getByRole("textbox", { name: "Question about this page" });
+  question().value = "Question for the original conversation";
+  question().dispatchEvent(new Event("input", { bubbles: true }));
+  panel.getByRole("button", { name: "Close" }).click();
+  target.sessionId = "different";
+  getByRole(host, "button", { name: "Read page" }).click();
+  await waitFor(() => expect(question().value).toBe(""));
+  expect(handoff).not.toHaveBeenCalled();
+});
+
+it.each(["chat", "summary"])("preserves only the question that was not transferred after preparing a %s draft", async intent => {
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "session", runtimeMode: "ai" };
+  const handoff = vi.fn(async () => {});
+  const { host, assistant } = await openControlledAssistant({ handoff, target });
+  const panel = within(assistant);
+  const question = () => panel.getByRole("textbox", { name: "Question about this page" });
+  const text = "Draft me later";
+  question().value = text;
+  question().dispatchEvent(new Event("input", { bubbles: true }));
+  panel.getByRole("button", { name: intent === "chat" ? "Prepare chat draft" : "Prepare summary draft" }).click();
+  await waitFor(() => expect(assistant.hidden).toBe(true));
+  expect(handoff).toHaveBeenCalledOnce();
+  getByRole(host, "button", { name: "Read page" }).click();
+  await waitFor(() => expect(question().value).toBe(intent === "chat" ? "" : text));
+});
 
 it("cancels a page draft while rereading its source and preserves the question and attachments", async () => {
   let finishRead, readCount = 0;
