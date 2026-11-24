@@ -109,6 +109,48 @@ it("restores reading position and text size for the same page and returns focus 
   expect(h.invoke).not.toHaveBeenCalledWith("browser_control", { request: expect.objectContaining({ kind: "navigate" }) });
 });
 
+it("keeps the current reading block and focus through font-size changes", async () => {
+  const h = await setup();
+  const dialog = await h.openFromMenu();
+  const region = getByRole(dialog, "region", { name: "Page content" });
+  const paragraph = region.querySelector("article > p:last-child");
+  const larger = getByRole(dialog, "button", { name: "Larger reading text" });
+  const smaller = getByRole(dialog, "button", { name: "Smaller reading text" });
+  const layout = {
+    "0": { start: 60, height: 30 }, "1": { start: 90, height: 40 },
+    "2": { start: 120, height: 60 }, "3": { start: 170, height: 90 },
+  };
+  region.getBoundingClientRect = () => ({ top: 80 });
+  paragraph.getBoundingClientRect = () => {
+    const { start, height } = layout[dialog.dataset.readerSize];
+    const top = 80 + start - region.scrollTop;
+    return { top, height, bottom: top + height };
+  };
+  region.scrollTop = 100;
+
+  larger.focus();
+  larger.click();
+  expect(region.scrollTop).toBe(135);
+  larger.click();
+  expect(region.scrollTop).toBe(192.5);
+  expect(larger.getAttribute("aria-disabled")).toBe("true");
+  expect(document.activeElement).toBe(larger);
+  larger.click();
+  expect(region.scrollTop).toBe(192.5);
+
+  smaller.focus();
+  smaller.click();
+  expect(region.scrollTop).toBe(135);
+  smaller.click();
+  expect(region.scrollTop).toBe(100);
+  smaller.click();
+  expect(region.scrollTop).toBe(67.5);
+  expect(smaller.getAttribute("aria-disabled")).toBe("true");
+  expect(document.activeElement).toBe(smaller);
+  smaller.click();
+  expect(region.scrollTop).toBe(67.5);
+});
+
 it("restores the native page after Escape and resets position when the same address reloads", async () => {
   const h = await setup();
   const dialog = await h.openFromPage();
