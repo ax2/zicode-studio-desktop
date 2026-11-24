@@ -85,15 +85,16 @@ try {
     $env:ZICODE_ACTUATOR_UP_PORT = Read-FixturePort 'up'
     $env:ZICODE_ACTUATOR_DOWN_PORT = Read-FixturePort 'down'
 
-    & $binary spring_actuator_candidate_host_tests --include-ignored --test-threads=2 --nocapture 2>&1 |
+    & $binary spring_actuator_candidate_host_tests --include-ignored --test-threads=1 --nocapture 2>&1 |
         Tee-Object -FilePath "$run/host-tests.log"
     if ($LASTEXITCODE -ne 0) {
         throw "Studio Host tests failed with exit code $LASTEXITCODE."
     }
 
-    Assert-Requests -Name 'up' -Paths 'health', 'info', 'metrics'
-    Assert-Requests -Name 'down' -Paths 'health'
-    'Spring Boot logged exactly four confirmed GETs without credentials.'
+    # The two live tests run serially against the same fixture pair.
+    Assert-Requests -Name 'up' -Paths 'health', 'info', 'metrics', 'health', 'info', 'metrics'
+    Assert-Requests -Name 'down' -Paths 'health', 'health'
+    'Spring Boot logged exactly four confirmed GETs per candidate without credentials.'
 } finally {
     $env:ZICODE_ACTUATOR_UP_PORT = $previousUp
     $env:ZICODE_ACTUATOR_DOWN_PORT = $previousDown
