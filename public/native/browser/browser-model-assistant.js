@@ -58,6 +58,8 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     save.disabled = busy || !analysis || Boolean(savedArtifact);
     open.hidden = !savedArtifact;
     open.disabled = busy;
+    save.classList.toggle("hidden", save.hidden);
+    open.classList.toggle("hidden", open.hidden);
   }
   function render(value) {
     snapshot = value;
@@ -162,11 +164,12 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       });
       if (request.cancelled) throw Error("module_model_request_cancelled");
       if (!current() || mine !== generation) return;
+      analysis = { text: value.text, model: value.model, kind, question: requestedQuestion, generatedAt: new Date().toISOString() };
       if (visual) {
+        const { source, pageUrl, capturedAt, documentRevision, frame } = visual.preview;
+        analysis.image = { source, pageUrl, capturedAt, documentRevision, frame };
         imageReview.showResult(visual.preview);
         clearImage();
-      } else {
-        analysis = { text: value.text, model: value.model, kind, question: requestedQuestion, generatedAt: new Date().toISOString() };
       }
       answer.value = value.text; answer.hidden = false;
       const tokens = Number.isSafeInteger(value.usage?.totalTokens)

@@ -1191,6 +1191,7 @@ const zhCN = {
   "Document version": "文档版本",
   "Image frame source": "图片所在的内嵌页",
   "Frame document version": "内嵌页文档版本",
+  "Image analysis": "图片理解",
   "Image analysis source": "图片理解结果来源",
   "Send only this image": "仅发送这张图片",
   "Discard image preview": "取消图片预览",

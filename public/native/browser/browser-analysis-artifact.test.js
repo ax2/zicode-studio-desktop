@@ -87,6 +87,34 @@ it("sends the exact contract through the existing ArtifactGateway rather than in
   expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ sceneId: "programming", workspaceId: "11111111-1111-4111-8111-111111111111", ...fixture, summary: "" });
 });
 
+it("preserves image capture time and inline-frame provenance in the reopened plain text", () => {
+  setLocale("en");
+  const image = { pageUrl: capture.page.url, documentRevision: capture.documentRevision,
+    capturedAt: "2026-11-18T06:00:30Z", source: { url: "https://assets.example.org/example.png", alt: "Fixture drawing" },
+    frame: { url: null, title: "Inline fixture", documentRevision: "inline-v1" } };
+  const draft = browserAnalysisArtifact(capture, { ...analysis, kind: "image", image });
+  expect(draft.title).toBe("Image analysis · Fixture drawing");
+  expect(draft.mimeType).toBe("text/plain");
+  expect(draft.provenance.source).toEqual({ ...capture.page, documentRevision: capture.documentRevision,
+    capturedAt: image.capturedAt, image: image.source, frame: image.frame });
+  expect(draft.content).toContain("Image frame source: Inline frame");
+  expect(draft.content).toContain("Frame document version: inline-v1");
+  expect(draft.content).toContain("Captured at: 2026-11-18T06:00:30Z");
+  expect(draft.content).toContain("<script>inert</script>");
+});
+
+it("rejects images outside the captured document or an allowed frame", () => {
+  setLocale("en");
+  const image = { pageUrl: capture.page.url, documentRevision: capture.documentRevision,
+    capturedAt: capture.capturedAt, source: { url: "https://assets.example.org/example.png", alt: "Fixture drawing" } };
+  for (const stale of [{ pageUrl: "https://example.org/changed" }, { documentRevision: "stale" },
+    { source: { url: "https://name:secret@example.org/picture.png" } },
+    { frame: { url: "https://other.example.org/frame", documentRevision: "frame-v1" } }]) {
+    expect(() => browserAnalysisArtifact(capture, { ...analysis, kind: "image", image: { ...image, ...stale } }))
+      .toThrow("This analysis cannot be saved.");
+  }
+});
+
 it("fits real Host title limits without splitting emoji and retains the complete original title as provenance", () => {
   setLocale("en");
   const title = `Synthetic\n${"😀".repeat(220)}`;

@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
+import { fireEvent, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { setLocale } from "../../i18n.js";
+import { createBrowserAnalysisArtifacts } from "./browser-analysis-artifact.js";
 import { createBrowserModelAssistant } from "./browser-model-assistant.js";
 import { createBrowserModelGateway } from "./browser-model-gateway.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
@@ -185,12 +186,23 @@ it("reviews only the clicked embedded image, sends on separate confirmation and 
     ask: vi.fn(async () => ({ text: "Visual fixture answer.", model: b })), cancel: vi.fn(),
   };
   const previewImage = vi.fn(async () => reviewedImage);
+  const artifact = { id: "saved-image-analysis" };
+  const target = { sceneId: "programming", workspaceId: "11111111-1111-4111-8111-111111111111" };
+  const gateway = { create: vi.fn().mockRejectedValueOnce(Error("Disk full")).mockResolvedValue({ artifact }) };
+  const analysisArtifacts = createBrowserAnalysisArtifacts({
+    capture: snapshot, getTarget: () => target, isCurrent: () => host.isConnected, gateway,
+  });
+  const onOpen = vi.fn();
+  window.addEventListener("zicode:open-artifact", onOpen);
   const dialog = showBrowserCapture(snapshot, vi.fn(), undefined, undefined, undefined, false,
-    { host, trigger, modelActions: actions, previewImage });
+    { host, trigger, modelActions: actions, previewImage, analysisArtifacts });
   try {
     await waitFor(() => expect(getByRole(dialog, "combobox").disabled).toBe(false));
     expect(previewImage).not.toHaveBeenCalled();
     expect(actions.ask).not.toHaveBeenCalled();
+    expect(queryByRole(dialog, "button", { name: "Save analysis to Artifacts" })).toBeNull();
+    expect(queryByRole(dialog, "button", { name: "Open saved artifact" })).toBeNull();
+    expect(dialog.querySelector('[data-i18n-text="Save analysis to Artifacts"]').classList.contains("hidden")).toBe(true);
     const parent = dialog.querySelector(".browser-capture-frames");
     parent.open = true;
     parent.querySelector("details").open = true;
@@ -200,6 +212,7 @@ it("reviews only the clicked embedded image, sends on separate confirmation and 
     expect(previewImage).toHaveBeenCalledOnce();
     expect(actions.ask).not.toHaveBeenCalled();
     expect(dialog.textContent).toContain("Image destination: fixture / B");
+    expect(queryByRole(dialog, "button", { name: "Save analysis to Artifacts" })).toBeNull();
     fireEvent.click(getByRole(dialog, "button", { name: "Send only this image" }));
     await waitFor(() => expect(getByRole(dialog, "textbox", { name: "Browser model answer" }).value).toBe("Visual fixture answer."));
     expect(previewImage).toHaveBeenCalledTimes(2);
@@ -213,7 +226,36 @@ it("reviews only the clicked embedded image, sends on separate confirmation and 
       expect(result.textContent).toContain(value);
     }
     expect(dialog.querySelector(".browser-image-review img").hasAttribute("src")).toBe(false);
-  } finally { dialog.disposeBrowserModel(); }
+    const save = getByRole(dialog, "button", { name: "Save analysis to Artifacts" });
+    expect(save.classList.contains("hidden")).toBe(false);
+    expect(gateway.create).not.toHaveBeenCalled();
+    fireEvent.click(save);
+    await waitFor(() => expect(dialog.textContent).toContain("Could not save analysis. Try again."));
+    expect(getByRole(dialog, "textbox", { name: "Browser model answer" }).value).toBe("Visual fixture answer.");
+    expect(result.textContent).toContain(details.documentRevision);
+    fireEvent.click(save);
+    const open = await waitFor(() => getByRole(dialog, "button", { name: "Open saved artifact" }));
+    expect(gateway.create).toHaveBeenCalledTimes(2);
+    expect(gateway.create.mock.calls[1]).toEqual(gateway.create.mock.calls[0]);
+    const [sceneId, workspaceId, draft] = gateway.create.mock.calls[0];
+    expect({ sceneId, workspaceId }).toEqual(target);
+    expect(draft).toMatchObject({ mimeType: "text/plain", provenance: {
+      source: { url: reviewedImage.pageUrl, documentRevision: reviewedImage.documentRevision,
+        capturedAt: reviewedImage.capturedAt, image: { url: reviewedImage.source.url }, frame: details },
+      analysis: { kind: "image", model: { provider: b.provider, modelId: b.modelId }, generatedAt: expect.any(String) },
+    } });
+    expect(draft.content).toContain("Visual fixture answer.");
+    expect(JSON.stringify(draft)).not.toContain(reviewedImage.pngBase64);
+    expect(JSON.stringify(draft)).not.toContain("Private page fixture");
+    expect(JSON.stringify(draft)).not.toContain("Frame fixture");
+    fireEvent.click(open);
+    expect(onOpen.mock.calls[0][0].detail).toEqual({ artifactId: artifact.id, ...target });
+    expect(previewImage).toHaveBeenCalledTimes(2);
+    expect(actions.ask).toHaveBeenCalledOnce();
+  } finally {
+    window.removeEventListener("zicode:open-artifact", onOpen);
+    dialog.disposeBrowserModel();
+  }
 });
 
 it("leaves image sending disabled for a text-only model without falling back to a page request", async () => {

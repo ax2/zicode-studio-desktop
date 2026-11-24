@@ -1,29 +1,50 @@
 import { t } from "../../i18n.js";
 import { openSavedArtifact } from "../features/artifact-navigation.js";
 
+function webUrl(value) {
+  try {
+    const url = new URL(value);
+    if (/^https?:$/.test(url.protocol) && !url.username && !url.password) return url;
+  } catch { /* Invalid source URL. */ }
+  return null;
+}
+
 // Save the reviewed result, not a fresh page read or another model request.
 export function browserAnalysisArtifact(capture, analysis) {
   const { url, title } = capture.page;
-  const source = new URL(url);
-  if (!/^https?:$/.test(source.protocol) || source.username || source.password ||
-      !analysis?.text?.trim() || !["summary", "analysis"].includes(analysis.kind)) {
+  const sourceUrl = webUrl(url);
+  const labels = { summary: "Page summary", analysis: "Page analysis", image: "Image analysis" };
+  if (!sourceUrl || !analysis?.text?.trim() || !Object.hasOwn(labels, analysis.kind)) {
     throw new Error(t("This analysis cannot be saved."));
   }
-  const label = t(analysis.kind === "summary" ? "Page summary" : "Page analysis");
-  const readableTitle = `${label} · ${title || url}`.replace(/\p{Cc}/gu, " ").replace(/\s+/gu, " ").trim();
+  const source = { url, title, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision };
+  const label = t(labels[analysis.kind]);
+  const details = [label, title || url, url];
+  if (analysis.kind === "image") {
+    const image = analysis.image;
+    const frame = image?.frame;
+    if (!webUrl(image?.source?.url) || image.pageUrl !== url || image.documentRevision !== capture.documentRevision ||
+        (frame?.url && webUrl(frame.url)?.origin !== sourceUrl.origin)) {
+      throw new Error(t("This analysis cannot be saved."));
+    }
+    source.capturedAt = image.capturedAt;
+    source.image = { url: image.source.url, alt: image.source.alt };
+    details.push(`${t("Image source")}: ${source.image.url}`, `${t("Document version")}: ${source.documentRevision}`);
+    if (frame) {
+      source.frame = { url: frame.url, title: frame.title, documentRevision: frame.documentRevision };
+      details.push(`${t("Image frame source")}: ${frame.url || t("Inline frame")}`,
+        `${t("Frame document version")}: ${frame.documentRevision}`);
+    }
+  }
+  const readableTitle = `${label} · ${source.image?.alt || title || url}`.replace(/\p{Cc}/gu, " ").replace(/\s+/gu, " ").trim();
+  details.push(`${t("Captured at")}: ${source.capturedAt}`, `${t("Generated at")}: ${analysis.generatedAt}`, "", analysis.text);
   return {
     pluginId: "com.zicode.artifacts", kind: "report",
     title: [...readableTitle].slice(0, 200).join(""),
     mimeType: "text/plain",
-    content: `${label}
-${title || url}
-${url}
-${t("Captured at")}: ${capture.capturedAt}
-${t("Generated at")}: ${analysis.generatedAt}
-
-${analysis.text}`,
+    content: details.join("\n"),
     provenance: { producer: "browser.analysis", sourceTrust: "untrusted-web-content", contentTrust: "untrusted-model-output",
-      source: { url, title, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision },
+      source,
       analysis: { kind: analysis.kind, generatedAt: analysis.generatedAt, question: analysis.question || "",
         model: { provider: analysis.model.provider, modelId: analysis.model.modelId } } },
   };
