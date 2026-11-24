@@ -19,6 +19,7 @@ pub(super) struct Record {
     pub json_value: Option<Value>,
     pub qr_png: Option<Arc<[u8]>>,
     pub table: TableExports,
+    pub quality_report_json: bool,
     expires: Instant,
 }
 
@@ -62,6 +63,20 @@ fn table_exports(scope: &Scope, text: &str) -> Option<TableExports> {
         .filter(|raw| raw.len() <= MAX_TABLE_EXPORT_BYTES && is_columnar_table(raw))
         .map(Arc::from);
     Some(TableExports { csv, json })
+}
+
+fn is_quality_report_json(text: &str) -> bool {
+    let Ok(report) = serde_json::from_str::<Value>(text) else {
+        return false;
+    };
+    let rows = report.get("rows").and_then(Value::as_u64);
+    let duplicates = report
+        .get("duplicateRowsAfterFirst")
+        .and_then(Value::as_u64);
+    rows.zip(duplicates)
+        .is_some_and(|(rows, duplicates)| duplicates <= rows)
+        && report.get("columns").is_some_and(Value::is_array)
+        && report.get("notes").is_some_and(Value::is_string)
 }
 
 fn is_columnar_table(raw: &str) -> bool {
@@ -174,6 +189,10 @@ impl Store {
             .then(|| table_exports(&scope, &text))
             .flatten()
             .unwrap_or_default();
+        let quality_report_json = json_value.is_none()
+            && scope.is_quality_report()
+            && text.len() <= MAX_TABLE_EXPORT_BYTES
+            && is_quality_report_json(&text);
         let bytes_added =
             text.len() + qr_png.as_ref().map_or(0, |png| png.len()) + table_exports.payload_bytes();
         if self
@@ -208,11 +227,15 @@ impl Store {
                 "contentVersion": sha256_hex(csv.as_bytes()),
             });
         }
-        if let Some(table) = &table_exports.json {
+        if let Some(json) = table_exports
+            .json
+            .as_deref()
+            .or(quality_report_json.then_some(text.as_str()))
+        {
             descriptor["jsonExport"] = json!({
                 "mimeType": "application/json",
-                "byteLength": table.len(),
-                "contentVersion": sha256_hex(table.as_bytes()),
+                "byteLength": json.len(),
+                "contentVersion": sha256_hex(json.as_bytes()),
             });
         }
         self.records.insert(
@@ -227,6 +250,7 @@ impl Store {
                 json_value,
                 qr_png,
                 table: table_exports,
+                quality_report_json,
                 expires: Instant::now() + RESULT_TTL,
             },
         );
@@ -348,6 +372,56 @@ mod tests {
             table_exports(&scope, &text).unwrap().json.as_deref(),
             Some(empty)
         );
+    }
+
+    #[test]
+    fn quality_json_exports_original_bytes_once_and_rejects_other_documents() {
+        let scope = Scope {
+            workspace_id: "workspace".into(),
+            scene_id: "programming".into(),
+            plugin_id: "com.zicode.devtools.compute".into(),
+            capability_id: "devtools.compute.quality.json".into(),
+        };
+        let mut store = Store::default();
+        let report =
+            r#" { "notes" : "本地报告", "columns": [], "rows": 0, "duplicateRowsAfterFirst": 0 } "#;
+        let padded = format!(
+            "{report}{}",
+            " ".repeat(MAX_TABLE_EXPORT_BYTES - report.len())
+        );
+        let capture = |store: &mut Store, scope: Scope, text: &str| {
+            store
+                .capture(
+                    scope,
+                    "proof".into(),
+                    "1".into(),
+                    &json!({"ok":true,"data":{"text":text}}),
+                )
+                .unwrap()
+        };
+        for text in [report, &padded] {
+            let descriptor = capture(&mut store, scope.clone(), text);
+            assert_eq!(descriptor["jsonExport"]["byteLength"], text.len());
+            assert_eq!(
+                descriptor["jsonExport"]["contentVersion"],
+                sha256_hex(text.as_bytes())
+            );
+            assert!(descriptor["csvExport"].is_null());
+            let record = store
+                .record(&scope, descriptor["resultId"].as_str().unwrap())
+                .unwrap();
+            assert!(record.quality_report_json);
+            assert_eq!(record.payload_bytes(), text.len());
+            assert_eq!(record.text, text);
+        }
+        for text in ["not-json", "[]", r#"{"csv":"a,b"}"#, &format!("{padded} ")] {
+            assert!(capture(&mut store, scope.clone(), text)["jsonExport"].is_null());
+        }
+        let unrelated = Scope {
+            capability_id: "devtools.compute.quality.unknown".into(),
+            ..scope
+        };
+        assert!(capture(&mut store, unrelated, report)["jsonExport"].is_null());
     }
 
     #[test]

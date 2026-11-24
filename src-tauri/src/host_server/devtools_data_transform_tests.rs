@@ -305,6 +305,63 @@ async fn data_transform_preview_frozen_host_results() {
             table.len()
         );
     }
+    let quality = [
+        (
+            "json",
+            r#"[{"数值":9223372036854775807},{"数值":9223372036854775806},{"数值":9223372036854775807},{"数值":" "},{}]"#,
+            5,
+            1,
+        ),
+        ("csv", "城市,标签\r\n广州,A\r\n广州,A\r\n北京, ", 3, 0),
+        ("tsv", "城市\t标签\r\n广州\tA\r\n广州\tA\r\n北京\t ", 3, 0),
+    ];
+    for (format, input, rows, missing) in quality {
+        let operation = format!("quality.{format}");
+        let request = json!({
+            "workspaceId": workspace, "sceneId": "programming", "pluginId": plugin,
+            "capabilityId": format!("devtools.compute.{operation}"), "captureResult": true,
+            "input": {"text": input},
+        });
+        let response = client
+            .post(&endpoint)
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&request)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let response: Value = response.json().await.unwrap();
+        assert_eq!(response["result"]["ok"], true, "{format}: {response}");
+        assert!(response["resultRef"]["csvExport"].is_null());
+        let text = response["result"]["data"]["text"].as_str().unwrap();
+        let report: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(report["rows"], rows);
+        assert_eq!(report["duplicateRowsAfterFirst"], 1);
+        let column = &report["columns"][if format == "json" { 0 } else { 1 }];
+        assert_eq!(
+            column["column"],
+            if format == "json" { "数值" } else { "标签" }
+        );
+        assert_eq!(column["missingOrNull"], missing);
+        assert_eq!(column["blankStrings"], 1);
+        assert_eq!(column["mixedNonNullTypes"], format == "json");
+        verify_table_export(
+            &host,
+            &root,
+            workspace,
+            &response,
+            ExportCase {
+                format: "json",
+                mime_type: "application/json",
+                operation: &operation,
+                stem: "data-quality-report",
+                expected: text,
+                revoke: true,
+            },
+        );
+        println!("DATA_QUALITY_REPORT format={format} bytes={}", text.len());
+    }
+
     host.stop_and_wait().await.unwrap();
     std::fs::remove_dir_all(root).unwrap();
 }

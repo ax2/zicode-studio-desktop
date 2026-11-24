@@ -788,23 +788,23 @@
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.quality.json",
           "kind": "capability",
-          "scope": "输入或导入 8 KiB 以内的 UTF-8 JSON 文件，可撤销最近一次导入。选项留空，报告空值、空白、重复行和类型分布。"
+          "scope": "输入或导入 8 KiB 以内的 UTF-8 JSON 文件，可撤销最近一次导入。选项留空，报告空值、空白、重复行和类型分布。成功报告可确认另存原始 JSON。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.quality.csv",
           "kind": "capability",
-          "scope": "输入或导入 8 KiB 以内的 UTF-8 CSV 文件，可撤销最近一次导入。选项留空，报告空值、空白、重复行和类型分布。"
+          "scope": "输入或导入 8 KiB 以内的 UTF-8 CSV 文件，可撤销最近一次导入。选项留空，报告空值、空白、重复行和类型分布。成功报告可确认另存原始 JSON。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.quality.tsv",
           "kind": "capability",
-          "scope": "输入或导入 8 KiB 以内的 UTF-8 TSV 文件，可撤销最近一次导入。选项留空，报告空值、空白、重复行和类型分布。"
+          "scope": "输入或导入 8 KiB 以内的 UTF-8 TSV 文件，可撤销最近一次导入。选项留空，报告空值、空白、重复行和类型分布。成功报告可确认另存原始 JSON。"
         }
       ],
       "fullSourceScopeAccepted": false,
-      "blocker": "当前 Windows 已验证手动输入及按格式导入 8 KiB UTF-8 原文件和撤销。系统文件窗口、原生大输入、报告文件保存和完整工作流仍需各自验证。",
+      "blocker": "当前 Windows 已验证手动输入及按格式导入 8 KiB UTF-8 原文件和撤销。系统文件窗口、原生大输入和完整独立工具范围仍需各自验证。",
       "sourceScope": "JSON 对象数组、CSV/TSV 的空值、重复行、类型分布与混合类型报告"
     },
     {

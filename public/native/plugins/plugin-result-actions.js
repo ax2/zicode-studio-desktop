@@ -166,7 +166,9 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     const tableResult = computeOutput && (scope.capabilityId?.startsWith("devtools.compute.transform.") ||
       /^devtools\.compute\.merge\.(left|inner|append|columns)$/.test(scope.capabilityId ?? ""));
     const csvReference = tableResult ? exportReference(reference, reference?.csvExport, "text/csv") : null;
-    const jsonReference = tableResult ? exportReference(reference, reference?.jsonExport, "application/json") : null;
+    const qualityReport = computeOutput && /^devtools\.compute\.quality\.(json|csv|tsv)$/.test(scope.capabilityId ?? "");
+    const jsonReference = tableResult || qualityReport
+      ? exportReference(reference, reference?.jsonExport, "application/json") : null;
     const successful = httpResult || response?.result?.ok === true ||
       (response?.operation === "model.generate" && typeof resultText === "string");
     current = response?.resultRef
