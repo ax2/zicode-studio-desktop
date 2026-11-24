@@ -12,13 +12,13 @@ const capture = {
   page: { title: "Manual", url: "https://example.org/manual", text: "Review policy", selection: "Review", truncated: false },
 };
 
-function openDock(prepare) {
+function openDock(prepare, snapshot = capture) {
   const trigger = document.createElement("button");
   const host = document.createElement("aside");
   host.hidden = true;
   document.body.append(trigger, host);
   const close = vi.fn();
-  const panel = showBrowserCapture(capture, close, prepare, undefined, undefined, false, { host, trigger });
+  const panel = showBrowserCapture(snapshot, close, prepare, undefined, undefined, false, { host, trigger });
   return { host, panel, trigger, close };
 }
 
@@ -74,6 +74,36 @@ it("uses a separate explicit summary action and keeps page data in the source bl
     sourceTrust: "untrusted-web-content", tab: capture.tab, documentRevision: 3,
     capturedAt: capture.capturedAt, ...capture.page,
   });
+});
+
+it("shows incomplete links, tables and frames while the details are still closed", () => {
+  setLocale("en");
+  const page = { ...capture.page, textTruncated: false, selectionTruncated: true,
+    links: [{ label: "Reference", url: "https://example.org/reference" }], linksTruncated: true,
+    tables: [], tablesTruncated: true, framesOmitted: false,
+    frames: [{ title: "Appendix", tablesTruncated: true }, { title: "Complete frame" }] };
+  const { panel } = openDock(undefined, { ...capture, page });
+  for (const [selector, label] of [["links", "Page links (1)"], ["tables", "Page tables (0)"], ["frames", "Page frames (2)"]]) {
+    const details = panel.querySelector(`.browser-capture-${selector}`);
+    expect(details.open).toBe(false);
+    expect(details.firstElementChild.textContent).toBe(`${label} · Partial capture`);
+  }
+  const frameSummaries = panel.querySelectorAll(".browser-capture-frames details > summary");
+  expect(frameSummaries[0].textContent).toBe("Appendix · Partial capture");
+  expect(frameSummaries[1].textContent).toBe("Complete frame");
+  const text = getByRole(panel, "textbox", { name: "Page content" });
+  expect(text.previousElementSibling.textContent).toBe("Selected text was shortened");
+});
+
+it("shows unavailable frames with zero items and leaves a complete capture unmarked", () => {
+  setLocale("en");
+  const page = { ...capture.page, links: [{ label: "Reference", url: "https://example.org/reference" }],
+    frames: [], framesOmitted: true };
+  const { panel } = openDock(undefined, { ...capture, page });
+  expect(panel.querySelector(".browser-capture-frames > summary").textContent).toBe("Page frames (0) · Partial capture");
+  expect(panel.querySelector(".browser-capture-links > summary").textContent).toBe("Page links (1)");
+  const complete = openDock(undefined).panel;
+  expect(complete.textContent).not.toContain("Partial capture");
 });
 
 it("resizes the live surface around the open assistant and rejects the captured source after navigation", async () => {

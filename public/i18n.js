@@ -1222,6 +1222,8 @@ const zhCN = {
   "Inline frame": "页面内嵌内容",
   "Frame content": "内嵌网页内容",
   "Include frames in the page note or chat draft": "将内嵌网页一并加入笔记或对话草稿",
+  "Partial capture": "采集不完整",
+  "Treat fields marked as shortened or incomplete as partial evidence, and leave omitted content unknown.": "将标记为截断或不完整的字段视为部分证据。被省略的内容仍属未知。",
   "Some frames were unavailable or exceeded capture limits.": "部分内嵌网页无法读取或超出提取上限。",
   "Include tables in the page note or chat draft": "将表格一并加入整页笔记或聊天草稿",
   "Only some table data is shown.": "只显示部分表格数据。",

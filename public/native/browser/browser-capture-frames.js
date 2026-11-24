@@ -1,6 +1,9 @@
 import { t } from "../../i18n.js";
 import { createBrowserCaptureImageList } from "./browser-capture-media.js";
 import { renderBrowserCaptureTables } from "./browser-capture-tables.js";
+import { appendPartialCapture, isFrameTextIncomplete } from "./browser-capture-status.js";
+
+const isFrameIncomplete = frame => isFrameTextIncomplete(frame) || frame.imagesTruncated;
 
 function paragraph(value) {
   const element = document.createElement("p");
@@ -18,6 +21,7 @@ export function createBrowserCaptureFrames(page, recognizeImage, reviewImage) {
   const element = document.createElement("details"); element.className = "browser-capture-frames";
   const summary = document.createElement("summary");
   summary.append(t("Page frames"), " (", String(frames.length), ")");
+  if (page.framesOmitted || frames.some(isFrameIncomplete)) appendPartialCapture(summary);
   element.append(summary);
   if (frames.length) {
     const label = document.createElement("label");
@@ -28,6 +32,7 @@ export function createBrowserCaptureFrames(page, recognizeImage, reviewImage) {
     const details = document.createElement("details");
     const name = document.createElement("summary");
     name.textContent = frame.title || frame.url || t("Inline frame");
+    if (isFrameIncomplete(frame)) appendPartialCapture(name);
     details.append(name);
     const source = paragraph(frame.url || t("Inline frame"));
     source.setAttribute("translate", "no");
