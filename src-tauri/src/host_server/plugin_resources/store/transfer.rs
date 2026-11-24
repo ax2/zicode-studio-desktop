@@ -167,6 +167,7 @@ impl Store {
                 chunks: if original.is_some() { Vec::new() } else { record.chunks.clone() },
                 original: original.clone().map(file_reference::FileBinding::AwaitingRead),
                 digest_name: None,
+                import_profile: None,
                 uploaded: record.uploaded,
                 confirmed: true,
                 expires: record

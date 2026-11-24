@@ -48,8 +48,14 @@ Studio 工具页通过 `select_directory_usage` 打开系统文件夹窗口。�
 
 候选包声明独立的目录用量权限，默认目录名称报告权限不足以执行。取消或关闭工具会释放已确认的资源。系统文件夹窗口及 Explorer 菜单的人工操作和候选分发仍由 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29) 跟踪。
 
+## 另存报告
+
+选择「将 JSON 另存为…」后，先选目标，再核对路径、格式和大小并确认。保存内容来自当前已确认目录的同一次报告，包含精确十进制逻辑字节、统计和排行、覆盖原因及每个展示路径的截断标识。文件路径相对于所选目录。Host 写入 UTF-8 JSON，仅创建选定的新文件，确认前不写入，已有同名文件保留。取消、目录撤权或窗口上下文变更后不能提交旧确认。
+
+Host 为报告签发短期的 `resource.host.directory-usage-json.v1` 资源引用，绑定本次目录快照和工具身份。只有 Host 确认的对应目录快照可登记报告资源，普通文件、上传和派生结果作为普通资源使用。报告采用原 v1 字段并检查有界大小、相对路径和覆盖状态，然后复用 `resource.export.file.draft1`。插件继续只读取快照，不接触目标位置。系统另存对话框实体操作由 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29) 跟踪。
+
 ## 验证
 
 Rust 测试 `usage_uses_only_relative_metadata_and_marks_bounded_reads_partial` 使用合成目录覆盖相对路径、字节值、时间和深度上限及协作取消。`confirmed_usage_snapshot_reaches_only_its_worker` 使用隔离 Host、生产 Worker 和独立的测试 WASM 复核传递内容。运行后者须指定 `ZICODE_TEST_RESOURCE_WORKER_EXE`。该测试的 Worker 回传快照以核对合同。
 
-Windows 实包测试 `frozen_disk_inspector_reports_real_confirmed_directories` 使用同一个生产 Worker，另需通过 `ZICODE_TEST_DISK_INSPECTOR_DIR` 和 `ZICODE_TEST_DISK_INSPECTOR_RECEIPT` 指定 Disk Inspector 0.1.0 candidate-01 及包外收据。测试在隔离资料中安装并授予候选权限，覆盖正常目录、Host 深度上限、Worker 读取上限和原生入口交给 Host 的工作区外目录，并检查窗口绑定、确认、取消和凭据重用。
+Windows 实包测试 `frozen_disk_inspector_reports_real_confirmed_directories` 使用同一个生产 Worker，另需通过 `ZICODE_TEST_DISK_INSPECTOR_DIR` 和 `ZICODE_TEST_DISK_INSPECTOR_RECEIPT` 指定 Disk Inspector 0.1.0 candidate-01 及包外收据。测试在隔离资料中安装并授予候选权限，覆盖正常目录、Host 深度上限、Worker 读取上限和原生入口交给 Host 的工作区外目录，并检查窗口绑定、确认、取消和凭据重用。Windows Host 另存验收使用同四种结果逐份回读 JSON、哈希和字节数，检查报告不能跨窗口/替换、取消、撤权、回放和目标竞争，原文件内容保留。

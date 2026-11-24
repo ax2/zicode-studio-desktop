@@ -9,6 +9,7 @@ const PROFILE: &str = "resource.wasi.input.draft2";
 const WORKERS: usize = 3;
 pub(in crate::host_server) mod admission;
 mod directory_compare_csv;
+mod disk_usage_json;
 mod host_image;
 mod host_ocr;
 mod host_text;
@@ -23,6 +24,13 @@ struct Execution {
     resources: Option<Value>,
     report_resource: Option<Value>,
 }
+struct DirectoryReport {
+    bytes: Vec<u8>,
+    profile: &'static str,
+    mime: &'static str,
+    source_profile: &'static str,
+}
+
 type Observer = Arc<dyn Fn(&'static str, u32) + Send + Sync>;
 pub(crate) struct Workers {
     admissions: admission::Calls,
@@ -684,12 +692,28 @@ fn execute(
         return Err(rejected("result_too_large"));
     }
     output::validate_result(&output_contract, result)?;
-    let report_resource = if owner.plugin_id == local_directory::COMPARE_PLUGIN
-        && owner.capability_id == local_directory::COMPARE_CAPABILITY
-    {
-        directory_compare_export(state, request, &proof, result, cancelled)?
-    } else {
-        None
+    let report = match (owner.plugin_id.as_str(), owner.capability_id.as_str()) {
+        (local_directory::COMPARE_PLUGIN, local_directory::COMPARE_CAPABILITY) => {
+            directory_compare_csv::encode(result).map(|bytes| DirectoryReport {
+                bytes,
+                profile: directory_compare_csv::PROFILE,
+                mime: "text/csv",
+                source_profile: local_directory::COMPARE_PROFILE,
+            })
+        }
+        (local_directory::DISK_INSPECTOR_PLUGIN, local_directory::DISK_INSPECTOR_CAPABILITY) => {
+            disk_usage_json::encode(result).map(|bytes| DirectoryReport {
+                bytes,
+                profile: disk_usage_json::PROFILE,
+                mime: "application/json",
+                source_profile: local_directory::DISK_INSPECTOR_PROFILE,
+            })
+        }
+        _ => None,
+    };
+    let report_resource = match report {
+        Some(report) => directory_report_export(state, request, &proof, report, cancelled)?,
+        None => None,
     };
     Ok(Execution {
         profile: output_profile,
@@ -699,30 +723,32 @@ fn execute(
     })
 }
 
-fn directory_compare_export(
+fn directory_report_export(
     state: &HostState,
     request: &Invoke,
     proof: &str,
-    result: &Value,
+    report: DirectoryReport,
     cancelled: &std::sync::atomic::AtomicBool,
 ) -> Result<Option<Value>, ApiError> {
-    let Some(csv) = directory_compare_csv::encode(result) else {
-        return Ok(None);
-    };
     let sources = request.accesses().cloned().collect::<Vec<_>>();
     let mut pending = super::store::Pending::prepare(&sources, proof, Vec::new())?;
-    pending.attach_host_report_bytes(csv, directory_compare_csv::PROFILE, "text/csv")?;
+    pending.attach_host_report_bytes(report.bytes, report.profile, report.mime)?;
     if identity(state, &request.access.owner, None)? != proof {
         return Err(rejected("resource_authorization_changed"));
     }
     for access in &sources {
         authority::check_ancestors(state, access, proof)?;
     }
-    let (_, report) = state
+    let mut store = state
         .plugin_resources
         .lock()
-        .map_err(|_| rejected("resource_store_unavailable"))?
-        .publish_outputs_with_report(pending, cancelled)?;
+        .map_err(|_| rejected("resource_store_unavailable"))?;
+    if sources.len() != 1
+        || !store.matches_confirmed_import(&sources[0], proof, report.source_profile)?
+    {
+        return Ok(None);
+    }
+    let (_, report) = store.publish_outputs_with_report(pending, cancelled)?;
     Ok(report)
 }
 

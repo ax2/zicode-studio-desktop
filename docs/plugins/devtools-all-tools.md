@@ -14,7 +14,7 @@
 
 ## 2026-11-24 开发补充：目录空间分析
 
-Studio 工具中心已接入独立 Disk Inspector 0.1.0 候选。对工作区内选定目录单独确认后，查看文件逻辑大小、文件及目录数量、直属子目录和大文件排行。隔离 Windows 已验证完整、Host 深度受限和 Worker 分析预算受限的实际报告，中英文界面均有部分结果提示。系统文件夹窗口及日常安装分发见 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29)。见[接口与验证](local-directory-usage-snapshot-draft1.md)。
+Studio 工具中心已接入独立 Disk Inspector 0.1.0 候选。对工作区内选定目录单独确认后，查看文件逻辑大小、文件及目录数量、直属子目录和大文件排行。隔离 Windows 已验证完整、Host 深度受限和 Worker 分析预算受限的实际报告，中英文界面均有部分结果提示。可选址并确认将本次报告另存为 UTF-8 JSON，保留覆盖原因、相对路径和精确大小。系统文件夹和另存窗口及日常安装分发见 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29)。见[接口与验证](local-directory-usage-snapshot-draft1.md)。
 
 ## 2026-11-24 开发补充：结构化 JSON 对比的文件导入与另存
 
