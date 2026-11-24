@@ -23,7 +23,7 @@ import { showBrowserTabGroup } from "./browser-tab-group-dialog.js";
 import { showBrowserProfiles } from "./browser-profiles.js";
 import { showBrowserDownloads } from "./browser-downloads.js";
 import { showBrowserHistory } from "./browser-history.js";
-import { showSiteSettings } from "./browser-site-settings.js";
+import { showSiteSettings, SITE_SETTINGS_CHANGED } from "./browser-site-settings.js";
 import { showBrowserBookmarks } from "./browser-bookmarks.js";
 import { createBrowserSurface } from "./browser-surface.js";
 import { createBrowserOptions } from "./browser-options.js";
@@ -41,7 +41,7 @@ import { t } from "../../i18n.js";
 export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   listen = globalThis.__TAURI__?.event?.listen, nativeWindow = globalThis.__TAURI__?.window?.getCurrentWindow?.(), notify = () => {}, getTarget = () => null, onPrepareDraft, canOpenDraftConversation, openDraftConversation, onTranslateSelection, modelGateway } = {}) {
   let startupState, searchSettings, ordering, tabStripControls, tabMenu, tabSearch, pageControls, find, shortcuts, fullscreen;
-  let refreshOpenPageControls;
+  let refreshOpenPageControls, siteSettingsPanel;
   let root, viewport, assistant, read, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
   let initialized = false, initPromise, lastSurface = "", surfaceError = "", saveTail = Promise.resolve();
@@ -585,6 +585,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     for (const [action, button] of historyButtons) button.disabled = !canTraverseHistory(active, action);
   }
   function paint() {
+    if (siteSettingsPanel && !siteSettingsPanel.current()) siteSettingsPanel.panel.invalidate();
     paintStatus();
     paintHistoryControls();
     refreshDeveloperTools?.();
@@ -996,7 +997,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           const profiles=await invoke("browser_list_profiles");await hide(true);
           if(visible)tabSearch=showBrowserProfiles(profiles,params=>invoke("browser_window_command",params),()=>{tabSearch=null;void run(syncSurface)});
         }) : act(() => invoke("browser_window_command", { action })),
-      bookmarks: () => act(() => openBookmarks(false)), downloads: () => act(() => openDownloads()), history: () => act(() => openHistory()), siteSettings: () => act(openSiteSettings), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
+      bookmarks: () => act(() => openBookmarks(false)), downloads: () => act(() => openDownloads()), history: () => act(() => openHistory()), siteSettings: () => {
+        const source = readerSource();
+        return act(() => openSiteSettings(source));
+      }, searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
       reader: () => {
         const source = readerSource();
         return act(() => openReader(source, options.querySelector("summary")));
@@ -1164,14 +1168,32 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     await hide(true);
     showBrowserHistory({ invoke, onOpen: openSavedPage, onClose: () => restorePanelPage(returnToPage) });
   }
-  async function openSiteSettings() {
-    const tab = active;
+  async function openSiteSettings(source) {
+    if (siteSettingsPanel || surfaceUnavailable()) return;
+    if (!source || !pageAvailable(source.id) || navigationStates.has(source.id)) {
+      setStatus(t("Wait for the current page to finish loading"));
+      return;
+    }
+    const tab = source.id;
+    const current = () => !surfaceUnavailable() && active === tab && selected()?.url === source.url &&
+      pageAvailable(tab) && !navigationStates.has(tab) && pageVersions.get(tab) === source.version;
+    if (!current()) return;
     const origin = new URL((await tabPage(tab)).url).origin;
-    await hide(true);
-    showSiteSettings({
-      origin, request: action => control({ kind: "siteSettings", tab, expectedOrigin: origin, action }),
-      onClose: () => restorePanelPage(tab),
+    if (!current()) return;
+    await hide(true, current);
+    if (!current()) { await syncSurface(); return; }
+    const panel = showSiteSettings({
+      origin,
+      request: action => {
+        if (!current()) throw new Error(SITE_SETTINGS_CHANGED);
+        return control({ kind: "siteSettings", tab, expectedOrigin: origin, action });
+      },
+      onClose: () => {
+        if (siteSettingsPanel?.panel === panel) siteSettingsPanel = undefined;
+        restorePanelPage(current() ? tab : undefined);
+      },
     });
+    siteSettingsPanel = { panel, current };
   }
   async function tabPage(id) {
     const tab = tabs.find(item => item.id === id);
@@ -1364,7 +1386,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       initPromise ??= restore();
       void initPromise.then(() => run(syncSurface));
     },
-    async canDeactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); await fullscreen?.leave(); await find?.close(); ordering?.cancel(); visible = false; newTabShortcuts.select(null); await initPromise; await hide(); return true; },
-    deactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); void fullscreen?.leave(); void find?.close(); ordering?.cancel(); visible = false; newTabShortcuts.select(null); void run(hide); },
+    async canDeactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); await fullscreen?.leave(); await find?.close(); ordering?.cancel(); visible = false; siteSettingsPanel?.panel.close(); newTabShortcuts.select(null); await initPromise; await hide(); return true; },
+    deactivate() { assistant?.firstElementChild?.cancelBrowserModel?.(); tabMenu?.close(); tabSearch?.close(); void fullscreen?.leave(); void find?.close(); ordering?.cancel(); visible = false; siteSettingsPanel?.panel.close(); newTabShortcuts.select(null); void run(hide); },
   };
 }
