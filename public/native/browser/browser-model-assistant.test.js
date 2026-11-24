@@ -170,6 +170,59 @@ async function selectVision(f) {
   await waitFor(() => expect(select.disabled).toBe(false));
 }
 
+it("keeps the reviewed image result and saved artifact through cancellation and timeout, then replaces them after a successful retry", async () => {
+  const artifacts = { save: vi.fn(async () => ({ id: "reviewed-artifact" })), open: vi.fn() };
+  const f = fixture(true, artifacts);
+  await selectVision(f);
+  f.actions.ask.mockResolvedValueOnce({ text: "Reviewed image answer", model: b });
+  await f.controller.reviewImage(async () => reviewedImage);
+  fireEvent.click(getByRole(f.el, "button", { name: "Send only this image" }));
+  const answer = await waitFor(() => getByRole(f.el, "textbox", { name: "Browser model answer" }));
+  expect(answer.value).toBe("Reviewed image answer");
+  const save = getByRole(f.el, "button", { name: "Save analysis to Artifacts" });
+  fireEvent.click(save);
+  const open = await waitFor(() => getByRole(f.el, "button", { name: "Open saved artifact" }));
+  expect(artifacts.save.mock.calls[0][0]).toMatchObject({ kind: "image", image: { frame: reviewedImage.frame } });
+
+  const send = getByRole(f.el, "button", { name: "Send page and ask" });
+  const imageSource = f.el.querySelector(".browser-image-result-source");
+  f.question.value = "Question to keep on retry";
+  let finish;
+  f.actions.ask.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  fireEvent.click(send);
+  fireEvent.click(getByRole(f.el, "button", { name: "Cancel model request" }));
+  const duringRequest = answer.value;
+  const disabledDuringRequest = open.disabled;
+  finish({ text: "Late cancelled response", model: a });
+  await waitFor(() => expect(f.el.textContent).toContain("Model request cancelled."));
+  expect(f.actions.cancel).toHaveBeenCalledWith(f.actions.ask.mock.calls[1][0].requestId);
+  expect(duringRequest).toBe("Reviewed image answer");
+  expect(disabledDuringRequest).toBe(true);
+  expect(open.disabled).toBe(false);
+  expect(imageSource.textContent).toContain(reviewedImage.frame.documentRevision);
+
+  f.actions.ask.mockRejectedValueOnce(new Error("module_model_request_timeout"));
+  fireEvent.click(send);
+  await waitFor(() => expect(f.el.textContent).toContain("The model request timed out."));
+  expect(f.question.value).toBe("Question to keep on retry");
+  expect(answer.hidden).toBe(false);
+  expect(answer.value).toBe("Reviewed image answer");
+  expect(imageSource.hidden).toBe(false);
+  expect(f.el.textContent).toContain("fixture / B");
+  fireEvent.click(open);
+  expect(artifacts.open).toHaveBeenCalledWith({ id: "reviewed-artifact" });
+  expect(artifacts.save).toHaveBeenCalledOnce();
+
+  f.actions.ask.mockResolvedValueOnce({ text: "Replacement page answer", model: b });
+  fireEvent.click(send);
+  await waitFor(() => expect(answer.value).toBe("Replacement page answer"));
+  expect(imageSource.hidden).toBe(true);
+  expect(open.hidden).toBe(true);
+  expect(save.disabled).toBe(false);
+  expect(f.actions.ask).toHaveBeenCalledTimes(4);
+});
+
+
 it("reviews only the clicked embedded image, sends on separate confirmation and retains local source details", async () => {
   setLocale("en");
   const details = reviewedImage.frame;
