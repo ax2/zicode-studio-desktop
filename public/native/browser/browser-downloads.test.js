@@ -307,3 +307,51 @@ it("does not regress a live update with an older list response or reinsert remov
   emit(item("outside-query", "waiting"));
   expect(dialog.querySelectorAll('[role="listitem"]')).toHaveLength(0);
 });
+
+it("reloads the latest search immediately when the user returns to the pending keyword", async () => {
+  let finishOldSearch;
+  let matchingReads = 0;
+  const invoke = vi.fn(async (_, { request }) => {
+    if (request.query !== "invoice") return page([]);
+    if (++matchingReads === 1) return new Promise(resolve => { finishOldSearch = resolve; });
+    return page([item("fresh-invoice", "completed")]);
+  });
+  const dialog = showBrowserDownloads({ invoke }); await tick();
+  const input = getByRole(dialog, "searchbox");
+  const search = getByRole(dialog, "button", { name: t("Search"), exact: true });
+  const apply = value => { input.value = value; search.click(); };
+  apply("invoice"); await tick();
+  apply("statement");
+  apply("invoice");
+  expect(matchingReads).toBe(1);
+  finishOldSearch(page([item("old-invoice", "completed")]));
+  await tick();
+  expect(matchingReads).toBe(2);
+  expect(dialog.querySelector('[data-download-id="old-invoice"]')).toBeNull();
+  expect(dialog.querySelector('[data-download-id="fresh-invoice"]')).toBeTruthy();
+});
+
+it("shows loading, retrieval failure and a confirmed empty download search as different states", async () => {
+  let settle;
+  const invoke = vi.fn(() => new Promise((resolve, reject) => { settle = { resolve, reject }; }));
+  const dialog = showBrowserDownloads({ invoke });
+  const list = getByRole(dialog, "list");
+  expect(list.getAttribute("aria-busy")).toBe("true");
+  expect(list.textContent).toBe(t("Loading…"));
+  settle.resolve(page([])); await tick();
+  expect(list.getAttribute("aria-busy")).toBe("false");
+  expect(list.textContent).toBe(t("No downloads yet"));
+  const input = getByRole(dialog, "searchbox");
+  input.value = "invoice";
+  getByRole(dialog, "button", { name: t("Search"), exact: true }).click();
+  expect(list.getAttribute("aria-busy")).toBe("true");
+  expect(list.textContent).toBe(t("Loading…"));
+  settle.reject(new Error("Download history is unavailable")); await tick();
+  expect(list.getAttribute("aria-busy")).toBe("false");
+  expect(list.querySelector("p").hidden).toBe(true);
+  expect(getByRole(dialog, "status").textContent).toBe("Download history is unavailable");
+  await vi.advanceTimersByTimeAsync(500);
+  settle.resolve(page([])); await tick();
+  expect(list.textContent).toBe(t("No matching downloads"));
+  expect(list.querySelector("p").hidden).toBe(false);
+});
