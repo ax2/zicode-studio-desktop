@@ -320,3 +320,55 @@ it("lists each blocked permission once, updates the open panel and drops feedbac
   const fresh = await waitFor(() => getByRole(document.body, "dialog", { name: t("Site permissions and storage") }));
   expect(fresh.textContent).not.toContain(t("Other permission"));
 });
+
+
+it("reports a pending site change and returns keyboard focus to the operation on failure", async () => {
+  let fail;
+  const request = vi.fn(async ({ type }) => type === "list" ? [] : new Promise((_, reject) => { fail = reject; }));
+  showSiteSettings({ origin: "https://example.test", request, onClose: vi.fn() });
+  const dialog = getByRole(document.body, "dialog", { name: t("Site permissions and storage") });
+  const clear = getByRole(dialog, "button", { name: t("Clear site storage") });
+  const status = getByRole(dialog, "status");
+  await waitFor(() => expect(clear.matches(":disabled")).toBe(false));
+  clear.click();
+  const confirm = getByRole(dialog, "button", { name: t("Confirm") });
+  confirm.click();
+  expect(status.textContent).toBe(t("Applying site settings…"));
+  expect(clear.matches(":disabled")).toBe(true);
+  confirm.click();
+  expect(request.mock.calls).toEqual([[{ type: "list" }], [{ type: "clearStorage", confirmed: true }]]);
+  fail(new Error("Storage could not be cleared"));
+  await waitFor(() => expect(status.textContent).toBe("Storage could not be cleared"));
+  expect(document.activeElement).toBe(clear);
+  expect(clear.matches(":disabled")).toBe(false);
+});
+
+it.each(["change", "readback"])("does not show the old site's success after navigation during %s", async phase => {
+  let completeChange, completeReadback;
+  const { open, navigate, request } = await mountSiteSettings();
+  request.mockResolvedValueOnce([]);
+  request.mockImplementationOnce(() => new Promise(done => { completeChange = done; }));
+  request.mockImplementationOnce(() => new Promise(done => { completeReadback = done; }));
+  open();
+  const dialog = await waitFor(() => getByRole(document.body, "dialog", { name: t("Site permissions and storage") }));
+  const clear = getByRole(dialog, "button", { name: t("Clear host cookies") });
+  const status = getByRole(dialog, "status");
+  await waitFor(() => expect(clear.matches(":disabled")).toBe(false));
+  clear.click();
+  getByRole(dialog, "button", { name: t("Confirm") }).click();
+
+  if (phase === "readback") {
+    completeChange(null);
+    await waitFor(() => expect(completeReadback).toBeTypeOf("function"));
+    expect(status.textContent).toBe(t("Site settings updated"));
+  }
+  navigate();
+  expect(getByRole(dialog, "alert").textContent).toBe(t("Site changed. Open site settings again."));
+  if (phase === "change") completeChange(null);
+  else completeReadback([]);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(status.textContent).toBe("");
+  expect(clear.matches(":disabled")).toBe(true);
+  expect(document.activeElement.textContent).toBe(t("Close"));
+  expect(request).toHaveBeenCalledTimes(phase === "change" ? 2 : 3);
+});

@@ -597,6 +597,8 @@
 
 .browser-history-content > [hidden] { display: none; }
 
+.browser-site-settings p { overflow-wrap: anywhere; }
+
 
 /* --- inlined: ./browser-bookmarks.css --- */
 .browser-bookmarks-dialog { position: fixed; inset: 0; margin: auto; width: min(92vw, 56rem); max-height: 90vh; overflow: auto; padding: var(--space-4); background: var(--bg-solid); color: var(--text-primary); }

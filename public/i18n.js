@@ -1450,6 +1450,7 @@ const zhCN = {
   "Remove this site's local storage, databases, offline caches and service workers? Cookies are kept.": "清除此站点的本地存储、数据库、离线缓存及服务工作线程？Cookie 将保留。",
   "Saved site permissions": "已保存的站点权限",
   "Permissions blocked in this tab · {permissions}": "此标签页已拒绝的权限请求 · {permissions}",
+  "Applying site settings…": "正在更新站点设置…",
   "Site settings updated": "站点设置已更新",
   "No saved permissions for this site": "此站点没有已保存的权限",
   "Loading saved site permissions…": "正在读取已保存的站点权限…",
