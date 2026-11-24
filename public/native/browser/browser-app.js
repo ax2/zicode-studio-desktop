@@ -23,7 +23,7 @@ import { showBrowserTabGroup } from "./browser-tab-group-dialog.js";
 import { showBrowserProfiles } from "./browser-profiles.js";
 import { showBrowserDownloads } from "./browser-downloads.js";
 import { showBrowserHistory } from "./browser-history.js";
-import { showSiteSettings, SITE_SETTINGS_CHANGED } from "./browser-site-settings.js";
+import { browserPermissionKind, blockedPermissionText, showSiteSettings, SITE_SETTINGS_CHANGED } from "./browser-site-settings.js";
 import { showBrowserBookmarks } from "./browser-bookmarks.js";
 import { createBrowserSurface } from "./browser-surface.js";
 import { createBrowserOptions } from "./browser-options.js";
@@ -67,6 +67,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const downloadObservers = new Set();
   const pageVersions = new Map();
   const documentRevisions = new Map();
+  const blockedPermissions = new Map();
   const pdfDocuments = new Map();
   const readerPositions = new Map();
   const control = request => invoke("browser_control", { request });
@@ -75,7 +76,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (!status) return;
     const failure = crashedTabs.has(active) ? t("The page process stopped. Unsaved page input may be lost. Reload to reopen the address.")
       : navigationStates.get(active) === "failed" ? t("Page could not be loaded") : "";
-    const message = statusMessage === restoreError ? "" : statusMessage;
+    const message = (statusMessage === restoreError ? "" : statusMessage) ||
+      blockedPermissionText(blockedPermissions.get(active));
     const text = [message, failure].filter(Boolean).join(" ");
     if (status.textContent !== text) status.textContent = text;
   };
@@ -372,6 +374,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     crashedTabs.delete(id);
     navigationStates.delete(id);
     documentRevisions.delete(id);
+    blockedPermissions.delete(id);
     pdfDocuments.delete(id);
     readerPositions.delete(id);
     historyStates.delete(id);
@@ -384,6 +387,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     crashedTabs.add(id);
     navigationStates.delete(id);
     documentRevisions.delete(id);
+    blockedPermissions.delete(id);
     pdfDocuments.delete(id);
     readerPositions.delete(id);
     historyStates.delete(id);
@@ -785,6 +789,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (payload.kind === "navigationStarted") {
           navigationStates.set(id, "loading");
           documentRevisions.delete(id);
+          blockedPermissions.delete(id);
           pdfDocuments.delete(id);
           readerPositions.delete(id);
           if (tab) pageVersions.set(id, (pageVersions.get(id) ?? 0) + 1);
@@ -811,6 +816,19 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (preparing && (payload.kind === "loading" || (payload.kind === "visited" && payload.sameDocument))) preparing.url = payload.url;
         return;
       }
+      if (payload.kind === "permissionBlocked") {
+        if (!(pageAvailable(tab.id) || creatingTabs.has(tab.id)) || !Number.isInteger(payload.permission_kind)) return;
+        const permission = browserPermissionKind(payload.permission_kind);
+        const kinds = blockedPermissions.get(tab.id) ?? new Set();
+        if (kinds.has(permission)) return;
+        kinds.add(permission);
+        blockedPermissions.set(tab.id, kinds);
+        if (tab.id === active) {
+          paintStatus();
+          if (siteSettingsPanel?.current()) siteSettingsPanel.panel.setBlockedPermissions(kinds);
+        }
+        return;
+      }
       if (payload.kind === "favicon") {
         if (payload.image) favicons.set(tab.id, payload.image); else favicons.delete(tab.id);
         const row = [...tabsHost.children].find(row => row.dataset.browserTabId === tab.id);
@@ -834,7 +852,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     for (const event of pendingEvents) handleEvent(event);
     pendingEvents.length = 0;
     const menuLanguage = () => { if (nativeTabs.size) void control({ kind: "menuLanguage", chinese: t("Find in page") !== "Find in page" }).catch(report); };
-    window.addEventListener("zicode:locale-changed", () => { menuLanguage(); paintStatus(); refreshDeveloperTools?.(); });
+    window.addEventListener("zicode:locale-changed", () => {
+      menuLanguage();
+      paintStatus();
+      if (siteSettingsPanel?.current()) siteSettingsPanel.panel.setBlockedPermissions(blockedPermissions.get(active));
+      refreshDeveloperTools?.();
+    });
     menuLanguage(); paint();
     await syncSurface();
   }
@@ -1205,6 +1228,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (!current()) { await syncSurface(); return; }
     const panel = showSiteSettings({
       origin,
+      blockedPermissions: blockedPermissions.get(tab),
       request: action => {
         if (!current()) throw new Error(SITE_SETTINGS_CHANGED);
         return control({ kind: "siteSettings", tab, expectedOrigin: origin, action });

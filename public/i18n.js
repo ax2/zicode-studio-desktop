@@ -1414,6 +1414,7 @@ const zhCN = {
   "Clear cookies belonging only to this host across its ports? This may sign you out. Shared domain cookies are kept.": "清除仅属于此主机的 Cookie？这会影响该主机的所有端口，可能使你退出登录。与子域共享的 Cookie 将保留。",
   "Remove this site's local storage, databases, offline caches and service workers? Cookies are kept.": "清除此站点的本地存储、数据库、离线缓存及服务工作线程？Cookie 将保留。",
   "Saved site permissions": "已保存的站点权限",
+  "Permissions blocked in this tab · {permissions}": "此标签页已拒绝的权限请求 · {permissions}",
   "Site settings updated": "站点设置已更新",
   "No saved permissions for this site": "此站点没有已保存的权限",
   "Loading saved site permissions…": "正在读取已保存的站点权限…",

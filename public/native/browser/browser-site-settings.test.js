@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { getByRole, getByText, queryByRole, waitFor } from "@testing-library/dom";
-import { t } from "../../i18n.js";
+import { getLocale, setLocale, t } from "../../i18n.js";
 import { showSiteSettings } from "./browser-site-settings.js";
 import { setupBrowserApp } from "./browser-app.js";
 
@@ -46,12 +46,14 @@ it.each([
   expect(request.mock.calls).toEqual([[{type:"list"}],[{...action, confirmed:true}],[{type:"list"}]]);
 });
 
-async function mountSiteSettings({ readUrl } = {}) {
+async function mountSiteSettings({ readUrl, twoTabs = false } = {}) {
   vi.stubGlobal("ResizeObserver", class { observe() {} });
   vi.spyOn(document, "hidden", "get").mockReturnValue(false);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, width: 900, height: 600 });
   const origin = "https://example.test:8443";
   const tab = { id: "permission-tab", url: "https://previous.test/", title: "Previous page" };
+  const peer = { id: "other-tab", url: "https://other.test/", title: "Other page" };
+  const tabs = twoTabs ? [tab, peer] : [tab];
   const request = vi.fn(async action => action.type === "list" ? [
     { permission: 1, allowed: true },
     { permission: 2, allowed: true },
@@ -60,11 +62,13 @@ async function mountSiteSettings({ readUrl } = {}) {
   const nativeControls = [];
   let receiveEvent;
   const invoke = vi.fn(async (command, args) => {
-    if (command === "browser_get_state") return { startupMode: "browser", session: { revision: 0, activeTab: tab.id, tabs: [tab] } };
+    if (command === "browser_get_state") return { startupMode: "browser", session: { revision: 0, activeTab: tab.id, tabs } };
+    if (command === "browser_bookmarks") return { bookmarks: [], folders: [] };
     const control = args?.request;
-    if (control?.kind === "status") return { surfaceRevision: 0, tabs: [tab] };
+    if (control?.kind === "status") return { surfaceRevision: 0, tabs };
     if (control?.kind === "url") return readUrl ? readUrl() : { url: origin + "/site" };
     if (control?.kind === "snapshot") return "data:image/jpeg;base64,AA==";
+    if (control?.kind === "fullscreen") return { fullscreen: false };
     if (control?.kind === "siteSettings") { nativeControls.push(control); return request(control.action); }
     return {};
   });
@@ -78,8 +82,9 @@ async function mountSiteSettings({ readUrl } = {}) {
     menu.open = true;
     getByRole(menu, "button", { name: t("Site permissions and storage") }).click();
   };
-  const navigate = () => receiveEvent({ payload: { kind: "navigationStarted", tab: tab.id } });
-  return { origin, tab, request, nativeControls, open, navigate };
+  const emit = payload => receiveEvent({ payload });
+  const navigate = () => emit({ kind: "navigationStarted", tab: tab.id });
+  return { origin, tab, peer, host, request, nativeControls, open, navigate, emit };
 }
 
 it("shows the exact site and permission before one explicit revocation", async () => {
@@ -207,4 +212,62 @@ it("keeps a late list response from restoring controls for the old site", async 
   expect(queryByRole(dialog, "button", { name: revokeName("Camera") })).toBeNull();
   expect(getByRole(dialog, "alert").textContent).toBe(t("Site changed. Open site settings again."));
   expect(getByRole(dialog, "button", { name: t("Clear site storage") }).closest("fieldset").disabled).toBe(true);
+});
+
+const block = (tab, permission_kind) => ({ kind: "permissionBlocked", tab: tab.id, permission_kind });
+const blockedMessage = (...names) =>
+  t("Permissions blocked in this tab · {permissions}").replace("{permissions}", names.map(name => t(name)).join(" · "));
+
+it("keeps permission feedback on the tab that requested it without replacing the current tab's message", async () => {
+  const { tab, peer, host, emit } = await mountSiteSettings({ twoTabs: true });
+  const chromeStatus = host.querySelector('.browser-footer [role="status"]');
+  const switchTo = async title => {
+    getByRole(host, "tab", { name: title }).click();
+    await app.finishWindowWrites();
+  };
+  await switchTo(peer.title);
+  await switchTo(tab.title);
+  emit(block(peer, 2));
+  expect(chromeStatus.textContent).toBe("");
+  emit(block(tab, 3));
+  expect(chromeStatus.textContent).toBe(blockedMessage("Location"));
+  await switchTo(peer.title);
+  expect(chromeStatus.textContent).toBe(blockedMessage("Camera"));
+
+  emit({ kind: "navigationBlocked", tab: peer.id });
+  emit(block(peer, 1));
+  expect(chromeStatus.textContent).toBe(t("This browser action is not available yet"));
+});
+
+it("lists each blocked permission once, updates the open panel and drops feedback on reload", async () => {
+  const { tab, host, open, navigate, request, emit } = await mountSiteSettings();
+  emit(block(tab, 2));
+  emit(block(tab, 2));
+  open();
+  const dialog = await waitFor(() => getByRole(document.body, "dialog", { name: t("Site permissions and storage") }));
+  expect(getByText(dialog, blockedMessage("Camera"))).toBeTruthy();
+  emit(block(tab, 1));
+  expect(getByText(dialog, blockedMessage("Microphone", "Camera"))).toBeTruthy();
+  emit(block(tab, 999));
+  emit(block(tab, 998));
+  expect(getByText(dialog, blockedMessage("Other permission", "Microphone", "Camera"))).toBeTruthy();
+  const locale = getLocale();
+  try {
+    setLocale("en");
+    expect(getByText(dialog, "Permissions blocked in this tab · Other permission · Microphone · Camera")).toBeTruthy();
+    setLocale("zh-CN");
+    expect(getByText(dialog, "此标签页已拒绝的权限请求 · 其他权限 · 麦克风 · 摄像头")).toBeTruthy();
+  } finally {
+    setLocale(locale);
+  }
+  expect(request.mock.calls).toEqual([[{ type: "list" }]]);
+
+  navigate();
+  expect(dialog.textContent).not.toContain(t("Other permission"));
+  expect(host.querySelector('.browser-footer [role="status"]').textContent).toBe("");
+  getByRole(dialog, "button", { name: t("Close") }).click();
+  emit({ kind: "navigationFinished", tab: tab.id, success: true, documentRevision: "reloaded" });
+  open();
+  const fresh = await waitFor(() => getByRole(document.body, "dialog", { name: t("Site permissions and storage") }));
+  expect(fresh.textContent).not.toContain(t("Other permission"));
 });
