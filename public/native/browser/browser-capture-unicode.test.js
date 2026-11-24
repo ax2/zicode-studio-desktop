@@ -7,9 +7,9 @@ const script = readFileSync("src-tauri/src/browser/capture.js", "utf8");
 afterEach(() => { vi.restoreAllMocks(); document.body.replaceChildren(); });
 
 function capture(title, body, selection) {
-  const parentElement = { closest: () => null, getClientRects: () => [{}] };
+  const parentElement = { closest: () => null, getClientRects: () => [{}], querySelectorAll: () => [] };
   const textNode = { nodeType: 3, nodeValue: body, parentElement };
-  const range = { startContainer: textNode, endContainer: textNode };
+  const range = { startContainer: textNode, endContainer: textNode, commonAncestorContainer: textNode };
   const nodes = [textNode];
   return runInNewContext(script, {
     document: {
@@ -63,7 +63,7 @@ test.each([
 function captureFrames({ text = "Main body", selection = "Main selection", withImage = false } = {}) {
   const origin = "https://example.org";
   const selectable = value => {
-    const visible = { closest: () => null, getClientRects: () => [{}] };
+    const visible = { closest: () => null, getClientRects: () => [{}], querySelectorAll: () => [] };
     const node = { nodeType: 3, nodeValue: value, parentElement: visible };
     return { visible, node };
   };
@@ -79,7 +79,7 @@ function captureFrames({ text = "Main body", selection = "Main selection", withI
       getElementsByTagName: () => [],
       getSelection: () => ({
         rangeCount: value ? 1 : 0, isCollapsed: !value, toString: () => value,
-        getRangeAt: () => ({ startContainer: node, endContainer: node }),
+        getRangeAt: () => ({ startContainer: node, endContainer: node, commonAncestorContainer: node }),
       }),
     };
   }
@@ -201,4 +201,11 @@ test("keeps a focused same-origin frame selection separate from the old main-pag
 
   selectRange(child.querySelector("output"));
   expect(captureSelection().frames[0]).toMatchObject({ selection: "", selectionTruncated: false });
+});
+
+test("keeps a paragraph selection on a page with many unrelated controls", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  document.body.innerHTML = "<p>Selected paragraph</p><div>" + "<button>Action</button>".repeat(260) + "</div>";
+  selectRange(document.querySelector("p"));
+  expect(captureSelection()).toMatchObject({ selection: "Selected paragraph", selectionTruncated: false });
 });

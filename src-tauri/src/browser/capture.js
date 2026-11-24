@@ -53,7 +53,10 @@
         doc.activeElement?.closest(editable + ',iframe,frame')) return empty;
     const range = selection.getRangeAt(0);
     if (!allowed(range.startContainer) || !allowed(range.endContainer)) return empty;
-    const controls = doc.querySelectorAll(editable);
+    const ancestor = range.commonAncestorContainer;
+    const container = ancestor.nodeType === Node.ELEMENT_NODE ? ancestor : ancestor.parentElement;
+    if (!container || container.closest(editable)) return empty;
+    const controls = container.querySelectorAll(editable);
     if (controls.length > 256 || Array.from(controls).some(element => range.intersectsNode(element))) return empty;
     const value = selection.toString();
     const selected = clip(value, selectionRemaining);
