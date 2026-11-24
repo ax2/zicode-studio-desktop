@@ -239,12 +239,12 @@ it("stores the completed translation and its scope without writing the captured 
   try {
     const { options, gateway, params } = setup();
     const analysis = { kind: "translation", text: "Translated passage.", generatedAt: "2026-11-09T03:31:00Z",
-      model: { provider: "fixture", modelId: "notes" }, translation: { language: "zh-CN", scope: "selection", truncated: true } };
+      model: { provider: "fixture", modelId: "notes" }, translation: { language: "ko", scope: "selection", truncated: true } };
     const result = await createBrowserNoteWriter({ ...options, analysis }).save({ ...params, title: "Reviewed translation" });
     expect(gateway.create).toHaveBeenCalledOnce();
     expect(options.readCurrent).not.toHaveBeenCalled();
     expect(result.source).toEqual({ url: capture.page.url, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision });
-    expect(result.content).toContain("Target language: Simplified Chinese");
+    expect(result.content).toContain("Target language: Korean");
     expect(result.content).toContain("Source text: Selected text");
     expect(result.content).toContain("Capture: Partial capture");
     expect(result.content).toContain("Translated passage.");

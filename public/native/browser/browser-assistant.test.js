@@ -832,9 +832,15 @@ it("cancels the single-page document check without starting or cancelling a requ
 });
 
 it.each([
-  { selection: "Reviewed source segment", target: "zh-CN", scope: "selection", text: "Reviewed source segment", limited: true, button: "Send selection to translate" },
-  { selection: "", target: "en", scope: "page", text: "Reviewed page body", limited: false, button: "Send page text to translate" },
-])("translates only the reviewed $scope into the selected language", async ({ selection, target, scope, text, limited, button }) => {
+  { selection: "Reviewed source segment", target: "zh-CN", languageName: "Simplified Chinese", scope: "selection", text: "Reviewed source segment", limited: true, button: "Send selection to translate" },
+  { selection: "", target: "en", languageName: "English", scope: "page", text: "Reviewed page body", limited: false, button: "Send page text to translate" },
+  ...[
+    ["ja", "Japanese"], ["ko", "Korean"], ["fr", "French"], ["de", "German"],
+    ["es", "Spanish"], ["ru", "Russian"], ["pt", "Portuguese"], ["ar", "Arabic"],
+  ].map(([target, languageName]) => ({
+    selection: "Reviewed source segment", target, languageName, scope: "selection", text: "Reviewed source segment", limited: true, button: "Send selection to translate",
+  })),
+])("translates only the reviewed $scope into $languageName", async ({ selection, target, languageName, scope, text, limited, button }) => {
   const gateway = comparisonGateway();
   let hold = false, finishCheck;
   const { host, readTabs } = await openControlledAssistant({
@@ -846,6 +852,7 @@ it.each([
   const send = getByRole(host, "button", { name: button });
   const language = getByRole(host, "combobox", { name: "Target language" });
   await waitFor(() => expect(send.disabled).toBe(false));
+  expect(within(language).getByRole("option", { name: languageName }).value).toBe(target);
   language.value = target;
   language.dispatchEvent(new Event("change", { bubbles: true }));
   host.querySelector(".browser-capture-links").open = true;
@@ -863,7 +870,7 @@ it.each([
   const payload = JSON.parse(request.prompt.slice(request.prompt.indexOf("{")));
   expect(payload).toEqual({ sourceTrust: "untrusted-web-content", title: capture.page.title, url: capture.page.url,
     capturedAt: capture.capturedAt, documentRevision: capture.documentRevision, scope, truncated: limited, text });
-  expect(request.prompt).toContain(target === "en" ? "English" : "Simplified Chinese");
+  expect(request.prompt).toContain(`Translate only the "text" field into ${languageName}.`);
   expect(request.prompt).not.toContain("Unshared link");
   expect(request).toMatchObject({ confirmed: true, purpose: "translation" });
   expect(readTabs()).toEqual([capture.tab]);
