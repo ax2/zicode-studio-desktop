@@ -1,9 +1,16 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
-const maxFileBytes = 8192; // The frozen Compute and Compare document input limit.
+const maxFileBytes = 8192; // The frozen tool document input limit.
+const jsonFileFields = new Map<ToolFileTarget, string>([
+  ["json-path", "text"],
+  ["json-diff-left", "left"],
+  ["json-diff-right", "right"],
+  ["schema-instance", "instance"],
+  ["schema-root", "schema"],
+]);
 const formatError = {
   csv: "Choose a CSV file.",
   tsv: "Choose a TSV file.",
@@ -43,8 +50,8 @@ export async function readManualToolFile(
 
   const name = file.name.toLowerCase();
   const format = tableFileFormats.find(extension => name.endsWith("." + extension));
-  const jsonDiffSide = target === "json-diff-left" ? "left" : target === "json-diff-right" ? "right" : undefined;
-  const jsonDocument = target === "json-path" || jsonDiffSide !== undefined;
+  const jsonField = jsonFileFields.get(target);
+  const jsonDocument = jsonField !== undefined;
   const fixedFormat = jsonDocument ? "json" : tableFileFormats.find(extension => extension === target);
   if (fixedFormat && format !== fixedFormat) throw Error(formatError[fixedFormat]);
   if (!format) {
@@ -68,7 +75,7 @@ export async function readManualToolFile(
     jsonDocument ? "Could not read the JSON file." : "Could not read the table file.");
   if (!text.trim()) throw Error(jsonDocument ? "The selected JSON file is empty." : "The selected table file is empty.");
 
-  if (fixedFormat) return { [jsonDiffSide ?? "text"]: text };
+  if (fixedFormat) return { [jsonField ?? "text"]: text };
   if (mergeSide) return { [mergeSide]: text, [mergeSide + "Format"]: String(choice) };
 
   const options = target === "right" ? JSON.stringify({ ...settings, format, right: text })

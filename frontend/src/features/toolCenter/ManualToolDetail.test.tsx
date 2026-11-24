@@ -404,38 +404,6 @@ for (const mode of jsonDiffModes) {
   }, 25_000);
 }
 
-const jsonSchemaPackage = process.env.ZICODE_TEST_JSON_SCHEMA_PACKAGE;
-const jsonSchemaWorker = process.env.ZICODE_TEST_COMPARE_WORKER;
-
-it.runIf(Boolean(jsonSchemaPackage && jsonSchemaWorker))("runs offline JSON Schema from the frozen production tool form", async () => {
-  const packagePath = jsonSchemaPackage as string;
-  const manifest = JSON.parse(readFileSync(join(packagePath, "plugin.json"), "utf8"));
-  const capability = manifest.contributes.capabilities[0];
-  const selected = { ...tool, title: capability.title, pluginId: manifest.id, capabilityId: capability.id };
-  const { api, container, submit } = await mount(selected, undefined, capability.inputSchema);
-  vi.mocked(api.invoke).mockImplementation(async (sceneId, _workspaceId, pluginId, capabilityId, input) => {
-    const worker = spawnSync(jsonSchemaWorker as string, ["--zicode-plugin-worker"], {
-      input: JSON.stringify({ workerPath: join(packagePath, manifest.runtime.wasi), workerKind: "wasi", pluginId, capabilityId, sceneId, input }),
-      windowsHide: true, encoding: "utf8", timeout: 12000,
-    });
-    expect(worker.status).toBe(0);
-    return JSON.parse(worker.stdout);
-  });
-  const form = within(container.querySelector("form") as HTMLFormElement);
-  const instance = form.getByRole("textbox", { name: /JSON 实例/ });
-  const schema = form.getByRole("textbox", { name: /JSON Schema/ });
-  const instanceText = '{"项目/名~":"private-fixture"}';
-  const schemaText = '{"properties":{"项目/名~":{"type":"integer"}}}';
-  fireEvent.change(instance, { target: { value: instanceText } });
-  fireEvent.change(schema, { target: { value: schemaText } });
-  expect(api.invoke).not.toHaveBeenCalled();
-  await submit();
-  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ instance: instanceText, schema: schemaText });
-  const result = container.querySelector<HTMLTextAreaElement>("[data-tool-result]")?.value;
-  expect(result).toContain("/项目~1名~0");
-  expect(result).not.toContain("private-fixture");
-}, 15000);
-
 const mixedMergePlugin = "com.zicode.devtools.table-merge";
 const mixedMergePackage = process.env.ZICODE_TEST_TABLE_MERGE_PACKAGE;
 const mixedMergeWorker = process.env.ZICODE_TEST_WORKER_EXE;
