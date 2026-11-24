@@ -29,8 +29,8 @@ use windows::core::{Interface, HSTRING, PWSTR};
 use wry::WebViewExtWindows;
 
 const DOCUMENT: &str = "/owned-inline-report";
-const TAB: &str = "18e39725-d300-4841-b3f2-1564bbdb7ed7";
-const BOUNDS: Bounds = Bounds {
+pub(super) const TAB: &str = "18e39725-d300-4841-b3f2-1564bbdb7ed7";
+pub(super) const BOUNDS: Bounds = Bounds {
     x: 0.0,
     y: 0.0,
     width: 800.0,
@@ -78,7 +78,7 @@ fn pdf_fixture(colors: &[&str]) -> Vec<u8> {
     pdf
 }
 
-fn inline_pdf(publish_html: Arc<AtomicBool>) -> String {
+pub(super) fn inline_pdf(publish_html: Arc<AtomicBool>) -> String {
     serve_inline_pdf(pdf_fixture(&["0.89 0.13 0.63"]), publish_html)
 }
 
@@ -103,7 +103,11 @@ fn serve_inline_pdf(pdf: Vec<u8>, publish_html: Arc<AtomicBool>) -> String {
             if reader.read_line(&mut request).is_err() {
                 continue;
             }
-            let (kind, body): (&str, &[u8]) = match request.split_ascii_whitespace().nth(1) {
+            let path = request
+                .split_ascii_whitespace()
+                .nth(1)
+                .map(|target| target.split('?').next().unwrap_or(target));
+            let (kind, body): (&str, &[u8]) = match path {
                 Some(DOCUMENT) if !publish_html.load(Ordering::Relaxed) => {
                     ("application/pdf", &pdf)
                 }
@@ -118,7 +122,7 @@ fn serve_inline_pdf(pdf: Vec<u8>, publish_html: Arc<AtomicBool>) -> String {
     origin
 }
 
-fn wait<T>(label: &str, mut check: impl FnMut() -> Option<T>) -> T {
+pub(super) fn wait<T>(label: &str, mut check: impl FnMut() -> Option<T>) -> T {
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {
         if let Some(value) = check() {
