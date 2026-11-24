@@ -67,3 +67,86 @@ it.each(["studio-mail-cache-cleared","studio-mail-cache-updated"])("refreshes ch
   expect(screen.queryByRole("article")).toBeNull();
   expect(screen.queryByRole("button",{name:"Next"})).toBeNull();
 });
+
+function beginAllAccountSearch(invoke: Invoke, gmail: Invoke) {
+  setLocale("en");
+  const accounts = [
+    { id: "a", address: "first@example.test", provider: "gmail" },
+    { id: "b", address: "second@example.test", provider: "gmail" },
+  ];
+  render(<CachedMailSearch accounts={accounts} current="a" invoke={invoke} gmail={gmail} />);
+  fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "" } });
+  fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "fixture" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+}
+
+const firstHit = { account: "a", address: "first@example.test", provider: "gmail", id: "42", epoch: null, subject: "First fixture", sender: "Example" };
+const secondHit = { ...firstHit, account: "b", address: "second@example.test", subject: "Second fixture" };
+
+it.each([
+  ["studio-mail-cache-updated", "a", [firstHit, secondHit]],
+  ["studio-mail-cache-updated", "b", [firstHit, secondHit]],
+  ["studio-mail-cache-cleared", "b", [firstHit]],
+] as const)("keeps the pending body when %s for account %s leaves that message available", async (event, account, items) => {
+  const invoke = vi.fn().mockResolvedValueOnce({ items: [firstHit, secondHit], more: false }).mockResolvedValueOnce({ items, more: false });
+  let finish!: (body: { plainText: string }) => void;
+  const gmail = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: /First fixture/ }));
+  await act(async () => window.dispatchEvent(new CustomEvent(event, { detail: account })));
+  await act(async () => finish({ plainText: "Pending body from the first account" }));
+  expect(screen.getByText("Pending body from the first account")).toBeTruthy();
+  expect(gmail).toHaveBeenCalledExactlyOnceWith({ kind: "cachedBody", accountId: "a", id: "42" });
+});
+
+it("checks the selected message against the latest refresh when two accounts update together", async () => {
+  const replies: Array<(page: unknown) => void> = [];
+  const invoke = vi.fn().mockResolvedValueOnce({ items: [firstHit, secondHit], more: false })
+    .mockImplementation(() => new Promise(resolve => { replies.push(resolve); }));
+  let finish!: (body: { plainText: string }) => void;
+  const gmail = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: /First fixture/ }));
+  await act(async () => {
+    window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" }));
+    window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "b" }));
+  });
+  await act(async () => replies[1]({ items: [secondHit], more: false }));
+  await act(async () => replies[0]({ items: [firstHit, secondHit], more: false }));
+  await act(async () => finish({ plainText: "Old message must stay closed" }));
+  expect(screen.queryByRole("article")).toBeNull();
+  expect(screen.queryByRole("button", { name: /First fixture/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /Second fixture/ })).toBeTruthy();
+});
+
+it("closes an old IMAP body when a refresh replaces the same message number with a new UID validity", async () => {
+  setLocale("en");
+  const account = { id: "a", address: "first@example.test", provider: "alibaba" };
+  const oldHit = { ...firstHit, provider: account.provider, folder: "INBOX", epoch: 7 };
+  const newHit = { ...oldHit, epoch: 8 };
+  const invoke = vi.fn().mockResolvedValueOnce({ items: [oldHit], more: false }).mockResolvedValueOnce({ items: [newHit], more: false });
+  let finish!: (body: { text: string }) => void;
+  const alibaba = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  render(<CachedMailSearch accounts={[account]} current="a" invoke={invoke as Invoke} alibaba={alibaba as Invoke} />);
+  fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "fixture" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  fireEvent.click(await screen.findByRole("button", { name: /First fixture/ }));
+  expect(alibaba).toHaveBeenCalledExactlyOnceWith({ kind: "cachedBody", accountId: "a", folder: "INBOX", uidValidity: 7, uid: 42 });
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" })));
+  await act(async () => finish({ text: "Body for the original mailbox" }));
+  expect(screen.queryByRole("article")).toBeNull();
+  expect(screen.getByRole("button", { name: /First fixture/ })).toBeTruthy();
+});
+
+it("keeps unrelated results and their open body when refresh fails after one account is cleared", async () => {
+  const invoke = vi.fn().mockResolvedValueOnce({ items: [firstHit, secondHit], more: false }).mockRejectedValueOnce(new Error("local read failed"));
+  const gmail = vi.fn(async () => ({ plainText: "Unrelated cached body" }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: /First fixture/ }));
+  await screen.findByText("Unrelated cached body");
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared", { detail: "b" })));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(screen.getByText("Unrelated cached body")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /First fixture/ })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Second fixture/ })).toBeNull();
+});
