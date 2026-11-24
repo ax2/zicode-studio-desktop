@@ -11,7 +11,8 @@ export function isDataTransform(tool: Pick<ManualTool, "pluginId" | "capabilityI
   );
 }
 
-interface TransformPreview {
+export interface TransformPreview {
+  input: string | null;
   headers: string[];
   rows: { number: number; cells: string[] }[];
   changed: number;
@@ -19,19 +20,36 @@ interface TransformPreview {
 }
 
 class ExactNumber {
-  constructor(readonly source: string) {}
+  constructor(
+    readonly source: string,
+    readonly exact = true,
+  ) {}
 }
 
-function renderCell(value: unknown): string {
-  if (value instanceof ExactNumber) return value.source;
-  if (Array.isArray(value)) return `[${value.map(renderCell).join(", ")}]`;
+function renderCell(value: unknown, compact = false): string {
+  const space = compact ? "" : " ";
+  const separator = compact ? "," : ", ";
+  if (value instanceof ExactNumber) {
+    if (compact && !value.exact) throw new Error("Original numeric token unavailable");
+    return value.source;
+  }
+  if (Array.isArray(value))
+    return `[${value.map((item) => renderCell(item, compact)).join(separator)}]`;
   if (value !== null && typeof value === "object") {
     const fields = Object.entries(value).map(
-      ([key, item]) => `${JSON.stringify(key)}: ${renderCell(item)}`,
+      ([key, item]) => `${JSON.stringify(key)}:${space}${renderCell(item, compact)}`,
     );
-    return `{${fields.join(", ")}}`;
+    return `{${fields.join(separator)}}`;
   }
   return JSON.stringify(value);
+}
+
+function encodeTableInput(headers: string[], rows: unknown[][]): string | null {
+  try {
+    return `{"headers":${JSON.stringify(headers)},"rows":${renderCell(rows, true)}}`;
+  } catch {
+    return null;
+  }
 }
 
 function object(value: unknown): Record<string, unknown> | undefined {
@@ -59,7 +77,7 @@ export function dataTransformPreview(text: string): TransformPreview | null {
         if (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value))) {
           throw new Error("Numeric token unavailable");
         }
-        return new ExactNumber(JSON.stringify(value));
+        return new ExactNumber(JSON.stringify(value), false);
       },
     );
     const result = object(parsed);
@@ -89,12 +107,18 @@ export function dataTransformPreview(text: string): TransformPreview | null {
       return null;
     const previewRows = rows.map((row, index) => ({
       number: index + 1,
-      cells: row.map(renderCell),
+      cells: row.map((cell: unknown) => renderCell(cell)),
     }));
     const distinctExamples = [
       ...new Map(examples.map((pair) => [JSON.stringify(pair), pair])).values(),
     ];
-    return { headers, rows: previewRows, changed, examples: distinctExamples };
+    return {
+      input: encodeTableInput(headers, rows),
+      headers,
+      rows: previewRows,
+      changed,
+      examples: distinctExamples,
+    };
   } catch {
     return null;
   }
