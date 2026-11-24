@@ -1,6 +1,6 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 export type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "base64-encode" | "base64-decode" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // The frozen tool document input limit.
@@ -47,6 +47,12 @@ export async function readManualToolFile(
     if (file.size > maxFileBytes) throw Error(sizeError);
     const text = await readUtf8ToolFile(file, sizeError, "Could not read the text file.");
     return target === "diff-left" ? { left: text } : { right: text };
+  }
+
+  if (target === "base64-encode" || target === "base64-decode") {
+    const encode = target === "base64-encode";
+    const text = await readUtf8ToolFile(file, "Text files must be 8 KiB or smaller.", "Could not read the text file.", maxFileBytes, encode);
+    return { text: encode ? text : text.replace(/[\r\n]/g, "") };
   }
 
   const name = file.name.toLowerCase();
@@ -99,7 +105,9 @@ export async function readManualToolFile(
   return target === "right" ? { options } : { text, options };
 }
 
-export async function readUtf8ToolFile(file: File, sizeError: string, readError: string, maxBytes = maxFileBytes): Promise<string> {
+export async function readUtf8ToolFile(
+  file: File, sizeError: string, readError: string, maxBytes = maxFileBytes, preserveBom = false,
+): Promise<string> {
   if (file.size > maxBytes) throw Error(sizeError);
   let data: ArrayBuffer;
   try {
@@ -109,7 +117,7 @@ export async function readUtf8ToolFile(file: File, sizeError: string, readError:
   }
   if (data.byteLength > maxBytes) throw Error(sizeError);
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(data);
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: preserveBom }).decode(data);
   } catch {
     throw Error("The file must contain valid UTF-8 text.");
   }

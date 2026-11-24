@@ -58,6 +58,13 @@ const yamlFromJsonFiles = [
   { target: "yaml-from-json", field: "text", label: "Import JSON file…", inputLabel: "JSON input file", fieldLabel: "JSON text" },
 ] as const;
 
+const base64EncodeFiles = [
+  { target: "base64-encode", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
+] as const;
+const base64DecodeFiles = [
+  { target: "base64-decode", field: "text", label: "Import Base64 file…", inputLabel: "Base64 input file", fieldLabel: "Base64 text" },
+] as const;
+
 const independentMergeLabels = new Map([
   ["left", "Left table"], ["right", "Right table"],
   ["leftFormat", "Left table format"], ["rightFormat", "Right table format"],
@@ -199,16 +206,23 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     fields?.some(field => field.key === "text" && field.kind === "string" && field.maxLength === 8192);
   const yamlToJson = yamlConverter && tool.capabilityId === "devtools.inspect.yaml.to_json";
   const yamlFromJson = yamlConverter && tool.capabilityId === "devtools.inspect.yaml.from_json";
-  const sqlFormat = tool.pluginId === "com.zicode.devtools.text" && tool.capabilityId === "devtools.text.sql.format" &&
-    tool.version === "0.4.1" && tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version &&
+  const textPlugin = tool.pluginId === "com.zicode.devtools.text" && tool.version === "0.4.1" &&
+    tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version &&
     fields?.some(field => field.key === "text" && field.kind === "string" && field.maxLength === 8192);
+  const sqlFormat = textPlugin && tool.capabilityId === "devtools.text.sql.format";
+  const base64Encode = textPlugin && tool.capabilityId === "devtools.text.base64.encode";
+  const base64Decode = textPlugin && tool.capabilityId === "devtools.text.base64.decode";
+  const base64Tool = base64Encode || base64Decode;
   const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
     jsonSchema ? jsonSchemaFileTargets : sqlFormat ? sqlFileTargets :
-      yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles : [];
+      yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
+        base64Encode ? base64EncodeFiles : base64Decode ? base64DecodeFiles : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
     : yamlToJson ? { label: "Download JSON", stem: "converted", extension: "json", mime: "application/json" }
-    : yamlFromJson ? { label: "Download YAML", stem: "converted", extension: "yaml", mime: "application/yaml" } : null;
+    : yamlFromJson ? { label: "Download YAML", stem: "converted", extension: "yaml", mime: "application/yaml" }
+    : base64Encode ? { label: "Download Base64 file", stem: "encoded", extension: "base64", mime: "text/plain" }
+    : base64Decode ? { label: "Download decoded text", stem: "decoded", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
@@ -324,7 +338,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const wire = response.result;
       const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
         wire.contractVersion === "1.0.0-rc.1";
-      if (textDownload && ownsExecution() && outcome.successful && declared && outcome.text.trim().length > 0) {
+      if (textDownload && ownsExecution() && outcome.successful && declared && (base64Tool || outcome.text.trim().length > 0)) {
         setDownloadExecution({ identity: transformIdentity, sequence, api, source: values, text: outcome.text });
       }
       if (independentMerge && outcome.successful) {
@@ -364,7 +378,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     finally { if (ownsExecution()) setRecording(false); }
   }
   const documentFileButtons = documentFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
-    label={t(side.label)} inputLabel={t(side.inputLabel)} accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : yamlToJson ? ".yaml,.yml" : ""}
+    label={t(side.label)} inputLabel={t(side.inputLabel)}
+    accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : yamlToJson ? ".yaml,.yml" : base64Decode ? ".base64,.b64,.txt" : ""}
     loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" :
       yamlToJson ? "Reading YAML file…" : "Reading text file…"}
     disabled={editingLocked || !detail?.enabled} loading={fileLoading === side.target}
