@@ -57,10 +57,11 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
     }finally{if(live.current&&generation.current===epoch){lock.current=false;setBusy(false)}}})();
     return()=>{live.current=false;generation.current++}
   },[id,invoke]);
-  async function run<T>(work:()=>Promise<T>,apply:(value:T)=>void){
+  async function run<T>(work:(isCurrent:()=>boolean)=>Promise<T>,apply:(value:T)=>void){
     if(lock.current)return;lock.current=true;setBusy(true);setError("");
     const epoch=generation.current;
-    try{const v=await work();if(live.current&&epoch===generation.current)apply(v)}
+    const isCurrent = () => live.current && epoch === generation.current;
+    try{const v=await work(isCurrent);if(isCurrent())apply(v)}
     catch(e){if(live.current&&epoch===generation.current)setError(mailError(e))}
     finally{if(live.current&&epoch===generation.current){lock.current=false;setBusy(false)}}
   }
@@ -82,13 +83,19 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       setOnline(network);if(!cursor){setSelected(null);setBody(null)}
     })
   }
-  function pick(m:Summary){
-    if(!page)return;const ref={...(folder==="INBOX"?{}:{folder}),uidValidity:page.uidValidity,uid:m.uid};setSelected(ref);setBody(null);
-    void run(async()=>{
-      if(online)return await req<Body>("read",ref);
-      try{return await req<Body>("cachedBody",ref)}
-      catch(e){if(String(e).includes("mail_cache_empty"))return null;throw e}
-    },setBody)
+  function pick(m: Summary) {
+    if (lock.current || !page) return;
+    const ref = { ...(folder === "INBOX" ? {} : { folder }), uidValidity: page.uidValidity, uid: m.uid };
+    setSelected(ref);
+    setBody(null);
+    void run(async isCurrent => {
+      try {
+        return await req<Body>("cachedBody",ref);
+      } catch (error) {
+        if (String(error).replace(/^Error:\s*/, "") !== "mail_cache_empty") throw error;
+        return online && configured && isCurrent() ? req<Body>("read",ref) : null;
+      }
+    }, setBody);
   }
   const chosen=page?.messages.find(m=>m.uid===selected?.uid);
   return <section aria-label={t("Alibaba Mail inbox")}>

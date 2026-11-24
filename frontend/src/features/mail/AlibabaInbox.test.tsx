@@ -4,7 +4,7 @@ import {Mail,type Invoke} from "./index";
 import {setLocale} from "../../shared/i18n";
 afterEach(()=>{cleanup();vi.restoreAllMocks()});
 const summary={uid:30,subject:"Inbox fixture",sender:"from@example.test",replyTo:"reply@example.test"};
-function setup(provider="alibaba",initiallyConfigured=true,backlog=0){
+function setup(provider="alibaba",initiallyConfigured=true,backlog=0,archiveBody?:string){
   setLocale("en");let configured=initiallyConfigured,delivery:string|null=null;
   let draft={id:"draft",revision:2,subject:"Prepared",recipient:"receiver@example.test",body:"Draft body "+"x".repeat(480)+"<img src=fixture>"};
   const local=vi.fn(async (r:Record<string,unknown>)=>{
@@ -23,7 +23,7 @@ function setup(provider="alibaba",initiallyConfigured=true,backlog=0){
     case "sync":return r.cursor
       ?{uidValidity:7,messages:[{...summary,uid:10,subject:"Older fixture"}],next:null}
       :{uidValidity:7,messages:[summary],pending:backlog>0,next:{uidValidity:7,before:30}};
-    case "cachedBody":throw Error("mail_cache_empty");
+    case "cachedBody":if(archiveBody && r.folder==="Archive")return {summary,text:archiveBody};throw Error("mail_cache_empty");
     case "read":return {summary,text:"<img src='https://invalid.test/x'>"};
     case "replyDraft":draft={id:"reply",revision:1,subject:"Re: Inbox fixture",recipient:summary.replyTo,body:""};return draft;
     case "delivery":return {status:delivery};
@@ -93,4 +93,20 @@ it("saves client credentials explicitly and hides provider actions for a Gmail d
   confirm.mockReturnValue(true);fireEvent.click(button("Remove client password"));await waitFor(()=>expect(button("Refresh from server").matches(":disabled")).toBe(true));
   a.view.unmount();const gmail=setup("gmail");await screen.findByRole("button",{name:"Prepared"});
   expect(gmail.kinds()).toHaveLength(0);expect(screen.queryByRole("button",{name:"Refresh from server"})).toBeNull();
+});
+
+it("reads a cached body from the same IMAP folder and epoch after an inbox refresh", async () => {
+  const a = setup("alibaba", true, 0, "Saved Archive body");
+  const folder = await screen.findByLabelText("IMAP folder");
+  await screen.findByText("Inbox fixture");
+  fireEvent.change(folder, { target: { value: "Archive" } });
+  await screen.findByText("Archive fixture");
+  fireEvent.click(button("Refresh from server"));
+  await screen.findByText("Showing messages retrieved from the server.");
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Saved Archive body");
+  expect(a.remote).toHaveBeenCalledWith({
+    kind: "cachedBody", accountId: "a", folder: "Archive", uidValidity: 7, uid: 30,
+  });
+  expect(a.kinds()).not.toContain("read");
 });

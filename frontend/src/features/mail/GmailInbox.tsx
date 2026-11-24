@@ -119,9 +119,16 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       setServerPage(server);
     });
   }
-  function select(m:Message,server:boolean){
+  function select(m: Message, download = false) {
     if(operation.current)return;setMessage(m);setBody(null);setReplyRefresh(false);
-    void run("read",()=>invoke<Body|null>({kind:server?"read":"cachedBody",accountId:id,id:m.id}),setBody);
+    const message = { accountId: id, id: m.id };
+    void run("read", async isCurrent => {
+      if (!download) {
+        const cached = await invoke<Body | null>({ kind: "cachedBody", ...message });
+        if (cached || !readFromServer || !isCurrent()) return cached;
+      }
+      return invoke<Body>({ kind: "read", ...message });
+    }, setBody);
   }
   const disconnected=!grant.connected;
   const readFromServer = serverPage && !disconnected && grant.read === true;
@@ -156,7 +163,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       <button className="ui-button" type="button" disabled={!grant.read} onClick={()=>load(true)}>{t("Refresh from server")}</button>
       {page?<><p>{t(readFromServer?"Showing messages retrieved from the server.":"Showing messages saved on this device.")}</p>
         {!page.items.length&&<p>{t("No messages on this page.")}</p>}
-        <ul className="mail-inbox-list">{page.items.map(m=><li key={m.id}><button className="ui-button" type="button" aria-pressed={message?.id===m.id} onClick={()=>select(m,readFromServer)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.from}</small></button></li>)}</ul>
+        <ul className="mail-inbox-list">{page.items.map(m=><li key={m.id}><button className="ui-button" type="button" aria-pressed={message?.id===m.id} onClick={()=>select(m)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.from}</small></button></li>)}</ul>
         {page.nextCursor&&<button className="ui-button" type="button" onClick={()=>load(readFromServer, page.nextCursor, label, true)}>{t("Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {message&&<article aria-label={t("Selected message")}><h3 translate="no">{message.subject||t("No subject")}</h3><p translate="no">{message.from}</p>

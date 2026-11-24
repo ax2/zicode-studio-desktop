@@ -19,7 +19,7 @@ it("starts from cache, requests separate read and send grants, and never sends w
   const view=fixture(async r=>{
     switch(r.kind){
       case "status":return grant;
-      case "cachedPage":return null;
+      case "cachedPage":case "cachedBody":return null;
       case "connect":grant={connected:true,read:true,send:r.send===true};return grant;
       case "list":return r.cursor?{items:[{...entry,id:"ghi",subject:"Older fixture"}],nextCursor:null}:{items:[entry],nextCursor:"p2"};
       case "read":return {...entry,plainText:"<img src='https://invalid.test/tracker'>"};
@@ -163,7 +163,7 @@ it.each(["disconnect", "reauthorize"])("continues the selected Gmail label from 
       case "list":
         if (request.cursor) throw Error("gmail_reauthorize");
         return { items: [entry], nextCursor: "remote-token" };
-      case "read": return { ...entry, plainText: "Keep this selected message" };
+      case "cachedBody": return { ...entry, plainText: "Keep this selected message" };
       case "disconnect": return { revoked: true };
       default: throw Error("Unexpected request " + request.kind);
     }
@@ -213,4 +213,53 @@ it("keeps the messages and dismisses unavailable pagination in a legacy offline 
   expect(v.calls).toHaveBeenLastCalledWith({
     kind: "cachedPage", accountId: "one", label: "INBOX", cursor: "legacy-saved-token", limit: 20,
   });
+});
+
+it("reads the cached body of a refreshed Gmail row and downloads a body only when missing", async () => {
+  const missing = { ...entry, id: "missing", subject: "Missing body fixture" };
+  const v = fixture(async r => {
+    if (r.kind === "status") return { connected: true, read: true };
+    if (r.kind === "cachedPage") return null;
+    if (r.kind === "cachedLabels") return [];
+    if (r.kind === "list") return { items: [entry, missing], nextCursor: null };
+    if (r.kind === "cachedBody") return r.id === entry.id ? { ...entry, plainText: "Read the saved Gmail body" } : null;
+    if (r.kind === "read" && r.id === missing.id) return { ...missing, plainText: "Downloaded after cache miss" };
+    throw Error("gmail_network");
+  });
+  const refresh = await screen.findByRole("button", { name: "Refresh from server" });
+  await waitFor(() => expect(refresh.matches(":disabled")).toBe(false));
+  fireEvent.click(refresh);
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Read the saved Gmail body");
+  expect(v.calls).toHaveBeenCalledWith({ kind: "cachedBody", accountId: "one", id: entry.id });
+  expect(v.calls.mock.calls.some(([r]) => r.kind === "read")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: /Missing body fixture/ }));
+  await screen.findByText("Downloaded after cache miss");
+  expect(v.calls.mock.calls.slice(-2).map(([r]) => r)).toEqual([
+    { kind: "cachedBody", accountId: "one", id: missing.id },
+    { kind: "read", accountId: "one", id: missing.id },
+  ]);
+});
+
+it("does not download a Gmail cache miss after moving to another account", async () => {
+  let finish!: (value: null) => void;
+  const v = fixture(async r => {
+    if (r.kind === "status") return { connected: true, read: true };
+    if (r.kind === "cachedLabels") return [];
+    if (r.kind === "cachedPage") return { items: [], nextCursor: null };
+    if (r.kind === "list") return { items: [entry], nextCursor: null };
+    if (r.kind === "cachedBody") return new Promise<null>(resolve => { finish = resolve; });
+    if (r.kind === "read") return { ...entry, plainText: "Unexpected fetched body" };
+    throw Error("unexpected operation");
+  }, [account("one"), account("two")]);
+  const refresh = await screen.findByRole("button", { name: "Refresh from server" });
+  await waitFor(() => expect(refresh.matches(":disabled")).toBe(false));
+  fireEvent.click(refresh);
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await waitFor(() => expect(typeof finish).toBe("function"));
+  fireEvent.change(screen.getByLabelText("Mail account"), { target: { value: "two" } });
+  await screen.findByText("two@example.test");
+  await act(async () => finish(null));
+  expect(v.calls.mock.calls.some(([r]) => r.kind === "read")).toBe(false);
+  expect(screen.queryByText("Unexpected fetched body")).toBeNull();
 });
