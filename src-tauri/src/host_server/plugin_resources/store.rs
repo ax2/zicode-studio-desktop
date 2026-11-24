@@ -81,14 +81,9 @@ impl Store {
         owner: Owner,
         proof: String,
         bytes: Vec<u8>,
+        profile: &str,
     ) -> Result<Value, ApiError> {
-        self.import_bytes(
-            owner,
-            proof,
-            bytes,
-            "text/plain",
-            "resource.local-directory.draft1",
-        )
+        self.import_bytes(owner, proof, bytes, "text/plain", profile)
     }
     fn import_bytes(
         &mut self,

@@ -167,6 +167,11 @@ fn directory_snapshot_rejects_reparse_entries_and_intermediate_directories() {
         error.1 .0["error"]["code"],
         "resource_directory_entry_unsupported"
     );
+    let usage = usage::snapshot(&directory, &before, &control, || Ok(())).unwrap();
+    let payload: Value = serde_json::from_slice(&usage.bytes).unwrap();
+    assert!(usage.partial);
+    assert_eq!(payload["skippedLinks"], 1);
+    assert_eq!(payload["entries"], json!([]));
 }
 
 #[cfg(windows)]

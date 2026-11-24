@@ -957,7 +957,7 @@
       "localStatus": "not-imported",
       "operations": [],
       "fullSourceScopeAccepted": false,
-      "blocker": "尚无已导入的插件操作；需先明确本地资源/服务/系统接口与插件边界，再实现和验证。",
+      "blocker": "Windows Host 具备专用、可撤权的有界目录逻辑大小快照合同。待提供方独立聚合插件、工具页入口、工作区外选址与整体验收。",
       "sourceScope": "明确选择目录或通过 Explorer 文件夹菜单启动后台只读统计；统计逻辑大小、直属子目录与大文件，跳过链接及重解析点，限制时间/条目/深度，支持取消并标出部分结果；不删除文件"
     },
     {
