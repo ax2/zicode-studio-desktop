@@ -6,6 +6,25 @@
 .window-control:not([data-window-action="close"]) { display: none; }
 .window-controls:hover .window-control, .window-controls:has(:focus-visible) .window-control, .window-controls[data-keyboard-expanded] .window-control { display: inline-flex; }
 .window-controls [data-window-action="close"]:hover { background: var(--error); color: var(--bg-solid); }
-.window-drag-handle { flex: 0 0 var(--space-3); align-self: stretch; cursor: grab; touch-action: none; pointer-events: auto; }
+.window-drag-handle {
+  flex: 0 0 var(--space-5);
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  cursor: grab;
+  touch-action: none;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+.window-drag-handle::before {
+  content: "";
+  width: 8px;
+  height: 12px;
+  background: radial-gradient(circle, currentColor 1px, transparent 1.3px) 0 0 / 4px 4px;
+  pointer-events: none;
+}
+.window-drag-handle:hover { color: var(--text-primary); }
 .window-drag-handle:active { cursor: grabbing; }
 @media (hover: none) { .window-controls-slot { flex-basis: calc(var(--control-height-sm) * 3); } .window-control:not([data-window-action="close"]) { display: inline-flex; } }
