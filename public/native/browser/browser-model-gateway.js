@@ -1,22 +1,30 @@
 import { t } from "../../i18n.js";
 
 export function createBrowserModelGateway({ gateway, getTarget, isCurrent, openConversation }) {
-  let owner;
+  let owner, loaded = false;
   const key = value => JSON.stringify([value?.sceneId, value?.workspaceId, value?.instanceId, value?.sessionId]);
-  const changed = () => new Error(t("Page or conversation changed. Read the page again."));
+  const changed = () => Object.assign(new Error(t("Page or conversation changed. Read the page again.")), {
+    code: "browser_model_context_changed",
+  });
   async function request(operation, params = {}, initialize = false) {
     if (!isCurrent()) throw changed();
+    if (initialize) loaded = false;
     if (initialize && getTarget()?.runtimeMode === "tools" && openConversation) {
       await openConversation({ target: getTarget(), isCurrent });
     }
     const target = getTarget();
-    if (!isCurrent() || !target?.sessionId || target.runtimeMode === "tools") throw new Error(t("Open Chat to load Pi models, then return to this page."));
-    if (!initialize && key(target) !== key(owner)) throw changed();
-    if (initialize) owner = target;
+    if (!isCurrent()) throw changed();
+    if (!target?.sessionId || target.runtimeMode === "tools") {
+      if (!initialize) throw changed();
+      throw new Error(t("Open Chat to load Pi models, then return to this page."));
+    }
+    if (!initialize && (!loaded || key(target) !== key(owner))) throw changed();
     const identity = key(target);
     const result = await gateway.call(operation, params, { target, timeoutMs: 40_000 });
     if (!isCurrent() || key(getTarget()) !== identity) throw changed();
     if (!result?.ok) throw new Error(result?.error || "module_model_unavailable");
+    // Keep the last verified owner for cancellation until a new lookup succeeds.
+    if (initialize) { owner = { ...target }; loaded = true; }
     return result.data;
   }
   return {

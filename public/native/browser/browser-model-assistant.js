@@ -11,8 +11,13 @@ function button(value, listener) {
 }
 const name = model => `${model.provider} / ${model.name || model.modelId}`;
 const selectionKey = selection => selection ? JSON.stringify([selection.provider, selection.modelId]) : "";
+const modelErrorCode = reason => reason?.code === "browser_model_context_changed" ? reason.code :
+  reason instanceof Error ? reason.message : String(reason ?? "");
+const staleModelErrors = new Set(["browser_model_context_changed", "module_model_config_changed", "module_model_selection_unavailable"]);
+
 export function browserModelError(reason) {
-  const code = reason instanceof Error ? reason.message : String(reason ?? "");
+  const code = modelErrorCode(reason);
+  if (code === "browser_model_context_changed") return t("Page or conversation changed. Read the page again.");
   if (code === "module_model_request_cancelled") return t("Model request cancelled.");
   if (code === "module_model_request_timeout") return t("The model request timed out. It was not retried.");
   if (code === "module_model_config_changed") return t("Model configuration changed. Reload the models before sending.");
@@ -99,6 +104,10 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       : t("The selected model is unavailable. Choose another model or configure Pi.");
     controls();
   }
+  function invalidateModelConfiguration() {
+    snapshot = undefined;
+    destination.textContent = "";
+  }
   async function load() {
     if (busy || !current()) return;
     const mine = ++generation; busy = true; controls(); status.textContent = t("Loading models…");
@@ -106,7 +115,12 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
       const value = await actions.load();
       if (!current() || mine !== generation) return;
       render(value); status.textContent = "";
-    } catch (reason) { if (current() && mine === generation) status.textContent = browserModelError(reason); }
+    } catch (reason) {
+      if (current() && mine === generation) {
+        invalidateModelConfiguration();
+        status.textContent = browserModelError(reason);
+      }
+    }
     finally { if (current() && mine === generation) { busy = false; controls(); } }
   }
   select.addEventListener("change", async () => {
@@ -124,7 +138,13 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
         showNoteAction();
         render(value);
       }
-    } catch (reason) { if (current()) { render(before); status.textContent = browserModelError(reason); } }
+    } catch (reason) {
+      if (current()) {
+        select.value = selectionKey(before.browser);
+        invalidateModelConfiguration();
+        status.textContent = browserModelError(reason);
+      }
+    }
     finally { if (current()) { busy = false; controls(); } }
   });
   function clearImage() {
@@ -208,13 +228,16 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     } catch (reason) {
       if (!current() || mine !== generation) return;
       if (request.cancelled) status.textContent = t("Model request cancelled.");
-      else status.textContent = visual && !request.sent
-        ? t(String(reason?.message ?? reason)) : browserModelError(reason);
+      else {
+        if (staleModelErrors.has(modelErrorCode(reason))) invalidateModelConfiguration();
+        status.textContent = visual && !request.sent
+          ? t(String(reason?.message ?? reason)) : browserModelError(reason);
+      }
     } finally {
       const restoreFocus = current() && document.activeElement === cancel;
       pending = undefined; busy = false; setBusy(false);
       if (current()) controls();
-      if (restoreFocus) trigger?.focus({ preventScroll: true });
+      if (restoreFocus) (trigger?.disabled ? refresh : trigger)?.focus({ preventScroll: true });
     }
   }
   async function saveAnalysis() {
