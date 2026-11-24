@@ -59,7 +59,7 @@ pub(super) enum Entry {
 }
 
 impl Entry {
-    fn path(&self) -> &str {
+    pub(super) fn path(&self) -> &str {
         match self {
             Self::File { path, .. } | Self::Directory { path } => path,
         }
@@ -251,7 +251,7 @@ pub(super) fn open_relative(root: &Dir, path: &str) -> Result<Dir, ApiError> {
     Ok(directory)
 }
 
-fn is_link(metadata: &cap_std::fs::Metadata) -> bool {
+pub(super) fn is_link(metadata: &cap_std::fs::Metadata) -> bool {
     #[cfg(windows)]
     {
         use cap_std::fs::MetadataExt;

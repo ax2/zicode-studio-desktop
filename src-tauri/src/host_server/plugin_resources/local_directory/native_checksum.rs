@@ -164,6 +164,41 @@ impl HostServer {
         .map_err(error_code)
     }
 
+    pub(crate) async fn prepare_native_directory_compare(
+        &self,
+        context: Context,
+        owner_value: Value,
+        left: PathBuf,
+        right: PathBuf,
+    ) -> Result<Value, String> {
+        let owner = owner(owner_value)?;
+        let (workspace, session) = crate::desktop_tools::route_identity(&context.route)
+            .map_err(|_| "resource_authorization_changed")?;
+        if context.workspace != workspace || owner.session_id != session {
+            return Err("resource_authorization_changed".into());
+        }
+        if left == right {
+            return Err("resource_directory_compare_same_folder".into());
+        }
+        let display_names = [&left, &right].map(|path| path.file_name()
+            .map(|name| name.to_string_lossy().into_owned()).unwrap_or_default());
+        let state = self.state.clone();
+        blocking(state.clone(), move || {
+            let grant_id = issue_grant(
+                &state, owner.clone(), Purpose::Compare,
+                Selection::PickedPair { first: SelectedDirectory { context, path: left }, second: right },
+            )?;
+            Ok(json!({
+                "schemaVersion": 1, "profile": compare::PROFILE, "grantId": grant_id,
+                "owner": owner, "displayNames": display_names, "entryNamesRead": false,
+                "confirmed": false, "expiresInSeconds": 120,
+            }))
+        })
+        .await
+        .map(|Json(result)| result)
+        .map_err(error_code)
+    }
+
     pub(crate) async fn prepare_native_checksum_files(
         &self,
         context: Context,

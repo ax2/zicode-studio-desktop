@@ -4,6 +4,7 @@ mod checksum;
 mod checksum_progress;
 mod native_checksum;
 mod duplicates;
+mod compare;
 mod usage;
 pub(super) use native_checksum::open_picked_file;
 
@@ -42,6 +43,7 @@ enum Purpose {
     Metadata,
     Usage,
     Duplicates,
+    Compare,
     Checksum(Vec<checksum::Entry>),
     GenerateChecksum(Vec<checksum::SelectedFile>),
 }
@@ -51,6 +53,7 @@ enum DirectoryAccess {
     Metadata,
     Usage,
     Duplicates,
+    Compare,
     Checksum,
 }
 
@@ -60,6 +63,7 @@ impl Purpose {
             Self::Metadata => DirectoryAccess::Metadata,
             Self::Usage => DirectoryAccess::Usage,
             Self::Duplicates => DirectoryAccess::Duplicates,
+            Self::Compare => DirectoryAccess::Compare,
             Self::Checksum(_) | Self::GenerateChecksum(_) => DirectoryAccess::Checksum,
         }
     }
@@ -73,29 +77,40 @@ struct Grant {
     proof: String,
     registry_revision: String,
     stamp: String,
+    companion_stamp: Option<String>,
     expires: Instant,
 }
 
 enum Selection {
     Workspace(String),
     Picked(native_checksum::SelectedDirectory),
+    PickedPair { first: native_checksum::SelectedDirectory, second: PathBuf },
 }
 
 impl Selection {
     fn context(&self) -> Option<&Context> {
         match self {
             Self::Workspace(_) => None,
-            Self::Picked(selection) => Some(&selection.context),
+            Self::Picked(selection) | Self::PickedPair { first: selection, .. } => Some(&selection.context),
         }
     }
 
     fn open(&self, workspace_root: &Path, access: DirectoryAccess) -> Result<Dir, ApiError> {
         match self {
-            Self::Picked(selection) => native_checksum::open_picked_directory(&selection.path),
+            Self::Picked(selection) | Self::PickedPair { first: selection, .. } => {
+                native_checksum::open_picked_directory(&selection.path)
+            }
             Self::Workspace(relative) if matches!(access, DirectoryAccess::Usage) => {
                 native_checksum::open_picked_directory(&workspace_root.join(relative))
             }
             Self::Workspace(relative) => open_directory(workspace_root, relative),
+        }
+    }
+
+    fn open_companion(&self) -> Result<Option<Dir>, ApiError> {
+        match self {
+            Self::PickedPair { second, .. } => native_checksum::open_picked_directory(second).map(Some),
+            _ => Ok(None),
         }
     }
 }
@@ -289,25 +304,26 @@ fn authorize(
         DirectoryAccess::Metadata => "resource.directory.read",
         DirectoryAccess::Usage if owner.plugin_id == usage::PLUGIN && owner.capability_id == usage::CAPABILITY => usage::PERMISSION,
         DirectoryAccess::Duplicates if owner.plugin_id == duplicates::PLUGIN && owner.capability_id == duplicates::CAPABILITY => duplicates::PERMISSION,
+        DirectoryAccess::Compare if owner.plugin_id == compare::PLUGIN && owner.capability_id == compare::CAPABILITY => compare::PERMISSION,
         DirectoryAccess::Checksum if owner.plugin_id == "com.zicode.devtools.files"
             && owner.capability_id == crate::plugin_resource_execution::file_digest::CAPABILITY => "resource.read",
         _ => return Err(rejected("resource_directory_profile_unsupported")),
     };
-    let duplicates_read = matches!(access, DirectoryAccess::Duplicates);
-    if duplicates_read {
+    let hashed_read = matches!(access, DirectoryAccess::Duplicates | DirectoryAccess::Compare);
+    if hashed_read {
         let runtime = &plugin.manifest.runtime;
         let capabilities = plugin.manifest.contributes["capabilities"].as_array();
         if runtime["wasi"].as_str().is_none()
             || runtime["resourceInputProfile"] != "resource.wasi.input.draft2"
             || !capabilities.is_some_and(|caps| caps.iter().any(|cap| {
-                cap["id"] == duplicates::CAPABILITY
+                cap["id"] == owner.capability_id
                     && crate::plugin_registry::resource_input_types::accepts(cap, "text/plain")
             }))
         {
             return Err(rejected("resource_directory_profile_unsupported"));
         }
     }
-    for name in std::iter::once(permission).chain(duplicates_read.then_some("resource.read")) {
+    for name in std::iter::once(permission).chain(hashed_read.then_some("resource.read")) {
         if !plugin.manifest.permissions.required.iter()
             .chain(&plugin.manifest.permissions.optional)
             .any(|item| item.name == name)
@@ -543,6 +559,10 @@ fn issue_grant(
     let expected = authorize(state, &owner, access, context)?;
     let directory = selection.open(&expected.0, access)?;
     let directory_stamp = stamp(&directory)?;
+    let companion_stamp = selection.open_companion()?.as_ref().map(stamp).transpose()?;
+    if companion_stamp.as_deref() == Some(directory_stamp.as_str()) {
+        return Err(rejected("resource_directory_compare_same_folder"));
+    }
     if authorize(state, &owner, access, context)? != expected {
         return Err(rejected("resource_authorization_changed"));
     }
@@ -555,6 +575,7 @@ fn issue_grant(
         proof,
         registry_revision,
         stamp: directory_stamp,
+        companion_stamp,
         expires: Instant::now() + TTL,
     };
     state
@@ -612,7 +633,7 @@ async fn commit_grant(
         check_authority()?;
         let directory = grant.selection.open(&grant.root, access)?;
         match &grant.purpose {
-            Purpose::Metadata | Purpose::Usage | Purpose::Duplicates => {
+            Purpose::Metadata | Purpose::Usage | Purpose::Duplicates | Purpose::Compare => {
                 let analysis = match grant.purpose {
                     Purpose::Usage => Some((
                         usage::PROFILE,
@@ -622,6 +643,23 @@ async fn commit_grant(
                         duplicates::PROFILE,
                         duplicates::snapshot(&directory, &grant.stamp, &control, check_authority)?,
                     )),
+                    Purpose::Compare => {
+                        let companion = grant.selection.open_companion()?
+                            .ok_or_else(|| rejected("resource_directory_unavailable"))?;
+                        let identity = grant.companion_stamp.as_deref()
+                            .ok_or_else(|| rejected("resource_directory_unavailable"))?;
+                        let scan = compare::snapshot(
+                            compare::Source { directory: &directory, identity: &grant.stamp },
+                            compare::Source { directory: &companion, identity },
+                            &control, &check_authority,
+                        )?;
+                        let current = grant.selection.open_companion()?
+                            .ok_or_else(|| rejected("resource_directory_unavailable"))?;
+                        if stamp(&current)? != identity {
+                            return Err(rejected("resource_directory_changed"));
+                        }
+                        Some((compare::PROFILE, scan))
+                    }
                     _ => None,
                 };
                 let (profile, bytes, count, partial) = if let Some((profile, scan)) = analysis {
@@ -661,7 +699,7 @@ async fn commit_grant(
                         let files = checksum::generate(&directory, selected, &control, &check_authority)?;
                         json!({"schemaVersion":1,"profile":checksum::GENERATE_PROFILE,"files":files})
                     }
-                    Purpose::Metadata | Purpose::Usage | Purpose::Duplicates => unreachable!("snapshot already handled"),
+                    Purpose::Metadata | Purpose::Usage | Purpose::Duplicates | Purpose::Compare => unreachable!("snapshot already handled"),
                 };
                 let current_directory = grant.selection.open(&grant.root, access)?;
                 if stamp(&current_directory)? != grant.stamp {
@@ -721,3 +759,6 @@ mod usage_provider_tests;
 
 #[cfg(test)]
 mod duplicates_provider_tests;
+
+#[cfg(test)]
+mod compare_provider_tests;
