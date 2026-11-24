@@ -48,6 +48,18 @@ export function browserComparisonPrompt(sources) {
   ].join("\n\n");
 }
 
+const sourceChanged = () => new Error(t("Page or conversation changed. Read the page again."));
+
+export async function verifyReviewedBrowserSources(sources, readSource, isCurrent) {
+  for (const source of sources) {
+    if (!isCurrent()) throw sourceChanged();
+    const fresh = await readSource(source);
+    if (!isCurrent() || fresh?.tab !== source.tab || fresh.page?.url !== source.url || fresh.documentRevision !== source.documentRevision) {
+      throw sourceChanged();
+    }
+  }
+}
+
 async function handoffReviewedSources({ sources, readSource, isCurrent, getTarget, handoff, prompt, openConversation }) {
   let target = getTarget();
   if (!target?.sessionId || (target.runtimeMode === "tools" && !openConversation)) {
@@ -55,16 +67,7 @@ async function handoffReviewedSources({ sources, readSource, isCurrent, getTarge
   }
   let key = JSON.stringify(target);
   const current = () => isCurrent() && target === getTarget() && key === JSON.stringify(getTarget());
-  const changed = () => new Error(t("Page or conversation changed. Read the page again."));
-  const review = async () => {
-    for (const source of sources) {
-      if (!current()) throw changed();
-      const fresh = await readSource(source);
-      if (!current() || fresh.tab !== source.tab || fresh.page.url !== source.url || fresh.documentRevision !== source.documentRevision) {
-        throw changed();
-      }
-    }
-  };
+  const review = () => verifyReviewedBrowserSources(sources, readSource, current);
 
   await review();
   if (target.runtimeMode === "tools") {
@@ -72,7 +75,7 @@ async function handoffReviewedSources({ sources, readSource, isCurrent, getTarge
     await openConversation({ target: initial, isCurrent: current });
     target = getTarget();
     if (!target?.sessionId || target.runtimeMode !== "ai" || target.workspaceId !== initial.workspaceId ||
-        (target.sceneId || "programming") !== (initial.sceneId || "programming")) throw changed();
+        (target.sceneId || "programming") !== (initial.sceneId || "programming")) throw sourceChanged();
     key = JSON.stringify(target);
     await review();
   }

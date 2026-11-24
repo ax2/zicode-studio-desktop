@@ -28,7 +28,7 @@ import { showBrowserBookmarks } from "./browser-bookmarks.js";
 import { createBrowserSurface } from "./browser-surface.js";
 import { createBrowserOptions } from "./browser-options.js";
 import { createBrowserNewTabShortcuts } from "./browser-new-tab-shortcuts.js";
-import { prepareBrowserComparisonDraft, prepareBrowserDraft } from "./browser-chat-draft.js";
+import { prepareBrowserComparisonDraft, prepareBrowserDraft, verifyReviewedBrowserSources } from "./browser-chat-draft.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
 import { createBrowserModelGateway } from "./browser-model-gateway.js";
 import { showBrowserReader } from "./browser-reader.js";
@@ -1336,16 +1336,20 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const requestFor = source => source.tab === tab.id
       ? { tab: source.tab, url: source.url, version }
       : peers.find(peer => peer.tab === source.tab);
-    const comparison = onPrepareDraft && /^https?:/.test(capture.page.url) && {
+    const modelActions = modelGateway && createBrowserModelGateway({ gateway: modelGateway, getTarget, isCurrent, openConversation });
+    const sourcesCurrent = sources => sources.every(source => sourceIsCurrent(requestFor(source)));
+    const reread = source => readSource(requestFor(source));
+    const comparison = (onPrepareDraft || modelActions) && {
       peers,
       readSource,
-      prepare: (sources, isPreparing) => prepareBrowserComparisonDraft({
+      prepare: onPrepareDraft && ((sources, isPreparing) => prepareBrowserComparisonDraft({
         sources, getTarget, handoff: onPrepareDraft, openConversation,
-        isCurrent: () => isPreparing() && sources.every(source => sourceIsCurrent(requestFor(source))),
-        readSource: source => readSource(requestFor(source)),
-      }),
+        isCurrent: () => isPreparing() && sourcesCurrent(sources),
+        readSource: reread,
+      })),
+      verify: (sources, isSending) => verifyReviewedBrowserSources(sources, reread,
+        () => isSending() && !blocked() && sourcesCurrent(sources)),
     };
-    const modelActions = modelGateway && createBrowserModelGateway({ gateway: modelGateway, getTarget, isCurrent, openConversation });
     const analysisArtifacts = createBrowserAnalysisArtifacts({ capture, getTarget,
       isCurrent: () => Boolean(captureElement?.isConnected), gateway: new ArtifactGateway() });
     const recognizeImage = async (image, frame) => {

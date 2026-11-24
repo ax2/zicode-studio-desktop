@@ -24,14 +24,15 @@ export function comparisonSource(capture) {
   };
 }
 
-export function createBrowserCompare({ capture, peers, readSource, prepare, setBusy, isOpen, onPrepared, opensChat }) {
+export function createBrowserCompare({ capture, peers, readSource, prepare, setBusy, isOpen, onPrepared, opensChat, direct, canStart = () => true }) {
   const panel = document.createElement("fieldset"); panel.className = "browser-compare"; panel.hidden = true;
   const legend = document.createElement("legend"); legend.textContent = t("Compare open tabs"); panel.append(legend);
   const button = document.createElement("button"); button.type = "button"; button.className = "ui-button ui-button--secondary";
   button.textContent = t("Compare open tabs");
   button.addEventListener("click", () => { panel.hidden = !panel.hidden; if (!panel.hidden) panel.querySelector("input")?.focus(); });
   const hint = document.createElement("p");
-  hint.textContent = t(peers.length ? "Choose one or two loaded tabs. Review the sources before preparing a draft." : "Open another web page before comparing tabs.");
+  hint.textContent = t(peers.length ? (direct ? "Choose one or two loaded tabs and review their excerpts." :
+    "Choose one or two loaded tabs. Review the sources before preparing a draft.") : "Open another web page before comparing tabs.");
   panel.append(hint);
   if (!peers.length) return { button, panel };
 
@@ -54,21 +55,30 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
   const cancel = document.createElement("button"); cancel.type = "button"; cancel.className = "ui-button ui-button--secondary";
   cancel.textContent = t("Cancel comparison");
   cancel.dataset.i18nText = "Cancel comparison";
-  toolbar.append(read, draft, cancel); panel.append(choices, toolbar, status, preview);
+  toolbar.append(read);
+  if (direct) toolbar.append(direct.button);
+  if (prepare) toolbar.append(draft);
+  toolbar.append(cancel);
+  panel.append(choices, toolbar);
+  if (direct) panel.append(direct.notice);
+  panel.append(status, preview);
   let reviewed = null, pending = null;
   const selected = () => inputs.filter(({ input }) => input.checked);
   function update() {
     const count = selected().length;
-    read.disabled = Boolean(pending) || count < 1;
-    draft.disabled = Boolean(pending) || !reviewed;
+    const blocked = Boolean(pending) || !canStart();
+    read.disabled = blocked || count < 1;
+    draft.disabled = blocked || !reviewed;
+    direct?.setSources(reviewed);
     cancel.hidden = !pending;
     cancel.classList.toggle("hidden", cancel.hidden);
-    for (const { input } of inputs) input.disabled = Boolean(pending) || (!input.checked && count >= maxPeers);
+    for (const { input } of inputs) input.disabled = blocked || (!input.checked && count >= maxPeers);
   }
   function clearReview() { reviewed = null; preview.replaceChildren(); status.textContent = ""; update(); }
   function showReview(sources) {
     for (const [index, source] of sources.entries()) {
       const details = document.createElement("details");
+      details.open = Boolean(direct);
       const summary = document.createElement("summary"); summary.textContent = `[${index + 1}] ${source.title || source.url}`;
       if (source.truncated) appendPartialCapture(summary);
       const url = document.createElement("p"); url.textContent = source.url;
@@ -100,7 +110,7 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
     if (restoreFocus) job.trigger.focus({ preventScroll: true });
   }
   async function work(trigger, message, operation) {
-    if (pending || trigger.disabled || !isOpen()) return;
+    if (pending || !canStart() || trigger.disabled || !isOpen()) return;
     const job = { trigger };
     const current = () => pending === job;
     pending = job;
@@ -136,7 +146,7 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
       preview.replaceChildren();
       showReview(sources);
       reviewed = sources;
-      status.textContent = t("Review the sources, then prepare an unsent draft.");
+      status.textContent = t(direct ? "Review the excerpts before sending." : "Review the sources, then prepare an unsent draft.");
     });
   });
   draft.addEventListener("click", () => {
@@ -148,5 +158,5 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
     });
   });
   update();
-  return { button, panel };
+  return { button, panel, update };
 }
