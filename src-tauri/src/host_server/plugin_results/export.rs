@@ -35,8 +35,9 @@ impl Format {
         }
     }
 
-    fn required_extension(self) -> Option<&'static str> {
+    fn required_extension(self, scope: &Scope) -> Option<&'static str> {
         match self {
+            Self::Text if scope.is_text_diff() => Some("txt"),
             Self::Text => None,
             Self::Png => Some("png"),
             Self::Csv => Some("csv"),
@@ -189,8 +190,10 @@ impl HostServer {
             let bytes = source.format.bytes(&record)?;
             let (name, extension) = if source.format == Format::Png {
                 ("qr-code.png".into(), Some("png"))
-            } else if let Some(extension) = source.format.required_extension() {
-                let stem = if source.scope.is_quality_report() {
+            } else if let Some(extension) = source.format.required_extension(&source.scope) {
+                let stem = if source.scope.is_text_diff() {
+                    "text-diff-report"
+                } else if source.scope.is_quality_report() {
                     "data-quality-report"
                 } else if source.scope.is_json_path() {
                     "json-path-result"
@@ -228,11 +231,15 @@ impl HostServer {
         (|| {
             let source = source(&context, value)?;
             let record = record(&self.state, &source)?;
-            if source.format.required_extension().is_some_and(|required| {
-                !path.extension()
-                    .and_then(|ext| ext.to_str())
-                    .is_some_and(|ext| ext.eq_ignore_ascii_case(required))
-            }) {
+            if source
+                .format
+                .required_extension(&source.scope)
+                .is_some_and(|required| {
+                    !path.extension()
+                        .and_then(|ext| ext.to_str())
+                        .is_some_and(|ext| ext.eq_ignore_ascii_case(required))
+                })
+            {
                 return Err(rejected("result_export_path_invalid"));
             }
             let destination = Destination::prepare(path)?;

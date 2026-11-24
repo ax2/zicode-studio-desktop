@@ -24,6 +24,11 @@ impl Scope {
             && self.capability_id == "devtools.compare.json.path"
     }
 
+    fn is_text_diff(&self) -> bool {
+        self.plugin_id == "com.zicode.devtools.compare"
+            && self.capability_id == "devtools.compare.text.diff"
+    }
+
     fn is_quality_report(&self) -> bool {
         self.plugin_id == "com.zicode.devtools.compute"
             && matches!(
