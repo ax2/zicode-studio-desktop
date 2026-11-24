@@ -150,3 +150,51 @@ it("keeps unrelated results and their open body when refresh fails after one acc
   expect(screen.getByRole("button", { name: /First fixture/ })).toBeTruthy();
   expect(screen.queryByRole("button", { name: /Second fixture/ })).toBeNull();
 });
+
+const firstPage = { items: Array.from({ length: 40 }, (_, index) => ({
+  ...firstHit, id: `first-${index}`, subject: `First page hit ${index}`,
+})), more: true };
+const secondPage = { items: [secondHit], more: false };
+
+it("refreshes the current search page and keeps its opened message", async () => {
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage)
+    .mockResolvedValueOnce(secondPage).mockResolvedValueOnce(secondPage);
+  const gmail = vi.fn(async () => ({ plainText: "The page-two cached body" }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Second fixture/ }));
+  await screen.findByText("The page-two cached body");
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "b" })));
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual([0, 40, 40]);
+  expect(screen.getByText("The page-two cached body")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Previous" })).toBeTruthy();
+});
+
+it("refreshes a requested page even when navigation has not finished yet", async () => {
+  let finishEarlierRead!: (value: unknown) => void;
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage)
+    .mockImplementationOnce(() => new Promise(resolve => { finishEarlierRead = resolve; }))
+    .mockResolvedValueOnce(secondPage);
+  beginAllAccountSearch(invoke as Invoke, vi.fn() as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" })));
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual([0, 40, 40]);
+  expect(await screen.findByRole("button", { name: /Second fixture/ })).toBeTruthy();
+  await act(async () => finishEarlierRead({ items: [{ ...secondHit, subject: "Stale second page" }], more: false }));
+  expect(screen.queryByText("Stale second page")).toBeNull();
+});
+
+it("returns to the first search page if clearing a cache removes the current page", async () => {
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage)
+    .mockResolvedValueOnce({ items: [], more: false }).mockResolvedValueOnce({ items: [firstHit], more: false });
+  const gmail = vi.fn(async () => ({ plainText: "Offline cached message to remove" }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Second fixture/ }));
+  await screen.findByText("Offline cached message to remove");
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared", { detail: "b" })));
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual([0, 40, 40, 0]);
+  expect(await screen.findByRole("button", { name: /First fixture/ })).toBeTruthy();
+  expect(screen.queryByText("Offline cached message to remove")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
+});
