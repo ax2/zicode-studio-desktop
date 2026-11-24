@@ -82,6 +82,35 @@ body[data-active-plugin="core.tools"] #sidebar-overlay { display: none; }
   .tool-input-field .tool-input-long-text { height: calc(var(--control-height-md) * 3); }
 }
 
+.tool-transform-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+.tool-transform-table {
+  overflow: auto;
+  max-inline-size: 100%;
+  max-block-size: 55vh;
+}
+.tool-transform-table table { border-collapse: collapse; inline-size: max-content; }
+.tool-transform-table caption {
+  padding: var(--space-2);
+  text-align: start;
+}
+.tool-transform-table th, .tool-transform-table td {
+  border-block-end: 1px solid var(--border);
+  padding: var(--space-1) var(--space-2);
+  min-inline-size: 8ch;
+  max-inline-size: 28ch;
+  overflow-wrap: anywhere;
+  text-align: start;
+  vertical-align: top;
+}
+.tool-transform-examples li, .tool-transform-failed-row {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 .tool-result-image { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); }
 .tool-result-image img { display: block; max-width: 100%; max-height: 50vh; width: auto; height: auto; object-fit: contain; }
 .tool-result-image a { text-decoration: none; }

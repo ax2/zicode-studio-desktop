@@ -13,6 +13,7 @@ import { useManualToolCall } from "./use-manual-tool-call";
 import { ResourceToolRunner, type ResourceTargetProvider, type ReceiveNoteDraft } from "./ResourceToolRunner";
 import type { ResourceSessionOwner } from "./resource-session-owner";
 import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
+import { isDataTransform } from "./data-transform-result";
 
 const hostResourceReceivers = new Map([
   ["com.zicode.resource-inspector/image.inspect", "resource.host.image-input.v1"],
@@ -150,7 +151,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
           disabled={running || actionBusy || resourceBusy} onClick={onOpenApplication}>{t("Open tool interface")}</button>}
       </div>}
     </>}
-    {result !== null && <ManualToolResultView result={result} sectionRef={resultRef} onBackToInputs={supported ? () => jumpTo(formRef.current) : undefined} />}
+    {result !== null && <ManualToolResultView result={result} dataTransform={isDataTransform(tool)} sectionRef={resultRef} onBackToInputs={supported ? () => jumpTo(formRef.current) : undefined} />}
     {captured && supportsResultActions(api) && <ManualToolResultActions response={captured}
       accessStore={accessStore} onRecentChange={onRecentChange}
       scope={{ ...scope, pluginId: tool.pluginId, capabilityId: tool.capabilityId }} gateway={api}
