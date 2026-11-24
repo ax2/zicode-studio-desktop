@@ -254,7 +254,12 @@ pub(super) fn execute(
             Request::FocusChrome { tab } => focus(window, &browser.engine, &tab, false)?,
             Request::FocusPage { tab } => focus(window, &browser.engine, &tab, true)?,
             Request::FindStatus { tab } => return super::native_find::status(browser.engine.view(&tab)?),
-            Request::FindStep { tab, backward } => super::native_find::step(browser.engine.view(&tab)?, backward)?,
+            Request::FindStep { tab, backward } => {
+                if browser.engine.is_pdf_document(&tab) {
+                    return Err("PDF search shows the first match and total count.".into());
+                }
+                super::native_find::step(browser.engine.view(&tab)?, backward)?;
+            }
             Request::FindStop { tab } => super::native_find::stop(browser.engine.view(&tab)?)?,
             Request::PrintPage { tab, expected_url, expected_document_revision } => {
                 let view = ready_web_document(&browser.engine, &tab, &expected_url, &expected_document_revision)?;
@@ -282,7 +287,7 @@ pub(super) fn execute(
             }
             Request::SetZoom { tab, zoom } => {
                 if browser.engine.is_pdf_document(&tab) {
-                    return Err("Use the PDF toolbar for search and zoom.".into());
+                    return Err("Use the PDF toolbar for zoom.".into());
                 }
                 return serde_json::to_value(super::engine::page_controls::set_zoom(browser.engine.view(&tab)?, zoom)?).map_err(|e| e.to_string());
             }
@@ -351,9 +356,6 @@ pub(super) fn start_find(window: &WebviewWindow, tab: String, text: String, case
     let completion = sender.clone();
     let result = WINDOWS.with(|slot| slot.with_mut(|windows| {
         let browser = windows.get(window.label()).ok_or("Browser unavailable")?;
-        if browser.engine.is_pdf_document(&tab) {
-            return Err("Use the PDF toolbar for search and zoom.".into());
-        }
         let (view, work) = browser.engine.begin_page_work(&tab)?;
         super::native_find::start(view, &text, case_sensitive, move |result| {
             drop(work);

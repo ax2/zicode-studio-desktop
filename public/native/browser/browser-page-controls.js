@@ -25,8 +25,8 @@ export function createBrowserPageControls({ getTab, read, change, isPdf = () => 
   const label = document.createElement("span");label.textContent = t("Page zoom");
   const message = document.createElement("p");message.className = "browser-page-controls-status";message.setAttribute("role", "status");
   const pdfHelp = document.createElement("p");
-  pdfHelp.dataset.i18nText = "Use the PDF toolbar for search and zoom.";
-  pdfHelp.textContent = t("Use the PDF toolbar for search and zoom.");
+  pdfHelp.dataset.i18nText = "Use the PDF toolbar for zoom.";
+  pdfHelp.textContent = t("Use the PDF toolbar for zoom.");
   pdfHelp.hidden = true;
   const button = (text, name, action) => {
     const button = document.createElement("button");button.type = "button";button.className = "ui-button ui-button--secondary";button.textContent = text;button.title = t(name);button.setAttribute("aria-label", t(name));

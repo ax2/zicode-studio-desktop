@@ -513,7 +513,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function focusPdfReader(id, current) {
     const canFocus = () => current() && active === id && pageAvailable(id) && !blocked();
     if (!canFocus()) return;
-    setStatus(t("Use the PDF toolbar for search and zoom."));
+    setStatus(t("Use the PDF toolbar for zoom."));
     await syncSurface();
     await surface.settled();
     if (canFocus()) await control({ kind: "focusPage", tab: id });
@@ -522,26 +522,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const revision = pdfDocuments.get(id);
     return revision && documentRevisions.get(id) === revision ? revision : undefined;
   }
-  function openPdfFind(id, current) {
-    const revision = pdfRevision(id);
-    if (!revision) return null;
-    return focusPdfReader(id, () => current() && pdfRevision(id) === revision).then(() => true);
-  }
   function applyPdfDocument(id, revision) {
     if (!revision || documentRevisions.get(id) !== revision || pdfRevision(id) === revision) return;
     pdfDocuments.set(id, revision);
     if (id !== active) return;
     refreshOpenPageControls?.();
-    if (!find.isOpenFor(id)) return;
-    const previousFocus = document.activeElement;
-    void find.close();
-    if (!find.element.contains(previousFocus)) return;
-    const current = () => pdfRevision(id) === revision &&
-      (document.activeElement === previousFocus || document.activeElement === document.body);
-    // Preserve the user's existing Find intent without sending its query to the reader.
-    void focusPdfReader(id, current).catch(error => {
-      if (current() && active === id && !blocked()) report(error);
-    });
+    find.refreshMatchControls();
   }
   async function changePageSettings(id, change) {
     const tab = tabs.find(tab => tab.id === id); if (!tab || !pageAvailable(id)) throw new Error(t("Browser tab is no longer available"));
@@ -816,7 +802,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           if (id === active) {
             closePageAssistant(true);
             if (!tabSearch?.open) preview.clear();
-            if (statusMessage === t("Use the PDF toolbar for search and zoom.")) setStatus("");
+            if (statusMessage === t("Use the PDF toolbar for zoom.")) setStatus("");
             clearDeveloperToolsError();
             void find.close();
           }
@@ -878,6 +864,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     window.addEventListener("zicode:locale-changed", () => {
       menuLanguage();
       refreshNavigationLanguage?.();
+      find.refreshMatchControls();
       paintStatus();
       if (siteSettingsPanel?.current()) siteSettingsPanel.panel.setBlockedPermissions(blockedPermissions.get(active));
       refreshDeveloperTools?.();
@@ -980,7 +967,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     startup = document.createElement("select"); startup.className = "ui-select"; startup.setAttribute("aria-label", t("Start Studio in")); startup.title = t("Start Studio in");
     for (const [value, label] of [["browser", "Browser"], ["workspace", "Workspace"]]) { const option = document.createElement("option"); option.value = value; option.textContent = t(label); startup.append(option); }
     startup.addEventListener("change", () => run(() => invoke("browser_set_startup_mode", { mode: startup.value })));
-    find = createBrowserFind({ control, getTab: selected, available: () => visible && initialized && !blocked() && pageAvailable(active), openPdf: openPdfFind, restoreFocus: async tab => {
+    find = createBrowserFind({ control, getTab: selected, available: () => visible && initialized && !blocked() && pageAvailable(active), isPdf: tab => Boolean(pdfRevision(tab)), restoreFocus: async tab => {
       await syncSurface();
       if (visible && initialized && !blocked() && selected()?.id === tab && find.element.hidden && pageAvailable(tab)) await control({ kind: "focusPage", tab });
     }, report });
