@@ -6,7 +6,7 @@ const textElement = (tag, text) => {
   return node;
 };
 
-export function showBrowserReader(page, onClose) {
+export function showBrowserReader(page, onClose, position = {}) {
   const dialog = document.createElement("dialog");
   dialog.className = "browser-reader-dialog ui-panel";
   dialog.setAttribute("aria-label", t("Reading mode"));
@@ -22,16 +22,18 @@ export function showBrowserReader(page, onClose) {
     control.addEventListener("click", action);
     return control;
   };
-  let size = 1;
+  let size = position.size ?? 1;
+  let scrollTop = position.scrollTop ?? 0;
   const smaller = button("Smaller reading text", "A−", () => resize(-1));
   const larger = button("Larger reading text", "A+", () => resize(1));
-  const close = button("Close", t("Close"), () => dialog.close());
+  const close = button("Close", t("Close"), () => { rememberPosition(); dialog.close(); });
   function resize(step) {
     size = Math.max(0, Math.min(3, size + step));
     dialog.dataset.readerSize = String(size);
     smaller.disabled = size === 0;
     larger.disabled = size === 3;
   }
+  resize(0);
   controls.append(smaller, larger, close);
   header.append(textElement("span", t("Reading mode")), controls);
   const scroll = document.createElement("div");
@@ -58,9 +60,14 @@ export function showBrowserReader(page, onClose) {
   if (page.truncated) article.append(textElement("p", t("Page content was shortened")));
   scroll.append(article);
   dialog.append(header, scroll);
-  dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
+  const rememberPosition = () => { scrollTop = scroll.scrollTop; };
+  scroll.addEventListener("scroll", rememberPosition);
+  // Capture before native Escape closes the dialog and the scroll box no longer has layout.
+  dialog.addEventListener("cancel", rememberPosition);
+  dialog.addEventListener("close", () => { dialog.remove(); onClose({ scrollTop, size }); }, { once: true });
   document.body.append(dialog);
   try { dialog.showModal(); }
   catch (error) { dialog.remove(); throw error; }
   scroll.focus({ preventScroll: true });
+  scroll.scrollTop = scrollTop;
 }

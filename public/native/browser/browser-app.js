@@ -67,6 +67,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const pageVersions = new Map();
   const documentRevisions = new Map();
   const pdfDocuments = new Map();
+  const readerPositions = new Map();
   const control = request => invoke("browser_control", { request });
   const surface = createBrowserSurface(control);
   const paintStatus = () => {
@@ -355,6 +356,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     navigationStates.delete(id);
     documentRevisions.delete(id);
     pdfDocuments.delete(id);
+    readerPositions.delete(id);
     historyStates.delete(id);
     if (!reopening) pageVersions.delete(id);
     favicons.delete(id);
@@ -366,6 +368,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     navigationStates.delete(id);
     documentRevisions.delete(id);
     pdfDocuments.delete(id);
+    readerPositions.delete(id);
     historyStates.delete(id);
     favicons.delete(id);
     pageVersions.set(id, (pageVersions.get(id) ?? 0) + 1);
@@ -694,6 +697,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (payload.kind === "processFailed") { recordCrash(payload.tab); return; }
       if (payload.tab && crashedTabs.has(payload.tab)) return;
       if (payload.kind === "contextAction") {
+        const source = payload.action === "reader" ? readerSource() : null;
         if (payload.tab === active && !blocked()) act(async () => {
           if (payload.tab !== active || blocked()) return;
           if (["back", "forward", "reload", "zoomIn", "zoomOut", "zoomReset"].includes(payload.action)) await runPageAction(payload.action, payload.tab);
@@ -703,7 +707,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           else if (payload.action === "history") await openHistory();
           else if (payload.action === "downloads") await openDownloads();
           else if (payload.action === "read") await readPage();
-          else if (payload.action === "reader") await openReader();
+          else if (payload.action === "reader") await openReader(source);
           else if (payload.action === "translateSelection") await translatePageSelection(payload.tab);
         });
         return;
@@ -764,6 +768,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           navigationStates.set(id, "loading");
           documentRevisions.delete(id);
           pdfDocuments.delete(id);
+          readerPositions.delete(id);
           if (tab) pageVersions.set(id, (pageVersions.get(id) ?? 0) + 1);
           if (id === active) {
             if (!tabSearch?.open) preview.clear();
@@ -976,7 +981,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           if(visible)tabSearch=showBrowserProfiles(profiles,params=>invoke("browser_window_command",params),()=>{tabSearch=null;void run(syncSurface)});
         }) : act(() => invoke("browser_window_command", { action })),
       bookmarks: () => act(() => openBookmarks(false)), downloads: () => act(() => openDownloads()), history: () => act(() => openHistory()), siteSettings: () => act(openSiteSettings), searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
-      reader: () => act(openReader),
+      reader: () => {
+        const source = readerSource();
+        return act(() => openReader(source, options.querySelector("summary")));
+      },
       translateSelection: onTranslateSelection && (() => {
         const source = active;
         return act(() => translatePageSelection(source));
@@ -1193,22 +1201,38 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (!text && !openEmpty) throw new Error(t("Select text on the webpage first."));
     await onTranslateSelection(text, provenance);
   }
-  async function openReader() {
+  function readerSource() {
     const tab = selected();
+    return tab && { id: tab.id, url: tab.url, version: pageVersions.get(tab.id) };
+  }
+  async function openReader(source, returnControl) {
     if (blocked()) return;
-    if (!tab || !pageAvailable(tab.id) || !/^https?:/.test(tab.url) || navigationStates.has(tab.id)) {
+    if (!source || !pageAvailable(source.id) || !/^https?:/.test(source.url) || navigationStates.has(source.id)) {
       throw new Error(t("Wait for the current page to finish loading"));
     }
-    const { id, url } = tab, version = pageVersions.get(id);
-    const current = () => !blocked() && active === id && selected()?.url === url && pageVersions.get(id) === version;
+    const { id, url, version } = source;
+    const samePage = () => active === id && selected()?.url === url && pageVersions.get(id) === version && pageAvailable(id);
     await syncSurface();
-    const { page } = await invoke("browser_read_article", { tab: id, expectedUrl: url });
-    if (!current()) throw new Error(t("Page changed. Read it again."));
+    if (blocked() || !samePage()) throw new Error(t("Page changed. Read it again."));
+    const { tab, documentRevision, page } = await invoke("browser_read_article", { tab: id, expectedUrl: url });
+    const sameDocument = () => samePage() && (documentRevisions.get(id) ?? documentRevision) === documentRevision;
+    const current = () => !blocked() && sameDocument();
+    if (!current() || tab !== id || page.url !== url || !documentRevision) throw new Error(t("Page changed. Read it again."));
     if (!page.blocks.length) throw new Error(t("No readable text on this page."));
     await hide(true);
     try {
       if (!current()) throw new Error(t("Page changed. Read it again."));
-      showBrowserReader(page, () => restorePanelPage(id));
+      const saved = readerPositions.get(id);
+      showBrowserReader(page, position => {
+        if (sameDocument()) readerPositions.set(id, { documentRevision, position });
+        const focusedAtClose = document.activeElement;
+        void run(async () => {
+          await syncSurface();
+          if (!current() || document.activeElement !== focusedAtClose) return;
+          if (returnControl?.isConnected) returnControl.focus({ preventScroll: true });
+          else await control({ kind: "focusPage", tab: id });
+        });
+      }, saved?.documentRevision === documentRevision ? saved.position : undefined);
     } catch (error) {
       await syncSurface();
       throw error;
