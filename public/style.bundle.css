@@ -8234,6 +8234,9 @@ body[data-active-plugin="core.help"] .help-center-navigation {
 .tool-center-card { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; overflow-wrap: anywhere; }
 .tool-center-card .ui-toolbar { margin-top: auto; }
 .tool-center-source { color: var(--text-muted); font-size: var(--font-size-sm); }
+.workbench-draft-review { flex-wrap: wrap; }
+.workbench-draft-review .ui-button { white-space: nowrap; }
+.workbench-draft-file-name { min-width: 0; overflow-wrap: anywhere; }
 body[data-active-plugin="core.tools"] .sidebar { display: none; }
 body[data-active-plugin="core.tools"] #sidebar-overlay { display: none; }
 .manual-tool-directory, .manual-tool-directory-list, .tool-detail, .tool-detail form, .tool-input-field { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
