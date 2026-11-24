@@ -819,71 +819,71 @@
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.trim",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.lower",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.upper",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.empty_null",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.fill_null",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.rename",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.text",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.integer",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.number",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.bool",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         },
         {
           "pluginId": "com.zicode.devtools.compute",
           "operationId": "devtools.compute.transform.select",
           "kind": "capability",
-          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV；可主动应用到当前输入为列式JSON并单步撤销。"
+          "scope": "输入CSV/TSV/JSON表格；选项为JSON，例如 {\"format\":\"csv\",\"column\":\"name\",\"value\":\"新值\"}。选择保留列时填写keep列名数组。返回分页整表、变更示例和可复制CSV，可确认另存已捕获的CSV；可主动应用到当前输入为列式JSON并单步撤销。"
         }
       ],
       "fullSourceScopeAccepted": false,
-      "blocker": "已在Windows隔离验证整表预览、失败行反馈、显式应用和单步撤销。应用范围受现有文本8192字节与选项16384字节限制；文件导入/保存和原生大输入仍待覆盖。",
+      "blocker": "已在Windows隔离验证整表预览、失败行反馈、显式应用、单步撤销和确认另存CSV。应用范围受现有文本8192字节与选项16384字节限制；文件导入、JSON另存和原生大输入仍待覆盖。",
       "sourceScope": "选择保留列、重命名、文本清理、空值处理、显式文本/整数/数字/布尔转换；整列预览、失败行提示、原始输入保留及单步撤销"
     },
     {

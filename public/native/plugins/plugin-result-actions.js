@@ -5,7 +5,7 @@ import { t } from "i18n";
 import { createPluginResultTransfer } from "./plugin-result-transfer.js";
 import { openSavedArtifact } from "../features/artifact-navigation.js";
 import { appendResultCaptureNotice } from "./plugin-result-capture-notice.js";
-import { createPngResultExport, createTextResultExport } from "./text-result-export.js";
+import { createCsvResultExport, createPngResultExport, createTextResultExport } from "./text-result-export.js";
 export function createPluginResultActions({ container, gateway, isCurrent, onReceiverExecuted, onOpenSaved = openSavedArtifact, sourceResultDisplayed = false }) {
   const uuidPattern = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   const panel = document.createElement("section");
@@ -32,6 +32,14 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
         api: gateway.textExports,
         getTarget: () => current?.scope,
         isCurrent: () => valid(revision) && Boolean(current?.pngReference),
+      })
+    : null;
+
+  const csvExport = gateway.textExports
+    ? createCsvResultExport({
+        api: gateway.textExports,
+        getTarget: () => current?.scope,
+        isCurrent: () => valid(revision) && Boolean(current?.csvReference),
       })
     : null;
 
@@ -124,6 +132,17 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           }
         })
       : null;
+    const csv = csvExport && current.csvReference
+      ? button(t("Save CSV as…"), async () => {
+          if (!valid(token) || csv.disabled) return;
+          csv.disabled = true;
+          try {
+            await csvExport.open(current.csvReference, current.scope, container);
+          } finally {
+            if (valid(token)) csv.disabled = false;
+          }
+        })
+      : null;
     const content = current.transferred ? element("pre", current.text) : null;
     content?.setAttribute("aria-label", t("Transferred result"));
     panel.replaceChildren(
@@ -131,7 +150,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
         "strong",
         current.transferred ? t("Studio · Receiver result") : t("Studio · Save tool result"),
       ),
-      ...[content, png, title, preview, report, send, status].filter(Boolean),
+      ...[content, png, csv, title, preview, report, send, status].filter(Boolean),
     );
     if (current.saveOutcomeUnknown) {
       preview.disabled = true;
@@ -142,6 +161,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     revision += 1;
     reportExport?.clear();
     pngExport?.clear();
+    csvExport?.clear();
     disposeCaptureNotice?.();
     disposeCaptureNotice = null;
     transfer?.destroy();
@@ -167,6 +187,13 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       png?.mimeType === "image/png" && /^[0-9a-f]{64}$/.test(png.contentVersion ?? "") &&
       Number.isSafeInteger(png.byteLength) && png.byteLength > 0 && png.byteLength <= 48 * 1024
       ? { ...png, resultId: reference.resultId } : null;
+    const csv = reference?.csvExport;
+    const csvReference = scope?.pluginId === "com.zicode.devtools.compute" &&
+      scope.capabilityId.startsWith("devtools.compute.transform.") && response?.result?.ok === true &&
+      reference?.schemaVersion === 1 && uuidPattern.test(reference.resultId ?? "") &&
+      csv?.mimeType === "text/csv" && /^[0-9a-f]{64}$/.test(csv.contentVersion ?? "") &&
+      Number.isSafeInteger(csv.byteLength) && csv.byteLength > 0 && csv.byteLength <= 48 * 1024
+      ? { ...csv, resultId: reference.resultId } : null;
     const successful = httpResult || response?.result?.ok === true ||
       (response?.operation === "model.generate" && typeof resultText === "string");
     current = response?.resultRef
@@ -175,6 +202,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           resultId: response.resultRef.resultId,
           reportReference,
           pngReference,
+          csvReference,
           transferred,
           text: resultText,
         }
@@ -274,6 +302,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       revision += 1;
       reportExport?.clear();
       pngExport?.clear();
+      csvExport?.clear();
       disposeCaptureNotice?.();
       disposeCaptureNotice = null;
       transfer?.destroy();
@@ -286,6 +315,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       active = false;
       reportExport?.destroy();
       pngExport?.destroy();
+      csvExport?.destroy();
       disposeCaptureNotice?.();
       disposeCaptureNotice = null;
       transfer?.destroy();

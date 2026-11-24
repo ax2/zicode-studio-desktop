@@ -10,12 +10,14 @@ enum Format {
     #[default]
     Text,
     Png,
+    Csv,
 }
 impl Format {
     fn profile(self) -> &'static str {
         match self {
             Self::Text => "result.export.text.draft1",
             Self::Png => "result.export.png.v1",
+            Self::Csv => "result.export.csv.v1",
         }
     }
 
@@ -23,6 +25,15 @@ impl Format {
         match self {
             Self::Text => "text/plain",
             Self::Png => "image/png",
+            Self::Csv => "text/csv",
+        }
+    }
+
+    fn required_extension(self) -> Option<&'static str> {
+        match self {
+            Self::Text => None,
+            Self::Png => Some("png"),
+            Self::Csv => Some("csv"),
         }
     }
 
@@ -32,6 +43,11 @@ impl Format {
             Self::Png => record
                 .qr_png
                 .as_deref()
+                .ok_or_else(|| rejected("result_export_format_unavailable")),
+            Self::Csv => record
+                .transform_csv
+                .as_deref()
+                .map(str::as_bytes)
                 .ok_or_else(|| rejected("result_export_format_unavailable")),
         }
     }
@@ -151,6 +167,8 @@ impl HostServer {
             let bytes = source.format.bytes(&record)?;
             let (name, extension) = if source.format == Format::Png {
                 ("qr-code.png", Some("png"))
+            } else if source.format == Format::Csv {
+                ("data-transform.csv", Some("csv"))
             } else if source.scope.plugin_id == "com.zicode.devtools.checksum-manifest"
                 && source.scope.capability_id == "devtools.checksum-manifest.generate"
             {
@@ -178,12 +196,11 @@ impl HostServer {
         (|| {
             let source = source(&context, value)?;
             let record = record(&self.state, &source)?;
-            if source.format == Format::Png
-                && !path
-                    .extension()
+            if source.format.required_extension().is_some_and(|required| {
+                !path.extension()
                     .and_then(|ext| ext.to_str())
-                    .is_some_and(|ext| ext.eq_ignore_ascii_case("png"))
-            {
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case(required))
+            }) {
                 return Err(rejected("result_export_path_invalid"));
             }
             let destination = Destination::prepare(path)?;

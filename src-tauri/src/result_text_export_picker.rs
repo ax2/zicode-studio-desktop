@@ -17,6 +17,7 @@ pub(crate) async fn select_result_text_export(app: AppHandle, window: WebviewWin
                 let label = match extension.as_str() {
                     "json" => "JSON",
                     "png" => "PNG",
+                    "csv" => "CSV",
                     _ => "Text",
                 };
                 picker.add_filter(label, &[&extension])
