@@ -11,6 +11,9 @@ export function createPngResultExport(options) {
 export function createCsvResultExport(options) {
   return createCapturedResultExport(options, "result.export.csv.v1", "text/csv", "csv");
 }
+export function createJsonResultExport(options) {
+  return createCapturedResultExport(options, "result.export.json.v1", "application/json", "json");
+}
 function createCapturedResultExport(options, profile, mimeType, format) {
   return createResourceExport({ ...options, profile,
     makeSource: (scope, result) => ({ scope, resultId: result.resultId, ...(format ? { format } : {}) }),

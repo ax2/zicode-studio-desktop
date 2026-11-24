@@ -166,6 +166,7 @@ it("discards late previews when a new result or workspace replaces the source", 
 it.each([
   { format: "png", capabilityId: "devtools.compute.qr.png", mimeType: "image/png", label: "Save PNG as…" },
   { format: "csv", capabilityId: "devtools.compute.transform.integer", mimeType: "text/csv", label: "Save CSV as…" },
+  { format: "json", capabilityId: "devtools.compute.transform.integer", mimeType: "application/json", label: "Save JSON as…" },
 ] as const)("saves only a Host-verified $format after choosing and confirming a destination", async ({
   format, capabilityId, mimeType, label,
 }) => {

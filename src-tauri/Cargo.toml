@@ -30,7 +30,7 @@ tauri-plugin-log = "2"
 tauri-plugin-single-instance = "=2.4.0"
 notify-rust = "=4.11.5"
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["unbounded_depth"] }
+serde_json = { version = "1", features = ["raw_value", "unbounded_depth"] }
 cap-std = "3.4.5"
 cap-fs-ext = "3.4.5"
 jsonc-parser = { version = "=0.34.0", features = ["serde"] }

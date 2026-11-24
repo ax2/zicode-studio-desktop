@@ -1,9 +1,10 @@
 use super::*;
+use serde_json::value::RawValue;
 
 const MAX_RESULTS: usize = 64;
 const MAX_TOTAL_BYTES: usize = 2 * 1024 * 1024;
 const MAX_TEXT_BYTES: usize = 64 * 1024;
-const MAX_CSV_BYTES: usize = 48 * 1024;
+const MAX_TRANSFORM_EXPORT_BYTES: usize = 48 * 1024;
 const RESULT_TTL: Duration = Duration::from_secs(900);
 const GRANT_TTL: Duration = Duration::from_secs(120);
 
@@ -17,7 +18,7 @@ pub(super) struct Record {
     pub mime_type: &'static str,
     pub json_value: Option<Value>,
     pub qr_png: Option<Arc<[u8]>>,
-    pub transform_csv: Option<Arc<str>>,
+    pub transform: TransformExports,
     expires: Instant,
 }
 
@@ -25,11 +26,24 @@ impl Record {
     fn payload_bytes(&self) -> usize {
         self.text.len()
             + self.qr_png.as_ref().map_or(0, |png| png.len())
-            + self.transform_csv.as_ref().map_or(0, |csv| csv.len())
+            + self.transform.payload_bytes()
     }
 }
 
-fn transform_csv(scope: &Scope, text: &str) -> Option<Arc<str>> {
+#[derive(Clone, Default)]
+pub(super) struct TransformExports {
+    pub csv: Option<Arc<str>>,
+    pub json: Option<Arc<str>>,
+}
+
+impl TransformExports {
+    fn payload_bytes(&self) -> usize {
+        self.csv.as_ref().map_or(0, |csv| csv.len())
+            + self.json.as_ref().map_or(0, |json| json.len())
+    }
+}
+
+fn transform_exports(scope: &Scope, text: &str) -> Option<TransformExports> {
     if scope.plugin_id != "com.zicode.devtools.compute"
         || !scope
             .capability_id
@@ -38,11 +52,46 @@ fn transform_csv(scope: &Scope, text: &str) -> Option<Arc<str>> {
         return None;
     }
     #[derive(Deserialize)]
-    struct Output {
-        csv: String,
+    struct Output<'a> {
+        #[serde(borrow)]
+        csv: Option<&'a RawValue>,
+        #[serde(borrow)]
+        data: Option<&'a RawValue>,
     }
-    let Output { csv } = serde_json::from_str(text).ok()?;
-    (!csv.is_empty() && csv.len() <= MAX_CSV_BYTES).then(|| csv.into())
+    let Output { csv, data } = serde_json::from_str(text).ok()?;
+    let csv = csv
+        .and_then(|raw| serde_json::from_str::<String>(raw.get()).ok())
+        .filter(|csv| !csv.is_empty() && csv.len() <= MAX_TRANSFORM_EXPORT_BYTES)
+        .map(Arc::from);
+    let json = data
+        .map(RawValue::get)
+        .filter(|raw| raw.len() <= MAX_TRANSFORM_EXPORT_BYTES && is_columnar_table(raw))
+        .map(Arc::from);
+    Some(TransformExports { csv, json })
+}
+
+fn is_columnar_table(raw: &str) -> bool {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Table<'a> {
+        headers: Vec<String>,
+        // Check the row shape without converting numbers or building cell objects.
+        #[serde(borrow)]
+        rows: Vec<Vec<&'a RawValue>>,
+    }
+    let Ok(Table { headers, rows }) = serde_json::from_str(raw) else {
+        return false;
+    };
+    !headers.is_empty()
+        && headers.len() <= 128
+        && headers.iter().all(|header| !header.trim().is_empty())
+        && headers
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            == headers.len()
+        && rows.len() <= 10_000
+        && rows.iter().all(|row| row.len() == headers.len())
 }
 
 pub(super) struct Grant {
@@ -126,13 +175,13 @@ impl Store {
         } else {
             None
         };
-        let transform_csv = json_value
+        let transform = json_value
             .is_none()
-            .then(|| transform_csv(&scope, &text))
-            .flatten();
-        let bytes_added = text.len()
-            + qr_png.as_ref().map_or(0, |png| png.len())
-            + transform_csv.as_ref().map_or(0, |csv| csv.len());
+            .then(|| transform_exports(&scope, &text))
+            .flatten()
+            .unwrap_or_default();
+        let bytes_added =
+            text.len() + qr_png.as_ref().map_or(0, |png| png.len()) + transform.payload_bytes();
         if self
             .records
             .values()
@@ -158,11 +207,18 @@ impl Store {
                 "contentVersion": sha256_hex(bytes),
             });
         }
-        if let Some(csv) = &transform_csv {
+        if let Some(csv) = &transform.csv {
             descriptor["csvExport"] = json!({
                 "mimeType": "text/csv",
                 "byteLength": csv.len(),
                 "contentVersion": sha256_hex(csv.as_bytes()),
+            });
+        }
+        if let Some(table) = &transform.json {
+            descriptor["jsonExport"] = json!({
+                "mimeType": "application/json",
+                "byteLength": table.len(),
+                "contentVersion": sha256_hex(table.as_bytes()),
             });
         }
         self.records.insert(
@@ -176,7 +232,7 @@ impl Store {
                 mime_type,
                 json_value,
                 qr_png,
-                transform_csv,
+                transform,
                 expires: Instant::now() + RESULT_TTL,
             },
         );
@@ -264,6 +320,40 @@ mod tests {
             )
             .unwrap();
         assert!(descriptor["csvExport"].is_null());
+    }
+
+    #[test]
+    fn transform_json_preserves_json_tokens_and_rejects_non_columnar_data() {
+        let scope = Scope {
+            workspace_id: "workspace".into(),
+            scene_id: "programming".into(),
+            plugin_id: "com.zicode.devtools.compute".into(),
+            capability_id: "devtools.compute.transform.trim".into(),
+        };
+        let table = r#"{"headers":["名称","值"], "rows":[["甲\n乙",{"n":18446744073709551615,"f":1.2300e-7,"b":true}]]}"#;
+        let text = format!(r#"{{"data":{table},"csv":42}}"#);
+        let result = transform_exports(&scope, &text).unwrap();
+        assert_eq!(result.json.as_deref(), Some(table));
+        assert!(result.csv.is_none());
+
+        for data in [
+            r#"{"headers":["x","x"],"rows":[[1,2]]}"#,
+            r#"{"headers":["x"],"rows":[[1,2]]}"#,
+            r#"{"headers":[""],"rows":[]}"#,
+            r#"{"headers":["x"],"rows":[],"report":"not a table"}"#,
+            r#"[{"x":1}]"#,
+        ] {
+            let text = format!(r#"{{"data":{data},"csv":"x\n1\n"}}"#);
+            let result = transform_exports(&scope, &text).unwrap();
+            assert!(result.json.is_none());
+            assert_eq!(result.csv.as_deref(), Some("x\n1\n"));
+        }
+        let empty = r#"{"headers":["x"],"rows":[]}"#;
+        let text = format!(r#"{{"data":{empty}}}"#);
+        assert_eq!(
+            transform_exports(&scope, &text).unwrap().json.as_deref(),
+            Some(empty)
+        );
     }
 
     #[test]

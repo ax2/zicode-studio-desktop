@@ -2,12 +2,12 @@ export interface ResultScope {
   sceneId: string; workspaceId: string; pluginId: string; capabilityId: string;
 }
 type ResultExportDescriptor = { mimeType: string; contentVersion: string; byteLength: number };
-type ResultExportSource = { scope: ResultScope; resultId: string; format?: "png" | "csv" };
+type ResultExportSource = { scope: ResultScope; resultId: string; format?: "png" | "csv" | "json" };
 
 export interface CapturedToolResponse {
   result: unknown;
   operation?: string;
-  resultRef?: { resultId: string; schemaVersion?: number; mimeType?: string; contentVersion?: string; byteLength?: number; pngExport?: ResultExportDescriptor; csvExport?: ResultExportDescriptor };
+  resultRef?: { resultId: string; schemaVersion?: number; mimeType?: string; contentVersion?: string; byteLength?: number; pngExport?: ResultExportDescriptor; csvExport?: ResultExportDescriptor; jsonExport?: ResultExportDescriptor };
   resultCaptureError?: { code: string };
   replayed?: boolean;
 }

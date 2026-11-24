@@ -10,14 +10,15 @@
 
 「撤销上次应用」恢复应用前的文本和选项原字符串。只有用户再次执行才会调用 Worker。应用或撤销保留最近一次执行的完整响应，手动修改草稿后会清除之前的撤销，以便新编辑继续保留。工作区、工具、目录修订或输入变化后的旧结果不能改写当前草稿。
 
-## CSV 另存
+## CSV 和 JSON 另存
 
-列变换成功后，可在结果区选择「将 CSV 另存为…」。Windows 保存窗口建议文件名 `data-transform.csv`。选定位置后，Studio 显示目标路径、文件类型和字节数，再次确认才创建新文件。同名文件保持原样。CSV 复制、原始 JSON 与草稿应用操作继续可用。
+列变换成功后，可在结果区选择「将 CSV 另存为…」或「将 JSON 另存为…」。Windows 保存窗口会建议 `data-transform.csv` 或 `data-transform.json`。选定位置后，Studio 显示目标路径、文件类型和字节数，再次确认才创建新文件。同名文件保持原样。CSV 复制、原始响应与草稿应用操作继续可用。
 
-文件内容取自同一次执行中插件返回的完整 CSV 文本。导出授权绑定原结果、格式、窗口、工作区、当前路由和选定位置。Studio 以原始 UTF-8 字节写入，保留字段的引号、换行和长整数。现有 Worker 输入和输出限制继续适用。
+文件内容取自同一次执行的完整 CSV 文本或列式 JSON 数据对象。JSON 使用与「应用到输入」相同的 `headers`、`rows` 结构，保留列顺序、原始数字、字符串和嵌套值。导出授权绑定原结果、格式、窗口、工作区、当前路由和选定位置。现有 Worker 输入和输出限制继续适用。
 
 ## 验收范围
 
+- 列式 JSON 另存通过 Compute 0.1.0 候选 02 和 0.2.0 候选 01 的 Windows Host 与生产 Worker 验证。两版各保存带符号 64 位极值（203 字节）和嵌套无符号 64 位最大值（297 字节），回读与 Worker 数据对象逐字节一致，嵌套样例另从保存文件送回 Worker，重跑结果相同。覆盖取消、未确认、跨路由、跨格式、撤权、重放和同名文件保护。旧 CSV 与二维码 PNG 保存通过。Windows 系统保存窗口随版本集中验收。
 - CSV 另存通过 Compute 0.1.0 候选 02 和 0.2.0 候选 01 的 Windows Host 与生产 Worker 验证。两版各完成六个转换场景，各自在中文路径保存 66 字节 CSV。回读逐字节一致，SHA-256 为 `bddff6f9d0383e11b97c53d12696a5dd69fbbe6e756d0d7733386afddff0f4d6`。验证含未确认、取消、跨格式和跨路由、撤权、重放及同名冲突。React 验证了选址取消、另行确认和失败结果隐藏入口。Windows 系统保存窗口随版本集中验收。
 - 应用与撤销使用相同固定 Windows Worker，复核 Compute 0.1.0 候选 02 和 0.2.0 候选 01 的独立包收据。React 草稿执行、应用、再次执行和撤销都通过，带符号 64 位整数两端在往返中精确保留。可用 `ZICODE_TEST_TRANSFORM_WORKER` 和 `ZICODE_TEST_TRANSFORM_MODULE` 指定生产 Worker 和收据对应的 WASM，运行 `ManualToolTransformApply.test.tsx` 的实测用例。
 - 工具中心、结果动作、矩阵和完整双语覆盖共 219 项测试通过。覆盖草稿改动、迟到结果、过长和重复列、未声明输出契约、空表、重命名和保留列。TypeScript、整仓前端检查和严格 MkDocs 通过。
@@ -25,4 +26,4 @@
 - 工具中心、结果动作和矩阵共 207 项前端回归通过，TypeScript、双语、设计检查和严格 MkDocs 通过。窄窗下的视觉检查随版本集中验收。
 - 覆盖整表翻页、表头无数据行、长列名和重复列名、嵌套值、长整数、部分行失败、原响应可读和原始输入不变。
 - Host 验证使用含独立收据的 Compute 0.2.0 候选 01 和生产 Windows Worker，运行 `data_transform_preview_frozen_host_results`。该测试输出以 `DATA_TRANSFORM_RESPONSE` 开头的合成回执，将完整输出文件设为 `ZICODE_TEST_DATA_TRANSFORM_RESPONSES` 可把它作为 React 工具页验收输入。
-- 文件导入、JSON 另存、原生大输入和完整工作流仍归 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28)。当前日常安装清点和完整源工具计数继续沿用原记录。
+- 文件导入、原生大输入和完整工作流仍归 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28)。当前日常安装清点和完整源工具计数继续沿用原记录。

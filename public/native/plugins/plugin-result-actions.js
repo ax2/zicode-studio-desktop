@@ -5,7 +5,7 @@ import { t } from "i18n";
 import { createPluginResultTransfer } from "./plugin-result-transfer.js";
 import { openSavedArtifact } from "../features/artifact-navigation.js";
 import { appendResultCaptureNotice } from "./plugin-result-capture-notice.js";
-import { createCsvResultExport, createPngResultExport, createTextResultExport } from "./text-result-export.js";
+import { createCsvResultExport, createJsonResultExport, createPngResultExport, createTextResultExport } from "./text-result-export.js";
 export function createPluginResultActions({ container, gateway, isCurrent, onReceiverExecuted, onOpenSaved = openSavedArtifact, sourceResultDisplayed = false }) {
   const uuidPattern = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   const panel = document.createElement("section");
@@ -19,29 +19,19 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
   let transfer = null;
   let disposeCaptureNotice = null;
   const valid = (token) => active && token === revision && isCurrent(current?.scope);
-  const reportExport = gateway.textExports
-    ? createTextResultExport({
-        api: gateway.textExports,
-        getTarget: () => current?.scope,
-        isCurrent: () => valid(revision) && Boolean(current?.reportReference),
-      })
-    : null;
+  const reportExport = exporter(createTextResultExport, "reportReference");
+  const pngExport = exporter(createPngResultExport, "pngReference");
+  const csvExport = exporter(createCsvResultExport, "csvReference");
+  const jsonExport = exporter(createJsonResultExport, "jsonReference");
+  const resultExports = [reportExport, pngExport, csvExport, jsonExport].filter(Boolean);
 
-  const pngExport = gateway.textExports
-    ? createPngResultExport({
-        api: gateway.textExports,
-        getTarget: () => current?.scope,
-        isCurrent: () => valid(revision) && Boolean(current?.pngReference),
-      })
-    : null;
-
-  const csvExport = gateway.textExports
-    ? createCsvResultExport({
-        api: gateway.textExports,
-        getTarget: () => current?.scope,
-        isCurrent: () => valid(revision) && Boolean(current?.csvReference),
-      })
-    : null;
+  function exporter(create, referenceKey) {
+    return gateway.textExports ? create({
+      api: gateway.textExports,
+      getTarget: () => current?.scope,
+      isCurrent: () => valid(revision) && Boolean(current?.[referenceKey]),
+    }) : null;
+  }
 
   function element(tag, text, className) {
     const node = document.createElement(tag);
@@ -55,6 +45,27 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     node.addEventListener("click", action);
     return node;
   }
+  function exportButton(controller, reference, label, token) {
+    if (!controller || !reference) return null;
+    const node = button(label, async () => {
+      if (!valid(token) || node.disabled) return;
+      node.disabled = true;
+      try {
+        await controller.open(reference, current.scope, container);
+      } finally {
+        if (valid(token)) node.disabled = false;
+      }
+    });
+    return node;
+  }
+
+  function exportReference(reference, descriptor, mimeType) {
+    return reference?.schemaVersion === 1 && uuidPattern.test(reference.resultId ?? "") &&
+      descriptor?.mimeType === mimeType && /^[0-9a-f]{64}$/.test(descriptor.contentVersion ?? "") &&
+      Number.isSafeInteger(descriptor.byteLength) && descriptor.byteLength > 0 && descriptor.byteLength <= 48 * 1024
+      ? { ...descriptor, resultId: reference.resultId } : null;
+  }
+
   function offer() {
     if (!current || !valid(revision)) return;
     transfer?.destroy();
@@ -110,39 +121,10 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
             });
           })
         : null;
-    const report = reportExport && current.reportReference
-      ? button(t("Save diagnostic JSON as…"), async () => {
-          if (!valid(token) || report.disabled) return;
-          report.disabled = true;
-          try {
-            await reportExport.open(current.reportReference, current.scope, container);
-          } finally {
-            if (valid(token)) report.disabled = false;
-          }
-        })
-      : null;
-    const png = pngExport && current.pngReference
-      ? button(t("Save PNG as…"), async () => {
-          if (!valid(token) || png.disabled) return;
-          png.disabled = true;
-          try {
-            await pngExport.open(current.pngReference, current.scope, container);
-          } finally {
-            if (valid(token)) png.disabled = false;
-          }
-        })
-      : null;
-    const csv = csvExport && current.csvReference
-      ? button(t("Save CSV as…"), async () => {
-          if (!valid(token) || csv.disabled) return;
-          csv.disabled = true;
-          try {
-            await csvExport.open(current.csvReference, current.scope, container);
-          } finally {
-            if (valid(token)) csv.disabled = false;
-          }
-        })
-      : null;
+    const report = exportButton(reportExport, current.reportReference, t("Save diagnostic JSON as…"), token);
+    const png = exportButton(pngExport, current.pngReference, t("Save PNG as…"), token);
+    const csv = exportButton(csvExport, current.csvReference, t("Save CSV as…"), token);
+    const json = exportButton(jsonExport, current.jsonReference, t("Save JSON as…"), token);
     const content = current.transferred ? element("pre", current.text) : null;
     content?.setAttribute("aria-label", t("Transferred result"));
     panel.replaceChildren(
@@ -150,7 +132,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
         "strong",
         current.transferred ? t("Studio · Receiver result") : t("Studio · Save tool result"),
       ),
-      ...[content, png, csv, title, preview, report, send, status].filter(Boolean),
+      ...[content, png, csv, json, title, preview, report, send, status].filter(Boolean),
     );
     if (current.saveOutcomeUnknown) {
       preview.disabled = true;
@@ -159,9 +141,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
   }
   function show(response, scope, transferred = false) {
     revision += 1;
-    reportExport?.clear();
-    pngExport?.clear();
-    csvExport?.clear();
+    for (const controller of resultExports) controller.clear();
     disposeCaptureNotice?.();
     disposeCaptureNotice = null;
     transfer?.destroy();
@@ -180,20 +160,12 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       /^[0-9a-f]{64}$/.test(reference.contentVersion ?? "") &&
       Number.isSafeInteger(reference.byteLength) && reference.byteLength > 0 &&
       reference.byteLength <= 64 * 1024 ? { ...reference } : null;
-    const png = reference?.pngExport;
-    const pngReference = scope?.pluginId === "com.zicode.devtools.compute" &&
-      scope.capabilityId === "devtools.compute.qr.png" && response?.result?.ok === true &&
-      reference?.schemaVersion === 1 && uuidPattern.test(reference.resultId ?? "") &&
-      png?.mimeType === "image/png" && /^[0-9a-f]{64}$/.test(png.contentVersion ?? "") &&
-      Number.isSafeInteger(png.byteLength) && png.byteLength > 0 && png.byteLength <= 48 * 1024
-      ? { ...png, resultId: reference.resultId } : null;
-    const csv = reference?.csvExport;
-    const csvReference = scope?.pluginId === "com.zicode.devtools.compute" &&
-      scope.capabilityId.startsWith("devtools.compute.transform.") && response?.result?.ok === true &&
-      reference?.schemaVersion === 1 && uuidPattern.test(reference.resultId ?? "") &&
-      csv?.mimeType === "text/csv" && /^[0-9a-f]{64}$/.test(csv.contentVersion ?? "") &&
-      Number.isSafeInteger(csv.byteLength) && csv.byteLength > 0 && csv.byteLength <= 48 * 1024
-      ? { ...csv, resultId: reference.resultId } : null;
+    const computeOutput = scope?.pluginId === "com.zicode.devtools.compute" && response?.result?.ok === true;
+    const pngReference = computeOutput && scope.capabilityId === "devtools.compute.qr.png"
+      ? exportReference(reference, reference?.pngExport, "image/png") : null;
+    const isTransform = computeOutput && scope.capabilityId?.startsWith("devtools.compute.transform.");
+    const csvReference = isTransform ? exportReference(reference, reference?.csvExport, "text/csv") : null;
+    const jsonReference = isTransform ? exportReference(reference, reference?.jsonExport, "application/json") : null;
     const successful = httpResult || response?.result?.ok === true ||
       (response?.operation === "model.generate" && typeof resultText === "string");
     current = response?.resultRef
@@ -203,6 +175,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           reportReference,
           pngReference,
           csvReference,
+          jsonReference,
           transferred,
           text: resultText,
         }
@@ -300,9 +273,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
   return {
     clear() {
       revision += 1;
-      reportExport?.clear();
-      pngExport?.clear();
-      csvExport?.clear();
+      for (const controller of resultExports) controller.clear();
       disposeCaptureNotice?.();
       disposeCaptureNotice = null;
       transfer?.destroy();
@@ -313,9 +284,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     show,
     destroy() {
       active = false;
-      reportExport?.destroy();
-      pngExport?.destroy();
-      csvExport?.destroy();
+      for (const controller of resultExports) controller.destroy();
       disposeCaptureNotice?.();
       disposeCaptureNotice = null;
       transfer?.destroy();

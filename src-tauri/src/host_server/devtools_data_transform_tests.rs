@@ -1,6 +1,7 @@
 //! Runs the existing Compute package through the Windows Host for table preview fixtures.
 
 use super::*;
+use serde_json::value::RawValue;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires frozen Compute package, its external receipt and a production Windows Worker"]
@@ -103,6 +104,10 @@ async fn data_transform_preview_frozen_host_results() {
             assert_eq!(result["ok"], true, "{name}: {result}");
             assert_eq!(response["resultRef"]["mimeType"], "text/plain");
             assert_eq!(response["resultRef"]["csvExport"]["mimeType"], "text/csv");
+            assert_eq!(
+                response["resultRef"]["jsonExport"]["mimeType"],
+                "application/json"
+            );
             let text = result["data"]["text"].as_str().unwrap();
             let parsed: Value = serde_json::from_str(text).unwrap();
             match name {
@@ -119,7 +124,33 @@ async fn data_transform_preview_frozen_host_results() {
                             "-9223372036854775808,false"
                         ]
                     );
-                    verify_csv_export(&host, &root, workspace, &response, csv);
+                    let raw: HashMap<String, &RawValue> = serde_json::from_str(text).unwrap();
+                    verify_transform_export(
+                        &host,
+                        &root,
+                        workspace,
+                        &response,
+                        ExportCase {
+                            format: "json",
+                            mime_type: "application/json",
+                            operation: op,
+                            expected: raw["data"].get(),
+                            revoke: false,
+                        },
+                    );
+                    verify_transform_export(
+                        &host,
+                        &root,
+                        workspace,
+                        &response,
+                        ExportCase {
+                            format: "csv",
+                            mime_type: "text/csv",
+                            operation: op,
+                            expected: csv,
+                            revoke: true,
+                        },
+                    );
                 }
                 "empty-table" => {
                     assert_eq!(parsed["data"]["headers"], json!(["name", "category"]));
@@ -133,6 +164,36 @@ async fn data_transform_preview_frozen_host_results() {
                     assert_eq!(parsed["data"]["rows"][0][0], "Zi");
                     assert_eq!(parsed["data"]["rows"][0][1]["amount"], u64::MAX);
                     assert_eq!(parsed["data"]["rows"][0][1]["flags"][2]["tag"], "保留");
+                    let raw: HashMap<String, &RawValue> = serde_json::from_str(text).unwrap();
+                    let file = verify_transform_export(
+                        &host,
+                        &root,
+                        workspace,
+                        &response,
+                        ExportCase {
+                            format: "json",
+                            mime_type: "application/json",
+                            operation: op,
+                            expected: raw["data"].get(),
+                            revoke: true,
+                        },
+                    );
+                    let mut replay = body.clone();
+                    replay["input"]["text"] = json!(std::fs::read_to_string(file).unwrap());
+                    let round_trip = client
+                        .post(&endpoint)
+                        .header("x-zicode-desktop-token", host.desktop_token())
+                        .json(&replay)
+                        .send()
+                        .await
+                        .unwrap();
+                    assert_eq!(round_trip.status(), StatusCode::OK);
+                    let result: Value = round_trip.json().await.unwrap();
+                    assert_eq!(result["result"]["ok"], true);
+                    let input: Value =
+                        serde_json::from_str(result["result"]["data"]["text"].as_str().unwrap())
+                            .unwrap();
+                    assert_eq!(input["data"], parsed["data"]);
                 }
                 _ => unreachable!(),
             }
@@ -146,28 +207,43 @@ async fn data_transform_preview_frozen_host_results() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
-fn verify_csv_export(
+struct ExportCase<'a> {
+    format: &'static str,
+    mime_type: &'static str,
+    operation: &'a str,
+    expected: &'a str,
+    revoke: bool,
+}
+
+fn verify_transform_export(
     host: &HostServer,
     root: &std::path::Path,
     workspace: &str,
     response: &Value,
-    expected: &str,
-) {
+    case: ExportCase<'_>,
+) -> PathBuf {
+    let ExportCase {
+        format,
+        mime_type,
+        operation,
+        expected,
+        revoke,
+    } = case;
     use super::plugin_resources::export::Context;
 
     let scope = json!({
         "workspaceId": workspace, "sceneId": "programming",
-        "pluginId": "com.zicode.devtools.compute", "capabilityId": "devtools.compute.transform.integer",
+        "pluginId": "com.zicode.devtools.compute", "capabilityId": format!("devtools.compute.transform.{operation}"),
     });
     let reference = &response["resultRef"];
-    let descriptor = &reference["csvExport"];
+    let descriptor = &reference[format!("{format}Export")];
     assert_eq!(
         descriptor,
         &json!({
-            "mimeType": "text/csv", "byteLength": expected.len(), "contentVersion": sha256_hex(expected.as_bytes()),
+            "mimeType": mime_type, "byteLength": expected.len(), "contentVersion": sha256_hex(expected.as_bytes()),
         })
     );
-    let source = json!({"scope": scope, "resultId": reference["resultId"], "format": "csv"});
+    let source = json!({"scope": scope, "resultId": reference["resultId"], "format": format});
     let mut plain = source.clone();
     plain.as_object_mut().unwrap().remove("format");
     let context = Context {
@@ -178,9 +254,12 @@ fn verify_csv_export(
     let metadata = host
         .result_text_export_metadata(&context, source.clone())
         .unwrap();
-    assert_eq!(metadata["suggestedFileName"], "data-transform.csv");
-    assert_eq!(metadata["extension"], "csv");
-    assert_eq!(metadata["mimeType"], "text/csv");
+    assert_eq!(
+        metadata["suggestedFileName"],
+        format!("data-transform.{format}")
+    );
+    assert_eq!(metadata["extension"], format);
+    assert_eq!(metadata["mimeType"], mime_type);
     assert_eq!(metadata["contentVersion"], descriptor["contentVersion"]);
     let plain_metadata = host
         .result_text_export_metadata(&context, plain.clone())
@@ -191,12 +270,15 @@ fn verify_csv_export(
         reference["contentVersion"]
     );
 
-    let folder = root.canonicalize().unwrap().join("exports");
+    let folder = root
+        .canonicalize()
+        .unwrap()
+        .join(format!("exports-{operation}-{format}"));
     std::fs::create_dir(&folder).unwrap();
     assert!(host
         .prepare_result_text_export(context.clone(), source.clone(), folder.join("wrong.txt"),)
         .is_err());
-    let prepare = |name| {
+    let prepare = |name: &str| {
         let grant = host
             .prepare_result_text_export(context.clone(), source.clone(), folder.join(name))
             .unwrap();
@@ -207,14 +289,16 @@ fn verify_csv_export(
         assert_eq!(grant["preview"]["byteLength"], descriptor["byteLength"]);
         grant["grantId"].as_str().unwrap().to_owned()
     };
-    let cancelled = prepare("cancelled.csv");
+    let cancelled = prepare(&format!("cancelled.{format}"));
     host.cancel_result_text_export(context.clone(), source.clone(), cancelled.clone())
         .unwrap();
     assert!(host
         .commit_result_text_export(context.clone(), source.clone(), cancelled, true)
         .is_err());
 
-    let grant = prepare("转换结果.CSV");
+    let file_name = format!("转换结果.{}", format.to_ascii_uppercase());
+    let file = folder.join(&file_name);
+    let grant = prepare(&file_name);
     let mut foreign = context.clone();
     foreign.route.push_str("/other");
     assert!(host
@@ -223,6 +307,11 @@ fn verify_csv_export(
     assert!(host
         .commit_result_text_export(context.clone(), plain, grant.clone(), true)
         .is_err());
+    let mut other_format = source.clone();
+    other_format["format"] = json!(if format == "csv" { "json" } else { "csv" });
+    assert!(host
+        .commit_result_text_export(context.clone(), other_format, grant.clone(), true)
+        .is_err());
     assert!(host
         .commit_result_text_export(context.clone(), source.clone(), grant.clone(), false)
         .is_err());
@@ -230,16 +319,13 @@ fn verify_csv_export(
     let result = host
         .commit_result_text_export(context.clone(), source.clone(), grant.clone(), true)
         .unwrap();
-    assert_eq!(result["profile"], "result.export.csv.v1");
-    assert_eq!(result["receipt"]["mimeType"], "text/csv");
+    assert_eq!(result["profile"], format!("result.export.{format}.v1"));
+    assert_eq!(result["receipt"]["mimeType"], mime_type);
     assert_eq!(
         result["receipt"]["contentVersion"],
         descriptor["contentVersion"]
     );
-    assert_eq!(
-        std::fs::read(folder.join("转换结果.CSV")).unwrap(),
-        expected.as_bytes()
-    );
+    assert_eq!(std::fs::read(&file).unwrap(), expected.as_bytes());
     assert_eq!(
         host.verify_result_text_export(context.clone(), source.clone(), grant.clone())
             .unwrap()["status"],
@@ -249,35 +335,40 @@ fn verify_csv_export(
         .commit_result_text_export(context.clone(), source.clone(), grant, true)
         .is_err());
 
-    let collision = prepare("collision.csv");
-    std::fs::write(folder.join("collision.csv"), b"existing").unwrap();
+    let collision_name = format!("collision.{format}");
+    let collision = prepare(&collision_name);
+    std::fs::write(folder.join(&collision_name), b"existing").unwrap();
     assert!(host
         .commit_result_text_export(context.clone(), source.clone(), collision, true)
         .is_err());
     assert_eq!(
-        std::fs::read(folder.join("collision.csv")).unwrap(),
+        std::fs::read(folder.join(&collision_name)).unwrap(),
         b"existing"
     );
-    let revoked = prepare("revoked.csv");
-    host.state
-        .plugins
-        .lock()
-        .unwrap()
-        .set_enabled("programming", "com.zicode.devtools.compute", false)
-        .unwrap();
-    assert!(host
-        .commit_result_text_export(context, source, revoked, true)
-        .is_err());
-    host.state
-        .plugins
-        .lock()
-        .unwrap()
-        .set_enabled("programming", "com.zicode.devtools.compute", true)
-        .unwrap();
+    if revoke {
+        let revoked = prepare(&format!("revoked.{format}"));
+        host.state
+            .plugins
+            .lock()
+            .unwrap()
+            .set_enabled("programming", "com.zicode.devtools.compute", false)
+            .unwrap();
+        assert!(host
+            .commit_result_text_export(context, source, revoked, true)
+            .is_err());
+        host.state
+            .plugins
+            .lock()
+            .unwrap()
+            .set_enabled("programming", "com.zicode.devtools.compute", true)
+            .unwrap();
+    }
     assert_eq!(std::fs::read_dir(folder).unwrap().count(), 2);
     println!(
-        "DATA_TRANSFORM_CSV bytes={} sha256={}",
+        "DATA_TRANSFORM_{} bytes={} sha256={}",
+        format.to_ascii_uppercase(),
         expected.len(),
         descriptor["contentVersion"]
     );
+    file
 }
