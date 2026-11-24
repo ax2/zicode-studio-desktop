@@ -28,7 +28,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
   const searchGeneration = useRef(0);
   const readingRequest = useRef<{ hit: Hit } | null>(null);
   const updatedAccounts = useRef(new Set<string>());
-  const submitted = useRef(false);
+  const requestedOffset = useRef<number | null>(null);
   const previousLabel = useRef(label);
 
   const closeReading = useCallback((account?: string) => {
@@ -37,7 +37,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
     setReading(null);
   }, []);
   const clear=useCallback(()=>{
-    submitted.current = false;
+    requestedOffset.current = null;
     ++searchGeneration.current;
     updatedAccounts.current.clear();
     setBusy(false);
@@ -50,7 +50,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
     previousLabel.current=label;
   },[label,labelOnly,clear]);
   const search = useCallback(async (start: number, background = false) => {
-    submitted.current = true;
+    requestedOffset.current = start;
     const version = ++searchGeneration.current;
     setBusy(true);
     setError(false);
@@ -59,15 +59,27 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
       closeReading();
     }
     try {
-      const results = await invoke<Page>({kind:"search", account:scope || null, ...(labelOnly && scope===current && label ? {label} : {}), query:query.trim(), offset:start});
+      const readPage = (position: number) => invoke<Page>({
+        kind: "search", account: scope || null, ...(labelOnly && scope === current && label ? { label } : {}),
+        query: query.trim(), offset: position,
+      });
+      let results = await readPage(start);
       if (version !== searchGeneration.current) return;
+      let nextOffset = start;
+      if (start > 0 && !results.items.length) {
+        // A cache change can remove all results from the requested page.
+        nextOffset = 0;
+        results = await readPage(nextOffset);
+        if (version !== searchGeneration.current) return;
+      }
       const selected = readingRequest.current?.hit;
       if (selected && updatedAccounts.current.has(selected.account) && !results.items.some(hit => isSameMessage(hit, selected))) {
         closeReading();
       }
       updatedAccounts.current.clear();
+      requestedOffset.current = nextOffset;
       setPage(results);
-      setOffset(start);
+      setOffset(nextOffset);
     } catch {
       if (version === searchGeneration.current) {
         setError(true);
@@ -78,14 +90,15 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
   useEffect(()=>{
     function cacheChanged(event:Event) {
       const account=(event as CustomEvent<string>).detail;
-      if (!submitted.current || !account || (scope && scope !== account)) return;
+      const pageOffset = requestedOffset.current;
+      if (pageOffset === null || !account || (scope && scope !== account)) return;
       if (event.type === "studio-mail-cache-cleared") {
         setPage(previous => previous && { ...previous, items: previous.items.filter(hit => hit.account !== account) });
         closeReading(account);
       } else {
         updatedAccounts.current.add(account);
       }
-      void search(0, true);
+      void search(pageOffset, true);
     }
     window.addEventListener("studio-mail-cache-cleared",cacheChanged);
     window.addEventListener("studio-mail-cache-updated",cacheChanged);
