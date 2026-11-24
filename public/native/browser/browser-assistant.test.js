@@ -1155,3 +1155,74 @@ it("prepares only the selected passage as a Chat summary draft without requestin
   });
   expect(prompt).not.toContain(capture.page.text);
 });
+
+
+it.each(["failure", "cancel"])("drops earlier excerpts during a comparison reread and recovers after %s", async outcome => {
+  let phase = "initial", finishRead;
+  const handoff = vi.fn();
+  const modelGateway = comparisonGateway();
+  const capturePage = source => {
+    if (source.tab === capture.tab) return source;
+    const result = { ...source, page: { ...source.page, text: `${phase} page body`,
+      selection: `${phase} reviewed words` } };
+    if (source.tab === "extra" && phase === "reread") {
+      return new Promise((resolve, reject) => {
+        finishRead = () => outcome === "failure" ? reject(Error("Selected tab could not be read")) : resolve(result);
+      });
+    }
+    return result;
+  };
+  const { host, group, panel } = await openControlledComparison({ handoff, capturePage, target: browserComparisonSession, modelGateway });
+  const extra = panel.getByRole("checkbox", { name: /^Extra page/ });
+  extra.click();
+  const read = panel.getByRole("button", { name: "Read selected tabs" });
+  const draft = panel.getByRole("button", { name: "Prepare comparison draft" });
+  const send = panel.getByRole("button", { name: "Send reviewed tabs and compare" });
+  const question = getByRole(host, "textbox", { name: "Question about this page" });
+  const preview = group.querySelector(".browser-compare-preview");
+  const status = () => panel.getByRole("status");
+  question.value = "Keep my unfinished question";
+  question.dispatchEvent(new Event("input", { bubbles: true }));
+
+  read.click();
+  (await panel.findByRole("checkbox", { name: "Use only selected text · [2] Chosen page" })).click();
+  expect(preview.querySelectorAll("details")).toHaveLength(3);
+  expect(send.disabled).toBe(false);
+  phase = "reread";
+  read.click();
+  await waitFor(() => expect(finishRead).toBeTypeOf("function"));
+  expect(preview.children).toHaveLength(0);
+  expect(status().textContent).toBe("Reading selected tabs…");
+  expect(send.disabled).toBe(true);
+  expect(draft.disabled).toBe(true);
+
+  if (outcome === "failure") finishRead();
+  else panel.getByRole("button", { name: "Cancel comparison" }).click();
+  await waitFor(() => expect(read.disabled).toBe(false));
+  expect(status().textContent).toBe(outcome === "failure" ? "Selected tab could not be read" : "Comparison cancelled. Your selections are kept.");
+  expect(document.activeElement).toBe(read);
+  expect(preview.children).toHaveLength(0);
+  expect(send.disabled).toBe(true);
+  expect(draft.disabled).toBe(true);
+  expect(extra.checked).toBe(true);
+  expect(question.value).toBe("Keep my unfinished question");
+
+  phase = "fresh";
+  read.click();
+  await waitFor(() => expect(draft.disabled).toBe(false));
+  if (outcome === "cancel") finishRead();
+  await waitFor(() => expect(preview.querySelectorAll("details")).toHaveLength(3));
+  expect(panel.getByRole("checkbox", { name: "Use only selected text · [2] Chosen page" }).checked).toBe(true);
+  expect(panel.getAllByRole("textbox", { name: "Comparison source text" })[1].value).toBe("fresh reviewed words");
+  expect(handoff).not.toHaveBeenCalled();
+  expect(modelRequests(modelGateway)).toHaveLength(0);
+  draft.click();
+  await waitFor(() => expect(handoff).toHaveBeenCalledOnce());
+  const { prompt } = handoff.mock.calls[0][0];
+  const { sources } = JSON.parse(prompt.slice(prompt.indexOf("{\n")));
+  expect(sources[1]).toMatchObject({ selectionOnly: true, selection: "fresh reviewed words" });
+  expect(sources[1]).not.toHaveProperty("text");
+  expect(sources[2]).toMatchObject({ text: "fresh page body" });
+  expect(prompt).not.toContain("initial");
+  expect(prompt).not.toContain("reread");
+});
