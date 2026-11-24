@@ -700,6 +700,7 @@ impl HostServer {
             .route("/v2/plugins", get(list_plugins))
             .route("/v2/plugins/enablement", post(set_plugin_enablement))
             .route("/v2/plugins/permission", post(set_plugin_permission))
+            .route("/v2/plugins/activate-reviewed", post(activate_reviewed_plugin))
             .route("/v2/plugins/reload", post(reload_plugins))
             .route("/v2/plugins/uninstall", post(uninstall_plugin))
             .route("/v2/plugin-views/source", get(read_plugin_view_source))
@@ -1385,11 +1386,11 @@ impl HostServer {
         crate::plugin_registry::PluginRegistry::preview_developer_package(&managed_root, source)
     }
 
-    pub fn install_previewed_developer_plugin(
+    pub(crate) fn install_previewed_developer_plugin(
         &self,
         source: &std::path::Path,
         content_sha256: &str,
-    ) -> Result<String, String> {
+    ) -> Result<crate::plugin_registry::PluginInstallReceipt, String> {
         let managed_root = self
             .state
             .plugins
@@ -1402,21 +1403,20 @@ impl HostServer {
             source,
             Some(content_sha256),
         )?;
-        let committed = {
+        let (committed, receipt) = {
             let mut registry = self
                 .state
                 .plugins
                 .lock()
                 .map_err(|_| "Plugin registry is unavailable".to_string())?;
-            registry.commit_prepared_developer(prepared)?
+            let committed = registry.commit_prepared_developer(prepared)?;
+            let receipt = registry.installation_receipt(committed.plugin_id().to_string())?;
+            (committed, receipt)
         };
-        let plugin_id = committed.plugin_id().to_string();
         drop(committed);
-        self.state
-            .archive_page_cursors
-            .invalidate_plugin(&plugin_id);
-        self.revoke_plugin_tasks_after_replacement(&plugin_id);
-        Ok(plugin_id)
+        self.state.archive_page_cursors.invalidate_plugin(&receipt.plugin_id);
+        self.revoke_plugin_tasks_after_replacement(&receipt.plugin_id);
+        Ok(receipt)
     }
 
     pub fn preview_signed_plugin(
@@ -1439,14 +1439,15 @@ impl HostServer {
         trust_publisher: bool,
     ) -> Result<String, String> {
         self.install_signed_plugin_with_preview(package, None, trust_publisher)
+            .map(|receipt| receipt.plugin_id)
     }
 
-    pub fn install_previewed_signed_plugin(
+    pub(crate) fn install_previewed_signed_plugin(
         &self,
         package: &std::path::Path,
         manifest_sha256: &str,
         trust_publisher: bool,
-    ) -> Result<String, String> {
+    ) -> Result<crate::plugin_registry::PluginInstallReceipt, String> {
         self.install_signed_plugin_with_preview(package, Some(manifest_sha256), trust_publisher)
     }
 
@@ -1455,7 +1456,7 @@ impl HostServer {
         package: &std::path::Path,
         expected_manifest_sha256: Option<&str>,
         trust_publisher: bool,
-    ) -> Result<String, String> {
+    ) -> Result<crate::plugin_registry::PluginInstallReceipt, String> {
         let root = self
             .state
             .plugins
@@ -1468,17 +1469,18 @@ impl HostServer {
             return Err("Signed plugin package changed after preview; select it again".into());
         }
         let prepared = crate::plugin_registry::PreparedSignedInstall::prepare(&root, verified)?;
-        let plugin_id = self
-            .state
-            .plugins
-            .lock()
-            .map_err(|_| "Plugin registry is unavailable".to_string())?
-            .install_prepared_signed(prepared, trust_publisher)?;
-        self.state
-            .archive_page_cursors
-            .invalidate_plugin(&plugin_id);
-        self.revoke_plugin_tasks_after_replacement(&plugin_id);
-        Ok(plugin_id)
+        let receipt = {
+            let mut registry = self
+                .state
+                .plugins
+                .lock()
+                .map_err(|_| "Plugin registry is unavailable".to_string())?;
+            let plugin_id = registry.install_prepared_signed(prepared, trust_publisher)?;
+            registry.installation_receipt(plugin_id)?
+        };
+        self.state.archive_page_cursors.invalidate_plugin(&receipt.plugin_id);
+        self.revoke_plugin_tasks_after_replacement(&receipt.plugin_id);
+        Ok(receipt)
     }
 
     pub fn rollback_signed_plugin(&self, plugin_id: &str, version: &str) -> Result<(), String> {
@@ -1845,6 +1847,7 @@ fn desktop_plugin_http_path(path: &str) -> bool {
             | "/v2/plugin-capabilities/cancel-call"
             | "/v2/plugin-capabilities/call-status"
             | "/v2/plugin-capabilities/reconcile-call"
+            | "/v2/plugins/activate-reviewed"
             | "/v2/plugins/enablement"
             | "/v2/plugins/permission"
             | "/v2/plugins/reload"
@@ -2175,6 +2178,15 @@ struct PluginEnablementRequest {
     scene_id: String,
     plugin_id: String,
     enabled: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ActivateReviewedPluginRequest {
+    scene_id: String,
+    plugin_id: String,
+    review: crate::plugin_registry::PluginActivationReview,
+    grants: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -4640,6 +4652,16 @@ async fn invoke_plugin_tool(
     plugin_tool_execution::invoke(State(state), headers, Json(request)).await
 }
 
+fn invalidate_plugin_management_grants(state: &HostState, plugin_id: &str) {
+    state.archive_page_cursors.invalidate_plugin(plugin_id);
+    if let Ok(mut grants) = state.model_generation_grants.lock() {
+        grants.invalidate_plugin(plugin_id);
+    }
+    if let Ok(mut grants) = state.http_get_grants.lock() {
+        grants.invalidate_plugin(plugin_id);
+    }
+}
+
 async fn set_plugin_enablement(
     State(state): State<Arc<HostState>>,
     Json(request): Json<PluginEnablementRequest>,
@@ -4658,15 +4680,7 @@ async fn set_plugin_enablement(
                 )
             })?;
     }
-    state
-        .archive_page_cursors
-        .invalidate_plugin(&request.plugin_id);
-    if let Ok(mut grants) = state.model_generation_grants.lock() {
-        grants.invalidate_plugin(&request.plugin_id);
-    }
-    if let Ok(mut grants) = state.http_get_grants.lock() {
-        grants.invalidate_plugin(&request.plugin_id);
-    }
+    invalidate_plugin_management_grants(&state, &request.plugin_id);
     if !request.enabled {
         if let Err(code) = plugin_task_center::revoke_plugin_tasks(
             state.clone(),
@@ -4682,6 +4696,33 @@ async fn set_plugin_enablement(
         "pluginId": request.plugin_id,
         "sceneId": request.scene_id,
         "enabled": request.enabled,
+    })))
+}
+
+async fn activate_reviewed_plugin(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<ActivateReviewedPluginRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    state
+        .plugins
+        .lock()
+        .map_err(|_| {
+            plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+        })?
+        .activate_reviewed(
+            &request.scene_id,
+            &request.plugin_id,
+            &request.review,
+            &request.grants,
+        )
+        .map_err(|message| {
+            plugin_api_error(StatusCode::UNPROCESSABLE_ENTITY, "activation_rejected", &message)
+        })?;
+    invalidate_plugin_management_grants(&state, &request.plugin_id);
+    Ok(Json(json!({
+        "pluginId": request.plugin_id,
+        "sceneId": request.scene_id,
+        "enabled": true,
     })))
 }
 
@@ -4708,15 +4749,7 @@ async fn set_plugin_permission(
                 )
             })?;
     }
-    state
-        .archive_page_cursors
-        .invalidate_plugin(&request.plugin_id);
-    if let Ok(mut grants) = state.model_generation_grants.lock() {
-        grants.invalidate_plugin(&request.plugin_id);
-    }
-    if let Ok(mut grants) = state.http_get_grants.lock() {
-        grants.invalidate_plugin(&request.plugin_id);
-    }
+    invalidate_plugin_management_grants(&state, &request.plugin_id);
     if !request.granted {
         if let Err(code) = plugin_task_center::revoke_plugin_tasks(
             state.clone(),
@@ -8495,7 +8528,7 @@ mod tests {
         fs::write(&first, approved_bytes).unwrap();
         assert_eq!(
             host.install_previewed_signed_plugin(&first, &preview.manifest_sha256, true)
-                .unwrap(),
+                .unwrap().plugin_id,
             plugin_id
         );
 
@@ -8667,7 +8700,7 @@ mod tests {
         assert_eq!(preview.plugin_id, "com.example.host-test");
         assert_eq!(
             host.install_previewed_developer_plugin(&source, &preview.content_sha256)
-                .unwrap(),
+                .unwrap().plugin_id,
             "com.example.host-test"
         );
         let binding = crate::plugin_archive_cursor::Binding {

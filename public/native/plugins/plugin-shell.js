@@ -575,6 +575,33 @@ export function setupPluginShell({
     }
   }
 
+  function installedToolScope(pluginId, packageRevision) {
+    const target = getTarget();
+    const plugin = registry.get(pluginId);
+    if (!target?.sceneId || !target.workspaceId || !plugin?.enabled || plugin.activationReview?.packageRevision !== packageRevision) {
+      throw new Error(t("Tool changed. Reload its details before retrying."));
+    }
+    return { sceneId: target.sceneId, workspaceId: target.workspaceId };
+  }
+
+  const installedTools = capabilityGateway && {
+    async list(pluginId, packageRevision) {
+      const scope = installedToolScope(pluginId, packageRevision);
+      const page = await capabilityGateway.searchTools(scope.sceneId, { pluginId, includeViewOperations: true });
+      const current = installedToolScope(pluginId, packageRevision);
+      if (scope.sceneId !== current.sceneId || scope.workspaceId !== current.workspaceId) {
+        throw new Error(t("Tool changed. Reload its details before retrying."));
+      }
+      return { ...page, items: (page.items ?? []).filter(item => item.pluginId === pluginId && item.enabled) };
+    },
+    async open(pluginId, packageRevision, tool, revision) {
+      const scope = installedToolScope(pluginId, packageRevision);
+      if (tool.pluginId !== pluginId || !tool.enabled) return false;
+      return openManualTool(tool, revision, scope, packageRevision);
+    },
+    openDirectory: () => activateFromNavigation(TOOL_CENTER_ID),
+  };
+
   function renderMain(pluginId, preserveState = false) {
     // App views may add their own classes to the shared main container
     // (e.g. finance adds `finance-plugin-main`); without a reset they leak
@@ -672,6 +699,7 @@ export function setupPluginShell({
         installDeveloperPlugin,
         selectSignedPlugin,
         installSignedPlugin,
+        installedTools: installedTools || undefined,
         rollbackSignedPlugin,
         revokePublisher,
         confirmUninstall: (message) => globalThis.confirm?.(message) ?? false,
@@ -943,22 +971,26 @@ export function setupPluginShell({
   });
   setTarget();
 
+  async function openManualTool(tool, revision, scope, packageRevision = null) {
+    if (tool?.kind === "view-operation") return openViewOperationFromDirectory(tool, revision, scope);
+    const matchesScope = () => {
+      const target = getTarget();
+      return target?.sceneId === scope.sceneId && target?.workspaceId === scope.workspaceId &&
+        (!packageRevision || registry.get(tool.pluginId)?.activationReview?.packageRevision === packageRevision &&
+          registry.isEnabled(tool.pluginId));
+    };
+    if (!matchesScope()) throw new Error(t("Tool changed. Reload its details before retrying."));
+    if (activePluginId !== TOOL_CENTER_ID) await activateFromNavigation(TOOL_CENTER_ID);
+    if (!matchesScope()) throw new Error(t("Tool changed. Reload its details before retrying."));
+    if (activePluginId !== TOOL_CENTER_ID || !toolCenter) return false;
+    toolCenter.openTool(tool, revision);
+    requestFunctionArea();
+    return true;
+  }
+
   return {
     activate,
-    async openManualTool(tool, revision, scope) {
-      if (tool?.kind === "view-operation") return openViewOperationFromDirectory(tool, revision, scope);
-      const matchesScope = () => {
-        const target = getTarget();
-        return target?.sceneId === scope.sceneId && target?.workspaceId === scope.workspaceId;
-      };
-      if (!matchesScope()) throw new Error(t("Tool changed. Reload its details before retrying."));
-      if (activePluginId !== TOOL_CENTER_ID) await activateFromNavigation(TOOL_CENTER_ID);
-      if (!matchesScope()) throw new Error(t("Tool changed. Reload its details before retrying."));
-      if (activePluginId !== TOOL_CENTER_ID || !toolCenter) return false;
-      toolCenter.openTool(tool, revision);
-      requestFunctionArea();
-      return true;
-    },
+    openManualTool,
     getCommandPaletteEntries,
     getApplicationDirectory,
     getActivePluginId: () => activePluginId,

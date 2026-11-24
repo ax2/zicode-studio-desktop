@@ -306,6 +306,7 @@ export class BuiltinPluginRegistry {
   #gateway;
   #hostPlugins = null;
   #listeners = new Set();
+  #listRequest = 0;
   #plugins;
   #sceneId = "programming";
   #state;
@@ -381,6 +382,13 @@ export class BuiltinPluginRegistry {
     this.#emit();
   }
 
+  async activateReviewed(pluginId, review, grants) {
+    if (!this.#gateway) throw new Error("Permissions require the Plugin Host");
+    const sceneId = this.#sceneId;
+    await this.#gateway.activateReviewed(sceneId, pluginId, review, grants);
+    if (this.#sceneId === sceneId) await this.setScene(sceneId);
+  }
+
   async setPermission(pluginId, permission, granted) {
     if (!this.#gateway) throw new Error("Permissions require the Plugin Host");
     const plugin = this.get(pluginId);
@@ -400,7 +408,9 @@ export class BuiltinPluginRegistry {
   async setScene(sceneId) {
     this.#sceneId = sceneId || "programming";
     if (!this.#gateway) return;
+    const requestId = ++this.#listRequest;
     const response = await this.#gateway.list(this.#sceneId);
+    if (requestId !== this.#listRequest) return;
     this.#diagnostics = Array.isArray(response?.diagnostics) ? response.diagnostics : [];
     this.#hostPlugins = (response?.plugins ?? [])
       .map((descriptor) => this.#normalizeHostPlugin(descriptor))
@@ -493,6 +503,7 @@ export class BuiltinPluginRegistry {
       origin: descriptor.origin,
       permissions: descriptor.permissionGrants ?? {},
       permissionDetails: descriptor.permissions ?? { required: [], optional: [] },
+      activationReview: descriptor.activationReview ?? null,
       publisherKeyId: descriptor.publisherKeyId ?? null,
       retainedVersions: structuredClone(descriptor.retainedVersions ?? []),
       capabilities: structuredClone(contributes.capabilities ?? []),

@@ -313,3 +313,311 @@ async fn invoke(
     )
     .await
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[ignore = "requires the current Windows production Worker"]
+async fn reviewed_local_plugin_activation_uses_frozen_json_tool_and_preserves_state() {
+    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures");
+    let package = fixtures.join("devtools-json-file-0.1.0-candidate-91");
+    let receipt: Value = serde_json::from_slice(
+        &std::fs::read(fixtures.join("devtools-json-file-0.1.0-candidate-91-verification.json"))
+            .unwrap(),
+    )
+    .unwrap();
+    for entry in receipt["files"].as_array().unwrap() {
+        let bytes = std::fs::read(package.join(entry["path"].as_str().unwrap())).unwrap();
+        assert_eq!(entry["size"], bytes.len());
+        assert_eq!(entry["sha256"], sha256_hex(&bytes));
+    }
+
+    let root = tempfile::tempdir().unwrap();
+    let workspace = root.path().join("workspace");
+    let public = root.path().join("public");
+    std::fs::create_dir(&workspace).unwrap();
+    std::fs::create_dir(&public).unwrap();
+    let metadata =
+        crate::metadata_store::MetadataStore::open(&root.path().join("metadata.sqlite3")).unwrap();
+    let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+    let runtimes = NativePiManager::new(16);
+    let issued = RuntimeTarget::new(
+        "ffffeeee-dddd-4ddd-8ddd-eeeeffffffff",
+        "plugin-activation",
+        "activation-instance",
+    );
+    let _runtime = runtimes.register_in_memory(issued.clone()).unwrap();
+    let host = HostServer::start_with_mode(
+        public,
+        runtimes,
+        auth,
+        HashMap::new(),
+        HostMode::IsolatedDesktop,
+    )
+    .await
+    .unwrap();
+    host.state.plugin_tokens.lock().unwrap().insert(
+        issued.instance_id.clone(),
+        RuntimePluginToken {
+            token_hash: sha256_hex(b"generated-plugin-activation-test-token"),
+            target: issued.clone(),
+            expires_at: SystemTime::now() + PLUGIN_BROKER_TOKEN_TTL,
+        },
+    );
+    let target = host
+        .state
+        .runtimes
+        .bind_session_id(&issued, "activation-session")
+        .unwrap();
+    host.state
+        .data
+        .workspace_roots()
+        .write()
+        .unwrap()
+        .insert(target.workspace_id.clone(), workspace);
+    *host
+        .state
+        .plugin_resource_workers
+        .executable
+        .lock()
+        .unwrap() = Some(PathBuf::from(
+        std::env::var_os("ZICODE_TEST_RESOURCE_WORKER_EXE").unwrap(),
+    ));
+
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let post = |route: &str, body: Value, authenticated: bool| {
+        let request = client.post(format!("{}{route}", host.origin())).json(&body);
+        if authenticated {
+            request.header("x-zicode-desktop-token", host.desktop_token())
+        } else {
+            request
+        }
+        .send()
+    };
+    let get = |route: &str, query: &[(&str, &str)]| {
+        client
+            .get(format!("{}{route}", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .query(query)
+            .send()
+    };
+    let installed = async |id: &str| -> Value {
+        let response: Value = get(
+            "/v2/plugins",
+            &[("sceneId", "programming"), ("summary", "true")],
+        )
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+        response["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|plugin| plugin["id"] == id)
+            .unwrap()
+            .clone()
+    };
+    let directory = async || -> Value {
+        get(
+            "/v2/plugin-tool-directory",
+            &[("sceneId", "programming"), ("pluginId", PLUGIN)],
+        )
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap()
+    };
+    let activation = "/v2/plugins/activate-reviewed";
+    let approve = |id: &str, plugin: &Value, grants: &[&str]| {
+        json!({
+            "sceneId": "programming", "pluginId": id, "review": plugin["activationReview"], "grants": grants,
+        })
+    };
+
+    let preview = host.preview_developer_plugin(&package).unwrap();
+    assert_eq!(preview.plugin_id, PLUGIN);
+    let install = host
+        .install_previewed_developer_plugin(&package, &preview.content_sha256)
+        .unwrap();
+    let waiting = installed(PLUGIN).await;
+    assert_eq!(
+        waiting["activationReview"]["packageRevision"],
+        install.package_revision.to_string()
+    );
+    assert_eq!(waiting["enabled"], false);
+    assert_eq!(waiting["permissionGrants"]["resource.read"], false);
+    assert!(directory().await["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|item| item["enabled"] != true));
+
+    let consent = approve(PLUGIN, &waiting, &["resource.read"]);
+    assert_eq!(
+        post(activation, consent.clone(), false)
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    let mut wrong_scope = consent.clone();
+    wrong_scope["sceneId"] = json!("other-scene");
+    for denied in [
+        wrong_scope,
+        approve(PLUGIN, &waiting, &[]),
+        approve(PLUGIN, &waiting, &["resource.read", "undeclared"]),
+    ] {
+        assert_eq!(
+            post(activation, denied, true).await.unwrap().status(),
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+        assert_eq!(installed(PLUGIN).await, waiting);
+    }
+
+    let state_file = root.path().join("test-plugin-registry/registry.json");
+    // Force the actual atomic replace to fail in this test registry.
+    assert!(!state_file.exists());
+    std::fs::create_dir(&state_file).unwrap();
+    assert_eq!(
+        post(activation, consent.clone(), true)
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert_eq!(installed(PLUGIN).await, waiting);
+    std::fs::remove_dir(&state_file).unwrap();
+
+    assert!(post(activation, consent.clone(), true)
+        .await
+        .unwrap()
+        .status()
+        .is_success());
+    assert_eq!(
+        post(activation, consent, true).await.unwrap().status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let enabled = installed(PLUGIN).await;
+    assert_eq!(enabled["enabled"], true);
+    assert_eq!(enabled["permissionGrants"], json!({"resource.read":true}));
+    let catalog = directory().await;
+    assert_eq!(catalog["total"], 3, "{catalog}");
+    assert!(catalog["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|item| item["enabled"] == true));
+    let detail = get(
+        "/v2/plugin-tool-directory/detail",
+        &[
+            ("sceneId", "programming"),
+            ("pluginId", PLUGIN),
+            ("capabilityId", PATH),
+            ("revision", catalog["revision"].as_str().unwrap()),
+        ],
+    )
+    .await
+    .unwrap()
+    .error_for_status()
+    .unwrap()
+    .json::<Value>()
+    .await
+    .unwrap();
+    assert_eq!(detail["enabled"], true);
+
+    let owner = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,
+        "pluginId":PLUGIN,"capabilityId":PATH});
+    let access = output_http::material(&host, &client, &owner, br#"{"b":2,"a":1}"#).await;
+    let (status, result) = invoke(&host, &client, &access, &[], json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(
+        result["resources"][0]["contentVersion"],
+        sha256_hex(b"{\n  \"a\": 1,\n  \"b\": 2\n}")
+    );
+
+    let before_reinstall = std::fs::read(&state_file).unwrap();
+    assert!(host
+        .install_previewed_developer_plugin(&package, &"0".repeat(64))
+        .is_err());
+    assert_eq!(installed(PLUGIN).await, enabled);
+    let reinstalled = host
+        .install_previewed_developer_plugin(&package, &preview.content_sha256)
+        .unwrap();
+    assert_ne!(reinstalled.package_revision, install.package_revision);
+    assert_eq!(std::fs::read(&state_file).unwrap(), before_reinstall);
+    assert_eq!(installed(PLUGIN).await["enabled"], true);
+
+    assert!(post("/v2/plugins/permission", json!({
+        "sceneId":"programming", "pluginId":PLUGIN, "permission":"resource.read", "granted":false,
+    }), true).await.unwrap().status().is_success());
+    assert!(directory().await["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|item| item["enabled"] != true));
+    let revoked = installed(PLUGIN).await;
+    assert_eq!(revoked["enabled"], false);
+    assert_eq!(revoked["permissionGrants"]["resource.read"], false);
+    assert_eq!(
+        post(
+            activation,
+            approve(PLUGIN, &enabled, &["resource.read"]),
+            true
+        )
+        .await
+        .unwrap()
+        .status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert!(post(
+        activation,
+        approve(PLUGIN, &revoked, &["resource.read"]),
+        true
+    )
+    .await
+    .unwrap()
+    .status()
+    .is_success());
+
+    let free_package = root.path().join("permission-free");
+    std::fs::create_dir(&free_package).unwrap();
+    let free = "com.zicode.activation-no-permission";
+    std::fs::write(
+        free_package.join("plugin.json"),
+        serde_json::to_vec(&json!({
+            "schemaVersion":1, "id":free, "name":"Permission-free", "description":"Local test",
+            "version":"1.0.0", "publisher":"test",
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let preview = host.preview_developer_plugin(&free_package).unwrap();
+    assert!(preview.permissions.is_empty());
+    host.install_previewed_developer_plugin(&free_package, &preview.content_sha256)
+        .unwrap();
+    let disabled = installed(free).await;
+    assert_eq!(disabled["enabled"], false);
+    assert!(post(activation, approve(free, &disabled, &[]), true)
+        .await
+        .unwrap()
+        .status()
+        .is_success());
+    let enabled = installed(free).await;
+    assert_eq!(enabled["enabled"], true);
+    assert_eq!(enabled["permissionGrants"], json!({}));
+
+    let persisted =
+        crate::plugin_registry::PluginRegistry::open(root.path().join("test-plugin-registry"))
+            .unwrap();
+    assert!(persisted
+        .list("programming")
+        .iter()
+        .filter(|plugin| [PLUGIN, free].contains(&plugin.manifest.id.as_str()))
+        .all(|plugin| plugin.enabled));
+    host.stop();
+}

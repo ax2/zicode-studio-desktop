@@ -427,7 +427,7 @@ async fn install_previewed_developer_plugin(
     app: AppHandle,
     source_path: String,
     content_sha256: String,
-) -> Result<String, String> {
+) -> Result<plugin_registry::PluginInstallReceipt, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let host = app
             .try_state::<HostServer>()
@@ -469,7 +469,7 @@ async fn install_signed_plugin_package(
     package_path: String,
     manifest_sha256: String,
     trust_publisher: bool,
-) -> Result<String, String> {
+) -> Result<plugin_registry::PluginInstallReceipt, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let host = app
             .try_state::<HostServer>()
