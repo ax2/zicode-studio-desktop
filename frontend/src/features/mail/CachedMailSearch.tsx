@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { MailAttachments } from "./MailAttachments";
+import { type CreateMailReply, gmailReplyNeedsRefresh } from "./GmailInbox";
 import { MailBody } from "./MailBody";
 import { searchBodyAccess, type SearchMailBody } from "./mail-search-body";
-import type { Draft, Invoke } from "./index";
+import type { Invoke } from "./index";
 
 type Account = { id: string; address: string; provider: string };
 type Hit = { folder?:string; account: string; address: string; provider: string; id: string; epoch: number | null; subject: string; sender: string };
@@ -20,7 +21,7 @@ function isSameMessage(left: Hit, right: Hit): boolean {
 
 export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, label, onReply, replyBlocked = false}: {
   accounts: Account[]; current: string; invoke: Invoke; gmail?: Invoke; alibaba?: Invoke; label?:string;
-  onReply?(account: string, create: () => Promise<Draft>, isCurrent: () => boolean): Promise<void>;
+  onReply?: CreateMailReply;
   replyBlocked?: boolean;
 }) {
   const [scope, setScope] = useState(current);
@@ -30,7 +31,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
   const [offset, setOffset] = useState(0);
   const [reading, setReading] = useState<Reading | null>(null);
   const [replying, setReplying] = useState(false);
-  const [replyError, setReplyError] = useState("");
+  const [replyError, setReplyError] = useState<{message:string; refresh?:boolean} | null>(null);
   const replyPending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -50,7 +51,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
     if (account && readingRequest.current?.hit.account !== account) return;
     readingRequest.current = null;
     setReading(null);
-    setReplyError("");
+    setReplyError(null);
   }, []);
   const clear=useCallback(()=>{
     requestedOffset.current = null;
@@ -125,11 +126,11 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
   },[scope,search,closeReading]);
   async function open(hit: Hit, download = false) {
     const previous = readingRequest.current;
-    if (download && (previous?.hit !== hit || !previous.canDownload)) return;
+    if (download && (previous?.hit !== hit || (!previous.canDownload && !replyError?.refresh))) return;
     if (previous?.pending && isSameMessage(previous.hit, hit)) return;
     const request = { hit, pending: true, canDownload: false };
     readingRequest.current = request;
-    setReplyError("");
+    setReplyError(null);
     const access = searchBodyAccess(hit, gmail, alibaba);
     if (!access) {
       request.pending = false;
@@ -158,13 +159,16 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
     const isCurrent = () => readingRequest.current === source;
     replyPending.current = true;
     setReplying(true);
-    setReplyError("");
+    setReplyError(null);
     try {
       await onReply(reading.hit.account, readingAccess.replyDraft, isCurrent);
     } catch (reason) {
       if (!isCurrent()) return;
       const sourceUnavailable = /^(?:Error:\s*)?mail_(?:cache_empty|inbox_changed)$/.test(String(reason));
-      setReplyError(sourceUnavailable ? t("This cached message is unavailable. Search again before replying.") : readingAccess.error(reason));
+      setReplyError({
+        message: sourceUnavailable ? t("This cached message is unavailable. Search again before replying.") : readingAccess.error(reason),
+        refresh: reading.hit.provider === "gmail" && gmailReplyNeedsRefresh(reason),
+      });
     } finally {
       replyPending.current = false;
       setReplying(false);
@@ -210,7 +214,10 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, lab
           {t("Create reply draft")}
         </button>}
       {replying && <p role="status">{t("Saving…")}</p>}
-      {replyError && <p role="alert">{replyError}</p>}
+      {replyError && <p role="alert">{replyError.message}</p>}
+      {replyError?.refresh && <button className="ui-button" type="button" disabled={replying || replyBlocked} onClick={() => void open(reading.hit, true)}>
+        {t("Refresh message to reply")}
+      </button>}
     </article>}
   </fieldset>;
 }

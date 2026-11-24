@@ -24,6 +24,7 @@ export function searchBodyAccess(hit: SearchMessage, gmail?: Invoke, alibaba?: I
     const message = { accountId: hit.account, id: hit.id };
     return {
       invoke: gmail, message, error: gmailError,
+      replyDraft: () => gmail<Draft>({ kind: "replyDraft", ...message }),
       async read(download) {
         const body = await gmail<(Omit<SearchMailBody, "text"> & { plainText: string | null }) | null>({
           kind: download ? "read" : "cachedBody", ...message,

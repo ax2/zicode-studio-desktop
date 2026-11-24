@@ -5,6 +5,20 @@ mod outbox;
 pub use outbox::{compose_attached, draft_attachments};
 pub const DRAFT_ATTACHMENT_SCHEMA: &str = include_str!("draft_attachments.sql");
 
+pub fn parse_reply_headers(address: &str, subject: &str) -> Option<(String, String)> {
+    if [address, subject]
+        .iter()
+        .any(|header| header.len() > 4096 || header.chars().any(char::is_control))
+    {
+        return None;
+    }
+    let source = format!("To: {address}\r\nSubject: {subject}\r\n\r\n");
+    let message = mail_parser::MessageParser::new().parse(source.as_bytes())?;
+    let mut addresses = message.to()?.mailboxes();
+    let recipient = addresses.next()?.address()?.to_owned();
+    addresses.next().is_none().then(|| (recipient, message.subject().unwrap_or_default().to_owned()))
+}
+
 pub use inbox::{Attachment, Cursor, Folder, Letter, Page, Summary};
 pub use journal::{initialize_cache, Account, Mailbox, StoredDraft};
 use std::time::Duration;

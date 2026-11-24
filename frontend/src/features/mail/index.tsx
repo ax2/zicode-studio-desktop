@@ -10,7 +10,7 @@ import {CachedMailSearch} from './CachedMailSearch';
 import {MailDelivery} from "./MailDelivery";
 
 type Account={id:string,address:string,provider:string};
-export type Draft={id?:string,revision:number,recipient:string,subject:string,body:string,attachments?:{id:string,name:string,size:number}[]};
+export type Draft={id?:string,revision:number,recipient:string,subject:string,body:string,gmailReply?:boolean,attachments?:{id:string,name:string,size:number}[]};
 export type Invoke=<T>(request:Record<string,unknown>)=>Promise<T>;
 const blank=():Draft=>({revision:0,recipient:"",subject:"",body:""});
 const localMailErrors: Record<string,string> = {
@@ -61,8 +61,8 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     setEdit(draft);setDirty(false);
     focusReply.current=draft.id;
   }
-  async function replyFromSearch(id:string, create:()=>Promise<Draft>, isCurrent:()=>boolean){
-    if(mailBusy || !isCurrent() || !accounts.some(row=>row.id===id && row.provider==="alibaba"))return;
+  async function replyFromCache(id:string, create:()=>Promise<Draft>, isCurrent:()=>boolean){
+    if(mailBusy || !isCurrent() || !accounts.some(row=>row.id===id && (row.provider==="alibaba"||row.provider==="gmail")))return;
     await run(async()=>{
       if(!await discard() || !isCurrent())return;
       const rows=id===account ? undefined : await invoke<Draft[]>({kind:"drafts",account:id});
@@ -118,11 +118,13 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     })}}><label>{t("Mail provider")}<select className="ui-select" value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
     <label>{t("Email address")}<input className="ui-input" required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button className="ui-button ui-button--primary" type="submit">{t("Add local account")}</button></form></fieldset>
-    {account&&<CachedMailSearch key={"search-"+account} label={gmail||alibaba?label:undefined} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport} onReply={replyFromSearch} replyBlocked={busy||mailBusy}/>}
-    {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}/>}
+    {account&&<CachedMailSearch key={"search-"+account} label={gmail||alibaba?label:undefined} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport} onReply={replyFromCache} replyBlocked={busy||mailBusy}/>}
+    {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}
+      onReply={replyFromCache} draftBusy={busy}/>}
     {alibaba&&<AlibabaInbox key={account} id={account} folder={label} setFolder={setLabel} invoke={alibaba} discard={discard} onBusy={reportAlibabaBusy}
       onConfigured={v=>setPasswordOwner(v?account:"")} onReply={openReply} draftBusy={busy}/>}
     {account&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
+    {edit.gmailReply&&<p>{t("Changing the recipient or subject sends this as a new message.")}</p>}
     <div className="mail-list"><button className="ui-button" type="button" onClick={()=>void run(async()=>{if(await discard()){setEdit(blank());setDirty(false)}})}>{t("New draft")}</button>
     <button className="ui-button" type="button" onClick={()=>void run(async()=>{if(await discard())await load(account)})}>{t("Reload drafts")}</button>
     {drafts.map(d=><button className="ui-button" key={d.id} type="button" aria-pressed={edit.id===d.id} onClick={()=>void run(async()=>{if(await discard()){setEdit(d);setDirty(false)}})}>{d.subject||d.recipient||t("Untitled draft")}</button>)}</div>

@@ -1,5 +1,6 @@
 mod api;
 mod oauth;
+pub(crate) mod reply;
 mod sync;
 mod store;
 #[cfg(test)]
@@ -127,6 +128,9 @@ pub(crate) enum Request {
     CachedBody {
         id: String,
     },
+    ReplyDraft {
+        id: String,
+    },
     DownloadAttachment {
         id: String,
         part: usize,
@@ -209,6 +213,9 @@ pub(crate) async fn mail_gmail(
         }
         Request::CachedBody { id } => {
             return Ok(store::cached(&path, &scope, &account_id, "body", id)?)
+        }
+        Request::ReplyDraft { id } => {
+            return Ok(store::reply_draft(&path, &scope, &account_id, id)?)
         }
         Request::Delivery { draft_id, revision } => {
             return Ok(store::delivery(
@@ -465,11 +472,11 @@ pub(crate) async fn mail_gmail(
             revision,
             confirmed: true,
         } => {
-            let raw = {
+            let message = {
                 let _g = current()?;
                 store::begin(&path, &scope, &account_id, &address, &draft_id, revision)?
             };
-            let (status, id) = api::send(&client, api::BASE, &access, &raw).await;
+            let (status, id) = api::send(&client, api::BASE, &access, &message.raw, message.thread.as_deref()).await;
             store::finish(
                 &path,
                 &scope,

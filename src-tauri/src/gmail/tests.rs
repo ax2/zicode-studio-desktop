@@ -108,6 +108,7 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
         }))
         .route("/me/messages/send",post(move|Json(m):Json<serde_json::Value>|{let count=count.clone();async move{
             count.fetch_add(1,Ordering::SeqCst);let msg=String::from_utf8(base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(m["raw"].as_str().unwrap()).unwrap()).unwrap();
+            assert!(m.get("threadId").is_none());
             assert!(msg.contains("proof.bin") && msg.contains("multipart/mixed"));
             assert!(msg.lines().any(|line| line == "AP8NCg=="));
             assert!(msg.contains("To: me@example.test\r\n"));axum::http::StatusCode::SERVICE_UNAVAILABLE
@@ -180,17 +181,17 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
         .is_null());
     assert_eq!(store::cached(&path, "w", "a", "body", "ab23").unwrap(), msg);
     assert!(store::begin(&path, "w", "a", "me@example.test", "d", 2).is_err());
-    let raw = store::begin(&path, "w", "a", "me@example.test", "d", 1).unwrap();
+    let message = store::begin(&path, "w", "a", "me@example.test", "d", 1).unwrap();
     assert_eq!(
         store::delivery(&path, "w", "a", "d", 1).unwrap()["status"],
         "unknown"
     );
-    let (status, id) = api::send(&client, &base, &tok.access_token, &raw).await;
+    let (status, id) = api::send(&client, &base, &tok.access_token, &message.raw, message.thread.as_deref()).await;
     assert_eq!(status, "unknown");
     store::finish(&path, "w", "a", "d", 1, status, id.as_deref()).unwrap();
     assert!(store::begin(&path, "w", "a", "me@example.test", "d", 1).is_err());
     assert_eq!(sends.load(Ordering::SeqCst), 1);
-    assert!(api::raw_message(
+    assert!(api::mime_message(
         "me@example.test",
         "me@example.test\r\nBcc:x@y.z",
         "subject",
@@ -198,6 +199,94 @@ async fn actual_local_http_refresh_pagination_plain_body_scoped_send_log() {
     )
     .is_err());
     std::fs::remove_file(path).unwrap();
+    server.abort();
+}
+
+#[tokio::test]
+async fn cached_gmail_reply_preserves_thread_across_reopen_and_explicit_send() {
+    use axum::{extract::Path, routing::{get, post}, Json, Router};
+    let mut source = json!({
+        "id":"ab23","threadId":"thread_1","labelIds":["INBOX"],
+        "payload":{"mimeType":"text/plain","body":{"data":"cGxhaW4"},"headers":[
+            {"name":"From","value":"Sender <sender@example.test>"},
+            {"name":"Reply-To","value":"\"Sender, Support\" <reply@example.test>"},
+            {"name":"Subject","value":"=?UTF-8?B?5rWL6K+V?="},
+            {"name":"Message-ID","value":"<original@example.test>"},
+            {"name":"References","value":"<earlier@example.test> <unsafe-extra>"}]}
+    });
+    let missing = json!({"id":"legacy","subject":"Old cache without reply metadata"});
+    let app = Router::new()
+        .route("/me/messages", get(|| async { Json(json!({"messages":[{"id":"ab23"}]})) }))
+        .route("/me/messages/{id}", get({
+            let valid = source.clone();
+            let mut invalid = source.clone();
+            invalid["id"] = json!("bad");
+            invalid["payload"]["headers"][1]["value"] = json!("first@example.test, second@example.test");
+            move |Path(id):Path<String>| {
+                let body = if id == "bad" { invalid.clone() } else { valid.clone() };
+                async move { Json(body) }
+            }
+        }))
+        .route("/me/messages/send", post(|Json(proof):Json<serde_json::Value>| async move {
+            let mime = String::from_utf8(base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(proof["raw"].as_str().unwrap()).unwrap()).unwrap();
+            assert_eq!(proof["threadId"], "thread_1");
+            assert!(mime.contains("In-Reply-To: <original@example.test>\r\n"));
+            assert!(mime.contains("References: <earlier@example.test>\r\n <original@example.test>\r\n"));
+            assert!(mime.contains("To: reply@example.test\r\n"));
+            assert!(mime.contains("proof.bin") && !mime.contains("unsafe-extra"));
+            Json(json!({"id":"publicfixture"}))
+        }));
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1",0)).await.unwrap();
+    let base = format!("http://{}/me",listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener,app).await.unwrap() });
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let page = api::list(&client,&base,"fixture","INBOX",None,10).await.unwrap();
+    source = api::read(&client,&base,"fixture","bad").await.unwrap();
+    assert_eq!(source["reply"], serde_json::Value::Null);
+
+    let profile = tempfile::tempdir().unwrap();
+    let path = profile.path().join("mail.sqlite3");
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch("CREATE TABLE accounts(scope,id,provider,address);
+        CREATE TABLE drafts(scope,account,id,revision INTEGER,recipient,subject,body,PRIMARY KEY(scope,account,id));
+        INSERT INTO accounts VALUES('w','a','gmail','me@example.test'),('w','b','gmail','other@example.test');").unwrap();
+    db.execute_batch(studio_alibaba_mail::DRAFT_ATTACHMENT_SCHEMA).unwrap();
+    drop(db);
+    store::cache(&path,"w","a",0,"page","10:",&page).unwrap();
+    store::cache(&path,"w","a",0,"body","legacy",&missing).unwrap();
+    store::cache(&path,"w","a",0,"body","bad",&source).unwrap();
+    assert_eq!(store::reply_draft(&path,"w","b","ab23").unwrap_err(),"gmail_reply_metadata_missing");
+    assert_eq!(store::reply_draft(&path,"w","a","legacy").unwrap_err(),"gmail_reply_metadata_missing");
+    assert_eq!(store::reply_draft(&path,"w","a","bad").unwrap_err(),"gmail_reply_unavailable");
+    let draft = store::reply_draft(&path,"w","a","ab23").unwrap();
+    let id = draft["id"].as_str().unwrap();
+    assert_eq!(draft["recipient"], "reply@example.test");
+    assert_eq!(draft["subject"], "测试");
+    assert_eq!(draft["gmailReply"], true);
+    assert!(store::delivery(&path,"w","a",id,1).unwrap().is_null());
+
+    // The cache can be cleared before restarting. Draft metadata belongs to the saved draft.
+    store::clear_cache(&path,"w","a").unwrap();
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute("UPDATE drafts SET revision=2,body='Reply body' WHERE id=?", [id]).unwrap();
+    db.execute("INSERT INTO draft_attachments VALUES('w','a',?,'file','proof.bin',?)",
+        rusqlite::params![id,vec![1u8,2,3]]).unwrap();
+    drop(db);
+    assert!(store::begin(&path,"w","b","other@example.test",id,2).is_err());
+    let message = store::begin(&path,"w","a","me@example.test",id,2).unwrap();
+    assert_eq!(message.thread.as_deref(), Some("thread_1"));
+    assert_eq!(api::send(&client,&base,"fixture",&message.raw,message.thread.as_deref()).await,
+        ("accepted",Some("publicfixture".into())));
+    assert!(store::begin(&path,"w","a","me@example.test",id,2).is_err());
+
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute("UPDATE drafts SET revision=3,recipient='new@example.test' WHERE id=?", [id]).unwrap();
+    drop(db);
+    let separate = store::begin(&path,"w","a","me@example.test",id,3).unwrap();
+    assert_eq!(separate.thread, None);
+    let mime = String::from_utf8(base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(separate.raw).unwrap()).unwrap();
+    assert!(!mime.contains("In-Reply-To:") && !mime.contains("References:"));
     server.abort();
 }
 
@@ -300,7 +389,8 @@ async fn exchange_uses_verifier_and_redirect_and_send_maps_definitive_outcomes()
             &c,
             &format!("{root}/accepted"),
             &a.access_token,
-            "synthetic"
+            "synthetic",
+            None,
         )
         .await,
         ("accepted", Some("fixture123".into()))
@@ -310,7 +400,8 @@ async fn exchange_uses_verifier_and_redirect_and_send_maps_definitive_outcomes()
             &c,
             &format!("{root}/rejected"),
             &a.access_token,
-            "synthetic"
+            "synthetic",
+            None,
         )
         .await,
         ("rejected", None)
