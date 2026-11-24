@@ -1,5 +1,6 @@
 //! Installs the independent frozen Disk Inspector and exercises its real Windows input path.
 use super::*;
+use super::usage_export_tests::{assert_disk_usage_cancel_and_conflict, assert_disk_usage_export};
 use crate::host_server::{HostMode, HostServer, RemoteAuth};
 use crate::native_pi_manager::NativePiManager;
 use crate::runtime_coordinator::RuntimeTarget;
@@ -175,7 +176,15 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
     .await;
     assert!(!status.is_success());
 
+    let context = Context {
+        window: "native-workspace-disk-inspector".into(),
+        workspace: target.workspace_id.clone(),
+        route: format!("/app/workspaces/{}/sessions/{}", target.workspace_id, target.session_id),
+    };
+    let exports = root.join("exports");
+    fs::create_dir(&exports).unwrap();
     let mut last_access = Value::Null;
+    let mut last_export = None;
     for path in ["normal", "depth", "budget"] {
         let (status, preview) = post(
             &host,
@@ -256,6 +265,9 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
             "DISK_INSPECTOR_REPORT {}",
             json!({"case":path,"report":report})
         );
+        let report_access = assert_disk_usage_export(&host, &context, &owner, access, &response,
+            &exports.join(format!("{path}.json")), last_export.as_ref());
+        last_export = Some(report_access);
         last_access = access.clone();
     }
 
@@ -268,11 +280,6 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
     assert!(!selected.starts_with(&root));
     fs::create_dir_all(selected.join("子目录")).unwrap();
     fs::write(selected.join("子目录/样例.txt"), b"12345").unwrap();
-    let context = Context {
-        window: "native-workspace-disk-inspector".into(),
-        workspace: target.workspace_id.clone(),
-        route: format!("/app/workspaces/{}/sessions/{}", target.workspace_id, target.session_id),
-    };
     let other_window = Context {
         window: "native-workspace-other".into(),
         ..context.clone()
@@ -365,7 +372,7 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
     assert_eq!(resource["entryCount"], 2);
     assert_eq!(resource["partial"], false);
     assert_eq!(
-        host.commit_native_plugin_directory(context, owner.clone(), id.to_owned(), true)
+        host.commit_native_plugin_directory(context.clone(), owner.clone(), id.to_owned(), true)
             .await
             .unwrap_err(),
         "resource_directory_grant_unavailable"
@@ -389,12 +396,21 @@ async fn frozen_disk_inspector_reports_real_confirmed_directories() {
         json!({"case":"native_outside","report":report})
     );
 
+    let native_export = assert_disk_usage_export(&host, &context, &owner, &resource["access"], &response,
+        &exports.join("native.json"), last_export.as_ref());
+    assert_disk_usage_cancel_and_conflict(&host, &context, &native_export, &exports);
+    let revoked = exports.join("revoked.json");
+    let revoked_grant = host.prepare_resource_export(context.clone(), native_export.clone(), revoked.clone()).unwrap();
+    assert_eq!(fs::read(root.join("normal/archive/报告.txt")).unwrap(), b"private fixture contents");
+
     host.state
         .plugins
         .lock()
         .unwrap()
         .set_permission("programming", usage::PLUGIN, usage::PERMISSION, false)
         .unwrap();
+    assert!(host.commit_resource_export(context, native_export, revoked_grant["grantId"].as_str().unwrap().into(), true).is_err());
+    assert!(!revoked.exists());
     let (status, _) = post(&host, &client, "invoke-view", invoke_body(&last_access)).await;
     assert!(!status.is_success());
     host.stop_and_wait().await.unwrap();

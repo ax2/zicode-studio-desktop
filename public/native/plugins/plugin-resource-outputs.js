@@ -4,6 +4,7 @@ import { imageMetadataOutputPolicy } from "./image-metadata-output.js";
 import { IMAGE_METADATA_EXECUTION } from "./resource-save-policy.js";
 import { markdownOutputPolicy } from "./markdown-output-policy.js";
 import { isDirectoryCompare } from "./directory-compare-result.js";
+import { isDiskInspector } from "./disk-inspector-result.js";
 const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const HASH = /^[0-9a-f]{64}$/;
 export function normalizeHostReport(response, source, executionProfile, pluginId) {
@@ -12,9 +13,11 @@ export function normalizeHostReport(response, source, executionProfile, pluginId
   const sources = [source, ...(source.additionalResources ?? [])];
   const digest = executionProfile === "resource.wasi.file-digest.v1" && source.capabilityId === "devtools.files.hash";
   const compare = isDirectoryCompare(pluginId, source.capabilityId);
+  const disk = isDiskInspector(pluginId, source.capabilityId);
   const profile = compare ? "resource.host.directory-compare-csv.v1" :
+    disk ? "resource.host.directory-usage-json.v1" :
     digest ? "resource.host.file-digest-report.draft1" : "resource.host.image-metadata-report.draft1";
-  if ((!compare && !digest && executionProfile !== IMAGE_METADATA_EXECUTION) || response.result?.ok !== true || row?.profile !== profile ||
+  if ((!compare && !disk && !digest && executionProfile !== IMAGE_METADATA_EXECUTION) || response.result?.ok !== true || row?.profile !== profile ||
       row.index !== 0 || !UUID.test(row.resourceId ?? "") || sources.some(item => item.resourceId === row.resourceId) ||
       response.resources?.some(item => item.resourceId === row.resourceId) ||
       !HASH.test(row.contentVersion ?? "") || row.mimeType !== (compare ? "text/csv" : "application/json") ||

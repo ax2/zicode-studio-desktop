@@ -80,6 +80,7 @@ impl Store {
                 parents: Vec::new(),
                 original: None,
                 digest_name: None,
+                import_profile: None,
             },
         );
         self.stream_reports.insert(
@@ -156,6 +157,7 @@ impl Store {
                 }],
                 original: Some(FileBinding::VerifiedStream(file.clone())),
                 digest_name: None,
+                import_profile: None,
             },
         );
         self.stream_reports

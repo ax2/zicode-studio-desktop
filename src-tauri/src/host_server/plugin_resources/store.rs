@@ -23,6 +23,7 @@ struct Record {
     parents: Vec<Ancestor>,
     original: Option<file_reference::FileBinding>,
     digest_name: Option<String>,
+    import_profile: Option<&'static str>,
 }
 
 #[derive(Clone)]
@@ -81,7 +82,7 @@ impl Store {
         owner: Owner,
         proof: String,
         bytes: Vec<u8>,
-        profile: &str,
+        profile: &'static str,
     ) -> Result<Value, ApiError> {
         self.import_bytes(owner, proof, bytes, "text/plain", profile)
     }
@@ -91,7 +92,7 @@ impl Store {
         proof: String,
         bytes: Vec<u8>,
         mime: &str,
-        profile: &str,
+        profile: &'static str,
     ) -> Result<Value, ApiError> {
         let version = sha256_hex(&bytes);
         let prepared = self.prepare(
@@ -117,6 +118,7 @@ impl Store {
                 self.append(&access, &proof, index * MAX_CHUNK, chunk.to_vec())?;
             }
             let mut result = self.commit(&access, &proof)?;
+            self.record(&access, &proof)?.import_profile = Some(profile);
             result["access"] = serde_json::to_value(&access).unwrap();
             result["profile"] = json!(profile);
             result["saved"] = json!(false);
@@ -203,6 +205,7 @@ impl Store {
                 parents: Vec::new(),
                 original: None,
                 digest_name,
+                import_profile: None,
             },
         );
         Ok(
@@ -347,6 +350,13 @@ impl Store {
             descriptor: r.descriptor(access),
             bytes,
         })
+    }
+
+    pub(super) fn matches_confirmed_import(
+        &mut self, access: &Access, proof: &str, profile: &str,
+    ) -> Result<bool, ApiError> {
+        let record = self.record(access, proof)?;
+        Ok(record.confirmed && record.import_profile == Some(profile))
     }
 
     pub(super) fn check(&mut self, access: &Access, proof: &str) -> Result<(), ApiError> {

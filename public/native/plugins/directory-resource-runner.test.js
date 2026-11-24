@@ -32,7 +32,7 @@ function fixture(overrides = {}, maxResources = 1, directory = false, receiver =
   }
   return { gateway, form, onBusy, onSuccess, controller, button, share, switchTarget: () => { target = { ...target, sessionId: "other" }; } };
 }
-function diskInspectorFixture({ granted = true, report, explorer } = {}) {
+function diskInspectorFixture({ granted = true, report, explorer, exports, reportResource } = {}) {
   const receiver = {
     pluginId: "com.zicode.devtools.disk-inspector", capabilityId: "devtools.disk-inspector.scan",
     title: "Disk Inspector", directoryUsage: granted, resourceInputMimeTypes: ["text/plain"],
@@ -61,8 +61,9 @@ function diskInspectorFixture({ granted = true, report, explorer } = {}) {
       maxAnalysisBytes: 64000, displayedPathBytes: 512, displayedRowsPerList: 20 },
   };
   const invokeResource = vi.fn(async (_owner, request) => ({ schemaVersion: 1, operationId: id,
-    source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result }));
-  const f = fixture({ directoryUsage, projectDirectories: { choose: vi.fn() }, invokeResource }, 1, true, receiver);
+    source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result,
+    ...(reportResource ? { reportResource } : {}) }));
+  const f = fixture({ directoryUsage, projectDirectories: { choose: vi.fn() }, invokeResource, exports }, 1, true, receiver);
   return { f, directoryUsage, owner, directoryProfile, access, result };
 }
 
@@ -216,6 +217,43 @@ describe("directory-owned resource execution", () => {
     expect(result.textContent).toBe("");
   });
 
+  it("saves only the displayed Disk Inspector report after destination and confirmation", async () => {
+    const reportResource = { profile: "resource.host.directory-usage-json.v1", index: 0,
+      resourceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", contentVersion: "c".repeat(64),
+      mimeType: "application/json", byteLength: 809, expiresInSeconds: 900, origin: "host-report",
+      saved: false, derivedFrom: { resourceId: id, contentVersion: "a".repeat(64) } };
+    const profile = "resource.export.file.draft1", grantId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const preview = { schemaVersion: 1, profile, grantId, destination: "D:/test/usage.json",
+      contentVersion: reportResource.contentVersion, mimeType: reportResource.mimeType, byteLength: 809 };
+    const exports = { choose: vi.fn(async (_workspace, source) => ({ schemaVersion: 1, profile, grantId,
+      saved: false, operation: "create_new_file", requiresConfirmation: true, expiresInSeconds: 60,
+      preview: { ...preview, source } })), cancel: vi.fn(async () => {}), verify: vi.fn(),
+      commit: vi.fn(async (_workspace, source) => ({ schemaVersion: 1, profile, saved: true,
+        status: "saved", receipt: { ...preview, source } })) };
+    const { f, owner } = diskInspectorFixture({ exports, reportResource });
+    const source = { schemaVersion: 1, owner, resourceId: reportResource.resourceId, contentVersion: reportResource.contentVersion };
+    expect(f.button("Save JSON as…")).toBeUndefined();
+    f.button("Choose a folder").click();
+    await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
+    f.button("Confirm directory sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    expect(exports.choose).not.toHaveBeenCalled();
+    f.button("Save JSON as…").click();
+    await vi.waitFor(() => expect(f.button("Confirm save file")).toBeTruthy());
+    expect(exports.choose).toHaveBeenCalledWith("workspace", source);
+    expect(exports.commit).not.toHaveBeenCalled();
+    f.button("Cancel save").click();
+    expect(exports.cancel).toHaveBeenCalledWith("workspace", source, grantId);
+    f.button("Save JSON as…").click();
+    await vi.waitFor(() => expect(f.button("Confirm save file")).toBeTruthy());
+    f.button("Confirm save file").click();
+    expect(exports.commit).toHaveBeenCalledWith("workspace", source, grantId);
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Saved copy: D:/test/usage.json"));
+    f.button("Cancel directory sharing").click();
+    expect(f.button("Save JSON as…")).toBeUndefined();
+  });
   it("shows the Explorer folder pending confirmation without another picker or a read", async () => {
     let preview;
     const entry = vi.fn(async () => { await Promise.resolve(); return preview; });

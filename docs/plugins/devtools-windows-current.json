@@ -957,7 +957,7 @@
       "localStatus": "not-imported",
       "operations": [],
       "fullSourceScopeAccepted": false,
-      "blocker": "隔离 Windows 已用冻结 Disk Inspector 0.1.0 验证授权、Host/Worker 统计和部分结果，并覆盖原生入口的工作区外目录。系统文件夹窗口和 Explorer 菜单的人工操作及日常安装分发仍待验收。",
+      "blocker": "隔离 Windows 已用冻结 Disk Inspector 0.1.0 验证授权、Host/Worker 统计和部分结果，并覆盖原生入口的工作区外目录。四种实际报告经确认另存并逐字节回读。系统目录和另存窗口、Explorer 菜单实体操作及日常安装分发仍待验收。",
       "sourceScope": "明确选择目录或通过 Explorer 文件夹菜单启动后台只读统计；统计逻辑大小、直属子目录与大文件，跳过链接及重解析点，限制时间/条目/深度，支持取消并标出部分结果；不删除文件"
     },
     {

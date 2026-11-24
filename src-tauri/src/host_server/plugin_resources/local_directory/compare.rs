@@ -8,7 +8,7 @@ use std::{
     time::SystemTime,
 };
 
-pub(super) const PROFILE: &str = "resource.local-directory.compare.draft1";
+pub(in crate::host_server::plugin_resources) const PROFILE: &str = "resource.local-directory.compare.draft1";
 pub(super) const PERMISSION: &str = "resource.directory.compare.read";
 pub(in crate::host_server::plugin_resources) const PLUGIN: &str = "com.zicode.devtools.directory-compare";
 pub(in crate::host_server::plugin_resources) const CAPABILITY: &str = "devtools.directory-compare.scan";

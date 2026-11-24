@@ -45,6 +45,21 @@ describe("resource output reference boundary", () => {
         .toThrow("resource_response_invalid");
     }
   });
+  it("accepts only a bounded Disk Inspector JSON report for that folder and receiver", () => {
+    const plugin = "com.zicode.devtools.disk-inspector";
+    const input = { ...source, capabilityId: "devtools.disk-inspector.scan" };
+    const report = { ...row(), profile: "resource.host.directory-usage-json.v1",
+      mimeType: "application/json", origin: "host-report", byteLength: 48 * 1024 };
+    const response = { result: { ok: true }, reportResource: report };
+    expect(normalizeHostReport(response, input, null, plugin)).toMatchObject({ mimeType: report.mimeType, resourceId: report.resourceId });
+    expect(() => normalizeHostReport(response, input, null, "com.example.other")).toThrow("resource_response_invalid");
+    expect(() => normalizeHostReport(response, { ...input, capabilityId: "other" }, null, plugin)).toThrow("resource_response_invalid");
+    for (const patch of [{ byteLength: 48 * 1024 + 1 }, { mimeType: "text/csv" },
+      { derivedFrom: { ...source, contentVersion: "c".repeat(64) } }, { origin: "worker-output" }]) {
+      expect(() => normalizeHostReport({ ...response, reportResource: { ...report, ...patch } }, input, null, plugin))
+        .toThrow("resource_response_invalid");
+    }
+  });
   it("binds Markdown success to one complete HTML output and rejects missing negotiation, mismatched length and partial failures", () => {
     const owner={...source,capabilityId:"devtools.markdown.render"},profile="resource.wasi.markdown.v1";
     const html={...row(),mimeType:"text/html",byteLength:10486640};

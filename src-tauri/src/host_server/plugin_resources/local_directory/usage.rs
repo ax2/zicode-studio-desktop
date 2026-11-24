@@ -2,10 +2,10 @@
 use super::*;
 use serde::Serialize;
 
-pub(super) const PROFILE: &str = "resource.local-directory.usage.draft1";
+pub(in crate::host_server::plugin_resources) const PROFILE: &str = "resource.local-directory.usage.draft1";
 pub(super) const PERMISSION: &str = "resource.directory.usage.read";
-pub(super) const PLUGIN: &str = "com.zicode.devtools.disk-inspector";
-pub(super) const CAPABILITY: &str = "devtools.disk-inspector.scan";
+pub(in crate::host_server::plugin_resources) const PLUGIN: &str = "com.zicode.devtools.disk-inspector";
+pub(in crate::host_server::plugin_resources) const CAPABILITY: &str = "devtools.disk-inspector.scan";
 
 pub(super) const MAX_DEPTH: usize = 16;
 const MAX_RELATIVE_BYTES: usize = 2048;

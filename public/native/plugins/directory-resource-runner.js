@@ -162,21 +162,21 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const save = typeof gateway.prepareResourceSave === "function" ? createResourceSave({ gateway, getTarget, isCurrent: valid }) : null;
   const transfer = typeof gateway.prepareResourceTransfer === "function" ? createResourceTransfer({ gateway, getTarget, isCurrent: valid, mountInputs,
     onSave: save ? (...args) => save.open(...args) : undefined, onSaveClear: () => save?.clear(), onReceiverExecuted }) : null;
-  let comparisonCsv = null;
-  const compareExport = compare && gateway.exports ? createResourceExport({
-    api: gateway.exports, getTarget, isCurrent: () => valid() && comparisonCsv !== null,
+  let directoryReport = null;
+  const reportExport = (compare || diskInspector) && gateway.exports ? createResourceExport({
+    api: gateway.exports, getTarget, isCurrent: () => valid() && directoryReport !== null,
   }) : null;
   const preview = createResourcePreview({ container: outputs, plugin: { capabilities: [{ id: tool.capabilityId, title: tool.title }] }, executionProfile: detail.capability.executionProfile, isCurrent: valid, read,
     onSave: save ? (...args) => save.open(...args) : undefined, onTransfer: transfer ? (...args) => transfer.open(...args) : undefined,
     onClear: () => {
       save?.clear(); transfer?.clear();
-      comparisonCsv = null;
-      compareExport?.clear();
+      directoryReport = null;
+      reportExport?.clear();
     } });
   const computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid, recoverable: true, onOutputs: (items, owner, labels, reportResource) => {
     if (!valid() || reference !== executionAccess) return;
     if (directoryAnalysis) {
-      if (compare && reportResource) comparisonCsv = { resource: reportResource, owner };
+      if ((compare || diskInspector) && reportResource) directoryReport = { resource: reportResource, owner };
       return;
     }
     metadataResult?.setReportResource?.(reportResource, owner);
@@ -347,16 +347,16 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
         if (response.result?.ok !== false && !render(result, response.result)) {
           status.textContent = t(compare ? "Folder comparison returned an invalid report." :
             duplicates ? "Duplicate file checking returned an invalid report." : "Disk Inspector returned an invalid report.");
-          comparisonCsv = null;
+          directoryReport = null;
           return;
         }
-        const csv = comparisonCsv;
-        if (compareExport && csv) {
-          const exportButton = button("Save CSV as…", async () => {
-            if (!valid() || comparisonCsv !== csv || exportButton.disabled) return;
+        const report = directoryReport;
+        if (reportExport && report) {
+          const exportButton = button(compare ? "Save CSV as…" : "Save JSON as…", async () => {
+            if (!valid() || directoryReport !== report || exportButton.disabled) return;
             exportButton.disabled = true;
-            try { await compareExport.open(csv.resource, csv.owner, outputs); }
-            finally { if (comparisonCsv === csv) exportButton.disabled = false; }
+            try { await reportExport.open(report.resource, report.owner, outputs); }
+            finally { if (directoryReport === report) exportButton.disabled = false; }
           });
           result.append(exportButton);
         }
@@ -415,7 +415,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     if (!active) return;
     active = false; clearTimeout(timer);
     if (liveStream) void nativeStream.cancel(target.workspaceId, liveStream.owner, liveStream.grantId).catch(() => {});
-    releaseStreamReport(); computation.destroy(); selection.destroy(); preview.destroy(); manifestReview?.destroy(); folderReview?.destroy(); metadataResult?.destroy(); transfer?.destroy(); save?.destroy(); compareExport?.destroy(); form?.destroy();
+    releaseStreamReport(); computation.destroy(); selection.destroy(); preview.destroy(); manifestReview?.destroy(); folderReview?.destroy(); metadataResult?.destroy(); transfer?.destroy(); save?.destroy(); reportExport?.destroy(); form?.destroy();
     container.replaceChildren();
   } };
 }

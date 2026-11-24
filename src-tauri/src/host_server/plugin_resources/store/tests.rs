@@ -301,3 +301,32 @@ fn derived_outputs_share_reserved_budget_and_expiry_with_inputs() {
         .is_err());
     assert_eq!(store.records.len(), 5);
 }
+
+#[test]
+fn only_host_imported_directory_records_carry_the_confirmed_profile() {
+    let mut store = Store::default();
+    let upload = prepared(&mut store, b"same bytes");
+    store.append(&upload, "proof", 0, b"same bytes".to_vec()).unwrap();
+    store.commit(&upload, "proof").unwrap();
+    let file = store.import_file(upload.owner.clone(), "proof".into(),
+        b"same bytes".to_vec(), "text/plain").unwrap();
+    let file_access: Access = serde_json::from_value(file["access"].clone()).unwrap();
+    let profile = local_directory::DISK_INSPECTOR_PROFILE;
+    let directory = store.import_directory(upload.owner.clone(), "proof".into(),
+        b"same bytes".to_vec(), profile).unwrap();
+    let directory_access: Access = serde_json::from_value(directory["access"].clone()).unwrap();
+    assert_eq!(upload.content_version, directory_access.content_version);
+    assert!(!store.matches_confirmed_import(&upload, "proof", profile).unwrap());
+    assert!(!store.matches_confirmed_import(&file_access, "proof", profile).unwrap());
+    assert!(store.matches_confirmed_import(&directory_access, "proof", profile).unwrap());
+    assert!(!store.matches_confirmed_import(&directory_access, "proof", local_directory::COMPARE_PROFILE).unwrap());
+    assert!(store.matches_confirmed_import(&directory_access, "other-proof", profile).is_err());
+    let mut pending = Pending::prepare(std::slice::from_ref(&directory_access), "proof", Vec::new()).unwrap();
+    pending.attach_host_report_bytes(b"{}".to_vec(), "test.report", "application/json").unwrap();
+    let (_, descriptor) = store.publish_outputs_with_report(pending, &std::sync::atomic::AtomicBool::new(false)).unwrap();
+    let descriptor = descriptor.unwrap();
+    let derived = Access { schema_version: 1, owner: upload.owner,
+        resource_id: descriptor["resourceId"].as_str().unwrap().into(),
+        content_version: descriptor["contentVersion"].as_str().unwrap().into() };
+    assert!(!store.matches_confirmed_import(&derived, "proof", profile).unwrap());
+}
