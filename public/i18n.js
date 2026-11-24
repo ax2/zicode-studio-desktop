@@ -1078,7 +1078,7 @@ const zhCN = {
   "Unsupported names: {count}": "不支持的名称：{count}",
   "Unreadable entries: {count}": "无法读取的条目：{count}",
   "Total logical size": "逻辑大小总计",
-  "{bytes} B": "{bytes} B",
+  "{bytes} B": "{bytes} 字节",
   "Files directly in the chosen folder": "所选文件夹下直属文件的大小",
   "File count": "文件数",
   "Folder count": "文件夹数",
