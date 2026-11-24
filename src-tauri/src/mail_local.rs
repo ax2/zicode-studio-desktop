@@ -104,6 +104,7 @@ fn open_mail(file: &Path) -> Result<Connection, String> {
       CREATE TABLE IF NOT EXISTS drafts(scope TEXT NOT NULL,account TEXT NOT NULL,id TEXT NOT NULL,revision INTEGER NOT NULL,recipient TEXT NOT NULL,subject TEXT NOT NULL,body TEXT NOT NULL,PRIMARY KEY(scope,account,id),FOREIGN KEY(scope,account) REFERENCES accounts(scope,id));").map_err(|_|"mail_storage")?;
     db.execute_batch(studio_alibaba_mail::DRAFT_ATTACHMENT_SCHEMA)
         .map_err(|_| "mail_storage")?;
+    db.execute_batch(crate::gmail::reply::SCHEMA).map_err(|_| "mail_storage")?;
     Ok(db)
 }
 
@@ -145,14 +146,16 @@ fn operate(file: &Path, scope: &str, req: Request) -> Result<Value, String> {
             Ok(json!({"id":id}))
         }
         Request::Drafts { account } => {
-            let mut q=db.prepare("SELECT id,revision,recipient,subject,body FROM drafts WHERE scope=? AND account=? ORDER BY rowid DESC").map_err(|_|"mail_storage")?;
+            let mut q=db.prepare("SELECT id,revision,recipient,subject,body,EXISTS(SELECT 1 FROM gmail_reply WHERE workspace=drafts.scope AND account=drafts.account AND draft=drafts.id) FROM drafts WHERE scope=? AND account=? ORDER BY rowid DESC").map_err(|_|"mail_storage")?;
             let mut attachments = db.prepare("SELECT id,name,length(content) FROM draft_attachments WHERE scope=? AND account=? AND draft=? ORDER BY rowid").map_err(|_| "mail_storage")?;
             let rows = q.query_map(params![scope, account], |r| {
                 let id: String = r.get(0)?;
                 let files = attachments.query_map(params![scope, account, id], |file| {
                     Ok(json!({"id": file.get::<_,String>(0)?, "name": file.get::<_,String>(1)?, "size": file.get::<_,i64>(2)?}))
                 })?.collect::<Result<Vec<_>,_>>()?;
-                Ok(json!({"id": id, "revision": r.get::<_,i64>(1)?, "recipient": r.get::<_,String>(2)?, "subject": r.get::<_,String>(3)?, "body": r.get::<_,String>(4)?, "attachments": files}))
+                let mut draft = json!({"id": id, "revision": r.get::<_,i64>(1)?, "recipient": r.get::<_,String>(2)?, "subject": r.get::<_,String>(3)?, "body": r.get::<_,String>(4)?, "attachments": files});
+                if r.get::<_,bool>(5)? { draft["gmailReply"] = json!(true); }
+                Ok(draft)
             }).map_err(|_| "mail_storage")?.collect::<Result<Vec<_>,_>>().map_err(|_| "mail_storage")?;
             Ok(json!(rows))
         }

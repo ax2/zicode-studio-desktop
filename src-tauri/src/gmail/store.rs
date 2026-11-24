@@ -1,4 +1,5 @@
-use super::{api, oauth::Result};
+use super::{api, oauth::Result, reply};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension, TransactionBehavior};
 use serde_json::Value;
 use std::path::Path;
@@ -13,6 +14,7 @@ pub(super) fn db(p: &Path) -> Result<Connection> {
     db.execute_batch("CREATE TABLE IF NOT EXISTS gmail_cache(workspace TEXT NOT NULL, account TEXT NOT NULL, kind TEXT NOT NULL, cache_key TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(workspace,account,kind,cache_key));
     CREATE TABLE IF NOT EXISTS gmail_cache_generation(workspace TEXT,account TEXT,generation INTEGER NOT NULL,PRIMARY KEY(workspace,account));
     CREATE TABLE IF NOT EXISTS gmail_delivery(workspace TEXT NOT NULL,account TEXT NOT NULL,draft TEXT NOT NULL,revision INTEGER NOT NULL,status TEXT NOT NULL,message_id TEXT,PRIMARY KEY(workspace,account,draft,revision));").map_err(|_|"gmail_storage")?;
+    db.execute_batch(reply::SCHEMA).map_err(|_| "gmail_storage")?;
     Ok(db)
 }
 pub fn address(p: &Path, scope: &str, account: &str) -> Result<String> {
@@ -61,6 +63,48 @@ pub fn cached(p: &Path, scope: &str, a: &str, kind: &str, key: &str) -> Result<V
         None => Ok(Value::Null),
     }
 }
+
+pub fn reply_draft(path: &Path, scope: &str, account: &str, message: &str) -> Result<Value> {
+    if !api::valid_id(message) {
+        return Err("gmail_invalid");
+    }
+    let mut db = db(path)?;
+    let tx = db.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|_| "gmail_storage")?;
+    let metadata: String = tx.query_row(
+        "SELECT COALESCE(json_extract(value,'$.reply'),'null') FROM gmail_cache
+         WHERE workspace=?1 AND account=?2 AND kind='body' AND cache_key=?3
+             AND json_extract(value,'$.id')=?3 AND json_type(value,'$.reply') IS NOT NULL
+         UNION ALL
+         SELECT COALESCE(json_extract(item.value,'$.reply'),'null') FROM gmail_cache JOIN json_each(gmail_cache.value,'$.items') item
+         WHERE workspace=?1 AND account=?2 AND kind='page' AND json_extract(item.value,'$.id')=?3
+             AND json_type(item.value,'$.reply') IS NOT NULL
+         LIMIT 1",
+        params![scope, account, message],
+        |row| row.get(0),
+    ).optional().map_err(|_| "gmail_storage")?.ok_or("gmail_reply_metadata_missing")?;
+    let reply = serde_json::from_str::<Option<reply::Metadata>>(&metadata)
+        .map_err(|_| "gmail_storage")?.ok_or("gmail_reply_unavailable")?;
+    let id = uuid::Uuid::new_v4().to_string();
+    let inserted = tx.execute(
+        "INSERT INTO drafts(scope,account,id,revision,recipient,subject,body)
+         SELECT ?1,?2,?3,1,?4,?5,'' WHERE EXISTS
+            (SELECT 1 FROM accounts WHERE scope=?1 AND id=?2 AND provider='gmail')",
+        params![scope, account, id, reply.recipient, reply.subject],
+    ).map_err(|_| "gmail_storage")?;
+    if inserted != 1 {
+        return Err("gmail_account_unavailable");
+    }
+    tx.execute("INSERT INTO gmail_reply VALUES(?,?,?,?)", params![scope, account, id, metadata])
+        .map_err(|_| "gmail_storage")?;
+    tx.commit().map_err(|_| "gmail_storage")?;
+    Ok(serde_json::json!({"id":id,"revision":1,"recipient":reply.recipient,"subject":reply.subject,"body":"","gmailReply":true}))
+}
+
+pub struct Outgoing {
+    pub raw: String,
+    pub thread: Option<String>,
+}
+
 pub fn begin(
     p: &Path,
     scope: &str,
@@ -68,28 +112,40 @@ pub fn begin(
     from: &str,
     draft: &str,
     revision: i64,
-) -> Result<String> {
+) -> Result<Outgoing> {
     let mut db = db(p)?;
     let tx = db
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|_| "gmail_storage")?;
     let (to,subject,body):(String,String,String)=tx.query_row("SELECT recipient,subject,body FROM drafts WHERE scope=? AND account=? AND id=? AND revision=?",params![scope,a,draft,revision],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).map_err(|_|"gmail_draft_changed")?;
+    let original: Option<String> = tx.query_row(
+        "SELECT metadata FROM gmail_reply WHERE workspace=? AND account=? AND draft=?",
+        params![scope, a, draft], |row| row.get(0),
+    ).optional().map_err(|_| "gmail_storage")?;
+    let original: Option<reply::Metadata> = original.map(|data| serde_json::from_str(&data))
+        .transpose().map_err(|_| "gmail_storage")?;
+    let reply = original.filter(|source| source.recipient == to && source.subject == subject);
     let files = studio_alibaba_mail::draft_attachments(&tx, scope, a, draft)?;
-    let raw = if files.is_empty() {
-        api::raw_message(from, &to, &subject, &body)?
+    let mime = if files.is_empty() {
+        api::mime_message(from, &to, &subject, &body)?
     } else {
-        use base64::Engine;
         api::validate_message(from, &to, &subject, &body)?;
         let saved = studio_alibaba_mail::StoredDraft { recipient: to, subject, body };
-        let message = studio_alibaba_mail::compose_attached(from, &saved, None, files)?;
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(message.formatted())
+        studio_alibaba_mail::compose_attached(from, &saved, None, files)?.formatted()
+    };
+    let message = match reply {
+        Some(source) => {
+            let mime = source.write_headers(mime).ok_or("gmail_invalid_draft")?;
+            Outgoing { raw: URL_SAFE_NO_PAD.encode(mime), thread: Some(source.thread) }
+        }
+        None => Outgoing { raw: URL_SAFE_NO_PAD.encode(mime), thread: None },
     };
     let n=tx.execute("INSERT INTO gmail_delivery(workspace,account,draft,revision,status) VALUES(?,?,?,?,'unknown') ON CONFLICT DO NOTHING",params![scope,a,draft,revision]).map_err(|_|"gmail_storage")?;
     if n == 0 {
         return Err("gmail_attempt_already_recorded");
     }
     tx.commit().map_err(|_| "gmail_storage")?;
-    Ok(raw)
+    Ok(message)
 }
 pub fn finish(
     p: &Path,

@@ -209,3 +209,83 @@ it("reports a stale cached source next to the reply action and permits retry", a
   await waitFor(() => expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("source"));
   expect(transport.mock.calls.filter(([r]) => r.kind === "replyDraft")).toHaveLength(2);
 });
+
+function setupSavedGmailReply(legacy = false) {
+  const accounts = [
+    { id: "primary", address: "primary@example.test", provider: "gmail" },
+    { id: "peer", address: "peer@example.test", provider: "gmail" },
+  ];
+  const hit = { account: "peer", address: accounts[1].address, provider: "gmail", id: "same", epoch: null,
+    subject: "Peer customer mail", sender: "sender@example.test" };
+  const reply = { id: "gmail-reply", revision: 1, recipient: "reply@example.test", subject: hit.subject, body: "", gmailReply: true };
+  const body = { id: "same", from: hit.sender, subject: hit.subject, plainText: "Cached body" };
+  const local = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === "accounts") return accounts;
+    if (request.kind === "drafts") return [];
+    if (request.kind === "search") return { items: [hit], more: false };
+    throw Error("Unexpected local operation");
+  });
+  let refreshed = !legacy;
+  const gmail = vi.fn(async (request: Record<string, unknown>) => {
+    switch (request.kind) {
+      case "status": return { connected: true, read: true, send: false };
+      case "cachedLabels": return [];
+      case "cachedPage": return request.accountId === "peer" ? { items: [body], nextCursor: null } : null;
+      case "cachedBody": return body;
+      case "read": refreshed = true; return body;
+      case "replyDraft":
+        if (!refreshed) throw Error("gmail_reply_metadata_missing");
+        if (request.accountId !== "peer" || request.id !== "same") throw Error("Wrong source");
+        return reply;
+      default: throw Error("Unexpected Gmail operation");
+    }
+  });
+  render(<Mail invoke={local as Invoke} gmailTransport={gmail as Invoke}/>);
+  return { gmail, reply };
+}
+
+async function showGmailMail(source: "inbox" | "search") {
+  const account = await screen.findByLabelText<HTMLSelectElement>("Mail account");
+  if (source === "inbox") {
+    fireEvent.change(account, { target: { value: "peer" } });
+    fireEvent.click(await screen.findByRole("button", { name: /Peer customer mail/ }));
+  } else {
+    fireEvent.change(await screen.findByLabelText("Search scope"), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search cached mail" }), { target: { value: "customer" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Peer customer mail/ }));
+  }
+  return within(screen.getByRole("article", { name: source === "inbox" ? "Selected message" : "Cached message" }));
+}
+
+it.each(["inbox", "search"] as const)("opens a Gmail reply from the %s without separate read or send calls", async source => {
+  const { gmail, reply } = setupSavedGmailReply();
+  const reading = await showGmailMail(source);
+  const create = await reading.findByRole("button", { name: "Create reply draft" });
+  await waitFor(() => expect(create.matches(":disabled")).toBe(false));
+  fireEvent.click(create);
+  await waitFor(() => expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("peer"));
+  expect(await screen.findByText("Changing the recipient or subject sends this as a new message.")).toBeTruthy();
+  expect(screen.getByLabelText<HTMLInputElement>("Recipient").value).toBe(reply.recipient);
+  expect(screen.getByLabelText<HTMLInputElement>("Mail subject").value).toBe(reply.subject);
+  await waitFor(() => expect(screen.getByLabelText("Message body")).toBe(document.activeElement));
+  const actions = gmail.mock.calls.map(([request]) => request).filter(request => ["read", "send", "replyDraft"].includes(String(request.kind)));
+  expect(actions).toEqual([{ kind: "replyDraft", accountId: "peer", id: "same" }]);
+});
+
+it.each(["inbox", "search"] as const)("refreshes a legacy Gmail message from the %s only after an explicit click", async source => {
+  const { gmail, reply } = setupSavedGmailReply(true);
+  const reading = await showGmailMail(source);
+  const create = await reading.findByRole("button", { name: "Create reply draft" });
+  await waitFor(() => expect(create.matches(":disabled")).toBe(false));
+  fireEvent.click(create);
+  const refresh = await reading.findByRole("button", { name: "Refresh message to reply" });
+  expect(gmail.mock.calls.some(([request]) => request.kind === "read")).toBe(false);
+  fireEvent.click(refresh);
+  await waitFor(() => expect(gmail.mock.calls.filter(([request]) => request.kind === "read").map(([request]) => request))
+    .toEqual([{ kind: "read", accountId: "peer", id: "same" }]));
+  await waitFor(() => expect(reading.getByRole("button", { name: "Create reply draft" }).matches(":disabled")).toBe(false));
+  fireEvent.click(reading.getByRole("button", { name: "Create reply draft" }));
+  await waitFor(() => expect(screen.getByLabelText<HTMLInputElement>("Recipient").value).toBe(reply.recipient));
+  expect(gmail.mock.calls.some(([request]) => request.kind === "send")).toBe(false);
+});

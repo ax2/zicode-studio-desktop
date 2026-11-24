@@ -3,7 +3,13 @@ import { MailBody } from "./MailBody";
 import {MailDisconnect} from "./MailDisconnect";
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
-import type { Invoke } from "./index";
+import type { Draft, Invoke } from "./index";
+
+export type CreateMailReply = (account: string, create: () => Promise<Draft>, isCurrent: () => boolean) => Promise<void>;
+
+export function gmailReplyNeedsRefresh(reason: unknown): boolean {
+  return String(reason).replace(/^Error:\s*/, "") === "gmail_reply_metadata_missing";
+}
 
 type Grant = { connected: boolean; read?: boolean; send?: boolean };
 type Message = { id: string; from: string; subject: string; date: string; snippet: string };
@@ -22,6 +28,8 @@ export function gmailError(e: unknown): string {
     case "gmail_account_mismatch":return t("Choose the same Google account as this local mail address.");
     case "gmail_identity_unavailable":case "gmail_browser_unavailable":return t("Could not open Google sign-in.");
     case "gmail_invalid_draft":return t("Check the recipient address and saved draft before sending.");
+    case "gmail_reply_metadata_missing":return t("Refresh this Gmail message before replying.");
+    case "gmail_reply_unavailable":return t("This Gmail message has no valid reply address or thread information.");
     case "gmail_draft_changed":return t("Draft changed in another window. Reload before editing.");
     case "gmail_page_expired":return t("This mail page expired. Refresh from the server to continue.");
     case "gmail_rate_limited":return t("Google has limited requests. Try again later.");
@@ -29,10 +37,14 @@ export function gmailError(e: unknown): string {
     default:return t("Mail operation failed. Check the account and try again.");
   }
 }
-export function GmailInbox({id,address,label,setLabel,invoke,onGrant}:{id:string;address:string;label:string;setLabel:(label:string)=>void;invoke:Invoke;onGrant:(send:boolean)=>void}) {
+export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,draftBusy=false}:{
+  id:string;address:string;label:string;setLabel:(label:string)=>void;invoke:Invoke;onGrant:(send:boolean)=>void;
+  onReply?:CreateMailReply;draftBusy?:boolean;
+}) {
   const [grant,setGrant]=useState<Grant>(none),[page,setPage]=useState<Page|null>(null);
   const [labels,setLabels]=useState<Label[]>([]);
   const [message,setMessage]=useState<Message|null>(null),[body,setBody]=useState<Body|null>(null);
+  const [replyRefresh,setReplyRefresh]=useState(false);
   const [online,setOnline]=useState(false),[busy,setBusy]=useState("init"),[notice,setNotice]=useState("");
   const epoch=useRef(0),operation=useRef("init"),grantCallback=useRef(onGrant);
   grantCallback.current=onGrant;
@@ -55,10 +67,14 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant}:{id:string
     });
     return()=>{epoch.current++;if(operation.current==="connect")void invoke({kind:"cancel",accountId:id}).catch(()=>{})};
   },[id,invoke,setLabel]);
-  async function run<T>(kind:string,task:()=>Promise<T>,apply:(result:T)=>void){
+  async function run<T>(kind:string,task:(isCurrent:()=>boolean)=>Promise<T>,apply:(result:T)=>void){
     if(operation.current)return;const gen=++epoch.current;operation.current=kind;setBusy(kind);setNotice("");
-    try {const value=await task();if(epoch.current===gen)apply(value)}
-    catch(e){if(epoch.current===gen){setNotice(gmailError(e));if(String(e).includes("gmail_reauthorize"))saveGrant(none)}}
+    try {const value=await task(()=>epoch.current===gen);if(epoch.current===gen)apply(value)}
+    catch(e){if(epoch.current===gen){
+      setNotice(gmailError(e));
+      if(kind==="reply")setReplyRefresh(gmailReplyNeedsRefresh(e));
+      if(String(e).includes("gmail_reauthorize"))saveGrant(none);
+    }}
     finally {if(epoch.current===gen){operation.current="";setBusy("")}}
   }
   function connect(send:boolean){void run("connect",()=>invoke<Grant>({kind:"connect",send,accountId:id}),g=>{saveGrant(g);if(send&&!g.send)setNotice(t("Google did not grant sending permission."))})}
@@ -78,7 +94,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant}:{id:string
     });
   }
   function select(m:Message,server:boolean){
-    if(operation.current)return;setMessage(m);setBody(null);
+    if(operation.current)return;setMessage(m);setBody(null);setReplyRefresh(false);
     void run("read",()=>invoke<Body|null>({kind:server?"read":"cachedBody",accountId:id,id:m.id}),setBody);
   }
   const disconnected=!grant.connected;
@@ -117,7 +133,12 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant}:{id:string
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {message&&<article aria-label={t("Selected message")}><h3 translate="no">{message.subject||t("No subject")}</h3><p translate="no">{message.from}</p>
         {body?<><MailBody text={body.plainText} html={body.html}/><MailAttachments key={message.id} items={body.attachments} invoke={invoke} message={{accountId:id,id:message.id}}/></>:!busy&&<p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
-        {!body&&<button className="ui-button" type="button" disabled={!grant.read} onClick={()=>select(message,true)}>{t("Download message body")}</button>}
+        {!body&&!replyRefresh&&<button className="ui-button" type="button" disabled={!grant.read} onClick={()=>select(message,true)}>{t("Download message body")}</button>}
+        {onReply&&<button className="ui-button" type="button" disabled={draftBusy} onClick={()=>{
+          setReplyRefresh(false);
+          void run("reply",active=>onReply(id,()=>invoke<Draft>({kind:"replyDraft",accountId:id,id:message.id}),active),()=>{});
+        }}>{t("Create reply draft")}</button>}
+        {replyRefresh&&<button className="ui-button" type="button" disabled={!grant.read} onClick={()=>select(message,true)}>{t("Refresh message to reply")}</button>}
       </article>}
     </fieldset>
     {notice&&<p role="status">{notice}</p>}

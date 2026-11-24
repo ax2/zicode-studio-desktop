@@ -64,11 +64,10 @@ fn summary(m: &Value) -> Result<Value> {
                 })
             })
             .and_then(|v| v["value"].as_str())
-            .unwrap_or("")
     };
-    Ok(
-        json!({"id":id,"internalDate":m["internalDate"].as_str().and_then(|s|s.parse::<i64>().ok()).unwrap_or(0),"from":header("From"),"subject":header("Subject"),"date":header("Date"),"snippet":m["snippet"].as_str().unwrap_or("")}),
-    )
+    let mut summary = json!({"id":id,"internalDate":m["internalDate"].as_str().and_then(|s|s.parse::<i64>().ok()).unwrap_or(0),"from":header("From").unwrap_or_default(),"subject":header("Subject").unwrap_or_default(),"date":header("Date").unwrap_or_default(),"snippet":m["snippet"].as_str().unwrap_or("")});
+    summary["reply"] = json!(super::reply::metadata(m, header));
+    Ok(summary)
 }
 pub async fn labels(client: &Client, base: &str, token: &str) -> Result<Value> {
     let data = get(
@@ -171,6 +170,10 @@ async fn metadata(client: &Client, base: &str, token: &str, id: &str) -> Result<
             ("metadataHeaders", "From"),
             ("metadataHeaders", "Date"),
             ("metadataHeaders", "Subject"),
+            ("metadataHeaders", "Reply-To"),
+            ("metadataHeaders", "Message-ID"),
+            ("metadataHeaders", "References"),
+            ("metadataHeaders", "In-Reply-To"),
         ],
         131072,
     )
@@ -489,7 +492,7 @@ pub async fn attachment(
     }
     Ok(bytes)
 }
-fn addr(v: &str) -> bool {
+pub(super) fn valid_address(v: &str) -> bool {
     v.len() <= 254
         && v.split_once('@').is_some_and(|(local, domain)| {
             !local.is_empty()
@@ -504,8 +507,8 @@ fn addr(v: &str) -> bool {
         })
 }
 pub(super) fn validate_message(from: &str, to: &str, subject: &str, body: &str) -> Result<()> {
-    if !addr(from)
-        || !addr(to)
+    if !valid_address(from)
+        || !valid_address(to)
         || subject.len() > 4096
         || subject.chars().any(char::is_control)
         || body.len() > 1_048_576
@@ -514,7 +517,7 @@ pub(super) fn validate_message(from: &str, to: &str, subject: &str, body: &str) 
     }
     Ok(())
 }
-pub fn raw_message(from: &str, to: &str, subject: &str, body: &str) -> Result<String> {
+pub(super) fn mime_message(from: &str, to: &str, subject: &str, body: &str) -> Result<Vec<u8>> {
     validate_message(from, to, subject, body)?;
     let mut words = vec![];
     let mut part = String::new();
@@ -539,18 +542,23 @@ pub fn raw_message(from: &str, to: &str, subject: &str, body: &str) -> Result<St
         .map(|c| std::str::from_utf8(c).unwrap_or(""))
         .collect::<Vec<_>>()
         .join("\r\n");
-    Ok(URL_SAFE_NO_PAD.encode(format!("From: {from}\r\nTo: {to}\r\nSubject: {}\r\nDate: {}\r\nMessage-ID: <{}@zicode.local>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n{folded}\r\n",words.join("\r\n "),chrono::Utc::now().to_rfc2822(),Uuid::new_v4())))
+    Ok(format!("From: {from}\r\nTo: {to}\r\nSubject: {}\r\nDate: {}\r\nMessage-ID: <{}@zicode.local>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n{folded}\r\n",words.join("\r\n "),chrono::Utc::now().to_rfc2822(),Uuid::new_v4()).into_bytes())
 }
 pub async fn send(
     client: &Client,
     base: &str,
     token: &str,
     raw: &str,
+    thread: Option<&str>,
 ) -> (&'static str, Option<String>) {
+    let payload = match thread {
+        Some(thread) => json!({"raw":raw,"threadId":thread}),
+        None => json!({"raw":raw}),
+    };
     let Ok(res) = client
         .post(format!("{base}/messages/send"))
         .bearer_auth(token)
-        .json(&json!({"raw":raw}))
+        .json(&payload)
         .send()
         .await
     else {
