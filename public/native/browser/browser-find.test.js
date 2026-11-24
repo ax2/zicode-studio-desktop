@@ -39,34 +39,52 @@ it("debounces composition, supports Ctrl+F and Escape, and respects inactive or 
   available = true; const key = new KeyboardEvent("keydown", { key: "f", ctrlKey: true, cancelable: true }); document.dispatchEvent(key); expect(key.defaultPrevented).toBe(true); expect(document.activeElement).toBe(ui.input);
 });
 
-it("routes a confirmed PDF without starting Studio search and preserves normal page search", async () => {
-  let pdf = true;
-  const openPdf = vi.fn(async () => pdf);
-  const control = vi.fn(async () => {});
-  find = createBrowserFind({ control, getTab: () => ({ id: "active" }), available: () => true, openPdf });
+it("shows PDF matches and zero results without offering directional stepping", async () => {
+  let matches = { active: 1, count: 3 };
+  const control = vi.fn(async request => request.kind === "findStatus" ? matches : undefined);
+  vi.useFakeTimers();
+  find = createBrowserFind({ control, getTab: () => ({ id: "pdf" }), available: () => true, isPdf: id => id === "pdf" });
   document.body.append(find.element);
-  await find.open();
-  expect(openPdf).toHaveBeenCalledWith("active", expect.any(Function));
-  expect(find.element.hidden).toBe(true);
-  expect(control).not.toHaveBeenCalled();
-  pdf = false;
-  await find.open();
-  expect(document.activeElement).toBe(getByRole(find.element, "searchbox"));
+  find.open();
+  const input = getByRole(find.element, "searchbox");
+  const counter = getByRole(find.element, "status");
+  await type(input, "Studio reader fixture text");
+  expect(control).toHaveBeenCalledWith({ kind: "findStart", tab: "pdf", text: "Studio reader fixture text", caseSensitive: false });
+  expect(counter.textContent).toBe(`1 / 3 · ${t("First PDF match")}`);
+  for (const name of ["Previous match", "Next match"]) {
+    const button = find.element.querySelector(`[aria-label="${t(name)}"]`);
+    expect(button.hidden).toBe(true);
+    expect(button.disabled).toBe(true);
+    button.click();
+  }
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  expect(control.mock.calls.some(([request]) => request.kind === "findStep")).toBe(false);
+  matches = { active: 0, count: 0 };
+  await type(input, "Missing synthetic PDF phrase");
+  expect(counter.textContent).toBe(t("No matches"));
+  await find.close();
+  expect(control).toHaveBeenLastCalledWith({ kind: "findStop", tab: "pdf" });
 });
 
-it("does not open any search view after its document closes during routing", async () => {
-  let finish;
-  const openPdf = vi.fn(() => new Promise(resolve => { finish = resolve; }));
-  const control = vi.fn(async () => {});
-  find = createBrowserFind({ control, getTab: () => ({ id: "active" }), available: () => true, openPdf });
+it("returns focus from a removed stepping button when the current document is identified as PDF", async () => {
+  let pdf = false;
+  const control = vi.fn(async request => request.kind === "findStatus" ? { active: 1, count: 2 } : undefined);
+  vi.useFakeTimers();
+  find = createBrowserFind({ control, getTab: () => ({ id: "a" }), available: () => true, isPdf: () => pdf });
   document.body.append(find.element);
-  const requested = find.open();
-  await find.close();
-  expect(openPdf.mock.calls[0][1]()).toBe(false);
-  finish(false);
-  await requested;
-  expect(find.element.hidden).toBe(true);
-  expect(control).not.toHaveBeenCalled();
+  find.open();
+  const input = getByRole(find.element, "searchbox");
+  await type(input, "Text before classification");
+  const next = getByRole(find.element, "button", { name: t("Next match") });
+  next.focus();
+  expect(document.activeElement).toBe(next);
+  pdf = true;
+  find.refreshMatchControls();
+  expect(next.hidden).toBe(true);
+  expect(document.activeElement).toBe(input);
+  expect(input.value).toBe("Text before classification");
+  expect(getByRole(find.element, "status").textContent).toBe(`1 / 2 · ${t("First PDF match")}`);
+  expect(control.mock.calls.filter(([request]) => request.kind === "findStart")).toHaveLength(1);
 });
 
 it("restores native page focus only after manual dismissal completes", async () => {

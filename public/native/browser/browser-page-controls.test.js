@@ -35,7 +35,7 @@ it("shows the viewer guidance only for a confirmed PDF and retains tab mute", as
   await panel.refresh();
   expect(queryByRole(panel.element, "button", { name: t("Reset page zoom") })).toBeNull();
   expect(panel.element.querySelector(".browser-zoom-row").classList.contains("hidden")).toBe(true);
-  expect(panel.element.querySelector("[data-i18n-text]").textContent).toBe(t("Use the PDF toolbar for search and zoom."));
+  expect(panel.element.querySelector("[data-i18n-text]").textContent).toBe(t("Use the PDF toolbar for zoom."));
   getByRole(panel.element, "button", { name: t("Mute tab") }).click();
   await waitFor(() => expect(change).toHaveBeenCalledWith("only", { kind: "muted", value: true }));
   await waitFor(() => expect(panel.element.disabled).toBe(false));

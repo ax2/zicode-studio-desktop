@@ -2,8 +2,9 @@ import { t } from "../../i18n.js";
 
 // Serial native operations and an epoch prevent late results from a previous
 // query, navigation or tab from changing the visible search state.
-export function createBrowserFind({ control, getTab, available, openPdf, restoreFocus = async () => {}, report = () => {} }) {
+export function createBrowserFind({ control, getTab, available, isPdf = () => false, restoreFocus = async () => {}, report = () => {} }) {
   let tab = null, epoch = 0, timer, poll, tail = Promise.resolve();
+  let matches = null;
   const element = document.createElement("form"); element.className = "browser-find"; element.hidden = true; element.setAttribute("role", "search"); element.setAttribute("aria-label", t("Find in page"));
   const input = document.createElement("input"); input.className = "ui-input ui-input--sm"; input.type = "search"; input.maxLength = 256; input.placeholder = t("Find in page"); input.setAttribute("aria-label", t("Find in page"));
   const counter = document.createElement("span"); counter.className = "browser-find-count"; counter.setAttribute("role", "status"); counter.setAttribute("aria-live", "polite");
@@ -14,15 +15,32 @@ export function createBrowserFind({ control, getTab, available, openPdf, restore
   element.append(input, counter, matchCase, previous, next, exit);
   const valid = (id, version) => tab === id && epoch === version && getTab()?.id === id && !element.hidden;
   const enqueue = work => { const result = tail.then(work); tail = result.catch(() => {}); return result; };
-  function failure(error, id, version) { if (valid(id, version)) { clearTimeout(poll); counter.textContent = t(String(error?.message ?? error)); previous.disabled = next.disabled = true; } }
-  function paint(result) { counter.textContent = result.count ? `${result.active} / ${result.count}` : t("No matches"); previous.disabled = next.disabled = !result.count; }
+  function refreshMatchControls() {
+    const pdf = tab !== null && isPdf(tab);
+    const hadStepFocus = document.activeElement === previous || document.activeElement === next;
+    previous.hidden = next.hidden = pdf;
+    previous.disabled = next.disabled = pdf || !matches?.count;
+    if (pdf && hadStepFocus) input.focus({ preventScroll: true });
+    if (!matches) return;
+    if (!matches.count) { counter.textContent = t("No matches"); return; }
+    const position = `${matches.active} / ${matches.count}`;
+    counter.textContent = pdf && matches.count > 1 ? `${position} · ${t("First PDF match")}` : position;
+  }
+  function failure(error, id, version) {
+    if (!valid(id, version)) return;
+    clearTimeout(poll);
+    matches = null;
+    refreshMatchControls();
+    counter.textContent = t(String(error?.message ?? error));
+  }
+  function paint(result) { matches = result; refreshMatchControls(); }
   function monitor(id, version) {
     clearTimeout(poll);
     poll = setTimeout(() => { if (!valid(id, version)) return; void enqueue(async () => { if (!valid(id, version)) return; try { if (!document.hidden) { const result = await control({ kind: "findStatus", tab: id }); if (valid(id, version)) paint(result); } if (valid(id, version)) monitor(id, version); } catch (error) { failure(error, id, version); } }); }, 350);
   }
   function search() {
     clearTimeout(timer); clearTimeout(poll); const version = ++epoch, id = tab, text = input.value, caseSensitive = matchCase.getAttribute("aria-pressed") === "true";
-    previous.disabled = next.disabled = true; counter.textContent = text ? "…" : "";
+    matches = null; refreshMatchControls(); counter.textContent = text ? "…" : "";
     const run = () => { timer = null; return enqueue(async () => {
       if (!valid(id, version)) return;
       try {
@@ -35,13 +53,13 @@ export function createBrowserFind({ control, getTab, available, openPdf, restore
     timer = setTimeout(() => void run(), 120);
   }
   function step(backward) {
-    if (!tab || !input.value) return;
+    if (!tab || !input.value || isPdf(tab)) return;
     if (timer) { search(); return; }
     const id = tab, version = epoch;
-    void enqueue(async () => { if (!valid(id, version)) return; try { await control({ kind: "findStep", tab: id, backward }); const result = await control({ kind: "findStatus", tab: id }); if (valid(id, version)) paint(result); } catch (error) { failure(error, id, version); } });
+    void enqueue(async () => { if (!valid(id, version) || isPdf(id)) return; try { await control({ kind: "findStep", tab: id, backward }); const result = await control({ kind: "findStatus", tab: id }); if (valid(id, version)) paint(result); } catch (error) { failure(error, id, version); } });
   }
   async function close({ stopNative = true } = {}) {
-    const id = tab; tab = null; epoch++; clearTimeout(timer); timer = null; clearTimeout(poll); element.hidden = true;
+    const id = tab; tab = null; matches = null; epoch++; clearTimeout(timer); timer = null; clearTimeout(poll); element.hidden = true;
     if (id && stopNative) await enqueue(() => control({ kind: "findStop", tab: id })).catch(report);
   }
   async function dismiss() {
@@ -54,25 +72,22 @@ export function createBrowserFind({ control, getTab, available, openPdf, restore
   function open() {
     const selected = getTab();
     if (!available() || !selected) return;
-    const show = () => {
-      if (tab !== selected.id) { void close(); tab = selected.id; input.value = ""; counter.textContent = ""; previous.disabled = next.disabled = true; }
-      element.hidden = false; input.focus(); input.select();
-    };
-    const version = epoch;
-    const current = () => available() && getTab()?.id === selected.id && epoch === version;
-    const routing = openPdf?.(selected.id, current);
-    if (!routing) { show(); return; }
-    return routing.then(handled => {
-      if (!current()) return;
-      if (handled) { if (tab === selected.id) return close(); }
-      else show();
-    }).catch(error => { if (current()) report(error); });
+    if (tab !== selected.id) {
+      void close();
+      tab = selected.id;
+      input.value = "";
+      counter.textContent = "";
+    }
+    element.hidden = false;
+    refreshMatchControls();
+    input.focus();
+    input.select();
   }
   input.addEventListener("input", event => { if (!event.isComposing) search(); }); input.addEventListener("compositionend", search);
   element.addEventListener("submit", event => { event.preventDefault(); step(false); });
   element.addEventListener("keydown", event => { if (event.isComposing) return; if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); void dismiss(); } else if (event.key === "Enter") { event.preventDefault(); step(event.shiftKey); } });
   const keydown = event => { if (!available() || event.isComposing || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "f") return; event.preventDefault(); event.stopPropagation(); open(); };
   document.addEventListener("keydown", keydown, true);
-  return { element, open, close, isOpenFor: id => tab === id && !element.hidden,
+  return { element, open, close, refreshMatchControls,
     destroy() { document.removeEventListener("keydown", keydown, true); return close(); } };
 }

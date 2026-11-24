@@ -329,3 +329,60 @@ fn native_pdf_page_selector_jumps_to_the_requested_document_page() {
         assert_eq!(view.url().unwrap(), url);
     }
 }
+
+#[test]
+#[ignore = "Opt-in Windows PDF text matching with an owned hidden WebView2 viewer"]
+fn native_pdf_find_reports_matching_and_missing_text() {
+    use crate::browser::native_find;
+
+    let profile = tempfile::tempdir().unwrap();
+    let fixture = pdf_fixture(&["0.89 0.13 0.63"; 3]);
+    let origin = serve_inline_pdf(fixture, Arc::new(AtomicBool::new(false)));
+    let url = format!("{origin}{DOCUMENT}");
+    let owner = HiddenOwner::new();
+    let mut engine = NativeBrowserEngine::new(
+        profile.path().join("browser"),
+        BrowserPolicy::isolated_probe(&origin).unwrap(),
+        Arc::new(|_| {}),
+    )
+    .unwrap();
+    engine
+        .create(&owner, TAB, &url, BOUNDS, 1.0, false)
+        .unwrap();
+    engine.activate(Some(TAB), BOUNDS, false).unwrap();
+    wait("top-level PDF", || {
+        engine.is_pdf_document(TAB).then_some(())
+    });
+    let view = engine.view(TAB).unwrap();
+    let revision = engine.document_revision(TAB).unwrap();
+    stable_marker(view, "rendered searchable PDF", |count| count > 1500);
+
+    for (query, count, active) in [
+        ("Studio reader fixture text", 3, 1),
+        ("Missing synthetic PDF phrase", 0, 0),
+    ] {
+        let (view, work) = engine.begin_page_work(TAB).unwrap();
+        let (sent, received) = mpsc::channel();
+        native_find::start(view, query, true, move |result| {
+            drop(work);
+            let _ = sent.send(result);
+        })
+        .unwrap();
+        wait("native PDF Find start", || received.try_recv().ok()).unwrap();
+        let expected = json!({"count":count,"active":active});
+        let earliest = Instant::now() + Duration::from_millis(350);
+        let result = wait("native PDF Find result", || {
+            let status = native_find::status(view).unwrap();
+            (Instant::now() >= earliest && status == expected).then_some(status)
+        });
+        println!("PDF Find {query:?}: {result}");
+    }
+
+    native_find::stop(view).unwrap();
+    assert_eq!(
+        native_find::status(view).unwrap(),
+        json!({"count":0,"active":0})
+    );
+    assert_eq!(engine.document_revision(TAB).unwrap(), revision);
+    assert_eq!(view.url().unwrap(), url);
+}

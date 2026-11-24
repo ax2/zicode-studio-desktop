@@ -518,7 +518,7 @@
 
 /* --- inlined: ./browser-find.css --- */
 .browser-find { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1); min-width: 0; }
-.browser-find[hidden] { display: none; }
+.browser-find[hidden], .browser-find [hidden] { display: none; }
 .browser-find .ui-input { min-width: 0; flex: 1; }
 .browser-find-count { font-size: var(--font-size-sm); max-width: 35%; overflow-wrap: anywhere; }
 .browser-find .ui-icon-button { flex-shrink: 0; }

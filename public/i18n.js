@@ -1086,7 +1086,9 @@ const zhCN = {
 
   "Page controls": "网页设置",
   "Page zoom": "网页缩放",
-  "Use the PDF toolbar for search and zoom.": "请在 PDF 自带工具栏中查找和缩放。",
+  "Use the PDF toolbar for zoom.": "请在 PDF 自带工具栏中缩放。",
+  "First PDF match": "首处 PDF 匹配",
+  "PDF search shows the first match and total count.": "PDF 查找显示首处匹配和匹配总数。",
   "Share folder usage with Disk Inspector": "向目录空间分析工具共享用量",
   "After confirmation, shares relative names, entry types and logical file sizes. File contents are not read.": "确认后共享相对名称、条目类型和文件逻辑大小。文件内容保持私密。",
   "Choose a local folder. Usage is shared only after confirmation.": "请选择本机文件夹。确认后才会共享用量。",
