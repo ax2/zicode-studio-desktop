@@ -29,8 +29,13 @@
 backup，只有新包成功注册后才删除 backup。失败会恢复旧包。当前限制为最多 2,048 个
 文件、单文件 10 MiB、总计 50 MiB。
 
-卸载只删除 `%LOCALAPPDATA%\zicode\plugins\developer\<plugin-id>`。用户选择的源目录、
-场景权限记录和未来的 `%LOCALAPPDATA%\zicode\plugin-data\<plugin-id>` 不会被删除。
+卸载保留源目录和 `%LOCALAPPDATA%\zicode\plugin-data\<plugin-id>` 下的工具数据。
+从 v0.7.9 起，每份资料和场景分别记录授权来源。已验证签名且发行者公钥相同的包可沿用旧授权。
+未签名包通过完整包内容核对，字节一致的重装沿用设置。包内容改变或旧记录无法确认来源时，
+请在插件管理中审核权限并启用。签名升级新增的必需权限也需确认后才可启用。
+
+首次升级会给当前已验证、位于受管安装位置的旧插件补记来源和有效权限。旧的已卸载记录
+等到重新安装后由用户核对。撤销签名发行者也会清除其已卸载插件的旧授权。
 
 当前同源管理 API：
 
@@ -39,6 +44,7 @@ GET  /v2/plugins?sceneId=<scene>
 GET  /v2/plugins?sceneId=<scene>&summary=true
 POST /v2/plugins/enablement
 POST /v2/plugins/permission
+POST /v2/plugins/activate-reviewed
 POST /v2/plugins/reload
 POST /v2/plugins/uninstall
 GET  /v2/plugin-capabilities?sceneId=<scene>

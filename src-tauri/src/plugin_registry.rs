@@ -4,6 +4,7 @@ use crate::plugin_package::{
 };
 #[cfg(test)]
 use crate::plugin_package::{preview_package, verify_package, SignedPluginPreview};
+mod authorization_source;
 mod developer_install;
 mod directory_metadata;
 pub(crate) mod directory_projection;
@@ -26,6 +27,7 @@ pub(crate) use developer_install::{CommittedDeveloperInstall, PreparedDeveloperI
 pub(crate) use signed_install::PreparedSignedInstall;
 #[path = "plugin_registry/manual_search.rs"]
 pub(crate) mod tool_search;
+use authorization_source::AuthorizationSource;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -234,6 +236,8 @@ struct InstalledPlugin {
 struct PluginSceneState {
     #[serde(skip)]
     execution_revision: uuid::Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    authorization_source: Option<AuthorizationSource>,
     #[serde(default)]
     enabled: Option<bool>,
     #[serde(default)]
@@ -244,6 +248,8 @@ struct PluginSceneState {
 #[serde(rename_all = "camelCase")]
 struct RegistryState {
     version: u32,
+    #[serde(default)]
+    authorization_migrated: bool,
     #[serde(default)]
     scenes: HashMap<String, HashMap<String, PluginSceneState>>,
 }
@@ -263,6 +269,7 @@ impl Default for RegistryState {
     fn default() -> Self {
         Self {
             version: REGISTRY_STATE_VERSION,
+            authorization_migrated: true,
             scenes: HashMap::new(),
         }
     }
@@ -295,6 +302,7 @@ impl PluginRegistry {
         registry.register_builtins()?;
         registry.discover_signed_plugins()?;
         registry.discover_developer_plugins()?;
+        registry.migrate_installation_authorizations()?;
         Ok(registry)
     }
 
@@ -318,13 +326,14 @@ impl PluginRegistry {
 
     fn plugin_enabled(&self, scene_id: &str, plugin: &InstalledPlugin) -> bool {
         plugin.core
-            || self
-                .state
-                .scenes
-                .get(scene_id)
-                .and_then(|scene| scene.get(&plugin.manifest.id))
+            || (self
+                .bound_scene_state(scene_id, plugin)
                 .and_then(|state| state.enabled)
                 .unwrap_or(plugin.enabled_by_default)
+                && (plugin.origin == PluginOrigin::BuiltIn
+                    || plugin.manifest.permissions.required.iter().all(|permission| {
+                        self.plugin_permission_granted(scene_id, plugin, &permission.name)
+                    })))
     }
 
     fn plugin_permission_granted(
@@ -342,10 +351,7 @@ impl PluginRegistry {
             .any(|declared| declared.name == permission);
         declared
             && self
-                .state
-                .scenes
-                .get(scene_id)
-                .and_then(|scene| scene.get(&plugin.manifest.id))
+                .bound_scene_state(scene_id, plugin)
                 .and_then(|state| state.permissions.get(permission))
                 .copied()
                 .unwrap_or(plugin.origin == PluginOrigin::BuiltIn)
@@ -395,18 +401,10 @@ impl PluginRegistry {
         self.plugins
             .values()
             .map(|plugin| {
-                let scene_state = self
-                    .state
-                    .scenes
-                    .get(scene_id)
-                    .and_then(|plugins| plugins.get(&plugin.manifest.id));
                 let permission_grants = all_permissions(&plugin.manifest)
                     .into_iter()
                     .map(|permission| {
-                        let granted = scene_state
-                            .and_then(|state| state.permissions.get(&permission))
-                            .copied()
-                            .unwrap_or(plugin.origin == PluginOrigin::BuiltIn);
+                        let granted = self.plugin_permission_granted(scene_id, plugin, &permission);
                         (permission, granted)
                     })
                     .collect();
@@ -702,21 +700,12 @@ impl PluginRegistry {
         self.ensure_pi_tool_names_available(scene_id, plugin_id, Some(pi_granted))?;
 
         let mut next = self.state.clone();
-        let state = next
-            .scenes
-            .entry(scene_id.to_string())
-            .or_default()
-            .entry(plugin_id.to_string())
-            .or_default();
+        let state = next.bind_scene_plugin(scene_id, plugin);
         state.enabled = Some(true);
         for grant in grants {
             state.permissions.insert(grant.clone(), true);
         }
-        state.execution_revision = uuid::Uuid::new_v4();
-        self.save_state(&next)?;
-        self.state = next;
-        self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        Ok(())
+        self.commit_authorizations(next)
     }
 
     pub fn set_enabled(
@@ -737,17 +726,8 @@ impl PluginRegistry {
             ));
         }
         if enabled {
-            let current_permissions = self
-                .state
-                .scenes
-                .get(scene_id)
-                .and_then(|plugins| plugins.get(plugin_id));
             for permission in &plugin.manifest.permissions.required {
-                let granted = current_permissions
-                    .and_then(|state| state.permissions.get(&permission.name))
-                    .copied()
-                    .unwrap_or(plugin.origin == PluginOrigin::BuiltIn);
-                if !granted {
+                if !self.plugin_permission_granted(scene_id, plugin, &permission.name) {
                     return Err(format!(
                         "Required permission {} is not granted",
                         permission.name
@@ -756,8 +736,9 @@ impl PluginRegistry {
             }
             self.ensure_pi_tool_names_available(scene_id, plugin_id, None)?;
         }
-        self.scene_plugin_state_mut(scene_id, plugin_id).enabled = Some(enabled);
-        self.save()
+        let mut next = self.state.clone();
+        next.bind_scene_plugin(scene_id, plugin).enabled = Some(enabled);
+        self.commit_authorizations(next)
     }
 
     pub fn set_permission(
@@ -786,12 +767,13 @@ impl PluginRegistry {
             .required
             .iter()
             .any(|candidate| candidate.name == permission);
-        let state = self.scene_plugin_state_mut(scene_id, plugin_id);
+        let mut next = self.state.clone();
+        let state = next.bind_scene_plugin(scene_id, plugin);
         state.permissions.insert(permission.to_string(), granted);
         if required && !granted {
             state.enabled = Some(false);
         }
-        self.save()
+        self.commit_authorizations(next)
     }
 
     pub fn preview_developer_package(
@@ -1025,6 +1007,31 @@ impl PluginRegistry {
                 return Err("Signed plugin downgrade requires the explicit rollback action".into());
             }
         }
+        let archive_target = previous.as_ref().map(|previous| {
+            if same_version {
+                self.root.join("signed-quarantine")
+                    .join(format!("{}-{}-{nonce}", manifest.id, manifest.version))
+            } else {
+                self.root.join("signed-versions").join(&manifest.id).join(&previous.version)
+            }
+        });
+        let mut archive_exists = false;
+        if let (Some(target), Some(previous)) = (&archive_target, &previous) {
+            fs::create_dir_all(target.parent().ok_or("Invalid signed rollback location")?)
+                .map_err(|error| format!("Cannot prepare signed plugin rollback storage: {error}"))?;
+            archive_exists = target.exists();
+            if archive_exists {
+                let archived = self.read_signed_version_metadata(&manifest.id, &previous.version)?;
+                self.verify_signed_installation(&manifest.id, &previous.version, target, &archived)?;
+            } else if !same_version {
+                let metadata = self.signed_version_metadata_path(&manifest.id, &previous.version);
+                fs::create_dir_all(metadata.parent().ok_or("Invalid signed rollback metadata location")?)
+                    .map_err(|error| format!("Cannot prepare signed plugin rollback metadata: {error}"))?;
+                if metadata.exists() && !metadata.is_file() {
+                    return Err("Signed plugin rollback metadata location is not a file".into());
+                }
+            }
+        }
         if !verified.trusted {
             trust_publisher(&self.root, &verified.publisher).map_err(reject_staged)?;
         }
@@ -1094,35 +1101,40 @@ impl PluginRegistry {
                 "Signed plugin was not registered after activation".into(),
             ));
         }
-        if same_version {
-            let quarantine = self.root.join("signed-quarantine");
-            fs::create_dir_all(&quarantine)
-                .map_err(|error| format!("Cannot preserve repaired package evidence: {error}"))?;
-            fs::rename(
-                &backup,
-                quarantine.join(format!("{}-{}-{nonce}", manifest.id, manifest.version)),
-            )
-            .map_err(|error| format!("Cannot preserve repaired package evidence: {error}"))?;
-            return Ok(manifest.id);
-        }
-        if let Some(previous) = previous {
-            let versions = self.root.join("signed-versions").join(&manifest.id);
-            fs::create_dir_all(&versions).map_err(|error| {
-                format!("Cannot retain signed plugin rollback version: {error}")
-            })?;
-            let retained = versions.join(&previous.version);
-            if retained.exists() {
-                fs::remove_dir_all(&backup).map_err(|error| {
-                    format!("Cannot clean duplicate signed plugin rollback version: {error}")
-                })?;
-            } else {
-                fs::rename(&backup, retained).map_err(|error| {
-                    format!("Cannot retain signed plugin rollback version: {error}")
-                })?;
+        // Complete fallible archive writes while the previous active package is
+        // still available in the backup. A failed update can then restore it.
+        let retained = (|| -> Result<(), String> {
+            if let Some(target) = archive_target {
+                if archive_exists {
+                    // Retain the already verified rollback copy and its own receipt.
+                    let _ = fs::remove_dir_all(&backup);
+                } else {
+                    if !same_version {
+                        if let Some(metadata) = previous_metadata.as_ref() {
+                            self.write_signed_version_metadata(metadata)?;
+                        }
+                    }
+                    if let Err(error) = fs::rename(&backup, target) {
+                        if !same_version {
+                            if let Some(metadata) = previous_metadata.as_ref() {
+                                let _ = fs::remove_file(self.signed_version_metadata_path(
+                                    &manifest.id,
+                                    &metadata.version,
+                                ));
+                            }
+                        }
+                        return Err(format!("Cannot retain previous signed plugin: {error}"));
+                    }
+                }
             }
-            if let Some(previous_metadata) = previous_metadata.as_ref() {
-                self.write_signed_version_metadata(previous_metadata)?;
-            }
+            Ok(())
+        })();
+        if let Err(error) = retained {
+            let _ = fs::remove_dir_all(&destination);
+            let _ = fs::rename(&backup, &destination);
+            self.restore_signed_metadata(&manifest.id, previous_metadata.as_ref());
+            let _ = self.reload_developer_plugins();
+            return Err(rollback_new_trust(error));
         }
         let retained_versions = self.signed_retained_versions(&manifest.id);
         if let Some(installed) = self.plugins.get_mut(&manifest.id) {
@@ -1214,13 +1226,10 @@ impl PluginRegistry {
                 (metadata.publisher_key_id == key_id).then(|| plugin.manifest.id.clone())
             })
             .collect();
-        for scene in self.state.scenes.values_mut() {
-            for plugin_id in &affected {
-                scene.entry(plugin_id.clone()).or_default().enabled = Some(false);
-            }
-        }
-        self.save()?;
-        self.reload_developer_plugins()?;
+        self.state.clear_publisher_authorizations(key_id);
+        let saved = self.save();
+        let reloaded = self.reload_developer_plugins();
+        saved.and(reloaded)?;
         Ok(affected)
     }
 
@@ -1571,16 +1580,9 @@ impl PluginRegistry {
         }
     }
 
+    #[cfg(test)]
     fn scene_plugin_state_mut(&mut self, scene_id: &str, plugin_id: &str) -> &mut PluginSceneState {
-        let state = self
-            .state
-            .scenes
-            .entry(scene_id.to_string())
-            .or_default()
-            .entry(plugin_id.to_string())
-            .or_default();
-        state.execution_revision = uuid::Uuid::new_v4();
-        state
+        self.state.bind_scene_plugin(scene_id, &self.plugins[plugin_id])
     }
 
     fn ensure_pi_tool_names_available(
@@ -1593,16 +1595,8 @@ impl PluginRegistry {
             .plugins
             .get(plugin_id)
             .ok_or_else(|| format!("Unknown application plugin: {plugin_id}"))?;
-        let state = self
-            .state
-            .scenes
-            .get(scene_id)
-            .and_then(|plugins| plugins.get(plugin_id));
         let granted = permission_override.unwrap_or_else(|| {
-            state
-                .and_then(|value| value.permissions.get("pi.tools.register"))
-                .copied()
-                .unwrap_or(candidate.origin == PluginOrigin::BuiltIn)
+            self.plugin_permission_granted(scene_id, candidate, "pi.tools.register")
         });
         if !granted {
             return Ok(());
@@ -1632,6 +1626,13 @@ impl PluginRegistry {
                 ));
             }
         }
+        Ok(())
+    }
+
+    fn commit_authorizations(&mut self, next: RegistryState) -> Result<(), String> {
+        self.save_state(&next)?;
+        self.state = next;
+        self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Ok(())
     }
 
@@ -3517,7 +3518,7 @@ mod tests {
     }
 
     #[test]
-    fn installs_upgrades_and_uninstalls_developer_packages_while_preserving_state() {
+    fn reauthorizes_changed_developer_content_and_preserves_byte_identical_reinstalls() {
         let root = temp_root("lifecycle");
         let source = temp_root("lifecycle-source");
         write_manifest(&source, developer_manifest("com.example.lifecycle"));
@@ -3556,7 +3557,12 @@ mod tests {
             .find(|plugin| plugin.manifest.id == plugin_id)
             .unwrap();
         assert_eq!(upgraded.manifest.version, "1.2.4");
-        assert!(upgraded.enabled);
+        assert!(!upgraded.enabled);
+        assert!(!upgraded.permission_grants["storage.plugin"]);
+        registry
+            .set_permission("programming", &plugin_id, "storage.plugin", true)
+            .unwrap();
+        registry.set_enabled("programming", &plugin_id, true).unwrap();
 
         registry.uninstall_developer(&plugin_id).unwrap();
         assert!(registry

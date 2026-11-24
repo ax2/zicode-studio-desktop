@@ -524,12 +524,22 @@ pub(crate) fn write_test_signed_package(
     manifest: &serde_json::Value,
     file_name: &str,
 ) -> PathBuf {
+    write_test_signed_package_with_key(directory, manifest, file_name, &[11; 32])
+}
+
+#[cfg(test)]
+pub(crate) fn write_test_signed_package_with_key(
+    directory: &Path,
+    manifest: &serde_json::Value,
+    file_name: &str,
+    seed: &[u8; 32],
+) -> PathBuf {
     use ed25519_dalek::{Signer, SigningKey};
     use zip::write::SimpleFileOptions;
 
     fs::create_dir_all(directory).unwrap();
     let plugin_bytes = serde_json::to_vec(manifest).unwrap();
-    let signing_key = SigningKey::from_bytes(&[11u8; 32]);
+    let signing_key = SigningKey::from_bytes(seed);
     let public_key = signing_key.verifying_key().to_bytes();
     let publisher = PackagePublisher {
         name: manifest["publisher"].as_str().unwrap().to_string(),
