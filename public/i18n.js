@@ -1350,6 +1350,7 @@ const zhCN = {
   "Recognized image text": "图片识别文本",
   "Document revision": "网页版本",
   "Embedded page source": "内嵌网页来源",
+  "Selected text from embedded page {number}": "内嵌网页 {number} 的选区",
   "Embedded page revision": "内嵌网页版本",
   "The embedded page changed. Read the page again.": "内嵌网页已变化，请重新读取网页。",
   "Include this image text in the page note or chat draft": "将这张图的识别文本加入笔记或对话草稿",

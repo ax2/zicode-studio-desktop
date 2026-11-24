@@ -259,7 +259,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
       setBusy,
     });
     actions.append(clip.button);
-    if (canSaveImageText) dialog.addEventListener("change", clip.updateScope);
+    dialog.addEventListener("change", clip.updateScope);
   }
   if (clip && compare) {
     compare.button.addEventListener("click", () => { if (!compare.panel.hidden) clip.panel.hidden = true; });
