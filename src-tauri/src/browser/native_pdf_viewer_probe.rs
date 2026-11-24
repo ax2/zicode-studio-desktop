@@ -272,3 +272,6 @@ fn native_pdf_viewer_classifies_only_the_current_committed_top_document() {
     });
     assert!(!engine.is_pdf_document(TAB));
 }
+
+#[path = "native_pdf_toolbar_zoom_probe.rs"]
+mod native_pdf_toolbar_zoom_probe;
