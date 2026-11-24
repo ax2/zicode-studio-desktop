@@ -2272,7 +2272,7 @@ fn main() {
             app.manage(desktop_tools::ToolCenter::default());
             app.manage(BackgroundWorkerUpdateLease::default());
             if let Err(error) = desktop_tray::install(app) {
-                log::warn!("[desktop-tray] unavailable; normal window closing retained: {error}");
+                log::warn!("[desktop-tray] could not initialize notification area: {error}");
             }
             // Best-effort cleanup: drop workspace trash entries older than 30 days.
             if let Ok(trash_root) = crate::app_paths::data_root().map(|root| root.join("trash")) {
@@ -2344,24 +2344,10 @@ fn main() {
                         };
                         save_window_state(&state);
                     }
-                    // Preserve the WebView, pending confirmations and running tools.
-                    // Never hide without a working tray from which to restore it.
-                    if desktop_tray::available(window.app_handle()) {
-                        match window.hide() {
-                            Ok(()) => api.prevent_close(),
-                            Err(error) => log::warn!("[desktop-tray] could not hide window: {error}"),
-                        }
-                    }
+                    desktop_tray::dismiss_window(window, api);
                 }
                 tauri::WindowEvent::CloseRequested { api, .. } if label == "bootstrap" => {
-                    // A startup window may be the only visible way back into Studio.
-                    // Keep the same tray lifetime as project windows when recovery exists.
-                    if desktop_tray::available(window.app_handle()) {
-                        match window.hide() {
-                            Ok(()) => api.prevent_close(),
-                            Err(error) => log::warn!("[desktop-tray] could not hide bootstrap: {error}"),
-                        }
-                    }
+                    desktop_tray::dismiss_window(window, api);
                 }
                 tauri::WindowEvent::Focused(true) if label.starts_with("native-workspace-") => {
                     desktop_tray::remember_focus(window.app_handle(), label);
