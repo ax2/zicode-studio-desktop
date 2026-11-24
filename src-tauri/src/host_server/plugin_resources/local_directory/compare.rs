@@ -3,6 +3,7 @@ use super::{checksum, usage, *};
 use serde::Serialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ffi::OsStr,
     io::ErrorKind,
     time::SystemTime,
 };
@@ -131,6 +132,11 @@ pub(super) fn snapshot(
         deadline,
         check_authority,
     };
+    let mut absence = AbsenceCheck {
+        remaining: MAX_ENTRIES,
+        control,
+        guard,
+    };
     // Retain paths that can be compared even when the pair cap leaves the coverage incomplete.
     let has_both_sides = |entries: &[Option<&usage::Entry>; 2]| entries.iter().all(Option::is_some);
     let ordered = pairs
@@ -210,16 +216,22 @@ pub(super) fn snapshot(
                 report.limit_reasons.insert("hash_bytes");
             }
         } else if report.coverage_complete || (a.is_some() && b.is_some()) {
-            for (root, entry) in roots.into_iter().zip([a, b]) {
-                if let Err(verification) = verify_presence(root, path, entry) {
-                    row.verification = Some(verification);
-                    report.limit_reasons.insert(if verification == "changed" {
-                        "changed"
-                    } else {
-                        "read_error"
-                    });
-                    break;
-                }
+            for (side, (root, entry)) in roots.into_iter().zip([a, b]).enumerate() {
+                let observed =
+                    |prefix: &str| pairs.get(prefix).is_some_and(|items| items[side].is_some());
+                let (reason, verification) =
+                    match verify_presence(root, path, entry, &mut absence, observed)? {
+                        Presence::Stable => continue,
+                        Presence::Changed => ("changed", Some("changed")),
+                        Presence::Unreadable => ("read_error", Some("readError")),
+                        Presence::Limited(reason) => {
+                            report.coverage_complete = false;
+                            (reason, None)
+                        }
+                    };
+                report.limit_reasons.insert(reason);
+                row.verification = verification;
+                break;
             }
         }
         report.rows.push(row);
@@ -254,50 +266,107 @@ fn file_info(entry: &usage::Entry) -> Option<(u64, Option<SystemTime>)> {
     }
 }
 
+enum Presence {
+    Stable,
+    Changed,
+    Unreadable,
+    Limited(&'static str),
+}
+
+struct AbsenceCheck<'a> {
+    remaining: usize,
+    control: &'a Control,
+    guard: checksum::DigestGuard<'a>,
+}
+
+impl AbsenceCheck<'_> {
+    // Windows can resolve a differently cased name. Verify its actual spelling
+    // when inferring that an exact relative path exists on the other side.
+    fn exact_name(&mut self, directory: &Dir, name: &str) -> Result<Presence, ApiError> {
+        let Ok(entries) = directory.entries() else {
+            return Ok(Presence::Unreadable);
+        };
+        for entry in entries {
+            self.control.check()?;
+            if Instant::now() >= self.guard.deadline {
+                return Ok(Presence::Limited("time"));
+            }
+            if self.remaining == 0 {
+                return Ok(Presence::Limited("entries"));
+            }
+            if self.remaining % 128 == 0 {
+                (self.guard.check_authority)()?;
+            }
+            self.remaining -= 1;
+            let Ok(entry) = entry else {
+                return Ok(Presence::Unreadable);
+            };
+            if entry.file_name() == OsStr::new(name) {
+                return Ok(Presence::Changed);
+            }
+        }
+        Ok(Presence::Stable)
+    }
+}
+
 fn verify_presence(
     root: &Dir,
     path: &str,
     expected: Option<&usage::Entry>,
-) -> Result<(), &'static str> {
-    let mut folder = root.try_clone().map_err(|_| "readError")?;
+    absence: &mut AbsenceCheck<'_>,
+    observed_ancestor: impl Fn(&str) -> bool,
+) -> Result<Presence, ApiError> {
+    let Ok(mut folder) = root.try_clone() else {
+        return Ok(Presence::Unreadable);
+    };
     let mut names = path.split('/').peekable();
-    while let Some(name) = names.next() {
-        let meta = match folder.symlink_metadata(name) {
-            Ok(meta) if !usage::is_link(&meta) => meta,
-            Ok(_) => return Err("changed"),
-            Err(error) if error.kind() == ErrorKind::NotFound => {
-                return if expected.is_none() {
-                    Ok(())
-                } else {
-                    Err("changed")
-                };
-            }
-            Err(_) => return Err("readError"),
-        };
-        if names.peek().is_some() {
-            if meta.is_dir() {
-                folder = open_checked_child(&folder, name).map_err(|_| "changed")?;
-                continue;
-            }
-            return if expected.is_none() {
-                Ok(())
-            } else {
-                Err("changed")
-            };
+    let absent = || {
+        if expected.is_none() {
+            Presence::Stable
+        } else {
+            Presence::Changed
         }
-        return match expected {
-            Some(usage::Entry::Directory { .. }) if meta.is_dir() => Ok(()),
-            Some(entry)
-                if meta.is_file()
-                    && file_info(entry).is_some_and(|(size, modified)| {
-                        meta.len() == size
-                            && meta.modified().ok().map(|time| time.into_std()) == modified
-                    }) =>
-            {
-                Ok(())
-            }
-            _ => Err("changed"),
+    };
+    let mut prefix_end = 0;
+    while let Some(name) = names.next() {
+        prefix_end += name.len();
+        let meta = match folder.symlink_metadata(name) {
+            Ok(meta) => meta,
+            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(absent()),
+            Err(_) => return Ok(Presence::Unreadable),
         };
+        if expected.is_none() && !observed_ancestor(&path[..prefix_end]) {
+            match absence.exact_name(&folder, name)? {
+                Presence::Changed => {}
+                other => return Ok(other),
+            }
+        }
+        if usage::is_link(&meta) {
+            return Ok(Presence::Changed);
+        }
+        if names.peek().is_some() {
+            if !meta.is_dir() {
+                return Ok(absent());
+            }
+            let Ok(opened) = open_checked_child(&folder, name) else {
+                return Ok(Presence::Changed);
+            };
+            folder = opened;
+            prefix_end += 1;
+            continue;
+        }
+        let shape_matches = match expected {
+            Some(usage::Entry::Directory { .. }) => meta.is_dir(),
+            Some(entry) if meta.is_file() => file_info(entry).is_some_and(|(size, modified)| {
+                meta.len() == size && meta.modified().ok().map(|time| time.into_std()) == modified
+            }),
+            _ => false,
+        };
+        return Ok(if shape_matches {
+            Presence::Stable
+        } else {
+            Presence::Changed
+        });
     }
-    Err("readError")
+    Ok(Presence::Unreadable)
 }

@@ -28,6 +28,8 @@ async fn frozen_directory_compare_uses_only_confirmed_relative_pairs() {
         fs::create_dir_all(side.join("同目录")).unwrap();
         fs::write(side.join("同内容.txt"), b"same").unwrap();
     }
+    fs::write(left.join("Report.txt"), b"left spelling").unwrap();
+    fs::write(right.join("report.txt"), b"right spelling").unwrap();
     fs::create_dir(left.join("种类")).unwrap();
     fs::write(right.join("种类"), b"type-only").unwrap();
     fs::write(left.join("大小.txt"), b"abc").unwrap();
@@ -239,17 +241,25 @@ async fn frozen_directory_compare_uses_only_confirmed_relative_pairs() {
     let report = &reply["result"];
     assert_eq!(report["material"], "directory-compare-report", "{report}");
     assert_eq!(report["partial"], false);
-    assert_eq!(report["differenceCount"], 5);
+    assert_eq!(report["differenceCount"], 7);
+    assert_eq!(report["differenceCounts"]["changed"], 0);
+    for (path, difference) in [("Report.txt", "onlyLeft"), ("report.txt", "onlyRight")] {
+        assert!(report["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["path"] == path && row["difference"] == difference));
+    }
     assert_eq!(report["sameFiles"], 1);
     assert_eq!(report["sameDirectories"], 1);
-    for category in [
-        "onlyLeft",
-        "onlyRight",
-        "sizeMismatch",
-        "contentMismatch",
-        "typeMismatch",
+    for (category, expected) in [
+        ("onlyLeft", 2),
+        ("onlyRight", 2),
+        ("sizeMismatch", 1),
+        ("contentMismatch", 1),
+        ("typeMismatch", 1),
     ] {
-        assert_eq!(report["differenceCounts"][category], 1, "{report}");
+        assert_eq!(report["differenceCounts"][category], expected, "{report}");
     }
     assert!(!report.to_string().contains("arbitrary raw"));
     assert!(!report.to_string().contains("左侧合成根"));
