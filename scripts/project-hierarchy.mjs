@@ -8,8 +8,25 @@ export function loadMissingParents(issues, parents, readNodes) {
   }
 }
 
+function publishedReleaseTags(releases) {
+  return new Set(releases.filter(release => !release.draft && release.published_at).map(release => release.tag_name));
+}
+
+export function summarizeVersionReserve(milestones, releases, versionMilestone, missingVersionViews) {
+  const minimum = 5;
+  const published = publishedReleaseTags(releases);
+  const missingTitles = new Set(missingVersionViews.map(milestone => milestone.title));
+  const planned = [], missingViews = [];
+  for (const {state, title, html_url: url} of milestones) {
+    if (state !== "open" || title === "v0.0.0" || !versionMilestone.test(title) || published.has(title)) continue;
+    const list = missingTitles.has(title) ? missingViews : planned;
+    list.push({title, url});
+  }
+  return {minimum, planned, missingViews, shortfall: Math.max(0, minimum - planned.length)};
+}
+
 export function openIssuesInPublishedMilestones(issues, releases) {
-  const tags = new Set(releases.filter(release => !release.draft && release.published_at).map(release => release.tag_name));
+  const tags = publishedReleaseTags(releases);
   return issues.filter(issue => issue.state === "open" && tags.has(issue.milestone?.title))
     .map(issue => ({number:issue.number, title:issue.title, url:issue.html_url, milestone:issue.milestone.title}));
 }
