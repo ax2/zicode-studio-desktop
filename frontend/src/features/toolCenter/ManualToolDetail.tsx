@@ -51,6 +51,13 @@ const sqlFileTargets = [
   { target: "sql-format", field: "text", label: "Import SQL file…", inputLabel: "SQL file", fieldLabel: "SQL text" },
 ] as const;
 
+const yamlToJsonFiles = [
+  { target: "yaml-to-json", field: "text", label: "Import YAML file…", inputLabel: "YAML input file", fieldLabel: "YAML text" },
+] as const;
+const yamlFromJsonFiles = [
+  { target: "yaml-from-json", field: "text", label: "Import JSON file…", inputLabel: "JSON input file", fieldLabel: "JSON text" },
+] as const;
+
 const independentMergeLabels = new Map([
   ["left", "Left table"], ["right", "Right table"],
   ["leftFormat", "Left table format"], ["rightFormat", "Right table format"],
@@ -111,8 +118,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const [recording, setRecording] = useState(false);
   const running = call.busy || recording;
   const [result, setResult] = useState<ManualToolResult | null>(null);
-  const [sqlExecution, setSqlExecution] = useState<(DraftExecution & { text: string }) | null>(null);
-  const [sqlDownloadFailed, setSqlDownloadFailed] = useState(false);
+  const [downloadExecution, setDownloadExecution] = useState<(DraftExecution & { text: string }) | null>(null);
+  const [downloadFailed, setDownloadFailed] = useState(false);
   const [tableExecution, setTableExecution] = useState<TableExecution | null>(null);
   const transformed = tableExecution?.kind === "transform" ? tableExecution : null;
   const merged = tableExecution?.kind === "merge" ? tableExecution : null;
@@ -187,12 +194,21 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const textDiff = comparePlugin && tool.capabilityId === "devtools.compare.text.diff";
   const jsonDiff = comparePlugin && /^devtools\.compare\.json\.diff\.(ordered|unordered)$/.test(tool.capabilityId);
   const jsonSchema = tool.pluginId === "com.zicode.devtools.json-schema" && tool.capabilityId === "devtools.json-schema.validate";
+  const yamlConverter = tool.pluginId === "com.zicode.devtools.inspect" && tool.version === "0.1.2" &&
+    tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version &&
+    fields?.some(field => field.key === "text" && field.kind === "string" && field.maxLength === 8192);
+  const yamlToJson = yamlConverter && tool.capabilityId === "devtools.inspect.yaml.to_json";
+  const yamlFromJson = yamlConverter && tool.capabilityId === "devtools.inspect.yaml.from_json";
   const sqlFormat = tool.pluginId === "com.zicode.devtools.text" && tool.capabilityId === "devtools.text.sql.format" &&
     tool.version === "0.4.1" && tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version &&
     fields?.some(field => field.key === "text" && field.kind === "string" && field.maxLength === 8192);
   const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
-    jsonSchema ? jsonSchemaFileTargets : sqlFormat ? sqlFileTargets : [];
-  const jsonDocument = jsonPath || jsonDiff || jsonSchema;
+    jsonSchema ? jsonSchemaFileTargets : sqlFormat ? sqlFileTargets :
+      yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles : [];
+  const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
+  const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
+    : yamlToJson ? { label: "Download JSON", stem: "converted", extension: "json", mime: "application/json" }
+    : yamlFromJson ? { label: "Download YAML", stem: "converted", extension: "yaml", mime: "application/yaml" } : null;
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
@@ -201,21 +217,22 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     setFileLoading(null);
     setRecording(false);
     setTableExecution(current => current?.kind === "transform" ? current : null);
-    setSqlExecution(null); setSqlDownloadFailed(false);
+    setDownloadExecution(null); setDownloadFailed(false);
     setDraft(current => current.undo?.scopeBound ? { values: current.values } : current);
     return () => { draftOwner.current = null; };
   }, [transformIdentity, api]);
-  const currentSqlResult = sqlFormat && detail?.revision === revision && detail.pluginId === tool.pluginId &&
-    detail.capability.id === tool.capabilityId && tool.enabled && sqlExecution?.identity === transformIdentity &&
-    sqlExecution.api === api && sqlExecution.sequence === executionSequence.current && sqlExecution.source === values
-    ? sqlExecution : null;
-  function downloadSqlResult() {
-    if (editingLocked || !currentSqlResult || currentSqlResult.sequence !== executionSequence.current) return;
-    setSqlDownloadFailed(false);
+  const downloadableResult = textDownload && detail?.revision === revision && detail.pluginId === tool.pluginId &&
+    detail.capability.id === tool.capabilityId && tool.enabled && downloadExecution?.identity === transformIdentity &&
+    downloadExecution.api === api && downloadExecution.sequence === executionSequence.current && downloadExecution.source === values
+    ? downloadExecution : null;
+  function downloadTextResult() {
+    if (editingLocked || !textDownload || !downloadableResult || downloadableResult.sequence !== executionSequence.current) return;
+    setDownloadFailed(false);
     try {
-      downloadFile(`formatted-sql-${Date.now()}.sql`, currentSqlResult.text, "application/sql");
+      const { stem, extension, mime } = textDownload;
+      downloadFile(`${stem}-${Date.now()}.${extension}`, downloadableResult.text, mime);
     } catch {
-      setSqlDownloadFailed(true);
+      setDownloadFailed(true);
     }
   }
 
@@ -292,7 +309,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     const isLatest = () => alive.current && sequence === executionSequence.current;
     const ownsExecution = () => isLatest() && owner === draftOwner.current;
     setError(""); setStale(false); setInvalidField(""); setResult(null); setCaptured(null); setTableExecution(null);
-    setSqlExecution(null); setSqlDownloadFailed(false);
+    setDownloadExecution(null); setDownloadFailed(false);
     if ("error" in prepared) {
       setError(prepared.error); setInvalidField(prepared.field);
       document.getElementById(`${detailId}-${prepared.field}`)?.focus();
@@ -307,8 +324,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const wire = response.result;
       const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
         wire.contractVersion === "1.0.0-rc.1";
-      if (sqlFormat && ownsExecution() && outcome.successful && declared && outcome.text.trim().length > 0) {
-        setSqlExecution({ identity: transformIdentity, sequence, api, source: values, text: outcome.text });
+      if (textDownload && ownsExecution() && outcome.successful && declared && outcome.text.trim().length > 0) {
+        setDownloadExecution({ identity: transformIdentity, sequence, api, source: values, text: outcome.text });
       }
       if (independentMerge && outcome.successful) {
         const preview = dataMergePreview(outcome.text, declared);
@@ -347,8 +364,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     finally { if (ownsExecution()) setRecording(false); }
   }
   const documentFileButtons = documentFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
-    label={t(side.label)} inputLabel={t(side.inputLabel)} accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : ""}
-    loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" : "Reading text file…"}
+    label={t(side.label)} inputLabel={t(side.inputLabel)} accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : yamlToJson ? ".yaml,.yml" : ""}
+    loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" :
+      yamlToJson ? "Reading YAML file…" : "Reading text file…"}
     disabled={editingLocked || !detail?.enabled} loading={fileLoading === side.target}
     onPick={file => { void importFile(file, side.target); }} />);
   return <section className="ui-card tool-detail" aria-labelledby={`${detailId}-title`} aria-busy={running || resourceBusy || fileLoading !== null}>
@@ -424,12 +442,12 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     </>}
     {result !== null && <ManualToolResultView result={result} dataTransform={dataTransform} dataMerge={tableMerge}
       tablePreview={dataTransform ? transformed?.preview ?? null : merged?.preview}
-      actions={currentSqlResult ? <>
+      actions={downloadableResult && textDownload ? <>
         <div className="ui-toolbar">
           <button type="button" className="ui-button ui-button--secondary" disabled={editingLocked}
-            onClick={downloadSqlResult}>{t("Download formatted SQL")}</button>
+            onClick={downloadTextResult}>{t(textDownload.label)}</button>
         </div>
-        {sqlDownloadFailed && <p role="alert">{t("Could not download formatted SQL.")}</p>}
+        {downloadFailed && <p role="alert">{t("Could not download the converted file.")}</p>}
       </> : merged ? <MergeResultActions
         enabled={Boolean(applyAllowed)} current={inputsCurrent} applied={applied ? undo?.mergeSide : undefined}
         left={Boolean(merged.next.left)} right={Boolean(merged.next.right)}
