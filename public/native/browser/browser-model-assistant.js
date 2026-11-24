@@ -113,7 +113,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
   }
   function showNoteAction(result) {
     noteSlot.replaceChildren();
-    noteSlot.hidden = !notes || !result?.text?.trim() || result.kind === "image";
+    noteSlot.hidden = !notes || !result?.text?.trim();
     if (noteSlot.hidden) return;
     const isOpen = () => current() && analysis === result;
     const clip = createBrowserNoteClip({

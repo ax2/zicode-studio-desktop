@@ -1,6 +1,7 @@
 import { pageImageDescription, pageMetadataRows } from "./browser-capture-media.js";
 import { selectCapturedFrames } from "./browser-capture-frames.js";
 import { t } from "../../i18n.js";
+import { browserAnalysisLabel, browserAnalysisPageSource } from "./browser-analysis-source.js";
 
 // Native text is quoted as text, including Markdown and HTML supplied by a website.
 export function quotedPageText(value) {
@@ -78,14 +79,11 @@ export function browserNoteContent(capture, selectionOnly = false, { includeLink
     ...(recognized.length ? [`## ${t("Recognized image text")}`, ...recognized.flatMap(imageTextMarkdown)] : []),
   ].filter(Boolean).join("\n\n");
 }
-export function browserAnalysisNoteContent(capture, analysis) {
-  if (!analysis?.text?.trim() || !["summary", "analysis", "comparison"].includes(analysis.kind)) {
-    throw new Error(t("This analysis cannot be saved."));
-  }
-  const { title, url } = capture.page;
+function browserAnalysisNoteContent(source, analysis) {
+  const { title, url, image, frame, capturedAt, documentRevision } = source;
   const { question, generatedAt, kind, model } = analysis;
   const line = (name, value) => `${t(name)}: ${quotedPageText(value)}`;
-  const heading = kind === "comparison" ? "Web page comparison" : kind === "summary" ? "Page summary" : "Page analysis";
+  const heading = browserAnalysisLabel(kind);
   const sources = kind === "comparison" ? [
     `### ${t("Comparison sources")}`,
     ...analysis.sources.flatMap((entry, index) => [
@@ -99,8 +97,13 @@ export function browserAnalysisNoteContent(capture, analysis) {
     `## ${t(heading)}`,
     title && line("Page title", title),
     line("Source", url),
-    line("Captured at", capture.capturedAt),
-    line("Document revision", capture.documentRevision),
+    line("Captured at", capturedAt),
+    line("Document revision", documentRevision),
+    image && line("Image source", image.url),
+    ...(frame ? [
+      line("Image frame source", [frame.title, frame.url || t("Inline frame")].filter(Boolean).join(" · ")),
+      line("Frame document version", frame.documentRevision),
+    ] : []),
     line("Generated at", generatedAt),
     line("Browser model", `${model.provider} / ${model.modelId}`),
     question && line("Browser analysis question", question),
@@ -137,7 +140,8 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
       if (pending) throw new Error(t("Saving…"));
       pending = true;
       try {
-        const content = analysis ? browserAnalysisNoteContent(capture, analysis)
+        const analysisSource = analysis && browserAnalysisPageSource(capture, analysis);
+        const content = analysisSource ? browserAnalysisNoteContent(analysisSource, analysis)
           : browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText });
         title = title.trim(); notebookTitle = notebookTitle?.trim();
         if (!title || [...title].length > 200) throw new Error(t("Enter a note title of up to 200 characters."));
@@ -154,7 +158,8 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
         }
         checkDestination();
         const tags = analysis ? ["web-clip", "browser-analysis"] : ["web-clip"];
-        const source = { url: capture.page.url, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision };
+        const source = { url: capture.page.url, capturedAt: analysisSource?.capturedAt ?? capture.capturedAt,
+          documentRevision: capture.documentRevision };
         const result = await gateway.create(scene, workspace, notebookId, { title, content, tags, icon: "🌐", source });
         const note = result?.note;
         // Notes normalizes line endings but returns the same source citation.

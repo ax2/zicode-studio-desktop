@@ -2,6 +2,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { fireEvent, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { setLocale } from "../../i18n.js";
 import { createBrowserAnalysisArtifacts } from "./browser-analysis-artifact.js";
+import { createBrowserNoteWriter } from "./browser-note-snapshot.js";
+import { NotesGateway } from "../plugins/notes-gateway.js";
 import { createBrowserModelAssistant } from "./browser-model-assistant.js";
 import { createBrowserModelGateway } from "./browser-model-gateway.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
@@ -303,7 +305,7 @@ it("reviews only the clicked embedded image, sends on separate confirmation and 
   const details = reviewedImage.frame;
   const locator = { path: [0], timeOrigin: details.documentRevision };
   const snapshot = { tab: "local", documentRevision: reviewedImage.documentRevision, capturedAt: reviewedImage.capturedAt,
-    page: { title: "Main", url: reviewedImage.pageUrl, text: "Private page fixture",
+    page: { title: "Main", url: reviewedImage.pageUrl, text: "Private page fixture", selection: "",
       images: [{ ...reviewedImage.source, url: "https://example.org/different.png" }],
       frames: [{ ...details, text: "Frame fixture", images: [reviewedImage.source], imageLocator: locator }] } };
   const host = document.createElement("aside");
@@ -320,9 +322,21 @@ it("reviews only the clicked embedded image, sends on separate confirmation and 
   const analysisArtifacts = createBrowserAnalysisArtifacts({
     capture: snapshot, getTarget: () => target, isCurrent: () => host.isConnected, gateway,
   });
-  const onOpen = vi.fn();
+  const noteRequests = vi.fn(async (url, options) => {
+    if (url.pathname === "/v2/notes") return Response.json({ snapshot: { notebooks: [{ id: "image-book", title: "Images" }] } });
+    if (url.pathname === "/v2/notes/create") {
+      const { sceneId: _sceneId, workspaceId: _workspaceId, ...saved } = JSON.parse(options.body);
+      return Response.json({ note: { ...saved, id: "image-note" } });
+    }
+    throw Error("Unexpected Notes request");
+  });
+  const noteGateway = new NotesGateway({ fetchImpl: noteRequests, location: { origin: "http://127.0.0.1:57620" } });
+  const createNoteWriter = (isCurrent, analysis) => createBrowserNoteWriter({ capture: snapshot,
+    getTarget: () => target, isCurrent, analysis, gateway: noteGateway });
+  const onOpen = vi.fn(), onOpenNote = vi.fn();
   window.addEventListener("zicode:open-artifact", onOpen);
-  const dialog = showBrowserCapture(snapshot, vi.fn(), undefined, undefined, undefined, false,
+  window.addEventListener("zicode:open-note", onOpenNote);
+  const dialog = showBrowserCapture(snapshot, vi.fn(), undefined, createNoteWriter, undefined, false,
     { host, trigger, modelActions: actions, previewImage, analysisArtifacts });
   try {
     await waitFor(() => expect(getByRole(dialog, "combobox").disabled).toBe(false));
@@ -330,6 +344,7 @@ it("reviews only the clicked embedded image, sends on separate confirmation and 
     expect(actions.ask).not.toHaveBeenCalled();
     expect(queryByRole(dialog, "button", { name: "Save analysis to Artifacts" })).toBeNull();
     expect(queryByRole(dialog, "button", { name: "Open saved artifact" })).toBeNull();
+    expect(queryByRole(dialog, "button", { name: "Save analysis to Notes" })).toBeNull();
     expect(dialog.querySelector('[data-i18n-text="Save analysis to Artifacts"]').classList.contains("hidden")).toBe(true);
     const parent = dialog.querySelector(".browser-capture-frames");
     parent.open = true;
@@ -378,10 +393,27 @@ it("reviews only the clicked embedded image, sends on separate confirmation and 
     expect(JSON.stringify(draft)).not.toContain("Frame fixture");
     fireEvent.click(open);
     expect(onOpen.mock.calls[0][0].detail).toEqual({ artifactId: artifact.id, ...target });
+    expect(noteRequests).not.toHaveBeenCalled();
+    fireEvent.click(getByRole(dialog, "button", { name: "Save analysis to Notes" }));
+    const saveNote = getByRole(dialog, "button", { name: "Save analysis to notebook" });
+    await waitFor(() => expect(saveNote.disabled).toBe(false));
+    expect(getByRole(dialog, "textbox", { name: "Note title" }).value).toBe("Image analysis · Fixture");
+    fireEvent.click(saveNote);
+    const reopenNote = await waitFor(() => getByRole(dialog, "button", { name: "Open saved note" }));
+    const note = JSON.parse(noteRequests.mock.calls[1][1].body);
+    expect(note.source).toEqual({ url: reviewedImage.pageUrl, capturedAt: reviewedImage.capturedAt,
+      documentRevision: reviewedImage.documentRevision });
+    expect(note.content).toContain("Visual fixture answer.");
+    expect(note.content).toContain(details.documentRevision);
+    expect(note.content).not.toContain("Private page fixture");
+    expect(note.content).not.toContain(reviewedImage.pngBase64);
+    fireEvent.click(reopenNote);
+    expect(onOpenNote.mock.calls[0][0].detail).toEqual({ notebookId: "image-book", noteId: "image-note", ...target });
     expect(previewImage).toHaveBeenCalledTimes(2);
     expect(actions.ask).toHaveBeenCalledOnce();
   } finally {
     window.removeEventListener("zicode:open-artifact", onOpen);
+    window.removeEventListener("zicode:open-note", onOpenNote);
     dialog.disposeBrowserModel();
   }
 });

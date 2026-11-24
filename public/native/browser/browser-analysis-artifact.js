@@ -1,30 +1,18 @@
 import { t } from "../../i18n.js";
 import { openSavedArtifact } from "../features/artifact-navigation.js";
-
-function webUrl(value) {
-  try {
-    const url = new URL(value);
-    if (/^https?:$/.test(url.protocol) && !url.username && !url.password) return url;
-  } catch { /* Invalid source URL. */ }
-  return null;
-}
+import { analysisWebUrl, browserAnalysisLabel, browserAnalysisPageSource } from "./browser-analysis-source.js";
 
 // Save the reviewed result, not a fresh page read or another model request.
 export function browserAnalysisArtifact(capture, analysis) {
-  const { url, title } = capture.page;
-  const sourceUrl = webUrl(url);
-  const labels = { summary: "Page summary", analysis: "Page analysis", image: "Image analysis", comparison: "Web page comparison" };
-  if (!sourceUrl || !analysis?.text?.trim() || !Object.hasOwn(labels, analysis.kind)) {
-    throw new Error(t("This analysis cannot be saved."));
-  }
-  const source = { url, title, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision };
-  const label = t(labels[analysis.kind]);
+  const source = browserAnalysisPageSource(capture, analysis);
+  const { url, title } = source;
+  const label = t(browserAnalysisLabel(analysis.kind));
   const details = [label, title || url, url];
   if (analysis.kind === "comparison") {
     const sources = analysis.sources;
     if (!Array.isArray(sources) || sources.length < 2 || sources.length > 3 ||
         sources[0]?.url !== url || sources[0]?.documentRevision !== capture.documentRevision ||
-        sources.some(entry => !webUrl(entry?.url) || !entry.capturedAt || !entry.documentRevision)) {
+        sources.some(entry => !analysisWebUrl(entry?.url) || !entry.capturedAt || !entry.documentRevision)) {
       throw new Error(t("This analysis cannot be saved."));
     }
     details.push("", t("Comparison sources"));
@@ -33,20 +21,11 @@ export function browserAnalysisArtifact(capture, analysis) {
         `${t("Captured at")}: ${entry.capturedAt}`, `${t("Document revision")}: ${entry.documentRevision}`);
     }
   }
-  if (analysis.kind === "image") {
-    const image = analysis.image;
-    const frame = image?.frame;
-    if (!webUrl(image?.source?.url) || image.pageUrl !== url || image.documentRevision !== capture.documentRevision ||
-        (frame?.url && webUrl(frame.url)?.origin !== sourceUrl.origin)) {
-      throw new Error(t("This analysis cannot be saved."));
-    }
-    source.capturedAt = image.capturedAt;
-    source.image = { url: image.source.url, alt: image.source.alt };
+  if (source.image) {
     details.push(`${t("Image source")}: ${source.image.url}`, `${t("Document version")}: ${source.documentRevision}`);
-    if (frame) {
-      source.frame = { url: frame.url, title: frame.title, documentRevision: frame.documentRevision };
-      details.push(`${t("Image frame source")}: ${frame.url || t("Inline frame")}`,
-        `${t("Frame document version")}: ${frame.documentRevision}`);
+    if (source.frame) {
+      details.push(`${t("Image frame source")}: ${source.frame.url || t("Inline frame")}`,
+        `${t("Frame document version")}: ${source.frame.documentRevision}`);
     }
   }
   const readableTitle = `${label} · ${source.image?.alt || title || url}`.replace(/\p{Cc}/gu, " ").replace(/\s+/gu, " ").trim();

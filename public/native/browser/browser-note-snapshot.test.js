@@ -1,4 +1,5 @@
-import { t } from "../../i18n.js";
+import { getLocale, setLocale, t } from "../../i18n.js";
+import noteFixture from "../../../tests/fixtures/browser-analysis-note.json";
 import { renderMarkdown } from "../../ui/markdown.js";
 import { expect, it, vi } from "vitest";
 import { browserNoteContent, createBrowserNoteWriter, quotedPageText } from "./browser-note-snapshot.js";
@@ -194,4 +195,40 @@ it("keeps a finished analysis in its original destination even during notebook c
   await expect(writer.save({ ...params, notebookId: null, notebookTitle: "Research" })).rejects.toThrow(t("Page or destination changed. Read the page again."));
   expect(gateway.create).not.toHaveBeenCalled();
   expect(options.readCurrent).not.toHaveBeenCalled();
+});
+
+it("stores a reviewed image analysis and its image-time source without including page text or pixels", async () => {
+  const locale = getLocale();
+  setLocale("en");
+  try {
+    const { options, gateway, params } = setup();
+    const { capture, analysis, draft } = noteFixture.image;
+    const result = await createBrowserNoteWriter({ ...options, capture, analysis }).save({ ...params, title: draft.title });
+    expect(gateway.create).toHaveBeenCalledExactlyOnceWith("programming", "a", "book", draft);
+    expect(options.readCurrent).not.toHaveBeenCalled();
+    expect(result.source.capturedAt).toBe(analysis.image.capturedAt);
+    expect(result.content).not.toContain(capture.page.text);
+    expect(result.content).not.toContain(capture.page.selection);
+    const rendered = document.createElement("div");
+    rendered.innerHTML = renderMarkdown(result.content);
+    expect(rendered.querySelector("img, script")).toBeNull();
+    expect(rendered.textContent).toContain("<script>inert</script>");
+  } finally {
+    setLocale(locale);
+  }
+});
+
+it.each([
+  ["the page changed", image => ({ ...image, pageUrl: "https://example.invalid/other" })],
+  ["the document changed", image => ({ ...image, documentRevision: "other-document" })],
+  ["the image URL is invalid", image => ({ ...image, source: { ...image.source, url: "file:///C:/fixture.png" } })],
+  ["the embedded document is from another origin", image => ({ ...image, frame: { ...image.frame, url: "https://other.invalid/frame" } })],
+  ["the embedded document has no revision", image => ({ ...image, frame: { ...image.frame, documentRevision: "" } })],
+  ["the capture time is missing", image => ({ ...image, capturedAt: "" })],
+])("does not save an image analysis when %s", async (_reason, mutate) => {
+  const { options, gateway, params } = setup();
+  const { capture, analysis } = noteFixture.image;
+  const writer = createBrowserNoteWriter({ ...options, capture, analysis: { ...analysis, image: mutate(analysis.image) } });
+  await expect(writer.save(params)).rejects.toThrow(t("This analysis cannot be saved."));
+  expect(gateway.create).not.toHaveBeenCalled();
 });

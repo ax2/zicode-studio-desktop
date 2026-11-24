@@ -1,4 +1,5 @@
 import { t } from "../../i18n.js";
+import { browserAnalysisLabel } from "./browser-analysis-source.js";
 
 export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attachments = () => ({}), analysis, canStart = () => true, onOpened }) {
   let ready = false, busy = false, saved = false;
@@ -17,8 +18,8 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
   const notebookTitle = node("input", "ui-input"); notebookTitle.maxLength = 200; notebookTitle.value = t("Web clippings");
   const newTitle = field("New notebook title", notebookTitle); newTitle.hidden = true;
   const title = node("input", "ui-input"); title.maxLength = 200;
-  const sourceTitle = capture.page.title || capture.page.url;
-  const heading = analysis?.kind === "comparison" ? "Web page comparison" : analysis?.kind === "summary" ? "Page summary" : "Page analysis";
+  const sourceTitle = analysis?.image?.source?.alt || capture.page.title || capture.page.url;
+  const heading = browserAnalysisLabel(analysis?.kind);
   const defaultTitle = analysis ? `${t(heading)} · ${sourceTitle}` : sourceTitle;
   title.value = [...defaultTitle].slice(0, 200).join(""); field("Note title", title);
   const mode = node("select", "ui-select");
