@@ -59,10 +59,11 @@ fn focus(window: &WebviewWindow, engine: &NativeBrowserEngine, tab: &str, page: 
     if page { view.focus().map_err(|e| e.to_string()) }
     else { let chrome: &tauri::Webview = window.as_ref(); chrome.set_focus().map_err(|e| e.to_string()) }
 }
-fn ready_web_document<'a>(
+pub(super) fn ready_web_document<'a>(
     engine: &'a NativeBrowserEngine,
     tab: &str,
     expected_url: &str,
+    expected_document_revision: &str,
 ) -> Result<&'a wry::WebView, String> {
     let view = engine.view(tab)?;
     let url = view.url().map_err(|e| e.to_string())?;
@@ -71,6 +72,9 @@ fn ready_web_document<'a>(
         || !(url.starts_with("https://") || url.starts_with("http://"))
     {
         return Err("Wait for the current page to finish loading".into());
+    }
+    if engine.document_revision(tab)? != expected_document_revision {
+        return Err("Browser page changed".into());
     }
     Ok(view)
 }
@@ -252,13 +256,13 @@ pub(super) fn execute(
             Request::FindStatus { tab } => return super::native_find::status(browser.engine.view(&tab)?),
             Request::FindStep { tab, backward } => super::native_find::step(browser.engine.view(&tab)?, backward)?,
             Request::FindStop { tab } => super::native_find::stop(browser.engine.view(&tab)?)?,
-            Request::PrintPage { tab, expected_url } => {
-                let view = ready_web_document(&browser.engine, &tab, &expected_url)?;
+            Request::PrintPage { tab, expected_url, expected_document_revision } => {
+                let view = ready_web_document(&browser.engine, &tab, &expected_url, &expected_document_revision)?;
                 super::page_output::show_print_dialog(view)?;
             }
             Request::OpenDeveloperTools { tab, expected_url, expected_document_revision } => {
                 use wry::WebViewExtWindows;
-                let view = ready_web_document(&browser.engine, &tab, &expected_url)?;
+                let view = ready_web_document(&browser.engine, &tab, &expected_url, &expected_document_revision)?;
                 let mut visible = windows::core::BOOL::default();
                 unsafe { view.controller().IsVisible(&mut visible) }.map_err(|e| e.to_string())?;
                 if !visible.as_bool() {
@@ -469,7 +473,7 @@ pub(super) fn capture<T: Send + 'static>(
 pub(super) fn page_output(
     window: &WebviewWindow,
     tab: String,
-    expected_url: Option<String>,
+    expected: Option<super::page_output::ExpectedDocument>,
     format: super::page_output::Format,
     sender: tokio::sync::oneshot::Sender<Result<Vec<u8>, String>>,
 ) {
@@ -481,13 +485,8 @@ pub(super) fn page_output(
             let (view, work) = browser.engine.begin_page_work(&tab)?;
             let stamp = browser.engine.document_revision(&tab)?;
             let surface = REVISIONS.with(|revisions| revisions.borrow().get(window.label()).copied());
-            if let Some(expected) = &expected_url {
-                let url = view.url().map_err(|error| error.to_string())?;
-                if url != *expected || !(url.starts_with("https://") || url.starts_with("http://"))
-                    || !browser.engine.export_ready(&tab)
-                {
-                    return Err("Wait for the current page to finish loading".into());
-                }
+            if let Some(expected) = &expected {
+                ready_web_document(&browser.engine, &tab, &expected.url, &expected.revision)?;
             }
             let owner = window.clone();
             super::page_output::capture(view, format, move |output| {
@@ -501,10 +500,10 @@ pub(super) fn page_output(
                             if browser.engine.document_revision(&tab)? != stamp {
                                 return Err("Browser page changed".into());
                             }
-                            if let Some(expected) = expected_url {
+                            if let Some(expected) = expected {
                                 let current = REVISIONS.with(|revisions| revisions.borrow().get(owner.label()).copied());
                                 let url = browser.engine.view(&tab)?.url().map_err(|error| error.to_string())?;
-                                if current != surface || url != expected || !browser.engine.export_ready(&tab) {
+                                if current != surface || url != expected.url || !browser.engine.export_ready(&tab) {
                                     return Err("Browser page changed".into());
                                 }
                             }

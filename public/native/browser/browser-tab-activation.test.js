@@ -176,7 +176,7 @@ it("settles the export status layout before printing and keeps tab activation re
   await waitFor(() => expect(finish).toBeTypeOf("function"));
   expect(h.status()).toBe(preparing);
   const requestIndex = h.requests.findIndex(request => request.kind === "savePdf");
-  expect(h.requests[requestIndex]).toEqual({ kind: "savePdf", tab: "a", expectedUrl: "https://example.org/a" });
+  expect(h.requests[requestIndex]).toEqual({ kind: "savePdf", tab: "a", expectedUrl: "https://example.org/a", expectedDocumentRevision: "a:1" });
   expect(h.requests.slice(0, requestIndex).filter(request => request.kind === "present").at(-1).bounds.height).toBe(576);
   h.select("b");
   await waitFor(() => expect(h.visible()).toBe("b"));
@@ -184,6 +184,42 @@ it("settles the export status layout before printing and keeps tab activation re
   await waitFor(() => expect(h.status()).toBe(t("Browser page changed")));
   expect(h.selected()).toBe("b");
 });
+it.each([
+  ["Print page…", "printPage"],
+  ["Save page PDF to Downloads", "savePdf"],
+  ["Save viewport PNG to Downloads", "saveScreenshot"],
+])("keeps %s bound to the document selected before a same-address reload", async (label, kind) => {
+  const h = await mount();
+  const menu = h.root.querySelector(".browser-options");
+  const entry = [...menu.querySelectorAll("button")].find(button => button.textContent === t(label));
+  menu.open = true;
+  entry.click();
+  h.emit({ kind: "navigationStarted", tab: "a" });
+  h.emit({ kind: "navigationFinished", tab: "a", success: true, documentRevision: "a:2" });
+  await waitFor(() => expect(h.status()).toBe(t("Browser page changed")));
+  expect(h.requests.filter(request => request.kind === kind)).toEqual([]);
+
+  menu.open = true;
+  entry.click();
+  await waitFor(() => expect(h.requests.filter(request => request.kind === kind)).toEqual([
+    { kind, tab: "a", expectedUrl: tab("a").url, expectedDocumentRevision: "a:2" },
+  ]));
+});
+
+it("rechecks the document before dispatching either print shortcut", async () => {
+  const h = await mount();
+  h.root.querySelector(".browser-address").dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, bubbles: true }));
+  h.emit({ kind: "navigationStarted", tab: "a" });
+  h.emit({ kind: "navigationFinished", tab: "a", success: true, documentRevision: "a:2" });
+  await waitFor(() => expect(h.status()).toBe(t("Browser page changed")));
+  expect(h.requests.some(request => request.kind === "printPage")).toBe(false);
+
+  h.emit({ kind: "shortcut", action: "print", tab: "a" });
+  await waitFor(() => expect(h.requests.filter(request => request.kind === "printPage")).toEqual([
+    { kind: "printPage", tab: "a", expectedUrl: tab("a").url, expectedDocumentRevision: "a:2" },
+  ]));
+});
+
 it("opens developer tools only from the menu for the current visible browser tab", async () => {
   const h = await mount();
   const requests = () => h.requests.filter(request => request.kind === "openDeveloperTools");

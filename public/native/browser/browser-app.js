@@ -276,6 +276,35 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       refreshDeveloperTools?.();
     });
   }
+  function outputDocument(id) {
+    const page = selected(), documentRevision = documentRevisions.get(id);
+    if (!page || page.id !== id || !pageAvailable(id) || navigationStates.has(id) ||
+        !/^https?:/.test(page.url) || !documentRevision) return null;
+    return { tab: id, expectedUrl: page.url, expectedDocumentRevision: documentRevision };
+  }
+  function outputIsCurrent(expected) {
+    if (blocked() || active !== expected.tab) return false;
+    const current = outputDocument(expected.tab);
+    if (current?.expectedUrl === expected.expectedUrl &&
+        current.expectedDocumentRevision === expected.expectedDocumentRevision) return true;
+    setStatus(t("Browser page changed"));
+    return false;
+  }
+  function queuePrint(id) {
+    const expected = outputDocument(id);
+    if (!expected) {
+      setStatus(t("Wait for the current page to finish loading"));
+      return;
+    }
+    return act(async () => {
+      if (!outputIsCurrent(expected)) return;
+      await syncSurface();
+      await surface.settled();
+      if (!outputIsCurrent(expected)) return;
+      try { await control({ kind: "printPage", ...expected }); }
+      catch (error) { report(t(String(error?.message ?? error))); }
+    });
+  }
   async function runPageAction(action, source) {
     if (!source || active !== source || blocked()) return;
     if (crashedTabs.has(source)) {
@@ -286,20 +315,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       }
       return;
     }
-    if (action === "print") {
-      const expectedUrl = selected()?.url;
-      const version = pageVersions.get(source);
-      if (!nativeTabs.has(source) || !/^https?:/.test(expectedUrl ?? "") || navigationStates.get(source) === "loading") {
-        setStatus(t("Wait for the current page to finish loading"));
-        return;
-      }
-      await syncSurface();
-      await surface.settled();
-      if (blocked() || active !== source || selected()?.url !== expectedUrl || pageVersions.get(source) !== version) return;
-      try { await control({ kind: "printPage", tab: source, expectedUrl }); }
-      catch (error) { report(t(String(error?.message ?? error))); }
-      return;
-    }
+
     if (action === "zoomIn" || action === "zoomOut" || action === "zoomReset") {
       if (!nativeTabs.has(source)) return;
       return changePageSettings(source, settings => ({ kind: "zoom", value: action === "zoomReset"
@@ -925,7 +941,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     }, report });
     fullscreen = createBrowserFullscreen({ control, report, beforeChange: () => { const menu = root.querySelector(".browser-options"); if (menu) menu.open = false; }, afterChange: () => run(syncSurface) });
     shortcuts = setupBrowserShortcuts({ available: () => visible && initialized && !blocked(), getTab: selected, focusChrome: tab => control({ kind: "focusChrome", tab }), find: () => find.open(), address, tabAction: (action, source) => enqueue(() => tabShortcut(action, source)),
-      pageAction: (action, source) => enqueue(() => runPageAction(action, source)), fullscreen: () => fullscreen.toggle(),
+      pageAction: (action, source) => action === "print" ? queuePrint(source) : enqueue(() => runPageAction(action, source)),
+      fullscreen: () => fullscreen.toggle(),
       translateSelection: tab => act(() => translatePageSelection(tab, true)),
       searchTabs: (fromPage, source) => act(() => {
         if (!blocked() && selected()?.id === source) return openTabSearch(options, fromPage);
@@ -941,27 +958,26 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     searchSettings = createBrowserSearchSettings({ save: engine => invoke("browser_set_search_engine", { engine }), report });
     let exportingPage = false;
     const exportPage = (kind, success, pending) => {
-      const page = selected();
-      if (!page || !pageAvailable(page.id) || exportingPage) return;
-      const { id: tab, url: expectedUrl } = page;
+      if (exportingPage) return;
+      const expected = outputDocument(active);
+      if (!expected) {
+        setStatus(t("Wait for the current page to finish loading"));
+        return;
+      }
       exportingPage = true;
       void run(async () => {
         try {
-          if (active !== tab || blocked()) return;
-          if (navigationStates.get(tab) === "loading" || !/^https?:/.test(expectedUrl)) {
-            setStatus(t("Wait for the current page to finish loading"));
-            return;
-          }
+          if (!outputIsCurrent(expected)) return;
           // A wrapped status row changes the native viewport in narrow windows.
           const pendingMessage = pending && t(pending);
           if (pendingMessage) setStatus(pendingMessage);
           await syncSurface();
           await surface.settled();
-          if (active !== tab || blocked()) {
+          if (!outputIsCurrent(expected)) {
             if (pendingMessage && statusMessage === pendingMessage) setStatus("");
             return;
           }
-          const saved = await control({ kind, tab, expectedUrl });
+          const saved = await control({ kind, ...expected });
           setStatus(`${t(success)} · ${saved.name}`);
         } catch (error) {
           report(t(String(error?.message ?? error)));
@@ -997,7 +1013,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       },
       userAgentSettings: createBrowserUserAgentSettings(control),
       proxySettings: createBrowserProxySettings(control),
-      print: () => { const source = active; return act(() => runPageAction("print", source)); },
+      print: () => queuePrint(active),
       developerTools: { state: developerToolsState, open: openDeveloperTools },
       savePdf: () => exportPage("savePdf", "PDF saved to Downloads", "Preparing page PDF…"),
       pin: { state: pinState, toggle: () => act(togglePin) } });
