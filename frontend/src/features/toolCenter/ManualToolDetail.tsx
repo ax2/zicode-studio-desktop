@@ -16,6 +16,8 @@ import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
 import { dataMergePreview, dataTransformPreview, isDataTransform, type MergePreview, type TransformPreview } from "./data-transform-result";
 import { prepareTransformApply, type TransformInput } from "./data-transform-apply";
 import { MergeResultActions } from "./MergeResultActions";
+import { WorkbenchDraftHandoff } from "./WorkbenchDraftHandoff";
+import type { OpenWorkbenchDraft } from "./workbench-draft-handoff";
 import { prepareWorkbenchApply, type WorkbenchDraft } from "./data-workbench-apply";
 import { prepareMergeApply, type MergeSide } from "./data-merge-apply";
 import { readManualToolFile, tableFileFormats, type ToolFileTarget } from "./manual-tool-file";
@@ -56,6 +58,8 @@ export interface ManualToolDetailProps {
   receiveNoteDraft?: ReceiveNoteDraft;
   resourceSession?: ResourceSessionOwner;
   onReload?(): Promise<void>;
+  initialDraft?: Record<string, string>;
+  onOpenWorkbenchDraft?: OpenWorkbenchDraft;
 }
 
 interface ToolDraft {
@@ -81,12 +85,12 @@ export function ManualToolDetail(props: ManualToolDetailProps) {
   return <ManualToolDetailView {...props} call={call} />;
 }
 
-export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, call }: ManualToolDetailProps & {
+export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, initialDraft, onOpenWorkbenchDraft, call }: ManualToolDetailProps & {
   call: ReturnType<typeof useManualToolCall>;
 }) {
   const [detail, setDetail] = useState<ToolDetail | null>(null);
   const detailId = useId();
-  const [{ values, undo }, setDraft] = useState<ToolDraft>({ values: {} });
+  const [{ values, undo }, setDraft] = useState<ToolDraft>(() => ({ values: initialDraft ?? {} }));
   const [error, setError] = useState("");
   const [stale, setStale] = useState(false);
   const [reloading, setReloading] = useState(false);
@@ -131,6 +135,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const fields = detail ? toolFields(detail.capability.inputSchema) : null;
   const permissionNeeded = detail?.permissions.some(permission => permission.required && permission.name !== "pi.tools.register");
   const supported = detail && fields && tool.runtime !== "builtin" && !permissionNeeded;
+  useEffect(() => { if (initialDraft && supported) formRef.current?.focus({ preventScroll: true }); }, [initialDraft, supported]);
   const hostResourceProfile = hostResourceReceivers.get(`${tool.pluginId}/${tool.capabilityId}`);
   const resourceTool = (detail?.resourceInputProfile === "resource.wasi.input.draft2" && tool.runtime === "wasi") ||
     (tool.runtime === "builtin" && hostResourceProfile !== undefined && detail?.resourceInputProfile === hostResourceProfile);
@@ -353,7 +358,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       tableActions={merged ? <MergeResultActions
         enabled={Boolean(applyAllowed)} current={inputsCurrent} applied={applied ? undo?.mergeSide : undefined}
         left={Boolean(merged.next.left)} right={Boolean(merged.next.right)}
-        onApply={side => applyResult(merged.next[side], side)} /> : singleDraft && <div className="ui-toolbar">
+        onApply={side => applyResult(merged.next[side], side)} /> : singleDraft && <>
+        <div className="ui-toolbar">
         {applied
           ? <span role="status">{singleDraft.kind === "workbench" && singleDraft.next && singleDraft.next.format !== "json"
               ? t("Applied to the input as {format}.").replace("{format}", singleDraft.next.format.toUpperCase())
@@ -366,7 +372,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
               ? <span className="tool-center-source">{t("The inputs changed. Run the tool again to apply a current result.")}</span>
               : !singleDraft.next && <span className="tool-center-source">{t("This result cannot be applied within the tool’s input contract.")}</span>}
           </>}
-      </div>}
+        </div>
+        {singleDraft.kind === "workbench" && workbenchApply && applyAllowed && singleDraft.next && onOpenWorkbenchDraft &&
+          <WorkbenchDraftHandoff sourceId={tool.capabilityId} material={singleDraft.next} onOpen={onOpenWorkbenchDraft} />}
+      </>}
       sectionRef={resultRef} onBackToInputs={supported ? () => jumpTo(formRef.current) : undefined} />}
     {captured && supportsResultActions(api) && <ManualToolResultActions response={captured}
       accessStore={accessStore} onRecentChange={onRecentChange}
