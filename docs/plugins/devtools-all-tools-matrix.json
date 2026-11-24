@@ -360,6 +360,7 @@
     },
     {
       "sourceToolId": "base64",
+      "currentWindowsAcceptance": "../iterations/2026-11-25-base64-file-workflow.md",
       "title": "Base64",
       "sourceToolVersion": "1.1.3",
       "sourceStatus": "implemented",
