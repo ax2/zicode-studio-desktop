@@ -61,7 +61,14 @@ it("retains selection after a save failure and cancels the exact in-flight reque
   f.actions.save.mockRejectedValueOnce(new Error("module_model_config_changed"));
   fireEvent.change(getByRole(f.el, "combobox"), { target: { value: JSON.stringify(["fixture", "b"]) } });
   await waitFor(() => expect(f.el.textContent).toContain("Model configuration changed."));
-  expect(getByRole(f.el, "combobox").value).toBe("");
+  const select = getByRole(f.el, "combobox");
+  const summarize = getByRole(f.el, "button", { name: "Send page and summarize" });
+  expect(select.value).toBe("");
+  expect(summarize.disabled).toBe(true);
+  fireEvent.click(summarize);
+  expect(f.actions.ask).not.toHaveBeenCalled();
+  fireEvent.click(getByRole(f.el, "button", { name: "Load Pi models" }));
+  await waitFor(() => expect(summarize.disabled).toBe(false));
   let reject;
   f.actions.ask.mockImplementation(() => new Promise((_, failure) => { reject = failure; }));
   fireEvent.click(getByRole(f.el, "button", { name: "Send page and summarize" }));
@@ -93,6 +100,69 @@ it("initializes Pi only on explicit load and binds all calls to that exact targe
   await actions.cancel("owned");
   expect(gateway.call).toHaveBeenLastCalledWith("cancel_browser_model_request", { requestId: "owned" }, { target: ai });
 });
+
+it("does not rebind a previously reviewed model to a session whose model lookup failed", async () => {
+  setLocale("en");
+  const previous = { runtimeMode: "ai", workspaceId: "w", sceneId: "s", instanceId: "one", sessionId: "old" };
+  const next = { ...previous, instanceId: "two", sessionId: "new" };
+  let target = previous;
+  const gateway = { call: vi.fn(async () => ({ ok: true, data: state() })) };
+  const api = createBrowserModelGateway({ gateway, getTarget: () => target, isCurrent: () => true });
+  await api.load();
+  target = next;
+  gateway.call.mockResolvedValueOnce({ ok: false, error: "module_model_request_failed" });
+  await expect(api.load()).rejects.toThrow("module_model_request_failed");
+  await expect(api.ask({ requestId: "previous-review" })).rejects.toThrow("Page or conversation changed");
+  expect(gateway.call.mock.calls.some(([operation]) => operation === "browser_model_request")).toBe(false);
+  await api.cancel("previous-request");
+  expect(gateway.call).toHaveBeenLastCalledWith("cancel_browser_model_request", { requestId: "previous-request" }, { target: previous });
+  await api.load();
+  await api.ask({ requestId: "new-review" });
+  expect(gateway.call).toHaveBeenLastCalledWith("browser_model_request", { requestId: "new-review" }, { target: next, timeoutMs: 40000 });
+  target = { ...next, runtimeMode: "tools" };
+  await expect(api.ask({ requestId: "tools-mode" })).rejects.toMatchObject({ code: "browser_model_context_changed" });
+  expect(gateway.call).toHaveBeenLastCalledWith("browser_model_request", { requestId: "new-review" }, { target: next, timeoutMs: 40000 });
+});
+
+it.each(["model reload fails", "Pi rejects a stale model fingerprint"])("requires a fresh model lookup when %s", async (caseName) => {
+  const f = fixture();
+  f.actions.ask.mockResolvedValueOnce({ text: "Existing sourced answer", model: a });
+  const ask = getByRole(f.el, "button", { name: "Send page and ask" });
+  const reload = getByRole(f.el, "button", { name: "Load Pi models" });
+  const summarize = getByRole(f.el, "button", { name: "Send page and summarize" });
+  const select = getByRole(f.el, "combobox");
+  await waitFor(() => expect(ask.disabled).toBe(false));
+  fireEvent.click(ask);
+  const answer = await waitFor(() => getByRole(f.el, "textbox", { name: "Browser model answer" }));
+  if (caseName === "model reload fails") {
+    f.actions.load.mockRejectedValueOnce(new Error("load failed"));
+    fireEvent.click(reload);
+    await waitFor(() => expect(f.el.textContent).toContain("Could not load Pi models."));
+  } else {
+    f.actions.ask.mockRejectedValueOnce(new Error("module_model_config_changed"));
+    ask.focus();
+    fireEvent.click(ask);
+    await waitFor(() => expect(f.el.textContent).toContain("Model configuration changed."));
+    expect(document.activeElement).toBe(reload);
+  }
+  expect(reload.disabled).toBe(false);
+  expect(ask.disabled && summarize.disabled && select.disabled).toBe(true);
+  expect(f.el.textContent).not.toContain("Destination: fixture / A");
+  expect(answer.value).toBe("Existing sourced answer");
+  expect(f.question.value).toBe("What does this page say?");
+  f.actions.ask.mockClear();
+  fireEvent.click(summarize);
+  expect(f.actions.ask).not.toHaveBeenCalled();
+  f.actions.load.mockResolvedValueOnce(state(b));
+  fireEvent.click(reload);
+  await waitFor(() => expect(ask.disabled).toBe(false));
+  expect(f.actions.ask).not.toHaveBeenCalled();
+  expect(f.el.textContent).toContain("Destination: fixture / B");
+  fireEvent.click(ask);
+  await waitFor(() => expect(f.actions.ask).toHaveBeenCalledOnce());
+  expect(f.actions.ask.mock.calls[0][0]).toMatchObject({ expectedRevision: "override", expectedModelFingerprint: b.fingerprint });
+});
+
 
 it("saves an existing reviewed answer only after click, keeps it on failure and opens after retry without another model request", async () => {
   const artifacts = { save: vi.fn().mockRejectedValueOnce(Error("Disk full")).mockResolvedValue({ id: "saved-analysis" }), open: vi.fn() };
@@ -149,7 +219,12 @@ it("keeps the previous reviewed answer and its original model saveable when a mo
   await waitFor(() => expect(artifacts.save).toHaveBeenCalledOnce());
   expect(artifacts.save.mock.calls[0][0]).toMatchObject({ text: "Existing A answer", model: a, question: "What does this page say?" });
   expect(f.actions.ask).toHaveBeenCalledOnce();
-  fireEvent.change(getByRole(f.el, "combobox"), { target: { value: JSON.stringify(["fixture", "b"]) } });
+  const select = getByRole(f.el, "combobox");
+  expect(select.disabled).toBe(true);
+  fireEvent.click(getByRole(f.el, "button", { name: "Load Pi models" }));
+  await waitFor(() => expect(select.disabled).toBe(false));
+  expect(answer.value).toBe("Existing A answer");
+  fireEvent.change(select, { target: { value: JSON.stringify(["fixture", "b"]) } });
   await waitFor(() => expect(answer.hidden).toBe(true));
   expect(answer.value).toBe("");
   expect(f.el.querySelector('button[data-i18n-text="Open saved artifact"]').hidden).toBe(true);
