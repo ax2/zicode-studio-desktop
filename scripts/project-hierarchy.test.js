@@ -1,6 +1,6 @@
 // @vitest-environment node
-import { expect, it, vi } from "vitest";
-import { loadMissingParents, openIssuesInPublishedMilestones, summarizeHierarchy, summarizeVersionReserve } from "./project-hierarchy.mjs";
+import { expect, it } from "vitest";
+import { openIssuesInPublishedMilestones, summarizeHierarchy, summarizeVersionReserve } from "./project-hierarchy.mjs";
 
 const repository = "owner/studio";
 function issue(number, {state = "open", version = "v1.2.3", epic = false} = {}) {
@@ -87,16 +87,4 @@ it("counts open unpublished versions with a Project view toward the five-version
     shortfall: 2,
   });
   expect(summarizeVersionReserve([...milestones, milestone("v1.2.9")], releases, version, []).shortfall).toBe(0);
-});
-
-it("reuses Project parents including confirmed roots and batches only missing repository nodes", () => {
-  const issues = Array.from({length:205}, (_,i) => issue(i + 1));
-  const parents = new Map([["1",null],["2",parent(1)]]);
-  const read = vi.fn(ids => ids.map(id => id === "5" ? null : {id, parent:parent(1)}));
-  loadMissingParents(issues, parents, read);
-  expect(read.mock.calls.map(([ids]) => ids.length)).toEqual([100,100,3]);
-  expect(read.mock.calls[0][0][0]).toBe("3");
-  expect(parents.get("1")).toBe(null);
-  expect(parents.has("5")).toBe(false);
-  loadMissingParents(issues.slice(0,2), parents, () => {throw Error("Duplicate request")});
 });

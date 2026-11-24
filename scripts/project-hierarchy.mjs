@@ -1,13 +1,3 @@
-export function loadMissingParents(issues, parents, readNodes) {
-  const missing = issues.filter(issue => !parents.has(issue.node_id));
-  for (let offset = 0; offset < missing.length; offset += 100) {
-    const ids = missing.slice(offset, offset + 100).map(issue => issue.node_id);
-    for (const node of readNodes(ids)) {
-      if (node?.id) parents.set(node.id, node.parent);
-    }
-  }
-}
-
 function publishedReleaseTags(releases) {
   return new Set(releases.filter(release => !release.draft && release.published_at).map(release => release.tag_name));
 }
