@@ -355,3 +355,48 @@ it("shows loading, retrieval failure and a confirmed empty download search as di
   expect(list.textContent).toBe(t("No matching downloads"));
   expect(list.querySelector("p").hidden).toBe(false);
 });
+
+
+it("queues one older page during refresh and focuses the first new row", async () => {
+  let finishRefresh;
+  let reads = 0;
+  const invoke = vi.fn(async (_, { request }) => {
+    if (request.before === 100) return page([item("older", "completed")]);
+    if (++reads === 2) return new Promise(resolve => { finishRefresh = resolve; });
+    return { ...page([item("recent", "completed")]), nextBefore: 100 };
+  });
+  const dialog = showBrowserDownloads({ invoke }); await tick();
+  const more = getByRole(dialog, "button", { name: t("Show older downloads") });
+  more.focus();
+  await vi.advanceTimersByTimeAsync(500);
+  more.click(); more.click();
+  expect(invoke).toHaveBeenCalledTimes(2);
+  finishRefresh({ ...page([item("recent", "completed")]), nextBefore: 100 });
+  await tick();
+  expect(invoke.mock.calls.filter(([, { request }]) => request.before === 100)).toHaveLength(1);
+  expect(document.activeElement).toBe(dialog.querySelector('[data-download-id="older"]'));
+  expect(more.hidden).toBe(true);
+});
+
+it("drops queued pagination when the download search changes", async () => {
+  let finishRefresh;
+  let reads = 0;
+  const invoke = vi.fn(async (_, { request }) => {
+    if (request.query === "report") return page([item("report", "completed")]);
+    if (++reads === 2) return new Promise(resolve => { finishRefresh = resolve; });
+    return { ...page([item("recent", "completed")]), nextBefore: 100 };
+  });
+  const dialog = showBrowserDownloads({ invoke }); await tick();
+  await vi.advanceTimersByTimeAsync(500);
+  getByRole(dialog, "button", { name: t("Show older downloads") }).click();
+  const search = getByRole(dialog, "searchbox");
+  search.focus();
+  search.value = "report";
+  getByRole(dialog, "button", { name: t("Search"), exact: true }).click();
+  finishRefresh({ ...page([item("recent", "completed")]), nextBefore: 100 });
+  await tick();
+  expect(invoke.mock.calls.every(([, { request }]) => request.before === null)).toBe(true);
+  expect(dialog.querySelector('[data-download-id="report"]')).not.toBeNull();
+  expect(dialog.querySelector('[data-download-id="recent"]')).toBeNull();
+  expect(document.activeElement).toBe(search);
+});
