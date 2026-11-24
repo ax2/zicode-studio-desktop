@@ -178,16 +178,18 @@ it.each([
   { format: "json", capabilityId: "devtools.compute.table.query", mimeType: "application/json", label: "Save JSON as…" },
   { format: "csv", capabilityId: "devtools.compute.table.query", mimeType: "text/csv", label: "Save CSV as…" },
   { format: "tsv", capabilityId: "devtools.compute.table.query", mimeType: "text/tab-separated-values", label: "Save TSV as…" },
+  { format: "text", capabilityId: "devtools.compare.text.diff", mimeType: "text/plain", label: "Save diff report as text…" },
 ] as const)("saves only a Host-verified $format after choosing and confirming a destination", async ({
   format, capabilityId, mimeType, label,
 }) => {
-  const pluginId = capabilityId === "devtools.compare.json.path" ? "com.zicode.devtools.compare" : "com.zicode.devtools.compute";
+  const plainText = format === "text";
+  const pluginId = capabilityId.startsWith("devtools.compare.") ? "com.zicode.devtools.compare" : "com.zicode.devtools.compute";
   const owner = { ...scope, pluginId, capabilityId };
   const resultId = "22222222-2222-4222-8222-222222222222";
   const grantId = "33333333-3333-4333-8333-333333333333";
   const exportDescriptor = { mimeType, byteLength: 124, contentVersion: "a".repeat(64) };
-  const profile = `result.export.${format}.v1`;
-  const preview = { ...exportDescriptor, schemaVersion: 1, profile, grantId, resultId, destination: `D:/selected/fixture.${format}` };
+  const profile = plainText ? "result.export.text.draft1" : `result.export.${format}.v1`;
+  const preview = { ...exportDescriptor, schemaVersion: 1, profile, grantId, resultId, destination: `D:/selected/fixture.${plainText ? "txt" : format}` };
   const exports = {
     choose: vi.fn().mockResolvedValueOnce(null).mockResolvedValue({
       schemaVersion: 1, profile, grantId, preview, expiresInSeconds: 60, operation: "create_new_file", requiresConfirmation: true, saved: false,
@@ -200,7 +202,9 @@ it.each([
   const result = { ok: true, data: { text: "displayed source" } };
   await render(resultId, scope.workspaceId, { result, resultRef: { schemaVersion: 1, resultId } });
   expect(container.textContent).not.toContain(label);
-  const resultRef = { schemaVersion: 1, resultId, [`${format}Export`]: exportDescriptor };
+  const resultRef = plainText ? { schemaVersion: 1, resultId, ...exportDescriptor }
+    : { schemaVersion: 1, resultId, [`${format}Export`]: exportDescriptor };
+  const source = { scope: owner, resultId, ...(plainText ? {} : { format }) };
   await render(resultId, scope.workspaceId, { result: { ...result, ok: false }, resultRef });
   expect(container.textContent).not.toContain(label);
   await render(resultId, scope.workspaceId, { result, resultRef });
@@ -209,14 +213,14 @@ it.each([
   expect(exports.commit).not.toHaveBeenCalled();
   await click(label);
   expect(container.querySelector("dialog")?.textContent).toContain(preview.destination);
-  expect(exports.choose).toHaveBeenLastCalledWith(scope.workspaceId, { scope: owner, resultId, format });
+  expect(exports.choose).toHaveBeenLastCalledWith(scope.workspaceId, source);
   expect(exports.commit).not.toHaveBeenCalled();
   await click("Cancel save");
   expect(exports.cancel).toHaveBeenCalledTimes(1);
   expect(exports.commit).not.toHaveBeenCalled();
   await click(label);
   await click("Confirm save file");
-  expect(exports.commit).toHaveBeenCalledExactlyOnceWith(scope.workspaceId, { scope: owner, resultId, format }, grantId);
+  expect(exports.commit).toHaveBeenCalledExactlyOnceWith(scope.workspaceId, source, grantId);
   expect(busy.mock.calls).toEqual([[true], [false]]);
   expect(container.querySelector("dialog")?.textContent).toContain("Saved copy:");
   expect(gateway.prepareSave).not.toHaveBeenCalled();

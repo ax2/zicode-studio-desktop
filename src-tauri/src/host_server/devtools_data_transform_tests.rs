@@ -582,16 +582,25 @@ fn verify_result_export(
     } = case;
     let plugin = scope["pluginId"].as_str().unwrap();
     let reference = &response["resultRef"];
-    let descriptor = &reference[format!("{format}Export")];
-    assert_eq!(
-        descriptor,
-        &json!({
-            "mimeType": mime_type, "byteLength": expected.len(), "contentVersion": sha256_hex(expected.as_bytes()),
-        })
-    );
-    let source = json!({"scope": scope, "resultId": reference["resultId"], "format": format});
-    let mut plain = source.clone();
-    plain.as_object_mut().unwrap().remove("format");
+    let is_text = format == "text";
+    let extension = if is_text { "txt" } else { format };
+    let descriptor = if is_text { reference } else { &reference[format!("{format}Export")] };
+    let expected_descriptor = json!({
+        "mimeType": mime_type, "byteLength": expected.len(), "contentVersion": sha256_hex(expected.as_bytes()),
+    });
+    if is_text {
+        assert_eq!(descriptor["schemaVersion"], 1);
+        for key in ["mimeType", "byteLength", "contentVersion"] {
+            assert_eq!(descriptor[key], expected_descriptor[key]);
+        }
+    } else {
+        assert_eq!(descriptor, &expected_descriptor);
+    }
+    let plain = json!({"scope": scope, "resultId": reference["resultId"]});
+    let mut source = plain.clone();
+    if !is_text {
+        source["format"] = json!(format);
+    }
     let context = Context {
         window: "main".into(),
         workspace: workspace.into(),
@@ -600,8 +609,8 @@ fn verify_result_export(
     let metadata = host
         .result_text_export_metadata(&context, source.clone())
         .unwrap();
-    assert_eq!(metadata["suggestedFileName"], format!("{stem}.{format}"));
-    assert_eq!(metadata["extension"], format);
+    assert_eq!(metadata["suggestedFileName"], format!("{stem}.{extension}"));
+    assert_eq!(metadata["extension"], extension);
     assert_eq!(metadata["mimeType"], mime_type);
     assert_eq!(metadata["contentVersion"], descriptor["contentVersion"]);
     let plain_metadata = host
@@ -619,7 +628,7 @@ fn verify_result_export(
         .join(format!("exports-{operation}-{format}"));
     std::fs::create_dir(&folder).unwrap();
     assert!(host
-        .prepare_result_text_export(context.clone(), source.clone(), folder.join("wrong.txt"),)
+        .prepare_result_text_export(context.clone(), source.clone(), folder.join("wrong.bin"),)
         .is_err());
     let prepare = |name: &str| {
         let grant = host
@@ -632,14 +641,14 @@ fn verify_result_export(
         assert_eq!(grant["preview"]["byteLength"], descriptor["byteLength"]);
         grant["grantId"].as_str().unwrap().to_owned()
     };
-    let cancelled = prepare(&format!("cancelled.{format}"));
+    let cancelled = prepare(&format!("cancelled.{extension}"));
     host.cancel_result_text_export(context.clone(), source.clone(), cancelled.clone())
         .unwrap();
     assert!(host
         .commit_result_text_export(context.clone(), source.clone(), cancelled, true)
         .is_err());
 
-    let file_name = format!("转换结果.{}", format.to_ascii_uppercase());
+    let file_name = format!("工具结果.{}", extension.to_ascii_uppercase());
     let file = folder.join(&file_name);
     let grant = prepare(&file_name);
     let mut foreign = context.clone();
@@ -647,9 +656,20 @@ fn verify_result_export(
     assert!(host
         .commit_result_text_export(foreign, source.clone(), grant.clone(), true)
         .is_err());
-    assert!(host
-        .commit_result_text_export(context.clone(), plain, grant.clone(), true)
-        .is_err());
+    if is_text {
+        let mut other_capability = source.clone();
+        other_capability["scope"]["capabilityId"] = json!("devtools.compare.json.path");
+        assert!(host
+            .prepare_result_text_export(context.clone(), other_capability.clone(), folder.join("other.txt"))
+            .is_err());
+        assert!(host
+            .commit_result_text_export(context.clone(), other_capability, grant.clone(), true)
+            .is_err());
+    } else {
+        assert!(host
+            .commit_result_text_export(context.clone(), plain, grant.clone(), true)
+            .is_err());
+    }
     let mut other_format = source.clone();
     other_format["format"] = json!(if format == "csv" { "json" } else { "csv" });
     assert!(host
@@ -662,7 +682,8 @@ fn verify_result_export(
     let result = host
         .commit_result_text_export(context.clone(), source.clone(), grant.clone(), true)
         .unwrap();
-    assert_eq!(result["profile"], format!("result.export.{format}.v1"));
+    let profile = if is_text { "result.export.text.draft1".to_owned() } else { format!("result.export.{format}.v1") };
+    assert_eq!(result["profile"], profile);
     assert_eq!(result["receipt"]["mimeType"], mime_type);
     assert_eq!(
         result["receipt"]["contentVersion"],
@@ -678,7 +699,7 @@ fn verify_result_export(
         .commit_result_text_export(context.clone(), source.clone(), grant, true)
         .is_err());
 
-    let collision_name = format!("collision.{format}");
+    let collision_name = format!("collision.{extension}");
     let collision = prepare(&collision_name);
     std::fs::write(folder.join(&collision_name), b"existing").unwrap();
     assert!(host
@@ -692,7 +713,7 @@ fn verify_result_export(
     host.cancel_result_text_export(context.clone(), source.clone(), collision)
         .unwrap();
     if revoke {
-        let revoked = prepare(&format!("revoked.{format}"));
+        let revoked = prepare(&format!("revoked.{extension}"));
         host.state
             .plugins
             .lock()
@@ -713,7 +734,7 @@ fn verify_result_export(
     }
     assert_eq!(std::fs::read_dir(folder).unwrap().count(), 2);
     println!(
-        "DATA_TRANSFORM_{} bytes={} sha256={}",
+        "RESULT_EXPORT_{} bytes={} sha256={}",
         format.to_ascii_uppercase(),
         expected.len(),
         descriptor["contentVersion"]
@@ -723,12 +744,16 @@ fn verify_result_export(
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires frozen Compare 0.1.0 candidate 02, its receipt and a production Windows Worker"]
-async fn text_diff_frozen_host_preserves_both_file_drafts() {
+async fn text_diff_frozen_host_exports_original_reports() {
     let plugin = "com.zicode.devtools.compare";
     let (root, host) =
         start_frozen_export_host("text-diff", "ZICODE_TEST_COMPARE_PACKAGE", plugin, 10).await;
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
     let endpoint = format!("{}/v2/plugin-capabilities/invoke", host.origin());
+    let scope = json!({
+        "workspaceId": WORKSPACE, "sceneId": "programming", "pluginId": plugin,
+        "capabilityId": "devtools.compare.text.diff",
+    });
     let at_limit = "a".repeat(8192);
     for (name, left, right, expected) in [
         ("different", "序言\r\n旧值  \r\n收尾\r\n", "序言\r\n新值  \r\n收尾\r\n", vec!["-旧值  ", "+新值  "]),
@@ -736,14 +761,13 @@ async fn text_diff_frozen_host_preserves_both_file_drafts() {
         ("both-empty", "", "", vec!["两份文本完全相同"]),
         ("boundary", at_limit.as_str(), at_limit.as_str(), vec!["两份文本完全相同"]),
     ] {
+        let mut request = scope.clone();
+        request["captureResult"] = json!(true);
+        request["input"] = json!({"left":left, "right":right});
         let response: Value = client
             .post(&endpoint)
             .header("x-zicode-desktop-token", host.desktop_token())
-            .json(&json!({
-                "workspaceId": WORKSPACE, "sceneId": "programming", "pluginId": plugin,
-                "capabilityId": "devtools.compare.text.diff",
-                "input": { "left": left, "right": right }
-            }))
+            .json(&request)
             .send()
             .await
             .unwrap()
@@ -758,6 +782,10 @@ async fn text_diff_frozen_host_preserves_both_file_drafts() {
         for exact_line in expected {
             assert!(diff.lines().any(|line| line == exact_line), "{name}: {diff}");
         }
+        verify_result_export(&host, &root, WORKSPACE, &scope, &response, ExportCase {
+            format: "text", mime_type: "text/plain", operation: name, stem: "text-diff-report",
+            expected: diff, revoke: name == "boundary",
+        });
         println!("verified text diff case {name}");
     }
     host.stop();

@@ -122,7 +122,8 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
             });
           })
         : null;
-    const report = exportButton(reportExport, current.reportReference, t("Save diagnostic JSON as…"), token);
+    const report = exportButton(reportExport, current.reportReference,
+      t(current.diffReport ? "Save diff report as text…" : "Save diagnostic JSON as…"), token);
     const png = exportButton(pngExport, current.pngReference, t("Save PNG as…"), token);
     const csv = exportButton(csvExport, current.csvReference, t("Save CSV as…"), token);
     const tsv = exportButton(tsvExport, current.tsvReference, t("Save TSV as…"), token);
@@ -157,7 +158,10 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     const httpResult = scope?.capabilityId === "service.http.get.v1" &&
       response?.operation === "http.get" && response.result != null;
     const reference = response?.resultRef;
-    const reportReference = httpResult && reference?.schemaVersion === 1 &&
+    const diffReport = response?.result?.ok === true && scope?.pluginId === "com.zicode.devtools.compare" &&
+      scope.capabilityId === "devtools.compare.text.diff";
+    const reportReference = diffReport ? exportReference(reference, reference, "text/plain")
+      : httpResult && reference?.schemaVersion === 1 &&
       reference.mimeType === "text/plain" && uuidPattern.test(reference.resultId ?? "") &&
       /^[0-9a-f]{64}$/.test(reference.contentVersion ?? "") &&
       Number.isSafeInteger(reference.byteLength) && reference.byteLength > 0 &&
@@ -184,6 +188,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           scope,
           resultId: response.resultRef.resultId,
           reportReference,
+          diffReport,
           pngReference,
           csvReference,
           tsvReference,
