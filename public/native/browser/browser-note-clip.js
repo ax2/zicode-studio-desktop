@@ -1,7 +1,7 @@
 import { t } from "../../i18n.js";
 import { browserAnalysisLabel } from "./browser-analysis-source.js";
 
-export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attachments = () => ({}), analysis, canStart = () => true, onOpened }) {
+export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attachments = () => ({}), analysis, canStart = () => true, onOpened, canSaveImageText = false }) {
   let ready = false, busy = false, saved = false;
   const node = (tag, className = "", text) => {
     const el = document.createElement(tag); el.className = className;
@@ -27,12 +27,26 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
   if (!analysis) {
     mode.append(option("page", t("Page content")));
     if (capture.page.selection.trim()) mode.append(option("selection", t("Selected text")));
+    if (canSaveImageText) mode.append(option("image-text", t("Only selected image text")));
     field("Save content", mode);
   }
   const status = node("p", "browser-note-clip-status"); status.setAttribute("role", "status");
   const save = node("button", "ui-button ui-button--primary", t(analysis ? "Save analysis to notebook" : "Save page to notebook"));
   save.type = "button"; save.disabled = true;
+  const selectImageText = node("p", "ui-muted", t("Select the recognized image text you want to save."));
+  selectImageText.setAttribute("role", "status");
+  selectImageText.hidden = true;
+  if (canSaveImageText) panel.append(selectImageText);
   panel.append(status, save);
+  function updateScope() {
+    const imageTextOnly = mode.value === "image-text";
+    const missingImageText = imageTextOnly && !attachments().imageText?.length;
+    if (canSaveImageText && !saved) {
+      save.textContent = t(imageTextOnly ? "Save image text to notebook" : "Save page to notebook");
+    }
+    selectImageText.hidden = !missingImageText;
+    save.disabled = !ready || missingImageText;
+  }
   notebook.addEventListener("change", () => { newTitle.hidden = notebook.value !== "new"; });
   button.addEventListener("click", async () => {
     if (busy || saved || !canStart() || !isOpen()) return;
@@ -42,17 +56,19 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
     try {
       const notebooks = await writer.notebooks(); if (!isOpen()) return;
       notebook.replaceChildren(...notebooks.map(v => option(v.id, v.title)), option("new", t("Create notebook")));
-      newTitle.hidden = notebook.value !== "new"; ready = true; save.disabled = false; status.textContent = "";
+      newTitle.hidden = notebook.value !== "new"; ready = true; updateScope(); status.textContent = "";
       notebook.focus();
     } catch (error) { if (isOpen()) status.textContent = String(error?.message ?? error); }
     finally { busy = false; button.disabled = false; }
   });
   save.addEventListener("click", async () => {
-    if (!ready || busy || saved || !canStart() || !isOpen()) return;
+    if (!ready || save.disabled || busy || saved || !canStart() || !isOpen()) return;
     busy = true; panel.disabled = true; button.disabled = true; setBusy(true); status.textContent = t("Saving…");
     try {
+      const content = mode.value === "image-text" ? { imageTextOnly: true, imageText: attachments().imageText } :
+        mode.value === "page" ? attachments() : {};
       await writer.save({ notebookId: notebook.value === "new" ? null : notebook.value,
-        notebookTitle: notebookTitle.value, title: title.value, selectionOnly: mode.value === "selection", ...(mode.value === "page" ? attachments() : {}) });
+        notebookTitle: notebookTitle.value, title: title.value, selectionOnly: mode.value === "selection", ...content });
       saved = true; status.textContent = t("Saved to Notes. The source and capture time are included.");
       save.textContent = t("Saved to Notes");
     } catch (error) { status.textContent = String(error?.message ?? error); }
@@ -64,5 +80,5 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
     try { writer.open(); onOpened?.(); }
     catch { status.textContent = t("Page or destination changed. Read the page again."); }
   });
-  return { button, panel, open };
+  return { button, panel, open, updateScope };
 }

@@ -139,6 +139,18 @@ it("adds frame sources, selection and tables only to an opted-in whole-page note
 });
 
 
+it("rejects an OCR-only note without text or with text from another reviewed document", async () => {
+  const { options, gateway, params } = setup();
+  const writer = createBrowserNoteWriter(options);
+  const image = { text: "OCR result", pageUrl: capture.page.url, documentRevision: "other-document" };
+  await expect(writer.save({ ...params, imageTextOnly: true, imageText: [] }))
+    .rejects.toThrow(t("Select the recognized image text you want to save."));
+  await expect(writer.save({ ...params, imageTextOnly: true, imageText: [image] }))
+    .rejects.toThrow(t("Page or destination changed. Read the page again."));
+  expect(gateway.create).not.toHaveBeenCalled();
+  expect(options.readCurrent).not.toHaveBeenCalled();
+});
+
 it("preserves opted-in OCR text and its source without rendering markup or sharing it with a selection note", () => {
 
   const imageText = [{ source: { alt: "<em>Label</em>", url: "https://example.org/diagram.png" },

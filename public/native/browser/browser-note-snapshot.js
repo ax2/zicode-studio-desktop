@@ -50,13 +50,20 @@ function imageTextMarkdown(result) {
     result.truncated ? t("Recognized image text was shortened.") : "",
   ].filter(Boolean);
 }
-export function browserNoteContent(capture, selectionOnly = false, { includeLinks = false, includeTables = false, tableIndexes, includeMedia = false, includeFrames = false, frameIndexes, includeFrameLinks = false, imageText = [] } = {}) {
-  const text = selectionOnly ? capture.page.selection : capture.page.text;
-  const links = !selectionOnly && includeLinks ? capture.page.links : null;
-  const tables = !selectionOnly && includeTables ? selectCapturedTables(capture.page.tables, tableIndexes) : [];
-  const media = !selectionOnly && includeMedia ? capture.page : null;
-  const frames = !selectionOnly && includeFrames ? selectCapturedFrames(capture.page.frames, frameIndexes) : [];
+export function browserNoteContent(capture, selectionOnly = false, { includeLinks = false, includeTables = false, tableIndexes, includeMedia = false, includeFrames = false, frameIndexes, includeFrameLinks = false, imageText = [], imageTextOnly = false } = {}) {
+  const wholePage = !selectionOnly && !imageTextOnly;
+  const text = imageTextOnly ? "" : selectionOnly ? capture.page.selection : capture.page.text;
+  const links = wholePage && includeLinks ? capture.page.links : null;
+  const tables = wholePage && includeTables ? selectCapturedTables(capture.page.tables, tableIndexes) : [];
+  const media = wholePage && includeMedia ? capture.page : null;
+  const frames = wholePage && includeFrames ? selectCapturedFrames(capture.page.frames, frameIndexes) : [];
   const recognized = selectionOnly ? [] : imageText;
+  if (imageTextOnly) {
+    if (!recognized.some(result => result.text?.trim())) throw new Error(t("Select the recognized image text you want to save."));
+    if (recognized.some(result => !result.text?.trim() || result.pageUrl !== capture.page.url || result.documentRevision !== capture.documentRevision)) {
+      throw new Error(t("Page or destination changed. Read the page again."));
+    }
+  }
   const metadata = pageMetadataRows(media?.metadata);
   const images = media?.images ?? [];
   if (!text?.trim() && !links?.length && !tables?.length && !metadata.length && !images.length && !frames.length && !recognized.length) {
@@ -67,7 +74,7 @@ export function browserNoteContent(capture, selectionOnly = false, { includeLink
   return [
     `${t("Source")}: ${quotedPageText(capture.page.url)}`,
     `${t("Captured at")}: ${quotedPageText(capture.capturedAt)}`,
-    (shortened ?? capture.page.truncated) ? t(warning) : "",
+    !imageTextOnly && (shortened ?? capture.page.truncated) ? t(warning) : "",
     ...(text?.trim() ? [`## ${t(selectionOnly ? "Selected text" : "Page content")}`, quotedPageText(text)] : []),
     ...(links?.length ? [`## ${t("Page links")}`, ...links.map(linkMarkdown)] : []),
     links?.length && capture.page.linksTruncated ? t("Only some page links are shown.") : "",
@@ -142,14 +149,14 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
       if (!current()) throw new Error(t("Page or destination changed. Read the page again."));
       return result.snapshot.notebooks;
     },
-    async save({ notebookId, notebookTitle, title, selectionOnly, includeLinks, includeTables, tableIndexes, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText }) {
+    async save({ notebookId, notebookTitle, title, selectionOnly, includeLinks, includeTables, tableIndexes, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText, imageTextOnly }) {
       if (saved) return saved;
       if (pending) throw new Error(t("Saving…"));
       pending = true;
       try {
         const analysisSource = analysis && browserAnalysisPageSource(capture, analysis);
         const content = analysisSource ? browserAnalysisNoteContent(analysisSource, analysis, capture)
-          : browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, tableIndexes, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText });
+          : browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, tableIndexes, includeMedia, includeFrames, frameIndexes, includeFrameLinks, imageText, imageTextOnly });
         title = title.trim(); notebookTitle = notebookTitle?.trim();
         if (!title || [...title].length > 200) throw new Error(t("Enter a note title of up to 200 characters."));
         if (!notebookId && (!notebookTitle || [...notebookTitle].length > 200)) throw new Error(t("Enter a notebook title of up to 200 characters."));
