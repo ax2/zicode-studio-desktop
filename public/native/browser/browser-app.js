@@ -59,6 +59,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const pendingZoom = new Set();
   const historyStates = new Map();
   const historyButtons = new Map();
+  let refreshNavigationLanguage;
   const favicons = new Map();
   const creatingTabs = new Map();
   const creatingPopups = new Map();
@@ -592,12 +593,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   function paintHistoryControls() {
     for (const [action, button] of historyButtons) button.disabled = !canTraverseHistory(active, action);
   }
-  function paint() {
-    if (siteSettingsPanel && !siteSettingsPanel.current()) siteSettingsPanel.panel.invalidate();
-    paintStatus();
-    paintHistoryControls();
-    refreshDeveloperTools?.();
-    bookmarkButton.disabled = !/^https?:/.test(selected()?.url ?? "");
+  function paintReloadControl() {
     const loading = navigationStates.get(active) === "loading";
     reloadButton.textContent = loading ? "×" : "↻";
     const reloadLabel = t(loading ? "Stop loading" : "Reload");
@@ -605,6 +601,14 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     reloadButton.setAttribute("aria-label", reloadLabel);
     if (loading) reloadButton.removeAttribute("aria-keyshortcuts");
     else reloadButton.setAttribute("aria-keyshortcuts", "F5 Control+r");
+  }
+  function paint() {
+    if (siteSettingsPanel && !siteSettingsPanel.current()) siteSettingsPanel.panel.invalidate();
+    paintStatus();
+    paintHistoryControls();
+    refreshDeveloperTools?.();
+    bookmarkButton.disabled = !/^https?:/.test(selected()?.url ?? "");
+    paintReloadControl();
     const focusedTab = tabStripControls.focusedControl();
     if (!ordering.dragging) {
     tabsHost.replaceChildren();
@@ -857,11 +861,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const menuLanguage = () => { if (nativeTabs.size) void control({ kind: "menuLanguage", chinese: t("Find in page") !== "Find in page" }).catch(report); };
     window.addEventListener("zicode:locale-changed", () => {
       menuLanguage();
+      refreshNavigationLanguage?.();
       paintStatus();
       if (siteSettingsPanel?.current()) siteSettingsPanel.panel.setBlockedPermissions(blockedPermissions.get(active));
       refreshDeveloperTools?.();
     });
-    menuLanguage(); paint();
+    menuLanguage(); refreshNavigationLanguage?.(); paint();
     await syncSurface();
   }
   let tabLayoutInput, pageBody, verticalTabs = false;
@@ -886,8 +891,6 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     tabsHost = document.createElement("div"); tabsHost.className = "browser-tabs"; tabsHost.setAttribute("role", "tablist"); tabsHost.setAttribute("aria-label", t("Browser tabs"));
     ordering = setupBrowserTabOrdering(tabsHost, { onMove: change => void act(() => reorder(change)), onFinish: paint });
     const newTab = makeButton("+", add);
-    newTab.setAttribute("aria-label", t("New tab"));
-    newTab.title = `${t("New tab")} (Ctrl+T)`;
     newTab.setAttribute("aria-keyshortcuts", "Control+t");
     tabStripControls = createBrowserTabStrip(tabsHost, newTab);
     tabMenu = setupBrowserTabMenu(tabsHost, {
@@ -926,14 +929,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     });
     strip.append(tabStripControls.element, newTab);
     const nav = document.createElement("form"); nav.className = "browser-navigation";
-    for (const [action, label, glyph] of [["back", "Back", "←"], ["forward", "Forward", "→"]]) {
+    for (const [action, glyph] of [["back", "←"], ["forward", "→"]]) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "ui-button ui-button--ghost";
       button.textContent = glyph;
-      button.setAttribute("aria-label", t(label));
       const shortcut = action === "back" ? "ArrowLeft" : "ArrowRight";
-      button.title = `${t(label)} (Alt+${action === "back" ? "←" : "→"})`;
       button.setAttribute("aria-keyshortcuts", `Alt+${shortcut}`);
       button.disabled = true;
       button.addEventListener("click", () => {
@@ -944,12 +945,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       nav.append(button);
     }
     reloadButton = makeButton("↻", reloadOrStop);
-    reloadButton.setAttribute("aria-label", t("Reload")); reloadButton.title = t("Reload"); nav.append(reloadButton);
+    nav.append(reloadButton);
     address = document.createElement("input"); address.className = "ui-input browser-address";
-    address.setAttribute("aria-label", t("Web address")); address.placeholder = t("Search or enter a web address"); address.spellcheck = false;
+    address.spellcheck = false;
     addressEditor = createBrowserAddressEditor(address);
     const go = document.createElement("button");
-    go.type = "submit"; go.className = "ui-button ui-button--ghost browser-go"; go.textContent = t("Go");
+    go.type = "submit"; go.className = "ui-button ui-button--ghost browser-go"; go.dataset.i18nText = "Go";
     nav.append(address, go);
     const identity=document.createElement("span");identity.className="browser-profile-identity";identity.hidden=true;nav.append(identity);
     nav.addEventListener("submit", event => {
@@ -1089,15 +1090,27 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     read.setAttribute("aria-expanded", "false");
     read.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h7l2 2h7v16h-7l-2-2H4zM13 5v16M7 7h3M7 11h3M16 9h1M16 13h1"/></svg>';
     bookmarkButton = makeButton("", () => openBookmarks(true)); bookmarkButton.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost browser-bookmark-toggle";
-    bookmarkButton.title = `${t("Bookmark this page")} (Ctrl+D)`;
-    bookmarkButton.setAttribute("aria-label", t("Bookmark this page"));
     bookmarkButton.setAttribute("aria-keyshortcuts", "Control+d");
     bookmarkButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>';
     const downloads = makeButton("", () => openDownloads()); downloads.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost browser-downloads-open";
-    downloads.title = `${t("Downloads")} (Ctrl+J)`;
-    downloads.setAttribute("aria-label", t("Downloads"));
     downloads.setAttribute("aria-keyshortcuts", "Control+j");
     downloads.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>';
+    refreshNavigationLanguage = () => {
+      address.setAttribute("aria-label", t("Web address"));
+      address.placeholder = t("Search or enter a web address");
+      go.textContent = t("Go");
+      const controls = [
+        [historyButtons.get("back"), "Back", "Alt+←"], [historyButtons.get("forward"), "Forward", "Alt+→"],
+        [bookmarkButton, "Bookmark this page", "Ctrl+D"], [downloads, "Downloads", "Ctrl+J"], [newTab, "New tab", "Ctrl+T"],
+      ];
+      for (const [button, label, shortcut] of controls) {
+        const text = t(label);
+        button.setAttribute("aria-label", text);
+        button.title = `${text} (${shortcut})`;
+      }
+      paintReloadControl();
+    };
+    refreshNavigationLanguage();
     footer.append(status, fullscreen.exit, bookmarkButton, read, downloads, options);
     viewport = document.createElement("div"); viewport.className = "browser-viewport";
     const pageArea = document.createElement("div"); pageArea.className = "browser-page-area";
@@ -1458,6 +1471,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     newTabShortcuts.select(null);
   }
   return {
+    handlesLocaleChange: true,
     async finishWindowWrites() { await actionTail; await saveTail; },
     async openSource(url, current) {
       await initPromise;
