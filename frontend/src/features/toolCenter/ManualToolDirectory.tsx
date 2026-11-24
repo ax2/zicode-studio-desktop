@@ -307,6 +307,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
       <ManualToolSession key={JSON.stringify([scope.sceneId, scope.workspaceId, item.tool.toolId, item.revision, reloadCount])}
         onDirectory={() => setActiveTool(null)} api={api} scope={scope} tool={item.tool} revision={item.revision} accessStore={accessStore}
         initialDraft={seededDraft?.values} onOpenWorkbenchDraft={receiverFrom(item)}
+        workbenchDraftActive={activeTool === item.tool.toolId}
         draftReaderRef={isWorkbenchDraftTool(item.tool) ? reader => {
           if (reader) readers.current.set(item.tool.toolId, reader); else readers.current.delete(item.tool.toolId);
         } : undefined}

@@ -86,14 +86,15 @@ export async function readManualToolFile(
   return target === "right" ? { options } : { text, options };
 }
 
-async function readUtf8ToolFile(file: File, sizeError: string, readError: string): Promise<string> {
+export async function readUtf8ToolFile(file: File, sizeError: string, readError: string, maxBytes = maxFileBytes): Promise<string> {
+  if (file.size > maxBytes) throw Error(sizeError);
   let data: ArrayBuffer;
   try {
-    data = await file.slice(0, maxFileBytes + 1).arrayBuffer();
+    data = await file.slice(0, maxBytes + 1).arrayBuffer();
   } catch {
     throw Error(readError);
   }
-  if (data.byteLength > maxFileBytes) throw Error(sizeError);
+  if (data.byteLength > maxBytes) throw Error(sizeError);
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(data);
   } catch {

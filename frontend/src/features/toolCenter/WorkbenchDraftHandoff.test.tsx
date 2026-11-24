@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
 import { ManualToolDirectory } from "./ManualToolDirectory";
+import { workbenchDraftFile } from "./workbench-draft-file";
 import type { ManualTool, ManualToolApi } from "./manual-tools";
 
 const pluginId = "com.zicode.devtools.compute";
@@ -432,5 +433,71 @@ it("uses the current tool details when a previous gateway's response arrives lat
   await closeWorkbench("query", "Keep draft and close");
   await open("query");
   expect(editor("text").value).toBe(instance);
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
+function draftSelection(contents: string, name = "previous-draft.json") {
+  const bytes = new TextEncoder().encode(contents);
+  const file = {
+    name, size: bytes.length,
+    slice: () => ({ arrayBuffer: async () => bytes.buffer }),
+  };
+  const picker = screen.getByLabelText("Workbench draft file");
+  fireEvent.change(picker, { target: { files: [file] } });
+}
+
+it("reviews a selected draft, restores all inputs and supports undo without writing or running", async () => {
+  const { api, requestTool } = setup();
+  requestTool("query");
+  await screen.findByRole("form", { name: "Tool inputs" });
+  fireEvent.change(editor("text"), { target: { value: "previous editor value" } });
+  fireEvent.change(editor("options"), { target: { value: '{"format":"csv"}' } });
+  const options = ' { "format": "json", "query": "keep", "output":"tsv", "sort":"id", "descending":true } ';
+  const draft = workbenchDraftFile(tools[0], { text: instance, options })!;
+  draftSelection(draft);
+  let confirmation = await screen.findByRole("group", { name: "Review workbench draft" });
+  expect(confirmation.textContent).toContain("previous-draft.json");
+  expect(editor("text").value).toBe("previous editor value");
+  fireEvent.click(within(confirmation).getByRole("button", { name: "Cancel" }));
+  expect(editor("text").value).toBe("previous editor value");
+  draftSelection(draft);
+  confirmation = await screen.findByRole("group", { name: "Review workbench draft" });
+  fireEvent.click(within(confirmation).getByRole("button", { name: "Replace current draft" }));
+  await waitFor(() => expect(editor("text").value).toBe(instance));
+  expect(editor("options").value).toBe(options);
+  expect(api.invoke).not.toHaveBeenCalled();
+  expect(api.loadTool).toHaveBeenCalledTimes(2);
+  await click("Undo last import");
+  expect(editor("text").value).toBe("previous editor value");
+  expect(editor("options").value).toBe('{"format":"csv"}');
+});
+
+it("will not restore an old selection after edits, a tab switch or a changed live version", async () => {
+  const { api, requestTool } = setup();
+  requestTool("query");
+  await screen.findByRole("form", { name: "Tool inputs" });
+  const draft = workbenchDraftFile(tools[0], { text: instance })!;
+  draftSelection(draft);
+  await screen.findByRole("group", { name: "Review workbench draft" });
+  fireEvent.change(editor("text"), { target: { value: "edits after selection" } });
+  expect(screen.queryByRole("group", { name: "Review workbench draft" })).toBeNull();
+
+  draftSelection(draft);
+  await screen.findByRole("group", { name: "Review workbench draft" });
+  requestTool("json");
+  await screen.findByRole("form", { name: "Tool inputs" });
+  draftSelection(draft);
+  expect((await screen.findByRole("alert")).textContent).toContain("belongs to a different tool");
+  requestTool("query");
+  await waitFor(() => expect(editor("text").value).toBe("edits after selection"));
+  expect(screen.queryByRole("group", { name: "Review workbench draft" })).toBeNull();
+
+  draftSelection(draft);
+  const confirmation = await screen.findByRole("group", { name: "Review workbench draft" });
+  const base = await api.loadTool(scope.sceneId, { pluginId, capabilityId: tools[0].capabilityId, revision });
+  api.loadTool.mockResolvedValueOnce({ ...base, version: "0.3.0" });
+  fireEvent.click(within(confirmation).getByRole("button", { name: "Replace current draft" }));
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("workbench changed"));
+  expect(editor("text").value).toBe("edits after selection");
   expect(api.invoke).not.toHaveBeenCalled();
 });
