@@ -1,5 +1,5 @@
 import { OpenToolTabs } from "./OpenToolTabs";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { ToolAccessScope, ToolAccessStore } from "../commandPalette/tool-access";
 import { useToolAccess } from "../commandPalette/use-tool-access";
@@ -12,6 +12,7 @@ import { useFileToolFilter } from "./use-file-tool-filter";
 import { type ManualTool, type ManualToolApi, type ToolPage, type ToolDirectoryView, type ToolOpenRequest, type ViewOperation, manualToolError } from "./manual-tools";
 import { initialTrayToolView, subscribeTrayToolView } from "./tray-tool-view";
 import { resolveWorkbenchDraftReceiver, type OpenWorkbenchDraft } from "./workbench-draft-handoff";
+import { findWorkbenchDraft, isWorkbenchDraftTool, type KeptWorkbenchDrafts, type WorkbenchDraftReader } from "./workbench-session-draft";
 
 type DraftScope = ToolAccessScope & { api: ManualToolApi };
 type OpenedTool = ToolOpenRequest & { reloadCount?: number; draft?: { scope: DraftScope; values: Record<string, string> } };
@@ -42,6 +43,15 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   const draftScope = useMemo(() => ({ api, sceneId: scope.sceneId, workspaceId: scope.workspaceId }), [api, scope.sceneId, scope.workspaceId]);
   const draftAction = useMemo(() => ({ draftScope, activeTool, catalogRevision }), [draftScope, activeTool, catalogRevision]);
   const currentDraftAction = useRef<typeof draftAction | null>(null);
+  const kept = useMemo(() => ({ draftScope, catalogRevision, drafts: new Map() as KeptWorkbenchDrafts }), [draftScope, catalogRevision]);
+  const readers = useRef(new Map<string, WorkbenchDraftReader>());
+  useLayoutEffect(() => () => kept.drafts.clear(), [kept]);
+  const reopen = useCallback((request: ToolOpenRequest): OpenedTool => {
+    const saved = findWorkbenchDraft(kept.drafts, request);
+    if (!saved) return request;
+    kept.drafts.delete(request.tool.capabilityId);
+    return { ...request, draft: { scope: kept.draftScope, values: saved.values } };
+  }, [kept]);
   const openedRef = useRef(opened);
   openedRef.current = opened;
   useLayoutEffect(() => {
@@ -62,6 +72,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
       if (!available()) throw new Error("catalog_changed");
       const existing = openedRef.current;
       if (existing.some(item => item.tool.toolId === target.tool.toolId)) throw new Error("workbench_receiver_open");
+      if (findWorkbenchDraft(kept.drafts, target)) throw new Error("workbench_receiver_kept");
       if (existing.length >= 8) throw new Error("tool_tabs_full");
       setOpened(previous => previous.length < 8 && !previous.some(item => item.tool.toolId === target.tool.toolId)
         ? [...previous, { tool: target.tool, revision: target.revision, draft: { scope: draftScope, values: target.values } }] : previous);
@@ -69,7 +80,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     };
   }
   const [runningTools, setRunningTools] = useState<string[]>([]);
-  const [closeTarget, setCloseTarget] = useState<{ toolId: string; title: string; trigger: HTMLButtonElement; sceneId: string; workspaceId: string } | null>(null);
+  const [closeTarget, setCloseTarget] = useState<{ toolId: string; title: string; trigger: HTMLButtonElement; sceneId: string; workspaceId: string; keepOwner?: typeof kept } | null>(null);
   const runningToolsRef = useRef<string[]>([]);
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
@@ -110,10 +121,28 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     consumedRequest.current = requestedTool;
     if (!opened.some(item => item.tool.toolId === requestedTool.tool.toolId)) {
       if (opened.length >= 8) { setError("Close an opened tool before opening another."); setActiveTool(null); return; }
-      setOpened(previous => [...previous, requestedTool]);
+      const restored = reopen(requestedTool);
+      setOpened(previous => [...previous, restored]);
     }
     setActiveTool(requestedTool.tool.toolId);
-  }, [requestedTool, opened]);
+  }, [requestedTool, opened, reopen]);
+  function closeTool(keepDraft: boolean) {
+    if (!closeTarget || runningToolsRef.current.includes(closeTarget.toolId) ||
+        closeTarget.sceneId !== scope.sceneId || closeTarget.workspaceId !== scope.workspaceId) return;
+    const index = opened.findIndex(item => item.tool.toolId === closeTarget.toolId);
+    const entry = opened[index];
+    if (!entry) return;
+    if (keepDraft) {
+      const values = readers.current.get(closeTarget.toolId)?.();
+      if (closeTarget.keepOwner !== kept || !values || !isWorkbenchDraftTool(entry.tool)) return;
+      kept.drafts.set(entry.tool.capabilityId, { tool: entry.tool, revision: entry.revision, values });
+    } else if (isWorkbenchDraftTool(entry.tool)) {
+      kept.drafts.delete(entry.tool.capabilityId);
+    }
+    setOpened(previous => previous.filter(item => item.tool.toolId !== closeTarget.toolId));
+    if (activeTool === closeTarget.toolId) setActiveTool((opened[index + 1] ?? opened[index - 1])?.tool.toolId ?? null);
+    setCloseTarget(null);
+  }
   function changePage(offset: number, revision: string) {
     setCursor({ offset, revision, ...(effectiveView !== "all" ? { accessRevision: page?.accessRevision } : {}) });
     directory.current?.scrollIntoView?.({ block: "start" });
@@ -166,7 +195,8 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   return <div className="manual-tool-directory" ref={directory}>
     <OpenToolTabs opened={opened} active={activeTool} running={runningTools} strip={switcher} selected={selectedButton}
       onSelect={setActiveTool} onClose={(tool, trigger) => setCloseTarget({ toolId: tool.toolId, title: tool.title,
-        trigger, sceneId: scope.sceneId, workspaceId: scope.workspaceId })} />
+        trigger, sceneId: scope.sceneId, workspaceId: scope.workspaceId,
+        keepOwner: readers.current.get(tool.toolId)?.() ? kept : undefined })} />
     <div hidden={activeTool !== null} className="manual-tool-directory-list">
     {accessStore && <fieldset className="ui-toolbar" aria-label={t("Tool list")}>
       {(["all", "favorites", "recent"] as const).map(value => <button key={value} type="button"
@@ -250,7 +280,8 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
               }
               if (!opened.some(item => item.tool.toolId === tool.toolId)) {
                 if (opened.length >= 8) { setError("Close an opened tool before opening another."); return; }
-                setOpened(previous => [...previous, { tool, revision: page.revision }]);
+                const restored = reopen({ tool, revision: page.revision });
+                setOpened(previous => [...previous, restored]);
               }
               setActiveTool(tool.toolId);
             }}>{t(tool.kind === "view-operation" ? "Open in application" : "Open tool")}</button>
@@ -276,6 +307,9 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
       <ManualToolSession key={JSON.stringify([scope.sceneId, scope.workspaceId, item.tool.toolId, item.revision, reloadCount])}
         onDirectory={() => setActiveTool(null)} api={api} scope={scope} tool={item.tool} revision={item.revision} accessStore={accessStore}
         initialDraft={seededDraft?.values} onOpenWorkbenchDraft={receiverFrom(item)}
+        draftReaderRef={isWorkbenchDraftTool(item.tool) ? reader => {
+          if (reader) readers.current.set(item.tool.toolId, reader); else readers.current.delete(item.tool.toolId);
+        } : undefined}
         onReload={async () => {
           if (runningToolsRef.current.includes(item.tool.toolId)) throw Object.assign(new Error("Tool is still running"), { code: "manual_call_busy" });
           const requestedScene = scope.sceneId, requestedWorkspace = scope.workspaceId;
@@ -304,14 +338,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     {closeTarget && closeTarget.sceneId === scope.sceneId && closeTarget.workspaceId === scope.workspaceId && <ToolCloseConfirmation
       title={closeTarget.title} trigger={closeTarget.trigger} busy={runningTools.includes(closeTarget.toolId)} onCancel={() => setCloseTarget(null)}
       restoreFocus={() => (selectedButton.current ?? switcher.current?.querySelector<HTMLButtonElement>("button"))?.focus({ preventScroll: true })}
-      onConfirm={() => {
-        if (runningToolsRef.current.includes(closeTarget.toolId) || closeTarget.sceneId !== scope.sceneId || closeTarget.workspaceId !== scope.workspaceId) return;
-        setOpened(previous => previous.filter(item => item.tool.toolId !== closeTarget.toolId));
-        if (activeTool === closeTarget.toolId) {
-          const index = opened.findIndex(item => item.tool.toolId === closeTarget.toolId);
-          setActiveTool((opened[index + 1] ?? opened[index - 1])?.tool.toolId ?? null);
-        }
-        setCloseTarget(null);
-      }} />}
+      onKeepDraft={closeTarget.keepOwner === kept ? () => closeTool(true) : undefined}
+      onConfirm={() => closeTool(false)} />}
   </div>;
 }

@@ -3029,7 +3029,7 @@
       "producerMigration": "await_host",
       "integrationStatus": "await_host_extension",
       "requiredProfile": "resource.v1；纯计算子集可先交付",
-      "reason": "Studio已验证确认资源输入/WASI消费/二进制输出/跨owner接力，以及resource.save.draft1保存与resource.library.draft1项目检索/分页/按需校验预览/原始下载；证据为源码HTTP Host/生产Worker/隔离Edge，非提供方算法。正式resource.v1、原生GUI/真实实包、统一备份/导入和完整scope仍待。 2026-11-25：冻结 Compute 0.2.0 的三个工作台入口已验证 8 KiB 文件导入、确认保存和结果应用至当前草稿、撤销、列序、空表与精确整数。同工作区可确认将有界实际表格和格式接给正常转换表单，手动执行及旧草稿保护已验。更大输入、持久实例和通用跨工具／跨工作区接力仍待。",
+      "reason": "Studio已验证确认资源输入/WASI消费/二进制输出/跨owner接力，以及resource.save.draft1保存与resource.library.draft1项目检索/分页/按需校验预览/原始下载；证据为源码HTTP Host/生产Worker/隔离Edge，非提供方算法。正式resource.v1、原生GUI/真实实包、统一备份/导入和完整scope仍待。 2026-11-25：冻结 Compute 0.2.0 的三个工作台入口已验证 8 KiB 文件导入、确认保存和结果应用至当前草稿、撤销、列序、空表与精确整数。同工作区可确认将有界实际表格和格式接给正常转换表单，手动执行及旧草稿保护已验。关闭时可显式保留三个工作台的内存草稿，重开恢复正文和设置。更大输入、跨程序重启的持久实例及通用跨工具／跨工作区接力仍待。",
       "owner": "Studio资源/结果Host；DevTools工具适配",
       "unblockCondition": "版本化资源grant、文件身份/内容版本、写入预览/冲突/恢复和conformance完成后交付实包",
       "workaround": "小型表格可使用独立 Compute 插件，持久工作实例及更大输入继续使用原生独立版。",

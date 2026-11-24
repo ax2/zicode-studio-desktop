@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { ToolAccessScope, ToolAccessStore } from "../commandPalette/tool-access";
 import { type ManualTool, type ManualToolApi, type ToolDetail, manualToolError, supportsResultActions } from "./manual-tools";
@@ -18,6 +18,7 @@ import { prepareTransformApply, type TransformInput } from "./data-transform-app
 import { MergeResultActions } from "./MergeResultActions";
 import { WorkbenchDraftHandoff } from "./WorkbenchDraftHandoff";
 import type { OpenWorkbenchDraft } from "./workbench-draft-handoff";
+import { isWorkbenchDraftTool, snapshotWorkbenchDraft, type WorkbenchDraftReader } from "./workbench-session-draft";
 import { prepareWorkbenchApply, type WorkbenchDraft } from "./data-workbench-apply";
 import { prepareMergeApply, type MergeSide } from "./data-merge-apply";
 import { readManualToolFile, tableFileFormats, type ToolFileTarget } from "./manual-tool-file";
@@ -59,6 +60,7 @@ export interface ManualToolDetailProps {
   resourceSession?: ResourceSessionOwner;
   onReload?(): Promise<void>;
   initialDraft?: Record<string, string>;
+  draftReaderRef?(reader: WorkbenchDraftReader | null): void;
   onOpenWorkbenchDraft?: OpenWorkbenchDraft;
 }
 
@@ -85,10 +87,13 @@ export function ManualToolDetail(props: ManualToolDetailProps) {
   return <ManualToolDetailView {...props} call={call} />;
 }
 
-export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, initialDraft, onOpenWorkbenchDraft, call }: ManualToolDetailProps & {
+export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, initialDraft, draftReaderRef, onOpenWorkbenchDraft, call }: ManualToolDetailProps & {
   call: ReturnType<typeof useManualToolCall>;
 }) {
-  const [detail, setDetail] = useState<ToolDetail | null>(null);
+  const detailOwner = useMemo(() => ({ api, sceneId: scope.sceneId, pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision }),
+    [api, scope.sceneId, tool.pluginId, tool.capabilityId, revision]);
+  const [loadedDetail, setLoadedDetail] = useState<{ owner: typeof detailOwner; value: ToolDetail } | null>(null);
+  const detail = loadedDetail?.owner === detailOwner ? loadedDetail.value : null;
   const detailId = useId();
   const [{ values, undo }, setDraft] = useState<ToolDraft>(() => ({ values: initialDraft ?? {} }));
   const [error, setError] = useState("");
@@ -126,12 +131,14 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     return () => window.removeEventListener("beforeunload", warn);
   }, [editingLocked, resourceBusy]);
   useEffect(() => {
+    let loadingCurrentDetail = true;
     alive.current = true;
-    void api.loadTool(scope.sceneId, { pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision })
-      .then(value => { if (alive.current) setDetail(value); })
-      .catch(reason => { if (alive.current) { setError(manualToolError(reason)); setStale(isStaleToolError(reason)); } });
-    return () => { alive.current = false; };
-  }, [api, scope.sceneId, tool.pluginId, tool.capabilityId, revision]);
+    const { api, sceneId, ...request } = detailOwner;
+    void api.loadTool(sceneId, request)
+      .then(value => { if (loadingCurrentDetail) setLoadedDetail({ owner: detailOwner, value }); })
+      .catch(reason => { if (loadingCurrentDetail) { setError(manualToolError(reason)); setStale(isStaleToolError(reason)); } });
+    return () => { loadingCurrentDetail = false; alive.current = false; };
+  }, [detailOwner]);
   const fields = detail ? toolFields(detail.capability.inputSchema) : null;
   const permissionNeeded = detail?.permissions.some(permission => permission.required && permission.name !== "pi.tools.register");
   const supported = detail && fields && tool.runtime !== "builtin" && !permissionNeeded;
@@ -149,7 +156,16 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const rightMergeTarget = independentMerge ? "merge-right" : "right";
   const tableWorkbench = computePlugin &&
     ["json", "csv", "query"].some(mode => tool.capabilityId === `devtools.compute.table.${mode}`);
-  const workbenchApply = tableWorkbench && tool.version === "0.2.0" && detail?.version === tool.version;
+  const workbenchApply = isWorkbenchDraftTool(tool) && detail?.version === tool.version;
+  const readableDraft = useRef<Record<string, string> | null>(null);
+  const canReadDraft = workbenchApply && detail?.enabled && detail.revision === revision &&
+    detail.pluginId === tool.pluginId && detail.capability.id === tool.capabilityId && supported && !resourceTool && !editingLocked;
+  useLayoutEffect(() => { readableDraft.current = canReadDraft ? values : null; }, [canReadDraft, values]);
+  useLayoutEffect(() => {
+    if (!draftReaderRef) return;
+    draftReaderRef(() => readableDraft.current && snapshotWorkbenchDraft(readableDraft.current));
+    return () => draftReaderRef(null);
+  }, [draftReaderRef]);
   const qualityFormat = computePlugin
     ? tableFileFormats.find(format => tool.capabilityId === "devtools.compute.quality." + format)
     : undefined;
