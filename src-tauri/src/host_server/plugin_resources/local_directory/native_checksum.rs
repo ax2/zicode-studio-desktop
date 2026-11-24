@@ -137,10 +137,10 @@ impl HostServer {
                         .ok_or_else(invalid_path)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let expected = authorize(&state, &owner, true, Some(&context))?;
+            let expected = authorize(&state, &owner, DirectoryAccess::Checksum, Some(&context))?;
             let directory = open_picked_directory(&path)?;
             let files = checksum::freeze_selection(&directory, &names)?;
-            if authorize(&state, &owner, true, Some(&context))? != expected {
+            if authorize(&state, &owner, DirectoryAccess::Checksum, Some(&context))? != expected {
                 return Err(rejected("resource_authorization_changed"));
             }
             let grant_id = issue_grant(

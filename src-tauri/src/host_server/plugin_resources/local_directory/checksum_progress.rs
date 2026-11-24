@@ -34,7 +34,7 @@ impl Purpose {
         match self {
             Self::Checksum(entries) => Some(entries.len()),
             Self::GenerateChecksum(files) => Some(files.len()),
-            Self::Metadata => None,
+            Self::Metadata | Self::Usage => None,
         }
     }
 }

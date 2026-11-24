@@ -3,6 +3,7 @@
 mod checksum;
 mod checksum_progress;
 mod native_checksum;
+mod usage;
 pub(super) use native_checksum::open_picked_file;
 
 use super::{export::Context, *};
@@ -14,6 +15,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 const TTL: Duration = Duration::from_secs(120);
 const MAX_ENTRIES: usize = 4096;
+const METADATA_PROFILE: &str = "resource.local-directory.draft1";
 const MAX_SNAPSHOT_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Deserialize)]
@@ -22,6 +24,7 @@ pub(in crate::host_server) struct PrepareDirectory {
     schema_version: u32,
     owner: Owner,
     relative_path: String,
+    profile: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -36,8 +39,26 @@ pub(in crate::host_server) struct DirectoryGrantRequest {
 
 enum Purpose {
     Metadata,
+    Usage,
     Checksum(Vec<checksum::Entry>),
     GenerateChecksum(Vec<checksum::SelectedFile>),
+}
+
+#[derive(Clone, Copy)]
+enum DirectoryAccess {
+    Metadata,
+    Usage,
+    Checksum,
+}
+
+impl Purpose {
+    fn access(&self) -> DirectoryAccess {
+        match self {
+            Self::Metadata => DirectoryAccess::Metadata,
+            Self::Usage => DirectoryAccess::Usage,
+            Self::Checksum(_) | Self::GenerateChecksum(_) => DirectoryAccess::Checksum,
+        }
+    }
 }
 
 struct Grant {
@@ -64,9 +85,12 @@ impl Selection {
         }
     }
 
-    fn open(&self, workspace_root: &Path) -> Result<Dir, ApiError> {
+    fn open(&self, workspace_root: &Path, access: DirectoryAccess) -> Result<Dir, ApiError> {
         match self {
             Self::Picked(selection) => native_checksum::open_picked_directory(&selection.path),
+            Self::Workspace(relative) if matches!(access, DirectoryAccess::Usage) => {
+                native_checksum::open_picked_directory(&workspace_root.join(relative))
+            }
             Self::Workspace(relative) => open_directory(workspace_root, relative),
         }
     }
@@ -230,7 +254,7 @@ impl Drop for Lease {
 fn authorize(
     state: &HostState,
     owner: &Owner,
-    checksum: bool,
+    access: DirectoryAccess,
     context: Option<&Context>,
 ) -> Result<(PathBuf, String, String), ApiError> {
     let (root, proof) = local_file::scope(state, owner)?;
@@ -257,15 +281,12 @@ fn authorize(
         .execution_plugin(&scene, &owner.plugin_id)
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| rejected("resource_plugin_unavailable"))?;
-    let permission = if checksum {
-        if owner.plugin_id != "com.zicode.devtools.files"
-            || owner.capability_id != crate::plugin_resource_execution::file_digest::CAPABILITY
-        {
-            return Err(rejected("resource_directory_profile_unsupported"));
-        }
-        "resource.read"
-    } else {
-        "resource.directory.read"
+    let permission = match access {
+        DirectoryAccess::Metadata => "resource.directory.read",
+        DirectoryAccess::Usage if owner.plugin_id == usage::PLUGIN && owner.capability_id == usage::CAPABILITY => usage::PERMISSION,
+        DirectoryAccess::Checksum if owner.plugin_id == "com.zicode.devtools.files"
+            && owner.capability_id == crate::plugin_resource_execution::file_digest::CAPABILITY => "resource.read",
+        _ => return Err(rejected("resource_directory_profile_unsupported")),
     };
     if !plugin
         .manifest
@@ -457,7 +478,7 @@ fn snapshot(
     entries.sort_by(|left, right| left["name"].as_str().cmp(&right["name"].as_str()));
     let count = entries.len();
     let bytes = serde_json::to_vec(
-        &json!({"schemaVersion":1,"profile":"resource.local-directory.draft1",
+        &json!({"schemaVersion":1,"profile":METADATA_PROFILE,
         "entries":entries}),
     )
     .map_err(|_| rejected("resource_directory_unavailable"))?;
@@ -477,12 +498,16 @@ pub(in crate::host_server) async fn prepare(
         return Err(rejected("resource_schema_unsupported"));
     }
     validate_path(&request.relative_path)?;
-    let profile = "resource.local-directory.draft1";
+    let (profile, purpose) = match request.profile.as_deref() {
+        None | Some(METADATA_PROFILE) => (METADATA_PROFILE, Purpose::Metadata),
+        Some(usage::PROFILE) => (usage::PROFILE, Purpose::Usage),
+        _ => return Err(rejected("resource_directory_profile_unsupported")),
+    };
     blocking(state.clone(), move || {
         let grant_id = issue_grant(
             &state,
             request.owner.clone(),
-            Purpose::Metadata,
+            purpose,
             Selection::Workspace(request.relative_path.clone()),
         )?;
         Ok(
@@ -501,11 +526,11 @@ fn issue_grant(
     selection: Selection,
 ) -> Result<String, ApiError> {
     let context = selection.context();
-    let checksum = !matches!(purpose, Purpose::Metadata);
-    let expected = authorize(state, &owner, checksum, context)?;
-    let directory = selection.open(&expected.0)?;
+    let access = purpose.access();
+    let expected = authorize(state, &owner, access, context)?;
+    let directory = selection.open(&expected.0, access)?;
     let directory_stamp = stamp(&directory)?;
-    if authorize(state, &owner, checksum, context)? != expected {
+    if authorize(state, &owner, access, context)? != expected {
         return Err(rejected("resource_authorization_changed"));
     }
     let (root, proof, registry_revision) = expected;
@@ -563,27 +588,41 @@ async fn commit_grant(
             grant.proof.clone(),
             grant.registry_revision.clone(),
         );
+        let access = grant.purpose.access();
         let check_authority = || {
             control.check()?;
-            if authorize(&state, &request.owner, !matches!(grant.purpose, Purpose::Metadata), context.as_ref())? != expected {
+            if authorize(&state, &request.owner, access, context.as_ref())? != expected {
                 return Err(rejected("resource_authorization_changed"));
             }
             Ok(())
         };
         check_authority()?;
-        let directory = grant.selection.open(&grant.root)?;
+        let directory = grant.selection.open(&grant.root, access)?;
         match &grant.purpose {
-            Purpose::Metadata => {
-                let (bytes, count) = snapshot(&directory, &grant.stamp, &control)?;
+            Purpose::Metadata | Purpose::Usage => {
+                let (profile, bytes, count, partial) = if matches!(grant.purpose, Purpose::Usage) {
+                    let scan = usage::snapshot(&directory, &grant.stamp, &control, &check_authority)?;
+                    let current = grant.selection.open(&grant.root, access)?;
+                    if stamp(&current)? != grant.stamp {
+                        return Err(rejected("resource_directory_changed"));
+                    }
+                    (usage::PROFILE, scan.bytes, scan.entry_count, Some(scan.partial))
+                } else {
+                    let (bytes, count) = snapshot(&directory, &grant.stamp, &control)?;
+                    (METADATA_PROFILE, bytes, count, None)
+                };
                 check_authority()?;
                 let mut store = state
                     .plugin_resources
                     .lock()
                     .map_err(|_| rejected("resource_store_unavailable"))?;
                 control.check()?;
-                let mut result = store.import_directory(request.owner, grant.proof, bytes)?;
+                let mut result = store.import_directory(request.owner, grant.proof, bytes, profile)?;
                 control.published();
                 result["entryCount"] = json!(count);
+                if let Some(partial) = partial {
+                    result["partial"] = json!(partial);
+                }
                 Ok(result)
             }
             purpose => {
@@ -599,9 +638,9 @@ async fn commit_grant(
                         let files = checksum::generate(&directory, selected, &control, &check_authority)?;
                         json!({"schemaVersion":1,"profile":checksum::GENERATE_PROFILE,"files":files})
                     }
-                    Purpose::Metadata => unreachable!("metadata already handled"),
+                    Purpose::Metadata | Purpose::Usage => unreachable!("snapshot already handled"),
                 };
-                let current_directory = grant.selection.open(&grant.root)?;
+                let current_directory = grant.selection.open(&grant.root, access)?;
                 if stamp(&current_directory)? != grant.stamp {
                     return Err(rejected("resource_directory_changed"));
                 }
@@ -650,3 +689,6 @@ mod tests;
 
 #[cfg(test)]
 mod checksum_acceptance;
+
+#[cfg(test)]
+mod usage_tests;
