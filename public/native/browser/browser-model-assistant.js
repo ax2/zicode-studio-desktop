@@ -1,6 +1,7 @@
 import { t } from "../../i18n.js";
 import { randomId } from "../utils/random-id.js";
 import { createBrowserImageReview, sameReviewedImage } from "./browser-image-review.js";
+import { createBrowserNoteClip } from "./browser-note-clip.js";
 
 const label = (element, value) => { element.dataset.i18nText = value; element.textContent = t(value); };
 function button(value, listener) {
@@ -22,7 +23,7 @@ export function browserModelError(reason) {
   return t("Could not load Pi models. Open Chat or model settings, then retry.");
 }
 
-export function createBrowserModelAssistant({ actions, question, prompt, isCurrent, setBusy, artifacts }) {
+export function createBrowserModelAssistant({ actions, question, prompt, isCurrent, setBusy, artifacts, notes }) {
   const element = document.createElement("section"); element.className = "ui-card browser-model-assistant";
   element.setAttribute("aria-label", t("Browser model"));
   const field = document.createElement("label"), title = document.createElement("span"); label(title, "Browser model");
@@ -45,6 +46,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     catch { saveStatus.textContent = t("Page or destination changed. Read the page again."); }
   });
   const saveStatus = document.createElement("p"); saveStatus.setAttribute("role", "status");
+  const noteSlot = document.createElement("div"); noteSlot.hidden = true;
   let analysis, savedArtifact;
   let snapshot, busy = false, disposed = false, pending, reviewed, generation = 0;
   const current = () => !disposed && isCurrent();
@@ -61,6 +63,22 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
     open.disabled = busy;
     save.classList.toggle("hidden", save.hidden);
     open.classList.toggle("hidden", open.hidden);
+    noteSlot.inert = busy;
+  }
+  function showNoteAction(result) {
+    noteSlot.replaceChildren();
+    noteSlot.hidden = !notes || !result?.text?.trim() || result.kind === "image";
+    if (noteSlot.hidden) return;
+    const isOpen = () => current() && analysis === result;
+    const clip = createBrowserNoteClip({
+      capture: notes.capture,
+      analysis: result,
+      writer: notes.writer(isOpen, result),
+      isOpen,
+      canStart: () => !busy,
+      setBusy(value) { busy = value; setBusy(value); controls(); },
+    });
+    noteSlot.append(clip.button, clip.panel, clip.open);
   }
   function render(value) {
     snapshot = value;
@@ -102,6 +120,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
         answer.hidden = true; answer.value = "";
         answerModel.hidden = true; answerModel.textContent = "";
         imageReview.showResult();
+        showNoteAction();
         render(value);
       }
     } catch (reason) { if (current()) { render(before); status.textContent = browserModelError(reason); } }
@@ -171,6 +190,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
         analysis.image = { source, pageUrl, capturedAt, documentRevision, frame };
         clearImage();
       }
+      showNoteAction(analysis);
       answer.value = value.text; answer.hidden = false;
       const tokens = Number.isSafeInteger(value.usage?.totalTokens)
         ? ` · ${value.usage.totalTokens} ${t("tokens")}` : "";
@@ -196,6 +216,7 @@ export function createBrowserModelAssistant({ actions, question, prompt, isCurre
   question?.addEventListener("input", controls);
   toolbar.append(refresh, ask, summarize, cancel); element.append(field, hint, destination, toolbar, imageReview.element, status, answerModel, imageReview.resultSource, answer);
   if (artifacts) element.append(save, open, saveStatus);
+  if (notes) element.append(noteSlot);
   controls();
   if (actions.autoLoad()) queueMicrotask(() => void load());
   return { element, reviewImage, cancel: cancelRequest, dispose() {

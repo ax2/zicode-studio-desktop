@@ -73,12 +73,37 @@ export function browserNoteContent(capture, selectionOnly = false, { includeLink
     ...(recognized.length ? [`## ${t("Recognized image text")}`, ...recognized.flatMap(imageTextMarkdown)] : []),
   ].filter(Boolean).join("\n\n");
 }
-export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTarget, gateway }) {
+export function browserAnalysisNoteContent(capture, analysis) {
+  if (!analysis?.text?.trim() || (analysis.kind !== "summary" && analysis.kind !== "analysis")) {
+    throw new Error(t("This analysis cannot be saved."));
+  }
+  const { title, url } = capture.page;
+  const { question, generatedAt, kind, model } = analysis;
+  const line = (name, value) => `${t(name)}: ${quotedPageText(value)}`;
+  return [
+    `## ${t(kind === "summary" ? "Page summary" : "Page analysis")}`,
+    title && line("Page title", title),
+    line("Source", url),
+    line("Captured at", capture.capturedAt),
+    line("Document revision", capture.documentRevision),
+    line("Generated at", generatedAt),
+    line("Browser model", `${model.provider} / ${model.modelId}`),
+    question && line("Browser analysis question", question),
+    `### ${t("Browser model answer")}`,
+    quotedPageText(analysis.text),
+  ].filter(Boolean).join("\n\n");
+}
+
+export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTarget, gateway, analysis }) {
   const initial = getTarget(), scene = initial?.sceneId, workspace = initial?.workspaceId;
   const current = () => isCurrent() && getTarget()?.sceneId === scene && getTarget()?.workspaceId === workspace;
   const created = new Map(); let pending = false, saved = null;
-  const check = async () => {
+  const checkDestination = () => {
     if (!scene || !workspace || !current()) throw new Error(t("Page or destination changed. Read the page again."));
+  };
+  const check = async () => {
+    checkDestination();
+    if (analysis) return;
     const fresh = await readCurrent();
     if (!current() || fresh.tab !== capture.tab || fresh.page.url !== capture.page.url || fresh.documentRevision !== capture.documentRevision) {
       throw new Error(t("Page or destination changed. Read the page again."));
@@ -86,7 +111,7 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
   };
   return {
     async notebooks() {
-      if (!scene || !workspace || !current()) throw new Error(t("Page or destination changed. Read the page again."));
+      checkDestination();
       const result = await gateway.list(scene, workspace);
       if (!current()) throw new Error(t("Page or destination changed. Read the page again."));
       return result.snapshot.notebooks;
@@ -96,7 +121,8 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
       if (pending) throw new Error(t("Saving…"));
       pending = true;
       try {
-        const content = browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, includeMedia, includeFrames, imageText });
+        const content = analysis ? browserAnalysisNoteContent(capture, analysis)
+          : browserNoteContent(capture, selectionOnly, { includeLinks, includeTables, includeMedia, includeFrames, imageText });
         title = title.trim(); notebookTitle = notebookTitle?.trim();
         if (!title || [...title].length > 200) throw new Error(t("Enter a note title of up to 200 characters."));
         if (!notebookId && (!notebookTitle || [...notebookTitle].length > 200)) throw new Error(t("Enter a notebook title of up to 200 characters."));
@@ -110,10 +136,22 @@ export function createBrowserNoteWriter({ capture, readCurrent, isCurrent, getTa
           // Notebook creation is async: do not write a page that navigated in the meantime.
           await check();
         }
+        checkDestination();
+        const tags = analysis ? ["web-clip", "browser-analysis"] : ["web-clip"];
         const result = await gateway.create(scene, workspace, notebookId, { title, content,
-          tags: ["web-clip"], icon: "🌐", source: { url: capture.page.url, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision } });
+          tags, icon: "🌐", source: { url: capture.page.url, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision } });
+        if (analysis && (!result?.note?.id || result.note.notebookId !== notebookId)) {
+          throw new Error(t("Could not save analysis. Try again."));
+        }
         saved = result.note; return saved;
       } finally { pending = false; }
+    },
+    open() {
+      checkDestination();
+      if (!saved?.id || !saved.notebookId) return;
+      window.dispatchEvent(new CustomEvent("zicode:open-note", {
+        detail: { noteId: saved.id, notebookId: saved.notebookId, sceneId: scene, workspaceId: workspace },
+      }));
     },
   };
 }

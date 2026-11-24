@@ -16,6 +16,7 @@ import {
 import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 import { dispatchSuperAgentTaskNative } from "../super-agent/native-dispatch.js";
 import { navigateToArtifact } from "./features/artifact-navigation.js";
+import { navigateToNote } from "./features/notes-navigation.js";
 import { isSuperAgentProjectPath } from "../super-agent/session.js";
 import { isSuperAgentEnabled } from "../super-agent/settings.js";
 import { selectSuperAgentStartupAction } from "../super-agent/startup-flow.js";
@@ -1443,10 +1444,12 @@ setupAppKeyboardShortcuts({
   },
 });
 window.addEventListener("zicode:open-note", (event) => {
-  const { notebookId, noteId } = event.detail ?? {};
-  if (!notebookId || !noteId) return;
-  pluginShell?.activate("com.zicode.notes");
-  notesApp?.openNote?.(notebookId, noteId).catch(showError);
+  void navigateToNote(event.detail, {
+    getTarget: () => target,
+    activate: () => pluginShell?.activate("com.zicode.notes"),
+    isActive: () => pluginShell?.getActivePluginId() === "com.zicode.notes",
+    open: (notebookId, noteId) => notesApp?.openNote?.(notebookId, noteId),
+  }).catch(showError);
 });
 window.addEventListener("zicode:open-project", () => {
   pluginShell?.activate("com.zicode.projects");

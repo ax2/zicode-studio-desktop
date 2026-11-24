@@ -1179,7 +1179,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     captureElement = showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? attachments => prepareBrowserDraft({
       capture, isCurrent, getTarget, handoff: onPrepareDraft, attachments, openConversation,
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
-    }) : undefined, isOpen => createBrowserNoteWriter({ capture, getTarget,
+    }) : undefined, (isOpen, analysis) => createBrowserNoteWriter({ capture, getTarget, analysis,
       isCurrent: () => isOpen() && isCurrent(), gateway: new NotesGateway(),
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
     }), comparison, Boolean(openConversation), { host: assistant, trigger: read, modelActions, analysisArtifacts, recognizeImage, previewImage });

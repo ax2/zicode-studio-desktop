@@ -1,9 +1,12 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { getByRole, waitFor, within } from "@testing-library/dom";
+import { getByRole, queryByRole, waitFor, within } from "@testing-library/dom";
 import { getLocale, setLocale, t } from "../../i18n.js";
 import { setupBrowserApp } from "./browser-app.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
 import { browserDraftPrompt } from "./browser-chat-draft.js";
+import { navigateToNote } from "../features/notes-navigation.js";
+import { NotesGateway } from "../plugins/notes-gateway.js";
+import analysisNote from "../../../tests/fixtures/browser-analysis-note.json";
 
 const capture = {
   tab: "source",
@@ -31,6 +34,7 @@ afterEach(async () => {
   setLocale(originalLocale);
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 it("keeps the source and question after a rejected handoff and Escape returns focus to the toolbar", async () => {
@@ -222,4 +226,105 @@ it("resizes the live surface around the open assistant and rejects the captured 
   await waitFor(() => expect(getByRole(panel, "alert").textContent).toBe(t("Page or conversation changed. Read the page again.")));
   expect(handoff).not.toHaveBeenCalled();
   expect(question.value).toBe("What changed?");
+});
+
+it("saves a reviewed browser answer to Notes and reopens the saved document with its source", async () => {
+  setLocale("en");
+  vi.setSystemTime(new Date(analysisNote.analysis.generatedAt));
+  const host = document.createElement("main");
+  document.body.append(host);
+  vi.stubGlobal("ResizeObserver", class { observe() {} });
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 20, y: 50, width: 900, height: 580 });
+  const { capture, analysis, draft } = analysisNote;
+  const tabs = [{ id: capture.tab, url: capture.page.url, title: capture.page.title }];
+  const invoke = vi.fn(async (command, args) => {
+    if (command === "browser_get_state") return { startupMode: "browser", session: { activeTab: capture.tab, revision: 0, tabs } };
+    if (command === "browser_capture_page") return capture;
+    if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs };
+    return {};
+  });
+  const { model } = analysis;
+  const choices = { ...model, fingerprint: "f".repeat(64) };
+  const call = vi.fn(async operation => ({ ok: true, data: operation === "browser_model_request"
+    ? { text: analysis.text, model }
+    : { revision: "1", currentPiModel: choices, effectiveBrowserModel: choices, models: [choices] } }));
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "session", runtimeMode: "ai" };
+  let stored, allowWrite = false;
+  const writes = [];
+  const fetch = vi.fn(async (url, options) => {
+    if (url.pathname === "/v2/notes") return Response.json({ snapshot: { notebooks: [{ id: "book", title: "Research" }] } });
+    if (url.pathname === "/v2/notes/create") {
+      writes.push(JSON.parse(options.body));
+      if (!allowWrite) return Response.json({ error: { message: "Storage unavailable" } }, { status: 503 });
+      stored = { id: "note-1", notebookId: "book", ...draft };
+      return Response.json({ note: stored });
+    }
+    if (url.pathname === "/v2/notes/note") {
+      expect(Object.fromEntries(url.searchParams)).toEqual({ sceneId: "programming", workspaceId: "workspace", notebookId: "book", noteId: "note-1" });
+      return Response.json({ note: stored });
+    }
+    throw Error("Unexpected request");
+  });
+  vi.stubGlobal("fetch", fetch);
+  app = setupBrowserApp({ invoke, listen: vi.fn(async () => () => {}), getTarget: () => target, modelGateway: { call }, onPrepareDraft: vi.fn() });
+  app.renderContent(host);
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_control", { request: expect.objectContaining({ kind: "present", tab: capture.tab }) }));
+  getByRole(host, "button", { name: "Read page" }).click();
+
+  const question = await waitFor(() => getByRole(host, "textbox", { name: "Question about this page" }));
+  expect(queryByRole(host, "button", { name: "Save analysis to Notes" })).toBeNull();
+  question.value = analysis.question;
+  question.dispatchEvent(new Event("input", { bubbles: true }));
+  const ask = getByRole(host, "button", { name: "Send page and ask" });
+  await waitFor(() => expect(ask.disabled).toBe(false));
+  ask.click();
+  const review = await waitFor(() => getByRole(host, "button", { name: "Save analysis to Notes" }));
+  expect(fetch).not.toHaveBeenCalled();
+  review.click();
+  const form = within(getByRole(host, "group", { name: "Save analysis to Notes" }));
+  const save = form.getByRole("button", { name: "Save analysis to notebook" });
+  await waitFor(() => expect(save.disabled).toBe(false));
+  expect(fetch.mock.calls.map(([url]) => url.pathname)).toEqual(["/v2/notes"]);
+  expect(form.queryByRole("combobox", { name: "Save content" })).toBeNull();
+  form.getByRole("textbox", { name: "Note title" }).value = draft.title;
+  save.click();
+  await waitFor(() => expect(form.getByRole("status").textContent).toBe("Storage unavailable"));
+  expect(getByRole(host, "textbox", { name: "Browser model answer" }).value).toBe(analysis.text);
+  expect(queryByRole(host, "button", { name: "Open saved note" })).toBeNull();
+
+  allowWrite = true;
+  save.click();
+  save.click();
+  const reopen = await waitFor(() => getByRole(host, "button", { name: "Open saved note" }));
+  const destination = new NotesGateway();
+  let active = false, result;
+  const event = vi.fn(({ detail }) => {
+    expect(detail).toEqual({ noteId: "note-1", notebookId: "book", sceneId: "programming", workspaceId: "workspace" });
+    void navigateToNote(detail, { getTarget: () => target, activate: async () => { active = true; },
+      isActive: () => active, open: async (book, note) => { result = await destination.get(target.sceneId, target.workspaceId, book, note); } });
+  });
+  window.addEventListener("zicode:open-note", event);
+  try {
+    reopen.click();
+    await waitFor(() => expect(result).toEqual({ note: { id: "note-1", notebookId: "book", ...draft } }));
+    expect(event).toHaveBeenCalledOnce();
+  } finally { window.removeEventListener("zicode:open-note", event); }
+  expect(fetch.mock.calls.map(([url]) => url.pathname)).toEqual(["/v2/notes", "/v2/notes/create", "/v2/notes/create", "/v2/notes/note"]);
+  const expected = { ...draft, sceneId: "programming", workspaceId: "workspace", notebookId: "book" };
+  expect(writes).toEqual([expected, expected]);
+  expect(call.mock.calls.filter(([operation]) => operation === "browser_model_request")).toHaveLength(1);
+  expect(invoke.mock.calls.filter(([command]) => command === "browser_capture_page")).toHaveLength(1);
+});
+
+it("ignores a browser Notes link when the workspace changes during activation", async () => {
+  const target = { sceneId: "programming", workspaceId: "original" };
+  const detail = { noteId: "note", notebookId: "book", ...target };
+  const open = vi.fn(), activate = vi.fn(async () => { target.workspaceId = "other"; });
+  const options = { getTarget: () => target, activate, open, isActive: () => true };
+  await navigateToNote(detail, options);
+  expect(activate).toHaveBeenCalledOnce();
+  expect(open).not.toHaveBeenCalled();
+  await navigateToNote(detail, options);
+  expect(activate).toHaveBeenCalledOnce();
+  expect(open).not.toHaveBeenCalled();
 });
