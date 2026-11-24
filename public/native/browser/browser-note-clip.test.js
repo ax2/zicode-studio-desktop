@@ -248,6 +248,44 @@ it("requests OCR only on its own action and separately opts in to including the 
 });
 
 
+it("reports when local OCR finds no text and lets the user retry", async () => {
+  const image = { alt: "Blank image", width: 200, height: 60, url: "https://example.org/blank.png" };
+  const snapshot = { ...capture, page: { ...capture.page, images: [image] } };
+  const receipt = { source: image, pageUrl: snapshot.page.url, documentRevision: "d1", capturedAt: "2026-11-23T00:00:00Z", truncated: false };
+  const recognizeImage = vi.fn()
+    .mockRejectedValueOnce(Error("No text was recognized in the image"))
+    .mockResolvedValueOnce({ ...receipt, text: "" })
+    .mockResolvedValueOnce({ ...receipt, text: " \n\t" })
+    .mockResolvedValueOnce({ ...receipt, text: "  Inventory count\n" });
+  const prepare = vi.fn(async () => {});
+  const host = document.createElement("aside"), trigger = document.createElement("button");
+  document.body.append(trigger, host);
+  const dialog = showBrowserCapture(snapshot, vi.fn(), prepare, undefined, undefined, false, { host, trigger, recognizeImage });
+  const media = dialog.querySelector(".browser-capture-media");
+  media.open = true;
+  const action = getByRole(media, "button", { name: t("Recognize text locally") });
+  const resultLabel = t("Include this image text in the page note or chat draft");
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    action.focus();
+    action.click();
+    action.blur();
+    await waitFor(() => expect(getByRole(media, "status").textContent).toBe(t("No text was recognized in the image")));
+    expect(recognizeImage).toHaveBeenCalledTimes(attempt);
+    expect(action.hidden).toBe(false);
+    expect(action.disabled).toBe(false);
+    expect(document.activeElement).toBe(action);
+    expect(media.querySelector("textarea").hidden).toBe(true);
+    expect(media.querySelector("textarea").value).toBe("");
+    expect([...media.querySelectorAll("label")].find(label => label.textContent === resultLabel).hidden).toBe(true);
+  }
+  action.click();
+  await waitFor(() => expect(getByRole(media, "textbox").value).toBe("  Inventory count\n"));
+  expect(getByRole(media, "checkbox", { name: resultLabel }).checked).toBe(false);
+  getByRole(dialog, "button", { name: t("Prepare chat draft") }).click();
+  await waitFor(() => expect(prepare.mock.calls[0][0]).not.toHaveProperty("imageText"));
+});
+
+
 it("recognizes an image-only frame with its reviewed locator and opts into its result independently of frame text", async () => {
   const image = { alt: "Inventory scan", width: 300, height: 120, url: "https://example.org/scan.png" };
   const frame = { title: "Inventory", url: "https://example.org/warehouse", text: "", images: [image], imageLocator: { path: [0, 1], timeOrigin: "42" } };

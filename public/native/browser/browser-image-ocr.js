@@ -33,6 +33,10 @@ export function createBrowserImageOcr(image, recognize) {
       const recognized = await recognize(image);
       if (!element.isConnected) return;
       if (!recognized) { status.hidden = true; return; }
+      if (!recognized.text.trim()) {
+        status.textContent = t("No text was recognized in the image");
+        return;
+      }
       result = recognized;
       output.value = result.text;
       output.hidden = false;
@@ -46,6 +50,9 @@ export function createBrowserImageOcr(image, recognize) {
       if (element.isConnected) status.textContent = t(String(error?.message ?? error));
     } finally {
       button.disabled = false;
+      if (hadFocus && !button.hidden && element.isConnected && document.activeElement === document.body) {
+        button.focus({ preventScroll: true });
+      }
     }
   });
   return { element, attachment: () => include.checked ? result : undefined };
