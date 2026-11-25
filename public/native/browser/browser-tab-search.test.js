@@ -12,12 +12,16 @@ afterEach(() => {
   }
 });
 
-it("filters across title and address and switches by the exact tab identity", async () => {
+function mockDialog() {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.open = true; } });
   Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value() {
     this.open = false;
     this.dispatchEvent(new Event("close"));
   } });
+}
+
+it("filters across title and address and switches by the exact tab identity", async () => {
+  mockDialog();
   const onSelect = vi.fn().mockResolvedValue(undefined), onClose = vi.fn();
   const dialog = showBrowserTabSearch({
     tabs: [
@@ -38,6 +42,37 @@ it("filters across title and address and switches by the exact tab identity", as
   fireEvent.keyDown(input, { key: "ArrowDown" });
   expect(document.activeElement).toBe(target);
   fireEvent.keyDown(target, { key: "ArrowUp" });
+  expect(document.activeElement).toBe(input);
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() => expect(onClose).toHaveBeenCalledWith("second"));
+  expect(onSelect).toHaveBeenCalledExactlyOnceWith("second");
+});
+
+it.each(["Enter", "ArrowDown", "ArrowUp"])("leaves the IME's trailing %s at the search input", async key => {
+  mockDialog();
+  const onSelect = vi.fn().mockResolvedValue(undefined);
+  const onClose = vi.fn();
+  const dialog = showBrowserTabSearch({
+    tabs: [
+      { id: "first", title: "简介", url: "https://example.test/overview" },
+      { id: "second", title: "测试参考", url: "https://example.test/reference" },
+    ],
+    active: "first", getIcon: () => undefined, onSelect, onClose,
+  });
+  const input = getByRole(dialog, "searchbox");
+  fireEvent.compositionStart(input);
+  fireEvent.input(input, { target: { value: "测试" } });
+  fireEvent.compositionEnd(input);
+  const phase = { key, keyCode: 229, isComposing: false };
+  expect(fireEvent.keyDown(input, phase)).toBe(true);
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(input);
+
+  const match = dialog.querySelector(".browser-tab-search-result");
+  fireEvent.keyDown(input, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(match);
+  fireEvent.keyDown(match, { key: "ArrowUp" });
   expect(document.activeElement).toBe(input);
   fireEvent.keyDown(input, { key: "Enter" });
   await waitFor(() => expect(onClose).toHaveBeenCalledWith("second"));
