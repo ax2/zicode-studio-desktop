@@ -108,8 +108,8 @@ export function ToolCommandPicker({ api, scope, onOpen }: ToolCommandSource) {
     </div>}
     <p className="command-palette-count" role="status" aria-live="polite">{loading ? t("Loading tools…") : page ? t("{count} tools").replace("{count}", String(page.total)) : ""}</p>
     {error && <div role="alert">{t(error)} <button type="button" className="ui-button ui-button--secondary" onClick={reset}>{t("Reload tools")}</button></div>}
-    <div id="tool-command-results" className="command-palette-results" role="listbox" aria-label={t("Individual tools")} aria-busy={loading}>
-      {!loading && page?.items.map((tool, index) => <button key={tool.toolId} type="button" role="option" id={`tool-command-${index}`}
+    <div id="tool-command-results" className="command-palette-results" role="listbox" tabIndex={-1} aria-label={t("Individual tools")} aria-busy={loading}>
+      {!loading && page?.items.map((tool, index) => <button key={tool.toolId} type="button" role="option" tabIndex={-1} id={`tool-command-${index}`}
         disabled={options[index].disabled}
         aria-selected={active === index} aria-posinset={cursor.offset + index + 1} aria-setsize={page.total}
         className={`command-item${active === index ? " selected" : ""}`} onMouseEnter={() => { if (!options[index].disabled) setSelected(index); }} onClick={() => open(index)}>
