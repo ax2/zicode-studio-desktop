@@ -1,4 +1,4 @@
-import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {afterEach,expect,it,vi} from "vitest";
 import {Mail,type Invoke} from "./index";
 import {setLocale} from "../../shared/i18n";
@@ -349,4 +349,62 @@ it("moves focus to Reconnect when the first Gmail authorization succeeds", async
   expect(document.activeElement).toBe(stop);
   await act(async () => approve({ connected: true, read: true, send: false }));
   expect(document.activeElement).toBe(await screen.findByRole("button", { name: "Reconnect Gmail" }));
+});
+
+it.each([true, false])("retries a local body error without remote fallback, cache recovered=%s", async recovered => {
+  let reads = 0;
+  const v = fixture(async r => {
+    if (r.kind === "status") return { connected: true, read: true };
+    if (r.kind === "cachedLabels") return [];
+    if (r.kind === "cachedPage" || r.kind === "list") return { items: [entry], nextCursor: null };
+    if (r.kind === "cachedBody") {
+      if (reads++ === 0) throw Error("mail_storage");
+      return recovered ? { ...entry, plainText: "Recovered local Gmail body" } : null;
+    }
+    if (r.kind === "read") return { ...entry, plainText: "Explicit Gmail download" };
+    throw Error("Unexpected request");
+  });
+  await screen.findByRole("button", { name: /Inbox fixture/ });
+  fireEvent.click(screen.getByRole("button", { name: "Refresh from server" }));
+  await screen.findByText("Showing messages retrieved from the server.");
+  fireEvent.click(screen.getByRole("button", { name: /Inbox fixture/ }));
+  const pane = () => within(screen.getByRole("article", { name: "Selected message" }));
+  expect(await pane().findByRole("alert")).toHaveProperty("textContent", "Could not access local mail data.");
+  expect(pane().queryByRole("button", { name: "Download message body" })).toBeNull();
+  fireEvent.click(pane().getByRole("button", { name: "Try again" }));
+  if (recovered) await pane().findByText("Recovered local Gmail body");
+  else await pane().findByText(/not available offline/);
+  const readsAtRetry = v.calls.mock.calls.map(([r]) => r).filter(r => r.kind === "cachedBody" || r.kind === "read");
+  const request = { kind: "cachedBody", accountId: "one", id: entry.id };
+  expect(readsAtRetry).toEqual([request, request]);
+  if (!recovered) {
+    fireEvent.click(pane().getByRole("button", { name: "Download message body" }));
+    await pane().findByText("Explicit Gmail download");
+    expect(v.calls).toHaveBeenLastCalledWith({ kind: "read", accountId: "one", id: entry.id });
+  }
+});
+
+it("does not show a late retry after changing the active Gmail account", async () => {
+  let reads = 0;
+  let finish!: (value: unknown) => void;
+  const v = fixture(async r => {
+    if (r.kind === "status") return { connected: false };
+    if (r.kind === "cachedLabels") return [];
+    if (r.kind === "cachedPage") return r.accountId === "one" ? { items: [entry], nextCursor: null } : null;
+    if (r.kind === "cachedBody") {
+      if (reads++ === 0) throw Error("mail_storage");
+      return new Promise(resolve => { finish = resolve; });
+    }
+    throw Error("Unexpected request");
+  }, [account("one"), account("two")]);
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+  await act(async () => fireEvent.change(screen.getByLabelText(/^Mail account/), { target: { value: "two" } }));
+  await screen.findByText("two@example.test");
+  await act(async () => finish({ ...entry, plainText: "Old Gmail account body" }));
+  expect(screen.queryByText("Old Gmail account body")).toBeNull();
+  expect(screen.queryByRole("article", { name: "Selected message" })).toBeNull();
+  expect(v.calls.mock.calls.map(([r]) => r).filter(r => r.kind === "cachedBody" || r.kind === "read")).toEqual(
+    Array.from({ length: 2 }, () => ({ kind: "cachedBody", accountId: "one", id: entry.id })),
+  );
 });

@@ -39,6 +39,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
   const [configured,setConfigured]=useState(false),[enabled,setEnabled]=useState(false),[secret,setSecret]=useState("");
   const [credentialError, setCredentialError] = useState("");
   const [page,setPage]=useState<Page|null>(null),[body,setBody]=useState<Body|null>(null),[selected,setSelected]=useState<MessageRef|null>(null);
+  const [localBodyFailed, setLocalBodyFailed] = useState(false);
   const [online,setOnline]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState("");
   const live=useRef(false),lock=useRef(false),generation=useRef(0),onConfig=useRef(onConfigured);
   onConfig.current=onConfigured;
@@ -118,20 +119,29 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
     }, () => {});
   }
   function pick(m: Summary) {
-    if (lock.current || !page) return;
-    const ref = { ...(folder === "INBOX" ? {} : { folder }), uidValidity: page.uidValidity, uid: m.uid };
+    if (!page) return;
+    readCached({ ...(folder === "INBOX" ? {} : { folder }), uidValidity: page.uidValidity, uid: m.uid }, online && configured);
+  }
+  function readCached(ref: MessageRef, allowServer: boolean) {
+    if (lock.current || ref.uidValidity !== page?.uidValidity || (ref.folder ?? "INBOX") !== folder ||
+        !page.messages.some(item => item.uid === ref.uid)) return;
     setSelected(ref);
     setBody(null);
+    setLocalBodyFailed(false);
     void run(async isCurrent => {
       try {
         return await req<Body>("cachedBody",ref);
       } catch (error) {
-        if (String(error).replace(/^Error:\s*/, "") !== "mail_cache_empty") throw error;
-        return online && configured && isCurrent() ? req<Body>("read",ref) : null;
+        if (String(error).replace(/^Error:\s*/, "") === "mail_cache_empty") {
+          return allowServer && isCurrent() ? req<Body>("read",ref) : null;
+        }
+        if (isCurrent()) setLocalBodyFailed(true);
+        return null;
       }
     }, setBody);
   }
-  const chosen=page?.messages.find(m=>m.uid===selected?.uid);
+  const chosen=selected && (selected.folder ?? "INBOX") === folder && selected.uidValidity === page?.uidValidity
+    ? page.messages.find(m=>m.uid===selected.uid) : undefined;
   return <section aria-label={t("Alibaba Mail inbox")}>
     <fieldset disabled={busy}><legend>{t("Mail connection")}</legend>
       {credentialError ? <>
@@ -156,12 +166,15 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(folder==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
       <button className="ui-button" type="button" disabled={!configured} onClick={()=>load(true)}>{t("Refresh from server")}</button>
       {page?<><p>{online?t("Showing messages retrieved from the server."):t("Showing messages saved on this device.")}</p>
-        {page.messages.length===0?<p>{t("No messages on this page.")}</p>:<ul className="mail-inbox-list">{page.messages.map(m=><li key={m.uid}><button className="ui-button" type="button" aria-pressed={selected?.uid===m.uid} onClick={()=>pick(m)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.sender}</small></button></li>)}</ul>}
+        {page.messages.length===0?<p>{t("No messages on this page.")}</p>:<ul className="mail-inbox-list">{page.messages.map(m=><li key={m.uid}><button className="ui-button" type="button" aria-pressed={chosen?.uid===m.uid} onClick={()=>pick(m)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.sender}</small></button></li>)}</ul>}
         {page.next&&<button className="ui-button" type="button" disabled={online&&!configured} onClick={()=>load(online,page.next)}>{t("Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {selected&&chosen&&<article aria-label={t("Selected message")}><h3 translate="no">{chosen.subject||t("No subject")}</h3><p translate="no">{chosen.sender}</p>
-        {body?<>{body.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}<MailBody text={body.text} html={body.html}/><MailAttachments key={selected.uidValidity+"-"+selected.uid} items={body.attachments} invoke={invoke} message={{accountId:id,...selected}}/></>:!online&&!busy&&<p role="status">{t("This message is not available offline. Download it explicitly to read it.")}</p>}
-        {!body&&<button className="ui-button" type="button" disabled={!configured} onClick={()=>void run(()=>req<Body>("read",selected),setBody)}>{t("Download message body")}</button>}
+        {body?<>{body.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}<MailBody text={body.text} html={body.html}/><MailAttachments key={selected.uidValidity+"-"+selected.uid} items={body.attachments} invoke={invoke} message={{accountId:id,...selected}}/></>:localBodyFailed ? <>
+          <p role="alert">{t("Could not access local mail data.")}</p>
+          <button className="ui-button" type="button" onClick={()=>readCached(selected,false)}>{t("Try again")}</button>
+        </>:!busy&&<p role="status">{t("This message is not available offline. Download it explicitly to read it.")}</p>}
+        {!body&&!localBodyFailed&&<button className="ui-button" type="button" disabled={!configured} onClick={()=>void run(()=>req<Body>("read",selected),setBody)}>{t("Download message body")}</button>}
         <button className="ui-button" type="button" disabled={!chosen.replyTo||draftBusy} onClick={()=>{void run(async()=>await discard()?await req<Draft>("replyDraft",selected):null,d=>{if(d)onReply(d)})}}>{t("Create reply draft")}</button>
       </article>}
     </fieldset>{error&&<p role="alert">{error}</p>}
