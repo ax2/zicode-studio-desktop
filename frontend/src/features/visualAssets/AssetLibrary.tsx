@@ -4,6 +4,7 @@ import { SemanticSearch } from "./SemanticSearch";
 import { VisionLabels, type VisionRecord } from "./VisionLabels";
 import { PreviewLabels } from "./PreviewLabels";
 import { AssetTags } from "./AssetTags";
+import type { SavedAtlasSource } from "./AnimationPanel";
 import { BackupPanel } from "./BackupPanel";
 import { CharacterPanel } from "./CharacterPanel";
 import { CreationSource } from "./CreationSource";
@@ -42,10 +43,12 @@ export function AssetLibrary({
   invoke,
   workspaceId,
   sceneId,
+  atlasSource,
 }: {
   invoke: Invoke;
   workspaceId: string;
   sceneId?: string;
+  atlasSource?: SavedAtlasSource;
 }) {
   const [listing, setListing] = useState<Listing | null>(null);
   const [animationLibraryId, setAnimationLibraryId] = useState("");
@@ -342,7 +345,13 @@ export function AssetLibrary({
         onRestored={reloadLibrary}
         animation={
           animationLibraryId
-            ? { libraryId: animationLibraryId, assets: listing?.page.assets ?? [] }
+            ? {
+                libraryId: animationLibraryId,
+                assets: listing?.page.assets ?? [],
+                initialAtlas: atlasSource?.libraryId === animationLibraryId
+                  ? { id: atlasSource.assetId, name: t("Generated image") }
+                  : undefined,
+              }
             : undefined
         }
       />
@@ -359,6 +368,9 @@ export function AssetLibrary({
         />
       )}
       </div>
+      {atlasSource && listing && atlasSource.libraryId !== listing.libraryId && (
+        <p role="status">{t("The saved image belongs to a different visual library.")}</p>
+      )}
       {error && <p role="alert">{error}</p>}
       {importItems && <ImportResults items={importItems} />}
       {busy && <p role="status">{t("Loading...")}</p>}
