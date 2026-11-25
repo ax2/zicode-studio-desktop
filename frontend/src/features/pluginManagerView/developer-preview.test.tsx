@@ -73,6 +73,39 @@ async function installPackage() {
 }
 const setupCard = () => within(screen.getByRole("region", { name: "Installed plugin setup" }));
 
+it.each(["choose", "cancel", "move focus", "click away"] as const)("keeps package selection focus only when the launcher owns it (%s)", async outcome => {
+  const flow = setup();
+  let settle!: (value: typeof preview | null) => void;
+  flow.selectDeveloperPlugin.mockReturnValueOnce(new Promise(resolve => { settle = resolve; }));
+  const launcher = button("Install local plugin");
+  const search = screen.getByRole("searchbox");
+  launcher.focus();
+  fireEvent.click(launcher);
+  expect(document.activeElement).toBe(launcher);
+  expect(launcher.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(launcher);
+  expect(flow.selectDeveloperPlugin).toHaveBeenCalledTimes(1);
+
+  launcher.blur();
+  if (outcome === "move focus") search.focus();
+  if (outcome === "click away") fireEvent.pointerDown(document.body);
+  await act(async () => settle(outcome === "cancel" ? null : preview));
+
+  if (outcome === "choose") {
+    const review = await screen.findByRole("region", { name: "Review local plugin" });
+    expect(document.activeElement).toBe(review);
+    const cancel = within(review).getByRole("button", { name: "Cancel" });
+    cancel.focus();
+    fireEvent.click(cancel);
+    expect(document.activeElement).toBe(launcher);
+  } else {
+    expect(document.activeElement).toBe(outcome === "move focus" ? search :
+      outcome === "cancel" ? launcher : document.body);
+  }
+  expect(flow.installDeveloperPlugin).not.toHaveBeenCalled();
+  expect(flow.activateReviewed).not.toHaveBeenCalled();
+});
+
 it("reviews exact package content then grants only the checked permission and waits before opening the actual tool", async () => {
   const flow = setup();
   const review = within(await reviewPackage());

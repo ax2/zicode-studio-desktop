@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type Ref, useState } from "react";
 import { matchesSearchTerms, prepareSearchQuery } from "../../shared/catalog-search";
 import { t } from "../../shared/i18n";
 
@@ -17,12 +17,14 @@ export interface SignedPluginPreview {
 }
 
 export function SignedPluginPreviewCard({
+  cardRef,
   preview,
   busy,
   onInstall,
   onReselect,
   onCancel,
 }: {
+  cardRef?: Ref<HTMLElement>;
   preview: SignedPluginPreview;
   busy: boolean;
   onInstall(): void;
@@ -35,7 +37,7 @@ export function SignedPluginPreviewCard({
     matchesSearchTerms(searchTerms, [capability.id, capability.title, t(capability.title)]),
   );
   return (
-    <section className="ui-card plugin-manager-preview" aria-label={t("Review signed package")}>
+    <section ref={cardRef} tabIndex={-1} className="ui-card plugin-manager-preview" aria-label={t("Review signed package")}>
       <strong>{t("Review signed package")}</strong>
       <p>{`${preview.name} · ${preview.version} · ${preview.publisher}`}</p>
       <p><code>{preview.pluginId}</code></p>
