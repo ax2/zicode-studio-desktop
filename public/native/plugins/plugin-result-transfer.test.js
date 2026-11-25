@@ -258,6 +258,60 @@ it("shows a successful receiver result if completion wins the cancellation race"
   await vi.waitFor(() => expect(onResult).toHaveBeenCalledOnce());
 });
 
+it.each(["cancel receipt", "status query"])("releases a confirmed cancellation from the %s before the original reply", async channel => {
+  const { gateway, onResult, onCancel } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  click("field text");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
+  let rejectCommit;
+  gateway.commitTransfer.mockImplementation(() => new Promise((_, reject) => { rejectCommit = reject; }));
+  if (channel === "cancel receipt") gateway.cancelTransfer.mockResolvedValue({ schemaVersion: 1, status: "cancelled" });
+  gateway.transferStatus.mockResolvedValue({ schemaVersion: 1, status: "cancelled" });
+  const button = text => [...document.querySelectorAll("button")].find(node => node.textContent === text);
+  click("Confirm transfer and run");
+  click("Cancel transfer");
+  if (channel === "status query") {
+    await vi.waitFor(() => expect(button("Check receiver outcome").hidden).toBe(false));
+    expect(button("Change receiver").disabled).toBe(true);
+    click("Check receiver outcome");
+  }
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Receiver tool cancelled"));
+  expect(button("Cancel transfer").disabled).toBe(false);
+  expect(button("Change receiver").disabled).toBe(false);
+  expect(button("Confirm transfer and run").disabled).toBe(true);
+  expect(button("Check receiver outcome").hidden).toBe(true);
+
+  rejectCommit(Error("result_transfer_cancelled"));
+  await Promise.resolve();
+  expect(document.body.textContent).toContain("Receiver tool cancelled");
+  expect(gateway.transferStatus).toHaveBeenCalledTimes(channel === "status query" ? 1 : 0);
+  click("Cancel transfer");
+  expect(onCancel).toHaveBeenCalledOnce();
+  expect(onResult).not.toHaveBeenCalled();
+  expect(gateway.commitTransfer).toHaveBeenCalledExactlyOnceWith(source.scope, "grant", { signal: expect.any(AbortSignal) });
+  expect(gateway.cancelTransfer).toHaveBeenCalledExactlyOnceWith(source.scope, "grant");
+});
+
+it("keeps waiting for the receiver when a claimed terminal cancellation does not match the protocol", async () => {
+  const { gateway, onResult } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  click("field text");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
+  let finishCommit;
+  gateway.commitTransfer.mockImplementation(() => new Promise(resolve => { finishCommit = resolve; }));
+  gateway.cancelTransfer.mockResolvedValue({ schemaVersion: 2, status: "cancelled" });
+  click("Confirm transfer and run");
+  click("Cancel transfer");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Could not request cancellation"));
+  expect(document.body.textContent).not.toContain("Receiver tool cancelled");
+  expect([...document.querySelectorAll("button")].find(node => node.textContent === "Change receiver").disabled).toBe(true);
+  const result = { result: { ok: true, data: { text: "completed before cancellation" } }, resultRef: { resultId: "next" } };
+  finishCommit(result);
+  await vi.waitFor(() => expect(onResult).toHaveBeenCalledExactlyOnceWith(result, {
+    ...source.scope, pluginId: target.pluginId, capabilityId: target.capabilityId,
+  }));
+});
+
 it("recovers a completed receiver result after the commit connection fails without repeating execution", async () => {
   const { gateway, onResult } = setup("en");
   await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));

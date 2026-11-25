@@ -23,7 +23,7 @@ export interface ResultActionsGateway {
   saveStatus?(scope: ResultScope, grantId: string): Promise<{ schemaVersion: number; status: "saved" | "unknown"; artifactId?: string }>;
   searchTargets(scope: ResultScope, resultId: string, query?: string, offset?: number, revision?: string | null, options?: { view?: "all" | "favorites" | "recent"; accessRevision?: number | null; pluginId?: string; categoryId?: string; signal?: AbortSignal }): Promise<unknown>;
   prepareTransfer(scope: ResultScope, resultId: string, target: { pluginId: string; capabilityId: string }, field: string, inputs?: Record<string, string>): Promise<unknown>;
-  commitTransfer(scope: ResultScope, grantId: string): Promise<unknown>;
+  commitTransfer(scope: ResultScope, grantId: string, options?: { signal?: AbortSignal }): Promise<unknown>;
   cancelTransfer(scope: ResultScope, grantId: string): Promise<{ schemaVersion: number; status: "cancelled" | "cancellation_requested" | "completed" }>;
   transferStatus(scope: ResultScope, grantId: string): Promise<{ schemaVersion: number; status: "ready" | "running" | "cancellation_requested" | "cancelled" | "completed"; response?: CapturedToolResponse }>;
 }
