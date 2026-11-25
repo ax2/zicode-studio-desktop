@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：备忘备份提取 Markdown
+
+在工具中心确认一份 ZiDevTools 备份后，可查看普通备忘并按原序号提取单条 Markdown。Windows 隔离 Studio 已通过逐次共享、取消与确认保存、空正文及重启复验。[范围与冻结候选](../iterations/2026-11-26-memo-backup-extract.md)
+
 ## 2026-11-25 开发补充：本地服务配置预检
 
 在工具中心确认读取一份本机服务 YAML，可核对导入前置规则与脱敏摘要。Windows 隔离 Studio 已验证 UTF-8 BOM、16 KiB 边界、撤权及重启。[使用范围与冻结包](../iterations/2026-11-25-service-config-preflight.md)

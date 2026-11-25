@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.memo-backup",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "memos",
+      "capabilityId": "devtools.memos.backup.markdown",
+      "title": "备忘备份提取 Markdown",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "查看 ZiDevTools JSON 备份里的普通备忘，按序号提取单条完整 Markdown。"
+    }
+  ]
+}
