@@ -219,10 +219,14 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const textDiff = comparePlugin && tool.capabilityId === "devtools.compare.text.diff";
   const jsonDiff = comparePlugin && /^devtools\.compare\.json\.diff\.(ordered|unordered)$/.test(tool.capabilityId);
   const jsonSchema = tool.pluginId === "com.zicode.devtools.json-schema" && tool.capabilityId === "devtools.json-schema.validate";
-  const boundedTextTool = tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version &&
-    fields?.some(field => field.key === "text" && field.kind === "string" && field.maxLength === 8192);
-  const qrFileTool = boundedTextTool && computePlugin && (tool.version === "0.1.0" || tool.version === "0.2.0") &&
+  const enabledWasi = tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version;
+  const textField = fields?.find(field => field.key === "text" && field.kind === "string");
+  const boundedTextTool = enabledWasi && textField?.maxLength === 8192;
+  const computeQrFile = boundedTextTool && computePlugin && (tool.version === "0.1.0" || tool.version === "0.2.0") &&
     tool.capabilityId === "devtools.compute.qr.png";
+  const independentQrFile = enabledWasi && tool.pluginId === "com.zicode.devtools.qr" && tool.version === "0.1.0" &&
+    tool.capabilityId === "devtools.qr.png" && fields?.length === 1 && textField?.maxLength === 2048;
+  const qrFileTool = computeQrFile || independentQrFile;
   const inspectTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.inspect" && tool.version === "0.1.2";
   const yamlToJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.to_json";
   const yamlFromJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.from_json";

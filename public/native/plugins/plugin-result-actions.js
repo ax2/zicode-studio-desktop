@@ -167,7 +167,9 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       Number.isSafeInteger(reference.byteLength) && reference.byteLength > 0 &&
       reference.byteLength <= 64 * 1024 ? { ...reference } : null;
     const computeOutput = scope?.pluginId === "com.zicode.devtools.compute" && response?.result?.ok === true;
-    const pngReference = computeOutput && scope.capabilityId === "devtools.compute.qr.png"
+    const independentQr = response?.result?.ok === true && scope?.pluginId === "com.zicode.devtools.qr" &&
+      scope.capabilityId === "devtools.qr.png";
+    const pngReference = independentQr || (computeOutput && scope.capabilityId === "devtools.compute.qr.png")
       ? exportReference(reference, reference?.pngExport, "image/png") : null;
     const independentMerge = response?.result?.ok === true && scope?.pluginId === "com.zicode.devtools.table-merge" &&
       /^devtools\.table-merge\.(left|inner|append|columns)$/.test(scope.capabilityId ?? "");

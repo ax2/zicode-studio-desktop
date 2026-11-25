@@ -1,4 +1,4 @@
-//! Studio export adapter for the frozen Compute QR response.
+//! Studio export adapter for QR providers with the reviewed inline PNG contract.
 use super::Scope;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Deserialize;
@@ -8,8 +8,11 @@ const MAX_SIDE: u32 = 1110;
 const MAX_PNG_BYTES: usize = 48 * 1024;
 
 pub(super) fn matches(scope: &Scope) -> bool {
-    scope.plugin_id == "com.zicode.devtools.compute"
-        && scope.capability_id == "devtools.compute.qr.png"
+    matches!(
+        (scope.plugin_id.as_str(), scope.capability_id.as_str()),
+        ("com.zicode.devtools.compute", "devtools.compute.qr.png")
+            | ("com.zicode.devtools.qr", "devtools.qr.png")
+    )
 }
 
 #[derive(Deserialize)]
@@ -46,4 +49,26 @@ pub(super) fn decode(text: &str) -> Option<Arc<[u8]>> {
         return None;
     }
     Some(bytes.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_reviewed_qr_provider_operation_pairs_can_export_png() {
+        let mut scope = Scope {
+            workspace_id: "owned-workspace".into(),
+            scene_id: "programming".into(),
+            plugin_id: "com.zicode.devtools.compute".into(),
+            capability_id: "devtools.compute.qr.png".into(),
+        };
+        assert!(matches(&scope));
+        scope.capability_id = "devtools.qr.png".into();
+        assert!(!matches(&scope));
+        scope.plugin_id = "com.zicode.devtools.qr".into();
+        assert!(matches(&scope));
+        scope.capability_id = "devtools.compute.qr.png".into();
+        assert!(!matches(&scope));
+    }
 }

@@ -7,11 +7,15 @@ import type { ManualTool, ManualToolApi } from "./manual-tools";
 
 afterEach(cleanup);
 
-it.each(["0.1.0", "0.2.0"])("imports an exact QR text file for Compute %s", async version => {
+it.each([
+  { plugin: "compute", capability: "devtools.compute.qr.png", version: "0.1.0", maxLength: 8192, hasOptions: true },
+  { plugin: "compute", capability: "devtools.compute.qr.png", version: "0.2.0", maxLength: 8192, hasOptions: true },
+  { plugin: "qr", capability: "devtools.qr.png", version: "0.1.0", maxLength: 2048, hasOptions: false },
+] as const)("imports exact QR text for $plugin $version", async ({ plugin, capability, version, maxLength, hasOptions }) => {
   setLocale("en");
   const tool: ManualTool = {
-    toolId: "qr", accessId: "qr", pluginId: "com.zicode.devtools.compute",
-    capabilityId: "devtools.compute.qr.png", title: "QR PNG", applicationName: "ZiDevTools Compute",
+    toolId: "qr", accessId: "qr", pluginId: "com.zicode.devtools." + plugin,
+    capabilityId: capability, title: "QR PNG", applicationName: "ZiDevTools",
     publisher: "ZiDevTools", version, enabled: true, runtime: "wasi",
   };
   const api: ManualToolApi = {
@@ -19,7 +23,8 @@ it.each(["0.1.0", "0.2.0"])("imports an exact QR text file for Compute %s", asyn
     loadTool: vi.fn(async () => ({
       pluginId: tool.pluginId, version: tool.version, revision: "qr-revision", enabled: true, permissions: [],
       capability: { id: tool.capabilityId, inputSchema: { type: "object", required: ["text"],
-        properties: { text: { type: "string", maxLength: 8192 }, options: { type: "string", maxLength: 16384 } }, additionalProperties: false } },
+        properties: { text: { type: "string", maxLength }, ...(hasOptions && { options: { type: "string", maxLength: 16384 } }) },
+        additionalProperties: false } },
     })),
     invoke: vi.fn(async () => ({ result: { contractVersion: "1.0.0-rc.1", ok: true, data: { text: "sample result" }, error: null } })),
   };
@@ -29,9 +34,10 @@ it.each(["0.1.0", "0.2.0"])("imports an exact QR text file for Compute %s", asyn
   const picker = form.getByLabelText<HTMLInputElement>("UTF-8 text file");
   expect(picker.accept).toBe(".txt");
   const text = form.getByRole("textbox", { name: /Source text/ });
-  const options = form.getByRole("textbox", { name: /options/i });
+  const options = form.queryByRole("textbox", { name: /options/i });
+  expect(Boolean(options)).toBe(hasOptions);
   fireEvent.change(text, { target: { value: "initial draft" } });
-  fireEvent.change(options, { target: { value: "{}" } });
+  if (options) fireEvent.change(options, { target: { value: "{}" } });
   const pick = async (...files: NodeFile[]) => { await act(async () => { fireEvent.change(picker, { target: { files } }); }); };
   const original = "\uFEFF合成二维码\r\nLine two\n ";
   const file = new NodeFile([original], "fixture.txt");
@@ -44,7 +50,7 @@ it.each(["0.1.0", "0.2.0"])("imports an exact QR text file for Compute %s", asyn
   expect(text).toHaveProperty("value", "initial draft");
   await pick(file);
   await act(async () => fireEvent.click(form.getByRole("button", { name: "Execute tool" })));
-  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text: original, options: "{}" });
+  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text: original, ...(hasOptions && { options: "{}" }) });
   expect(Buffer.from(await file.arrayBuffer())).toEqual(Buffer.from(original));
 
   const exact = new NodeFile(["中".repeat(682) + "xy"], "at-limit.txt");
