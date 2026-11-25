@@ -239,6 +239,9 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       <p translate="no">{reading.hit.sender} · {reading.hit.address}</p>
       {reading.status === "loading" && <p role="status">{t("Loading…")}</p>}
       {(reading.status === "failed" || reading.status === "missing") && reading.error && <p role="alert">{reading.error}</p>}
+      {reading.status === "failed" && readingAccess && <button className="ui-button" type="button" onClick={() => {
+        if (readingRequest.current?.hit === reading.hit) void open(reading.hit);
+      }}>{t("Try again")}</button>}
       {reading.status === "missing" && <>
         <p>{t(readingAccess ? "This message is not available offline. Download it explicitly to read it." : "No message body is saved on this device.")}</p>
         {readingAccess && <button className="ui-button" type="button" onClick={() => void open(reading.hit, true)}>
