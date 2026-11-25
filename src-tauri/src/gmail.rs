@@ -309,17 +309,22 @@ pub(crate) async fn mail_gmail(
     if let Request::Disconnect { clear_cache } = request {
         let previous = {
             let _g = current()?;
-            let v = if crate::desktop_profile::system_credentials_enabled() {
-                let saved = read_secret(&key)?;
-                clear_secret(&key)?;
-                saved
-            } else {
-                None
+            let clear_cached_mail = || {
+                if clear_cache {
+                    store::clear_cache(&path, &scope, &account_id)?;
+                }
+                Ok(())
             };
-            if clear_cache {
-                store::clear_cache(&path, &scope, &account_id)?;
+            if crate::desktop_profile::system_credentials_enabled() {
+                store::disconnect_local(
+                    || read_secret(&key),
+                    clear_cached_mail,
+                    || clear_secret(&key),
+                )?
+            } else {
+                clear_cached_mail()?;
+                None
             }
-            v
         };
         let revoked = match previous {
             Some(s) => client
