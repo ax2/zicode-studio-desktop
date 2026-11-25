@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.ics-count",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "planner-interop",
+      "capabilityId": "devtools.calendar.ics.count_cutoff",
+      "title": "ICS 重复截止预览",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "查看最多 16 KiB 的单日程 ICS，获取 COUNT 的末次开始和等价 UNTIL。支持全天与浮动时间。UTC、TZID、例外请在原日历检查。"
+    }
+  ]
+}
