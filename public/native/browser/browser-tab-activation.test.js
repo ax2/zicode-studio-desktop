@@ -189,6 +189,63 @@ it("opens a selected local PDF in a transient tab and leaves normal navigation, 
   expect(h.saved().closedTabs).toEqual(before.closedTabs);
 });
 
+it("opens one local PDF picker from browser chrome or the active native tab", async () => {
+  const h = await mount();
+  const address = h.root.querySelector(".browser-address");
+  const menu = h.root.querySelector(".browser-options");
+  const menuAction = menu.querySelector(".browser-open-local-pdf");
+  const press = overrides => address.dispatchEvent(new KeyboardEvent("keydown", {
+    key: "o", ctrlKey: true, cancelable: true, bubbles: true, ...overrides,
+  }));
+  const nativeOpen = tab => h.emit({ kind: "shortcut", tab, action: "openLocalPdf" });
+  let cancel;
+  const pick = vi.fn(() => new Promise(resolve => { cancel = resolve; }));
+  h.hooks.openLocalPdf = pick;
+
+  for (const modifiers of [{shiftKey: true}, {altKey: true}, {metaKey: true}, {isComposing: true}, {keyCode: 229}]) {
+    expect(press(modifiers)).toBe(true);
+  }
+  const modal = document.createElement("dialog");
+  modal.open = true;
+  modal.getClientRects = () => [{width: 200, height: 150}];
+  document.body.append(modal);
+  expect(press()).toBe(true);
+  nativeOpen("a");
+  modal.remove();
+  nativeOpen("b");
+  expect(h.requests.some(r => r.kind === "focusChrome")).toBe(false);
+
+  const before = h.saved();
+  address.focus();
+  expect(press()).toBe(false);
+  await waitFor(() => expect(pick).toHaveBeenCalledOnce());
+  try {
+    press({ repeat: true });
+    press();
+    nativeOpen("a");
+    menu.open = true;
+    menuAction.click();
+    expect(pick).toHaveBeenCalledOnce();
+    expect(h.requests.some(r => r.kind === "focusChrome")).toBe(false);
+  } finally {
+    cancel(null);
+  }
+  await waitFor(() => expect(h.requests.filter(r => r.kind === "openLocalPdf")).toHaveLength(1));
+  expect(h.saved()).toEqual(before);
+  await Promise.resolve();
+
+  h.hooks.openLocalPdf = vi.fn(async () => null);
+  nativeOpen("a");
+  await waitFor(() => expect(h.requests).toContainEqual({ kind: "focusPage", tab: "a" }));
+  expect(h.hooks.openLocalPdf).toHaveBeenCalledOnce();
+  expect(h.requests.findIndex(r => r.kind === "focusChrome" && r.tab === "a"))
+    .toBeLessThan(h.requests.findLastIndex(r => r.kind === "openLocalPdf"));
+  expect(h.saved()).toEqual(before);
+  expect(h.visible()).toBe("a");
+  expect(menuAction.getAttribute("aria-keyshortcuts")).toBe("Control+o");
+  expect(menuAction.dataset.shortcut).toBe("Ctrl+O");
+});
+
 it("updates an open zoom menu as PDF classification arrives and rejects older settings", async () => {
   const h = await mount();
   let completeOldSettings;
