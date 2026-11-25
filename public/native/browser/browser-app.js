@@ -1285,7 +1285,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       return;
     }
     tabSearch = showBrowserTabSearch({
-      tabs: [...tabs], active, getIcon: id => favicons.get(id),
+      getTabs: () => tabs, getActive: () => active, getIcon: id => favicons.get(id),
       onSelect: id => enqueue(async () => {
         if (!tabs.some(tab => tab.id === id)) throw new Error(t("Browser tab is no longer available"));
         if (id !== active) await select(id);

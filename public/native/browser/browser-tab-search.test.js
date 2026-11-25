@@ -24,11 +24,11 @@ it("filters across title and address and switches by the exact tab identity", as
   mockDialog();
   const onSelect = vi.fn().mockResolvedValue(undefined), onClose = vi.fn();
   const dialog = showBrowserTabSearch({
-    tabs: [
+    getTabs: () => [
       { id: "first", title: "文档", url: "https://alpha.example.org/" },
       { id: "second", title: "文档", url: "https://beta.example.org/" },
     ],
-    active: "first", getIcon: () => undefined, onSelect, onClose,
+    getActive: () => "first", getIcon: () => undefined, onSelect, onClose,
   });
   const input = getByRole(dialog, "searchbox");
   expect(document.activeElement).toBe(input);
@@ -53,11 +53,11 @@ it.each(["Enter", "ArrowDown", "ArrowUp"])("leaves the IME's trailing %s at the 
   const onSelect = vi.fn().mockResolvedValue(undefined);
   const onClose = vi.fn();
   const dialog = showBrowserTabSearch({
-    tabs: [
+    getTabs: () => [
       { id: "first", title: "简介", url: "https://example.test/overview" },
       { id: "second", title: "测试参考", url: "https://example.test/reference" },
     ],
-    active: "first", getIcon: () => undefined, onSelect, onClose,
+    getActive: () => "first", getIcon: () => undefined, onSelect, onClose,
   });
   const input = getByRole(dialog, "searchbox");
   fireEvent.compositionStart(input);
@@ -77,4 +77,32 @@ it.each(["Enter", "ArrowDown", "ArrowUp"])("leaves the IME's trailing %s at the 
   fireEvent.keyDown(input, { key: "Enter" });
   await waitFor(() => expect(onClose).toHaveBeenCalledWith("second"));
   expect(onSelect).toHaveBeenCalledExactlyOnceWith("second");
+});
+
+it("removes a closed result without selecting another tab or losing the query", async () => {
+  mockDialog();
+  const popup = { id: "popup", title: "Reference popup", url: "https://example.test/popup" };
+  const guide = { id: "guide", title: "Reference guide", url: "https://example.test/guide" };
+  let tabs = [popup, guide];
+  const onSelect = vi.fn().mockRejectedValueOnce(new Error("Browser tab is no longer available")).mockResolvedValueOnce(undefined);
+  const onClose = vi.fn();
+  const dialog = showBrowserTabSearch({ getTabs: () => tabs, getActive: () => "source", getIcon: () => undefined, onSelect, onClose });
+  const input = getByRole(dialog, "searchbox");
+  fireEvent.input(input, { target: { value: "Reference" } });
+  fireEvent.keyDown(input, { key: "ArrowDown" });
+  const closedResult = document.activeElement;
+  expect(closedResult.title).toBe(popup.url);
+
+  tabs = [guide];
+  fireEvent.click(closedResult);
+  await waitFor(() => expect(getByRole(dialog, "status").textContent).toBe(t("Browser tab is no longer available")));
+  expect(input.value).toBe("Reference");
+  expect(document.activeElement).toBe(input);
+  expect([...dialog.querySelectorAll(".browser-tab-search-result")].map(button => button.title)).toEqual([guide.url]);
+  expect(onSelect).toHaveBeenCalledExactlyOnceWith("popup");
+  expect(onClose).not.toHaveBeenCalled();
+
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() => expect(onClose).toHaveBeenCalledExactlyOnceWith("guide"));
+  expect(onSelect.mock.calls).toEqual([["popup"], ["guide"]]);
 });
