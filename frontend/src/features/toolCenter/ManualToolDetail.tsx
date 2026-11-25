@@ -132,7 +132,7 @@ interface ToolDraft {
   values: Record<string, string>;
   undo?: {
     identity: string; values: Record<string, string>; kind: "apply" | "import";
-    mergeSide?: MergeSide; scopeBound?: boolean; textDiffField?: string;
+    mergeSide?: MergeSide; scopeBound?: boolean; diffInputField?: "left" | "right";
   };
 }
 
@@ -247,6 +247,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const jsonPath = comparePlugin && tool.capabilityId === "devtools.compare.json.path";
   const textDiff = comparePlugin && tool.capabilityId === "devtools.compare.text.diff";
   const jsonDiff = comparePlugin && /^devtools\.compare\.json\.diff\.(ordered|unordered)$/.test(tool.capabilityId);
+  const diffFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets : null;
   const jsonSchema = tool.pluginId === "com.zicode.devtools.json-schema" && tool.capabilityId === "devtools.json-schema.validate";
   const enabledWasi = tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version;
   const jsonObject = enabledWasi && tool.version === "0.1.1" && tool.pluginId === "com.zicode.devtools.json-object" &&
@@ -318,12 +319,12 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const base64Decode = textOnlyContract && tool.capabilityId === "devtools.text.base64.decode";
   const base64Tool = base64Encode || base64Decode;
   const textSha256 = textOnlyContract && tool.capabilityId === "devtools.text.sha256";
-  const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets : jsonObject ? jsonObjectFileTargets :
+  const documentFileTargets = diffFileTargets ?? (jsonObject ? jsonObjectFileTargets :
     jsonSchema ? jsonSchemaFileTargets : qrFileTool ? qrFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
         (base64Encode || hexEncode || textSha256 || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
           stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets : traceReport ? traceFileTargets : springConfig ? springConfigFileTargets :
-          (textLines || textStatistics || stringEscape || htmlText || urlDecode || regexMatches) ? utf8FileTargets : [];
+          (textLines || textStatistics || stringEscape || htmlText || urlDecode || regexMatches) ? utf8FileTargets : []);
   const jsonDocument = jsonPath || jsonDiff || jsonObject || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
     : yamlToJson ? { label: "Download JSON", stem: "converted", extension: "json", mime: "application/json" }
@@ -426,11 +427,11 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const next = await readManualToolFile(file, values, target, choices);
       if (!isCurrent()) return;
       setInvalidField("");
-      const textDiffField = textDiff ? textDiffFileTargets.find(side => side.target === target)?.field : undefined;
+      const diffInputField = diffFileTargets?.find(side => side.target === target)?.field;
       setDraft(current => current.values === values
         ? {
           values: { ...values, ...next },
-          undo: { identity: transformIdentity, values, kind: "import", textDiffField },
+          undo: { identity: transformIdentity, values, kind: "import", diffInputField },
         }
         : current);
     } catch (reason) {
@@ -548,8 +549,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
             onChange={value => setDraft(previous => {
               const next = { ...previous.values, [field.key]: value };
               const previousUndo = previous.undo;
-              const editsOtherDiffSide = textDiff && previousUndo?.textDiffField &&
-                (field.key === "left" || field.key === "right") && field.key !== previousUndo.textDiffField;
+              const editsOtherDiffSide = diffFileTargets && previousUndo?.diffInputField &&
+                (field.key === "left" || field.key === "right") && field.key !== previousUndo.diffInputField;
               if (previousUndo?.kind === "import" && previousUndo.identity === transformIdentity &&
                   (editsOtherDiffSide || (jsonPath && field.key === "query") || (regexMatches && field.key === "pattern"))) {
                 return { values: next, undo: { ...previousUndo, values: { ...previousUndo.values, [field.key]: value } } };

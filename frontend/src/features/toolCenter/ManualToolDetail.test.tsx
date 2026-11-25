@@ -484,6 +484,32 @@ it.each(jsonDiffModes)("imports either JSON file without running the %s comparis
   expect(right.value).toBe('{"revised":true}');
 });
 
+
+it.each(jsonDiffModes)("keeps %s JSON import undo through edits on the other side only", async (mode) => {
+  const { api, form, left, right, pick } = await mountJsonDiff(mode);
+  const undo = () => form.queryByRole("button", { name: "撤销上次导入" });
+  const original = '{"amount":18446744073709551614}';
+  const imported = '{"amount":18446744073709551615}';
+  const edited = '{"manual":true}';
+  for (const [side, input, other] of [["left", left, right], ["right", right, left]] as const) {
+    fireEvent.change(input, { target: { value: original } });
+    await pick(side, [new NodeFile([imported], "source.json")]);
+    fireEvent.change(other, { target: { value: edited } });
+    expect(input.value).toBe(imported);
+    await act(async () => undo()?.click());
+    expect(input.value).toBe(original);
+    expect(other.value).toBe(edited);
+    expect(undo()).toBeNull();
+
+    await pick(side, [new NodeFile([imported], "source.json")]);
+    fireEvent.change(input, { target: { value: edited } });
+    expect(undo()).toBeNull();
+    expect(input.value).toBe(edited);
+    fireEvent.change(other, { target: { value: "{}" } });
+  }
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
 it("keeps both JSON drafts when the file extension, size or contents cannot be loaded", async () => {
   const { api, form, left, right, pick } = await mountJsonDiff("ordered");
   fireEvent.change(left, { target: { value: '{"original":true}' } });
