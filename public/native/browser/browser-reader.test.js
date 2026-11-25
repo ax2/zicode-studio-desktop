@@ -46,12 +46,13 @@ async function setup() {
   let emit, documentRevision = "1";
   const page = { url: tab.url, title: tab.title, blocks: [{ kind: "paragraph", text: "Synthetic article" }] };
   const present = vi.fn(async () => {});
+  const snapshot = vi.fn(async () => "data:image/jpeg;base64,AA==");
   const readArticle = vi.fn(async () => ({ tab: tab.id, documentRevision, page }));
   const invoke = vi.fn(async (command, args) => {
     if (command === "browser_get_state") return { startupMode: "browser", session: { revision: 0, activeTab: tab.id, tabs: [tab] } };
     if (command === "browser_read_article") return readArticle();
     if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs: [{ ...tab, documentRevision }] };
-    if (args?.request?.kind === "snapshot") return "data:image/jpeg;base64,AA==";
+    if (args?.request?.kind === "snapshot") return snapshot();
     if (args?.request?.kind === "present") return present();
     return { revision: 1 };
   });
@@ -68,15 +69,16 @@ async function setup() {
     menu.open = true;
     getByRole(menu, "button", { name: "Reading mode" }).click();
   };
+  const requestFromPage = () => emit({ kind: "contextAction", action: "reader", tab: tab.id });
   return {
-    invoke, present, trigger, address: root.querySelector(".browser-address"), readArticle, requestFromMenu,
+    invoke, present, snapshot, trigger, address: root.querySelector(".browser-address"), readArticle, requestFromMenu, requestFromPage,
     render: () => app.renderContent(root),
     openFromMenu() {
       requestFromMenu();
       return findReader();
     },
     openFromPage() {
-      emit({ kind: "contextAction", action: "reader", tab: tab.id });
+      requestFromPage();
       return findReader();
     },
     replaceArticleText(text) { page.blocks[0].text = text; },
@@ -356,6 +358,50 @@ it.each(["success", "failure"])("ignores a late %s after leaving and returning t
   expect(document.body.textContent).not.toContain("Obsolete extraction failed");
   expect(document.activeElement).toBe(h.address);
   expect(await h.openFromMenu()).toBeTruthy();
+});
+
+it.each(["success", "failure"])("keeps the returned page visible after an obsolete snapshot %s", async (outcome) => {
+  const h = await setup();
+  let settle;
+  h.snapshot.mockImplementationOnce(() => new Promise((resolve, reject) => { settle = [resolve, reject]; }));
+  h.requestFromPage();
+  await waitFor(() => expect(settle).toBeDefined());
+  const hides = () => h.invoke.mock.calls.filter(([, args]) => args?.request?.kind === "hide").length;
+  const beforePresent = h.present.mock.calls.length;
+  let beforeRelease;
+  try {
+    await app.canDeactivate();
+    h.render();
+    await waitFor(() => expect(h.present.mock.calls.length).toBeGreaterThan(beforePresent));
+    beforeRelease = hides();
+    h.address.focus();
+  } finally {
+    if (outcome === "success") settle[0]("data:image/jpeg;base64,AA==");
+    else settle[1](Error("Obsolete native preview failed"));
+  }
+  await app.finishWindowWrites();
+  expect(hides()).toBe(beforeRelease);
+  expect(document.body.textContent).not.toContain("Obsolete native preview failed");
+  expect(queryByRole(document.body, "dialog", { name: "Reading mode" })).toBeNull();
+  expect(document.activeElement).toBe(h.address);
+});
+
+it("drops a failed reader presentation after the browser activation ends", async () => {
+  const h = await setup();
+  let fail;
+  h.present.mockImplementationOnce(() => new Promise((_, reject) => { fail = reject; }));
+  vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockReturnValue({ x: 0, y: 0, width: 710, height: 580 });
+  h.requestFromPage();
+  await waitFor(() => expect(fail).toBeTypeOf("function"));
+  try {
+    app.deactivate();
+    h.render();
+    h.address.focus();
+  } finally { fail(Error("Obsolete reader presentation failed")); }
+  await app.finishWindowWrites();
+  expect(document.body.textContent).not.toContain("Obsolete reader presentation failed");
+  expect(h.readArticle).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(h.address);
 });
 
 it("keeps new chrome focus while the webview is still being presented", async () => {

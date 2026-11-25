@@ -139,7 +139,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   });
   async function hide(preserve = false, stillNeeded = () => true) {
     if (preserve && selected() && pageAvailable(active) && lastSurface) {
-      try { if (!await preview.show(active)) return; } catch (error) { report(error); }
+      try { if (!await preview.show(active)) return; } catch (error) { if (stillNeeded()) report(error); }
       if (!stillNeeded()) {
         void preview.releaseWhenPresented(() => !blocked() && Boolean(lastSurface));
         return;
@@ -1393,13 +1393,16 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   async function openReader(source, returnControl) {
     const sameActivation = () => source?.generation === panelGeneration;
+    const syncForReader = () => syncSurface().catch(error => {
+      if (sameActivation()) throw error;
+    });
     if (blocked() || selected()?.localPdf || (source && !sameActivation())) return;
     if (!source || !pageAvailable(source.id) || !/^https?:/.test(source.url) || navigationStates.has(source.id)) {
       throw new Error(t("Wait for the current page to finish loading"));
     }
     const { id, url, version } = source;
     const samePage = () => active === id && selected()?.url === url && pageVersions.get(id) === version && pageAvailable(id);
-    await syncSurface();
+    await syncForReader();
     if (!sameActivation()) return;
     if (blocked() || !samePage()) throw new Error(t("Page changed. Read it again."));
     const article = await invoke("browser_read_article", { tab: id, expectedUrl: url }).catch(error => {
@@ -1412,7 +1415,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (!current() || tab !== id || page.url !== url || !documentRevision) throw new Error(t("Page changed. Read it again."));
     if (!page.blocks.length) throw new Error(t("No readable text on this page."));
     try {
-      await hide(true);
+      await hide(true, current);
       if (!sameActivation()) return;
       if (!current()) throw new Error(t("Page changed. Read it again."));
       const saved = readerPositions.get(id);
@@ -1422,7 +1425,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (!sameActivation()) return;
         const focusedAtClose = document.activeElement;
         void run(async () => {
-          await syncSurface();
+          await syncForReader();
           if (!current() || document.activeElement !== focusedAtClose) return;
           if (returnControl?.isConnected) returnControl.focus({ preventScroll: true });
           else await control({ kind: "focusPage", tab: id });
@@ -1431,8 +1434,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       readerPanel = reader;
     } catch (error) {
       if (!sameActivation()) return;
-      await syncSurface();
-      throw error;
+      await syncForReader();
+      if (sameActivation()) throw error;
     }
   }
   async function readPage() {
