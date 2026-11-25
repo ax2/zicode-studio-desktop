@@ -194,6 +194,35 @@ it("keeps a successful revocation visible when permission readback fails and ret
   ]);
 });
 
+it.each([false, true])("handles keyboard focus after a repeated permission read failure (moved focus: %s)", async movedFocus => {
+  let rejectRetry;
+  const request = vi.fn()
+    .mockRejectedValueOnce(Error("First read failed"))
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectRetry = reject; }))
+    .mockResolvedValueOnce([{ permission: 2, allowed: true }]);
+  showSiteSettings({ origin: "https://example.test", request, onClose: vi.fn() });
+  const getRetry = () => getByRole(document.body, "button", { name: t("Retry reading permissions") });
+  const retry = await waitFor(getRetry);
+  const dialog = retry.closest("dialog");
+  retry.focus();
+  retry.click();
+  expect(document.activeElement).toBe(getByRole(dialog, "button", { name: t("Close") }));
+  if (movedFocus) {
+    dialog.tabIndex = -1;
+    dialog.focus();
+  }
+  rejectRetry(Error("Second read failed"));
+  const replacement = await waitFor(getRetry);
+  expect(replacement).not.toBe(retry);
+  expect(document.activeElement).toBe(movedFocus ? dialog : replacement);
+  expect(getByRole(dialog, "alert").textContent).toContain("Second read failed");
+
+  replacement.click();
+  await waitFor(() => expect(getByText(dialog, t("Camera").concat(" · ", t("Allowed")))).toBeTruthy());
+  expect(dialog.open).toBe(true);
+  expect(request.mock.calls).toEqual([[{ type: "list" }], [{ type: "list" }], [{ type: "list" }]]);
+});
+
 it("invalidates a settings panel rejected because the native site changed", async () => {
   const request = vi.fn()
     .mockResolvedValueOnce([{ permission: 2, allowed: true }])
