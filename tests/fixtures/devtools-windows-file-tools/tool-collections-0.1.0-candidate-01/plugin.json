@@ -1,0 +1,305 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.tool-collections",
+  "name": "ZiDevTools Tool Collection Import Preview",
+  "displayName": "工具集合导入预览",
+  "description": "检查一份最多 128 KiB 的 ZiDevTools 工具集合导出。可比对手动填写的集合名称、预览改名和按原顺序查看工具 ID。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.collections.preview"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.collections.preview",
+        "title": "工具集合导入预览",
+        "description": "检查一份最多 128 KiB 的 ZiDevTools 工具集合导出。可比对手动填写的集合名称、预览改名和按原顺序查看工具 ID。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json",
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "compareNames": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "string",
+                "maxLength": 40
+              },
+              "title": "比较名称（可选）",
+              "description": "填写要模拟占用的名称 JSON 数组，例如 [\"工作台\",\"日常\"]。"
+            },
+            "startCollection": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128,
+              "title": "起始集合序号",
+              "description": "默认 1。按导出顺序列出从该处起的最多 16 个集合。"
+            },
+            "startMember": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 512,
+              "title": "工具起始序号",
+              "description": "默认 1。按导出顺序查看首个所列集合中的工具 ID。"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "collectionCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 128
+                    },
+                    "toolCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 65536
+                    },
+                    "comparisonNameCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 128
+                    },
+                    "renamedCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 128
+                    },
+                    "startCollection": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 128
+                    },
+                    "endCollection": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 128
+                    },
+                    "collections": {
+                      "type": "array",
+                      "maxItems": 16,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceName": {
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "resolvedName": {
+                            "type": "string",
+                            "maxLength": 40
+                          },
+                          "renamed": {
+                            "type": "boolean"
+                          },
+                          "toolCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 512
+                          }
+                        },
+                        "required": [
+                          "sourceName",
+                          "resolvedName",
+                          "renamed",
+                          "toolCount"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "memberPreview": {
+                      "type": "object",
+                      "properties": {
+                        "collection": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 128
+                        },
+                        "toolCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 512
+                        },
+                        "startMember": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 512
+                        },
+                        "endMember": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 512
+                        },
+                        "nextMember": {
+                          "oneOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "toolIds": {
+                          "type": "array",
+                          "maxItems": 16,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "collection",
+                        "toolCount",
+                        "startMember",
+                        "endMember",
+                        "nextMember",
+                        "toolIds",
+                        "truncated"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 12000
+                    }
+                  },
+                  "required": [
+                    "collectionCount",
+                    "toolCount",
+                    "comparisonNameCount",
+                    "renamedCount",
+                    "startCollection",
+                    "endCollection",
+                    "collections",
+                    "memberPreview",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 24576,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "工具集合",
+            "工具组导入",
+            "预览集合改名",
+            "Preview tool collections"
+          ],
+          "description": "检查一份最多 128 KiB 的 ZiDevTools 工具集合导出。可比对手动填写的集合名称、预览改名和按原顺序查看工具 ID。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的本机工具集合导出快照。"
+      }
+    ],
+    "optional": []
+  }
+}
