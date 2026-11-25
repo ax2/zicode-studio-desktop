@@ -93,6 +93,7 @@ const zhCN = {
   "Retry saved Gmail labels": "重试读取本机 Gmail 标签",
   "Show saved messages": "查看已缓存的邮件",
   "Refresh from server": "从服务器刷新",
+  "Newer messages were refreshed. Some older messages could not be synced. Refresh from server to try again.": "最新邮件已刷新，部分较早的邮件未能同步。请从服务器刷新以重试。",
   "Refresh this Gmail label": "刷新此 Gmail 标签",
   "Showing messages retrieved from the server.": "当前显示从服务器取得的邮件。",
   "Showing messages saved on this device.": "当前显示已保存在本机的邮件。",

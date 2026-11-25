@@ -54,6 +54,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
   const [page,setPage]=useState<Page|null>(null),[body,setBody]=useState<Body|null>(null),[selected,setSelected]=useState<MessageRef|null>(null);
   const [localBodyFailed, setLocalBodyFailed] = useState(false);
   const [online,setOnline]=useState(false),[error,setError]=useState("");
+  const [catchUpInterrupted, setCatchUpInterrupted] = useState(false);
   const [activity, setActivity] = useState<AlibabaActivity>("blocking");
   const busy = activity !== null;
   const live=useRef(false),lock=useRef(false),generation=useRef(0),onConfig=useRef(onConfigured);
@@ -121,19 +122,26 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       }
     }
     void run(async isCurrent => {
-      if (!network && !cursor) return {page:await cachedFirstPage(),append:false};
+      if (!network && !cursor) return {page:await cachedFirstPage(),append:false,interrupted:false};
       let page: Page;
       try {
         page = await req<Page>(network?"sync":"cachedPage",{cursor,...args});
       } catch (error) {
         if (network || !cursor || mailErrorCode(error) !== "mail_inbox_changed" || !isCurrent()) throw error;
-        return {page:await cachedFirstPage(),append:false};
+        return {page:await cachedFirstPage(),append:false,interrupted:false};
       }
       let pending=network&&!cursor&&page.pending;
-      while(pending&&isCurrent())pending=await req<boolean>("catchUp",args);
-      return {page,append:Boolean(cursor)};
-    }, ({page:p,append}) => {
+      try {
+        while(pending&&isCurrent())pending=await req<boolean>("catchUp",args);
+      } catch (error) {
+        if (mailErrorCode(error) !== "mail_connect") throw error;
+        // The initial sync page is already committed. The older-mail gap is saved for the next refresh.
+        return {page,append:false,interrupted:true};
+      }
+      return {page,append:Boolean(cursor),interrupted:false};
+    }, ({page:p,append,interrupted}) => {
       if (target !== folder) setFolder(target);
+      if (!append) setCatchUpInterrupted(interrupted);
       if (!append || !p) {
         setSelected(null);
         setBody(null);
@@ -163,6 +171,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       setPage(null);
       setSelected(null);
       setBody(null);
+      setCatchUpInterrupted(false);
       setOnline(false);
       try {
         const inbox = await req<Page>("cachedPage", { cursor: null, limit: 20 });
@@ -208,7 +217,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
         <button className="ui-button" disabled={!enabled||!secret}>{t("Save client password")}</button>
         <MailDisconnect connected={configured} label={t("Remove client password")} prompt={t("Remove this account’s saved client password?")}
           disconnect={clear=>run(()=>req("forgetPassword",{clearCache:clear}),()=>{
-            setSecret("");setConfigured(false);setOnline(false);onConfig.current(false);
+            setSecret("");setConfigured(false);setOnline(false);setCatchUpInterrupted(false);onConfig.current(false);
             if(clear){applySavedFolders([]);setFolder("INBOX");setPage(null);setSelected(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
           })}/>
       </form>
@@ -225,6 +234,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       {savedFoldersState === "empty" && <p role="status">{t("No additional IMAP folders are saved on this device.")}</p>}
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(folder==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
       <button className="ui-button" type="button" disabled={!configured} onClick={()=>load(true)}>{t("Refresh from server")}</button>
+      {catchUpInterrupted && <p role="alert">{t("Newer messages were refreshed. Some older messages could not be synced. Refresh from server to try again.")}</p>}
       {page?<><p>{online?t("Showing messages retrieved from the server."):t("Showing messages saved on this device.")}</p>
         {page.messages.length===0?<p>{t("No messages on this page.")}</p>:<ul className="mail-inbox-list">{page.messages.map(m=><li key={m.uid}><button className="ui-button" type="button" aria-pressed={chosen?.uid===m.uid} onClick={()=>pick(m)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.sender}</small></button></li>)}</ul>}
         {page.next&&<button className="ui-button" type="button" disabled={online&&!configured} onClick={()=>load(online,page.next)}>{t("Load older messages")}</button>}
