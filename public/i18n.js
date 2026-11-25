@@ -4081,6 +4081,8 @@ const zhCN = {
   "Save to notes": "保存到笔记",
   "Save to notebook": "保存到笔记本",
   "Saved to notes": "已保存到笔记",
+  "Saved {file} to Notes.": "已将 {file} 保存到笔记。",
+  "Could not save {file} to Notes.": "无法将 {file} 保存到笔记。",
   "Document imported": "文档已导入",
   characters: "字符",
   "Character count": "字数",

@@ -225,16 +225,27 @@ export function createDocumentsStore(options: DocumentsOptions) {
     async save() {
       const { result, saving, selectedNotebookId } = get();
       if (!result || saving || !saveToNotes) return;
+      const selection = selectedFile;
+      const target = activeTarget;
+      const ownsWorkspace = () => activeTarget === target && sameTarget(target, getTarget());
+      const ownsDocument = () => ownsWorkspace() && selection === selectedFile;
       set({ saving: true, error: "" });
       try {
         await saveToNotes(selectedNotebookId, result.fileName, result.markdown);
-        set({ saving: false });
+        if (!ownsWorkspace()) return;
+        notify(ownsDocument() ? t("Saved to notes") :
+          t("Saved {file} to Notes.").replace("{file}", () => result.fileName));
         // Saving may auto-create the fallback notebook when none existed, so
         // refresh the target list to reflect it.
-        await get().loadNotebooks();
-        notify(t("Saved to notes"));
+        if (!selectedNotebookId && ownsDocument()) await get().loadNotebooks();
       } catch (error) {
-        set({ saving: false, error: localizeHostError(error).message });
+        if (ownsDocument()) {
+          set({ error: localizeHostError(error).message });
+        } else if (ownsWorkspace()) {
+          notify(t("Could not save {file} to Notes.").replace("{file}", () => result.fileName));
+        }
+      } finally {
+        set({ saving: false });
       }
     },
 

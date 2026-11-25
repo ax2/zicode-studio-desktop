@@ -188,6 +188,40 @@ describe("documents store", () => {
     expect(notify).toHaveBeenCalledWith("Saved to notes");
   });
 
+  it.each([false, true])("keeps an earlier save failure out of the current document (changed workspace: %s)", async changed => {
+    let workspaceId = "ws-1";
+    const notify = vi.fn();
+    let rejectSave = (error: Error): void => { throw error; };
+    const pending = new Promise<void>((_, reject) => { rejectSave = reject; });
+    const saveToNotes = vi.fn().mockReturnValueOnce(pending).mockResolvedValue(undefined);
+    const gateway = stubGateway({
+      import: vi.fn(async ({ fileName }) => ({ ...RESULT, fileName: fileName ?? "", markdown: "# " + fileName })),
+    });
+    const store = createDocumentsStore({
+      gateway, notify, getTarget: () => ({ sceneId: "programming", workspaceId }),
+      listNotebooks: async () => [{ id: workspaceId + "-notes", title: "Notebook" }], saveToNotes,
+    });
+    await store.getState().importFile("alpha.pdf", "data:base64,AAAA");
+    const previous = store.getState().save();
+    if (changed) {
+      workspaceId = "ws-2";
+      await store.getState().syncTarget();
+    }
+    await store.getState().importFile("beta.pdf", "data:base64,BBBB");
+    notify.mockClear();
+    rejectSave(new Error("Fixture write failed"));
+    await previous;
+    expect(store.getState().error).toBe("");
+    expect(store.getState().result?.fileName).toBe("beta.pdf");
+    if (changed) expect(notify).not.toHaveBeenCalled();
+    else expect(notify).toHaveBeenCalledExactlyOnceWith("Could not save alpha.pdf to Notes.");
+    await store.getState().save();
+    expect(saveToNotes.mock.calls).toEqual([
+      ["ws-1-notes", "alpha.pdf", "# alpha.pdf"],
+      [workspaceId + "-notes", "beta.pdf", "# beta.pdf"],
+    ]);
+  });
+
   it("surfaces gateway errors", async () => {
     const gateway = stubGateway({
       import: vi.fn(async () => {
