@@ -26,7 +26,7 @@ export function showBrowserReader(page, onClose, position = {}) {
   let scrollTop = position.scrollTop ?? 0;
   const smaller = button("Smaller reading text", "A−", () => resize(-1));
   const larger = button("Larger reading text", "A+", () => resize(1));
-  const close = button("Close", t("Close"), () => { rememberPosition(); dialog.close(); });
+  const close = button("Close", t("Close"), () => { rememberBeforeClose(); dialog.close(); });
   function paintSize() {
     dialog.dataset.readerSize = String(size);
     smaller.setAttribute("aria-disabled", String(size === 0));
@@ -82,6 +82,31 @@ export function showBrowserReader(page, onClose, position = {}) {
     const offset = anchor.offset > 0 && anchor.height ? anchor.offset * height / anchor.height : anchor.offset;
     scroll.scrollTop += top + offset - viewportTop;
   }
+  function storedReflowAnchor() {
+    if (!reflowAnchor) return;
+    const { block, offset, height, range, lineOffset } = reflowAnchor;
+    return {
+      index: readingBlocks.indexOf(block),
+      text: block.textContent,
+      offset,
+      height,
+      textOffset: range?.startOffset,
+      lineOffset,
+    };
+  }
+  function restoreSavedAnchor(saved) {
+    if (!saved) return;
+    const { index, text, offset, height, textOffset, lineOffset } = saved;
+    const block = readingBlocks[index];
+    if (!block || block.textContent !== text) return;
+    let range;
+    const node = block.firstChild;
+    if (textOffset !== undefined && node?.nodeType === Node.TEXT_NODE && textOffset <= node.length) {
+      range = document.createRange();
+      range.setStart(node, textOffset);
+    }
+    return { block, offset, height, range, lineOffset };
+  }
   paintSize();
   controls.append(smaller, larger, close);
   header.append(textElement("span", t("Reading mode")), controls);
@@ -107,7 +132,7 @@ export function showBrowserReader(page, onClose, position = {}) {
     article.append(textElement(tag, text));
   }
   if (page.truncated) article.append(textElement("p", t("Page content was shortened")));
-  const readingBlocks = article.querySelectorAll(":scope > :not(ol, ul), :scope > :is(ol, ul) > li");
+  const readingBlocks = Array.from(article.querySelectorAll(":scope > :not(ol, ul), :scope > :is(ol, ul) > li"));
   scroll.append(article);
   dialog.append(header, scroll);
   const rememberPosition = () => { scrollTop = scroll.scrollTop; };
@@ -128,18 +153,30 @@ export function showBrowserReader(page, onClose, position = {}) {
     restoreReadingAnchor(reflowAnchor);
     rememberPosition();
   }) : undefined;
+  function rememberBeforeClose() {
+    if (scroll.scrollTop !== scrollTop && scroll.clientWidth === observedWidth) rememberReflowPosition();
+    else rememberPosition();
+  }
   // Capture before native Escape closes the dialog and the scroll box no longer has layout.
-  dialog.addEventListener("cancel", rememberPosition);
+  dialog.addEventListener("cancel", rememberBeforeClose);
   dialog.addEventListener("close", () => {
     observer?.disconnect();
+    const anchor = storedReflowAnchor();
     dialog.remove();
-    onClose({ scrollTop, size });
+    onClose({ scrollTop, size, width: observedWidth, anchor });
   }, { once: true });
   document.body.append(dialog);
   try { dialog.showModal(); }
   catch (error) { dialog.remove(); throw error; }
   scroll.focus({ preventScroll: true });
   scroll.scrollTop = scrollTop;
-  rememberReflowPosition();
+  reflowAnchor = restoreSavedAnchor(position.anchor);
+  if (reflowAnchor) {
+    observedWidth = scroll.clientWidth;
+    if (observedWidth !== position.width) restoreReadingAnchor(reflowAnchor);
+    rememberPosition();
+  } else {
+    rememberReflowPosition();
+  }
   observer?.observe(scroll);
 }
