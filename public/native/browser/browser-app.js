@@ -1310,18 +1310,22 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function openBookmarks(editCurrent, returnToPage, { shortcut = false, returnFocus } = {}) {
     const ownsPage = libraryOwner();
     if (libraryPanel || !ownsPage()) return;
-    const selectedTab = selected(); let current = null;
-    if (selectedTab && !selectedTab.localPdf && pageAvailable(selectedTab.id)) {
+    const selectedTab = selected();
+    const canReadCurrent = selectedTab && !selectedTab.localPdf && pageAvailable(selectedTab.id);
+    const needsCurrent = editCurrent || shortcut;
+    const readCurrent = async () => {
+      if (!ownsPage()) return null;
       const result = await control({ kind: "url", tab: selectedTab.id }).catch(error => {
-        // Browsing the saved library does not require a live page URL.
-        if (ownsPage() && (editCurrent || shortcut)) throw error;
+        if (ownsPage() && needsCurrent) throw error;
         return null;
       });
-      if (!ownsPage()) return;
+      if (!ownsPage()) return null;
       const url = typeof result === "string" ? result : result?.url;
-      if (/^https?:/.test(url)) current = { url, title: url === selectedTab.url ? selectedTab.title : url };
-    }
-    await openLibrary(ownsPage, onClose => showBrowserBookmarks({ invoke, current, editCurrent, editShortcut: shortcut, onClose: () => {
+      return /^https?:/.test(url) ? { url, title: url === selectedTab.url ? selectedTab.title : url } : null;
+    };
+    const current = needsCurrent && canReadCurrent ? await readCurrent() : null;
+    const currentSource = !needsCurrent && canReadCurrent ? { read: readCurrent, isCurrent: ownsPage } : null;
+    await openLibrary(ownsPage, onClose => showBrowserBookmarks({ invoke, current, currentSource, editCurrent, editShortcut: shortcut, onClose: () => {
       if (ownsPage()) {
         newTabShortcuts.refresh();
         if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
