@@ -16,6 +16,7 @@ import { createResourceInputModes } from "./plugin-resource-input-modes.js";
 import { createImageMetadataResult } from "./image-metadata-result.js";
 import { createMarkdownResultDetails } from "./markdown-result-details.js";
 import { loadImageReportNoteMaterial } from "./image-report-note-material.js";
+import { createImageCropSelection } from "./image-crop-selection.js";
 import { createFileDigestManifestReview } from "./file-digest-manifest-review.js";
 import { createChecksumFolderReview } from "./checksum-folder-review.js";
 import { streamOriginal, streamProgress, streamReport, streamReportAccess } from "./file-digest-stream.js";
@@ -137,6 +138,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     onBusy(busy);
     run.disabled = busy || directoryPreparing || !reference || !form || reference.digestStream?.used === true;
     form?.setDisabled(busy);
+    crop?.setDisabled(busy || !form);
     selectionContainer.inert = busy;
     manifestReview?.setBlocked(running || folderBusy);
     folderReview?.refresh();
@@ -207,15 +209,23 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const jsonFile = (tool.pluginId === "com.zicode.devtools.compare-json-file" &&
     detail.capability.executionProfile === "resource.wasi.json-file-compare.v1") ||
     (tool.pluginId === "com.zicode.devtools.json-file" && detail.capability.executionProfile === "resource.wasi.json-file-transform.v1");
+  const crop = tool.pluginId === "com.zicode.devtools.image-crop" && tool.capabilityId === "devtools.image.crop" &&
+    detail.capability.executionProfile === "resource.wasi.image.crop.v1"
+    ? createImageCropSelection({ container: container.insertBefore(node("div"), parameters),
+      read: (resource, offset, length, current) => read({ capabilityId: tool.capabilityId }, resource, offset, length, current),
+      isCurrent: resource => valid() && reference === resource,
+      onApply: area => form?.setValues(area),
+    }) : null;
+  crop?.setDisabled(true);
   const selectionOptions = { container: selectionContainer, plugin, target, gateway, catalogRevision: detail.revision, maxResources,
-    markdownDraftMode, allowOriginalFile: fileDigest, nativeStream,
+    markdownDraftMode, allowOriginalFile: fileDigest, nativeStream, includePreviewSource: Boolean(crop),
     ...(fullFileEncoding ? { maxBytes: 8 * 1024 * 1024 } : {}),
     ...(jsonFile ? { maxBytes: 1024 * 1024 } : {}),
     readInput: (resource, offset, length, current) => read({ capabilityId: tool.capabilityId }, resource, offset, length, current),
     minResources: detail.capability.resourceInputMin ?? 1, resourceLabels: detail.capability.resourceInputLabels ?? [],
     isCurrent: () => valid() && !running,
-    onResource: value => {
-      clearTimeout(timer); releaseStreamReport(); reference = value; result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
+    onResource: (value, previewSource) => {
+      clearTimeout(timer); releaseStreamReport(); reference = value; crop?.show(value, previewSource); result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
       run.disabled = !value || !form || running || reviewBusy || folderBusy || directoryPreparing;
     } };
   const directoryAvailable = canChooseDirectory && detail.permissions.some(p => p.name === "resource.directory.read" && p.granted);
@@ -233,7 +243,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     function switchMode(next) {
       if (!valid() || running || (next === "files" && files.getAttribute("aria-pressed") === "true") ||
           (next === "directory" && directory.getAttribute("aria-pressed") === "true")) return;
-      selection.destroy(); reference = null; run.disabled = true; result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
+      selection.destroy(); reference = null; crop?.show(null); run.disabled = true; result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear();
       files.setAttribute("aria-pressed", String(next === "files"));
       directory.setAttribute("aria-pressed", String(next === "directory"));
       selection = next === "directory" ? createPluginDirectoryResourceSelection(selectionOptions) : selectInputs(selectionOptions);
@@ -382,7 +392,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
             await read({ capabilityId: tool.capabilityId }, resource, 0, 1);
           if (valid() && reference === access) timer = setTimeout(verify, 5000);
         }
-        catch { if (valid() && reference === access) { reference = null; run.disabled = true; result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear(); status.textContent = t("Tool access expired or changed. Refresh tools and confirm sharing again."); } }
+        catch { if (valid() && reference === access) { reference = null; crop?.show(null); run.disabled = true; result.textContent = ""; metadataResult?.clear(); manifestReview?.clear(); preview.clear(); status.textContent = t("Tool access expired or changed. Refresh tools and confirm sharing again."); } }
       };
       timer = setTimeout(verify, 5000);
     } catch (failure) {
@@ -415,7 +425,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     if (!active) return;
     active = false; clearTimeout(timer);
     if (liveStream) void nativeStream.cancel(target.workspaceId, liveStream.owner, liveStream.grantId).catch(() => {});
-    releaseStreamReport(); computation.destroy(); selection.destroy(); preview.destroy(); manifestReview?.destroy(); folderReview?.destroy(); metadataResult?.destroy(); transfer?.destroy(); save?.destroy(); reportExport?.destroy(); form?.destroy();
+    releaseStreamReport(); computation.destroy(); selection.destroy(); crop?.destroy(); preview.destroy(); manifestReview?.destroy(); folderReview?.destroy(); metadataResult?.destroy(); transfer?.destroy(); save?.destroy(); reportExport?.destroy(); form?.destroy();
     container.replaceChildren();
   } };
 }

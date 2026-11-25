@@ -15,6 +15,8 @@ it("reuses typed fields, preserves false/zero, omits untouched optional fields a
   fireEvent.change(input, { target: { value: "0" } });
   fireEvent.change(select, { target: { value: "1" } });
   expect(mounted.prepare()).toEqual({ input: { count: 0, flag: false } });
+  mounted.setValues({ count: 8, unrelated: 9 });
+  expect(mounted.prepare()).toEqual({ input: { count: 8, flag: false } });
   mounted.setDisabled(true);
   expect([...container.querySelectorAll("input,select,textarea")].every(element => (element as HTMLInputElement).disabled)).toBe(true);
 });

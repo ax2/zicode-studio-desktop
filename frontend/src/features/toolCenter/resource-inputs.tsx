@@ -20,6 +20,11 @@ export function mountResourceInputs(container: HTMLElement, schema: unknown) {
   render();
   return {
     prepare() { const result = prepareToolInput(fields, values); invalid = "field" in result ? result.field : undefined; render(); return result; },
+    setValues(next: Record<string, number>) {
+      for (const field of fields) if (Object.hasOwn(next, field.key)) values[field.key] = String(next[field.key]);
+      invalid = undefined;
+      render();
+    },
     setDisabled(value: boolean) { disabled = value; render(); },
     destroy() { root.unmount(); },
   };

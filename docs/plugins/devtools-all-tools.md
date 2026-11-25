@@ -1,6 +1,6 @@
 ## 2026-11-25 开发补充：单张图片裁剪
 
-审核并启用独立 Image Crop 0.1.0 候选后，在工具中心按像素裁剪一张本机静态 PNG、JPEG 或 WebP。确认提供文件并手动执行后，可预览无损 PNG，或按现有确认流程另存新文件。原件和同名目标保留。见[资源边界和 Windows 验收](../iterations/2026-11-25-image-crop.md)。标注与可视选区继续见 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29)。
+审核并启用独立 Image Crop 0.1.0 候选后，在工具中心按像素裁剪一张本机静态 PNG、JPEG 或 WebP。确认提供文件并手动执行后，可预览无损 PNG，或按现有确认流程另存新文件。原件和同名目标保留。见[资源边界和 Windows 验收](../iterations/2026-11-25-image-crop.md)。确认本机静态 PNG 后也可预览原图、拖动并明确应用选区，复核像素数值后手动执行。超出预览范围和其他图片格式继续使用数值输入。标注等余项见 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29)。
 
 ## 2026-11-24 开发补充：JSON Schema 离线校验
 

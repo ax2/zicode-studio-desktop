@@ -3,7 +3,8 @@ const MAX_SIDE = 4096;
 const MAX_PIXELS = 4 * 1024 * 1024;
 const fail = () => { throw new Error("preview_image_invalid"); };
 const tag = (bytes, offset, length) => String.fromCharCode(...bytes.subarray(offset, offset + length));
-export function imageDimensions(bytes, mime) {
+export function imageDimensions(bytes, mime, unorientedPng) {
+  if (unorientedPng && mime !== "image/png") fail();
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let width = 0, height = 0;
   if (mime === "image/png") {
@@ -12,6 +13,7 @@ export function imageDimensions(bytes, mime) {
     while (cursor + 12 <= bytes.length && ++chunks <= 4096) {
       const size = view.getUint32(cursor), type = tag(bytes, cursor + 4, 4);
       if (size > bytes.length - cursor - 12 || ended || ["acTL", "fcTL", "fdAT"].includes(type)) fail();
+      if (unorientedPng && type === "eXIf") fail();
       if (chunks === 1) {
         if (type !== "IHDR" || size !== 13) fail();
         width = view.getUint32(cursor + 8); height = view.getUint32(cursor + 12);
@@ -66,8 +68,8 @@ export function imageDimensions(bytes, mime) {
   return { width, height };
 }
 
-export async function decodeResourceImage(bytes, mime, isCurrent) {
-  const dimensions = imageDimensions(bytes, mime);
+export async function decodeResourceImage(bytes, mime, isCurrent, unorientedPng) {
+  const dimensions = imageDimensions(bytes, mime, unorientedPng);
   const bitmap = await createImageBitmap(new Blob([bytes], { type: mime }));
   let canvas;
   try {

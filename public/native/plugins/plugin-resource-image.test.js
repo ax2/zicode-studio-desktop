@@ -16,6 +16,16 @@ describe("predecode raster dimension bounds", () => {
     for (const type of ["acTL","fcTL","fdAT"]) {const bytes=png();bytes.set(new TextEncoder().encode(type),37);expect(()=>imageDimensions(bytes,"image/png")).toThrow();}
     expect(()=>imageDimensions(png(),"image/jpeg")).toThrow();expect(()=>imageDimensions(png(),"image/svg+xml")).toThrow();
   });
+  it("keeps orientation metadata out of coordinate-sensitive PNG previews", () => {
+    const original = png();
+    const tagged = new Uint8Array(original.length + 12);
+    tagged.set(original.subarray(0, 33));
+    tagged.set(new TextEncoder().encode("eXIf"), 37);
+    tagged.set(original.subarray(33), 45);
+    expect(imageDimensions(tagged, "image/png")).toEqual({ width: 10, height: 20 });
+    expect(() => imageDimensions(tagged, "image/png", true)).toThrow("preview_image_invalid");
+    expect(imageDimensions(original, "image/png", true)).toEqual({ width: 10, height: 20 });
+  });
   it("reads JPEG SOF and rejects excessive dimensions", () => {
     const bytes=new Uint8Array([255,216,255,192,0,8,8,0,20,0,10,1,255,218,0,2,255,217]);
     expect(imageDimensions(bytes,"image/jpeg")).toEqual({width:10,height:20});
