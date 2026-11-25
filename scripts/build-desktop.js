@@ -4,6 +4,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { spawnSync } = require("node:child_process");
 const { withCargoBin } = require("./cargo-path");
+const { writeBuildOutput } = require("./write-build-output.cjs");
 
 const args = process.argv.slice(2);
 const local = args.includes("--local");
@@ -47,7 +48,7 @@ if (process.platform === "win32") {
   if (!local) {
     const staged = path.join(root, "src-tauri", "resources", "shell", "zicode_studio_shell.dll");
     fs.mkdirSync(path.dirname(staged), { recursive: true });
-    fs.copyFileSync(output, staged);
+    writeBuildOutput(staged, fs.readFileSync(output));
   }
 }
 
