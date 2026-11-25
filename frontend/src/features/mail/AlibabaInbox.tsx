@@ -1,7 +1,7 @@
 import { MailAttachments, type Attachment } from "./MailAttachments";
 import { MailBody } from "./MailBody";
 import {MailDisconnect} from "./MailDisconnect";
-import {useEffect,useRef,useState} from "react";
+import {useCallback,useEffect,useRef,useState} from "react";
 import {t} from "../../shared/i18n";
 import type {Draft,Invoke} from "./index";
 
@@ -10,6 +10,7 @@ type Cursor={folder?:string;uidValidity:number,before:number};
 type Summary={uid:number,subject:string,sender:string,replyTo:string};
 type Page={pending?:boolean;uidValidity:number,messages:Summary[],next:Cursor|null};
 type Body={summary:Summary,text:string,html?:string|null;bodyLimited?:boolean;attachments?:Attachment[]};
+type CredentialStatus = { configured: boolean; enabled: boolean };
 export function mailError(error:unknown) {
   const code=String(error);
   const messages:Record<string,string>={
@@ -36,34 +37,47 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
   onReply:(draft:Draft)=>void,onConfigured:(value:boolean)=>void,onBusy:(value:boolean)=>void}) {
   const [folders,setFolders]=useState<{id:string;name:string}[]>([]);
   const [configured,setConfigured]=useState(false),[enabled,setEnabled]=useState(false),[secret,setSecret]=useState("");
+  const [credentialError, setCredentialError] = useState("");
   const [page,setPage]=useState<Page|null>(null),[body,setBody]=useState<Body|null>(null),[selected,setSelected]=useState<MessageRef|null>(null);
   const [online,setOnline]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState("");
   const live=useRef(false),lock=useRef(false),generation=useRef(0),onConfig=useRef(onConfigured);
   onConfig.current=onConfigured;
+  const applyCredentialStatus = useCallback((status: CredentialStatus | null, error = "") => {
+    const configured = status?.configured ?? false;
+    setConfigured(configured);
+    setEnabled(status?.enabled ?? false);
+    setCredentialError(error);
+    onConfig.current(configured);
+  }, []);
   useEffect(()=>{onBusy(busy);return()=>onBusy(false)},[busy,onBusy]);
   const req=<T,>(kind:string,args:Record<string,unknown>={})=>invoke<T>({kind,accountId:id,...args});
   useEffect(()=>{live.current=true;const epoch=++generation.current;lock.current=true;setBusy(true);
     void(async()=>{try{
       const [credentials,inbox,directory]=await Promise.allSettled([
-        invoke<{configured:boolean,enabled:boolean}>({kind:"credentialStatus",accountId:id}),
+        invoke<CredentialStatus>({kind:"credentialStatus",accountId:id}),
         invoke<Page>({kind:"cachedPage",accountId:id,limit:20}),
         invoke<{id:string;name:string}[]>({kind:"cachedFolders",accountId:id})]);
       if(!live.current||generation.current!==epoch)return;
       if(directory.status==="fulfilled" && Array.isArray(directory.value))setFolders(directory.value);
-      if(credentials.status==="fulfilled"){setConfigured(credentials.value.configured);setEnabled(credentials.value.enabled);onConfig.current(credentials.value.configured)}
-      else setError(mailError(credentials.reason));
+      if (credentials.status === "fulfilled") applyCredentialStatus(credentials.value);
+      else applyCredentialStatus(null, mailError(credentials.reason));
       if(inbox.status==="fulfilled")setPage(inbox.value);
       else if(!String(inbox.reason).includes("mail_cache_empty"))setError(mailError(inbox.reason));
     }finally{if(live.current&&generation.current===epoch){lock.current=false;setBusy(false)}}})();
     return()=>{live.current=false;generation.current++}
-  },[id,invoke]);
-  async function run<T>(work:(isCurrent:()=>boolean)=>Promise<T>,apply:(value:T)=>void){
-    if(lock.current)return;lock.current=true;setBusy(true);setError("");
+  },[id,invoke,applyCredentialStatus]);
+  async function run<T>(work:(isCurrent:()=>boolean)=>Promise<T>,apply:(value:T)=>void,reportError?:(message:string)=>void){
+    if(lock.current)return;lock.current=true;setBusy(true);
+    if (!reportError) setError("");
     const epoch=generation.current;
     const isCurrent = () => live.current && epoch === generation.current;
     try{const v=await work(isCurrent);if(isCurrent())apply(v)}
-    catch(e){if(live.current&&epoch===generation.current)setError(mailError(e))}
+    catch(e){if(isCurrent()) (reportError ?? setError)(mailError(e))}
     finally{if(live.current&&epoch===generation.current){lock.current=false;setBusy(false)}}
+  }
+  function retryCredentialStatus() {
+    void run(() => req<CredentialStatus>("credentialStatus"), applyCredentialStatus,
+      message => applyCredentialStatus(null, message));
   }
   function load(network:boolean,cursor:Cursor|null=null,target=folder){
     void run(async()=>{
@@ -120,7 +134,10 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
   const chosen=page?.messages.find(m=>m.uid===selected?.uid);
   return <section aria-label={t("Alibaba Mail inbox")}>
     <fieldset disabled={busy}><legend>{t("Mail connection")}</legend>
-      <p>{!enabled&&!busy&&!error?t("System credentials are disabled in this profile."):configured?t("Client password saved on this device."):t("Use your Alibaba Mail third-party client password. Your administrator must allow IMAP and third-party clients.")}</p>
+      {credentialError ? <>
+        <p role="alert">{credentialError}</p>
+        <button className="ui-button" type="button" onClick={retryCredentialStatus}>{t("Retry")}</button>
+      </> : <p>{!enabled&&!busy?t("System credentials are disabled in this profile."):configured?t("Client password saved on this device."):t("Use your Alibaba Mail third-party client password. Your administrator must allow IMAP and third-party clients.")}</p>}
       <form onSubmit={e=>{e.preventDefault();const value=secret;setSecret("");void run(()=>req<{configured:boolean}>("setPassword",{password:value}),v=>{setConfigured(v.configured);onConfig.current(v.configured)})}}>
         <label>{t("Client password")}<input className="ui-input" type="password" autoComplete="new-password" maxLength={1024} disabled={!enabled} value={secret} onChange={e=>setSecret(e.target.value)}/></label>
         <button className="ui-button" disabled={!enabled||!secret}>{t("Save client password")}</button>
