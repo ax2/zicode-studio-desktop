@@ -88,6 +88,31 @@ it("restores focused note clipping controls after failures without taking focus 
   expect(host.childElementCount).toBe(0);
 });
 
+it("keeps focus elsewhere when programmatic note clipping succeeds after the user moves focus", async () => {
+  const trigger = document.createElement("button");
+  const other = document.createElement("button");
+  const host = document.createElement("aside");
+  document.body.append(trigger, host, other);
+  const loading = Promise.withResolvers();
+  const saving = Promise.withResolvers();
+  const writer = { notebooks: () => loading.promise, save: () => saving.promise };
+  const panel = showBrowserCapture(capture, vi.fn(), undefined, () => writer, undefined, false, { host, trigger });
+  trigger.focus();
+  getByRole(panel, "button", { name: t("Save to Notes"), exact: true }).click();
+  other.focus();
+  loading.resolve([{ id: "chosen", title: "Notebook for clips" }]);
+  const notebook = getByRole(panel, "combobox", { name: t("Notebook"), exact: true });
+  await waitFor(() => expect(notebook.value).toBe("chosen"));
+  expect(document.activeElement).toBe(other);
+
+  trigger.focus();
+  getByRole(panel, "button", { name: t("Save page to notebook"), exact: true }).click();
+  other.focus();
+  saving.resolve();
+  await waitFor(() => getByRole(panel, "button", { name: t("Open saved note"), exact: true }));
+  expect(document.activeElement).toBe(other);
+});
+
 it("keeps the source and question after a rejected handoff and Escape returns focus to the toolbar", async () => {
   const prepare = vi.fn(async () => { throw new Error("Conversation changed"); });
   const { host, panel, trigger, close } = openDock(prepare);
