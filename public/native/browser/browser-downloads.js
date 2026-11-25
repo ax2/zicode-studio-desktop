@@ -106,7 +106,10 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
         : record.state === "downloading" && record.stalled
         ? t("No recent progress. Cancel to try again.")
         : "";
-      const feedback = record.error ? t(record.error) : guidance;
+      let feedback = record.error ? t(record.error) : guidance;
+      if (record.state === "interrupted" && record.error === "Studio closed before this download finished") {
+        feedback = t("This download can’t be resumed after Studio closes. Return to the page that started it, download again, and choose where to save when prompted.");
+      }
       row.feedback.textContent = feedback;
       row.feedback.className = record.error ? "browser-downloads-error" : "browser-downloads-meta";
       row.feedback.hidden = !feedback;
