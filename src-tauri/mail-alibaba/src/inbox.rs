@@ -24,6 +24,8 @@ pub struct Summary {
     pub reply_to: String,
     pub message_id: Option<String>,
     pub size: u32,
+    #[serde(default)]
+    pub header_limited: bool,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -197,7 +199,7 @@ impl Alibaba {
             let rows = session
                 .fetch(
                     format!("{start}:{end}"),
-                    "(UID RFC822.SIZE BODY.PEEK[HEADER]<0.65536>)",
+                    format!("(UID RFC822.SIZE BODY.PEEK[HEADER]<0.{MAX_HEADER}>)"),
                 )
                 .map_err(|_| "mail_list_failed")?;
             for r in rows.iter() {
@@ -206,9 +208,6 @@ impl Alibaba {
                 let uid = r.uid.filter(|u| *u > 0).ok_or("mail_protocol")?;
                 if !(start..=end).contains(&r.message) || cursor.as_ref().is_some_and(|c| uid >= c.before) {
                     return Err("mail_inbox_changed");
-                }
-                if header.len() >= MAX_HEADER {
-                    return Err("mail_header_too_large");
                 }
                 messages.push(summary(header, uid, r.size.ok_or("mail_protocol")?)?);
             }
@@ -296,22 +295,59 @@ fn older_end(session: &mut imap::Session<Bounded>, exists: u32, before: u32) -> 
     Ok((lo - 1) as u32)
 }
 fn summary(bytes: &[u8], uid: u32, size: u32) -> Result<Summary> {
-    let m = MessageParser::new()
-        .parse(bytes)
-        .ok_or("mail_mime_invalid")?;
-    Ok(metadata(&m, uid, size))
+    let bounded = &bytes[..bytes.len().min(MAX_HEADER)];
+    let clipped = bytes.len() >= MAX_HEADER
+        && !bounded.ends_with(b"\r\n\r\n")
+        && !bounded.ends_with(b"\n\n");
+    let header = if clipped {
+        complete_header_fields(bounded)
+    } else {
+        bounded
+    };
+    match MessageParser::new().parse_headers(header) {
+        Some(message) => Ok(metadata(&message, uid, size, clipped)),
+        None if clipped => Ok(Summary {
+            uid,
+            size,
+            subject: String::new(),
+            sender: String::new(),
+            reply_to: String::new(),
+            message_id: None,
+            header_limited: true,
+        }),
+        None => Err("mail_mime_invalid"),
+    }
 }
-fn metadata(m: &mail_parser::Message<'_>, uid: u32, size: u32) -> Summary {
+
+fn complete_header_fields(prefix: &[u8]) -> &[u8] {
+    // A field is complete only if the prefix contains the start of the next
+    // field. A folded line at the limit can still change an address.
+    let mut last_field = 0;
+    let mut offset = 0;
+    for line in prefix.split_inclusive(|byte| *byte == b'\n') {
+        if !matches!(line.first(), Some(b' ' | b'\t')) {
+            last_field = offset;
+        }
+        offset += line.len();
+    }
+    &prefix[..last_field]
+}
+
+fn metadata(m: &mail_parser::Message<'_>, uid: u32, size: u32, header_limited: bool) -> Summary {
     let sender = m
         .from()
         .and_then(|a| a.first())
         .and_then(|m| m.address())
         .unwrap_or_default();
-    let reply = m
-        .reply_to()
-        .and_then(|a| a.first())
-        .and_then(|m| m.address())
-        .unwrap_or(sender);
+    // Clipped headers are only useful for display. Reconstruct no recipient.
+    let reply = if header_limited {
+        ""
+    } else {
+        m.reply_to()
+            .and_then(|a| a.first())
+            .and_then(|m| m.address())
+            .unwrap_or(sender)
+    };
     Summary {
         uid,
         size,
@@ -319,6 +355,7 @@ fn metadata(m: &mail_parser::Message<'_>, uid: u32, size: u32) -> Summary {
         reply_to: reply.into(),
         subject: m.subject().unwrap_or_default().into(),
         message_id: m.message_id().filter(|id| valid_id(id)).map(str::to_owned),
+        header_limited,
     }
 }
 pub(crate) fn valid_id(id: &str) -> bool {

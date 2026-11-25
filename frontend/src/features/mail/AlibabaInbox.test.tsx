@@ -36,6 +36,28 @@ function setup(provider="alibaba",initiallyConfigured=true,backlog=0,archiveBody
   return {remote,local,view,kinds:()=>remote.mock.calls.map(c=>c[0].kind)};
 }
 const button=(name:string)=>screen.getByRole("button",{name});
+it("explains why a clipped header cannot be used to create a reply", async () => {
+  setLocale("en");
+  const clipped = { ...summary, headerLimited: true };
+  const read = vi.fn(async (request: Record<string, unknown>) => {
+    switch (request.kind) {
+      case "credentialStatus": return { configured: true, enabled: true };
+      case "cachedFolders": return [];
+      case "cachedPage": return { uidValidity: 7, messages: [clipped], next: null };
+      case "cachedBody": return { summary: clipped, text: "Clipped message body" };
+      default: throw Error("unexpected operation");
+    }
+  });
+  render(<AlibabaInbox id="a" folder="INBOX" setFolder={vi.fn()} invoke={read as Invoke}
+    discard={() => true} onReply={vi.fn()} onConfigured={vi.fn()} onBusy={vi.fn()} />);
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Clipped message body");
+  expect(screen.getByText("Only part of the message header could be read. Reply is unavailable.")).toBeTruthy();
+  const reply = button("Create reply draft") as HTMLButtonElement;
+  expect(reply.disabled).toBe(true);
+  fireEvent.click(reply);
+  expect(read.mock.calls.map(([request]) => request.kind)).not.toContain("replyDraft");
+});
 it("automatically finishes pending refresh pages without waiting for manual pagination",async()=>{
   const a=setup("alibaba",true,2);
   await screen.findByText("Inbox fixture");

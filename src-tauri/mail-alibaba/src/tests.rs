@@ -22,6 +22,16 @@ fn sized_fixture(smtp: bool, drop_final: bool, count: u32, stride: u32) -> Fixtu
     fixture_with_search(smtp,drop_final,count,stride,false)
 }
 fn fixture_with_search(smtp: bool, drop_final: bool, count:u32, stride:u32, reject_search:bool) -> Fixture {
+    fixture_with_headers(smtp, drop_final, count, stride, reject_search, Vec::new())
+}
+fn fixture_with_headers(
+    smtp: bool,
+    drop_final: bool,
+    count: u32,
+    stride: u32,
+    reject_search: bool,
+    headers: Vec<(u32, String)>,
+) -> Fixture {
     let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
     ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
@@ -72,7 +82,7 @@ fn fixture_with_search(smtp: bool, drop_final: bool, count:u32, stride:u32, reje
         if smtp {
             serve_smtp(&mut s, drop_final, tx)
         } else {
-            serve_imap(&mut s, count, stride, reject_search, tx)
+            serve_imap(&mut s, count, stride, reject_search, headers, tx)
         }
     });
     Fixture {
@@ -93,7 +103,23 @@ fn emit(s: &mut Server, text: &str) {
     stream.write_all(text.as_bytes()).unwrap();
     stream.flush().unwrap();
 }
-fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace: std::sync::mpsc::Sender<String>) {
+fn serve_imap(
+    s: &mut Server,
+    count: u32,
+    stride: u32,
+    reject_search: bool,
+    headers: Vec<(u32, String)>,
+    trace: std::sync::mpsc::Sender<String>,
+) {
+    let default_header = &MSG[..MSG.find("\r\n\r\n").unwrap() + 4];
+    let header_for = |uid| {
+        headers
+            .iter()
+            .find(|(id, _)| *id == uid)
+            .map_or(default_header, |(_, header)| {
+                &header[..header.len().min(MAX_HEADER)]
+            })
+    };
     let mut archive = false;
     emit(s, "* OK local synthetic IMAP\r\n");
     loop {
@@ -140,7 +166,7 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace
             let b = b.parse::<u32>().unwrap();
             assert!(b >= a && b - a < 40, "page must be bounded");
             if upper.contains("BODYSTRUCTURE") {
-                let header=&MSG[..MSG.find("\r\n\r\n").unwrap()+4];
+                let header = header_for(a);
                 let tree=format!(r#"((("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "BASE64" 8 1)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "8BIT" 19 1) "ALTERNATIVE")("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BASE64" 8 NIL ("ATTACHMENT" ("FILENAME" "proof.bin")))("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BINARY" {} NIL ("ATTACHMENT" ("FILENAME" "large.bin"))) "MIXED")"#,LARGE_ATTACHMENT);
                 emit(s,&format!("* 3 FETCH (UID {a} RFC822.SIZE {} BODYSTRUCTURE {tree} BODY[HEADER]<0> {{{}}}\r\n{header})\r\n{tag} OK fetched\r\n",MSG.len()+LARGE_ATTACHMENT,header.len()));
                 continue;
@@ -152,11 +178,6 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace
                 continue;
             }
             let header = upper.contains("[HEADER]");
-            let bytes = if header {
-                &MSG[..MSG.find("\r\n\r\n").unwrap() + 4]
-            } else {
-                MSG
-            };
             let part = if header { "HEADER" } else { "" };
             for pos in a..=b {
                 if is_uid && !pos.is_multiple_of(stride) {
@@ -170,6 +191,7 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace
                 if upper.ends_with("(UID)") {
                     emit(s, &format!("* {seq} FETCH (UID {uid})\r\n"));
                 } else {
+                    let bytes = if header { header_for(uid) } else { MSG };
                     emit(s,&format!("* {seq} FETCH (UID {uid} RFC822.SIZE {} BODY[{part}]<0> {{{}}}\r\n{bytes})\r\n",MSG.len(),bytes.len()));
                 }
             }
@@ -178,6 +200,88 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace
             panic!("Unexpected synthetic IMAP command")
         }
     }
+}
+#[test]
+fn tls_imap_clipped_headers_keep_messages_and_never_supply_a_partial_reply_address() {
+    let mut db = database();
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let headers = || {
+        let mut exact_header = String::from(
+            "From: sender@example.test\r\nReply-To: exact@example.test\r\nSubject: Exact header\r\nX-Folded: body",
+        );
+        let padding = MAX_HEADER - exact_header.len() - 4;
+        let folded_line = format!("\r\n {}", "x".repeat(61));
+        exact_header.push_str(&folded_line.repeat(padding / 64));
+        exact_header.push_str(&"x".repeat(padding % 64));
+        exact_header.push_str("\r\n\r\n");
+        assert_eq!(exact_header.len(), MAX_HEADER);
+        vec![
+            (
+                40,
+                format!(
+                    "From: sender@example.test\r\nSubject: Large header\r\nReply-To: partial@example.test,\r\n{}\r\n",
+                    " extra@example.test,\r\n".repeat(4000)
+                ),
+            ),
+            (
+                30,
+                format!(
+                    "To: contact@example.test,\r\n{}From: later@example.test\r\n\r\n",
+                    "\tmore@example.test,\r\n".repeat(4000)
+                ),
+            ),
+            (20, exact_header),
+        ]
+    };
+    let current = fixture_with_headers(false, false, 4, 10, false, headers());
+    let page = mail.sync(&current.adapter, "synthetic", None, 3);
+    current.thread.join().unwrap();
+    let page = page.unwrap();
+    assert_eq!(
+        page.messages.iter().map(|message| message.uid).collect::<Vec<_>>(),
+        [40, 30, 20]
+    );
+    assert_eq!(page.messages[0].subject, "Large header");
+    assert_eq!(page.messages[0].sender, "sender@example.test");
+    assert!(page.messages[0].reply_to.is_empty());
+    assert!(page.messages[0].header_limited);
+    assert!(page.messages[1].sender.is_empty());
+    assert!(page.messages[1].reply_to.is_empty());
+    assert!(page.messages[1].header_limited);
+    assert_eq!(page.messages[2].reply_to, "exact@example.test");
+    assert!(!page.messages[2].header_limited);
+    assert_eq!(
+        current.rx.try_iter().collect::<Vec<_>>(),
+        ["FETCH 2:4 (UID RFC822.SIZE BODY.PEEK[HEADER]<0.65536>)"]
+    );
+    assert!(matches!(
+        mail.reply_draft("partial", 7, 40),
+        Err("mail_invalid_reply")
+    ));
+
+    let older = fixture_with_headers(false, false, 4, 10, false, headers());
+    let next = mail.sync(&older.adapter, "synthetic", page.next, 3).unwrap();
+    older.thread.join().unwrap();
+    assert_eq!(next.messages[0].uid, 10);
+    assert_eq!(next.messages[0].reply_to, "reply@example.test");
+    assert!(!next.messages[0].header_limited);
+
+    let detail = fixture_with_headers(false, false, 4, 10, false, headers());
+    let letter = mail.read(&detail.adapter, "synthetic", 7, 40).unwrap();
+    detail.thread.join().unwrap();
+    assert_eq!(letter.text.trim(), "你好");
+    assert_eq!(letter.summary.subject, "Large header");
+    assert!(letter.summary.header_limited);
+    assert!(letter.summary.reply_to.is_empty());
+    let cached = mail.cached_body(7, 40).unwrap();
+    assert!(cached.summary.header_limited);
+    assert!(cached.summary.reply_to.is_empty());
+    assert!(detail
+        .rx
+        .try_iter()
+        .next()
+        .unwrap()
+        .contains("BODY.PEEK[HEADER]<0.65536>"));
 }
 #[test]
 fn same_uid_and_validity_have_independent_folder_bodies() {
