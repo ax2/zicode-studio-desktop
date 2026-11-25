@@ -28,13 +28,15 @@ export function SemanticSearch({
   const [preview, setPreview] = useState<Hit | null>(null);
   const composing = useRef(false);
   const reviewOnRelease = useRef(false);
-  const canReview = !busy && selected !== "" && query.trim().length > 0;
+  const hasSearchInput = selected !== "" && query.trim().length > 0;
+  const canReview = !busy && hasSearchInput;
   const request = useCallback(
     (value: Record<string, unknown>) =>
       invoke("visual_assets_control", { workspaceId, request: value }),
     [invoke, workspaceId],
   );
   async function perform(load: boolean) {
+    if (busy) return;
     setBusy(true);
     setError("");
     setPreview(null);
@@ -98,7 +100,7 @@ export function SemanticSearch({
         <button
           type="button"
           className="ui-button"
-          disabled={busy}
+          aria-disabled={busy || undefined}
           onClick={() => void perform(true)}
         >
           {t("Load search models")}
@@ -128,7 +130,7 @@ export function SemanticSearch({
           placeholder={t("Search phrase")}
           maxLength={64}
           value={query}
-          disabled={busy}
+          readOnly={busy}
           onCompositionStart={() => {
             composing.current = true;
             reviewOnRelease.current = false;
@@ -155,7 +157,8 @@ export function SemanticSearch({
         <button
           type="button"
           className="ui-button"
-          disabled={!canReview}
+          disabled={!hasSearchInput}
+          aria-disabled={busy || undefined}
           onClick={reviewSearch}
         >
           {t("Review model search")}
