@@ -2363,6 +2363,8 @@ const zhCN = {
   "Base64 input file": "Base64 输入文件",
   "Base64 text": "Base64 文本",
   "Download Base64 file": "下载 Base64 文件",
+  "Download SHA-256 digest": "下载 SHA-256 摘要",
+  "The digest uses the current text. Import preserves the UTF-8 BOM, line endings, and trailing spaces.": "摘要按当前文本计算。导入会保留 UTF-8 BOM、换行符和行尾空格。",
   "Download decoded text": "下载解码文本",
   "Download processed text": "下载整理后的文本",
   "Download text statistics": "下载文本统计报告",

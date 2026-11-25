@@ -309,10 +309,11 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const base64Encode = textOnlyContract && tool.capabilityId === "devtools.text.base64.encode";
   const base64Decode = textOnlyContract && tool.capabilityId === "devtools.text.base64.decode";
   const base64Tool = base64Encode || base64Decode;
+  const textSha256 = textOnlyContract && tool.capabilityId === "devtools.text.sha256";
   const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
     jsonSchema ? jsonSchemaFileTargets : qrFileTool ? qrFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
-        (base64Encode || hexEncode || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
+        (base64Encode || hexEncode || textSha256 || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
           stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets : traceReport ? traceFileTargets : springConfig ? springConfigFileTargets :
           (textLines || textStatistics || stringEscape || htmlText || urlDecode || regexMatches) ? utf8FileTargets : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
@@ -321,6 +322,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     : yamlFromJson ? { label: "Download YAML", stem: "converted", extension: "yaml", mime: "application/yaml" }
     : base64Encode ? { label: "Download Base64 file", stem: "encoded", extension: "base64", mime: "text/plain" }
     : base64Decode ? { label: "Download decoded text", stem: "decoded", extension: "txt", mime: "text/plain;charset=utf-8" }
+    : textSha256 ? { label: "Download SHA-256 digest", stem: "sha256", extension: "txt", mime: "text/plain" }
     : textLines ? { label: "Download processed text", stem: "processed", extension: "txt", mime: "text/plain;charset=utf-8" }
     : textStatistics ? { label: "Download text statistics", stem: "text-statistics", extension: "txt", mime: "text/plain;charset=utf-8" }
     : stringEscape ? { label: "Download JSON", stem: "escaped-string", extension: "json", mime: "application/json" }
@@ -454,7 +456,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const wire = response.result;
       const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
         wire.contractVersion === "1.0.0-rc.1";
-      if (textDownload && ownsExecution() && outcome.successful && declared && (base64Tool || textLines || stringUnescape || hexEncode || hexDecode || htmlText || unicodeNormalize || urlDecode || outcome.text.trim().length > 0)) {
+      const validTextOutput = textSha256 ? /^[0-9a-f]{64}$/.test(outcome.text) :
+        (base64Tool || textLines || stringUnescape || hexEncode || hexDecode || htmlText || unicodeNormalize || urlDecode || outcome.text.trim().length > 0);
+      if (textDownload && ownsExecution() && outcome.successful && declared && validTextOutput) {
         setDownloadExecution({ identity: transformIdentity, sequence, api, source: values, text: outcome.text });
       }
       if (independentMerge && outcome.successful) {
@@ -545,6 +549,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
               return { values: next };
             })} />;
         })}
+        {textSha256 && <p className="tool-center-source">{t("The digest uses the current text. Import preserves the UTF-8 BOM, line endings, and trailing spaces.")}</p>}
         {draftFileTool && workbenchDraftActive && <WorkbenchDraftFileActions key={transformIdentity}
           tool={tool} values={values} disabled={!canReadDraft} onRestore={restoreDraftFile} />}
         {jsonSchema && <>
