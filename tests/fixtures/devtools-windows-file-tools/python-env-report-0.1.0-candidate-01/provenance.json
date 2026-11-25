@@ -1,0 +1,244 @@
+{
+  "sourceRevision": "6e46359a57a8246e4fab0128332c1952aab3f476",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T20:36:06.246112+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "c51d4de6e787fc2c2cee6f51f3951102201135d4fdddc0f782844ad6ab8ad158",
+  "workerVerification": {
+    "wasmSha256": "c51d4de6e787fc2c2cee6f51f3951102201135d4fdddc0f782844ad6ab8ad158",
+    "wasmBytes": 237956,
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "inputProfile": "resource.wasi.input.draft2",
+    "outputProfile": "resource.wasi.output.draft1",
+    "cases": [
+      {
+        "case": "one-snapshot-unknown-layout",
+        "mime": "application/json",
+        "inputBytes": 918,
+        "sourceSha256": "2fd0c85e5e768937ef968570a2488d40295a9bbb58259cc3180aed9d21861900",
+        "code": null,
+        "outputBytes": 375,
+        "outputSha256": "aa0b479838dc21b60663070cc587959eeed24c1a6ed983837c95df8f6fab6ba6"
+      },
+      {
+        "case": "bom-and-octet",
+        "mime": "application/octet-stream",
+        "inputBytes": 921,
+        "sourceSha256": "0116b2bd90762542a1de6fef67b786bda4d1ed367dcc4a89b8284407b9463891",
+        "code": null,
+        "outputBytes": 375,
+        "outputSha256": "aa0b479838dc21b60663070cc587959eeed24c1a6ed983837c95df8f6fab6ba6"
+      },
+      {
+        "case": "two-captures-independent-distribution-and-module",
+        "mime": "application/json",
+        "inputBytes": 1218,
+        "sourceSha256": "ed333072689120408776696f766aa5af5e24939e0920757a12ea9975deaa7fa1",
+        "code": null,
+        "outputBytes": 449,
+        "outputSha256": "75c10f884fbfefda073c20956632d7088427130acf2a7656dec034f43438b87f"
+      },
+      {
+        "case": "same-entry-and-version-suffixes",
+        "mime": "text/plain",
+        "inputBytes": 970,
+        "sourceSha256": "6d5881b901833d95ead1ae789607e302542bbd8501d8195883fff3a8fe9cf589",
+        "code": null,
+        "outputBytes": 396,
+        "outputSha256": "dced252834f8a81a75a456b9dfde57dbe1d9f2dd490067973e902c015fbc9197"
+      },
+      {
+        "case": "missing-python-and-expected-scripts",
+        "mime": "application/json",
+        "inputBytes": 712,
+        "sourceSha256": "85ffeef512fa9a2a4e8d08157ca9378c3ef244f399e05b541455be8168bb2f32",
+        "code": null,
+        "outputBytes": 379,
+        "outputSha256": "ce7ad001261081fccaa8a81508241d0e3500543412c4557fb48221d011a521d6"
+      },
+      {
+        "case": "exactly-32-kib",
+        "mime": "application/json",
+        "inputBytes": 32768,
+        "sourceSha256": "f3fbd5fb84a492b2a9a6d355109c3566982ef9f2afee7e6af14ef371982705de",
+        "code": null,
+        "outputBytes": 375,
+        "outputSha256": "aa0b479838dc21b60663070cc587959eeed24c1a6ed983837c95df8f6fab6ba6"
+      },
+      {
+        "case": "unicode-notes-and-paths-hidden",
+        "mime": "application/json",
+        "inputBytes": 920,
+        "sourceSha256": "caa8f95825edd3ed5650cec7dc5fa83ab71b33f8004f14d8fb4c02d198ec765a",
+        "code": null,
+        "outputBytes": 372,
+        "outputSha256": "245ca0e8d567774cdbac22a23b0de1c9731e5192d3a698ed43d503ce68aad05e"
+      },
+      {
+        "case": "more-than-32-kib",
+        "mime": "application/json",
+        "inputBytes": 32769,
+        "sourceSha256": "77838b7b83e39831b2fe66ee6017b3f1a0a468f444aef5aa125c149c6cf2d52c",
+        "code": "INPUT_LIMIT",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "wrong-media",
+        "mime": "image/png",
+        "inputBytes": 918,
+        "sourceSha256": "2fd0c85e5e768937ef968570a2488d40295a9bbb58259cc3180aed9d21861900",
+        "code": "INVALID_RESOURCE",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "invalid-utf8",
+        "mime": "application/json",
+        "inputBytes": 13,
+        "sourceSha256": "c9d5e655cebbd6f7d79f47db3763914382e415f25de578a7fbc7705713a55016",
+        "code": "INVALID_REPORT",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "missing-native-envelope",
+        "mime": "application/json",
+        "inputBytes": 15,
+        "sourceSha256": "53b3b615d917bf7a201bcd12e67ae6e1a02487d3f43f5013f1f13efffb83d098",
+        "code": "INVALID_REPORT",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "unknown-private-key",
+        "mime": "application/json",
+        "inputBytes": 946,
+        "sourceSha256": "44d85a6629fdd53b0ef468031e74562d9f08820a2314a44f8c0d618f9b0e8f06",
+        "code": "INVALID_REPORT",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "invalid-venv-flag",
+        "mime": "application/json",
+        "inputBytes": 919,
+        "sourceSha256": "007c1d4c18b0310621d634cdfc14367fd09d2e649f1f3d8ef2c03af8bc2390ef",
+        "code": "INVALID_REPORT",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "invalid-origin-type",
+        "mime": "application/json",
+        "inputBytes": 880,
+        "sourceSha256": "4528f264f4895e4dca621b7492f5a96757d40bbad88550005db6e4735c357401",
+        "code": "INVALID_REPORT",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "missing-distribution-location",
+        "mime": "application/json",
+        "inputBytes": 854,
+        "sourceSha256": "01f70d9edcb4654a14c87960b1cc61949c3b5cb07459008c7cbe22aed7aa8123",
+        "code": "INVALID_REPORT",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "duplicate-version-key",
+        "mime": "application/json",
+        "inputBytes": 937,
+        "sourceSha256": "56b19ba7e8a2f4c9fa761f6e72022a7d49ceebf1d8639f4e1bb4cf721efe2f00",
+        "code": "INVALID_REPORT",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "wrong-tool-id",
+        "mime": "application/json",
+        "inputBytes": 916,
+        "sourceSha256": "10a03d4007a0dee44fdad674d351a118f732089fc0914ef74c896c9bc61da80c",
+        "code": "INVALID_PROVENANCE",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "changed-fingerprint",
+        "mime": "application/json",
+        "inputBytes": 918,
+        "sourceSha256": "393a782ebcadec5d5f325aa4d9d9a477926f5be34a33c5b862285a782d638438",
+        "code": "INVALID_PROVENANCE",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "bad-tool-version",
+        "mime": "application/json",
+        "inputBytes": 919,
+        "sourceSha256": "d004ae01175e4841d1b3c66900312704a1f20436312da67d041a6bf80650e1cf",
+        "code": "INVALID_PROVENANCE",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "layout-claim-with-no-entry",
+        "mime": "application/json",
+        "inputBytes": 919,
+        "sourceSha256": "8fc90dfa003f2561fa94c20ae6500a69b22eb35684d81fc8297353846f0684e0",
+        "code": "INCONSISTENT_LAYOUT",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "layout-missing-with-both-entries",
+        "mime": "application/json",
+        "inputBytes": 1218,
+        "sourceSha256": "a4bce7efdcfc81951095f24b4be1b6bf0baac21457a1dc79fbde18cba1967364",
+        "code": "INCONSISTENT_LAYOUT",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "unsafe-executable-version",
+        "mime": "application/json",
+        "inputBytes": 969,
+        "sourceSha256": "f3e286849dbc174f0f334b49de838a202b2e4233805c8e40794618a6d028a496",
+        "code": "INVALID_FIELD",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "unsafe-distribution-version",
+        "mime": "application/json",
+        "inputBytes": 975,
+        "sourceSha256": "adac10acfd27804f9223ef85bd878d6cfde0812a94b7f749d3d74a679c4e6420",
+        "code": "INVALID_FIELD",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "overlong-version",
+        "mime": "application/json",
+        "inputBytes": 1044,
+        "sourceSha256": "0e4fccc3ec8b1c30789c63576c7b659d1e44d4c1a30d38de06380382c7808e71",
+        "code": "INVALID_FIELD",
+        "outputBytes": 0,
+        "outputSha256": null
+      },
+      {
+        "case": "empty-version",
+        "mime": "application/json",
+        "inputBytes": 948,
+        "sourceSha256": "7f24e73960968f4cc8e611f3964414444eb18ce6c18bab6af2d23dc470b14d6d",
+        "code": "INVALID_FIELD",
+        "outputBytes": 0,
+        "outputSha256": null
+      }
+    ],
+    "failures": []
+  }
+}

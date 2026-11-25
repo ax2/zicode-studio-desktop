@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.python-env-report",
+  "packageVersion": "0.1.0",
+  "signatureVerified": false,
+  "directoryIndexSha256": "6c497daf761458fde94aab9dd1d3d855e74e4a5a6b1cfc9d224ae7641f9c0a28",
+  "files": [
+    {
+      "path": "catalog.json",
+      "size": 654,
+      "sha256": "710a4707b5cf78e1baad543b0a9edb6005e299f59bdd6f997e899d7e552dcd20"
+    },
+    {
+      "path": "fixtures.json",
+      "size": 7589,
+      "sha256": "4fe1d0a040d59062267caca1ee19f7ad2a436055b103470061410007cb70b19f"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 56,
+      "sha256": "841a79980efce756b5b04d1a1536e8657ebed1979b9f1f3f15ebb8be43e02bcb"
+    },
+    {
+      "path": "plugin.json",
+      "size": 8136,
+      "sha256": "49073fc0f69ac746ea47166abcc3cbc30f39d90ac7e0449308b2646c5d8e49ff"
+    },
+    {
+      "path": "provenance.json",
+      "size": 8637,
+      "sha256": "be46565b160e4fa934778b72af007baa4b4db00a9ff7f54f41808fd2f54c4fee"
+    },
+    {
+      "path": "README.md",
+      "size": 959,
+      "sha256": "49a7dab0acf672df5a5b1264ed832bf22657a4f7eab0ab94612a13b091492083"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 237956,
+      "sha256": "c51d4de6e787fc2c2cee6f51f3951102201135d4fdddc0f782844ad6ab8ad158"
+    }
+  ],
+  "fileCount": 8,
+  "totalBytes": 265084,
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}
