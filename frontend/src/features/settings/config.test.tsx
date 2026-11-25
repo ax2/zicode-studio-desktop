@@ -23,8 +23,9 @@ function makeGateway(overrides: Record<string, unknown> = {}): {
   return { gateway, calls };
 }
 
+afterEach(cleanup);
+
 describe("settings config store", () => {
-  afterEach(() => cleanup());
   it("loads a legacy empty gateway without syncing and only refreshes its catalog on request", async () => {
     const channel = { provider: "qveris", builtIn: true, catalogSync: "qveris" as const, configured: true, models: [] };
     const { gateway, calls } = makeGateway({ list_provider_channels: async () => ({ ok: true, data: { channels: [channel] } }) });
@@ -325,7 +326,6 @@ describe("settings config React tab", () => {
 });
 
 describe("settings provider filter", () => {
-  afterEach(cleanup);
 
   function renderProviders() {
     const { gateway, calls } = makeGateway();

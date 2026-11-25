@@ -444,3 +444,59 @@ describe("settings React panel", () => {
     expect(document.querySelector(".settings-panel")).toBe(null);
   });
 });
+
+describe("workspace backup feedback", () => {
+  function renderBackup() {
+    const record = {
+      id: "backup-a",
+      workspaceId: "workspace-a",
+      workspaceRoot: "D:/isolated",
+      createdAt: "2026-11-25T00:00:00Z",
+      sizeBytes: 10,
+      apps: ["notes"],
+    };
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "list_workspace_backups") return [record];
+      if (command === "workspace_restore_outcome") return null;
+      throw new Error("Cannot delete backup: fixture");
+    });
+    const controller = controllerStub();
+    controller.backupStore = createBackupStore({ getWorkspaceId: () => record.workspaceId, invoke });
+    controller.backupStore.setState({
+      workspaceId: record.workspaceId,
+      status: t("Workspace backup created"),
+      backups: [record],
+    });
+    render(<SettingsApp store={createSettingsStore()} controller={controller} />);
+    return {
+      invoke,
+      buttons: document.querySelectorAll<HTMLButtonElement>(".workspace-backup-item button"),
+      status: required("#workspace-backup-status"),
+    };
+  }
+
+  it("announces a later delete error instead of the previous success", async () => {
+    const { buttons, status } = renderBackup();
+    const confirm = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    try {
+      expect(status.textContent).toBe(t("Workspace backup created"));
+      fireEvent.click(buttons[0]);
+      await waitFor(() => expect(status.getAttribute("role")).toBe("alert"));
+      expect(status.textContent).toBe(t("Could not delete the backup."));
+    } finally {
+      confirm.mockRestore();
+    }
+  });
+
+  it("keeps both workspace backup actions idle when confirmation is unavailable", async () => {
+    const { buttons, invoke } = renderBackup();
+    vi.stubGlobal("confirm", undefined);
+    try {
+      await act(async () => { fireEvent.click(buttons[0]); });
+      await act(async () => { fireEvent.click(buttons[1]); });
+      expect(invoke).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
