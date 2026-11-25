@@ -16,6 +16,7 @@ const paths = {
   "Reading mode": "M3 5q5-2 9 1 4-3 9-1v14q-5-2-9 1-4-3-9-1z M12 6v14",
   "Translate selected text": "M3 6h12 M9 3v3 M5 8q2 6 8 9 M13 7q-2 6-9 10 M14 21l4-10 4 10 M16 17h4",
   "Save viewport PNG to Downloads": "M3 7h4l2-3h6l2 3h4v13H3z M16 13a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
+  "Open local PDF…": "M3 20V6h7l2 2h9v12z M10 13h7 M10 16h5",
   "Print page…": "M7 8V3h10v5 M7 17H3V9h18v8h-4 M7 14h10v7H7z",
   "Save page PDF to Downloads": "M5 3h9l5 5v13H5z M14 3v6h5 M8 15h8",
   "Developer tools": "M3 4h18v16H3z M8 8l-3 3 3 3 M16 8l3 3-3 3 M13 7l-2 9",

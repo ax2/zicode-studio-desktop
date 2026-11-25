@@ -131,6 +131,7 @@ fn rejected_input_leaves_saved_session_unchanged() {
     for url in [
         "https://alice:secret@example.com/",
         "file:///D:/notes",
+        "https://studio-local-pdf.invalid/owned/document.pdf",
         "javascript:alert(1)",
     ] {
         let mut bad = first.clone();
