@@ -1,3 +1,7 @@
+## 2026-11-25 开发补充：本地服务配置预检
+
+在工具中心确认读取一份本机服务 YAML，可核对导入前置规则与脱敏摘要。Windows 隔离 Studio 已验证 UTF-8 BOM、16 KiB 边界、撤权及重启。[使用范围与冻结包](../iterations/2026-11-25-service-config-preflight.md)
+
 ## 2026-11-25 开发补充：检索评测报告复核
 
 工具中心新增「检索评测报告复核」。确认一份最多 64 KiB 的本机导出后，核对单路检索排名或双路配对的命中与 MRR。Windows 隔离 Studio 已验证两种报告、逐次共享、撤权与重启。[使用范围与冻结包](../iterations/2026-11-25-retrieval-review.md)
