@@ -129,6 +129,7 @@ const zhCN = {
   "Sending saved draft…": "正在发送已保存的草稿…",
   "The mail server accepted this message.": "邮件服务器已接收这封邮件。",
   "The server rejected this send. Check the account and recipient before saving a revised draft.": "服务器拒绝了此次发送。请检查账号和收件人，修改并保存草稿后再发送。",
+  "The message was not submitted. Check the connection or client password, then review the draft to try again.": "邮件未提交。请检查连接或客户端密码，然后重新复核发送。",
   "Delivery is unknown. The server may have accepted the message. It will not be sent again automatically; check the recipient’s inbox before composing another copy.": "发送结果未知，服务器可能已接收邮件。不会自动重发，请先确认收件人是否收到，再决定是否另发。",
   "Sign-in was refused. Check the client password and your administrator’s IMAP permissions.": "登录被拒绝。请检查客户端安全密码，并向管理员确认 IMAP 登录权限。",
   "System credentials are disabled in this profile.": "当前配置不允许使用系统凭据。",

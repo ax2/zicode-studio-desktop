@@ -399,10 +399,12 @@ impl<'a> Mailbox<'a> {
         let parent = stored_parent.unwrap_or(parent);
         let files = draft_attachments(&tx, &self.scope, &self.account.id, draft)?;
         let msg = adapter.compose(&self.account.address, &saved, parent.as_deref(), files)?;
-        // Unknown is committed *before* any network write. Crashes or lost final replies never cause replay.
+        // Claim before dialing. Only a proven pre-submission failure permits another confirmed attempt.
         if tx
             .execute(
-                "INSERT OR IGNORE INTO alibaba_send VALUES(?,?,?,?,'unknown')",
+                "INSERT INTO alibaba_send VALUES(?,?,?,?,'unknown')
+                 ON CONFLICT(scope,account,draft,revision) DO UPDATE SET status=excluded.status
+                 WHERE alibaba_send.status='not_submitted'",
                 params![self.scope, self.account.id, draft, revision],
             )
             .map_err(db_err)?
@@ -411,7 +413,7 @@ impl<'a> Mailbox<'a> {
             return tx.query_row("SELECT status FROM alibaba_send WHERE scope=? AND account=? AND draft=? AND revision=?",params![self.scope,self.account.id,draft,revision],|r|r.get(0)).map_err(db_err);
         }
         tx.commit().map_err(db_err)?;
-        let outcome = adapter.transmit(self.address(), password, msg)?;
+        let outcome = adapter.transmit(self.address(), password, msg);
         self.db.execute("UPDATE alibaba_send SET status=? WHERE scope=? AND account=? AND draft=? AND revision=?",params![outcome,self.scope,self.account.id,draft,revision]).map_err(db_err)?;
         Ok(outcome.into())
     }

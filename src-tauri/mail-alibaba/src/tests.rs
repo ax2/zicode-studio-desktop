@@ -4,7 +4,10 @@ use rusqlite::{params, Connection};
 use std::{
     io::{BufRead, BufReader, Write},
     net::{TcpListener, TcpStream},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
+    },
     thread,
 };
 const MSG:&str="From: Fixture <sender@example.test>\r\nReply-To: reply@example.test\r\nSubject: =?UTF-8?B?5rWL6K+V?=\r\nMessage-ID: <original@example.test>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=fixture\r\n\r\n--fixture\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n5L2g5aW9\r\n--fixture\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>HTML fixture</p>\r\n--fixture\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=proof.bin\r\nContent-Transfer-Encoding: base64\r\n\r\nAP8BAg==\r\n--fixture--\r\n";
@@ -14,6 +17,14 @@ struct Fixture {
     adapter: Alibaba,
     thread: thread::JoinHandle<()>,
     rx: std::sync::mpsc::Receiver<String>,
+    smtp: Arc<SmtpTrace>,
+}
+
+#[derive(Default)]
+struct SmtpTrace {
+    reject_auth: AtomicBool,
+    commands: AtomicUsize,
+    envelope: AtomicUsize,
 }
 fn fixture(smtp: bool, drop_final: bool) -> Fixture {
     sized_fixture(smtp, drop_final, 3, 10)
@@ -65,6 +76,8 @@ fn fixture_with_headers(
         extra_root: Some(cert.der().to_vec()),
     };
     let (tx, rx) = std::sync::mpsc::channel();
+    let smtp_trace = Arc::new(SmtpTrace::default());
+    let recorded_smtp = smtp_trace.clone();
     let thread = thread::spawn(move || {
         let (tcp, _) = listener.accept().unwrap();
         tcp.set_read_timeout(Some(TIMEOUT)).unwrap();
@@ -80,7 +93,7 @@ fn fixture_with_headers(
         }
         let mut s = BufReader::new(wire);
         if smtp {
-            serve_smtp(&mut s, drop_final, tx)
+            serve_smtp(&mut s, drop_final, tx, &recorded_smtp)
         } else {
             serve_imap(&mut s, count, stride, reject_search, headers, tx)
         }
@@ -89,6 +102,7 @@ fn fixture_with_headers(
         adapter,
         thread,
         rx,
+        smtp: smtp_trace,
     }
 }
 fn line(s: &mut Server) -> String {
@@ -438,10 +452,18 @@ fn million_sparse_uids_use_one_header_window_and_bounded_cursor_probes() {
     assert!(log.len() <= 22);
     assert_eq!(log.iter().filter(|op| op.contains("HEADER")).count(), 1);
 }
-fn serve_smtp(s: &mut Server, drop_final: bool, tx: std::sync::mpsc::Sender<String>) {
+fn serve_smtp(
+    s: &mut Server,
+    drop_final: bool,
+    tx: std::sync::mpsc::Sender<String>,
+    trace: &SmtpTrace,
+) {
     emit(s, "220 localhost ESMTP fixture\r\n");
     loop {
         let l = line(s);
+        if !l.is_empty() {
+            trace.commands.fetch_add(1, Ordering::Relaxed);
+        }
         let u = l.to_ascii_uppercase();
         if l.is_empty() {
             break;
@@ -452,8 +474,13 @@ fn serve_smtp(s: &mut Server, drop_final: bool, tx: std::sync::mpsc::Sender<Stri
                 emit(s, "334 \r\n");
                 assert!(!line(s).is_empty())
             }
-            emit(s, "235 via fixture\r\n")
+            if trace.reject_auth.load(Ordering::Relaxed) {
+                emit(s, "535 synthetic authentication refusal\r\n");
+            } else {
+                emit(s, "235 via fixture\r\n");
+            }
         } else if u.starts_with("MAIL FROM:") || u.starts_with("RCPT TO:") {
+            trace.envelope.fetch_add(1, Ordering::Relaxed);
             emit(s, "250 OK\r\n")
         } else if u == "DATA" {
             emit(s, "354 End with dot\r\n");
@@ -588,6 +615,47 @@ fn imap_rejects_untrusted_fixture_and_hostname_mismatch() {
         f.thread.join().unwrap();
     }
 }
+#[test]
+fn smtp_pre_submission_failure_allows_an_explicit_retry_of_the_same_revision() {
+    for (reject_auth, lose_final_reply, expected) in [(false, false, "accepted"), (true, true, "unknown")] {
+        let temporary = tempfile::tempdir().unwrap();
+        let path = temporary.path().join("mail.sqlite3");
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+        let mut failed = fixture(true, false);
+        if reject_auth {
+            failed.smtp.reject_auth.store(true, Ordering::Relaxed);
+        } else {
+            failed.adapter.extra_root = None;
+        }
+        let response = mail.send(&failed.adapter, "synthetic", "d", 1, true, None);
+        failed.thread.join().unwrap();
+        assert_eq!(failed.smtp.commands.load(Ordering::Relaxed) > 0, reject_auth);
+        assert_eq!(failed.smtp.envelope.load(Ordering::Relaxed), 0);
+        assert!(failed.rx.try_recv().is_err());
+        assert_eq!(response.as_deref(), Ok("not_submitted"));
+        drop(mail);
+        drop(db);
+
+        let mut reopened = Connection::open(&path).unwrap();
+        let mut mail = Mailbox::open(&mut reopened, "one", "a").unwrap();
+        assert_eq!(mail.delivery("d", 1).unwrap().as_deref(), Some("not_submitted"));
+        assert_eq!(mail.send(&failed.adapter, "synthetic", "d", 1, false, None), Err("mail_confirmation_required"));
+        assert_eq!(mail.delivery("d", 1).unwrap().as_deref(), Some("not_submitted"));
+
+        let working = fixture(true, lose_final_reply);
+        assert_eq!(mail.send(&working.adapter, "synthetic", "d", 1, true, None).as_deref(), Ok(expected));
+        working.thread.join().unwrap();
+        let messages = working.rx.try_iter().collect::<Vec<_>>();
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].contains("synthetic reply"));
+        assert_eq!(mail.delivery("d", 1).unwrap().as_deref(), Some(expected));
+        // Once submission began, even a final-reply loss must not open the same revision again.
+        assert_eq!(mail.send(&working.adapter, "synthetic", "d", 1, true, None).as_deref(), Ok(expected));
+    }
+}
+
 #[test]
 fn smtp_confirm_revision_reply_and_no_retry_after_ambiguous_delivery() {
     for (dropped, result) in [(false, "accepted"), (true, "unknown")] {
