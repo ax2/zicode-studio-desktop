@@ -14,7 +14,7 @@ import { t } from "../../shared/i18n.js";
 import type { WorkCreationRequest } from "../../shared/workCreation";
 import { approveExistingTask, sameTaskTarget, type TaskCenterTarget } from "./approve-task";
 import { createTaskWriter } from "./create-task";
-import { childTarget, isScheduledTemplate, type SuperAgentTask, type TaskFilter } from "./logic";
+import { childTarget, isScheduledTemplate, type SuperAgentTask, type TaskDateRange, type TaskFilter } from "./logic";
 import { taskMetadata } from "./task-metadata";
 
 export interface TaskCenterOptions {
@@ -91,12 +91,16 @@ interface TaskMutationScope {
   revision?: string;
 }
 
+const DEFAULT_SEARCH_FILTERS = { query: "", dateRange: "all" } as const;
+
 interface TaskCenterState {
   workspaceId: string | null;
   runtimeMode: "ai" | "tools";
   tasks: SuperAgentTask[];
   revision?: string;
   filter: TaskFilter;
+  query: string;
+  dateRange: TaskDateRange;
   focusTaskId: string | null;
   creationRequest: WorkCreationRequest | null;
   requestCreation(projectPath: string): void;
@@ -106,6 +110,8 @@ interface TaskCenterState {
   error: Error | null;
   openApp(pluginId: string): void;
   setFilter(filter: TaskFilter): void;
+  setQuery(query: string): void;
+  setDateRange(dateRange: TaskDateRange): void;
   focusTask(taskId: string | null): void;
   syncTarget(): void;
   load(options?: { quiet?: boolean }): Promise<void>;
@@ -180,6 +186,7 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     runtimeMode: scopeTarget?.runtimeMode === "tools" ? "tools" : "ai",
     tasks: [],
     filter: "all",
+    ...DEFAULT_SEARCH_FILTERS,
     focusTaskId: null,
     creationRequest: null,
     requestCreation(projectPath) {
@@ -208,16 +215,23 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       set({ filter });
     },
 
+    setQuery(query) {
+      set({ query });
+    },
+
+    setDateRange(dateRange) {
+      set({ dateRange });
+    },
+
     focusTask(taskId) {
-      set((state) => ({
-        focusTaskId: taskId,
-        filter: taskId ? "all" : state.filter,
-      }));
+      set(taskId ? { focusTaskId: taskId, filter: "all", ...DEFAULT_SEARCH_FILTERS } : { focusTaskId: null });
     },
 
     syncTarget() {
       const nextTarget = options.getTarget?.() ?? null;
       if (sameTaskTarget(scopeTarget, nextTarget)) return;
+      const listScopeChanged = scopeTarget?.workspaceId !== nextTarget?.workspaceId ||
+        scopeTarget?.sceneId !== nextTarget?.sceneId;
       scopeTarget = nextTarget;
       scopeEpoch += 1;
       inFlightLoad = null;
@@ -227,6 +241,7 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       set({
         workspaceId: nextTarget?.workspaceId ?? null,
         runtimeMode: nextTarget?.runtimeMode === "tools" ? "tools" : "ai",
+        ...(listScopeChanged ? DEFAULT_SEARCH_FILTERS : {}),
         tasks: [],
         revision: undefined,
         loadedOnce: false,

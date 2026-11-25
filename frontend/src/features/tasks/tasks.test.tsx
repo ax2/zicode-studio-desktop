@@ -115,6 +115,57 @@ describe("task center React app", () => {
     expect(screen.getByText("旧任务")).toBeTruthy();
   });
 
+  it("retains task search across same-workspace remounts and clears it across scopes", async () => {
+    setLocale("en");
+    let target: TaskCenterTarget = { sceneId: "programming", workspaceId: "workspace-a", sessionId: "main" };
+    const call = mockCall([
+      { id: "invoice", title: "Current invoice", status: "done", result: { completedAt: new Date().toISOString() } },
+      { id: "archive", title: "Archived invoice", status: "done", result: { completedAt: "2020-01-01T00:00:00Z" } },
+      { id: "other", title: "Different task", status: "done" },
+    ]);
+    const store = createTaskCenterStore({ call, getTarget: () => target });
+    const read = () => act(() => store.getState().load());
+    const search = () => screen.getByRole<HTMLInputElement>("searchbox", { name: "Search tasks" });
+    const date = () => screen.getByLabelText<HTMLSelectElement>("Filter by date");
+    const filter = () => {
+      fireEvent.change(search(), { target: { value: "invoice" } });
+      fireEvent.change(date(), { target: { value: "today" } });
+    };
+    try {
+      const opening = render(<TaskMain store={store} />);
+      await read();
+      filter();
+      expect(screen.queryByText("Archived invoice")).toBeNull();
+      opening.unmount();
+
+      target = { ...target, sessionId: "related" };
+      store.getState().syncTarget();
+      render(<TaskMain store={store} />);
+      await read();
+      expect(search().value).toBe("invoice");
+      expect(date().value).toBe("today");
+      expect(screen.getByText("Current invoice")).toBeTruthy();
+      expect(screen.queryByText("Archived invoice")).toBeNull();
+      expect(screen.queryByText("Different task")).toBeNull();
+
+      target = { ...target, sceneId: "finance" };
+      act(() => store.getState().syncTarget());
+      await read();
+      expect(search().value).toBe("");
+      expect(date().value).toBe("all");
+
+      filter();
+      target = { ...target, workspaceId: "workspace-b" };
+      act(() => store.getState().syncTarget());
+      await read();
+      expect(search().value).toBe("");
+      expect(date().value).toBe("all");
+      expect(call.mock.calls.every(([op]) => op === "read_super_agent_tasks")).toBe(true);
+    } finally {
+      store.getState().destroy();
+    }
+  });
+
   it("focuses a task card by id and highlights it", async () => {
     setLocale("zh-CN");
     const call = mockCall([{ id: "t-focus", title: "聚焦目标任务", status: "done" }]);
