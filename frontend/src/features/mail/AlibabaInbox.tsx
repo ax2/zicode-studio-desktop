@@ -242,7 +242,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       {selected&&chosen&&<article aria-label={t("Selected message")}><h3 translate="no">{chosen.subject||t("No subject")}</h3><p translate="no">{chosen.sender}</p>
         {headerLimited && <p role="status">{t("Only part of the message header could be read. Reply is unavailable.")}</p>}
         {activity === "offline-body" && <p role="status">{t("Loading…")}</p>}
-        {body?<>{body.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}<MailBody text={body.text} html={body.html}/><MailAttachments key={selected.uidValidity+"-"+selected.uid} items={body.attachments} invoke={invoke} message={{accountId:id,...selected}}/></>:localBodyFailed ? <>
+        {body?<>{body.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}<MailBody text={body.text} html={body.html}/><MailAttachments key={selected.uidValidity+"-"+selected.uid} items={body.attachments} invoke={invoke} message={{accountId:id,...selected}} canDownload={configured}/></>:localBodyFailed ? <>
           <p role="alert">{t("Could not access local mail data.")}</p>
           <button className="ui-button" type="button" onClick={()=>readCached(selected,false)}>{t("Try again")}</button>
         </>:!busy&&<p role="status">{t("This message is not available offline. Download it explicitly to read it.")}</p>}

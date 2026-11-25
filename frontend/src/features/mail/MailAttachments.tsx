@@ -1,17 +1,23 @@
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { Invoke } from "./index";
 
 export type Attachment = { id: number; name: string; size: number };
 export type MessageRef = {accountId: string; id: string} | {accountId: string; folder?:string; uidValidity: number; uid: number};
 
-export function MailAttachments({ items, invoke, message }: { items?: Attachment[]; invoke?: Invoke; message: MessageRef }) {
+export function MailAttachments({ items, invoke, message, canDownload = true }: {
+  items?: Attachment[];
+  invoke?: Invoke;
+  message: MessageRef;
+  canDownload?: boolean;
+}) {
+  const connectionHint = useId();
   const lock = useRef(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   if (!invoke || !items?.length) return null;
   async function save(part: number) {
-    if (lock.current || !invoke) return;
+    if (!canDownload || lock.current || !invoke) return;
     lock.current = true;
     setBusy(true);
     setStatus(t("Saving attachment…"));
@@ -27,8 +33,10 @@ export function MailAttachments({ items, invoke, message }: { items?: Attachment
       setBusy(false);
     }
   }
-  return <section aria-label={t("Attachments")}><h4>{t("Attachments")}</h4><ul>
+  return <section aria-label={t("Attachments")}><h4>{t("Attachments")}</h4>
+    {!canDownload && <p id={connectionHint}>{t("Connect this mail account to download attachments.")}</p>}
+    <ul>
     {items.map(item=><li key={item.id}><span translate="no">{item.name} · {item.size.toLocaleString()} B</span>{"uid" in message && <> ({t("transfer size")})</>}{" "}
-      <button className="ui-button" type="button" aria-disabled={busy || undefined} aria-label={t("Download attachment")+" "+item.name} onClick={()=>void save(item.id)}>{t("Download attachment")}</button></li>)}
+      <button className="ui-button" type="button" aria-disabled={busy || !canDownload || undefined} aria-describedby={canDownload ? undefined : connectionHint} aria-label={t("Download attachment")+" "+item.name} onClick={()=>void save(item.id)}>{t("Download attachment")}</button></li>)}
   </ul>{status && <p role="status">{status}</p>}</section>;
 }
