@@ -16,13 +16,31 @@ export function createFileDigestResult({ raw, executionProfile, capabilityId, on
   const panel = document.createElement("section"), heading = document.createElement("h3"), rows = document.createElement("div");
   const details = document.createElement("details"), summary = document.createElement("summary"), comparison = document.createElement("p");
   const note = document.createElement("button"), noteStatus = document.createElement("p");
-  const transferSlot = document.createElement("div");
+  const transferSlot = document.createElement("div"), originalStatus = document.createElement("p");
+  originalStatus.setAttribute("role", "status");
+  originalStatus.hidden = true;
   note.type = "button"; note.className = "ui-button ui-button--secondary"; note.hidden = true;
   noteStatus.setAttribute("role", "status");
   panel.className = "file-digest-result"; panel.hidden = true;
   const originalHidden = raw.hidden;
-  raw.before(panel); details.append(summary, raw); panel.append(heading, comparison, rows, transferSlot, note, noteStatus, details); raw.hidden = false;
+  raw.before(panel); details.append(summary, raw); panel.append(heading, comparison, rows, originalStatus, transferSlot, note, noteStatus, details); raw.hidden = false;
   let active = true, current = null, names = [], originals = [], currentInput = {}, comparisonValue = null, publishedReport = null, generation = 0;
+  let originalPreparation = null;
+  function updateOriginalActions() {
+    const waiting = originalPreparation?.waiting === true;
+    for (const button of rows.querySelectorAll("button[data-original-index]")) {
+      const selected = originalPreparation?.index === Number(button.dataset.originalIndex);
+      button.disabled = waiting && !selected;
+      if (waiting && selected) button.setAttribute("aria-disabled", "true");
+      else button.removeAttribute("aria-disabled");
+      if (selected) button.after(originalStatus);
+    }
+    originalStatus.hidden = originalPreparation === null;
+    originalStatus.textContent = originalPreparation === null ? "" : waiting
+      ? t("Preparing original file: {name}").replace("{name}", () => names[originalPreparation.index])
+      : t("The original file moved or changed. Share it again before retrying.");
+  }
+
   note.addEventListener("click", async () => {
     if (!active || !current || note.disabled || !onNoteReport) return;
     const captured = generation, value = current, selectedNames = [...names];
@@ -61,18 +79,37 @@ export function createFileDigestResult({ raw, executionProfile, capabilityId, on
         const send = document.createElement("button"), captured = generation;
         send.type = "button"; send.className = "ui-button ui-button--secondary";
         send.textContent = t("Send original file");
-        send.addEventListener("click", () => {
-          if (active && generation === captured) onSendOriginal(original, transferSlot);
+        send.dataset.originalIndex = String(row.index);
+        send.addEventListener("click", async () => {
+          if (!active || generation !== captured || originalPreparation?.waiting) return;
+          if (!Number.isInteger(original.streamIndex)) {
+            onSendOriginal(original, transferSlot);
+            return;
+          }
+          const owner = send.ownerDocument, focused = owner.activeElement;
+          originalPreparation = { index: row.index, waiting: true };
+          updateOriginalActions();
+          let failed = false;
+          try {
+            failed = (await onSendOriginal(original, transferSlot, () =>
+              active && generation === captured && send.isConnected && owner.activeElement === focused)) === false;
+          } finally {
+            if (active && generation === captured) {
+              originalPreparation = failed ? { index: row.index, waiting: false } : null;
+              updateOriginalActions();
+            }
+          }
         });
         section.append(send);
       }
       rows.append(section);
     }
+    updateOriginalActions();
   }
   window.addEventListener("zicode:locale-changed", render);
   return {
     setReportResource(resource, owner) { publishedReport = resource && owner ? { resource, owner } : null; },
-    show(value, displayNames = [], input = {}, originalFiles = [], { streamed = false } = {}) { generation++; note.disabled = false; noteStatus.textContent = ""; current = valid(value, streamed) ? value : null;
+    show(value, displayNames = [], input = {}, originalFiles = [], { streamed = false } = {}) { generation++; originalPreparation = null; updateOriginalActions(); note.disabled = false; noteStatus.textContent = ""; current = valid(value, streamed) ? value : null;
       currentInput = { expected: input?.expected ?? "" }; comparisonValue = null;
       try { if (current) comparisonValue = fileDigestComparison(currentInput, current.files); } catch { current = null; }
       note.hidden = !current || typeof onNoteReport !== "function";
@@ -80,7 +117,7 @@ export function createFileDigestResult({ raw, executionProfile, capabilityId, on
       names = current && Array.isArray(displayNames) && displayNames.length === current.files.length ? displayNames.map(safeName) : [];
       panel.hidden = false; raw.hidden = false; details.open = !current;
       if (current) render(); else { heading.textContent = t("File digest results"); summary.textContent = t("View original report"); comparison.textContent = ""; rows.replaceChildren(); } },
-    clear() { generation++; note.disabled = false; note.hidden = true; noteStatus.textContent = ""; current = null; names = []; originals = []; currentInput = {}; comparisonValue = null; publishedReport = null; comparison.textContent = ""; panel.hidden = true; raw.hidden = false; rows.replaceChildren(); },
+    clear() { generation++; originalPreparation = null; updateOriginalActions(); note.disabled = false; note.hidden = true; noteStatus.textContent = ""; current = null; names = []; originals = []; currentInput = {}; comparisonValue = null; publishedReport = null; comparison.textContent = ""; panel.hidden = true; raw.hidden = false; rows.replaceChildren(); },
     destroy() { if (!active) return; active = false; window.removeEventListener("zicode:locale-changed", render); raw.hidden = originalHidden; panel.before(raw); panel.remove(); },
   };
 }
