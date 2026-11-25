@@ -751,6 +751,7 @@ it("sends only the reviewed comparison to the configured browser model and keeps
   let chosenReads = 0;
   const capturePage = source => source.tab === "chosen" ? { ...source, page: {
     ...source.page, text: ++chosenReads === 1 ? "Reviewed terms" : "Different live contents",
+    textTruncated: true,
   } } : source;
   const { host, panel, readTabs } = await openControlledComparison({ handoff, target: browserComparisonSession, modelGateway, capturePage });
   const send = panel.getByRole("button", { name: "Send reviewed tabs and compare" });
@@ -796,6 +797,14 @@ it("sends only the reviewed comparison to the configured browser model and keeps
     sources: [{ url: capture.page.url, documentRevision: 3 }, { url: "https://example.invalid/chosen", documentRevision: 1 }] });
   expect(writes[1].body.content).toContain("https://example.invalid/chosen");
   expect(writes[1].body.content).toContain("Document revision: 1");
+  const [artifact, noteWrite] = writes.map(write => write.body);
+  expect(artifact.provenance.sources[0]).not.toHaveProperty("textTruncated");
+  expect(artifact.provenance.sources[1]).toHaveProperty("textTruncated", true);
+  for (const saved of [artifact, noteWrite]) {
+    expect(saved.content.split("[2]")[0]).not.toContain("Page content was shortened");
+    expect(saved.content.split("[2]")[1]).toContain("Page content was shortened");
+    expect(JSON.stringify(saved)).not.toContain("Reviewed terms");
+  }
   expect(modelRequests(modelGateway)).toHaveLength(1);
   expect(readTabs()).toEqual(["source", "chosen", "source", "chosen"]);
 });
@@ -850,6 +859,9 @@ it("uses the reviewed selection scope independently for each comparison source",
   const artifact = writes.get("/v2/artifacts/create");
   expect(artifact.provenance.sources[0]).not.toHaveProperty("selectionOnly");
   expect(artifact.provenance.sources[1]).toMatchObject({ selectionOnly: true, selectionTruncated: false });
+  expect(artifact.provenance.sources[1]).not.toHaveProperty("textTruncated");
+  expect(artifact.content).not.toContain("Page content was shortened");
+  expect(writes.get("/v2/notes/create").content).not.toContain("Page content was shortened");
   expect(artifact.content).toContain("Source text: Selected text");
   expect(writes.get("/v2/notes/create").content).toContain("Source text: Selected text");
 

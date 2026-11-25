@@ -317,8 +317,9 @@ export function createBrowserModelAssistant({ actions, question, selectionScope,
         clearImage();
       }
       if (reviewedComparison) {
-        analysis.sources = reviewedComparison.sources.map(({ title, url, capturedAt, documentRevision, selectionOnly, selectionTruncated }) => ({
-          title, url, capturedAt, documentRevision, ...(selectionOnly && { selectionOnly, selectionTruncated }),
+        analysis.sources = reviewedComparison.sources.map(({ title, url, capturedAt, documentRevision, selectionOnly, selectionTruncated, textTruncated }) => ({
+          title, url, capturedAt, documentRevision,
+          ...(selectionOnly ? { selectionOnly, selectionTruncated } : textTruncated && { textTruncated: true }),
         }));
       }
       showComparisonSources(analysis.sources);
