@@ -193,7 +193,11 @@ export function setupPluginShell({
     globalThis.history[mode === "push" ? "pushState" : "replaceState"](state, "", url);
   }
 
+  let mobileMenuUrl;
+  let pendingMobileMenuBack;
   const handlePluginPopState = (event) => {
+    // Removing the More menu's history entry keeps the current application active.
+    if (pendingMobileMenuBack?.url === globalThis.location.href) return;
     const pluginId = event.state?.[PLUGIN_HISTORY_STATE_KEY] || requestedAppPluginId() || CHAT_PLUGIN_ID;
     activate(pluginId, { focus: false });
   };
@@ -207,22 +211,41 @@ export function setupPluginShell({
   } = {}) {
     if (!mobileActivityMenu || mobileActivityMenu.hidden) return;
     activityBarApi.commit({ mobileOpen: false });
-    if (!fromHistory) mobileMenuHistory?.leave({ replace: discardHistory });
+    if (!fromHistory && !pendingMobileMenuBack) {
+      const replace = discardHistory || globalThis.location.href !== mobileMenuUrl;
+      if (mobileMenuHistory?.leave({ replace }) && !replace) {
+        let finish;
+        const done = new Promise((resolve) => { finish = resolve; });
+        pendingMobileMenuBack = { url: mobileMenuUrl, done, finish };
+      }
+    }
     if (restoreFocus) mobileMoreButton.focus({ preventScroll: true });
   }
 
   function openMobileActivityMenu() {
     if (!mobileActivityMenu) return;
     activityBarApi.commit({ mobileOpen: true });
-    mobileMenuHistory?.enter();
+    mobileMenuUrl = globalThis.location.href;
+    if (!pendingMobileMenuBack) mobileMenuHistory?.enter();
     mobileActivityMenu.querySelector("button:not([disabled])")?.focus({ preventScroll: true });
   }
 
   mobileMenuHistory = setupMobileHistoryLayer({
     id: "application-menu",
-    isActive: () => !mobileActivityMenu.hidden,
+    isActive: () => !pendingMobileMenuBack && !mobileActivityMenu.hidden,
     onBack: () => closeMobileActivityMenu({ restoreFocus: true, fromHistory: true }),
   });
+  const handleMobileMenuBack = () => {
+    const pending = pendingMobileMenuBack;
+    if (!pending) return;
+    pendingMobileMenuBack = undefined;
+    if (!mobileActivityMenu.hidden) {
+      if (mobileMenuUrl === pending.url && globalThis.location.href === pending.url) mobileMenuHistory?.enter();
+      else closeMobileActivityMenu({ fromHistory: true });
+    }
+    pending.finish(true);
+  };
+  globalThis.addEventListener?.("popstate", handleMobileMenuBack);
 
   // More/backdrop/close/menu-item clicks are wired through the React activity
   // bar handlers; only the focus trap and Escape need a native listener on the
@@ -248,7 +271,7 @@ export function setupPluginShell({
     }
   });
   const handleMobileShellChange = () => {
-    if (!mobileShellMedia?.matches) closeMobileActivityMenu({ discardHistory: true });
+    if (!mobileShellMedia?.matches) closeMobileActivityMenu();
     updateActivitySelection(activePluginId);
   };
   mobileShellMedia?.addEventListener?.("change", handleMobileShellChange);
@@ -443,6 +466,7 @@ export function setupPluginShell({
   }
 
   async function activateFromNavigation(pluginId, { showNavigation = true } = {}) {
+    if (pendingMobileMenuBack && !await pendingMobileMenuBack.done) return false;
     // The open More menu already has its own history entry. Turn it into
     // the destination entry so Back returns directly to the prior application.
     const fromMenu = !mobileActivityMenu?.hidden && globalThis.history?.state?.[MOBILE_HISTORY_LAYER_KEY] === "application-menu";
@@ -1027,6 +1051,9 @@ export function setupPluginShell({
       window.removeEventListener("resize", handleMobileShellChange);
       document.removeEventListener("keydown", handleActivityShortcut);
       globalThis.removeEventListener?.("popstate", handlePluginPopState);
+      globalThis.removeEventListener?.("popstate", handleMobileMenuBack);
+      pendingMobileMenuBack?.finish(false);
+      pendingMobileMenuBack = undefined;
       mobileShellMedia?.removeEventListener?.("change", handleMobileShellChange);
       mobileMenuHistory?.dispose();
       activityBarApi.destroy();
