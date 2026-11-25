@@ -110,6 +110,8 @@ Text 0.4.2 候选 01 另提供五种方言、缩进和关键字大小写。当�
 
 Text 0.4.3 候选 01 在现有 Worker 预算通过五种方言的 9 组 8 KiB 密集短句。已从 Windows 隔离 Studio 的正常工具入口核对旧包失败、新包成功和结果限额。见[密集短句验收](../iterations/2026-11-25-sql-file.md#text-043-密集短句)。
 
+Text 0.4.4 候选 01 可为已确定超出结果上限的深层 SQL 提前提示。Windows 隔离 Studio 已核对 0.4.3 与 0.4.4 的 SQL、Base64 文件入口及 48 KiB 结果边界。见[输出上限验收](../iterations/2026-11-25-sql-file.md#text-044-输出上限)。
+
 ## 2026-11-25 开发补充：YAML 与 JSON 文件转换
 
 两种转换均可从本机导入 8 KiB 以内的 UTF-8 文件并撤销。手动执行成功后，可下载当前完整结果，保留原件。冻结 Inspect 0.1.2 候选在生产 Windows Worker 通过两个方向的精确整数和中文样例。见[范围与验收](../iterations/2026-11-25-yaml-file-workflow.md)。
