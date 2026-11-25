@@ -89,3 +89,39 @@ it("keeps retry focus, ignores duplicate activation, and retries only the curren
   expect(retry.getAttribute("aria-disabled")).toBe("false");
   expect(document.activeElement).toBe(retry);
 });
+
+it("moves focus only when a new snapshot hides or disables the active popup control", async () => {
+  const markup = readFileSync("public/translation-popup.html", "utf8");
+  const fixture = new DOMParser().parseFromString(markup, "text/html");
+  document.body.replaceChildren(fixture.querySelector("main"));
+  const draft = { text: "old source", sourceLang: "English", targetLang: "Chinese", result: { translated: "old result" } };
+  let popup = { revision: 1, status: "done", message: "", draft };
+  let listen;
+  const invoke = vi.fn(async () => ({
+    locale: "en", languages: ["English", "Chinese"], service: { destination: "fixture", local: true }, popup,
+  }));
+  vi.stubGlobal("__TAURI__", { core: { invoke }, window: { getCurrentWindow: () => ({
+    listen: async (_event, receive) => { listen = receive; },
+  }) } });
+  await import("./translation-popup.js");
+
+  const source = document.getElementById("source-text");
+  const copy = document.getElementById("copy");
+  const close = document.getElementById("close");
+  copy.focus();
+  popup = { revision: 2, status: "running", message: "", draft: { ...draft, text: "new source", result: null } };
+  listen();
+  await vi.waitFor(() => expect(document.activeElement).toBe(source));
+  expect(source.value).toBe("new source");
+  expect(copy.hidden).toBe(true);
+
+  popup = { revision: 3, status: "empty", message: "", draft: { ...draft, text: "", result: null } };
+  listen();
+  await vi.waitFor(() => expect(document.activeElement).toBe(close));
+
+  popup = { revision: 4, status: "done", message: "", draft };
+  listen();
+  await vi.waitFor(() => expect(copy.hidden).toBe(false));
+  expect(document.activeElement).toBe(close);
+  expect(invoke.mock.calls.map(([, { request }]) => request.kind)).toEqual(Array(4).fill("snapshot"));
+});

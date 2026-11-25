@@ -44,7 +44,9 @@ async function refresh() {
   if (retryRevision !== popup.revision) retryRevision = undefined;
   const { draft } = popup;
   const working = popup.status === "running";
-  document.querySelector("main").setAttribute("aria-busy", String(working));
+  const main = document.querySelector("main");
+  const focused = document.activeElement;
+  main.setAttribute("aria-busy", String(working));
   field("destination").textContent = service ?
     `${message(service.local ? "Local translation service" : "External translation service")} · ${service.destination}` : "";
   field("original").hidden = !draft.text;
@@ -61,6 +63,10 @@ async function refresh() {
   field("copy").hidden = !draft.result;
   field("workbench").disabled = working;
   status(working ? "Translating…" : popup.message || (draft.result ? "Translation complete" : ""));
+  if (main.contains(focused) && (focused.matches(":disabled") || focused.closest("[hidden]")) &&
+      (document.activeElement === focused || document.activeElement === document.body)) {
+    field(draft.text ? "source-text" : "close").focus();
+  }
 }
 
 function report(error) {
