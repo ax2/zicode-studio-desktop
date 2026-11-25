@@ -67,6 +67,24 @@ it.each(["workspaceId", "sceneId"])("skips staging and history when %s changes d
   expect(recordRecent).not.toHaveBeenCalled();
 });
 
+it("stages only the newer selection when activations finish out of order", async () => {
+  let resolvePrevious;
+  const activate = vi.fn()
+    .mockImplementationOnce(() => new Promise(resolve => { resolvePrevious = resolve; }))
+    .mockResolvedValue(true);
+  const { handle, stageSelection, focusInput, recordRecent } = fixture({
+    activate,
+    getActivePluginId: () => "com.zicode.translate",
+  });
+  const older = handle.open("Previous webpage text");
+  await handle.open("New webpage text");
+  resolvePrevious(true);
+  await older;
+  expect(stageSelection).toHaveBeenCalledExactlyOnceWith("New webpage text", undefined);
+  expect(focusInput).toHaveBeenCalledOnce();
+  expect(recordRecent).toHaveBeenCalledExactlyOnceWith(owner, recent);
+});
+
 it("reports activation failure without recording history", async () => {
   const error = new Error("activation failed");
   const { onError, focusInput, recordRecent } = fixture({ activate: vi.fn().mockRejectedValue(error) });

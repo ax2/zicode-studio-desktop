@@ -8,6 +8,7 @@ export function setupTranslationShortcuts({
   let disposed = false;
   const unlisten = [];
   let scopeRevision = 0;
+  let incomingRevision = 0;
   const readScope = () => {
     const { sceneId, workspaceId } = getTarget();
     return { sceneId, workspaceId };
@@ -30,17 +31,26 @@ export function setupTranslationShortcuts({
     updateScope();
     const scope = lastScope;
     const revision = scopeRevision;
-    const activated = await activate(translationId, options);
-    updateScope();
-    if (disposed || activated === false || scopeRevision !== revision || getActivePluginId() !== translationId) return;
-    if (loadDraft) {
-      const draft = await loadDraft();
+    // A plain shortcut opens the editor without superseding incoming text.
+    const incoming = (text || loadDraft) ? ++incomingRevision : null;
+    const current = () => {
+      if (disposed) return false;
       updateScope();
-      if (disposed || scopeRevision !== revision || getActivePluginId() !== translationId) return;
-      if (draft) stageHandoff?.(draft);
-    } else if (text) stageSelection?.(text, provenance);
-    focusInput();
-    void remember(scope);
+      return scopeRevision === revision && (incoming === null || incoming === incomingRevision);
+    };
+    try {
+      const activated = await activate(translationId, options);
+      if (!current() || activated === false || getActivePluginId() !== translationId) return;
+      if (loadDraft) {
+        const draft = await loadDraft();
+        if (!current() || getActivePluginId() !== translationId) return;
+        if (draft) stageHandoff?.(draft);
+      } else if (text) stageSelection?.(text, provenance);
+      focusInput();
+      void remember(scope);
+    } catch (error) {
+      if (current()) throw error;
+    }
   };
   const requested = () => {
     void open().catch(error => { if (!disposed) onError(error); });
