@@ -2,9 +2,9 @@ import { t } from "../../i18n.js";
 
 // Serial native operations and an epoch prevent late results from a previous
 // query, navigation or tab from changing the visible search state.
-export function createBrowserFind({ control, getTab, available, isPdf = () => false, restoreFocus = async () => {}, report = () => {} }) {
+export function createBrowserFind({ control, getTab, available, address, isPdf = () => false, restoreFocus = async () => {}, report = () => {} }) {
   let tab = null, epoch = 0, timer, poll, tail = Promise.resolve();
-  let matches = null, findError = null, composing = false;
+  let matches = null, findError = null, composing = false, returnToAddress = false;
   const element = document.createElement("form"); element.className = "browser-find"; element.hidden = true; element.setAttribute("role", "search"); element.setAttribute("aria-label", t("Find in page"));
   const input = document.createElement("input"); input.className = "ui-input ui-input--sm"; input.type = "search"; input.maxLength = 256; input.placeholder = t("Find in page"); input.setAttribute("aria-label", t("Find in page"));
   const counter = document.createElement("span"); counter.className = "browser-find-count"; counter.setAttribute("role", "status"); counter.setAttribute("aria-live", "polite");
@@ -94,17 +94,22 @@ export function createBrowserFind({ control, getTab, available, isPdf = () => fa
     });
   }
   async function close({ stopNative = true } = {}) {
-    const id = tab; tab = null; matches = findError = null; composing = false; epoch++; clearTimeout(timer); timer = null; clearTimeout(poll); element.hidden = true;
+    const id = tab; tab = null; matches = findError = null; composing = false; returnToAddress = false; epoch++; clearTimeout(timer); timer = null; clearTimeout(poll); element.hidden = true;
     if (id && stopNative) await enqueue(() => control({ kind: "findStop", tab: id })).catch(report);
   }
   async function dismiss() {
-    const id = tab, stopped = close(), version = epoch;
+    const id = tab, toAddress = returnToAddress, focused = document.activeElement;
+    const ownedFocus = element.contains(focused) || focused === document.body;
+    const stopped = close(), version = epoch;
+    const current = () => ownedFocus && id !== null && epoch === version && element.hidden && !tab && available() &&
+      getTab()?.id === id && document.hasFocus() &&
+      (document.activeElement === focused || document.activeElement === document.body);
     await stopped;
-    if (id && epoch === version && element.hidden && !tab && available() && getTab()?.id === id) {
-      try { await restoreFocus(id); } catch (error) { if (epoch === version && available() && getTab()?.id === id) report(error); }
-    }
+    if (!current()) return;
+    try { await restoreFocus(id, { toAddress, current }); }
+    catch (error) { if (current()) report(error); }
   }
-  function open() {
+  function open({ fromPage = false } = {}) {
     const selected = getTab();
     if (!available() || !selected) return;
     if (tab !== selected.id) {
@@ -112,6 +117,9 @@ export function createBrowserFind({ control, getTab, available, isPdf = () => fa
       tab = selected.id;
       input.value = "";
       counter.textContent = "";
+    }
+    if (fromPage || !element.contains(document.activeElement)) {
+      returnToAddress = !fromPage && document.activeElement === address;
     }
     element.hidden = false;
     refreshMatchControls();

@@ -790,7 +790,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         if (payload.tab === active && !blocked()) act(async () => {
           if (payload.tab !== active || blocked()) return;
           if (["back", "forward", "reload", "zoomIn", "zoomOut", "zoomReset"].includes(payload.action)) await runPageAction(payload.action, payload.tab);
-          else if (payload.action === "find") { await control({ kind: "focusChrome", tab: active }); await find.open(); }
+          else if (payload.action === "find") { await control({ kind: "focusChrome", tab: active }); find.open({ fromPage: true }); }
           else if (payload.action === "bookmark") await openBookmarks(true);
           else if (payload.action === "bookmarks") await openBookmarks(false);
           else if (payload.action === "history") await openHistory();
@@ -1032,12 +1032,17 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     startup = document.createElement("select"); startup.className = "ui-select"; startup.setAttribute("aria-label", t("Start Studio in")); startup.title = t("Start Studio in");
     for (const [value, label] of [["browser", "Browser"], ["workspace", "Workspace"]]) { const option = document.createElement("option"); option.value = value; option.textContent = t(label); startup.append(option); }
     startup.addEventListener("change", () => run(() => invoke("browser_set_startup_mode", { mode: startup.value })));
-    find = createBrowserFind({ control, getTab: selected, available: () => visible && initialized && !blocked() && pageAvailable(active), isPdf: tab => Boolean(pdfRevision(tab)), restoreFocus: async tab => {
-      await syncSurface();
-      if (visible && initialized && !blocked() && selected()?.id === tab && find.element.hidden && pageAvailable(tab)) await control({ kind: "focusPage", tab });
-    }, report });
+    find = createBrowserFind({ control, getTab: selected, address, available: () => visible && initialized && !blocked() && pageAvailable(active),
+      isPdf: tab => Boolean(pdfRevision(tab)), restoreFocus: async (tab, { toAddress, current }) => {
+        await syncSurface();
+        if (!current()) return;
+        if (toAddress && address.isConnected && !address.disabled && !address.closest("[inert],[hidden]")) {
+          address.focus({ preventScroll: true });
+        }
+        else await control({ kind: "focusPage", tab });
+      }, report });
     fullscreen = createBrowserFullscreen({ control, report, beforeChange: () => { const menu = root.querySelector(".browser-options"); if (menu) menu.open = false; }, afterChange: () => run(syncSurface) });
-    shortcuts = setupBrowserShortcuts({ available: () => visible && initialized && !blocked(), getTab: selected, focusChrome: tab => control({ kind: "focusChrome", tab }), find: () => find.open(), address,
+    shortcuts = setupBrowserShortcuts({ available: () => visible && initialized && !blocked(), getTab: selected, focusChrome: tab => control({ kind: "focusChrome", tab }), find: () => find.open({ fromPage: true }), address,
       tabAction: (action, source) => action === "newTab"
         ? queueBlankTab(previous => !blocked() && (active === (source ?? null) || active === previous))
         : enqueue(() => tabShortcut(action, source)),
