@@ -41,8 +41,8 @@ import { t } from "../../i18n.js";
 export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   listen = globalThis.__TAURI__?.event?.listen, nativeWindow = globalThis.__TAURI__?.window?.getCurrentWindow?.(), notify = () => {}, getTarget = () => null, onPrepareDraft, canOpenDraftConversation, openDraftConversation, onTranslateSelection, modelGateway } = {}) {
   let startupState, searchSettings, ordering, tabStripControls, tabMenu, tabSearch, pageControls, find, shortcuts, fullscreen;
-  let refreshOpenPageControls, siteSettingsPanel, libraryPanel;
-  let libraryGeneration = 0;
+  let refreshOpenPageControls, siteSettingsPanel, libraryPanel, readerPanel;
+  let panelGeneration = 0;
   let root, viewport, assistant, read, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
   let initialized = false, initPromise, lastSurface = "", surfaceError = "", saveTail = Promise.resolve();
@@ -139,7 +139,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   });
   async function hide(preserve = false, stillNeeded = () => true) {
     if (preserve && selected() && pageAvailable(active) && lastSurface) {
-      try { if (!await preview.show(active)) return; } catch (error) { report(error); }
+      try { if (!await preview.show(active)) return; } catch (error) { if (stillNeeded()) report(error); }
       if (!stillNeeded()) {
         void preview.releaseWhenPresented(() => !blocked() && Boolean(lastSurface));
         return;
@@ -1266,8 +1266,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     });
   }
   function libraryOwner() {
-    const source = readerSource(), generation = libraryGeneration;
-    return () => !surfaceUnavailable() && libraryGeneration === generation && active === (source?.id ?? null) &&
+    const source = readerSource(), generation = panelGeneration;
+    return () => !surfaceUnavailable() && panelGeneration === generation && active === (source?.id ?? null) &&
       (!source || (selected()?.url === source.url && pageVersions.get(source.id) === source.version));
   }
   async function openLibrary(ownsPage, show, returnToPage) {
@@ -1389,39 +1389,53 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   function readerSource() {
     const tab = selected();
-    return tab && { id: tab.id, url: tab.url, version: pageVersions.get(tab.id) };
+    return tab && { id: tab.id, url: tab.url, version: pageVersions.get(tab.id), generation: panelGeneration };
   }
   async function openReader(source, returnControl) {
-    if (blocked() || selected()?.localPdf) return;
+    const sameActivation = () => source?.generation === panelGeneration;
+    const syncForReader = () => syncSurface().catch(error => {
+      if (sameActivation()) throw error;
+    });
+    if (blocked() || selected()?.localPdf || (source && !sameActivation())) return;
     if (!source || !pageAvailable(source.id) || !/^https?:/.test(source.url) || navigationStates.has(source.id)) {
       throw new Error(t("Wait for the current page to finish loading"));
     }
     const { id, url, version } = source;
     const samePage = () => active === id && selected()?.url === url && pageVersions.get(id) === version && pageAvailable(id);
-    await syncSurface();
+    await syncForReader();
+    if (!sameActivation()) return;
     if (blocked() || !samePage()) throw new Error(t("Page changed. Read it again."));
-    const { tab, documentRevision, page } = await invoke("browser_read_article", { tab: id, expectedUrl: url });
+    const article = await invoke("browser_read_article", { tab: id, expectedUrl: url }).catch(error => {
+      if (sameActivation()) throw error;
+    });
+    if (!sameActivation()) return;
+    const { tab, documentRevision, page } = article;
     const sameDocument = () => samePage() && (documentRevisions.get(id) ?? documentRevision) === documentRevision;
-    const current = () => !blocked() && sameDocument();
+    const current = () => sameActivation() && !blocked() && sameDocument();
     if (!current() || tab !== id || page.url !== url || !documentRevision) throw new Error(t("Page changed. Read it again."));
     if (!page.blocks.length) throw new Error(t("No readable text on this page."));
-    await hide(true);
     try {
+      await hide(true, current);
+      if (!sameActivation()) return;
       if (!current()) throw new Error(t("Page changed. Read it again."));
       const saved = readerPositions.get(id);
-      showBrowserReader(page, position => {
+      const reader = showBrowserReader(page, position => {
+        if (readerPanel === reader) readerPanel = undefined;
         if (sameDocument()) readerPositions.set(id, { documentRevision, position });
+        if (!sameActivation()) return;
         const focusedAtClose = document.activeElement;
         void run(async () => {
-          await syncSurface();
+          await syncForReader();
           if (!current() || document.activeElement !== focusedAtClose) return;
           if (returnControl?.isConnected) returnControl.focus({ preventScroll: true });
           else await control({ kind: "focusPage", tab: id });
         });
       }, saved?.documentRevision === documentRevision ? saved.position : undefined);
+      readerPanel = reader;
     } catch (error) {
-      await syncSurface();
-      throw error;
+      if (!sameActivation()) return;
+      await syncForReader();
+      if (sameActivation()) throw error;
     }
   }
   async function readPage() {
@@ -1591,8 +1605,11 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   function deactivateBrowserPanels() {
     visible = false;
-    libraryGeneration++;
+    panelGeneration++;
     root?.querySelector(".browser-options[open]")?.removeAttribute("open");
+    const reader = readerPanel;
+    readerPanel = undefined;
+    reader?.close();
     const panel = libraryPanel;
     libraryPanel = undefined;
     panel?.close();
