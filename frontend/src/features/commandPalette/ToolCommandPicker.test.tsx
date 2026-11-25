@@ -43,6 +43,56 @@ it("marks a View operation as application navigation in the command picker", asy
   expect(api.loadTool).not.toHaveBeenCalled();
   expect(api.invoke).not.toHaveBeenCalled();
 });
+const fixtureView = (index: number, enabled: boolean): ViewOperation => ({
+  kind: "view-operation", toolId: "view-".concat(String(index)), accessId: "view.operation:".concat(String(index)),
+  pluginId: "fixture", operationId: "example.operation", viewId: "example.main", title: "Fixture view ".concat(String(index)),
+  applicationName: "Fixture", publisher: "Studio", version: "0.1.0", enabled, runtime: "view",
+});
+
+it("selects and steps only through entries that the tool picker can open", async () => {
+  const api = gateway();
+  const manual = { ...tool(1), enabled: false };
+  const view = fixtureView(3, true);
+  api.searchTools.mockResolvedValue({ items: [fixtureView(0, false), manual, fixtureView(2, false), view],
+    total: 4, revision: "rev", nextOffset: null });
+  const { container, onOpen } = await mount(api); await settle();
+  const input = container.querySelector("input") as HTMLInputElement;
+  const selected = () => input.getAttribute("aria-activedescendant");
+  const press = (key: string) => act(async () => fireEvent.keyDown(input, { key }));
+  const disabled = container.querySelectorAll<HTMLButtonElement>('[role="option"]:disabled');
+  expect(disabled).toHaveLength(2);
+  expect(disabled[0].textContent).toContain("Plugin is disabled");
+  expect(selected()).toBe("tool-command-1");
+  await act(async () => fireEvent.mouseEnter(disabled[0]));
+  expect(selected()).toBe("tool-command-1");
+  await press("ArrowDown");
+  expect(selected()).toBe("tool-command-3");
+  await press("ArrowDown");
+  expect(selected()).toBe("tool-command-3");
+  await press("ArrowUp");
+  await press("ArrowUp");
+  expect(selected()).toBe("tool-command-1");
+  await press("Enter");
+  expect(onOpen).toHaveBeenCalledExactlyOnceWith(manual, "rev");
+  expect(api.loadTool).not.toHaveBeenCalled();
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
+it("keeps unavailable entries visible without selecting any when none can open", async () => {
+  const api = gateway();
+  api.searchTools.mockResolvedValue({ items: [fixtureView(0, false), fixtureView(1, false)],
+    total: 2, revision: "rev", nextOffset: null });
+  const { container, onOpen } = await mount(api); await settle();
+  const input = container.querySelector("input") as HTMLInputElement;
+  await act(async () => {
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+  });
+  expect(container.querySelectorAll('[role="option"]:disabled')).toHaveLength(2);
+  expect(input.hasAttribute("aria-activedescendant")).toBe(false);
+  expect(onOpen).not.toHaveBeenCalled();
+});
+
 it("pages server results, scopes favorites and resets query to the first page", async () => {
   const api = gateway(); api.searchTools.mockResolvedValue({items:Array.from({length:40},(_,i)=>tool(i)),total:205,revision:"rev",accessRevision:8,nextOffset:40});
   const {container} = await mount(api); await settle();

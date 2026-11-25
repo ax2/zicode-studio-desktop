@@ -3,6 +3,7 @@ import { t } from "../../shared/i18n";
 import { isImeComposing } from "../../shared/ime";
 import { type DirectoryItem, type ManualToolApi, type ToolDirectoryView, type ToolPage, manualToolError } from "../toolCenter/manual-tools";
 import { toolCategoryTitle } from "../toolCenter/tool-categories";
+import { pageEnabledIndex } from "./palette-navigation";
 import type { ToolAccessScope } from "./tool-access";
 
 export interface ToolCommandSource {
@@ -23,6 +24,8 @@ export function ToolCommandPicker({ api, scope, onOpen }: ToolCommandSource) {
   const [selected, setSelected] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const composing = useRef(false);
+  const options = loading ? [] : page?.items.map(tool => ({ disabled: tool.kind === "view-operation" && !tool.enabled })) ?? [];
+  const active = options[selected] && !options[selected].disabled ? selected : pageEnabledIndex(options, -1, 1, 1);
   useEffect(() => { input.current?.focus(); }, []);
   useEffect(() => {
     const refresh = () => {
@@ -51,8 +54,8 @@ export function ToolCommandPicker({ api, scope, onOpen }: ToolCommandSource) {
     return () => { active = false; clearTimeout(timer); controller.abort(); };
   }, [api, scope.sceneId, scope.workspaceId, query, view, source, category, cursor]);
   useEffect(() => {
-    document.getElementById(`tool-command-${selected}`)?.scrollIntoView?.({ block: "nearest" });
-  }, [selected]);
+    if (active >= 0) document.getElementById(`tool-command-${active}`)?.scrollIntoView?.({ block: "nearest" });
+  }, [active]);
   function reset() { setPage(null); setLoading(true); setCursor({ offset: 0, revision: null }); }
   function move(offset: number) {
     if (!page || loading) return;
@@ -61,22 +64,21 @@ export function ToolCommandPicker({ api, scope, onOpen }: ToolCommandSource) {
     input.current?.focus();
   }
   function open(index: number) {
-    if (!loading && page?.items[index] && !(page.items[index].kind === "view-operation" && !page.items[index].enabled))
-      onOpen(page.items[index], page.revision);
+    if (page?.items[index] && options[index] && !options[index].disabled) onOpen(page.items[index], page.revision);
   }
   return <>
     <input ref={input} className="command-palette-search" type="search" value={query} maxLength={128}
       aria-label={t("Search individual tools")} placeholder={t("Search tool names or uses")}
       role="combobox" aria-expanded="true" aria-controls="tool-command-results"
-      aria-activedescendant={!loading && page?.items[selected] ? `tool-command-${selected}` : undefined}
+      aria-activedescendant={active >= 0 ? `tool-command-${active}` : undefined}
       onChange={event => { setQuery(event.target.value); reset(); }}
       onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}
       onKeyDown={event => {
         if (isImeComposing(event.nativeEvent, composing.current) || loading || !page) return;
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
           event.preventDefault();
-          setSelected(index => Math.max(0, Math.min(page.items.length - 1, index + (event.key === "ArrowDown" ? 1 : -1))));
-        } else if (event.key === "Enter") { event.preventDefault(); open(selected); }
+          setSelected(pageEnabledIndex(options, active, event.key === "ArrowDown" ? 1 : -1, 1));
+        } else if (event.key === "Enter") { event.preventDefault(); open(active); }
         else if (event.key === "PageDown" && page.nextOffset !== null) { event.preventDefault(); move(page.nextOffset); }
         else if (event.key === "PageUp" && cursor.offset > 0) { event.preventDefault(); move(Math.max(0, cursor.offset - 40)); }
       }} />
@@ -108,9 +110,9 @@ export function ToolCommandPicker({ api, scope, onOpen }: ToolCommandSource) {
     {error && <div role="alert">{t(error)} <button type="button" className="ui-button ui-button--secondary" onClick={reset}>{t("Reload tools")}</button></div>}
     <div id="tool-command-results" className="command-palette-results" role="listbox" aria-label={t("Individual tools")} aria-busy={loading}>
       {!loading && page?.items.map((tool, index) => <button key={tool.toolId} type="button" role="option" id={`tool-command-${index}`}
-        disabled={tool.kind === "view-operation" && !tool.enabled}
-        aria-selected={selected === index} aria-posinset={cursor.offset + index + 1} aria-setsize={page.total}
-        className={`command-item${selected === index ? " selected" : ""}`} onMouseEnter={() => setSelected(index)} onClick={() => open(index)}>
+        disabled={options[index].disabled}
+        aria-selected={active === index} aria-posinset={cursor.offset + index + 1} aria-setsize={page.total}
+        className={`command-item${active === index ? " selected" : ""}`} onMouseEnter={() => { if (!options[index].disabled) setSelected(index); }} onClick={() => open(index)}>
         <span className="command-icon" aria-hidden="true">⌘</span><span className="command-copy">
           <span className="command-label">{tool.title}</span>
           <span className="command-desc">{tool.applicationName} · {tool.version}{tool.kind === "view-operation" ? ` · ${t("Opens in application")}` : ""}{tool.enabled ? "" : ` · ${t("Plugin is disabled")}`}</span>
