@@ -125,3 +125,44 @@ $dest = 'studio-plugin-encoding'
 这四个目录沿用提供方已交付的无签名候选及外部收据。各自 `provenance.json` 保留 `dirty: true`，所以固定提交和校验收据用于取得并复核本次验收的候选字节。在开启 CRLF 转换的全新 Windows 目录按固定提交回下载，31 个包文件与 4 份外部收据逐一匹配。
 
 2026-11-23 用相同字节通过六次隔离 Windows Host 与真实 Worker 运行。文件摘要覆盖 96 MiB 文件、64 文件批次、进度、取消、撤权和原文件接力。清单覆盖确认目录、核对及生成。编码覆盖 8 MiB 检测和输入、七种编码转换、16 MiB 确认保存、冲突及原件替换。JSON 覆盖查询、有序与无序对比、明确确认后写入和结果字节回读。所有编码分支集中留在一个测试 Host 时曾收到 409，分到独立 Host 后各路径通过，未修改产品预算。原生文件选择与系统另存窗口仍列入集中验收。
+
+## 2026-11-25 获取已验证的 Windows 工具候选
+
+这一批将历史 Windows 矩阵中 16 个尚未映射的源工具带入 Studio。所列范围已在隔离 Windows Studio 用实际工具中心、Host 和 Worker 验证。20 个候选共 37 个按插件 ID 区分的能力入口。表中的验收记录写明输入限制和剩余的源工具功能。
+
+按「只取一个包」的步骤，将示例中的 `$dir`、`$receipt`、`$commit` 和 `$dest` 替换成下方四项。选择其他候选时，只需将 `$package` 改成表中候选目录的最后一段。
+
+```powershell
+$package = 'service-config-0.1.0-candidate-01'
+$dir = "tests/fixtures/devtools-windows-file-tools/$package"
+$receipt = "$dir-verification.json"
+$commit = 'b9c9310ff3dab4b244cf87d5289e672af4903c0e'
+$dest = "studio-plugin-$package"
+```
+
+在插件管理安装通过校验的目录，审核所需权限，再从工具中心搜索验收记录列出的名称。每台机器各自安装和确认文件权限。这一批以独立、未签名的候选目录提供。
+
+| 源工具（版本） | Studio 已验证入口 | 冻结候选 | 收据 |
+| --- | --- | --- | --- |
+| 全能计算器 0.15.0（advanced-calculator） | [非线性方程求根](../iterations/2026-11-25-root-solver.md) | [root-solver-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/root-solver-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/root-solver-0.1.0-candidate-01-verification.json) |
+| 全能计算器 0.15.0（advanced-calculator） | [公式计算器](../iterations/2026-11-25-expression-calculator.md) | [expression-calculator-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/expression-calculator-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/expression-calculator-0.1.0-candidate-01-verification.json) |
+| 全能计算器 0.15.0（advanced-calculator） | [矩阵计算](../iterations/2026-11-25-matrix-calculator.md) | [matrix-calculator-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/matrix-calculator-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/matrix-calculator-0.1.0-candidate-01-verification.json) |
+| 全能计算器 0.15.0（advanced-calculator） | [日期与工作日](../iterations/2026-11-25-date-calculator.md) | [date-calculator-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/date-calculator-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/date-calculator-0.1.0-candidate-01-verification.json) |
+| 全能计算器 0.15.0（advanced-calculator） | [数值统计](../iterations/2026-11-25-numeric-statistics.md) | [numeric-statistics-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/numeric-statistics-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/numeric-statistics-0.1.0-candidate-01-verification.json) |
+| Agent 记录查看器 1.1.0（agent-replay） | [Agent 运行记录检查](../iterations/2026-11-25-agent-record.md) | [agent-record-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/agent-record-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/agent-record-0.1.0-candidate-01-verification.json) |
+| 网页与对话收集 1.2.0（browser-clipper） | [本机 HTML 正文预览](../iterations/2026-11-25-local-html.md) | [local-html-0.1.0-candidate-02](../../tests/fixtures/devtools-windows-file-tools/local-html-0.1.0-candidate-02) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/local-html-0.1.0-candidate-02-verification.json) |
+| 万年历与日程 1.7.0（calendar-planner） | [ICS 日程预览](../iterations/2026-11-25-ics-preview.md) | [ics-preview-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/ics-preview-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/ics-preview-0.1.0-candidate-01-verification.json) |
+| 工作区与工具集合 0.3.0（command-collections） | [工具集合导入预览](../iterations/2026-11-25-tool-collections.md) | [tool-collections-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/tool-collections-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/tool-collections-0.1.0-candidate-01-verification.json) |
+| 批量重命名 0.1.0（file-rename） | [批量改名预览](../iterations/2026-11-25-batch-rename-preview.md) | [rename-preview-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/rename-preview-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/rename-preview-0.1.0-candidate-01-verification.json) |
+| 日志工作台 0.2.0（log-viewer） | [本机日志筛选与末尾预览](../iterations/2026-11-25-local-log-filter.md) | [log-viewer-0.2.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/log-viewer-0.2.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/log-viewer-0.2.0-candidate-01-verification.json) |
+| 备忘资料库互通 0.4.0（memo-library） | [备忘导入预览](../iterations/2026-11-25-memo-text-preview.md) | [memo-text-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/memo-text-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/memo-text-0.1.0-candidate-01-verification.json) |
+| PDF 文本提取 0.0.0（pdf-text） | [提取 PDF 单页文本](../iterations/2026-11-25-pdf-page-text.md) | [pdf-text-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/pdf-text-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/pdf-text-0.1.0-candidate-01-verification.json) |
+| 日程进阶与互通 0.1.0（planner-interop） | [ICS 重复截止预览](../iterations/2026-11-25-ics-count-cutoff.md) | [ics-count-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/ics-count-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/ics-count-0.1.0-candidate-01-verification.json) |
+| 提示词模板库 0.1.0（prompt-library） | [提示词变量检查和模板展开](../iterations/2026-11-25-prompt-expansion.md) | [prompt-expansion-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/prompt-expansion-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/prompt-expansion-0.1.0-candidate-01-verification.json) |
+| RAG 质量评测 1.0.0（rag-eval） | [检索评测报告复核](../iterations/2026-11-25-retrieval-review.md) | [retrieval-review-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/retrieval-review-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/retrieval-review-0.1.0-candidate-01-verification.json) |
+| 文档解析与分块 1.4.0（rag-ingestion） | [DOCX 正文分块预览](../iterations/2026-11-25-docx-chunk-preview.md) | [docx-preview-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/docx-preview-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/docx-preview-0.1.0-candidate-01-verification.json) |
+| 本地知识源管理 1.2.0（rag-sources） | [知识源文件预检](../iterations/2026-11-25-knowledge-source-preflight.md) | [knowledge-preflight-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/knowledge-preflight-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/knowledge-preflight-0.1.0-candidate-01-verification.json) |
+| 本地服务管理 1.8.0（services） | [本地服务配置预检](../iterations/2026-11-25-service-config-preflight.md) | [service-config-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/service-config-0.1.0-candidate-01) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/service-config-0.1.0-candidate-01-verification.json) |
+| 文本 / 表格流程 1.13.0（text-flow） | [文本流程配方检查](../iterations/2026-11-25-flow-recipe-inspection.md) | [flow-recipe-0.1.0-candidate-02](../../tests/fixtures/devtools-windows-file-tools/flow-recipe-0.1.0-candidate-02) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/flow-recipe-0.1.0-candidate-02-verification.json) |
+
+Windows 全新稀疏检出启用 CRLF 转换后，20 份外部收据与 160 个包文件（6,914,976 字节）逐项匹配。核对了包身份、源工具 ID 以及清单声明的 37 个能力。来源版本来自 [ZiDevTools 目录提交](https://github.com/ax2/zi-devtools/blob/ebc79dc3ab9fa08c7240767b6e4289cb14f78dd7/docs/tools.json)。先前的 [154 项矩阵](devtools-windows-current.json) 保留 2026-10-30 冻结数据。各项业务验收沿用表中与同一冻结候选对应的 Windows 回执。
