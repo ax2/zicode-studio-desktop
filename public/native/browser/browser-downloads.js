@@ -188,6 +188,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe, getDownloadTa
     }
     finally {
       loadingBefore = undefined;
+      liveUpdates.clear();
       more.removeAttribute("aria-disabled");
       if (!closed && !acting) {
         const showOlder = pendingOlder && nextBefore !== null;
@@ -238,12 +239,12 @@ export function showBrowserDownloads({ invoke, onClose, subscribe, getDownloadTa
   header.append(el("h2", "", t("Downloads")), close);
   dialog.append(header, directory, form, list, more, message);
   const unsubscribe = subscribe?.(download => {
-    // Existing native events keep loaded rows current even after a completed
-    // download falls outside the first history page. Never revive removed rows
-    // or insert records outside the current search through this update path.
-    if (closed || !records.has(download.id)) return;
-    records.set(download.id, download);
+    if (closed) return;
+    // A pending page can contain a record the panel has not seen yet.
     if (loadingBefore !== undefined) liveUpdates.set(download.id, download);
+    // Only a requested page can add rows to the current search.
+    if (!records.has(download.id)) return;
+    records.set(download.id, download);
     render();
   });
   dialog.addEventListener("close", () => { closed = true; unsubscribe?.(); generation++; clearTimeout(timer); dialog.remove(); onClose?.(switchedTab); }, { once: true });
