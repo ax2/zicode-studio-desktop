@@ -5689,7 +5689,7 @@ const zhCN = {
   "Save tool results": "保存工具结果",
   "Make tools available to Pi": "允许 Pi 使用这些工具",
   "Finding available tools…": "正在查找可用工具…",
-  "Could not load this plugin’s tools. Open Tool Center to try again.": "暂时无法列出此插件的工具，请打开工具中心重试。",
+  "Could not load this plugin’s tools.": "暂时无法列出此插件的工具。",
   "Could not open this tool. Try again.": "无法打开此工具，请重试。",
   "Open {tool}": "打开{tool}",
   "You can review permissions and enable this plugin later in Plugin Manager.": "之后可在插件管理中核对权限并启用此插件。",

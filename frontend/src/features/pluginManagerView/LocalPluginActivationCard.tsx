@@ -33,20 +33,29 @@ export function LocalPluginActivationCard({
 }) {
   const card = useRef<HTMLElement>(null);
   useEffect(() => { card.current?.focus(); }, []);
-  const focusAfterAction = useRef<"defer" | "resume" | "activate" | null>(null);
+  const focusAfterAction = useRef<"defer" | "resume" | "activate" | { retryScope: string } | null>(null);
   const reviewAction = useRef<HTMLButtonElement>(null);
   const requiredPermission = useRef<HTMLInputElement>(null);
   const activateAction = useRef<HTMLButtonElement>(null);
   const availableAction = useRef<HTMLButtonElement>(null);
+  const retryAction = useRef<HTMLButtonElement>(null);
+  const firstToolAction = useRef<HTMLButtonElement>(null);
   const [selection, setSelection] = useState<{ revision?: string; grants: string[] }>();
   const reviewRevision = plugin.activationReview?.sceneRevision;
   const chosen = selection?.revision === reviewRevision ? selection?.grants ?? [] : [];
-  const [toolList, setToolList] = useState<{ revision?: string; page: ToolPage | null }>();
-  const reviewedTools = toolList?.revision === reviewRevision ? toolList : undefined;
-  const tools = reviewedTools?.page;
+  const packageRevision = plugin.activationReview?.packageRevision;
+  const toolScope = plugin.enabled && packageRevision && installedTools
+    ? JSON.stringify([plugin.id, packageRevision, reviewRevision])
+    : null;
+  const [toolAttempt, setToolAttempt] = useState(0);
+  const [toolList, setToolList] = useState<{
+    scope: string; attempt: number; actions: InstalledToolActions; page: ToolPage | null;
+  }>();
+  const tools = toolList && toolList.scope === toolScope && toolList.attempt === toolAttempt && toolList.actions === installedTools
+    ? toolList.page
+    : undefined;
   const toolListFailed = tools === null;
   const [opening, setOpening] = useState(false);
-  const packageRevision = plugin.activationReview?.packageRevision;
   const required = plugin.permissionDetails?.required ?? [];
   const optional = plugin.permissionDetails?.optional ?? [];
   const granted = (name: string) => plugin.permissions?.[name] === true;
@@ -69,6 +78,17 @@ export function LocalPluginActivationCard({
       focusAfterAction.current = null;
       return;
     }
+    if (typeof action !== "string") {
+      if (action.retryScope !== toolScope) {
+        focusAfterAction.current = null;
+        return;
+      }
+      if (tools === undefined) return;
+      const next = toolListFailed ? retryAction.current : firstToolAction.current ?? availableAction.current;
+      focusAfterAction.current = null;
+      next?.focus({ preventScroll: true });
+      return;
+    }
     if (busy || (action === "defer" && !deferred) || (action === "resume" && deferred)) return;
     const permissionAction = activateAction.current?.disabled ? requiredPermission.current : activateAction.current;
     const next = action === "defer" ? reviewAction.current : plugin.enabled ? availableAction.current : permissionAction;
@@ -77,14 +97,14 @@ export function LocalPluginActivationCard({
   });
 
   useEffect(() => {
-    if (!plugin.enabled || !packageRevision || !installedTools) return;
+    if (!toolScope || !packageRevision || !installedTools) return;
     let active = true;
-    void installedTools.list(plugin.id, packageRevision).then(
-      (page) => { if (active) setToolList({ revision: reviewRevision, page }); },
-      () => { if (active) setToolList({ revision: reviewRevision, page: null }); },
-    );
+    const settle = (page: ToolPage | null) => {
+      if (active) setToolList({ scope: toolScope, attempt: toolAttempt, actions: installedTools, page });
+    };
+    void installedTools.list(plugin.id, packageRevision).then(settle, () => settle(null));
     return () => { active = false; };
-  }, [installedTools, plugin.enabled, plugin.id, packageRevision, reviewRevision]);
+  }, [installedTools, plugin.id, packageRevision, toolAttempt, toolScope]);
 
   const open = async (action: () => Promise<unknown>) => {
     setOpening(true);
@@ -105,13 +125,22 @@ export function LocalPluginActivationCard({
       </header>
       {plugin.enabled ? (
         <>
-          {installedTools && !tools && !toolListFailed ? <p role="status">{t("Finding available tools…")}</p> : null}
-          {toolListFailed ? <p role="status">{t("Could not load this plugin’s tools. Open Tool Center to try again.")}</p> : null}
+          {toolScope && tools === undefined ? <p role="status">{t("Finding available tools…")}</p> : null}
+          {toolScope && toolListFailed ? (
+            <div className="plugin-manager-preview-actions">
+              <p role="status">{t("Could not load this plugin’s tools.")}</p>
+              <button ref={retryAction} type="button" className="ui-button ui-button--secondary ui-button--sm" disabled={opening}
+                onClick={(event) => {
+                  keepFocusInCard(event.currentTarget, { retryScope: toolScope });
+                  setToolAttempt((attempt) => attempt + 1);
+                }}>{t("Try again")}</button>
+            </div>
+          ) : null}
           {tools && tools.items.length > 0 && installedTools && packageRevision ? (
             <ul className="plugin-onboarding-tools">
-              {tools.items.map((tool) => (
+              {tools.items.map((tool, index) => (
                 <li key={tool.toolId}>
-                  <button type="button" className="ui-button ui-button--secondary ui-button--sm" disabled={opening}
+                  <button ref={index === 0 ? firstToolAction : undefined} type="button" className="ui-button ui-button--secondary ui-button--sm" disabled={opening}
                     onClick={() => void open(async () => {
                       if (!(await installedTools.open(plugin.id, packageRevision, tool, tools.revision))) {
                         throw new Error(t("Could not open this tool. Try again."));
