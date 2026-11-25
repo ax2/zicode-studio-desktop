@@ -53,6 +53,40 @@ it("pauses and continues the same live download without replacing its row or pro
   expect(calls).toContainEqual({ kind: "downloadResume", id: "one" });
   expect(getByRole(row, "button", { name: t("Pause download") })).toBe(pause);
 });
+it("shows each operation's own progress and keeps retry approval separate", async () => {
+  const stale = "No recent progress. Cancel to try again.";
+  const needsSave = "Confirm where to save this download, or cancel it.";
+  let original = { ...item("original", "downloading", 25), stalled: true };
+  let waiting = item("resumed", "waiting", 62);
+  const deliberate = item("deliberate");
+  const calls = [];
+  const dialog = showBrowserDownloads({ invoke: async (_, { request }) => {
+    calls.push(request);
+    if (request.kind === "downloadSave") {
+      waiting = { ...waiting, state: "downloading" };
+      return null;
+    }
+    return page([original, waiting, deliberate]);
+  } });
+  await tick();
+  const row = id => dialog.querySelector('[data-download-id="' + id + '"]');
+  expect(row("original").textContent).toContain(t(stale));
+  expect(getByRole(row("original"), "button", { name: t("Cancel download") })).toBeTruthy();
+  expect(row("resumed").textContent).toContain("62 B / 100 B");
+  expect(row("resumed").textContent).toContain(t(needsSave));
+  expect(row("deliberate").textContent).not.toContain(t(needsSave));
+  expect(calls).toEqual([{ kind: "downloads", before: null }]);
+
+  original = { ...original, received: 35, stalled: false };
+  await vi.advanceTimersByTimeAsync(500);
+  expect(row("original").textContent).not.toContain(t(stale));
+  getByRole(row("resumed"), "button", { name: t("Save to Downloads") }).click();
+  await tick();
+  expect(calls.filter(request => request.kind.startsWith("download") && request.kind !== "downloads"))
+    .toEqual([{ kind: "downloadSave", id: "resumed" }]);
+  expect(row("resumed").textContent).not.toContain(t(needsSave));
+  expect(getByRole(row("deliberate"), "button", { name: t("Save to Downloads") })).toBeTruthy();
+});
 it("retains errors and permits retry/cancel after a rejected save", async () => {
   const calls = []; const invoke = async (_, { request }) => {
     calls.push(request);
