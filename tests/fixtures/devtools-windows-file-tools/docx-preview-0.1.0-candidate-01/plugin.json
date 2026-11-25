@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.docx-preview",
+  "name": "ZiDevTools DOCX Preview",
+  "displayName": "DOCX 正文分块预览",
+  "description": "本机只读明确提供的 DOCX，按正文段落预览 800 字分块和 100 字重叠。文件、解压 XML 各限 128 KiB。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.docx.preview.chunks"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.docx.preview.chunks",
+        "title": "DOCX 正文分块预览",
+        "description": "本机只读明确提供的 DOCX，按正文段落预览 800 字分块和 100 字重叠。文件、解压 XML 各限 128 KiB。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "sourceByteCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 131072
+                },
+                "xmlByteCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 131072
+                },
+                "nonEmptyParagraphCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000
+                },
+                "totalChunks": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000
+                },
+                "chunkChars": {
+                  "type": "integer",
+                  "const": 800
+                },
+                "overlapChars": {
+                  "type": "integer",
+                  "const": 100
+                },
+                "truncated": {
+                  "type": "boolean"
+                },
+                "chunks": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "location": {
+                        "type": "string",
+                        "maxLength": 32
+                      },
+                      "ordinal": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2000
+                      },
+                      "text": {
+                        "type": "string",
+                        "maxLength": 800
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "minLength": 64
+                      }
+                    },
+                    "required": [
+                      "location",
+                      "ordinal",
+                      "text",
+                      "sha256"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "ok",
+                "sourceByteCount",
+                "xmlByteCount",
+                "nonEmptyParagraphCount",
+                "totalChunks",
+                "chunkChars",
+                "overlapChars",
+                "truncated",
+                "chunks"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "Word 正文预览",
+            "DOCX 文本",
+            "DOCX chunk preview"
+          ],
+          "description": "本机只读明确提供的 DOCX，按正文段落预览 800 字分块和 100 字重叠。文件、解压 XML 各限 128 KiB。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的 DOCX 临时快照。"
+      }
+    ],
+    "optional": []
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "generator": "scripts/verify_docx_preview_plugin.py",
+  "cases": [
+    {
+      "id": "paragraphs-literal-and-ignored-parts",
+      "inputSha256": "0fe0e6cc9e9387a66b06e9faa00b316a86fb009a89aad1729066497618981337",
+      "inputBytes": 1184,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "deterministic-800-and-100",
+      "inputSha256": "00bd9e22df01799e870f7b2e22c0769fa5d5fbc7658e3062cd5b07002880426b",
+      "inputBytes": 852,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "preview-row-limit",
+      "inputSha256": "49247e7a44088797e8859f26d7f7ebf799c9a2e66731cd875b3841437ce24fa4",
+      "inputBytes": 870,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "preview-byte-limit",
+      "inputSha256": "dd0a8726195751e6958bb2328ac485d3039df3793bad7aeb1ccbfce1cb0c0198",
+      "inputBytes": 873,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "valid-empty-document",
+      "inputSha256": "89c6585cae907dd5bb77c7ca2f9a693d5e31eb66db75a4575ea2f35df2410f70",
+      "inputBytes": 803,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "exact-file-boundary",
+      "inputSha256": "3da77af98b6e3da15caa1438dd00f15064f0b4f64dd1e5d96046de7c99cc5d37",
+      "inputBytes": 131072,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "file-oversized",
+      "inputSha256": "c824c25f8bbb2cf0089d9a144349afea27890f22046a11f137f0dcce1f15e9db",
+      "inputBytes": 131073,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "exact-expanded-body-boundary",
+      "inputSha256": "3d9fd244a5b20488ebd22aaa7002bd23b8f53aabff394d997eef84bf02454199",
+      "inputBytes": 997,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "expanded-body-oversized",
+      "inputSha256": "2e9e63a00bb211c7e062fc78d9eb98ecc55f86efd18168a54de144256dedf4e2",
+      "inputBytes": 998,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "entry-count-oversized",
+      "inputSha256": "924092b60afa25c64a98b1501ee9f6e595bbcdce9deaafd70a8aac20f20bd51c",
+      "inputBytes": 22453,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "ordinary-invalid-zip",
+      "inputSha256": "3bf211b24693b5a7ca4a799c28bd9f679b1c409e7d95232def627ed8858859f7",
+      "inputBytes": 17,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "missing-word-body",
+      "inputSha256": "0a575e4ce1463e463f4f178b44bfd206248c3e99439700b1286f9ed161f11844",
+      "inputBytes": 565,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "truncated-word-xml",
+      "inputSha256": "48b283fa24d0fc6276569c06b0d0137a022bdc2e475188eae8cbbb8cd5233717",
+      "inputBytes": 826,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "wrong-xml-root",
+      "inputSha256": "d19346769a4773cec5cb9333192b8448dbc2aa8754c6da11d53ec41863a2b20d",
+      "inputBytes": 691,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "doctype-is-unsupported",
+      "inputSha256": "5e0be90c389c775a7acc65d4f40b2287415ce0cc447f7657636088543664f610",
+      "inputBytes": 813,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "wrong-mime",
+      "inputSha256": "3da77af98b6e3da15caa1438dd00f15064f0b4f64dd1e5d96046de7c99cc5d37",
+      "inputBytes": 131072,
+      "input": {},
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "unexpected-input",
+      "inputSha256": "3da77af98b6e3da15caa1438dd00f15064f0b4f64dd1e5d96046de7c99cc5d37",
+      "inputBytes": 131072,
+      "input": {
+        "shape": true
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    }
+  ]
+}

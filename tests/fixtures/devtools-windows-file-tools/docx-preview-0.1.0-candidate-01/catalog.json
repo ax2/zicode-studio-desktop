@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.docx-preview",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "rag-ingestion",
+      "capabilityId": "devtools.docx.preview.chunks",
+      "title": "DOCX 正文分块预览",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "本机只读明确提供的 DOCX，按正文段落预览 800 字分块和 100 字重叠。文件、解压 XML 各限 128 KiB。"
+    }
+  ]
+}
