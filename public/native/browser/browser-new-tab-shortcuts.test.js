@@ -29,7 +29,7 @@ afterEach(async () => {
   }
 });
 
-function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list, save, hide, stateError } = {}) {
+function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list, save, hide, present, stateError } = {}) {
   setLocale("en");
   vi.stubGlobal("ResizeObserver", class { observe() {} });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 20, y: 50, width: 900, height: 580 });
@@ -49,6 +49,7 @@ function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list
     if (args?.request?.kind === "url") return { url: tabs.find(tab => tab.id === args.request.tab)?.url ?? "about:blank" };
     if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs: structuredClone(tabs) };
     if (args?.request?.kind === "snapshot") return "data:image/jpeg;base64,AA==";
+    if (args?.request?.kind === "present" && present) return present(args.request.tab);
     if (args?.request?.kind === "hide" && hide) return hide();
     return {};
   });
@@ -186,6 +187,41 @@ it("clears a temporary native blank-page preview when shortcuts become available
   await waitFor(() => getByRole(host, "region", { name: "Website shortcuts" }));
   expect(host.querySelector(".browser-overlay-preview")).toBeNull();
   expect(calls("navigate")).toHaveLength(0);
+});
+
+it.each([false, true])("waits for native presentation before capturing an overlay (dismissed: %s)", async dismissed => {
+  const second = { id: "second", title: "Other article", url: "https://example.invalid/other" };
+  let finishPresent;
+  const { host, calls } = setup({
+    tabs: [page, second],
+    present: id => id === second.id && !finishPresent
+      ? new Promise(resolve => { finishPresent = resolve; }) : undefined,
+  });
+  await waitFor(() => expect(calls("present").at(-1)?.tab).toBe(page.id));
+  getByRole(host, "tab", { name: second.title }).click();
+  await waitFor(() => expect(finishPresent).toBeTypeOf("function"));
+
+  const menu = document.createElement("details");
+  menu.className = "quick-tools-menu";
+  menu.getClientRects = () => [{ width: 150, height: 220 }];
+  document.body.append(menu);
+  menu.open = true;
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const earlyCapture = calls("snapshot");
+  if (dismissed) menu.open = false;
+  finishPresent();
+  expect(earlyCapture).toHaveLength(0);
+  if (dismissed) {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(calls("snapshot")).toHaveLength(0);
+    expect(calls("hide")).toHaveLength(0);
+    expect(calls("present").map(entry => entry.tab)).toEqual([page.id, second.id]);
+  } else {
+    await waitFor(() => expect(calls("hide")).toHaveLength(1));
+    expect(calls("snapshot").map(entry => entry.tab)).toEqual([second.id]);
+    expect(host.querySelector(".browser-overlay-preview")?.dataset.tab).toBe(second.id);
+  }
 });
 
 it("waits for a restored native blank view to hide before exposing shortcut buttons", async () => {

@@ -139,8 +139,14 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   });
   async function hide(preserve = false, stillNeeded = () => true) {
     if (preserve && selected() && pageAvailable(active) && lastSurface) {
-      try { if (!await preview.show(active)) return; } catch (error) { if (stillNeeded()) report(error); }
-      if (!stillNeeded()) {
+      const tab = active;
+      try {
+        // A pending present may still have the previous WebView on screen.
+        await surface.settled();
+        if (!lastSurface || active !== tab || !stillNeeded()) return;
+        if (!await preview.show(tab)) return;
+      } catch (error) { if (active === tab && stillNeeded()) report(error); }
+      if (active !== tab || !stillNeeded()) {
         void preview.releaseWhenPresented(() => !blocked() && Boolean(lastSurface));
         return;
       }
