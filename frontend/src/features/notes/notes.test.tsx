@@ -1474,6 +1474,37 @@ describe("notes store", () => {
     await waitFor(() => expect(container.textContent).toContain(t("Trash is empty")));
   });
 
+  it("does not create a widget note in the workspace opened during its lookup", async () => {
+    let workspace = "original";
+    let releaseOriginal: (() => void) | undefined;
+    const list = vi.fn(async (_scene: string, owner: string) => {
+      if (owner === "original") await new Promise<void>(resolve => { releaseOriginal = resolve; });
+      return { snapshot: SNAPSHOT };
+    });
+    const gateway = gatewayStub({ list });
+    const app = setupNotesApp({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: workspace }),
+    });
+    if (!app) throw Error("Notes app missing");
+    try {
+      const pending = app.openWidgetShortcut("new");
+      expect(list).toHaveBeenCalledWith("programming", "original", expect.any(Object));
+      workspace = "next";
+      await app.setTarget();
+      releaseOriginal?.();
+      await pending;
+      expect(gateway.create).not.toHaveBeenCalled();
+
+      await app.openWidgetShortcut("new");
+      expect(gateway.create).toHaveBeenCalledExactlyOnceWith(
+        "programming", "next", "book-1", expect.any(Object),
+      );
+    } finally {
+      app.destroy();
+    }
+  });
+
   it("handles Ctrl+N, Ctrl+Shift+T, and Ctrl+S notes shortcuts", async () => {
     const create = vi.fn(async () => ({ note: { ...NOTE, id: "note-9", title: "Untitled note" } }));
     const save = vi.fn(async () => ({ note: { ...NOTE, title: "Untitled note" } }));

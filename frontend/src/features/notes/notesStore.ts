@@ -227,6 +227,7 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   selectNote(summary: NoteSummary): Promise<void>;
   loadBacklinks(note: Note): Promise<void>;
   openNote(notebookId: string, noteId: string): Promise<void>;
+  openWidgetShortcut(kind: "new" | "pinned" | "recent"): Promise<void>;
   selectNotebook(id: string): Promise<void>;
   resolveRecentNotes(): Promise<void>;
   resolvePinnedNotes(): Promise<void>;
@@ -313,6 +314,7 @@ export function createNotesStore(options: NotesStoreOptions) {
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   let loadSequence = 0;
   let noteSelectionSequence = 0;
+  let widgetShortcutSequence = 0;
   let stopRelationshipWatch = () => {};
   let stopDraftWatch = () => {};
   let stopDraftLifecycle = () => {};
@@ -528,6 +530,28 @@ export function createNotesStore(options: NotesStoreOptions) {
 
     async openNote(notebookId, noteId) {
       await get().selectNote({ notebookId, id: noteId, title: "", updatedAt: "" });
+    },
+
+    async openWidgetShortcut(kind) {
+      const scope = operationScope.capture();
+      const request = ++widgetShortcutSequence;
+      const selection = noteSelectionSequence;
+      const current = () =>
+        scope.isCurrent() && request === widgetShortcutSequence && selection === noteSelectionSequence;
+
+      await get().load();
+      if (!current() || get().error) return;
+      if (kind === "new") return get().newNote();
+
+      await get().refreshShortcuts(true);
+      if (!current()) return;
+      const state = get();
+      const shortcut = (kind === "pinned" ? state.pinnedNotes : state.recentNotes)[0];
+      if (!shortcut) {
+        notify(t(kind === "pinned" ? "No pinned notes yet." : "No recent notes yet."));
+        return;
+      }
+      await state.openNote(shortcut.notebookId, shortcut.id);
     },
 
     resolveRecentNotes: () => get().refreshShortcuts(),
