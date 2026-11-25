@@ -1,0 +1,466 @@
+{
+  "sourceRevision": "f4cfa094d8778b425f683e26f25f1c754f9420e3",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T11:37:58.464471+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "350e28cac1f888543ef0ad4580a2ff60df38208e475d02ec180007dcdbdce6c4",
+  "workerVerification": {
+    "passed": 56,
+    "wasmSha256": "350e28cac1f888543ef0ad4580a2ff60df38208e475d02ec180007dcdbdce6c4",
+    "workerSha256": "1bf0adf0d8e3e8874eca61258ef133de9875dac87c0cbd76a83a45a2d7f2f1a3",
+    "workerProfile": "compute.wasi.v1",
+    "cases": [
+      {
+        "case": "exact-sum-fractions-and-decimals",
+        "capabilityId": "devtools.statistics.sum",
+        "inputSha256": "0256e555c975ca17573b29c91955f28a6d093467c5433171ac08a7e4b2d0f1a4",
+        "ok": true,
+        "resultSha256": "2e49b46065c0994fb695a48a6656d4f8c4a65cbcdd68523c7e1fa029716e761c",
+        "resultBytes": 166
+      },
+      {
+        "case": "exact-mean-single-element",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "747cfeb69e81f9fc7e824020abbfffed41674a542541d8aec6160a3be37fc80e",
+        "ok": true,
+        "resultSha256": "1a7c3fbad94ba9bd5425f4e9269f8cb899a35982298805b4c68148935ae1db4f",
+        "resultBytes": 168
+      },
+      {
+        "case": "exact-mean-mixed-delimiters",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "746fd532a6449f219e1a95b4a55e82bab0c4ac84cba2df661a98e68a88ae047e",
+        "ok": true,
+        "resultSha256": "18e80b45be7f45bd26aa908c7d9ca815fcd7dc433b3c6ce2d8f20509b688c6c5",
+        "resultBytes": 166
+      },
+      {
+        "case": "exact-odd-median-unsorted",
+        "capabilityId": "devtools.statistics.median",
+        "inputSha256": "64e02a0c732c8663811abd78df6dbb14b80afe69903fb23b1189159d6d24b16e",
+        "ok": true,
+        "resultSha256": "78646fba2ca8b83c70ef13c868a104aca2429f1138e8c843c9e457b94010a191",
+        "resultBytes": 164
+      },
+      {
+        "case": "exact-even-median",
+        "capabilityId": "devtools.statistics.median",
+        "inputSha256": "fb645567d526ef5f12bce8930311b3c0ac5906fa1b9270dcc035f056a34dfb0f",
+        "ok": true,
+        "resultSha256": "4db0462fe1ac315edca8de6dc4a7ef8543411bdf155ba2cf8e2adf2f105440bb",
+        "resultBytes": 164
+      },
+      {
+        "case": "exact-median-close-fractions",
+        "capabilityId": "devtools.statistics.median",
+        "inputSha256": "a6b92b10b4ac7633d4a27d99842b3b56398bf1e58f8bece2bda72dd48afeeb25",
+        "ok": true,
+        "resultSha256": "639aeb0bebbd9457036ff1f024f75efe23c70c556af54557b3f8ed57bb775e0f",
+        "resultBytes": 317
+      },
+      {
+        "case": "exact-median-close-negative-fractions",
+        "capabilityId": "devtools.statistics.median",
+        "inputSha256": "9ffc8132b69cda332713d9405eb5a8303983e8ca424560f65062c9c6c5d71326",
+        "ok": true,
+        "resultSha256": "118d479fd447b309a5e675335c1b3d539696dd6c112e5fdf1c24b2549193c3ab",
+        "resultBytes": 319
+      },
+      {
+        "case": "exact-large-distant-values-sort",
+        "capabilityId": "devtools.statistics.median",
+        "inputSha256": "a4ed9ee19195d6b5598316b444c993c9886bbd1bbde8e0db75316f97850fbe61",
+        "ok": true,
+        "resultSha256": "1feac6c30d66b852316b515069a56993ad42842e646e74fb27493e0e4cfa7ed5",
+        "resultBytes": 167
+      },
+      {
+        "case": "exact-large-average-without-sum-overflow",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "98de6a3ec63db13f59a4dcfa2f256c9585c8b40edb5e5e0523c80584878491a6",
+        "ok": true,
+        "resultSha256": "2d894f3bf63cab9bd8138f30725bed598f893f4cfe9d8c819a81e38a2f9fd6a8",
+        "resultBytes": 240
+      },
+      {
+        "case": "exact-max-values-sum",
+        "capabilityId": "devtools.statistics.sum",
+        "inputSha256": "f858a577ddb2a8ed8d1c0ee34c1bf2f9aacec640cb57f6c048eeb6f119e3735f",
+        "ok": true,
+        "resultSha256": "9d40df705bf3896b209710682e31f7d030edd084b7f6576137cc0f39f54e1433",
+        "resultBytes": 171
+      },
+      {
+        "case": "exact-max-values-mean",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "f858a577ddb2a8ed8d1c0ee34c1bf2f9aacec640cb57f6c048eeb6f119e3735f",
+        "ok": true,
+        "resultSha256": "0dfdf0caf5478651c8772a69d42c49a72b5d901188777afcdd758047b3eaaf1e",
+        "resultBytes": 169
+      },
+      {
+        "case": "exact-max-values-median",
+        "capabilityId": "devtools.statistics.median",
+        "inputSha256": "f858a577ddb2a8ed8d1c0ee34c1bf2f9aacec640cb57f6c048eeb6f119e3735f",
+        "ok": true,
+        "resultSha256": "0dfdf0caf5478651c8772a69d42c49a72b5d901188777afcdd758047b3eaaf1e",
+        "resultBytes": 169
+      },
+      {
+        "case": "exact-max-values-population-variance",
+        "capabilityId": "devtools.statistics.population_variance",
+        "inputSha256": "f858a577ddb2a8ed8d1c0ee34c1bf2f9aacec640cb57f6c048eeb6f119e3735f",
+        "ok": true,
+        "resultSha256": "f290f3d0ef70627140ebd7a5a0897e8f5175fd822d48971b1555970d478bbdee",
+        "resultBytes": 173
+      },
+      {
+        "case": "exact-max-values-sample-variance",
+        "capabilityId": "devtools.statistics.sample_variance",
+        "inputSha256": "f858a577ddb2a8ed8d1c0ee34c1bf2f9aacec640cb57f6c048eeb6f119e3735f",
+        "ok": true,
+        "resultSha256": "2d0935d41e8e18c2a3621b5e7ad34bcc2d9fc2a73d21f75d281859b67c675880",
+        "resultBytes": 173
+      },
+      {
+        "case": "exact-max-values-population-deviation",
+        "capabilityId": "devtools.statistics.population_standard_deviation",
+        "inputSha256": "f858a577ddb2a8ed8d1c0ee34c1bf2f9aacec640cb57f6c048eeb6f119e3735f",
+        "ok": true,
+        "resultSha256": "3a94f9588c09196a129d6ddf520c236ea1ce9f7a5ae46385c3718797b4c3f4c6",
+        "resultBytes": 180
+      },
+      {
+        "case": "exact-max-values-sample-deviation",
+        "capabilityId": "devtools.statistics.sample_standard_deviation",
+        "inputSha256": "f858a577ddb2a8ed8d1c0ee34c1bf2f9aacec640cb57f6c048eeb6f119e3735f",
+        "ok": true,
+        "resultSha256": "6746504622208aa3443084eb403f1d4c04e66dcd0854ddecd22ba2b791c75a47",
+        "resultBytes": 180
+      },
+      {
+        "case": "exact-population-variance",
+        "capabilityId": "devtools.statistics.population_variance",
+        "inputSha256": "16f2ecf4b4c19c4dc601cbb44b36dc90c46f7a15754cc98777030f76a42c3ff9",
+        "ok": true,
+        "resultSha256": "18e80b45be7f45bd26aa908c7d9ca815fcd7dc433b3c6ce2d8f20509b688c6c5",
+        "resultBytes": 166
+      },
+      {
+        "case": "exact-sample-variance",
+        "capabilityId": "devtools.statistics.sample_variance",
+        "inputSha256": "16f2ecf4b4c19c4dc601cbb44b36dc90c46f7a15754cc98777030f76a42c3ff9",
+        "ok": true,
+        "resultSha256": "37134cff8ccd1d27c7a4dfc51443b1d2987c3783356f7771bf330e5d5dd6b03e",
+        "resultBytes": 164
+      },
+      {
+        "case": "minimum-population-variance",
+        "capabilityId": "devtools.statistics.population_variance",
+        "inputSha256": "5083a9b330a98deb5b94f82bd64e8010362edb0f8bdaf814ba356159e5387908",
+        "ok": true,
+        "resultSha256": "d8e39f2698af3b98b3d92958bcd3b74d9e8f3c0aa020153689fc62696b5149b2",
+        "resultBytes": 164
+      },
+      {
+        "case": "minimum-sample-variance",
+        "capabilityId": "devtools.statistics.sample_variance",
+        "inputSha256": "e4d04128b2c7c0338f7aa135aa822372ee821f3775ee1d5c182cb6a5bbff2efc",
+        "ok": true,
+        "resultSha256": "4e78ab44c079381ad1d9ed05ea31e3f1d6c4be4ad1d678dc99ad3d49d0b35286",
+        "resultBytes": 168
+      },
+      {
+        "case": "minimum-population-deviation",
+        "capabilityId": "devtools.statistics.population_standard_deviation",
+        "inputSha256": "5083a9b330a98deb5b94f82bd64e8010362edb0f8bdaf814ba356159e5387908",
+        "ok": true,
+        "resultSha256": "092e2fc1e2e0dbaba5ebf5d36e98770e467eb760d2f95c3b5ccf91dfccb76ce1",
+        "resultBytes": 161
+      },
+      {
+        "case": "minimum-sample-deviation",
+        "capabilityId": "devtools.statistics.sample_standard_deviation",
+        "inputSha256": "022d3aadeb5893404b432b01b00601f552183f6bba8c2be69989ecabad10c135",
+        "ok": true,
+        "resultSha256": "d4dd4829ce83e5e8068972ad67f298c5dcca931a698ff8ff4571ce371bfdb587",
+        "resultBytes": 178
+      },
+      {
+        "case": "population-deviation-is-approximate",
+        "capabilityId": "devtools.statistics.population_standard_deviation",
+        "inputSha256": "16f2ecf4b4c19c4dc601cbb44b36dc90c46f7a15754cc98777030f76a42c3ff9",
+        "ok": true,
+        "resultSha256": "fc5144d59b430c49086292bb6f33d6ffaa54b980242c03f8749a0d4989bcac5c",
+        "resultBytes": 177
+      },
+      {
+        "case": "sample-deviation-is-approximate",
+        "capabilityId": "devtools.statistics.sample_standard_deviation",
+        "inputSha256": "16f2ecf4b4c19c4dc601cbb44b36dc90c46f7a15754cc98777030f76a42c3ff9",
+        "ok": true,
+        "resultSha256": "1491120ecdf0f8db9cbedf52547c0878421af9ee4d488f95286b2521d95bd8bc",
+        "resultBytes": 161
+      },
+      {
+        "case": "exact-variance-centered-at-large-offset",
+        "capabilityId": "devtools.statistics.population_variance",
+        "inputSha256": "8c8ccd326e4fbf17d2206548edf5c5577ab3098496acefb8f3cf6074c2fca3a9",
+        "ok": true,
+        "resultSha256": "18e80b45be7f45bd26aa908c7d9ca815fcd7dc433b3c6ce2d8f20509b688c6c5",
+        "resultBytes": 166
+      },
+      {
+        "case": "approx-variance-centered-at-large-offset",
+        "capabilityId": "devtools.statistics.population_variance",
+        "inputSha256": "95ebac80bbbd2bfd4bc0dea70623cdf75ba7ed9532531f2750f8d12f619c062a",
+        "ok": true,
+        "resultSha256": "fbe9033a63de97b8cf5b86ee9b989ae67254ab914deb0388c1271be23439a786",
+        "resultBytes": 178
+      },
+      {
+        "case": "approx-add-decimal-and-scientific",
+        "capabilityId": "devtools.statistics.sum",
+        "inputSha256": "bfe78fdfe12b67be244e57880cec8e5535cb06d634a3f94bf51c13abeaedfe2b",
+        "ok": true,
+        "resultSha256": "ced2bb39b93a1534769d726a5328a4736d0d3f6869828740968debedca09e7dd",
+        "resultBytes": 179
+      },
+      {
+        "case": "approx-range-finite-maximum",
+        "capabilityId": "devtools.statistics.median",
+        "inputSha256": "7fd7065ee187215229df429089c85de99854486c7498445a2b578cc8f1a21328",
+        "ok": true,
+        "resultSha256": "836fc205560474c60dde3620c361902f6e4f8afcd2447df3c71b7ef4d213f4e3",
+        "resultBytes": 184
+      },
+      {
+        "case": "approx-range-finite-subnormal",
+        "capabilityId": "devtools.statistics.median",
+        "inputSha256": "37d658e61c296fae5ed9fc467bdfb77eca9663b2bcd224973dbb5ad10327f07e",
+        "ok": true,
+        "resultSha256": "fce63b355c6de7d4e5f12ee6f59ca6ed02a05a7de439e328fe60f6759b8fc8ba",
+        "resultBytes": 169
+      },
+      {
+        "case": "exact-parse-prefixed-and-signed",
+        "capabilityId": "devtools.statistics.sum",
+        "inputSha256": "7337d6b23783653e5d8940f5b24c7dbce7fac091f40a00cda3d4670b1ca8ca9e",
+        "ok": true,
+        "resultSha256": "e1595b02c20557eeeeda776a2f7bbeac7038fd052ed4424d9e5cc245917ccf84",
+        "resultBytes": 166
+      },
+      {
+        "case": "exact-four-kib-text",
+        "capabilityId": "devtools.statistics.sum",
+        "inputSha256": "bcb5b3f8b6328271df0b012d9ca39620739c7c9879fae6dd34c51a1d1e522812",
+        "ok": true,
+        "resultSha256": "9d40df705bf3896b209710682e31f7d030edd084b7f6576137cc0f39f54e1433",
+        "resultBytes": 171
+      },
+      {
+        "case": "one-value-is-not-sample-variance",
+        "capabilityId": "devtools.statistics.sample_variance",
+        "inputSha256": "219eed74d7d6373c1b697a3304870e027b2046bd117c5aae5506b3f2ce276723",
+        "ok": false,
+        "resultSha256": "cf80bf7e4beb15e2646da18299d2a8a5d2750f84ae55615878fdde95d1b386c9",
+        "resultBytes": 169
+      },
+      {
+        "case": "one-value-is-not-sample-deviation",
+        "capabilityId": "devtools.statistics.sample_standard_deviation",
+        "inputSha256": "d35c8b4bf58f544b6e3842a54f323c6cc6a47f48414ca7b757b5265599b8828e",
+        "ok": false,
+        "resultSha256": "cf80bf7e4beb15e2646da18299d2a8a5d2750f84ae55615878fdde95d1b386c9",
+        "resultBytes": 169
+      },
+      {
+        "case": "more-than-64-values",
+        "capabilityId": "devtools.statistics.sum",
+        "inputSha256": "b9141883a9c611dda1292391c1bab604589ba1507757f89fbd4ffc1cb4853892",
+        "ok": false,
+        "resultSha256": "20f65ca4c5da55c53c70456acb62d1c21dd34aae82c5ddedf08cd1fb5f2ad37e",
+        "resultBytes": 135
+      },
+      {
+        "case": "no-values",
+        "capabilityId": "devtools.statistics.sum",
+        "inputSha256": "3682db7633c51245c01173a5b50c9c0994443ead8efa2a060e45e4d10f898898",
+        "ok": false,
+        "resultSha256": "3d165d4e7ae66558e9b0368c8463c7c4f3269a9c3858aef7188133d7ee1a444c",
+        "resultBytes": 125
+      },
+      {
+        "case": "no-blank-middle-field",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "121d0e44ec97027b080e64868e3e4299cd27ae34778d4ca783544615325205f1",
+        "ok": false,
+        "resultSha256": "f89532b913f68dedada16f0e3b2fe8e28f337a6447fc08a1b260eff7bf59f3f8",
+        "resultBytes": 125
+      },
+      {
+        "case": "no-blank-trailing-field",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "6454d78db9f1c82e39b492fae6f8ea547314d85214706f9dead972b60cd0e095",
+        "ok": false,
+        "resultSha256": "cf2961540259ad02285a80b25b5a26711356d7b55fe98ae450a0bc6007296fe4",
+        "resultBytes": 125
+      },
+      {
+        "case": "no-blank-last-row",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "35fcd2121fd3f88c281c892677ba43490079b13322e9abc0237447e936555a0a",
+        "ok": false,
+        "resultSha256": "cf2961540259ad02285a80b25b5a26711356d7b55fe98ae450a0bc6007296fe4",
+        "resultBytes": 125
+      },
+      {
+        "case": "zero-denominator",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "6f7337c9eb4ee1bcc58792095d94b243cb2b8768be5d07620a746062ae42d605",
+        "ok": false,
+        "resultSha256": "3611d0ed5057411e3ec9b260c1adab997ad8341e428aa2f76e9eb88627aaeda5",
+        "resultBytes": 134
+      },
+      {
+        "case": "no-expressions",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "7c3c6a1d266a7cbf878dde1eb78f14a530dab9fd01abe3e88e76b0be3df23c54",
+        "ok": false,
+        "resultSha256": "ded272c6432cfc41bc5f6e8a257fb92cf6ee68063c00e9879f486555f705661a",
+        "resultBytes": 152
+      },
+      {
+        "case": "no-complex-values",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "ddafb07743d08a70ec41594ebbc655f6ab931711c819c060f220f4a77892adfc",
+        "ok": false,
+        "resultSha256": "ded272c6432cfc41bc5f6e8a257fb92cf6ee68063c00e9879f486555f705661a",
+        "resultBytes": 152
+      },
+      {
+        "case": "no-auto-precision",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "ad16b8ed1edc8a096a50b8c8fe499f71d283cd9e59e8e7d7e0bdfb498aaf1314",
+        "ok": false,
+        "resultSha256": "191952a2dada8866a32202371726794ece5efb9e4180c50167ea2683470fe9dc",
+        "resultBytes": 134
+      },
+      {
+        "case": "approximately-no-symbolic-fractions",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "1f0cd4778e16903a54d5e9f5a96024965b391db30eef41147c13dbd0d8f9b0b6",
+        "ok": false,
+        "resultSha256": "9f2dfbd5dd79478bf4b8e440f2f7fd07dd199e00a97b66a423a21a29a47ceac7",
+        "resultBytes": 155
+      },
+      {
+        "case": "approx-nan",
+        "capabilityId": "devtools.statistics.sum",
+        "inputSha256": "1684b14f68600130383e057d87593a1fd3f0d5dc346b28ecdad8fd76e1f77eaf",
+        "ok": false,
+        "resultSha256": "7001026f665040b248375a82c9176d0224cbd50fba67d244f91f1d3e99bbb8ae",
+        "resultBytes": 182
+      },
+      {
+        "case": "approx-infinity",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "9a7728c6a16354a0b02b4d78c203994ed68d1abf47b50c9d79d5b8fe324256c6",
+        "ok": false,
+        "resultSha256": "3081c87c9e96c8ac2efe42f683c239577f822da5cf29c6e702c6a8574ced6915",
+        "resultBytes": 182
+      },
+      {
+        "case": "approx-exponent-overflow",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "c1559db51d13046d699dbb9b4eba06125bebf45b7c3b4cb04cd1b79b4fe4c93c",
+        "ok": false,
+        "resultSha256": "7001026f665040b248375a82c9176d0224cbd50fba67d244f91f1d3e99bbb8ae",
+        "resultBytes": 182
+      },
+      {
+        "case": "approx-arithmetic-overflow",
+        "capabilityId": "devtools.statistics.sum",
+        "inputSha256": "ef07460d58566d62664b0e1a34a5ad762c1d0af6b47320ee09d104c69111520e",
+        "ok": false,
+        "resultSha256": "af811b60d98967198a8579d2e0db19170bf4c948ac754297150137b095d4ca9b",
+        "resultBytes": 171
+      },
+      {
+        "case": "exact-integer-overflow",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "0389b8ae25300a8872406ddf6b6714bcfa31a01c67fec03298c7d63d1d48d29e",
+        "ok": false,
+        "resultSha256": "ded272c6432cfc41bc5f6e8a257fb92cf6ee68063c00e9879f486555f705661a",
+        "resultBytes": 152
+      },
+      {
+        "case": "exact-arithmetic-overflow",
+        "capabilityId": "devtools.statistics.sum",
+        "inputSha256": "56e9b65b5599cf6e9fc2e5c39f047260bf574ee05002cce6ad3f400513de9c2d",
+        "ok": false,
+        "resultSha256": "e5398c0ea4938ff70ab4f137cbdbc2a7c6d201308858bb716b4c7e4e8794086a",
+        "resultBytes": 168
+      },
+      {
+        "case": "exact-variance-overflow",
+        "capabilityId": "devtools.statistics.population_variance",
+        "inputSha256": "24ac9ed487d8b617ba628836fcec07739996994fb513d86567e53f158490b304",
+        "ok": false,
+        "resultSha256": "e5398c0ea4938ff70ab4f137cbdbc2a7c6d201308858bb716b4c7e4e8794086a",
+        "resultBytes": 168
+      },
+      {
+        "case": "cell-byte-bound",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "05c054f13d9e42468f45bb1748038fe5e45a3151d0e9c20324c0328059c0f2d8",
+        "ok": false,
+        "resultSha256": "a09d5a28397914f1464a7e66cd8eddb95f3b591e891ce80abd5138c5ec69c12d",
+        "resultBytes": 143
+      },
+      {
+        "case": "text-byte-bound",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "cf1d0b9cba644b2574790d5a2b4c355e030e28724323343cc8e0c8524e91e956",
+        "ok": false,
+        "resultSha256": "79d4aabad3173f9a5442242d51adbacc56d7ff477bef09e57fc33be6582adaad",
+        "resultBytes": 136
+      },
+      {
+        "case": "request-byte-bound",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "b7a43ed2177ecf0a35a178aff9bb7c646b4d9371c8607c093aea9dc9bf153e02",
+        "ok": false,
+        "resultSha256": "1b83bcacb1738d9273eeff049dc1aa5cfd28d1e88cdabacf18df178e21202120",
+        "resultBytes": 125
+      },
+      {
+        "case": "missing-input-values",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "ok": false,
+        "resultSha256": "191952a2dada8866a32202371726794ece5efb9e4180c50167ea2683470fe9dc",
+        "resultBytes": 134
+      },
+      {
+        "case": "unexpected-operand",
+        "capabilityId": "devtools.statistics.mean",
+        "inputSha256": "c04755596c7cc1abbe402db80c81e057f340be790af718948576fa19e4ce5c13",
+        "ok": false,
+        "resultSha256": "191952a2dada8866a32202371726794ece5efb9e4180c50167ea2683470fe9dc",
+        "resultBytes": 134
+      },
+      {
+        "case": "unsupported-operation",
+        "capabilityId": "devtools.statistics.mode",
+        "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "ok": false,
+        "resultSha256": "ecb0c19e537e5bdf4465d032434c46e19a327b118acfde2d347fe5366c49963f",
+        "resultBytes": 126
+      }
+    ],
+    "failures": []
+  }
+}
