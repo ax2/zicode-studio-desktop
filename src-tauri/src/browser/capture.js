@@ -141,19 +141,25 @@
   const mainText = readText(document, textRemaining);
   const mainSelection = readSelection(document, getSelection());
   let referenceStructureRemaining = 24000;
+  let tablesRemaining = 4;
+  let tablesToScan = 100;
+  let tableTextRemaining = 3600;
   function readReferences(doc, linkLimit, imageLimit, scan) {
-    const links = [], images = [];
+    const links = [], images = [], tables = [];
     const linkUrls = new Set(), imageKeys = new Set();
-    const pending = [[doc.body || doc.documentElement].values()];
-    let linksTruncated = false, imagesTruncated = false;
-    while (pending.length && !(linksTruncated && imagesTruncated)) {
-      const next = pending.at(-1).next();
+    const pending = [{ nodes: [doc.body || doc.documentElement].values(), withinTable: false }];
+    let linksTruncated = false, imagesTruncated = false, tablesTruncated = false;
+    let tablesDone = false;
+    while (pending.length && !(linksTruncated && imagesTruncated && tablesDone)) {
+      const { nodes, withinTable } = pending.at(-1);
+      const next = nodes.next();
       if (next.done) { pending.pop(); continue; }
-      if (referenceStructureRemaining === 0) { linksTruncated = imagesTruncated = true; break; }
+      if (referenceStructureRemaining === 0) { linksTruncated = imagesTruncated = tablesTruncated = true; break; }
       referenceStructureRemaining--;
       const element = next.value;
       if (element.nodeType !== Node.ELEMENT_NODE || element.matches(excluded)) continue;
-      pending.push(renderedChildren(element).values());
+      const isTable = element.localName === "table" && !!element.rows;
+      pending.push({ nodes: renderedChildren(element).values(), withinTable: withinTable || isTable });
       if (element.localName === "a" && !linksTruncated && typeof element.href === "string" && element.href) {
         if (scan.links === 0) { linksTruncated = true; continue; }
         scan.links--;
@@ -178,19 +184,25 @@
         if (images.length === imageLimit) { imagesTruncated = true; continue; }
         if (key) imageKeys.add(key);
         images.push({ alt, width, height, url });
+      } else if (isTable && !tablesDone) {
+        if (tablesToScan === 0) { tablesTruncated = tablesDone = true; continue; }
+        tablesToScan--;
+        if (withinTable || !visible(element)) continue;
+        if (tablesRemaining === 0) { tablesTruncated = tablesDone = true; continue; }
+        const { result, truncated } = readTable(element);
+        tablesTruncated ||= truncated;
+        if (result) {
+          tablesRemaining--;
+          tables.push(result);
+        }
       }
     }
-    return { links, linksTruncated, images, imagesTruncated };
+    return { links, linksTruncated, images, imagesTruncated, tables, tablesTruncated };
   }
-  const mainReferences = readReferences(document, 20, 12, { links: 1000, images: 400 });
-  let tablesRemaining = 4;
-  let tablesToScan = 100;
-  let tableTextRemaining = 3600;
-  function readTables(doc) {
-    const tables = [];
+  function readTable(table) {
     let tablesTruncated = false;
-    const readTableText = (element, table) => {
-      const nodes = doc.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    const readTableText = element => {
+      const nodes = table.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
       const limit = Math.min(120, tableTextRemaining);
       let value = "", scanned = 0;
       for (let node = nodes.nextNode(); node; node = nodes.nextNode()) {
@@ -209,57 +221,47 @@
       tableTextRemaining -= [...value].length;
       return value.trim();
     };
-    const pageTables = doc.getElementsByTagName("table");
-    const scan = Math.min(pageTables.length, tablesToScan);
-    tablesToScan -= scan;
-    tablesTruncated = pageTables.length > scan;
-    for (let index = 0; index < scan; index++) {
-      const table = pageTables[index];
-      if (table.parentElement?.closest("table") || !visible(table)) continue;
-      if (tablesRemaining === 0) { tablesTruncated = true; break; }
-      const rows = [];
-      if (table.rows.length > 80) tablesTruncated = true;
-      for (let i = 0; i < Math.min(table.rows.length, 80); i++) {
-        if (!visible(table.rows[i])) continue;
-        if (rows.length === 16) { tablesTruncated = true; break; }
-        rows.push(table.rows[i]);
-      }
-      if (!rows.length) continue;
-      const caption = table.caption && visible(table.caption) ? readTableText(table.caption, table) : "";
-      const grid = rows.map(() => Array(8).fill(null));
-      let columns = 0, firstRowHeader = true;
-      for (let r = 0; r < rows.length; r++) {
-        const row = rows[r];
-        let groupEnd = r + 1;
-        while (groupEnd < rows.length && rows[groupEnd].parentElement === row.parentElement) groupEnd++;
-        let column = 0;
-        if (row.cells.length > 32) tablesTruncated = true;
-        for (let i = 0; i < Math.min(row.cells.length, 32); i++) {
-          const cell = row.cells[i];
-          if (!cell.getClientRects().length) continue;
-          if (r === 0 && cell.localName !== "th") firstRowHeader = false;
-          while (column < 8 && grid[r][column] !== null) column++;
-          if (column === 8) { tablesTruncated = true; break; }
-          const right = Math.min(8, column + cell.colSpan);
-          if (right < column + cell.colSpan) tablesTruncated = true;
-          const bottom = cell.rowSpan === 0 ? groupEnd : Math.min(groupEnd, r + cell.rowSpan);
-          // Reserve covered slots so subsequent cells stay in their source column.
-          for (let y = r; y < bottom; y++) {
-            for (let x = column; x < right; x++) grid[y][x] ??= "";
-          }
-          grid[r][column] = visible(cell) ? readTableText(cell, table) : "";
-          columns = Math.max(columns, right);
-          column = right;
+    const rows = [];
+    if (table.rows.length > 80) tablesTruncated = true;
+    for (let i = 0; i < Math.min(table.rows.length, 80); i++) {
+      if (!visible(table.rows[i])) continue;
+      if (rows.length === 16) { tablesTruncated = true; break; }
+      rows.push(table.rows[i]);
+    }
+    if (!rows.length) return { truncated: tablesTruncated };
+    const caption = table.caption && visible(table.caption) ? readTableText(table.caption) : "";
+    const grid = rows.map(() => Array(8).fill(null));
+    let columns = 0, firstRowHeader = true;
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      let groupEnd = r + 1;
+      while (groupEnd < rows.length && rows[groupEnd].parentElement === row.parentElement) groupEnd++;
+      let column = 0;
+      if (row.cells.length > 32) tablesTruncated = true;
+      for (let i = 0; i < Math.min(row.cells.length, 32); i++) {
+        const cell = row.cells[i];
+        if (!cell.getClientRects().length) continue;
+        if (r === 0 && cell.localName !== "th") firstRowHeader = false;
+        while (column < 8 && grid[r][column] !== null) column++;
+        if (column === 8) { tablesTruncated = true; break; }
+        const right = Math.min(8, column + cell.colSpan);
+        if (right < column + cell.colSpan) tablesTruncated = true;
+        const bottom = cell.rowSpan === 0 ? groupEnd : Math.min(groupEnd, r + cell.rowSpan);
+        // Reserve covered slots so subsequent cells stay in their source column.
+        for (let y = r; y < bottom; y++) {
+          for (let x = column; x < right; x++) grid[y][x] ??= "";
         }
-      }
-      if (columns) {
-        tablesRemaining--;
-        tables.push({ caption, firstRowHeader, rows: grid.map(row => row.slice(0, columns).map(cell => cell ?? "")) });
+        grid[r][column] = visible(cell) ? readTableText(cell) : "";
+        columns = Math.max(columns, right);
+        column = right;
       }
     }
-    return { tables, tablesTruncated };
+    const result = columns
+      ? { caption, firstRowHeader, rows: grid.map(row => row.slice(0, columns).map(cell => cell ?? "")) }
+      : undefined;
+    return { result, truncated: tablesTruncated };
   }
-  const mainTables = readTables(document);
+  const mainReferences = readReferences(document, 20, 12, { links: 1000, images: 400 });
   const frames = [];
   let framesOmitted = false;
   let framesToScan = 24;
@@ -288,7 +290,6 @@
       if (!inline && (!url || new URL(url).origin !== origin)) { framesOmitted = true; continue; }
       const body = readText(child, 8000);
       const selection = readSelection(child, child.getSelection());
-      const tables = readTables(child);
       const references = readReferences(child, Math.min(6, frameLinksRemaining),
         Math.min(6, frameImagesRemaining), frameReferenceScan);
       frameLinksRemaining -= references.links.length;
@@ -297,10 +298,10 @@
       const timeOrigin = child.defaultView?.performance?.timeOrigin;
       const imageLocator = references.images.some(image => image.url) && Number.isFinite(timeOrigin)
         ? { path: childPath, timeOrigin: String(timeOrigin) } : undefined;
-      if (body.text || selection.selection || tables.tables.length || references.images.length ||
+      if (body.text || selection.selection || references.tables.length || references.images.length ||
           references.links.length || references.linksTruncated || body.textTruncated ||
-          selection.selectionTruncated || tables.tablesTruncated || references.imagesTruncated) {
-        frames.push({ title: clip(child.title || element.title || '', 512), url, ...body, ...selection, ...tables, ...references, imageLocator });
+          selection.selectionTruncated || references.tablesTruncated || references.imagesTruncated) {
+        frames.push({ title: clip(child.title || element.title || '', 512), url, ...body, ...selection, ...references, imageLocator });
       }
       readFrames(child, childPath);
     }
@@ -313,5 +314,5 @@
   };
   return { title: clip(document.title, 512), url: location.href, ...mainText, ...mainSelection,
     truncated: mainText.textTruncated || mainSelection.selectionTruncated,
-    ...mainReferences, ...mainTables, metadata, frames, framesOmitted };
+    ...mainReferences, metadata, frames, framesOmitted };
 })()
