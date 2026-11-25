@@ -216,6 +216,89 @@ fn serve_imap(
     }
 }
 #[test]
+fn imap_attachment_confirmation_is_scoped_to_its_original_cache_generation() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join("mail.sqlite3");
+    let mut db = Connection::open(&path).unwrap();
+    seed(&db);
+    db.execute(
+        "INSERT INTO accounts VALUES ('other','a','alibaba','separate@example.test')",
+        [],
+    )
+    .unwrap();
+    let mut pending = Mailbox::open(&mut db, "one", "a").unwrap();
+    let listing = fixture(false, false);
+    pending
+        .sync(&listing.adapter, "synthetic", None, 2)
+        .unwrap();
+    listing.thread.join().unwrap();
+    let reading = fixture(false, false);
+    pending.read(&reading.adapter, "synthetic", 7, 30).unwrap();
+    reading.thread.join().unwrap();
+    pending.attachment_is_current(7).unwrap();
+    let reviewed = pending.cached_body(7, 30).unwrap().attachments.remove(0);
+
+    let mut second = Connection::open(&path).unwrap();
+    Mailbox::open(&mut second, "other", "a")
+        .unwrap()
+        .clear_cache()
+        .unwrap();
+    let working = fixture(false, false);
+    assert_eq!(
+        pending
+            .read_attachment(&working.adapter, "synthetic", 7, 30, &reviewed)
+            .unwrap(),
+        [0, 255, 1, 2]
+    );
+    working.thread.join().unwrap();
+    let commands = working.rx.try_iter().collect::<Vec<_>>();
+    assert!(commands
+        .iter()
+        .any(|command| command.contains("BODYSTRUCTURE")));
+    assert!(commands
+        .iter()
+        .any(|command| command.contains("BODY.PEEK[2]")));
+    pending.attachment_is_current(7).unwrap();
+
+    Mailbox::open(&mut second, "one", "a")
+        .unwrap()
+        .clear_cache()
+        .unwrap();
+    let mut fresh = Mailbox::open(&mut second, "one", "a").unwrap();
+    let repopulated = fixture(false, false);
+    assert_eq!(
+        fresh
+            .sync(&repopulated.adapter, "synthetic", None, 2)
+            .unwrap()
+            .uid_validity,
+        7
+    );
+    repopulated.thread.join().unwrap();
+
+    let probe = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    probe.set_nonblocking(true).unwrap();
+    let server = Alibaba {
+        imap_host: "127.0.0.1".into(),
+        imap_port: probe.local_addr().unwrap().port(),
+        ..Alibaba::default()
+    };
+    assert_eq!(
+        pending.read_attachment(&server, "synthetic", 7, 30, &reviewed),
+        Err("mail_attachment_changed")
+    );
+    assert_eq!(
+        probe.accept().unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+    // The same old snapshot is no longer valid at the final pre-save check, either.
+    assert_eq!(
+        pending.attachment_is_current(7),
+        Err("mail_attachment_changed")
+    );
+    fresh.attachment_is_current(7).unwrap();
+}
+
+#[test]
 fn tls_imap_clipped_headers_keep_messages_and_never_supply_a_partial_reply_address() {
     let mut db = database();
     let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();

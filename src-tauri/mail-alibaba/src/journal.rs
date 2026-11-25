@@ -96,6 +96,18 @@ impl<'a> Mailbox<'a> {
             params![self.scope,self.account.id,epoch,self.generation,self.folder],|r|r.get(0)).map_err(db_err)?;
         if current {Ok(())} else {Err("mail_attachment_changed")}
     }
+    pub fn read_attachment(
+        &self,
+        adapter: &Alibaba,
+        password: &str,
+        epoch: u32,
+        uid: u32,
+        expected: &Attachment,
+    ) -> Result<Vec<u8>> {
+        // Credentials are read separately by the Host. Recheck at the network boundary.
+        self.attachment_is_current(epoch)?;
+        adapter.attachment(self.address(), password, self.folder(), epoch, uid, expected)
+    }
     pub fn clear_cache(&mut self) -> Result<()> {
         let tx = self.db.transaction().map_err(db_err)?;
         tx.execute("INSERT INTO alibaba_cache_generation VALUES(?,?,1) ON CONFLICT(scope,account) DO UPDATE SET generation=generation+1",
