@@ -6,6 +6,7 @@ let locale = "zh-CN";
 let snapshot;
 let requestNumber = 0;
 let lastRevision;
+let retryRevision;
 
 function message(value) {
   return t(value, locale);
@@ -13,6 +14,11 @@ function message(value) {
 
 function status(value) {
   field("status").textContent = message(value);
+}
+
+function updateRetryState() {
+  const busy = retryRevision !== undefined || snapshot?.status === "running";
+  field("retry").setAttribute("aria-disabled", String(busy));
 }
 
 function setLanguages(choices, selected) {
@@ -35,6 +41,7 @@ async function refresh() {
     element.textContent = message(element.dataset.message);
   }
   snapshot = popup;
+  if (retryRevision !== popup.revision) retryRevision = undefined;
   const { draft } = popup;
   const working = popup.status === "running";
   document.querySelector("main").setAttribute("aria-busy", String(working));
@@ -50,7 +57,7 @@ async function refresh() {
   field("translation").hidden = !draft.result;
   field("result").value = draft.result?.translated ?? "";
   field("retry").hidden = !draft.text || !service;
-  field("retry").disabled = working;
+  updateRetryState();
   field("copy").hidden = !draft.result;
   field("workbench").disabled = working;
   status(working ? "Translating…" : popup.message || (draft.result ? "Translation complete" : ""));
@@ -61,11 +68,19 @@ function report(error) {
 }
 
 field("retry").addEventListener("click", () => {
-  if (!snapshot) return;
+  if (!snapshot || snapshot.status === "running" || retryRevision !== undefined) return;
+  const { revision } = snapshot;
+  retryRevision = revision;
+  updateRetryState();
   void invoke({
-    kind: "retry", revision: snapshot.revision,
+    kind: "retry", revision,
     source: field("source-language").value || null, target: field("target-language").value,
-  }).catch(report);
+  }).catch(error => {
+    if (retryRevision !== revision) return;
+    retryRevision = undefined;
+    updateRetryState();
+    report(error);
+  });
 });
 field("workbench").addEventListener("click", () => {
   if (!snapshot) return;
