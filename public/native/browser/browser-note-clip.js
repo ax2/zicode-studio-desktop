@@ -15,9 +15,10 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
   open.type = "button"; open.hidden = true;
   const field = (label, input) => { input.setAttribute("aria-label", t(label)); const el = node("label", "", t(label)); el.append(input); panel.append(el); return el; };
   const notebook = node("select", "ui-select"); field("Notebook", notebook);
-  const notebookTitle = node("input", "ui-input"); notebookTitle.maxLength = 200; notebookTitle.value = t("Web clippings");
+  // The writer validates both titles by Unicode code point. HTML maxlength counts UTF-16 units.
+  const notebookTitle = node("input", "ui-input"); notebookTitle.value = t("Web clippings");
   const newTitle = field("New notebook title", notebookTitle); newTitle.hidden = true;
-  const title = node("input", "ui-input"); title.maxLength = 200;
+  const title = node("input", "ui-input");
   const sourceTitle = analysis?.image?.source?.alt || capture.page.title || capture.page.url;
   const heading = browserAnalysisLabel(analysis?.kind);
   const defaultTitle = analysis ? `${t(heading)} · ${sourceTitle}` : sourceTitle;
