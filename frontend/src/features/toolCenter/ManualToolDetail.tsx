@@ -1,3 +1,4 @@
+import { springConfigFileTargets, supportsSpringConfigFiles } from "./spring-config-files";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { FileImportButton } from "./FileImportButton";
@@ -255,6 +256,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const unicodeNfc = inspectTool && tool.capabilityId === "devtools.inspect.unicode.nfc";
   const unicodeNfkc = inspectTool && tool.capabilityId === "devtools.inspect.unicode.nfkc";
   const unicodeNormalize = unicodeNfc || unicodeNfkc;
+  const springConfig = boundedTextTool && fields !== null && detail?.version === tool.version && supportsSpringConfigFiles(tool, fields);
   const tracePlugin = boundedTextTool && tool.pluginId === "com.zicode.devtools.trace" && tool.version === "0.1.1";
   const javaTrace = tracePlugin && tool.capabilityId === "devtools.trace.java.trace";
   const pythonTrace = tracePlugin && tool.capabilityId === "devtools.trace.django.trace";
@@ -305,7 +307,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     jsonSchema ? jsonSchemaFileTargets : qrFileTool ? qrFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
         (base64Encode || hexEncode || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
-          stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets : traceReport ? traceFileTargets :
+          stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets : traceReport ? traceFileTargets : springConfig ? springConfigFileTargets :
           (textLines || textStatistics || stringEscape || htmlText) ? utf8FileTargets : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
@@ -322,6 +324,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     : urlInspect ? { label: "Download JSON", stem: "url-details", extension: "json", mime: "application/json" }
     : htmlEscape ? { label: "Download escaped text", stem: "html-escaped", extension: "txt", mime: "text/plain;charset=utf-8" }
     : htmlUnescape ? { label: "Download restored text", stem: "html-restored", extension: "txt", mime: "text/plain;charset=utf-8" }
+    : springConfig ? { label: "Download JSON", stem: "spring-config-comparison", extension: "json", mime: "application/json" }
     : traceReport ? { label: "Download JSON", stem: javaTrace ? "java-trace" : "python-trace", extension: "json", mime: "application/json" }
     : unicodeInspect ? { label: "Download JSON", stem: "unicode-code-points", extension: "json", mime: "application/json" }
     : unicodeNormalize ? { label: "Download normalized text", stem: unicodeNfc ? "unicode-nfc" : "unicode-nfkc", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
@@ -483,9 +486,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     label={t(side.label)} inputLabel={t(side.inputLabel)}
     accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : yamlToJson ? ".yaml,.yml" :
       base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : hexDecode ? ".txt,.hex" : urlInspect || qrFileTool ? ".txt" :
-        htmlText ? ".html,.htm,.txt" : traceReport ? ".log,.txt,.traceback" : ""}
+        htmlText ? ".html,.htm,.txt" : traceReport ? ".log,.txt,.traceback" : springConfig ? ".json,.yaml,.yml" : ""}
     loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" :
-      yamlToJson ? "Reading YAML file…" : "Reading text file…"}
+      yamlToJson ? "Reading YAML file…" : springConfig ? "Reading configuration file…" : "Reading text file…"}
     disabled={editingLocked || !detail?.enabled} loading={fileLoading === side.target}
     onPick={file => { void importFile(file, side.target); }} />);
   return <section className="ui-card tool-detail" aria-labelledby={`${detailId}-title`} aria-busy={running || resourceBusy || fileLoading !== null}>
@@ -508,6 +511,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       {!detail.enabled && <p>{t("Enable this plugin in Plugin Manager before running its tools.")}</p>}
       {resourceTool ? <ResourceToolRunner tool={tool} detail={detail} api={api} getTarget={getResourceTarget} scope={scope}
         accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
+        {springConfig && <div className="ui-toolbar">{documentFileButtons}</div>}
         {fields.map(field => {
           const side = documentFileTargets.find(target => target.field === field.key);
           const sqlOption = sqlWithOptions ? sqlOptions.get(field.key) : undefined;
@@ -545,7 +549,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
             loadingLabel={jsonPath ? "Reading JSON file…" : undefined}
             disabled={editingLocked || !detail.enabled} loading={fileLoading === singleFileTarget}
             onPick={file => { void importFile(file, singleFileTarget); }} />}
-          {!jsonSchema && documentFileButtons}
+          {!jsonSchema && !springConfig && documentFileButtons}
           {tableMerge && <>
             <FileImportButton key={"left:" + transformIdentity} label={t("Import left table…")}
               inputLabel={t("Left table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === leftMergeTarget}
