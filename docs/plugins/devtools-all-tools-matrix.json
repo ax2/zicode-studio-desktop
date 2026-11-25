@@ -2217,6 +2217,7 @@
     },
     {
       "sourceToolId": "hex",
+      "currentWindowsAcceptance": "../iterations/2026-11-25-hex-text-files.md",
       "title": "UTF-8 / Hex",
       "sourceToolVersion": "1.0.2",
       "sourceStatus": "implemented",

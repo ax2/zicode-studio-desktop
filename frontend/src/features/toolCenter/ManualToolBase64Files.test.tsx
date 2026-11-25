@@ -54,7 +54,7 @@ it.each([
 it("limits raw file bytes and preserves spaces for the strict Base64 decoder", async () => {
   const exact = "A".repeat(8189);
   const selected = (value: string) => file("encoded.base64", value) as unknown as File;
-  await expect(readManualToolFile(selected("\uFEFF" + exact), {}, "base64-encode")).resolves.toEqual({ text: "\uFEFF" + exact });
+  await expect(readManualToolFile(selected("\uFEFF" + exact), {}, "utf8-bytes")).resolves.toEqual({ text: "\uFEFF" + exact });
   await expect(readManualToolFile(selected("\uFEFF" + exact + "\n"), {}, "base64-decode")).rejects.toThrow("8 KiB");
   await expect(readManualToolFile(selected("\uFEFFAB\r\n C\t\nD "), {}, "base64-decode")).resolves.toEqual({ text: "AB C\tD " });
 });
