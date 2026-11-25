@@ -5,7 +5,7 @@ import { t } from "../../shared/i18n";
 
 
 import {AlibabaInbox, type AlibabaActivity} from "./AlibabaInbox";
-import {GmailInbox, type GmailGrantLoss} from "./GmailInbox";
+import {GmailInbox, type GmailAccess, type GmailGrantLoss} from "./GmailInbox";
 import {CachedMailSearch} from './CachedMailSearch';
 import {MailDelivery} from "./MailDelivery";
 
@@ -45,7 +45,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   const [mailActivity,setMailActivity]=useState<{account:string;activity:AlibabaActivity}|null>(null);
   const owner=accounts.find(a=>a.id===account);
   const [label,setLabel]=useState("INBOX");
-  const [gmailAuthorization,setGmailAuthorization]=useState<{account:string;send:boolean;revision:number;loss?:GmailGrantLoss}|null>(null);
+  const [gmailAuthorization,setGmailAuthorization]=useState<(GmailAccess & {account:string;revision:number;loss?:GmailGrantLoss})|null>(null);
   const gmail=owner?.provider==="gmail"&&gmailTransport;
   const alibaba=owner?.provider==="alibaba"&&transport;
   const activity=alibaba ? mailActivity?.account===account ? mailActivity.activity : "blocking" : null;
@@ -210,13 +210,13 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
       return changeAttachment(isCurrent, attachment);
     });
   }
-  function reportGmailGrant(send: boolean, authorized = false) {
+  function reportGmailGrant(access: GmailAccess, authorized = false) {
     setGmailAuthorization(current => {
       const previous = current?.account === account ? current : null;
       // A local status response after a canceled sign-in can still contain the old scope.
-      if (previous?.loss && !authorized) return previous;
+      if (previous?.loss && !authorized) return { ...previous, read: access.read };
       const revision = previous?.revision ?? 0;
-      return { account, send, revision: authorized ? revision + 1 : revision };
+      return { account, ...access, revision: authorized ? revision + 1 : revision };
     });
   }
   function gmailGrantLost(loss: GmailGrantLoss) {
@@ -229,6 +229,9 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   const recoveringAttachments = attachmentRefresh !== null;
   const draftBlocked = busy || recoveringAttachments || draftsUnavailable;
   const savedDraftReady = Boolean(edit.id) && !recoveringAttachments;
+  const canDownloadCurrentAttachments = gmail
+    ? Boolean(gmailAuthorization?.account === account && gmailAuthorization.read && gmailAuthorization.loss !== "connection")
+    : alibaba ? passwordOwner === account : undefined;
   return <section className="mail-local"><h2>{t("Mail")}</h2>
     {!alibaba&&!gmail&&<p>{t("Local drafts only. No mailbox is connected.")}</p>}
     <fieldset disabled={busy}><legend>{t("Mail accounts")}</legend>
@@ -242,7 +245,8 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     })}}><label>{t("Mail provider")}<select className="ui-select" value={provider} disabled={mailBusy} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
     <label>{t("Email address")}<input className="ui-input" disabled={mailBusy} required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button className="ui-button ui-button--primary" type="submit" disabled={mailBusy}>{t("Add local account")}</button></form></fieldset>
-    {account&&<CachedMailSearch key={`search-${searchVersion}`} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport} onReply={replyFromCache} replyBlocked={draftBlocked||mailBusy}/>}
+    {account&&<CachedMailSearch key={`search-${searchVersion}`} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport} canDownloadCurrentAttachments={canDownloadCurrentAttachments}
+      onReply={replyFromCache} replyBlocked={draftBlocked||mailBusy}/>}
     {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={reportGmailGrant}
       grantLoss={gmailAuthorization?.account===account ? gmailAuthorization.loss : undefined} onReply={replyFromCache} draftBusy={draftBlocked}/>}
     {alibaba&&<AlibabaInbox key={account} id={account} folder={label} setFolder={setLabel} invoke={alibaba} discard={discard} onBusy={reportAlibabaBusy}

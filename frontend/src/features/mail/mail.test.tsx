@@ -621,3 +621,89 @@ it("drops a pending reply refresh when the Gmail search scope changes", async ()
     { kind: "read", accountId: "peer", id: "same" },
   ]);
 });
+
+it.each(["gmail", "alibaba"] as const)(
+  "uses the active %s account's read access for its own cached attachments",
+  async provider => {
+    setLocale("en");
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const isGmail = provider === "gmail";
+    const accounts = [
+      { id: "local", address: "owner@example.test", provider },
+      { id: "peer", address: "peer@example.test", provider: isGmail ? "alibaba" : "gmail" },
+    ];
+    const items = accounts.map((account, index) => ({
+      account: account.id, address: account.address, provider: account.provider,
+      id: "42", epoch: account.provider === "alibaba" ? 7 : null,
+      folder: account.provider === "alibaba" ? "INBOX" : null,
+      subject: index === 0 ? "Owned search hit" : "Peer search hit", sender: "sender@example.test",
+    }));
+    const attachment = { id: 0, name: "receipt.txt", size: 8 };
+    const invoke = vi.fn(async (request: Parameters<Invoke>[0]) => {
+      switch (request.kind) {
+        case "accounts": return accounts;
+        case "drafts": return isGmail ? [{ id: "saved", revision: 1, recipient: "recipient@example.test", subject: "Local saved draft", body: "" }] : [];
+        case "search": return { items, more: false };
+        case "status": return { connected: true, read: true, send: true };
+        case "credentialStatus": return { enabled: true, configured: true };
+        case "cachedPage": return isGmail ? { items: [], nextCursor: null } : { uidValidity: 7, messages: [], next: null };
+        case "cachedLabels":
+        case "cachedFolders": return [];
+        case "cachedBody": return { plainText: "Cached Gmail text", text: "Cached Alibaba text", attachments: [attachment] };
+        case "delivery": return { status: null };
+        case "send": throw Error("gmail_permission_denied");
+        case "disconnect": return { connected: false, revoked: true };
+        case "forgetPassword": return { configured: false };
+        case "connect": return { connected: true, read: true, send: false };
+        case "setPassword": return { configured: true };
+        case "downloadAttachment": return { saved: true };
+        default: throw Error("Unexpected invocation");
+      }
+    });
+    const gateway = invoke as Invoke;
+    render(<Mail invoke={gateway} gmailTransport={gateway} transport={gateway}/>);
+    const disconnect = await screen.findByRole("button", { name: isGmail ? "Disconnect Gmail" : "Remove client password" });
+    fireEvent.change(screen.getByRole("combobox", { name: "Search scope" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search cached mail" }), { target: { value: "hit" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Owned search hit/ }));
+    const reading = within(screen.getByRole("article", { name: "Cached message" }));
+    const download = await reading.findByRole("button", { name: "Download attachment receipt.txt" });
+    expect(download.getAttribute("aria-disabled")).toBeNull();
+    if (isGmail) {
+      await act(async () => fireEvent.click(screen.getByRole("button", { name: "Local saved draft" })));
+      const review = await screen.findByRole("button", { name: "Review before sending" });
+      await waitFor(() => expect((review as HTMLButtonElement).disabled).toBe(false));
+      fireEvent.click(review);
+      await act(async () => fireEvent.click(screen.getByRole("button", { name: "Confirm and send email" })));
+      await screen.findByRole("button", { name: "Authorize sending with Gmail" });
+      expect(download.getAttribute("aria-disabled")).toBeNull();
+    }
+    await act(async () => fireEvent.click(disconnect));
+    expect(invoke).toHaveBeenCalledWith({ kind: isGmail ? "disconnect" : "forgetPassword", accountId: "local", clearCache: false });
+    expect(download.getAttribute("aria-disabled")).toBe("true");
+    expect(reading.getByText(isGmail ? "Cached Gmail text" : "Cached Alibaba text")).toBeTruthy();
+    await act(async () => fireEvent.click(download));
+    expect(invoke.mock.calls.filter(([request]) => request.kind === "downloadAttachment")).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /Peer search hit/ }));
+    const peerDownload = await reading.findByRole("button", { name: "Download attachment receipt.txt" });
+    expect(peerDownload.getAttribute("aria-disabled")).toBeNull();
+    await act(async () => fireEvent.click(peerDownload));
+    const expected = isGmail ? { folder: "INBOX", uid: 42, uidValidity: 7 } : { id: "42" };
+    expect(invoke).toHaveBeenCalledWith({ kind: "downloadAttachment", accountId: "peer", part: 0, ...expected });
+
+    if (isGmail) {
+      await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sign in to read Gmail" })));
+    } else {
+      fireEvent.change(screen.getByLabelText("Client password"), { target: { value: "fixture-only" } });
+      await act(async () => fireEvent.click(screen.getByRole("button", { name: "Save client password" })));
+    }
+    fireEvent.click(screen.getByRole("button", { name: /Owned search hit/ }));
+    const reconnected = await reading.findByRole("button", { name: "Download attachment receipt.txt" });
+    expect(reconnected.getAttribute("aria-disabled")).toBeNull();
+    await act(async () => fireEvent.click(reconnected));
+    const original = isGmail ? { id: "42" } : { folder: "INBOX", uid: 42, uidValidity: 7 };
+    expect(invoke).toHaveBeenCalledWith({ kind: "downloadAttachment", accountId: "local", part: 0, ...original });
+  },
+);
