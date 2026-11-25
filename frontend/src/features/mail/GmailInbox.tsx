@@ -119,6 +119,23 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       setServerPage(server);
     });
   }
+  function refreshLabels() {
+    void run("labels", async isCurrent => {
+      const items = await invoke<Label[]>({ kind: "labels", accountId: id });
+      if (!isCurrent()) return;
+      setLabels(items);
+      window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: id }));
+      if (label === "INBOX" || items.some(item => item.id === label)) return;
+      setLabel("INBOX");
+      setPage(null);
+      setMessage(null);
+      setBody(null);
+      setReplyRefresh(false);
+      setServerPage(false);
+      const inbox = await invoke<Page | null>({ kind: "cachedPage", accountId: id, label: "INBOX", cursor: null, limit: 20 });
+      if (isCurrent()) setPage(inbox);
+    }, () => {});
+  }
   function select(m: Message, download = false) {
     if(operation.current)return;setMessage(m);setBody(null);setReplyRefresh(false);
     const message = { accountId: id, id: m.id };
@@ -154,11 +171,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
         <option value="INBOX">{t("Inbox")}</option>
         {labels.filter(item=>item.id!=="INBOX").map(item=><option key={item.id} value={item.id} translate="no">{item.name}</option>)}
       </select></label>
-      <button className="ui-button" type="button" disabled={!grant.read} onClick={()=>void run("labels",()=>invoke<Label[]>({kind:"labels",accountId:id}),items=>{
-        setLabels(items);
-        window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: id }));
-        if(label!=="INBOX"&&!items.some(item=>item.id===label)){setLabel("INBOX");setPage(null);setMessage(null);setBody(null);setServerPage(false)}
-      })}>{t("Refresh Gmail labels")}</button>
+      <button className="ui-button" type="button" disabled={!grant.read} onClick={refreshLabels}>{t("Refresh Gmail labels")}</button>
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(label==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
       <button className="ui-button" type="button" disabled={!grant.read} onClick={()=>load(true)}>{t("Refresh from server")}</button>
       {page?<><p>{t(readFromServer?"Showing messages retrieved from the server.":"Showing messages saved on this device.")}</p>
