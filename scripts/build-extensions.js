@@ -27,6 +27,7 @@
 const path = require("node:path");
 const fs = require("node:fs");
 const esbuild = require("esbuild");
+const { writeBuildOutput } = require("./write-build-output.cjs");
 const { followRedirectsCompatPlugin } = require("./follow-redirects-compat.cjs");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -58,7 +59,8 @@ async function buildOne(entrySpec) {
     throw new Error(`[build-extensions] required entry is missing: ${entry}`);
   }
   const outFile = path.join(OUT_DIR, outName || entry.replace(/\.ts$/, ".mjs"));
-  await esbuild.build({
+  const { outputFiles } = await esbuild.build({
+    write: false,
     entryPoints: [inFile],
     outfile: outFile,
     bundle: true,
@@ -85,6 +87,7 @@ async function buildOne(entrySpec) {
       ].join("\n"),
     },
   });
+  for (const file of outputFiles) writeBuildOutput(file.path, file.contents);
   const sizeKb = (fs.statSync(outFile).size / 1024).toFixed(1);
   console.log(`[build-extensions] ${entry} -> ${path.relative(ROOT, outFile)} (${sizeKb} KB)`);
 }
