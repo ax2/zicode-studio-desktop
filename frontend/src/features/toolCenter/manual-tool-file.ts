@@ -1,11 +1,14 @@
+import { parseToolJson } from "./tool-json-input";
+
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 export type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "utf8-bytes" | "base64-decode" | "utf8-text" | "url-inspect" | "qr-source" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | "spring-config-baseline" | "spring-config-comparison" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "json-object" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "utf8-bytes" | "base64-decode" | "utf8-text" | "url-inspect" | "qr-source" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | "spring-config-baseline" | "spring-config-comparison" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // The frozen tool document input limit.
 const jsonFileFields = new Map<ToolFileTarget, string>([
   ["json-path", "text"],
+  ["json-object", "value"],
   ["yaml-from-json", "text"],
   ["json-diff-left", "left"],
   ["json-diff-right", "right"],
@@ -109,6 +112,10 @@ export async function readManualToolFile(
   const text = await readUtf8ToolFile(file, sizeError,
     jsonDocument ? "Could not read the JSON file." : "Could not read the table file.");
   if (!text.trim()) throw Error(jsonDocument ? "The selected JSON file is empty." : "The selected table file is empty.");
+  if (target === "json-object") {
+    const parsed = parseToolJson(text.trim(), "object");
+    if ("error" in parsed) throw Error(parsed.error);
+  }
 
   if (fixedFormat) return { [jsonField ?? "text"]: text };
   if (mergeSide) return { [mergeSide]: text, [mergeSide + "Format"]: String(choice) };

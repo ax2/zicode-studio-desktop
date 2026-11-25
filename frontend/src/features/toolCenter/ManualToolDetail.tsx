@@ -43,6 +43,10 @@ const jsonDiffFileTargets = [
   { target: "json-diff-right", field: "right", label: "Import right JSON file…", inputLabel: "Right JSON file", fieldLabel: "Revised JSON" },
 ] as const;
 
+const jsonObjectFileTargets = [
+  { target: "json-object", field: "value", label: "Import JSON file…", inputLabel: "JSON input file", fieldLabel: "JSON text" },
+] as const;
+
 const jsonSchemaFileTargets = [
   { target: "schema-instance", field: "instance", label: "Import JSON instance…", inputLabel: "JSON instance file", fieldLabel: "JSON instance" },
   { target: "schema-root", field: "schema", label: "Import JSON Schema…", inputLabel: "JSON Schema file", fieldLabel: "Root JSON Schema" },
@@ -245,6 +249,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const jsonDiff = comparePlugin && /^devtools\.compare\.json\.diff\.(ordered|unordered)$/.test(tool.capabilityId);
   const jsonSchema = tool.pluginId === "com.zicode.devtools.json-schema" && tool.capabilityId === "devtools.json-schema.validate";
   const enabledWasi = tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version;
+  const jsonObject = enabledWasi && tool.version === "0.1.1" && tool.pluginId === "com.zicode.devtools.json-object" &&
+    tool.capabilityId === "devtools.json.object.inspect" && detail.pluginId === tool.pluginId &&
+    detail.capability.id === tool.capabilityId && fields?.length === 1 &&
+    fields[0].key === "value" && fields[0].kind === "object" && fields[0].required;
   const textField = fields?.find(field => field.key === "text" && field.kind === "string");
   const boundedTextTool = enabledWasi && textField?.maxLength === 8192;
   const regexMatches = boundedTextTool && comparePlugin && tool.version === "0.1.0" &&
@@ -310,13 +318,13 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const base64Decode = textOnlyContract && tool.capabilityId === "devtools.text.base64.decode";
   const base64Tool = base64Encode || base64Decode;
   const textSha256 = textOnlyContract && tool.capabilityId === "devtools.text.sha256";
-  const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
+  const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets : jsonObject ? jsonObjectFileTargets :
     jsonSchema ? jsonSchemaFileTargets : qrFileTool ? qrFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
         (base64Encode || hexEncode || textSha256 || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
           stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets : traceReport ? traceFileTargets : springConfig ? springConfigFileTargets :
           (textLines || textStatistics || stringEscape || htmlText || urlDecode || regexMatches) ? utf8FileTargets : [];
-  const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
+  const jsonDocument = jsonPath || jsonDiff || jsonObject || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
     : yamlToJson ? { label: "Download JSON", stem: "converted", extension: "json", mime: "application/json" }
     : yamlFromJson ? { label: "Download YAML", stem: "converted", extension: "yaml", mime: "application/yaml" }
@@ -452,7 +460,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const response = await call.run({ ...scope, pluginId: tool.pluginId, capabilityId: tool.capabilityId,
         input: prepared.input, catalogRevision: detail.revision, ...(supportsResultActions(api) ? { captureResult: true } : {}) });
       if (!isLatest() || ((independentMerge || workbenchApply) && !ownsExecution())) return;
-      const outcome = manualToolResult(response.result);
+      const outcome = manualToolResult(response.result, jsonObject ? { reference: response.resultRef } : undefined);
       const wire = response.result;
       const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
         wire.contractVersion === "1.0.0-rc.1";

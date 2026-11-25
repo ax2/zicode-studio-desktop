@@ -9,9 +9,16 @@ export interface ManualToolResult {
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
-// Only unwrap the versioned text contract. Other plugin outputs remain intact.
-// A provider-declared failure must never become a successful recent-use entry.
-export function manualToolResult(value: unknown): ManualToolResult {
+function isJsonCapture(reference: unknown): boolean {
+  return record(reference) && reference.schemaVersion === 2 && reference.mimeType === "application/json" &&
+    typeof reference.resultId === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(reference.resultId) &&
+    typeof reference.contentVersion === "string" && /^[0-9a-f]{64}$/.test(reference.contentVersion) &&
+    typeof reference.byteLength === "number" && Number.isSafeInteger(reference.byteLength) &&
+    reference.byteLength >= 2 && reference.byteLength <= 48 * 1024;
+}
+
+// A structured result is only unwrapped when the caller expects a verified Host capture.
+export function manualToolResult(value: unknown, structured?: { reference: unknown }): ManualToolResult {
   const raw = typeof value === "string" ? value : JSON.stringify(value, null, 2) ?? "";
   if (record(value) && value.ok === false) {
     const error = record(value.error) ? value.error : {};
@@ -19,9 +26,14 @@ export function manualToolResult(value: unknown): ManualToolResult {
       errorCode: typeof error.code === "string" ? error.code.slice(0, 80) : undefined,
       errorMessage: typeof error.message === "string" ? error.message.slice(0, 240) : undefined };
   }
-  if (record(value) && value.contractVersion === "1.0.0-rc.1") {
-    if (value.ok === true && value.error === null && record(value.data) && typeof value.data.text === "string") {
-      return { successful: true, text: value.data.text, raw };
+  if (structured || (record(value) && value.contractVersion === "1.0.0-rc.1")) {
+    if (record(value) && value.contractVersion === "1.0.0-rc.1" && value.ok === true && value.error === null && record(value.data)) {
+      if (structured && isJsonCapture(structured.reference)) {
+        return { successful: true, text: JSON.stringify(value.data, null, 2), raw };
+      }
+      if (!structured && typeof value.data.text === "string") {
+        return { successful: true, text: value.data.text, raw };
+      }
     }
     return { successful: false, text: "", raw, errorCode: "INVALID_RESULT" };
   }
