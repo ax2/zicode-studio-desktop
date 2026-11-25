@@ -11,8 +11,9 @@ type Summary={uid:number,subject:string,sender:string,replyTo:string};
 type Page={pending?:boolean;uidValidity:number,messages:Summary[],next:Cursor|null};
 type Body={summary:Summary,text:string,html?:string|null;bodyLimited?:boolean;attachments?:Attachment[]};
 type CredentialStatus = { configured: boolean; enabled: boolean };
+const mailErrorCode = (error: unknown) => String(error).replace(/^Error:\s*/, "");
 export function mailError(error:unknown) {
-  const code=String(error);
+  const code=mailErrorCode(error);
   const messages:Record<string,string>={
     mail_client_password_or_admin_policy:"Sign-in was refused. Check the client password and your administrator’s IMAP permissions.",
     mail_credentials_disabled:"System credentials are disabled in this profile.",
@@ -31,7 +32,7 @@ export function mailError(error:unknown) {
     mail_connect:"Could not connect to the mail server. Your local data is unchanged.",
     mail_storage:"Could not access local mail data.",
   };
-  return t(messages[code.replace(/^Error:\s*/,"")]??"Mail operation failed. Check the account and try again.");
+  return t(messages[code]??"Mail operation failed. Check the account and try again.");
 }
 export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfigured,onBusy,draftBusy = false}:{id:string,folder:string,setFolder:(id:string)=>void,invoke:Invoke,discard:()=>boolean|Promise<boolean>,draftBusy?:boolean,
   onReply:(draft:Draft)=>void,onConfigured:(value:boolean)=>void,onBusy:(value:boolean)=>void}) {
@@ -42,6 +43,8 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
   const [localBodyFailed, setLocalBodyFailed] = useState(false);
   const [online,setOnline]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState("");
   const live=useRef(false),lock=useRef(false),generation=useRef(0),onConfig=useRef(onConfigured);
+  const activeFolder = useRef(folder);
+  activeFolder.current = folder;
   onConfig.current=onConfigured;
   const applyCredentialStatus = useCallback((status: CredentialStatus | null, error = "") => {
     const configured = status?.configured ?? false;
@@ -67,11 +70,11 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
     }finally{if(live.current&&generation.current===epoch){lock.current=false;setBusy(false)}}})();
     return()=>{live.current=false;generation.current++}
   },[id,invoke,applyCredentialStatus]);
-  async function run<T>(work:(isCurrent:()=>boolean)=>Promise<T>,apply:(value:T)=>void,reportError?:(message:string)=>void){
+  async function run<T>(work:(isCurrent:()=>boolean)=>Promise<T>,apply:(value:T)=>void,reportError?:(message:string)=>void,scopeCurrent?:()=>boolean){
     if(lock.current)return;lock.current=true;setBusy(true);
     if (!reportError) setError("");
     const epoch=generation.current;
-    const isCurrent = () => live.current && epoch === generation.current;
+    const isCurrent = () => live.current && epoch === generation.current && (scopeCurrent?.() ?? true);
     try{const v=await work(isCurrent);if(isCurrent())apply(v)}
     catch(e){if(isCurrent()) (reportError ?? setError)(mailError(e))}
     finally{if(live.current&&epoch===generation.current){lock.current=false;setBusy(false)}}
@@ -81,23 +84,43 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       message => applyCredentialStatus(null, message));
   }
   function load(network:boolean,cursor:Cursor|null=null,target=folder){
-    void run(async()=>{
-      const epoch=generation.current;
-      const args={limit:20,...(target==="INBOX"?{}:{folder:target})};
+    const args={limit:20,...(target==="INBOX"?{}:{folder:target})};
+    async function cachedFirstPage() {
       try {
-        const page=await req<Page>(network?"sync":"cachedPage",{cursor,...args});
-        let pending=network&&!cursor&&page.pending;
-        while(pending&&live.current&&generation.current===epoch)pending=await req<boolean>("catchUp",args);
-        return page;
+        return await req<Page>("cachedPage", {cursor:null,...args});
+      } catch (error) {
+        if (mailErrorCode(error) === "mail_cache_empty") return null;
+        throw error;
       }
-      catch(e){if(!network&&!cursor&&String(e).includes("mail_cache_empty"))return null;throw e}
-    },p=>{
+    }
+    void run(async isCurrent => {
+      if (!network && !cursor) return {page:await cachedFirstPage(),append:false};
+      let page: Page;
+      try {
+        page = await req<Page>(network?"sync":"cachedPage",{cursor,...args});
+      } catch (error) {
+        if (network || !cursor || mailErrorCode(error) !== "mail_inbox_changed" || !isCurrent()) throw error;
+        return {page:await cachedFirstPage(),append:false};
+      }
+      let pending=network&&!cursor&&page.pending;
+      while(pending&&isCurrent())pending=await req<boolean>("catchUp",args);
+      return {page,append:Boolean(cursor)};
+    }, ({page:p,append}) => {
       if (target !== folder) setFolder(target);
-      if(!p){setPage(null);setSelected(null);setBody(null);setOnline(false);return}
-      setPage(old=>cursor&&old&&old.uidValidity===p.uidValidity?{...p,messages:[...old.messages,...p.messages.filter(n=>!old.messages.some(m=>m.uid===n.uid))]}:p);
+      if (!append || !p) {
+        setSelected(null);
+        setBody(null);
+        setLocalBodyFailed(false);
+      }
+      if (!p) {
+        setPage(null);
+        setOnline(false);
+        return;
+      }
+      setPage(old=>append&&old&&old.uidValidity===p.uidValidity?{...p,messages:[...old.messages,...p.messages.filter(n=>!old.messages.some(m=>m.uid===n.uid))]}:p);
       if(network)window.dispatchEvent(new CustomEvent("studio-mail-cache-updated",{detail:id}));
-      setOnline(network);if(!cursor){setSelected(null);setBody(null)}
-    })
+      setOnline(network);
+    }, undefined, () => activeFolder.current === folder);
   }
   function refreshFolders() {
     void run(async isCurrent => {
