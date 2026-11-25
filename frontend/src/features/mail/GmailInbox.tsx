@@ -44,6 +44,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
 }) {
   const [grant,setGrant]=useState<Grant>(none),[page,setPage]=useState<Page|null>(null);
   const [labels,setLabels]=useState<Label[]>([]);
+  const [cachedLabelsFailed, setCachedLabelsFailed] = useState(false);
   const [message,setMessage]=useState<Message|null>(null),[body,setBody]=useState<Body|null>(null);
   const [localBodyFailed, setLocalBodyFailed] = useState(false);
   const [replyRefresh,setReplyRefresh]=useState(false);
@@ -76,7 +77,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     authorizationFocus.current = undefined;
     operation.current="init"; setBusy("init");setGrant(none);grantCallback.current(false);
     setPage(null);setMessage(null);setBody(null);setServerPage(false);setNotice("");
-    setLabels([]);setLabel("INBOX");
+    setLabels([]);setCachedLabelsFailed(false);setLabel("INBOX");
     void Promise.allSettled([
       invoke<Grant>({kind:"status",accountId:id}),
       invoke<Page|null>({kind:"cachedPage",accountId:id,cursor:null,limit:20}),
@@ -84,6 +85,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     ]).then(([s,p,l])=>{
       if(epoch.current!==gen)return;
       if(l.status==="fulfilled"&&Array.isArray(l.value))setLabels(l.value);
+      setCachedLabelsFailed(l.status === "rejected");
       if(s.status==="fulfilled"){setGrant(s.value);grantCallback.current(s.value.connected&&s.value.send===true)}else setNotice(gmailError(s.reason));
       if(p.status==="fulfilled")setPage(p.value);else if(s.status==="fulfilled")setNotice(gmailError(p.reason));
       operation.current="";setBusy("");
@@ -93,7 +95,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
   async function run<T>(kind:string,task:(isCurrent:()=>boolean)=>Promise<T>,apply:(result:T)=>void){
     if(operation.current)return;const gen=++epoch.current;operation.current=kind;setBusy(kind);setNotice("");
     try {const value=await task(()=>epoch.current===gen);if(epoch.current===gen)apply(value)}
-    catch(e){if(epoch.current===gen){
+    catch(e){if(epoch.current===gen&&kind!=="cachedLabels"){
       setNotice(gmailError(e));
       if(kind==="reply")setReplyRefresh(gmailReplyNeedsRefresh(e));
       if(String(e).includes("gmail_reauthorize"))saveGrant(none);
@@ -152,11 +154,18 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       setServerPage(server);
     });
   }
+  function retryCachedLabels() {
+    void run("cachedLabels", () => invoke<Label[] | null>({ kind: "cachedLabels", accountId: id }), items => {
+      setLabels(items ?? []);
+      setCachedLabelsFailed(false);
+    });
+  }
   function refreshLabels() {
     void run("labels", async isCurrent => {
       const items = await invoke<Label[]>({ kind: "labels", accountId: id });
       if (!isCurrent()) return;
       setLabels(items);
+      setCachedLabelsFailed(false);
       window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: id }));
       if (label === "INBOX" || items.some(item => item.id === label)) return;
       setLabel("INBOX");
@@ -198,7 +207,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       <MailDisconnect connected={!disconnected} label={t("Disconnect Gmail")} prompt={t("Disconnect Gmail on this device? Saved drafts will remain.")}
         disconnect={clear=>run("disconnect",()=>invoke<{revoked:boolean}>({kind:"disconnect",accountId:id,clearCache:clear}),r=>{
           saveGrant(none);
-          if(clear){setServerPage(false);setLabel("INBOX");setLabels([]);setPage(null);setMessage(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
+          if(clear){setServerPage(false);setLabel("INBOX");setLabels([]);setCachedLabelsFailed(false);setPage(null);setMessage(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
           setNotice(t(r.revoked?"Gmail disconnected.":"Disconnected on this device. Review Google account permissions to confirm revocation."))
         })}/>
     </fieldset>
@@ -209,6 +218,10 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
         {labels.filter(item=>item.id!=="INBOX").map(item=><option key={item.id} value={item.id} translate="no">{item.name}</option>)}
       </select></label>
       <button className="ui-button" type="button" disabled={!grant.read} onClick={refreshLabels}>{t("Refresh Gmail labels")}</button>
+      {cachedLabelsFailed && <>
+        <p role="status">{t("Could not read saved Gmail labels.")}</p>
+        <button className="ui-button" type="button" onClick={retryCachedLabels}>{t("Retry saved Gmail labels")}</button>
+      </>}
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(label==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
       <button className="ui-button" type="button" disabled={!grant.read} onClick={()=>load(true)}>{t("Refresh from server")}</button>
       {page?<><p>{t(readFromServer?"Showing messages retrieved from the server.":"Showing messages saved on this device.")}</p>

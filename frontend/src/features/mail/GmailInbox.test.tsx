@@ -62,6 +62,77 @@ it("opens a saved label offline and refreshes only that label on request",async(
   await screen.findByText("Updated invoice");
   expect(v.calls).toHaveBeenCalledWith({kind:"list",accountId:"one",label:"Label_42",cursor:null,limit:20});
 });
+it.each([false, true])("retries an unavailable local Gmail label directory while reading offline (empty: %s)", async empty => {
+  let directoryAvailable = false;
+  const calls = fixture(async request => {
+    if (request.kind === "status") return { connected: false };
+    if (request.kind === "cachedLabels") {
+      if (!directoryAvailable) throw Error("gmail_storage");
+      return empty ? null : [{ id: "Archive", name: "Archive" }];
+    }
+    if (request.kind === "cachedPage") return { items: [entry], nextCursor: "saved-page" };
+    if (request.kind === "cachedBody") return { ...entry, plainText: "Saved inbox body" };
+    throw Error("Unexpected Gmail request");
+  }).calls;
+  const inbox = within(await screen.findByRole("region", { name: "Gmail inbox" }));
+  await inbox.findByText("Could not read saved Gmail labels.");
+  fireEvent.click(await inbox.findByRole("button", { name: /Inbox fixture/ }));
+  await inbox.findByText("Saved inbox body");
+  const retry = inbox.getByRole("button", { name: "Retry saved Gmail labels" });
+  const refresh = inbox.getByRole("button", { name: "Refresh Gmail labels" });
+  expect(refresh.matches(":disabled")).toBe(true);
+
+  calls.mockClear();
+  fireEvent.click(retry);
+  await waitFor(() => expect(retry.matches(":disabled")).toBe(false));
+  expect(inbox.getByText("Could not read saved Gmail labels.")).toBeTruthy();
+  expect(inbox.getByText("Saved inbox body")).toBeTruthy();
+
+  directoryAvailable = true;
+  fireEvent.click(retry);
+  await waitFor(() => expect(inbox.queryByRole("button", { name: "Retry saved Gmail labels" })).toBeNull());
+  expect(inbox.queryByText("Could not read saved Gmail labels.")).toBeNull();
+  const label = inbox.getByLabelText<HTMLSelectElement>("Gmail label");
+  expect([...label.options].map(option => option.value)).toEqual(empty ? ["INBOX"] : ["INBOX", "Archive"]);
+  expect(label.value).toBe("INBOX");
+  expect(inbox.getByText("Saved inbox body")).toBeTruthy();
+  expect(inbox.getByRole("button", { name: "Load older messages" })).toBeTruthy();
+  expect(refresh.matches(":disabled")).toBe(true);
+  expect(calls.mock.calls.map(([request]) => request)).toEqual([
+    { kind: "cachedLabels", accountId: "one" }, { kind: "cachedLabels", accountId: "one" },
+  ]);
+});
+
+it("drops a saved Gmail label retry that finishes after an account switch", async () => {
+  let beginRetry = false, finishRetry!: (value: unknown) => void;
+  const pending = new Promise(resolve => { finishRetry = resolve; });
+  const second = { ...entry, subject: "Other account message" };
+  const view = fixture(async request => {
+    if (request.kind === "status") return { connected: false };
+    if (request.kind === "cachedLabels") {
+      if (request.accountId === "two") return [{ id: "Other", name: "Other label" }];
+      if (beginRetry) return pending;
+      throw Error("gmail_storage");
+    }
+    if (request.kind === "cachedPage") return { items: [request.accountId === "two" ? second : entry], nextCursor: null };
+    if (request.kind === "cachedBody") return { ...second, plainText: "Other account body" };
+    throw Error("Unexpected Gmail request");
+  }, [account("one"), account("two")]);
+  const retry = await screen.findByRole("button", { name: "Retry saved Gmail labels" });
+  beginRetry = true;
+  view.calls.mockClear();
+  fireEvent.click(retry);
+  expect(view.calls).toHaveBeenCalledWith({ kind: "cachedLabels", accountId: "one" });
+  fireEvent.change(screen.getByLabelText("Mail account"), { target: { value: "two" } });
+  fireEvent.click(await screen.findByRole("button", { name: /Other account message/ }));
+  await screen.findByText("Other account body");
+  await act(async () => finishRetry([{ id: "Late", name: "Late label from first account" }]));
+  const label = screen.getByLabelText<HTMLSelectElement>("Gmail label");
+  expect([...label.options].map(option => option.value)).toEqual(["INBOX", "Other"]);
+  expect(screen.getByText("Other account body")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Retry saved Gmail labels" })).toBeNull();
+});
+
 it("recovers an expired server page by refreshing the selected label",async()=>{
   let refreshes=0;
   fixture(async r=>{
