@@ -59,13 +59,21 @@ it("prepares the release DLL from locked sources in the shared target and stops 
   );
 });
 
-it("keeps ordinary Windows packaging on the same shell overlay", async () => {
+it("bundles local Windows release builds with the shared target tool cache", async () => {
   const result = await invoke([]);
   expect(result.exit).toBe(0);
   expect(result.spawn).toHaveBeenCalledTimes(2);
-  expect(result.spawn.mock.calls[1][1]).toEqual([
-    "run", "tauri", "build", "--bundles", "nsis", "--config", "src-tauri/tauri.shell.windows.conf.json",
+  const args = result.spawn.mock.calls[1][1];
+  expect(args.slice(0, -1)).toEqual([
+    "run", "tauri", "build", "--bundles", "nsis", "--config", "src-tauri/tauri.shell.windows.conf.json", "--config",
   ]);
+  expect(JSON.parse(args.at(-1))).toEqual({ bundle: { useLocalToolsDir: true } });
+});
+
+it("keeps the tool cache override specific to Windows bundles", async () => {
+  const result = await invoke([], { platform: "linux" });
+  expect(result.spawn).toHaveBeenCalledOnce();
+  expect(result.spawn.mock.calls[0][1]).toEqual(["run", "tauri", "build", "--bundles", "appimage,deb"]);
 });
 
 it("keeps local builds beside the debug DLL and skips installer-only preparation", async () => {

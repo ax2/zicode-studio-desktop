@@ -73,7 +73,13 @@ if (local) {
 
 // A local no-bundle build already has the Shell DLL beside the EXE in target/debug.
 // Bundling it again tries to overwrite a file Explorer may have loaded.
-if (process.platform === "win32" && !local) buildArgs.push("--config", "src-tauri/tauri.shell.windows.conf.json");
+if (process.platform === "win32" && !local) {
+  // Keep the local NSIS tool cache beside the shared Windows build outputs.
+  buildArgs.push(
+    "--config", "src-tauri/tauri.shell.windows.conf.json",
+    "--config", JSON.stringify({ bundle: { useLocalToolsDir: true } }),
+  );
+}
 if (rustTimings) {
   buildArgs.push("--", "--timings");
   console.log("[build-desktop] Cargo timing reports:", path.join(env.CARGO_TARGET_DIR, "cargo-timings"));
