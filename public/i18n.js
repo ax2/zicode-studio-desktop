@@ -128,6 +128,7 @@ const zhCN = {
   "Confirm sending email": "确认发送邮件",
   "Send this saved draft now?": "现在发送这份已保存的草稿？",
   "Confirm and send email": "确认发送邮件",
+  "This draft was not sent. Review it again before sending.": "草稿未发送。请重新核对后再发送。",
   "Sending saved draft…": "正在发送已保存的草稿…",
   "The mail server accepted this message.": "邮件服务器已接收这封邮件。",
   "The server rejected this send. Check the account and recipient before saving a revised draft.": "服务器拒绝了此次发送。请检查账号和收件人，修改并保存草稿后再发送。",

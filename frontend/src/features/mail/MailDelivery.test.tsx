@@ -129,18 +129,40 @@ it("treats the new Alibaba receipt as unknown if returned for Gmail", async () =
   expect(invoke.mock.calls).toEqual([[receipt]]);
 });
 
-it("retains permission to review after a known preflight rejection with no local record", async () => {
+it.each([
+  ["gmail_permission_denied", "sending"], ["gmail_reauthorize", "connection"],
+] as const)("reports a known %s preflight rejection when no outcome was recorded", async (code, lost) => {
   const invoke = vi.fn(async (request: Record<string, unknown>) => {
     if (request.kind === "delivery") return null;
-    throw new Error("gmail_permission_denied");
+    throw new Error(code);
   });
-  show(invoke as Invoke, "gmail");
+  const grantLost = vi.fn();
+  setLocale("en");
+  render(<MailDelivery invoke={invoke as Invoke} provider="gmail" id="sample" address="sender@example.test"
+    draft={draft} configured onGmailGrantLost={grantLost} />);
   const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
   await waitFor(() => expect(review.disabled).toBe(false));
   fireEvent.click(review);
   fireEvent.click(screen.getByRole("button", { name: "Confirm and send email" }));
   await screen.findByRole("alert");
-  expect(review.disabled).toBe(false);
+  expect(grantLost).toHaveBeenCalledExactlyOnceWith(lost);
   expect(screen.queryByText(/Delivery is unknown/)).toBeNull();
   expect(invoke.mock.calls.filter(([request]) => request.kind === "send")).toHaveLength(1);
+});
+
+it("keeps a journaled unknown Gmail delivery locked after an authorization error", async () => {
+  const invoke = vi.fn().mockResolvedValueOnce(null).mockRejectedValueOnce(Error("gmail_reauthorize"))
+    .mockResolvedValueOnce({ status: "unknown" });
+  const grantLost = vi.fn();
+  setLocale("en");
+  render(<MailDelivery invoke={invoke as Invoke} provider="gmail" id="sample" address="sender@example.test"
+    draft={draft} configured onGmailGrantLost={grantLost} />);
+  const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
+  await waitFor(() => expect(review.disabled).toBe(false));
+  fireEvent.click(review);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm and send email" }));
+  await screen.findByText(/Delivery is unknown/);
+  expect(grantLost).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Review before sending" })).toBeNull();
+  expect(invoke).toHaveBeenCalledTimes(3);
 });
