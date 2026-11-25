@@ -1,5 +1,5 @@
 import { MULTI_PROJECT_UI_ENABLED } from "../../shared/workspaceMode";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 // @ts-expect-error plain JS module without type declarations
 import { markTaskResumed } from "../../../../public/super-agent/task-state.js";
@@ -96,6 +96,31 @@ export function TaskMain({
   const [grouped, setGrouped] = useState(false);
   const [query, setQuery] = useState("");
   const [dateRange, setDateRange] = useState<TaskDateRange>("all");
+  const taskSearch = useRef<HTMLInputElement>(null);
+  const editorTitle = useRef<HTMLInputElement>(null);
+  const editOrigin = useRef<{ task: SuperAgentTask; button: HTMLButtonElement; returnFocus: boolean } | null>(null);
+  useLayoutEffect(() => {
+    const origin = editOrigin.current;
+    if (!origin) return;
+    const { button } = origin;
+    const owner = button.ownerDocument;
+    if (editing) {
+      if (origin.task === editing && owner.activeElement === button) editorTitle.current?.focus();
+      return;
+    }
+    editOrigin.current = null;
+    if (!origin.returnFocus || owner.activeElement !== owner.body) return;
+    if (button.isConnected && !button.disabled) button.focus();
+    if (owner.activeElement === owner.body) taskSearch.current?.focus();
+  }, [editing]);
+
+  function editTask(task: SuperAgentTask, button: HTMLButtonElement) {
+    editOrigin.current = { task, button, returnFocus: false };
+    if (editing === task && button.ownerDocument.activeElement === button) editorTitle.current?.focus();
+    setEditing(task);
+    setCreating(false);
+  }
+
   useEffect(() => {
     if (!creationRequest) return;
     setCreating(true);
@@ -173,6 +198,7 @@ export function TaskMain({
         </div>
         <div className="task-center-header-actions">
           <input
+            ref={taskSearch}
             type="search"
             className="ui-input task-center-search"
             value={query}
@@ -264,9 +290,16 @@ export function TaskMain({
           key={editing?.id ?? creationRequest?.sequence ?? "new"}
           store={store}
           task={editing ?? undefined}
+          titleRef={editorTitle}
           initialProject={creationRequest?.projectPath}
           onClose={() => {
             if (store.getState().creationRequest?.sequence !== creationRequest?.sequence) return;
+            if (editing) {
+              const origin = editOrigin.current;
+              if (!origin || origin.task !== editing) return;
+              const form = editorTitle.current?.form;
+              origin.returnFocus = Boolean(form?.contains(form.ownerDocument.activeElement));
+            }
             setCreating(false);
             setEditing(null);
             store.getState().clearCreation();
@@ -352,10 +385,7 @@ export function TaskMain({
                         key={task.id}
                         store={store}
                         task={task}
-                        onEdit={() => {
-                          setEditing(task);
-                          setCreating(false);
-                        }}
+                        onEdit={button => editTask(task, button)}
                       />
                     ))}
                   </div>
@@ -366,10 +396,7 @@ export function TaskMain({
                   key={task.id}
                   store={store}
                   task={task}
-                  onEdit={() => {
-                    setEditing(task);
-                    setCreating(false);
-                  }}
+                  onEdit={button => editTask(task, button)}
                 />
               ))}
         </div>
@@ -443,7 +470,7 @@ function TaskCard({
 }: {
   store: TaskStore;
   task: SuperAgentTask;
-  onEdit: () => void;
+  onEdit: (button: HTMLButtonElement) => void;
 }) {
   const updateTask = store((state) => state.updateTask);
   const approveTask = store((state) => state.approveTask);
@@ -622,7 +649,7 @@ function TaskCard({
             <button
               type="button"
               className="ui-button ui-button--ghost ui-button--sm"
-              onClick={onEdit}
+              onClick={event => onEdit(event.currentTarget)}
             >
               {t("Edit")}
             </button>
@@ -640,7 +667,7 @@ function TaskCard({
             <button
               type="button"
               className="ui-button ui-button--secondary ui-button--sm"
-              onClick={onEdit}
+              onClick={event => onEdit(event.currentTarget)}
             >
               {t("Edit")}
             </button>
