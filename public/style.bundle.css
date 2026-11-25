@@ -8378,6 +8378,27 @@ body[data-active-plugin="core.tools"] #sidebar-overlay { display: none; }
   overflow: auto;
 }
 
+.image-crop-selection { margin-block: var(--space-2); }
+.image-crop-stage {
+  position: relative;
+  width: min(100%, calc(var(--control-height-lg) * 6 * var(--crop-ratio)));
+  margin-block: var(--space-2);
+}
+.image-crop-stage img {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  cursor: crosshair;
+}
+.image-crop-outline {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--text-primary);
+  outline: 1px solid var(--bg-solid);
+  pointer-events: none;
+}
+
 
 /* --- inlined: native/plugins/image-metadata-result.css --- */
 .image-metadata-result {

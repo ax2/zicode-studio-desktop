@@ -1,10 +1,10 @@
 import { decodeResourceImage } from "./plugin-resource-image.js";
 import { isBinaryOutput, isTextOutput } from "./plugin-output-formats.js";
 import { textPreviewLimit } from "./plugin-text-preview-policy.js";
-const MAX_PREVIEW = 8 * 1024 * 1024;
+export const resourceImagePreviewLimit = 8 * 1024 * 1024;
 const fail = () => { throw new Error("preview_unavailable"); };
-export async function loadResourcePreview({ resource, read, isCurrent, executionProfile }) {
-  const limit = isTextOutput(resource.mimeType) ? textPreviewLimit(executionProfile) : MAX_PREVIEW;
+export async function loadResourcePreview({ resource, read, isCurrent, executionProfile, unorientedPng }) {
+  const limit = isTextOutput(resource.mimeType) ? textPreviewLimit(executionProfile) : resourceImagePreviewLimit;
   if (!Number.isSafeInteger(resource.byteLength) || resource.byteLength < 0 || resource.byteLength > limit) fail();
   const bytes = new Uint8Array(resource.byteLength);
   let offset = 0;
@@ -24,5 +24,5 @@ export async function loadResourcePreview({ resource, read, isCurrent, execution
   if (hash !== resource.contentVersion || !isCurrent()) fail();
   if (isTextOutput(resource.mimeType)) return { kind: "text", text: new TextDecoder("utf-8", { fatal: true }).decode(bytes) };
   if (isBinaryOutput(resource.mimeType)) return { kind: "binary", text: [...bytes.subarray(0, 256)].map((b) => b.toString(16).padStart(2, "0")).join(" ") };
-  return decodeResourceImage(bytes, resource.mimeType, isCurrent);
+  return decodeResourceImage(bytes, resource.mimeType, isCurrent, unorientedPng);
 }

@@ -12,6 +12,7 @@ export function createPluginResourceSelection({
   isCurrent,
   onResource,
   catalogRevision,
+  includePreviewSource,
   maxBytes = 32 * 1024 * 1024,
 }) {
   const panel = document.createElement("section");
@@ -230,7 +231,8 @@ export function createPluginResourceSelection({
         return;
       }
       granted = result.access;
-      onResource(result.reference);
+      if (includePreviewSource && !preview) onResource(result.reference, { mimeType: selected.type, byteLength: selected.size });
+      else onResource(result.reference);
       status.textContent = t("Confirmed file shared. You can revoke it with Cancel.");
     } catch {
       if (valid()) {
