@@ -21,6 +21,8 @@ pub struct Summary {
     pub uid: u32,
     pub subject: String,
     pub sender: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_name: Option<String>,
     pub reply_to: String,
     pub message_id: Option<String>,
     pub size: u32,
@@ -314,6 +316,7 @@ fn summary(bytes: &[u8], uid: u32, size: u32) -> Result<Summary> {
             size,
             subject: String::new(),
             sender: String::new(),
+            sender_name: None,
             reply_to: String::new(),
             message_id: None,
             header_limited: true,
@@ -337,11 +340,13 @@ fn complete_header_fields(prefix: &[u8]) -> &[u8] {
 }
 
 fn metadata(m: &mail_parser::Message<'_>, uid: u32, size: u32, header_limited: bool) -> Summary {
-    let sender = m
-        .from()
-        .and_then(|a| a.first())
-        .and_then(|m| m.address())
-        .unwrap_or_default();
+    let from = m.from().and_then(|addresses| addresses.first());
+    let sender = from.and_then(|mailbox| mailbox.address()).unwrap_or_default();
+    let sender_name = from
+        .and_then(|mailbox| mailbox.name())
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned);
     // Clipped headers are only useful for display. Reconstruct no recipient.
     let reply = if header_limited {
         ""
@@ -355,6 +360,7 @@ fn metadata(m: &mail_parser::Message<'_>, uid: u32, size: u32, header_limited: b
         uid,
         size,
         sender: sender.into(),
+        sender_name,
         reply_to: reply.into(),
         subject: m.subject().unwrap_or_default().into(),
         message_id: m.message_id().filter(|id| valid_id(id)).map(str::to_owned),

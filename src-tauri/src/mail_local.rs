@@ -312,7 +312,7 @@ mod tests {
             "INSERT INTO alibaba_inbox(scope,account,folder,epoch,uid,meta,body) VALUES
               ('here','ali','Archive',7,42,?1,'Facture pour le CAFÉ _ ΟΣΤΡΑΚΟ'),
               ('here','ali','Archive',3,42,?1,'Ancien CAFÉ périmé')",
-            [json!({"subject":"Facture","sender":"ÉQUIPE LOCALE"}).to_string()],
+            [json!({"subject":"Facture","sender":"receipts@example.test","senderName":"ÉQUIPE LOCALE 财务团队"}).to_string()],
         )
         .unwrap();
         drop(db);
@@ -357,6 +357,20 @@ mod tests {
         let archive = search("here", Some("ali"), Some("Archive"), "équipe locale", 0);
         assert_eq!(archive["items"].as_array().unwrap().len(), 1);
         assert_eq!(archive["items"][0]["folder"], "Archive");
+        assert_eq!(archive["items"][0]["sender"], "receipts@example.test");
+        let chinese = search("here", None, None, "财务团队", 0);
+        assert_eq!(chinese["items"].as_array().unwrap().len(), 1);
+        assert_eq!(chinese["items"][0]["account"], "ali");
+        assert_eq!(chinese["items"][0]["epoch"], 7);
+        for literal in ["équipe%", "équipe_"] {
+            assert_eq!(search("here", Some("ali"), Some("Archive"), literal, 0)["items"], json!([]));
+        }
+        let address = search("here", None, None, "RECEIPTS@EXAMPLE.TEST", 0);
+        assert_eq!(address["items"][0]["id"], "42");
+        assert_eq!(
+            search("here", Some("ali"), Some("INBOX"), "équipe locale", 0)["items"],
+            json!([])
+        );
         let legacy = search("here", Some("gmail"), Some("INBOX"), "équipe de nuit", 0);
         assert_eq!(legacy["items"].as_array().unwrap().len(), 1);
         assert_eq!(legacy["items"][0]["id"], "a00");
@@ -402,6 +416,7 @@ mod tests {
         assert_eq!(search("main", Some("b"), "SAME")[0]["subject"], "same");
         assert_eq!(search("main", None, "中文").len(), 2);
         assert_eq!(search("main", Some("a"), "%_")[0]["epoch"], 7);
+        assert_eq!(search("main", Some("a"), "ALICE")[0]["sender"], "Alice");
         assert_eq!(search("main", Some("b"), "preview")[0]["id"], "42");
         assert_eq!(search("main", None, "bob").len(), 1);
         assert!(search("main", None, "private").is_empty());
