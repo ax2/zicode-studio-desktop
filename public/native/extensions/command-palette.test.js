@@ -75,19 +75,21 @@ describe("command palette", () => {
         { label: "First", action() {} },
         { label: "Last", action() {} },
       ],
+      toolApi: { searchTools: vi.fn() },
+      getScope: () => ({ sceneId: "fixture", workspaceId: "workspace" }),
+      onOpenTool: vi.fn(),
     });
 
     button.click();
-    const items = [...list.querySelectorAll(".command-item")];
-    items.at(-1).focus();
-    items.at(-1).dispatchEvent(
-      new dom.window.KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
-    );
-    // The search input is the first focusable element; Tab from the last
-    // command wraps back to it.
-    expect(document.activeElement).toBe(list.querySelector(".command-palette-search"));
+    const search = list.querySelector(".command-palette-search");
+    const commands = list.querySelector(".command-palette-tabs button");
+    expect(list.querySelector('[role="listbox"][tabindex="-1"]')).not.toBeNull();
+    expect(list.querySelectorAll('[role="option"][tabindex="-1"]')).toHaveLength(2);
 
-    list.querySelector(".command-palette-search").dispatchEvent(
+    search.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(commands);
+
+    commands.dispatchEvent(
       new dom.window.KeyboardEvent("keydown", {
         key: "Tab",
         shiftKey: true,
@@ -95,7 +97,7 @@ describe("command palette", () => {
         cancelable: true,
       }),
     );
-    expect(document.activeElement).toBe(items.at(-1));
+    expect(document.activeElement).toBe(search);
 
     document.dispatchEvent(
       new dom.window.KeyboardEvent("keydown", { key: "Escape", cancelable: true }),
