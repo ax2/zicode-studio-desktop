@@ -206,7 +206,7 @@ it.each([false, true])("handles keyboard focus after a repeated permission read 
   const dialog = retry.closest("dialog");
   retry.focus();
   retry.click();
-  expect(document.activeElement).toBe(getByRole(dialog, "button", { name: t("Close") }));
+  expect(document.activeElement).toBe(dialog.querySelector('[aria-busy="true"]'));
   if (movedFocus) {
     dialog.tabIndex = -1;
     dialog.focus();
@@ -351,7 +351,7 @@ it("lists each blocked permission once, updates the open panel and drops feedbac
 });
 
 
-it("reports a pending site change and returns keyboard focus to the operation on failure", async () => {
+it.each([false, true])("keeps pending site changes off Close and handles failure focus (moved focus: %s)", async movedFocus => {
   let fail;
   const request = vi.fn(async ({ type }) => type === "list" ? [] : new Promise((_, reject) => { fail = reject; }));
   showSiteSettings({ origin: "https://example.test", request, onClose: vi.fn() });
@@ -363,12 +363,15 @@ it("reports a pending site change and returns keyboard focus to the operation on
   const confirm = getByRole(dialog, "button", { name: t("Confirm") });
   confirm.click();
   expect(status.textContent).toBe(t("Applying site settings…"));
+  expect(document.activeElement).toBe(status);
   expect(clear.matches(":disabled")).toBe(true);
+  const close = getByRole(dialog, "button", { name: t("Close") });
+  if (movedFocus) close.focus();
   confirm.click();
   expect(request.mock.calls).toEqual([[{ type: "list" }], [{ type: "clearStorage", confirmed: true }]]);
   fail(new Error("Storage could not be cleared"));
   await waitFor(() => expect(status.textContent).toBe("Storage could not be cleared"));
-  expect(document.activeElement).toBe(clear);
+  expect(document.activeElement).toBe(movedFocus ? close : clear);
   expect(clear.matches(":disabled")).toBe(false);
 });
 
