@@ -28,27 +28,42 @@ pub async fn list(window: WebviewWindow, before: Option<i64>, query: Option<Stri
     let query = query.map(str::to_ascii_lowercase);
     let live = live(window.clone(), Request::DownloadLive).await?;
     let mut page = super::download_journal::list(window.label().into(), before, query.clone()).await?;
+    merge_history(&mut page, &live, before, query.as_deref())?;
+    page["directory"] = json!(window.app_handle().path().download_dir().map_err(|e| e.to_string())?);
+    Ok(page)
+}
+fn merge_history(
+    page: &mut Value,
+    live: &Value,
+    before: Option<i64>,
+    query: Option<&str>,
+) -> Result<(), String> {
     let entries = page["entries"].as_array_mut().ok_or("Invalid download history")?;
     let current = live.as_array().ok_or("Invalid live downloads")?;
     for saved in entries.iter_mut() {
         if let Some(now) = current.iter().find(|v| v["id"] == saved["id"]) { *saved = now.clone(); }
         else if saved["state"].as_str().is_some_and(active) {
-            saved["state"] = json!("interrupted"); saved["canResume"] = json!(false); saved["error"] = json!("Studio closed before this download finished");
+            // This is an old operation with no live file or progress information.
+            saved["state"] = json!("interrupted");
+            saved["canResume"] = json!(false);
+            saved["error"] = json!("Studio closed before this download finished");
+            saved["received"] = Value::Null;
+            saved["path"] = Value::Null;
+            saved["partialPath"] = Value::Null;
         }
     }
-    entries.retain(|entry| matches_query(entry, query.as_deref()));
+    entries.retain(|entry| matches_query(entry, query));
     if before.is_none() {
         for now in current {
             if now["state"].as_str().is_some_and(active)
-                && matches_query(now, query.as_deref())
+                && matches_query(now, query)
                 && !entries.iter().any(|saved| saved["id"] == now["id"])
             {
                 entries.insert(0, now.clone());
             }
         }
     }
-    page["directory"] = json!(window.app_handle().path().download_dir().map_err(|e| e.to_string())?);
-    Ok(page)
+    Ok(())
 }
 fn ensure_removable(current: &Value, id: &str) -> Result<(), String> {
     let entries = current.as_array().ok_or("Invalid live downloads")?;
@@ -85,6 +100,37 @@ pub async fn choose(window: WebviewWindow, id: String) -> Result<Value, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn history_hides_unverified_files_and_progress_after_an_active_operation_is_lost() {
+        let mut page = json!({"entries": [
+            {"id":"lost-waiting","state":"waiting","received":0},
+            {"id":"lost-download","state":"downloading","path":"chosen.txt","partialPath":"placeholder.txt","received":0},
+            {"id":"lost-pause","state":"paused","canResume":true,"partialPath":"old.txt","received":262144},
+            {"id":"still-live","state":"downloading","received":0},
+            {"id":"failed","state":"failed","received":4,"partialPath":"confirmed.txt"},
+            {"id":"completed","state":"completed","received":12,"path":"finished.txt"}
+        ]});
+        let live = json!([
+            {"id":"still-live","state":"paused","canResume":true,"received":262144,"partialPath":"live.txt"},
+            {"id":"new","state":"waiting","received":0}
+        ]);
+        let original = page.clone();
+        merge_history(&mut page, &live, None, None).unwrap();
+        assert_eq!(page["entries"][0], live[1]);
+        for row in &page["entries"].as_array().unwrap()[1..4] {
+            assert_eq!(row["state"], "interrupted");
+            assert_eq!(row["canResume"], false);
+            assert_eq!(row["error"], "Studio closed before this download finished");
+            assert!(row["received"].is_null());
+            assert!(row["path"].is_null());
+            assert!(row["partialPath"].is_null());
+        }
+        assert_eq!(page["entries"][4], live[0]);
+        assert_eq!(page["entries"][5], original["entries"][4]);
+        assert_eq!(page["entries"][6], original["entries"][5]);
+    }
+
     #[test]
     fn removal_requires_a_terminal_or_previous_session_download() {
         for state in ["waiting", "downloading", "paused", "unknown"] {
