@@ -29,6 +29,36 @@ it.each([["gmail", null], ["alibaba", { status: null }]] as const)(
   },
 );
 
+it.each(["gmail", "alibaba"] as const)("announces the %s draft review before its send controls", async provider => {
+  setLocale("en");
+  const invoke = vi.fn().mockResolvedValue(null);
+  const attachments = [{ id: "one", name: "brief.pdf", size: 42 }, { id: "two", name: "summary.txt", size: 18 }];
+  render(<><input aria-label="Continue editing" />
+    <MailDelivery invoke={invoke as Invoke} provider={provider} id="sample" address="sender@example.test"
+      draft={{ ...draft, attachments }} configured /></>);
+  const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
+  await waitFor(() => expect(review.disabled).toBe(false));
+  expect(review.getAttribute("aria-expanded")).toBe("false");
+  review.focus();
+  fireEvent.click(review);
+  const panel = screen.getByRole("region", { name: "Confirm sending email" });
+  const heading = screen.getByRole("heading", { name: "Send this saved draft now?" });
+  expect(document.activeElement).toBe(heading);
+  expect(review.getAttribute("aria-expanded")).toBe("true");
+  expect(review.getAttribute("aria-controls")).toBe(panel.id);
+  expect(screen.getByRole("list", { name: "Attachments" }).textContent).toContain("brief.pdf (42 B)");
+  expect(screen.getByRole("list", { name: "Attachments" }).textContent).toContain("summary.txt (18 B)");
+  const cancel = screen.getByRole("button", { name: "Cancel" });
+  cancel.focus();
+  fireEvent.click(cancel);
+  expect(document.activeElement).toBe(review);
+  const elsewhere = screen.getByRole("textbox", { name: "Continue editing" });
+  elsewhere.focus();
+  fireEvent.click(review);
+  expect(document.activeElement).toBe(elsewhere);
+  expect(invoke.mock.calls).toEqual([[receipt]]);
+});
+
 it.each(["gmail", "alibaba"] as const)("returns focus to the %s review button after canceling", async provider => {
   const invoke = vi.fn().mockResolvedValue(null);
   show(invoke as Invoke, provider);
