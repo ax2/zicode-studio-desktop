@@ -2,7 +2,7 @@ import { ToolResultText } from "./ToolResultText";
 import { ToolResultImage } from "./ToolResultImage";
 import { DataTransformResult } from "./DataTransformResult";
 import { dataMergePreview, dataTransformPreview, type MergePreview, type TransformPreview } from "./data-transform-result";
-import { dataTransformRowFailure } from "./data-transform-error-protocol";
+import { dataTransformRowFailure } from "./worker-error-protocol";
 import { inlineToolImage } from "./inline-tool-image";
 import { useMemo } from "react";
 import { t } from "../../shared/i18n";

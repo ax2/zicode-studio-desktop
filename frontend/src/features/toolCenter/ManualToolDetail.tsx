@@ -11,6 +11,7 @@ import { ManualToolInformation } from "./ManualToolInformation";
 import type { CapturedToolResponse } from "../../../../public/native/plugins/plugin-result-actions.js";
 import { ManualToolResultActions } from "./ManualToolResultActions";
 import { ManualToolResultView } from "./ManualToolResultView";
+import { isTextWorkerOutputLimit } from "./worker-error-protocol";
 import { downloadFile } from "../../shared/download-file";
 import { type ManualToolResult, manualToolResult } from "./manual-tool-result";
 import { useManualToolCall } from "./use-manual-tool-call";
@@ -306,8 +307,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const sqlFormat = tool.capabilityId === "devtools.text.sql.format" &&
     (sqlWithOptions || (textOnlyContract && textProfile === "text-only"));
   let failureNotice: string | undefined;
-  if (sqlFormat && result?.errorCode === "INPUT_TOO_LARGE" && result.errorMessage === "结果超过 48 KiB") {
-    // The frozen Text contract also uses INPUT_TOO_LARGE for requests and input text.
+  if (sqlFormat && isTextWorkerOutputLimit(result?.errorCode, result?.errorMessage)) {
     const indentChoices = fields?.find(field => field.key === "indent")?.choices;
     const indent = values.indent ? indentChoices?.[Number(values.indent)] : "fourSpaces";
     const canReduceIndent = sqlWithOptions && indent === "fourSpaces";
