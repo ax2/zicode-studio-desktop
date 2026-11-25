@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.ics-count",
+  "name": "ZiDevTools ICS COUNT Cutoff Preview",
+  "displayName": "ICS 重复截止预览",
+  "description": "查看最多 16 KiB 的单日程 ICS，获取 COUNT 的末次开始和等价 UNTIL。支持全天与浮动时间。UTC、TZID、例外请在原日历检查。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.calendar.ics.count_cutoff"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.calendar.ics.count_cutoff",
+        "title": "ICS 重复截止预览",
+        "description": "查看最多 16 KiB 的单日程 ICS，获取 COUNT 的末次开始和等价 UNTIL。支持全天与浮动时间。UTC、TZID、例外请在原日历检查。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 73000
+                    },
+                    "frequency": {
+                      "type": "string",
+                      "enum": [
+                        "daily",
+                        "weekly",
+                        "monthly",
+                        "yearly"
+                      ]
+                    },
+                    "timeKind": {
+                      "type": "string",
+                      "enum": [
+                        "all-day",
+                        "floating"
+                      ]
+                    },
+                    "start": {
+                      "type": "string",
+                      "maxLength": 16
+                    },
+                    "lastStart": {
+                      "type": "string",
+                      "maxLength": 16
+                    },
+                    "equivalentUntil": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 15
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "clampMissingDay": {
+                      "type": "boolean"
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  },
+                  "required": [
+                    "count",
+                    "frequency",
+                    "timeKind",
+                    "start",
+                    "lastStart",
+                    "equivalentUntil",
+                    "clampMissingDay",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 2048,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "ICS 截止",
+            "ICS COUNT",
+            "日程重复截止",
+            "iCalendar COUNT to UNTIL"
+          ],
+          "description": "查看最多 16 KiB 的单日程 ICS，获取 COUNT 的末次开始和等价 UNTIL。支持全天与浮动时间。UTC、TZID、例外请在原日历检查。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的一份本机 ICS 文件快照。"
+      }
+    ],
+    "optional": []
+  }
+}
