@@ -164,7 +164,12 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     button.textContent = t(name);
     button.dataset.i18nText = name;
     if (action === print) { button.title = `${t(name)} (Ctrl+P)`; button.setAttribute("aria-keyshortcuts", "Control+p"); }
-    button.addEventListener("click", () => { menu.open = false; action(); });
+    button.addEventListener("click", () => {
+      const returnFocus = action === print && document.activeElement === button;
+      menu.open = false;
+      if (returnFocus) trigger.focus({ preventScroll: true });
+      action();
+    });
     page.append(button);
     if (name === "Developer tools") {
       const context = document.createElement("p");
