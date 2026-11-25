@@ -1,0 +1,1003 @@
+{
+  "source": {
+    "revision": "336151b0bce6b1da94e10a2f4e029637639a06fd",
+    "dirty": false
+  },
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "contractIndexSha256": "dd0688c009fa2d0600ab2d5af038a19efb5e1e26910619c1aede84aa668873f9",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "status": "unsigned candidate; not Host-accepted",
+  "directoryProfile": {
+    "id": "tool.directory.v1",
+    "version": "1.0.0-preview.1",
+    "schemaSha256": "1c98425b94bb17113cec512c1c85c14b780e65e8baa391aa013066d98fb4c240",
+    "capabilityMapSha256": "118812e5b6b461ba68c9830005da74622b222795ed9c15fe4f275a1d7fbbf0fb",
+    "snapshotSha256": "798f0d2da42d0a9c758f1722d9eabdecd93b6f03886b7f225621c96603aade6b"
+  },
+  "sourceFiles": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "f40cc0c554034c8a4d29c761531aa810915b9ffbd48dcf0c18d07c066e8b48d1"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "1494d33a9266d9bcd8ae3b910b0489b15518297ea79db4ee7f6769d4472893bb"
+    },
+    {
+      "path": "docs/tools.json",
+      "sha256": "f647ee692d1ece2b39da1dc018d05d7eee6040378b32858952b23f37ec9cfb12"
+    },
+    {
+      "path": "scripts/package_text_plugin.py",
+      "sha256": "458ac3c95c9c854e78b4e34237336d561c50ce4c238adb7fdc2f0c132599409e"
+    },
+    {
+      "path": "scripts/verify_text_wasi.py",
+      "sha256": "aa7b1d375dd1de52929a2c48e647fc7e8299dc7279a0b9b4d6951cd45e8027b6"
+    },
+    {
+      "path": "scripts/tool_directory.py",
+      "sha256": "b3b69e71a42fc58043295b00a1afa92c094d6ea76fdaf3c5e39d32190ca31c8a"
+    },
+    {
+      "path": "scripts/plugin_proof.py",
+      "sha256": "f22f589e53c9e959e93a3f2f3624b2ed78db9d90ee6e2faa1e1cd7eff502afc5"
+    },
+    {
+      "path": "scripts/verify_tool_directory.py",
+      "sha256": "ba6f43953a8427522f4ffd2c1c45c6f10b9c74f759eeb952735643aca8673f47"
+    },
+    {
+      "path": "scripts/verify_text_plugin_view.py",
+      "sha256": "ba1f8e59b0525c7012ed9695034ea90d967ef5426492f7c1ec509436e5dce557"
+    },
+    {
+      "path": "scripts/cdp_client.py",
+      "sha256": "067bac00c7eff8434a99b34cd70ad6b7826a4d0884b8cc8ef09c7edd4fc9867a"
+    },
+    {
+      "path": "scripts/verify_diagnostics_fuel.py",
+      "sha256": "57bb8d7e75f406308cd8cf3b94fb5ec9ee9d5209f74653849963c092a6a51c42"
+    },
+    {
+      "path": "scripts/verify_diagnostics_cold.py",
+      "sha256": "94d6827f9535ff45ee06dff556281cfe8cdda70578f99dd3f8db598f48ab15c8"
+    },
+    {
+      "path": "scripts/bootstrap_diagnostics_engine.py",
+      "sha256": "35a10b0a55caa8864ac586c16c0def5e920576d09a766dd574dc8cafd4e039f6"
+    },
+    {
+      "path": "scripts/sync_studio_plugin_map.py",
+      "sha256": "7f0073e162088332e857a0fe5ed1ad1152245161a22d458ce0880aa4ad1384a2"
+    },
+    {
+      "path": "src/tools.rs",
+      "sha256": "994314e8ef89764e160fb5e6344355c3160827e0954ee1b49fdc8b36396cfe9b"
+    },
+    {
+      "path": "src/sql_formatter.rs",
+      "sha256": "8fec444760cbe63a8e1825ac62b2845d0bd52b46d60dc329aab1d575faf3061f"
+    },
+    {
+      "path": "docs/studio-plugin-migration.json",
+      "sha256": "7db03b12c2b969b1deaae1bfd31f52a5d546265bf6d3980b275eb7aabacc5860"
+    },
+    {
+      "path": "docs/studio-plugin-handoff.md",
+      "sha256": "d5b9948455a0517308dcda1d3320f45187dd9b92f8c0e25f85394dfa064f402f"
+    },
+    {
+      "path": "plugins/text/README.md",
+      "sha256": "f1e31b6e04c77db7a72c458f1d60b1ee6163f989727f6e1697f44ffd0c1b33b4"
+    },
+    {
+      "path": "plugins/text/views/main.html",
+      "sha256": "9229197e746cd19cd35fe9b3050811e76d41759f76ce8470ddd697041f172468"
+    },
+    {
+      "path": "plugins/text/sql-input.schema.json",
+      "sha256": "4912c2693e95e214d8831014f6b97881ba1caaf80be8613712591b1f9d81b8c1"
+    },
+    {
+      "path": "crates/zi-agent-record-core/src/lib.rs",
+      "sha256": "0cf35686190841bf0e844adfbfc903c868ffd47454ec80cca2b735b8baa2b59d"
+    },
+    {
+      "path": "crates/zi-agent-record-core/src/provenance.rs",
+      "sha256": "f32dccbb820e412c63fa33ff957b8bc24358a93fbf7a879abec7b935a1d8f893"
+    },
+    {
+      "path": "crates/zi-agent-record-wasi/src/main.rs",
+      "sha256": "a5173dcff0e407c921cc5661d70059fa69bc0d66307761c399cbc9c4acf319c9"
+    },
+    {
+      "path": "crates/zi-ascii-art-image-wasi/src/main.rs",
+      "sha256": "a822935c2bb6a122257061a3f0921d23419bdb2ad25376c412b21af00487d219"
+    },
+    {
+      "path": "crates/zi-character-core/src/legacy.rs",
+      "sha256": "1f963f29b880f6a0d07a41c7ac450244fa27ae19efc2f630c320f697d87bdc07"
+    },
+    {
+      "path": "crates/zi-character-core/src/lib.rs",
+      "sha256": "272c55f683773ca6b8b8f38a316eabfe6bb41456ac3cd8cf268c4580c635da28"
+    },
+    {
+      "path": "crates/zi-character-core/src/tests.rs",
+      "sha256": "3eed03ac1b9c1100e8c5cd95d61fdbb2cfa86f8f2ecc23fc8535e0f6de45789d"
+    },
+    {
+      "path": "crates/zi-civil-date-core/src/lib.rs",
+      "sha256": "81f0f0e3eba9632e4ebab45bc62016ceec678d770c8d0d5764a52f8ef281923e"
+    },
+    {
+      "path": "crates/zi-compare-wasi/examples/phase_probe.rs",
+      "sha256": "f65868fcd8f054e46565a9b11eef8677064ccb77fa6ac2258567edfb05d96cbc"
+    },
+    {
+      "path": "crates/zi-compare-wasi/src/lib.rs",
+      "sha256": "f4a49c874115699ea36731bbb0bbaea586b772da64f8dc99a247967ba60ff2df"
+    },
+    {
+      "path": "crates/zi-compare-wasi/src/main.rs",
+      "sha256": "5e7960705271f5605de95dc9b6f5f3d90cfdef773737a4e9bd1292d44c0c4dd8"
+    },
+    {
+      "path": "crates/zi-compare-wasi/src/tests.rs",
+      "sha256": "bd463eb78a0a77372a3f5f2db4e67a97705371a41f2f945dd36e2d0a35a8598f"
+    },
+    {
+      "path": "crates/zi-date-calculator-wasi/src/main.rs",
+      "sha256": "5a26138e57ae66dfd9d0e5450c9c692b4b20907a61680b60689bd0ac9efa9577"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/build.rs",
+      "sha256": "29e8d2854adca78706fb8a6f72df42c2072f34d46f88645aa43711483acd2316"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/catalog.rs",
+      "sha256": "a90cec4dd3c6ebefa685116a0e0f5bfbb453521d6a4f529629f6382ef45a6d28"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/config_json.rs",
+      "sha256": "b46c7dcb749824306fea526ec0bfeee9f4d3350070e65cee3c42c444172962f6"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/contracts.rs",
+      "sha256": "0b6c7f933457ba884727c7dc2c1f611338b10e6b8ea7d32cbedc77ac82d09a91"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/django.rs",
+      "sha256": "d494145f4fc50c2b13e55de81cf3e03c0808c761923ff6773043c9ba92031086"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/java.rs",
+      "sha256": "bee1075c94c5b15282b16ceed8f60e7794352ed32104937019d2cd2ebfb93eb5"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/lib.rs",
+      "sha256": "bbe7cade5e9c8628dfb4e45b34f2cf7a3c73594532701a11d2ea14f7af5e5479"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/parser_tests.rs",
+      "sha256": "47a9c21bace250287dafdcb3a28d5da45c28ea532a76e6e6eebace761e220021"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/text_parse.rs",
+      "sha256": "b674bf956a0b3e1d4d30bda16eb6e889fbb476221a769285425caf0a11df38e7"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/examples/output_boundary.rs",
+      "sha256": "d918ddb7c732ee2ad3355abbeecd14273cf06b2cd308520c67cfcabd67f090cb"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/src/lib.rs",
+      "sha256": "2e810ed31fa5be5c9c6c78512636e709b207aa8a21778c2118b60cd96ca33802"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/src/main.rs",
+      "sha256": "8cd74db925c2afbbad2b09b78b1cccb79999970122f8ca36485f3a629c53d7c8"
+    },
+    {
+      "path": "crates/zi-diff-core/examples/clock_probe.rs",
+      "sha256": "c6ac1bce465515addfa32b4250ea338ec827b401d5f819ddf1af0aed8ffad31f"
+    },
+    {
+      "path": "crates/zi-diff-core/src/direct.rs",
+      "sha256": "069ffd760ece343ff7f157c6dbf5d52917ba4dd0fb7a51fd0e14acc5dd355b7c"
+    },
+    {
+      "path": "crates/zi-diff-core/src/disjoint.rs",
+      "sha256": "147817db4db581885941d5ab5640569dce7c11ff32370e098540449538d7618c"
+    },
+    {
+      "path": "crates/zi-diff-core/src/lib.rs",
+      "sha256": "7eab05360d458442fcdc9a591f8abfa8517c07ea8c3beb18bc674041dff9ffdd"
+    },
+    {
+      "path": "crates/zi-diff-core/src/tests.rs",
+      "sha256": "dab840ef02aea776c274c2f2fe0c5ec613bd4500d790530dfbd96e838ae14df9"
+    },
+    {
+      "path": "crates/zi-directory-compare-wasi/src/classification.rs",
+      "sha256": "1e8117af1c7f8a78b0a655f12b3851f0e98e63573312b253c4fe4dc634752942"
+    },
+    {
+      "path": "crates/zi-directory-compare-wasi/src/lib.rs",
+      "sha256": "05a932dbecc9d92e2ebef41a7fa079f84e3b3baec0059bcc810c4b209fd43668"
+    },
+    {
+      "path": "crates/zi-directory-compare-wasi/src/main.rs",
+      "sha256": "7edffc9de95d1f129cee0ebb1d55be94ab36feb7e50c781eaf89be8235eecd78"
+    },
+    {
+      "path": "crates/zi-disk-inspector-wasi/src/lib.rs",
+      "sha256": "66490cb96650ee05bf8fec6863ae1323f08cbee5831a0c1de4f822607399e407"
+    },
+    {
+      "path": "crates/zi-disk-inspector-wasi/src/main.rs",
+      "sha256": "512de965c6e18f7b33c83ad0ab8bffe5819495364a2488d89606faf7b7b12f85"
+    },
+    {
+      "path": "crates/zi-document-text-core/src/docx.rs",
+      "sha256": "acb97d6a4a07dfdaa1b70bebc35442490876faf044947bc5d0cd35d21aaab8f9"
+    },
+    {
+      "path": "crates/zi-document-text-core/src/lib.rs",
+      "sha256": "b8feb0fbaa68b0e975f095ebd7e6704180180cb711e7f7e92795c0a0109d7281"
+    },
+    {
+      "path": "crates/zi-docx-preview-wasi/src/main.rs",
+      "sha256": "4cf3d5393de793bc25f14e25fdfd012cf331d7a192b81ba35d7faca568bf798e"
+    },
+    {
+      "path": "crates/zi-docx-preview-wasi/src/preview.rs",
+      "sha256": "b7455bc399dc587ed39e2132158e330aefe5af9d472740cac2494d9e26413972"
+    },
+    {
+      "path": "crates/zi-duplicate-files-wasi/src/groups.rs",
+      "sha256": "60f1f2fce36135ff5c2317e3c87ce19e552fd644e82f96d9915273874a9346ed"
+    },
+    {
+      "path": "crates/zi-duplicate-files-wasi/src/lib.rs",
+      "sha256": "3ee1912de2c4df0bc6b75a26e77d3ae121236172cde9ba500b1e18c7be47358f"
+    },
+    {
+      "path": "crates/zi-duplicate-files-wasi/src/main.rs",
+      "sha256": "a8ab837aa905c9bbc8fcc7b11922b705ffd5ee874f7cb6b457f631071ab9817d"
+    },
+    {
+      "path": "crates/zi-expression-calculator-wasi/src/main.rs",
+      "sha256": "f21fc5c777ece142f49db2317b8b4ad26fff522f382b5ec09655b568f050aa50"
+    },
+    {
+      "path": "crates/zi-fields-wasi/src/lib.rs",
+      "sha256": "7a9cef63b63afb9155027a212e8525451305443de1f8829f75647cd5ce8f037a"
+    },
+    {
+      "path": "crates/zi-fields-wasi/src/main.rs",
+      "sha256": "dc151a2af2b1d3d53c5c9cea705c3071b1898a78eacb9a645f199ed6db7b1f94"
+    },
+    {
+      "path": "crates/zi-fields-wasi/src/tests.rs",
+      "sha256": "995caa978c28dc6b64986e28f8b275e1da46ede4621ebf9b8c9f4a0c7178b1ff"
+    },
+    {
+      "path": "crates/zi-flow-recipe-core/src/lib.rs",
+      "sha256": "8e65fa7d8903c4978ec55684fa4e24b3abf159698c2d92e6af37679dbb435bb7"
+    },
+    {
+      "path": "crates/zi-flow-recipe-wasi/src/main.rs",
+      "sha256": "76776014af74084703cf7579ebd0622028dcc92bd6b157df5aa3dd57344ae807"
+    },
+    {
+      "path": "crates/zi-html-clip-core/src/lib.rs",
+      "sha256": "1a460f507cf4449aa03d5643b927bd886b079322089b0e1c52fd8303735f4840"
+    },
+    {
+      "path": "crates/zi-html-clip-wasi/src/main.rs",
+      "sha256": "16b6be64f7c40a93b1d2cc62734f2f4e080a0cd075b1407c1c0394305b29cf4c"
+    },
+    {
+      "path": "crates/zi-ics-count-wasi/src/main.rs",
+      "sha256": "54553332217273b4cc92f4c6daed3ecb7bd7244d735ada0964af5446c1adf355"
+    },
+    {
+      "path": "crates/zi-ics-preview-core/src/count.rs",
+      "sha256": "a38135133f399dd03987aebe17c5a57212ea56bead92e938ee0a92d23802a3ae"
+    },
+    {
+      "path": "crates/zi-ics-preview-core/src/lib.rs",
+      "sha256": "ed25c79ae2f8ccf156ee045a838e238997461b4fa27c900dbed57494563bcf6b"
+    },
+    {
+      "path": "crates/zi-ics-preview-core/src/preview.rs",
+      "sha256": "598160312fab890c8d52831a9fd2f6ad541f7d09d2ecf0c9d888b91a024228d6"
+    },
+    {
+      "path": "crates/zi-ics-preview-core/src/recurrence.rs",
+      "sha256": "0aa0fe38e839f974a09b693188bdaac939373fda1621f922a81e2fc2b3303ac8"
+    },
+    {
+      "path": "crates/zi-ics-preview-wasi/src/main.rs",
+      "sha256": "027dd36df2769f53c48f54d9c3668c96ee2dffeaea1b45ac8923a78d959a3f48"
+    },
+    {
+      "path": "crates/zi-image-core/examples/image_core_benchmark.rs",
+      "sha256": "4ef5e4c3c83692b431b6edbc8f2272c1d94379383b079e93ae2cbab1497272ad"
+    },
+    {
+      "path": "crates/zi-image-core/src/lib.rs",
+      "sha256": "60c7d842662086c64571bd70c49fbd85b0538cd90d5b974552669198807f1011"
+    },
+    {
+      "path": "crates/zi-image-wasi/build.rs",
+      "sha256": "9e2261d54bd32428650fc72e5ce5fd583c5da6ec1105ac5192b96621c1bc55a9"
+    },
+    {
+      "path": "crates/zi-image-wasi/src/main.rs",
+      "sha256": "25c00adca3d87539702cbc6794393a1b66580f15b10f29a51133839df0b49029"
+    },
+    {
+      "path": "crates/zi-inspect-core/src/lib.rs",
+      "sha256": "24bb0dee5e990f6b85aeb02033c2a9f5ebef324d7104280b5f38699cc036f8fb"
+    },
+    {
+      "path": "crates/zi-inspect-wasi/src/main.rs",
+      "sha256": "a4bb761b72eea4f14ddf37905daf7dddd39814f0c06618b898b77a0ae05286fc"
+    },
+    {
+      "path": "crates/zi-json-core/examples/portability.rs",
+      "sha256": "b29ee29a3f0a2f87863de93c7277c3f8fab10012002cc01e9e5af3e61e12c30c"
+    },
+    {
+      "path": "crates/zi-json-core/src/legacy.rs",
+      "sha256": "7d09a6f2a24f67222fee4163347aa5315738302505990cc1f553ee7cf74c8c72"
+    },
+    {
+      "path": "crates/zi-json-core/src/lib.rs",
+      "sha256": "a13f56a12c8672278aa11502aeeb921b95ffcabdae58706a681ea3b25951d373"
+    },
+    {
+      "path": "crates/zi-json-core/src/tests.rs",
+      "sha256": "4267df406cb96d43b1401bc9d51be7fcb7763cd05c65e3656146e57b39c9043f"
+    },
+    {
+      "path": "crates/zi-json-format-wasi/src/main.rs",
+      "sha256": "27a256821123106da619b0255aef74cee43828bf4a5c2f8e520e4119113538f4"
+    },
+    {
+      "path": "crates/zi-json-object-wasi/src/lib.rs",
+      "sha256": "663e7e7e16b1e72261568d7922ad0e9d284105fe7fbc9820a1cec60776b6f463"
+    },
+    {
+      "path": "crates/zi-json-object-wasi/src/main.rs",
+      "sha256": "ef0ac977fed68330348c45e9dc29dd33cf79ec805e721ab9fee09fe9b30c7421"
+    },
+    {
+      "path": "crates/zi-json-schema-core/src/lib.rs",
+      "sha256": "81ca925a8f581013a0016ec3f25135d62315e3234cb0d3dd7cc18fe5581e6cb1"
+    },
+    {
+      "path": "crates/zi-json-schema-wasi/src/main.rs",
+      "sha256": "229f16fbcb6a40effe1a8de3341fb0f49c0ca52684af50554b0acb9bd3892d9a"
+    },
+    {
+      "path": "crates/zi-knowledge-preflight-wasi/src/main.rs",
+      "sha256": "82f7dc7ee52de79ac621ec38fefe60e74bbd30d8c80851abecfde79de76f2072"
+    },
+    {
+      "path": "crates/zi-knowledge-preflight-wasi/src/preview.rs",
+      "sha256": "c3e44753ac6b1f5941879e40607ea737458de69c6d8256f1877d65336bd1548c"
+    },
+    {
+      "path": "crates/zi-knowledge-source-core/src/lib.rs",
+      "sha256": "d346dd291477f4c99cc3a83c5166bf12ffcfba21b8f827a9fb45eb7c75abcbc9"
+    },
+    {
+      "path": "crates/zi-log-core/src/lib.rs",
+      "sha256": "f5275c042273c5f6035037c0d680ea55d4675d70634fa5bf48288e66e738d90d"
+    },
+    {
+      "path": "crates/zi-log-core/src/report/tail.rs",
+      "sha256": "8dbe9006a203c69c4230efe589f27d46034fb23afb95d7057405dd63fcaff323"
+    },
+    {
+      "path": "crates/zi-log-core/src/report.rs",
+      "sha256": "72cb42d6a89e946804e0bd54b749ed7451544ad21b4559d4e134809b5877c441"
+    },
+    {
+      "path": "crates/zi-log-wasi/src/main.rs",
+      "sha256": "a8a8d730bd55837891eb418a6e16cadf6c8feac21c77abc3ff373dcf6f5e641e"
+    },
+    {
+      "path": "crates/zi-matrix-core/src/expression/bisection.rs",
+      "sha256": "79d5ddb1991599b8472f0781a866ace587f173143c232f8ca4538ef2b340e1a1"
+    },
+    {
+      "path": "crates/zi-matrix-core/src/expression/input.rs",
+      "sha256": "84d76eac418ac17401706ff9bd1583db84d50dcd6791ec1cf33c4158c31254f7"
+    },
+    {
+      "path": "crates/zi-matrix-core/src/expression.rs",
+      "sha256": "fe1620021ec5bff83808484f64d50bc0f222e934d867af9fde8ec983451cd0d2"
+    },
+    {
+      "path": "crates/zi-matrix-core/src/lib.rs",
+      "sha256": "9db903dfe0841996cb3bbd10914e055218270b7f9e1553d5b7280385430b8306"
+    },
+    {
+      "path": "crates/zi-matrix-core/src/matrix.rs",
+      "sha256": "f51d2f5787c1117906b85d139e6ce838151ad3376840d6df77f116438e5650e1"
+    },
+    {
+      "path": "crates/zi-matrix-core/src/root.rs",
+      "sha256": "e04ca24fd05fd4aba52d9a6ccca3b07cf28564b9f32d9dc3f923a921f44892bc"
+    },
+    {
+      "path": "crates/zi-matrix-core/src/statistics.rs",
+      "sha256": "3dc1d36ba305c02dab30487c7e13ab68af1a2fec06ac95a76ea8cb5cfe00d13b"
+    },
+    {
+      "path": "crates/zi-matrix-wasi/src/main.rs",
+      "sha256": "ed2a8ef6e7cb391b92de36b5440dd2179d5554871ab6bc02be7e0d0f439df461"
+    },
+    {
+      "path": "crates/zi-memo-text-core/src/lib.rs",
+      "sha256": "08984c4a4849744bd7dc33ca05fc27206dcea99c2ea1bcdaee1eb8ab1bb3ab7a"
+    },
+    {
+      "path": "crates/zi-memo-text-wasi/src/main.rs",
+      "sha256": "5be1a7b2efeef8436640525e44254ff9003d2b26c9bdd296b8d9470dea22ac2b"
+    },
+    {
+      "path": "crates/zi-msi-actions/src/lib.rs",
+      "sha256": "41d26f436376cfe1a299ce76d80842179a251436c5ea562a085e714e42a9ef60"
+    },
+    {
+      "path": "crates/zi-numeric-statistics-wasi/src/main.rs",
+      "sha256": "4918d5aeb31604ef372adc08e886a360006f63811ddc5e3cc4c9ec9fb42d587e"
+    },
+    {
+      "path": "crates/zi-pdf-text-core/src/lib.rs",
+      "sha256": "16aab60f2e530c132921ba4b4825cebab12ee583a47081062857f8fef879f56c"
+    },
+    {
+      "path": "crates/zi-pdf-text-wasi/src/main.rs",
+      "sha256": "475306f18a73de7aa6f65785da82fcee0e63326398f3fcb83dcae1246aae0690"
+    },
+    {
+      "path": "crates/zi-regex-core/src/empty.rs",
+      "sha256": "d88fbfe013d8590ba09c9774c41268bf99f8c60aaa2b37bec0d3c0281a895455"
+    },
+    {
+      "path": "crates/zi-regex-core/src/legacy.rs",
+      "sha256": "272b287ca7d690a5b966254127b6e5ffad4fb6dadb143f3832328ea9e2508088"
+    },
+    {
+      "path": "crates/zi-regex-core/src/lib.rs",
+      "sha256": "1f7b43576b933be700022eef28f5b246a810bc492ca538ade78e48ee9d709129"
+    },
+    {
+      "path": "crates/zi-regex-core/src/literal_repeat.rs",
+      "sha256": "41649ea759c2aa2f8c39d806c9c35533b2ec1468330571d00d483c8539d9ade4"
+    },
+    {
+      "path": "crates/zi-regex-core/src/tests.rs",
+      "sha256": "face9b14dd8ccc3841f0317993b803ee8eba1cad77649116a51a2274f359c910"
+    },
+    {
+      "path": "crates/zi-rename-core/src/lib.rs",
+      "sha256": "6f9446cfbd58512fe3aece753682c6a75e3975937ffd4a8d4af718bc67f43c67"
+    },
+    {
+      "path": "crates/zi-rename-preview-wasi/src/main.rs",
+      "sha256": "4b1ca67d0b3c2f82b677605621053ed1e4fb565b4a79b580bc8051003b1d422b"
+    },
+    {
+      "path": "crates/zi-rename-preview-wasi/src/preview.rs",
+      "sha256": "cea8754ce9b11af1cf1a19b4d41e586fcdf7639621ba5c3877393645d9258811"
+    },
+    {
+      "path": "crates/zi-resource-input-wasi/src/lib.rs",
+      "sha256": "c9b0c9325873d648219621a9d6877fecc6767908d0ac0ea9ce982b31da4c3971"
+    },
+    {
+      "path": "crates/zi-root-solver-wasi/src/main.rs",
+      "sha256": "05daa17da3a5228b90bc015942a354f7a68a6743764b4f46fa1fbded58b49673"
+    },
+    {
+      "path": "crates/zi-shell-core/examples/capability_inspect.rs",
+      "sha256": "8976be46da6cee06ec64bb6e3699416d815e412a14789c731456453149c43b03"
+    },
+    {
+      "path": "crates/zi-shell-core/examples/msi_fixture_state/capabilities.rs",
+      "sha256": "32d1735748df27eef269e2de547d5931f297eee7fb95ad8d76be7d33b78b4642"
+    },
+    {
+      "path": "crates/zi-shell-core/examples/msi_fixture_state.rs",
+      "sha256": "81b395a726dbc9134ec125fef15f1714111614a508af4b396a50a8e23ad1e0b9"
+    },
+    {
+      "path": "crates/zi-shell-core/src/capability_image.rs",
+      "sha256": "c36dceb30ee7c22f61b5d0fbfd681018a7cfb02c4fd0fc24d4f9c6ffb4850a3d"
+    },
+    {
+      "path": "crates/zi-shell-core/src/capability_image_tests.rs",
+      "sha256": "84c021b5d49504686efed429b30ff54378a4d595a8a28a05a2b8ea210c542855"
+    },
+    {
+      "path": "crates/zi-shell-core/src/capability_manifest.rs",
+      "sha256": "77fedab3ff674ea82139dec70796f5b19368740d12cecc64df46bc1d1efd62f8"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/audit/native/identity.rs",
+      "sha256": "bedf39ff1570b1b5179befbb4eb567ebf1f1893b3cbd8b3e3374d38e65ba5853"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/audit/native.rs",
+      "sha256": "656c7b01ad7080f6ddbc9e11bdf74e7a49d8301bfa9289d8c80b2444839370f3"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/audit.rs",
+      "sha256": "91c8d91f06b48b2a8bfc643313c1e5ab80dc36f0266e508204d5778e0adbeb75"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/installer/tests.rs",
+      "sha256": "872ad2ff281a32fb18b19d5865bc2c53c407916d6ff3524d7005c8a9dbb7c4d1"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/installer.rs",
+      "sha256": "a920c418d9def06584d71aff0d81c7ca2699bc7300a14dbf8cb48cb5022f4d17"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/msi_operation/tests.rs",
+      "sha256": "906e4c99c21fc842bab29f85e12ef2fbf7cc26d7fa962931e2217a08b1850f05"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/msi_operation.rs",
+      "sha256": "70547246a6f107ce3a71ec99c888aeade48a80b295fe6edba7c6493b2be7c653"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/joint/tests.rs",
+      "sha256": "87a23fb9f6a3683999a2f4210a3b3ee3a2f9eb982e37d1b0790ab73052682930"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/joint.rs",
+      "sha256": "bcc0f8f033ea657e4b793e5cb748c2b04a5573f8df46c8b6345ff0da51a7ba1f"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/cancellation.rs",
+      "sha256": "5d37d560c563227ba65cdf22c693e94b91e6518366c96195eb5c2b06d532dd53"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/completion.rs",
+      "sha256": "fa565a86702d420ddae59be9d060721f3303c1119ef0b2ebbde2923449e9475d"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/restoration.rs",
+      "sha256": "04156b19cad809ad1fbfce9efe3a6de9ad8cf29ff98316825235b12157cecf99"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/security.rs",
+      "sha256": "220802380dfe64e78129a896a343d71263ef346389ac82068f42da26dff42f11"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/serialization.rs",
+      "sha256": "53916c6fbfcf4d484108d45b0136a2d86fba3cf6db792cf6bb24d8200cba4f05"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/tests.rs",
+      "sha256": "4e7f20901f0b3f32c70934cc55584ed651aa79a6aadd2ad7fad6d3d6dc19d6b8"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery.rs",
+      "sha256": "21ff935fc72980f4afaa151609bd44c34f2080c7f0164f8fea8d3182dceb18f8"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/tests.rs",
+      "sha256": "a330a2033542b6ae30880c2e225cf88a30437aa719e0d186ff64b83d8cecdf8d"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store.rs",
+      "sha256": "694f6fb060a488a2fe6789f9a132f7c41f9cbe9ef33e03e1106cc902cf7e783f"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/tests.rs",
+      "sha256": "a09d6c0d47cc4816955dbe3fb1e2a0b3f49620d4965ed990619a0de0bceece4e"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle.rs",
+      "sha256": "40de9da015af6968ff94b84903a2fedc8eca2328590b9879fe2d6bed46377157"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer.rs",
+      "sha256": "980ef4b10dce5973f505c6621eed877efa9932fb7ede9bb35b4e44df8c311b2d"
+    },
+    {
+      "path": "crates/zi-shell-core/src/file_actions.rs",
+      "sha256": "80c0143b9fa17130a973d7fa3c0f3d747572ed89a41b387f2f47307009f0fd11"
+    },
+    {
+      "path": "crates/zi-shell-core/src/lib.rs",
+      "sha256": "21cd354f2dc6bddb186b8fbe0ab289e44dce653b9bb958f09e9736fc4607e489"
+    },
+    {
+      "path": "crates/zi-shell-core/src/msi.rs",
+      "sha256": "f3d80fc5aeda04b3f699da59ac525e6d5d0db138f08bdef4023e5c80d593456a"
+    },
+    {
+      "path": "crates/zi-shell-core/src/paths.rs",
+      "sha256": "30e8bb4910e299bbe215108c97d28607be246a2854664dc9cc2fbf7981895d83"
+    },
+    {
+      "path": "crates/zi-shell-core/src/quote.rs",
+      "sha256": "5c1a38107b53cf5c812922c7517efc5683960739828ca039cda27fc7d673f526"
+    },
+    {
+      "path": "crates/zi-table-core/src/join.rs",
+      "sha256": "ad2773a46c8989b7e304294d77b1b6095281585ecd29ceb4d4ded18733363d5b"
+    },
+    {
+      "path": "crates/zi-table-core/src/lib.rs",
+      "sha256": "fed4eaa45e8714851d4e8e78b58b8a01f740d69537f0a23ff0f26d8b2d37b8f3"
+    },
+    {
+      "path": "crates/zi-table-merge-wasi/src/main.rs",
+      "sha256": "c91232ba1644c2e5fb8e0b12c97851ca874970ba18b359277e29c09a78302568"
+    },
+    {
+      "path": "crates/zi-text-core/src/json_file.rs",
+      "sha256": "205c33cdca8658b68233e507bcb9e1e5ef6a29b720e4184ab5c38db1d8716b72"
+    },
+    {
+      "path": "crates/zi-text-core/src/json_file_numbers.rs",
+      "sha256": "15d939f13aa5944110761790e91d5c3585f0bf3d6b27d59ac5bbb3e3ee3c1dba"
+    },
+    {
+      "path": "crates/zi-text-core/src/lib.rs",
+      "sha256": "59d8d591e4870743efc802508bc9e89e1e380dce129601e6ceb10f5dd1f46a0f"
+    },
+    {
+      "path": "crates/zi-text-core/src/sql.rs",
+      "sha256": "8fb39f71ae7ee93a0e3448aca87dc6b19c0cf2de1cdf12dc2600acb99d2c4867"
+    },
+    {
+      "path": "crates/zi-text-core/src/transforms.rs",
+      "sha256": "228fb062aef7f61cc94eccd9c05a5e072c504e48cbd8f38e8d14e3474e9fb4b0"
+    },
+    {
+      "path": "crates/zi-text-resource-wasi/src/main.rs",
+      "sha256": "d39a30731b0df57771361037fee6c7fa99a0fd444722f2acc6fd7b18ec09b29f"
+    },
+    {
+      "path": "crates/zi-text-wasi/src/main.rs",
+      "sha256": "1c710329aa58ce9eed1dfe64b6d6fdf3a6b5a7cbad360294247aa4df62411c02"
+    },
+    {
+      "path": "crates/zi-trace-core/build.rs",
+      "sha256": "ac193e10e4443b7b8862925cdf68896eecbff24bdf0e2df6f152c0538e23eb3d"
+    },
+    {
+      "path": "crates/zi-trace-core/src/legacy.rs",
+      "sha256": "6527844f6b763c8842ef80a7bacf36f5af46f0db015090de1d365e44e1723bee"
+    },
+    {
+      "path": "crates/zi-trace-core/src/lib.rs",
+      "sha256": "353eaa2999d6c99f2040ef36c3bf7842438acb2b7fb7282d24c75f6386fe2b4f"
+    },
+    {
+      "path": "crates/zi-trace-core/src/scan.rs",
+      "sha256": "e724f9aae5951254ffb778bd82c6b38bac731a82aae649c5cd0df0caf11104ac"
+    },
+    {
+      "path": "crates/zi-trace-wasi/src/main.rs",
+      "sha256": "b4d2a3fe63212711f316d4dc13bde93f6259bf0a763c8dc10cc48cc3d294c58a"
+    },
+    {
+      "path": "crates/zi-agent-record-core/Cargo.toml",
+      "sha256": "f52f034ff9ed05815e768773a9832c57cad6b94490366ee1926cbb005995c192"
+    },
+    {
+      "path": "crates/zi-agent-record-wasi/Cargo.toml",
+      "sha256": "dd7c7f9db35d6f2249a565203d12cea2ffe44fb2e1a68f034d51e5878b08d48d"
+    },
+    {
+      "path": "crates/zi-ascii-art-image-wasi/Cargo.toml",
+      "sha256": "347a907134769a50f0f908c63cdbad5b8c6875349562bacd6c900caf8e489ac8"
+    },
+    {
+      "path": "crates/zi-character-core/Cargo.toml",
+      "sha256": "d18fffd323df6b3cc252676cb09ecc84e35f90e53871e335f0141f0f8cea2d67"
+    },
+    {
+      "path": "crates/zi-civil-date-core/Cargo.toml",
+      "sha256": "72de215e5ac751b5c7dd01d5817c1cf06f20fe610f60f54613b5c0c521af188f"
+    },
+    {
+      "path": "crates/zi-compare-wasi/Cargo.toml",
+      "sha256": "21689400bd16aa9053b926f5ca42a5702f6429927ffe59eac5aeee477dd10fec"
+    },
+    {
+      "path": "crates/zi-date-calculator-wasi/Cargo.toml",
+      "sha256": "62bcad2fbc26dacc87ee80b53ca5aa73b37992a0d99dab0b4f3a8fa41b6cd81a"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/Cargo.toml",
+      "sha256": "0510b6fdbd00204232068c0253e2f266aa176fb4d8222ea57b89ecc30becbb3a"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/Cargo.toml",
+      "sha256": "c37ed5ef4396e2d5e54c400c3a9740b8a1c9bb98717c10b1d1b9e7d081d3d9d6"
+    },
+    {
+      "path": "crates/zi-diff-core/Cargo.toml",
+      "sha256": "25de5710e00284401f553ea6fb26563c029d966bfac80021fa5dbd7b805bbb93"
+    },
+    {
+      "path": "crates/zi-directory-compare-wasi/Cargo.toml",
+      "sha256": "428d17ffb39afcb32ff1fc912843b96ee502dfaf7de3a788366c2d6d0ed6687f"
+    },
+    {
+      "path": "crates/zi-disk-inspector-wasi/Cargo.toml",
+      "sha256": "f7c19c6136fe46f9560e1f6a7dbfbb8673a270b0b07904a9a011b4cbea01682c"
+    },
+    {
+      "path": "crates/zi-document-text-core/Cargo.toml",
+      "sha256": "9b97bfd70f295522bcdaa750c14a0303bdb69852afec15cdaec83d2fccaa4673"
+    },
+    {
+      "path": "crates/zi-docx-preview-wasi/Cargo.toml",
+      "sha256": "1dfb8d6a7c34a2c06e4d8a47090face33b9ab8da8389ef5fc3b402e5c3133c06"
+    },
+    {
+      "path": "crates/zi-duplicate-files-wasi/Cargo.toml",
+      "sha256": "ef3a2bba2aab62bf9a0b162f5b22425275776b518fca35c64b82c0445f3382bd"
+    },
+    {
+      "path": "crates/zi-expression-calculator-wasi/Cargo.toml",
+      "sha256": "ddfd37ffd7abb599baffd289f42233652fb32f1acf1db5292aac0a10b9efb5da"
+    },
+    {
+      "path": "crates/zi-fields-wasi/Cargo.toml",
+      "sha256": "647012f43af4ebcb0f8489f11244192496835e3599ad53b5e39e0eec7dd4a589"
+    },
+    {
+      "path": "crates/zi-flow-recipe-core/Cargo.toml",
+      "sha256": "6210bd776eab6832446cedbbb1de703f346f708644c40e6729ac73f355f18ed1"
+    },
+    {
+      "path": "crates/zi-flow-recipe-wasi/Cargo.toml",
+      "sha256": "bfdc997675da4ccb2bb4bf29762863a61aa201d4a9ffb90c2abb59d2189ec3a1"
+    },
+    {
+      "path": "crates/zi-html-clip-core/Cargo.toml",
+      "sha256": "897d1a2823de44edef71b2f25ee0aca685383b93eccd0b4ab4731ced3a0c25f4"
+    },
+    {
+      "path": "crates/zi-html-clip-wasi/Cargo.toml",
+      "sha256": "aec0a95a62ff6848f405289a911600e5dc021000b43427d31241cbf6936fc3f7"
+    },
+    {
+      "path": "crates/zi-ics-count-wasi/Cargo.toml",
+      "sha256": "6bf45c2d8a533282bf285f332d6fed3a15dff7fc580e3998569673b39ab6ac20"
+    },
+    {
+      "path": "crates/zi-ics-preview-core/Cargo.toml",
+      "sha256": "299b5e91bb3ae858faa7456ef4c2ba7a701f0e013d901b6dd8cc5a9674e34723"
+    },
+    {
+      "path": "crates/zi-ics-preview-wasi/Cargo.toml",
+      "sha256": "724f7012aee5e05b14af201562bf7d6bfa6da3891932deaa1964721e1858560c"
+    },
+    {
+      "path": "crates/zi-image-core/Cargo.toml",
+      "sha256": "8df4d26d849225d74abe62e2cb4cbac1ef48066a9d114311ac03040f468189e8"
+    },
+    {
+      "path": "crates/zi-image-wasi/Cargo.toml",
+      "sha256": "c5f044b907ff8f9807145ad2dc3873168adb9bbd058dbb5370ab31b425e3f487"
+    },
+    {
+      "path": "crates/zi-inspect-core/Cargo.toml",
+      "sha256": "785929fe7d8741b1eb69f4661f4d173d65c2cac4848719f9ccfdc3a42aa74ace"
+    },
+    {
+      "path": "crates/zi-inspect-wasi/Cargo.toml",
+      "sha256": "39ca527f93f31930a010e298b984ecabb9a2c6c7a3f8b4152b1aad37f3a4a1dd"
+    },
+    {
+      "path": "crates/zi-json-core/Cargo.toml",
+      "sha256": "ad6b87789eafddb3ea4a5ae2d26253c5c5f986b26fbbbc96e46c4d19156cfa94"
+    },
+    {
+      "path": "crates/zi-json-format-wasi/Cargo.toml",
+      "sha256": "e1befdd6a6d785488139499fa47dd22000b75a3400fbaa102bab06f1351ca532"
+    },
+    {
+      "path": "crates/zi-json-object-wasi/Cargo.toml",
+      "sha256": "e947f4cf4266236cd7f9663e2cd15c5115ad9081692bfbb5224b10a23c230ba4"
+    },
+    {
+      "path": "crates/zi-json-schema-core/Cargo.toml",
+      "sha256": "b14be4c89c6a6825f48d72187b00b5b0096fc5e013a3ce3b601ca7e7de492bb0"
+    },
+    {
+      "path": "crates/zi-json-schema-wasi/Cargo.toml",
+      "sha256": "8caa819ccd8a9dd766110f563a278c0663d3d2a98c1ba397f0f200dcc08d0f46"
+    },
+    {
+      "path": "crates/zi-knowledge-preflight-wasi/Cargo.toml",
+      "sha256": "244ab098273850bed2422936a0edda239b7df5aa06a61dce6acb5cae1dc4421d"
+    },
+    {
+      "path": "crates/zi-knowledge-source-core/Cargo.toml",
+      "sha256": "c8f9dc160014e30d8688407d6a8071001c95cf57eebdbf36453ad62d946e3337"
+    },
+    {
+      "path": "crates/zi-log-core/Cargo.toml",
+      "sha256": "0a98a5fa0120e0d3147c18d7fba785075cfe6517e32aefe32f2b07f3a01fe25b"
+    },
+    {
+      "path": "crates/zi-log-wasi/Cargo.toml",
+      "sha256": "3add4cb811aefff90d16f2d008896ba95f3c9242e5b984a0047b3942d5a7672c"
+    },
+    {
+      "path": "crates/zi-matrix-core/Cargo.toml",
+      "sha256": "b176de7c04e7749623517b3e56029d955b86bad51b0b9e48dd00b05c8748d21c"
+    },
+    {
+      "path": "crates/zi-matrix-wasi/Cargo.toml",
+      "sha256": "713e6db332f4ba2a1780c6896debbbbeb7abd98c1d3349698c5a37043607a494"
+    },
+    {
+      "path": "crates/zi-memo-text-core/Cargo.toml",
+      "sha256": "2dbe72b536b2221e42c8d4dfe7dd4751a493ebb3304fdf24e9a74e1b5fec3b93"
+    },
+    {
+      "path": "crates/zi-memo-text-wasi/Cargo.toml",
+      "sha256": "3496508e75875ff4179cb8b2f44fb0d097784d456c1e9dac09c0da1ec2b12094"
+    },
+    {
+      "path": "crates/zi-msi-actions/Cargo.toml",
+      "sha256": "1e6922833c3f263d2c9f28b816087d353151a94cc63a270443383f3d3fcecb8f"
+    },
+    {
+      "path": "crates/zi-numeric-statistics-wasi/Cargo.toml",
+      "sha256": "d210d35cfbc523c0026c68f9f0e2651b1f16e71c174d1e72239d000d9c556bb3"
+    },
+    {
+      "path": "crates/zi-pdf-text-core/Cargo.toml",
+      "sha256": "3aa10fa6b979026dbf047409b09d2c245db47d17b0ec2c0a541303613fe1ae3b"
+    },
+    {
+      "path": "crates/zi-pdf-text-wasi/Cargo.toml",
+      "sha256": "0d6d02e48775ef38a76038887c6a8228b3f6de2e7b346c4169f1b3999c3bc751"
+    },
+    {
+      "path": "crates/zi-regex-core/Cargo.toml",
+      "sha256": "fb948426fc080fcc2acfc8adef6be377fa8ba44796923a9617e799b288b61a13"
+    },
+    {
+      "path": "crates/zi-rename-core/Cargo.toml",
+      "sha256": "d669bb25a74ea1f4dd936f658504c4ba3b5dcd6fa4995aae116e2d9221a56c94"
+    },
+    {
+      "path": "crates/zi-rename-preview-wasi/Cargo.toml",
+      "sha256": "0f75f5c1bdef169307cb534d9b0c0e766eebb9967c5f60e4320f77fcd69fbbfb"
+    },
+    {
+      "path": "crates/zi-resource-input-wasi/Cargo.toml",
+      "sha256": "4ce68540fd4a9446254e7f4d135d94080da4effc78990a7d6b5da03738d1c6b5"
+    },
+    {
+      "path": "crates/zi-root-solver-wasi/Cargo.toml",
+      "sha256": "99bbae681a89be06fb0f9c212e05576af21856f53fead77e7514ac67b57d856c"
+    },
+    {
+      "path": "crates/zi-shell-core/Cargo.toml",
+      "sha256": "c182a889092dbcf9602784f57b9b7513363ab2710852dae617daaf62635f2742"
+    },
+    {
+      "path": "crates/zi-table-core/Cargo.toml",
+      "sha256": "916e18f205825e697f7193cf38297f94463d9f106c746384d2e02f4d3749020b"
+    },
+    {
+      "path": "crates/zi-table-merge-wasi/Cargo.toml",
+      "sha256": "519b29fd85125be43e8b352a0eb93a5b6329f340adf00783ce85b463c3fe15d9"
+    },
+    {
+      "path": "crates/zi-text-core/Cargo.toml",
+      "sha256": "b25a81fb31f8126b9b9fb3f95b0d6ecf3e9127c6bfcd05056a165c47757498b8"
+    },
+    {
+      "path": "crates/zi-text-resource-wasi/Cargo.toml",
+      "sha256": "0fcef2875a28cd756c267cc888ed7fe996eef4ef04fd1b8a491d22f34187a6e8"
+    },
+    {
+      "path": "crates/zi-text-wasi/Cargo.toml",
+      "sha256": "0d76ce6815d39ee184b08b725ef15d6ff8d22895135d25eb03fcd3897c2a266d"
+    },
+    {
+      "path": "crates/zi-trace-core/Cargo.toml",
+      "sha256": "3fa9d4926b970acd0e5dfdcd8c552a970f57adf80147c65319918679abf648a6"
+    },
+    {
+      "path": "crates/zi-trace-wasi/Cargo.toml",
+      "sha256": "18100efb758064e012fb6c9609119f63642ff636ab0f00306c90d4b42aeeea62"
+    },
+    {
+      "path": "contracts/studio-tool-directory/1.0.0-preview.1/capabilities.json",
+      "sha256": "118812e5b6b461ba68c9830005da74622b222795ed9c15fe4f275a1d7fbbf0fb"
+    },
+    {
+      "path": "contracts/studio-tool-directory/1.0.0-preview.1/README.md",
+      "sha256": "8f95cebbb3bf94650ea6a5bf15d7070987846a8ab0484c5f9bb46aec2e938109"
+    },
+    {
+      "path": "contracts/studio-tool-directory/1.0.0-preview.1/schema.json",
+      "sha256": "1c98425b94bb17113cec512c1c85c14b780e65e8baa391aa013066d98fb4c240"
+    },
+    {
+      "path": "vendor/sqlformat/benches/bench.rs",
+      "sha256": "a14a5d5e64c4f1f809ce24ed3be2534446499f82479a3a387f8a0eb7d5896159"
+    },
+    {
+      "path": "vendor/sqlformat/Cargo.toml",
+      "sha256": "537a9e3dabddda8f1fd3ca78596355320ebc49f8522bb052d59ea4434761b8e4"
+    },
+    {
+      "path": "vendor/sqlformat/Cargo.toml.orig",
+      "sha256": "8d2920d7c7757fa9e88faba0c7910d78d65dd2c4aa043b04d4af95be793c5e41"
+    },
+    {
+      "path": "vendor/sqlformat/LICENSE-APACHE",
+      "sha256": "20fe7b00e904ed690e3b9fd6073784d3fc428141dbd10b81c01fd143d0797f58"
+    },
+    {
+      "path": "vendor/sqlformat/LICENSE-MIT",
+      "sha256": "36516aefdc84c5d5a1e7485425913a22dbda69eb1930c5e84d6ae4972b5194b9"
+    },
+    {
+      "path": "vendor/sqlformat/README.md",
+      "sha256": "e122b6ad65e4f2bd3ae7b0536345bcd06d4869bec809dfc870fa5ebf7bcee2c9"
+    },
+    {
+      "path": "vendor/sqlformat/src/debug.rs",
+      "sha256": "fb5c6c809a044ffe85f3fc2a1fe66124e6d80b82e5a3c07576067fd316845e25"
+    },
+    {
+      "path": "vendor/sqlformat/src/formatter.rs",
+      "sha256": "c94ae3efa41179c12b016868fc035f122e5936430b9f235d0c4621ea703a5608"
+    },
+    {
+      "path": "vendor/sqlformat/src/indentation.rs",
+      "sha256": "5763ade83ad3bb1c21dcbda1458bdd366aa27e4d6a335409c72f75dfcaba3b4e"
+    },
+    {
+      "path": "vendor/sqlformat/src/inline_block.rs",
+      "sha256": "b1ef275b27acf193e3af753de4a9f1afd8a87fe69ee54b2b0e0d5bb9181dec3e"
+    },
+    {
+      "path": "vendor/sqlformat/src/lib.rs",
+      "sha256": "18201603326c9bf053300e43ec3dd6421ed9f02a05d363139cb684d3d5793db6"
+    },
+    {
+      "path": "vendor/sqlformat/src/params.rs",
+      "sha256": "75213c71a7c5999e3516c552bb77387ff5ab7e94a71a6275e5c4a9b631012e1a"
+    },
+    {
+      "path": "vendor/sqlformat/src/tokenizer.rs",
+      "sha256": "3770f727e442e7b4d0f12bbad5a35c0040698e05aeeeecb6d2bf35cb840bbded"
+    },
+    {
+      "path": "vendor/sqlformat/upstream.json",
+      "sha256": "ad6c64a378f1ff5d0eaafe03b3cb3326d749f5c6aa1aa77860066f5f5f57a408"
+    },
+    {
+      "path": "vendor/sqlformat/ZICODE-PATCH.md",
+      "sha256": "2c4f93e670d6db9c2790b45579bf0a477fd519d293058aa83afc2e347957370a"
+    }
+  ]
+}
