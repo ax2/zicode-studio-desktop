@@ -1,0 +1,214 @@
+{
+  "sourceRevision": "5a3d6389f2ac47c95b856e6d24f20b8aa5a3b8af",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T13:59:11.850202+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "879da94702f5aded106a4dce035587d746ce79ab3b09752245f7069530772f23",
+  "workerVerification": {
+    "passed": 28,
+    "wasmSha256": "879da94702f5aded106a4dce035587d746ce79ab3b09752245f7069530772f23",
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "workerProfile": "resource.wasi.input.draft2",
+    "cases": [
+      {
+        "case": "markdown-keeps-source-bytes",
+        "inputSha256": "47bf57e2e7cfacba97c503ae10c4427e6d89522baf8aa163e8020c7950b1be00",
+        "inputBytes": 47,
+        "mime": "text/markdown",
+        "ok": true
+      },
+      {
+        "case": "plain-keeps-lf-tab-and-final-spaces",
+        "inputSha256": "e14690410b7b400407e0afe6c0fde964fcf4012b75112356e3c13b67b111ebd7",
+        "inputBytes": 14,
+        "mime": "text/plain",
+        "ok": true
+      },
+      {
+        "case": "unknown-extension-confirmed-bytes",
+        "inputSha256": "47bf57e2e7cfacba97c503ae10c4427e6d89522baf8aa163e8020c7950b1be00",
+        "inputBytes": 47,
+        "mime": "application/octet-stream",
+        "ok": true
+      },
+      {
+        "case": "explicit-title-normalized",
+        "inputSha256": "47bf57e2e7cfacba97c503ae10c4427e6d89522baf8aa163e8020c7950b1be00",
+        "inputBytes": 47,
+        "mime": "application/octet-stream",
+        "ok": true
+      },
+      {
+        "case": "whitespace-title-uses-default",
+        "inputSha256": "47bf57e2e7cfacba97c503ae10c4427e6d89522baf8aa163e8020c7950b1be00",
+        "inputBytes": 47,
+        "mime": "application/octet-stream",
+        "ok": true
+      },
+      {
+        "case": "explicit-title-at-120-scalar-values",
+        "inputSha256": "47bf57e2e7cfacba97c503ae10c4427e6d89522baf8aa163e8020c7950b1be00",
+        "inputBytes": 47,
+        "mime": "application/octet-stream",
+        "ok": true
+      },
+      {
+        "case": "title-one-scalar-over",
+        "inputSha256": "47bf57e2e7cfacba97c503ae10c4427e6d89522baf8aa163e8020c7950b1be00",
+        "inputBytes": 47,
+        "mime": "application/octet-stream",
+        "ok": false
+      },
+      {
+        "case": "null-title-is-not-a-title",
+        "inputSha256": "47bf57e2e7cfacba97c503ae10c4427e6d89522baf8aa163e8020c7950b1be00",
+        "inputBytes": 47,
+        "mime": "application/octet-stream",
+        "ok": false
+      },
+      {
+        "case": "unknown-input-is-rejected",
+        "inputSha256": "47bf57e2e7cfacba97c503ae10c4427e6d89522baf8aa163e8020c7950b1be00",
+        "inputBytes": 47,
+        "mime": "application/octet-stream",
+        "ok": false
+      },
+      {
+        "case": "empty-body-valid",
+        "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "inputBytes": 0,
+        "mime": "text/plain",
+        "ok": true
+      },
+      {
+        "case": "bom-only-valid",
+        "inputSha256": "f1945cd6c19e56b3c1c78943ef5ec18116907a4ca1efc40a57d48ab1db7adfc5",
+        "inputBytes": 3,
+        "mime": "text/plain",
+        "ok": true
+      },
+      {
+        "case": "single-bom-stripped",
+        "inputSha256": "136d5507032e60d6ddd0290d1d5131136c71228733a9f90786527a1049f2e5bc",
+        "inputBytes": 9,
+        "mime": "text/markdown",
+        "ok": true
+      },
+      {
+        "case": "empty-looking-whitespace-stays",
+        "inputSha256": "9cd245154182af5e9412015d42651a61f4dc1337f367e77da40ccc807a393ff9",
+        "inputBytes": 5,
+        "mime": "application/octet-stream",
+        "ok": true
+      },
+      {
+        "case": "preview-never-splits-unicode",
+        "inputSha256": "4b361856a6c8a3d555d89ba5462d4fa6cd8e0203b984cc9eb11bedd4a12ecace",
+        "inputBytes": 6146,
+        "mime": "application/octet-stream",
+        "ok": true
+      },
+      {
+        "case": "exact-preview-limit-is-complete",
+        "inputSha256": "1353e2d28b2e82cfbe1f9223327fedb53080230bd0c0f25c30ad084ab731ee58",
+        "inputBytes": 6144,
+        "mime": "application/octet-stream",
+        "ok": true
+      },
+      {
+        "case": "exact-body-without-bom",
+        "inputSha256": "0793d48d363e803b83681750a0aa7ce1bec7331b9c760a8829ac651e52b4b5ad",
+        "inputBytes": 131072,
+        "mime": "application/octet-stream",
+        "ok": true
+      },
+      {
+        "case": "exact-body-plus-bom-across-worker-windows",
+        "inputSha256": "e245b252ccdbc25968c97ea0a2c3cdd7bc9009238b405f237f567110a7e573c2",
+        "inputBytes": 131075,
+        "mime": "text/plain",
+        "ok": true
+      },
+      {
+        "case": "one-byte-over-without-bom",
+        "inputSha256": "a7688769cabc633925f902a222483e38cd1954cbe4e6db7f8fb107b4f7122f45",
+        "inputBytes": 131073,
+        "mime": "application/octet-stream",
+        "ok": false
+      },
+      {
+        "case": "one-byte-over-with-bom",
+        "inputSha256": "7657993fa70110978aa80671dc2cc1f3d0813cb7e3d8dae8d3c9849a7f720972",
+        "inputBytes": 131076,
+        "mime": "application/octet-stream",
+        "ok": false
+      },
+      {
+        "case": "file-size-without-bom-cannot-use-bom-allowance",
+        "inputSha256": "7a3f660eb07f7e426505318d0bf584c40bd6fa84a77da7465518b13c12cac7ee",
+        "inputBytes": 131075,
+        "mime": "application/octet-stream",
+        "ok": false
+      },
+      {
+        "case": "invalid-utf8-after-the-visible-preview",
+        "inputSha256": "fcf0b8aefeea54bdb7bb5f2fdcf0252a55ce3efd3b0f3bd5555bc45121212bff",
+        "inputBytes": 131072,
+        "mime": "application/octet-stream",
+        "ok": false
+      },
+      {
+        "case": "nul-after-the-visible-preview",
+        "inputSha256": "dae7a5b0c27ffd0a3a9e23fb0da11699a940bfd58501b3ebaa0f4f9e6306f6ee",
+        "inputBytes": 131075,
+        "mime": "application/octet-stream",
+        "ok": false
+      },
+      {
+        "case": "invalid-utf8-in-late-snapshot-window",
+        "inputSha256": "616282b6f26954ca7a5f4d112808c0294cbc1402b6f912d9292d15255dce7ae8",
+        "inputBytes": 129537,
+        "mime": "application/octet-stream",
+        "ok": false
+      },
+      {
+        "case": "utf16-is-not-muted",
+        "inputSha256": "c3c1d6525a6e171d5f93ab2ef4537e35c34f85820ea768c4c4da8badf0fa98ed",
+        "inputBytes": 8,
+        "mime": "application/octet-stream",
+        "ok": false
+      },
+      {
+        "case": "nul-near-start",
+        "inputSha256": "89389ee14c6495d62c5c4d1ab627f415099e5101e21cc66af492011f88adf1c4",
+        "inputBytes": 2,
+        "mime": "text/plain",
+        "ok": false
+      },
+      {
+        "case": "other-selected-resource-type",
+        "inputSha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+        "inputBytes": 1,
+        "mime": "image/png",
+        "ok": false
+      },
+      {
+        "case": "reserved-json-output-size-is-enough",
+        "inputSha256": "31f565e46a6af19a7975c203585f99a6b26e0ee5b97a4bb9c7b8909d1f714ccd",
+        "inputBytes": 6144,
+        "mime": "application/octet-stream",
+        "ok": true
+      },
+      {
+        "case": "link-markup-remains-plain-text",
+        "inputSha256": "5154277e017f02243c037674bb75f4a0ab6fa082f1c77253ff9e674fa429b2a4",
+        "inputBytes": 43,
+        "mime": "application/octet-stream",
+        "ok": true
+      }
+    ],
+    "failures": []
+  }
+}
