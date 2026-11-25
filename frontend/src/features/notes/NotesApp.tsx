@@ -1736,6 +1736,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [linkQuery, setLinkQuery] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
+  const linkAnchor = useRef<{ noteKey: string; value: string; cursor: number } | null>(null);
   const [activeLinkIndex, setActiveLinkIndex] = useState(0);
   const isNarrow = useIsNarrowViewport();
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1934,31 +1935,44 @@ function NoteEditor({ store }: { store: NotesStore }) {
         .slice(0, 8)
     : [];
 
-  const detectLink = (value: string, cursor: number) => {
-    const match = value.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
-    if (match) {
-      setLinkQuery(match[1]);
-      setLinkOpen(true);
-      setActiveLinkIndex(0);
-    } else {
-      setLinkQuery("");
-      setLinkOpen(false);
-      setActiveLinkIndex(0);
-    }
+  const dismissLink = () => {
+    linkAnchor.current = null;
+    setLinkQuery("");
+    setLinkOpen(false);
+    setActiveLinkIndex(0);
+  };
+
+  const linkAtCaret = (textarea: HTMLTextAreaElement) => {
+    const anchor = linkAnchor.current;
+    return anchor?.noteKey === referenceKey(note) && anchor.value === textarea.value &&
+      anchor.cursor === textarea.selectionStart && anchor.cursor === textarea.selectionEnd;
+  };
+
+  const syncEditorSelection = (textarea: HTMLTextAreaElement) => {
+    currentSelectionRef.current = selection();
+    if (linkAnchor.current && !linkAtCaret(textarea)) dismissLink();
+  };
+
+  const detectLink = (textarea: HTMLTextAreaElement) => {
+    const { value, selectionStart, selectionEnd } = textarea;
+    const match = selectionStart === selectionEnd && value.slice(0, selectionStart).match(/\[\[([^\]\n]*)$/);
+    if (!match) { dismissLink(); return; }
+    linkAnchor.current = { noteKey: referenceKey(note), value, cursor: selectionStart };
+    setLinkQuery(match[1]);
+    setLinkOpen(true);
+    setActiveLinkIndex(0);
   };
 
   const insertLink = (title: string) => {
     const textarea = contentRef.current;
-    if (!textarea) return;
-    const cursor = textarea.selectionStart ?? 0;
-    const match = draftContent.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
+    if (!textarea || !linkAtCaret(textarea)) { dismissLink(); return; }
+    const { value, selectionStart: cursor } = textarea;
+    const match = value.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
     if (!match) return;
     const start = cursor - match[0].length;
-    const next = `${draftContent.slice(0, start)}[[${title}]]${draftContent.slice(cursor)}`;
+    const next = `${value.slice(0, start)}[[${title}]]${value.slice(cursor)}`;
     setDraft({ content: next });
-    setLinkQuery("");
-    setLinkOpen(false);
-    setActiveLinkIndex(0);
+    dismissLink();
     const cursorAfter = start + title.length + 4;
     window.requestAnimationFrame(() => {
       const el = contentRef.current;
@@ -2638,22 +2652,16 @@ function NoteEditor({ store }: { store: NotesStore }) {
           onChange={(event) => {
             const textarea = event.target as HTMLTextAreaElement;
             setDraft({ content: textarea.value });
-            detectLink(textarea.value, textarea.selectionStart ?? 0);
+            detectLink(textarea);
           }}
-          onSelect={() => {
-            currentSelectionRef.current = selection();
-          }}
-          onKeyUp={() => {
-            currentSelectionRef.current = selection();
-          }}
-          onMouseUp={() => {
-            currentSelectionRef.current = selection();
-          }}
+          onSelect={(event) => syncEditorSelection(event.currentTarget)}
+          onKeyUp={(event) => syncEditorSelection(event.currentTarget)}
+          onMouseUp={(event) => syncEditorSelection(event.currentTarget)}
           onBlur={() => {
+            const blurredAnchor = linkAnchor.current;
+            if (!blurredAnchor) return;
             window.setTimeout(() => {
-              setLinkOpen(false);
-              setLinkQuery("");
-              setActiveLinkIndex(0);
+              if (linkAnchor.current === blurredAnchor) dismissLink();
             }, 120);
           }}
           onCompositionStart={() => {
@@ -2664,6 +2672,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
           }}
           onKeyDown={(event) => {
             if (isImeComposing(event, composingRef.current)) return;
+            const suggestionAtCaret = linkOpen && linkAtCaret(event.currentTarget);
+            if (linkOpen && !suggestionAtCaret) dismissLink();
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
               event.preventDefault();
               wrapSelection("**");
@@ -2679,23 +2689,21 @@ function NoteEditor({ store }: { store: NotesStore }) {
               wrapCodeBlock();
             } else if (event.key === "Escape") {
               event.preventDefault();
-              if (linkOpen) {
-                setLinkOpen(false);
-                setLinkQuery("");
-                setActiveLinkIndex(0);
+              if (suggestionAtCaret) {
+                dismissLink();
               } else {
                 (event.target as HTMLTextAreaElement).blur();
               }
-            } else if (linkOpen && linkSuggestions.length > 0 && event.key === "ArrowDown") {
+            } else if (suggestionAtCaret && linkSuggestions.length > 0 && event.key === "ArrowDown") {
               event.preventDefault();
               setActiveLinkIndex((current) => (current + 1) % linkSuggestions.length);
-            } else if (linkOpen && linkSuggestions.length > 0 && event.key === "ArrowUp") {
+            } else if (suggestionAtCaret && linkSuggestions.length > 0 && event.key === "ArrowUp") {
               event.preventDefault();
               setActiveLinkIndex(
                 (current) => (current - 1 + linkSuggestions.length) % linkSuggestions.length,
               );
             } else if (
-              linkOpen &&
+              suggestionAtCaret &&
               linkSuggestions.length > 0 &&
               (event.key === "Tab" || event.key === "Enter")
             ) {
