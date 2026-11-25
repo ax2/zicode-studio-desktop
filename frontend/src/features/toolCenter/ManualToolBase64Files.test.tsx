@@ -20,6 +20,10 @@ it.each([
     fileText: "\uFEFF" + base64.slice(0, 4) + "\r\n" + base64.slice(4), input: base64, output: text, mime: "text/plain;charset=utf-8" },
   { version: "0.4.2", op: "decode", inputLabel: "Base64 input file", action: "Download decoded text", filename: /^decoded-\d+\.txt$/,
     fileText: "", input: "", output: "", mime: "text/plain;charset=utf-8" },
+  { version: "0.4.3", op: "encode", inputLabel: "UTF-8 text file", action: "Download Base64 file", filename: /^encoded-\d+\.base64$/,
+    fileText: text, input: text, output: base64, mime: "text/plain" },
+  { version: "0.4.4", op: "decode", inputLabel: "Base64 input file", action: "Download decoded text", filename: /^decoded-\d+\.txt$/,
+    fileText: base64, input: base64, output: text, mime: "text/plain;charset=utf-8" },
 ])("imports and downloads only after an explicit action for $op", async selected => {
   setLocale("en");
   const download = vi.spyOn(downloads, "downloadFile").mockImplementation(() => {});

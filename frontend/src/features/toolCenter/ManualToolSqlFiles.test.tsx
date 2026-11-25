@@ -26,7 +26,7 @@ const optionSchema = {
 
 afterEach(cleanup);
 
-async function open(selected: ManualTool = tool, inputSchema = schema) {
+async function open(selected: ManualTool = tool, inputSchema: unknown = schema) {
   setLocale("en");
   const api: ManualToolApi = {
     searchTools: vi.fn(),
@@ -94,7 +94,10 @@ it("only exposes SQL file import for the existing enabled compatible formatter",
   for (const [selected, input] of [
     [{ ...tool, capabilityId: "devtools.text.base64.encode" }, schema],
     [{ ...tool, version: "0.4.0" }, schema],
-    [{ ...tool, version: "0.4.3" }, optionSchema],
+    [{ ...tool, version: "0.4.5" }, optionSchema],
+    [{ ...tool, version: "0.4.4" }, schema],
+    [{ ...tool, version: "0.4.4" }, { ...optionSchema, required: ["text", "indent"] }],
+    [{ ...tool, version: "0.4.4" }, { ...optionSchema, properties: { ...optionSchema.properties, indent: { ...optionSchema.properties.indent, default: "tabs" } } }],
     [tool, { ...schema, properties: { text: { type: "string", maxLength: 4096 } } }],
   ] as const) {
     const { form, view } = await open(selected, input);
@@ -105,8 +108,8 @@ it("only exposes SQL file import for the existing enabled compatible formatter",
   expect(form.queryByLabelText("SQL file", { exact: true })).toBeNull();
 });
 
-it("keeps the new options when importing or undoing SQL and clears a result after changing an option", async () => {
-  const { api, form, pick, view } = await open(newTool, optionSchema);
+it.each(["0.4.2", "0.4.3", "0.4.4"])("keeps SQL %s options through import, undo and download", async version => {
+  const { api, form, pick, view } = await open({ ...newTool, version }, optionSchema);
   const editor = form.getByRole("textbox", { name: /SQL text/ });
   const submit = async () => { await act(async () => { fireEvent.click(form.getByRole("button", { name: "Execute tool" })); }); };
   const choose = (label: string, choice: string) => {
@@ -183,8 +186,8 @@ it("downloads only a fresh successful SQL response as a separate file", async ()
     expect(download).toHaveBeenCalledTimes(1);
   } finally { download.mockRestore(); }
 });
-it("explains a confirmed oversized SQL result and keeps the source available for a smaller indentation", async () => {
-  const { api, form, pick, view } = await open(newTool, optionSchema);
+it.each(["0.4.2", "0.4.3", "0.4.4"])("explains the confirmed SQL %s result limit and keeps the source", async version => {
+  const { api, form, pick, view } = await open({ ...newTool, version }, optionSchema);
   const text = "select " + "(".repeat(136) + "amount" + ")".repeat(136) + " as amount from report_rows;\r\n";
   const input = file("report.sql", "\uFEFF" + text);
   const submit = () => act(async () => { fireEvent.click(form.getByRole("button", { name: "Execute tool" })); });
@@ -215,6 +218,8 @@ it.each([
   [newTool, optionSchema, "请求超过 48 KiB", "Tool could not complete."],
   [{ ...newTool, pluginId: "com.example.unknown" }, optionSchema, "结果超过 48 KiB", "Tool could not complete."],
   [tool, schema, "结果超过 48 KiB", "Formatted SQL exceeds the 48 KiB output limit."],
+  [{ ...newTool, version: "0.4.4" }, schema, "结果超过 48 KiB", "Tool could not complete."],
+  [{ ...newTool, version: "0.4.5" }, optionSchema, "结果超过 48 KiB", "Tool could not complete."],
 ] as const)("keeps error guidance scoped to the confirmed SQL result limit %#", async (selected, shape, message, expected) => {
   const { api, form, view } = await open(selected, shape);
   fireEvent.change(form.getByRole("textbox", { name: /text/i }), { target: { value: "select 1;" } });

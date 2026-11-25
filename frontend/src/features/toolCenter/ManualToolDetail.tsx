@@ -51,15 +51,20 @@ const sqlFileTargets = [
   { target: "sql-format", field: "text", label: "Import SQL file…", inputLabel: "SQL file", fieldLabel: "SQL text" },
 ] as const;
 
-const sqlOptions = new Map<string, { label: string; choices: ReadonlyMap<string, string> }>([
-  ["dialect", { label: "SQL dialect", choices: new Map([
+// Frozen Text capabilities reviewed for this file and output workflow.
+const textFileProfiles = new Map<string, "text-only" | "sql-options">([
+  ["0.4.1", "text-only"], ["0.4.2", "sql-options"], ["0.4.3", "sql-options"], ["0.4.4", "sql-options"],
+]);
+
+const sqlOptions = new Map<string, { label: string; defaultValue: string; choices: ReadonlyMap<string, string> }>([
+  ["dialect", { label: "SQL dialect", defaultValue: "generic", choices: new Map([
     ["generic", "Generic SQL"], ["postgresql", "PostgreSQL"], ["mysql", "MySQL"],
     ["sqlite", "SQLite"], ["sqlserver", "SQL Server"],
   ]) }],
-  ["indent", { label: "Indentation", choices: new Map([
+  ["indent", { label: "Indentation", defaultValue: "fourSpaces", choices: new Map([
     ["twoSpaces", "2 spaces"], ["fourSpaces", "4 spaces"], ["tabs", "Tabs"],
   ]) }],
-  ["keywordCase", { label: "Keyword case", choices: new Map([
+  ["keywordCase", { label: "Keyword case", defaultValue: "uppercase", choices: new Map([
     ["uppercase", "Uppercase"], ["lowercase", "Lowercase"], ["preserve", "Keep original case"],
   ]) }],
 ]);
@@ -254,8 +259,13 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const javaTrace = tracePlugin && tool.capabilityId === "devtools.trace.java.trace";
   const pythonTrace = tracePlugin && tool.capabilityId === "devtools.trace.django.trace";
   const traceReport = javaTrace || pythonTrace;
-  const textPlugin = boundedTextTool && tool.pluginId === "com.zicode.devtools.text" &&
-    (tool.version === "0.4.1" || tool.version === "0.4.2");
+  const textProfile = textFileProfiles.get(tool.version);
+  const textSchema = detail?.capability.inputSchema as { additionalProperties?: unknown; minProperties?: unknown; maxProperties?: unknown } | undefined;
+  const textPlugin = boundedTextTool && tool.enabled && tool.pluginId === "com.zicode.devtools.text" &&
+    detail?.pluginId === tool.pluginId && detail.capability.id === tool.capabilityId && Boolean(textProfile) &&
+    textField.required && textField.minLength === 0 && !textField.choices && textSchema?.additionalProperties === false &&
+    textSchema.minProperties === undefined && textSchema.maxProperties === undefined;
+  const textOnlyContract = textPlugin && fields?.length === 1;
   const transformsTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.transforms" && tool.version === "0.1.1";
   const textLines = transformsTool && /^devtools\.transforms\.lines\.(deduplicate|ascending|descending|nonempty|trim)$/.test(tool.capabilityId);
   const textStatistics = transformsTool && tool.capabilityId === "devtools.transforms.stats.inspect";
@@ -267,19 +277,29 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const stringUnescape = transformsTool && tool.capabilityId === "devtools.transforms.string.unescape";
   const hexEncode = transformsTool && tool.capabilityId === "devtools.transforms.hex.encode";
   const hexDecode = transformsTool && tool.capabilityId === "devtools.transforms.hex.decode";
-  const sqlFormat = textPlugin && tool.capabilityId === "devtools.text.sql.format";
+  const sqlWithOptions = textPlugin && tool.capabilityId === "devtools.text.sql.format" &&
+    textProfile === "sql-options" && fields?.length === sqlOptions.size + 1 && fields.every(field => {
+      if (field.key === "text") return true;
+      const option = sqlOptions.get(field.key);
+      return option && field.kind === "string" && !field.required &&
+        field.minLength === 0 && field.maxLength === 32768 && field.suggested?.preview === option.defaultValue &&
+        field.choices?.length === option.choices.size &&
+        field.choices.every(choice => typeof choice === "string" && option.choices.has(choice));
+    });
+  const sqlFormat = tool.capabilityId === "devtools.text.sql.format" &&
+    (sqlWithOptions || (textOnlyContract && textProfile === "text-only"));
   let failureNotice: string | undefined;
   if (sqlFormat && result?.errorCode === "INPUT_TOO_LARGE" && result.errorMessage === "结果超过 48 KiB") {
     // The frozen Text contract also uses INPUT_TOO_LARGE for requests and input text.
     const indentChoices = fields?.find(field => field.key === "indent")?.choices;
     const indent = values.indent ? indentChoices?.[Number(values.indent)] : "fourSpaces";
-    const canReduceIndent = tool.version === "0.4.2" && indent === "fourSpaces" && indentChoices?.includes("twoSpaces");
+    const canReduceIndent = sqlWithOptions && indent === "fourSpaces";
     failureNotice = canReduceIndent
       ? t("Formatted SQL exceeds the 48 KiB output limit. Select 2 spaces for indentation and run again.")
       : t("Formatted SQL exceeds the 48 KiB output limit.");
   }
-  const base64Encode = textPlugin && tool.capabilityId === "devtools.text.base64.encode";
-  const base64Decode = textPlugin && tool.capabilityId === "devtools.text.base64.decode";
+  const base64Encode = textOnlyContract && tool.capabilityId === "devtools.text.base64.encode";
+  const base64Decode = textOnlyContract && tool.capabilityId === "devtools.text.base64.decode";
   const base64Tool = base64Encode || base64Decode;
   const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
     jsonSchema ? jsonSchemaFileTargets : qrFileTool ? qrFileTargets : sqlFormat ? sqlFileTargets :
@@ -490,7 +510,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
         accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
         {fields.map(field => {
           const side = documentFileTargets.find(target => target.field === field.key);
-          const sqlOption = sqlFormat && tool.version === "0.4.2" ? sqlOptions.get(field.key) : undefined;
+          const sqlOption = sqlWithOptions ? sqlOptions.get(field.key) : undefined;
           const label = side?.fieldLabel ?? sqlOption?.label ?? (independentMerge ? independentMergeLabels.get(field.key) : undefined);
           return <ManualToolInput key={field.key} id={`${detailId}-${field.key}`}
             field={label ? { ...field, label: t(label) } : field} value={values[field.key]} choiceLabels={sqlOption?.choices}
