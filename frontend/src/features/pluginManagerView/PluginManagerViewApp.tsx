@@ -61,7 +61,7 @@ function ActionButton({
   disabled?: boolean;
   title?: string;
   busy?: boolean;
-  onClick?(): void;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
   ariaPressed?: boolean | "false" | "mixed" | "true";
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
@@ -144,9 +144,9 @@ export function PluginManagerViewApp({
     if (owner && owner.activeElement === owner.body) retryAction.current?.focus({ preventScroll: true });
   }, [activeSetup]);
 
-  const showActivation = (receipt: PluginInstallReceipt) => {
-    setActivation({ receipt, scope: scopeKey(), phase: "ready", focusOnMount: true });
+  const showActivation = (receipt: PluginInstallReceipt, trigger: HTMLButtonElement) => {
     setDeferred(false);
+    void readInstalledSetup({ receipt, scope: scopeKey(), phase: "loading", focusOnMount: false }, trigger);
   };
 
   const setBusyKey = (key: string, value: boolean) => {
@@ -159,7 +159,7 @@ export function PluginManagerViewApp({
     const target = getTarget?.();
     return JSON.stringify([target?.sceneId ?? "programming", target?.workspaceId ?? null]);
   }
-  async function readInstalledSetup(setup: ActivationSetup) {
+  async function readInstalledSetup(setup: ActivationSetup, trigger?: HTMLButtonElement) {
     if (scopeKey() !== setup.scope || !pageHeading.current?.isConnected ||
       refreshRequest.current?.receipt === setup.receipt) return;
 
@@ -182,7 +182,7 @@ export function PluginManagerViewApp({
     }
 
     const owner = heading.ownerDocument;
-    const focusOnMount = recoveryCard.current?.contains(owner.activeElement) === true ||
+    const focusOnMount = owner.activeElement === trigger || recoveryCard.current?.contains(owner.activeElement) === true ||
       (setup.phase === "loading" && owner.activeElement === owner.body);
     setActivation(current => current === reading ? { ...reading, phase, focusOnMount } : current);
   }
@@ -281,7 +281,7 @@ export function PluginManagerViewApp({
             <ActionButton
               label={t("Review and enable")}
               disabled={!canManagePlugins || installBusy || awaitingSettings || Boolean(busy.activation)}
-              onClick={() => showActivation({ pluginId: plugin.id, packageRevision: activationReview.packageRevision })}
+              onClick={event => showActivation({ pluginId: plugin.id, packageRevision: activationReview.packageRevision }, event.currentTarget)}
             />
           ) : (
           <ActionButton

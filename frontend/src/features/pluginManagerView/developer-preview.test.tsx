@@ -396,3 +396,28 @@ it.each(["packageRevision", "sceneRevision"] as const)("ignores a late retry aft
   expect(document.activeElement).toBe(outside);
   expect(installedTools.open).not.toHaveBeenCalled();
 });
+
+it("reads the latest authorization review after revocation and retries without writing permissions", async () => {
+  const currentReview = { packageRevision, sceneRevision: "programming:revoked" };
+  const plugin: ManagedPlugin = {
+    id: preview.pluginId, name: preview.name, description: "", origin: "developer", enabled: false,
+    permissions: { "resource.read": false }, permissionDetails: { required: [{ name: "resource.read" }] },
+    activationReview,
+  };
+  const setScene = vi.fn().mockRejectedValueOnce(Error("Registry unavailable")).mockImplementationOnce(async () => {
+    plugin.activationReview = currentReview;
+  });
+  const activateReviewed = vi.fn(async () => ({ settingsLoaded: true }));
+  render(<PluginManagerViewApp registry={{ list: () => [plugin], setScene, activateReviewed }} />);
+
+  fireEvent.click(button("Review and enable"));
+  await screen.findByRole("alert");
+  expect(activateReviewed).not.toHaveBeenCalled();
+  fireEvent.click(button("Reload plugin settings"));
+  const required = await screen.findByRole("checkbox");
+  fireEvent.click(required);
+  fireEvent.click(button("Authorize and enable"));
+  await waitFor(() => expect(activateReviewed).toHaveBeenCalledWith(plugin.id, currentReview, ["resource.read"]));
+  expect(setScene.mock.calls).toEqual([["programming"], ["programming"]]);
+  expect(activateReviewed).toHaveBeenCalledTimes(1);
+});
