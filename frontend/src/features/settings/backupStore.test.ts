@@ -128,21 +128,21 @@ describe("workspace backup store", () => {
   });
 
   it("queues a restore and reports that it will apply on restart", async () => {
+    const request = {
+      backupId: "b1",
+      workspaceId: "ws-1",
+      requestId: "0123456789abcdef0123456789abcdef",
+    };
+    let queued = false;
     const invoke = vi.fn(async (command: string) => {
       if (command === "list_workspace_backups") return [];
       if (command === "restore_workspace_backup") {
-        return {
-          backupId: "b1",
-          workspaceId: "ws-1",
-          requestId: "0123456789abcdef0123456789abcdef",
-        };
+        queued = true;
+        return request;
       }
-      return undefined;
+      return queued ? { pending: request } : null;
     });
-    const store = createBackupStore({
-      invoke,
-      getWorkspaceId: () => "ws-1",
-    });
+    const store = createBackupStore({ invoke, getWorkspaceId: () => "ws-1" });
     await store.getState().restoreBackup("b1");
     expect(invoke).toHaveBeenCalledWith("restore_workspace_backup", {
       workspaceId: "ws-1",
@@ -170,4 +170,24 @@ describe("workspace backup store", () => {
     await store.getState().load();
     expect(store.getState().status).toMatch(/Workspace restored from backup|已从备份恢复工作区/);
   });
+});
+
+it("shows a persisted queued restore before an older completion and blocks another restore", async () => {
+  const queued = { workspaceId: "ws-1", backupId: "new", requestId: "fedcba9876543210fedcba9876543210" };
+  const previous = {
+    workspaceId: "ws-1", requestId: "0123456789abcdef0123456789abcdef",
+    report: { backupId: "old", preRestoreBackupId: "previous", apps: ["notes"], sizeBytes: 7 },
+  };
+  const invoke = vi.fn(async (command: string) => {
+    if (command === "list_workspace_backups") return [];
+    return { ...previous, pending: queued };
+  });
+  const store = createBackupStore({ invoke, getWorkspaceId: () => "ws-1" });
+  await store.getState().load();
+  expect(store.getState().status).toMatch(/Restore queued|恢复请求已排队/);
+  await store.getState().restoreBackup("another");
+  await store.getState().deleteBackup("new");
+  expect(invoke.mock.calls.map(([command]) => command)).not.toContain("delete_workspace_backup");
+  expect(invoke.mock.calls.map(([command]) => command)).not.toContain("restore_workspace_backup");
+  expect(store.getState().status).toMatch(/Restore queued|恢复请求已排队/);
 });

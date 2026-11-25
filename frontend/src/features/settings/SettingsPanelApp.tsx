@@ -785,6 +785,7 @@ function ThinkingEffortControl({
 
 function WorkspaceBackupSection({ store }: { store: BackupStore }) {
   const backups = store((state) => state.backups);
+  const queuedBackupId = store((state) => state.queuedBackupId);
   const backupAvailable = store((state) => state.available);
   const loading = store((state) => state.loading);
   const creating = store((state) => state.creating);
@@ -877,7 +878,7 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
               <button
                 type="button"
                 className="ui-button ui-button--ghost ui-button--sm"
-                disabled={mutating}
+                disabled={mutating || queuedBackupId === backup.id}
                 onClick={async () => {
                   if (
                     (await globalThis.confirm?.(
@@ -896,6 +897,7 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                 className="ui-button ui-button--secondary ui-button--sm"
                 disabled={
                   mutating ||
+                  queuedBackupId !== null ||
                   !hasRestorableBackupMetadata(backup)
                 }
                 onClick={async () => {

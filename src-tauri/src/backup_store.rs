@@ -564,11 +564,22 @@ pub(crate) fn enqueue_workspace_restore(
     restore_request::enqueue(&root, workspace_id, backup_id)
 }
 
+#[derive(Serialize)]
+pub(crate) struct WorkspaceRestoreStatus {
+    #[serde(flatten)]
+    outcome: Option<RestoreOutcome>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pending: Option<RestoreRequest>,
+}
+
 pub(crate) fn workspace_restore_outcome(
     workspace_id: &str,
-) -> Result<Option<RestoreOutcome>, String> {
-    Ok(restore_request::outcome(&crate::app_paths::system_root()?)?
-        .filter(|outcome| outcome.workspace_id == workspace_id))
+) -> Result<Option<WorkspaceRestoreStatus>, String> {
+    let root = crate::app_paths::system_root()?;
+    let _lock = lock_system_restore(&root)?;
+    let pending = restore_request::read(&root)?.filter(|request| request.workspace_id == workspace_id);
+    let outcome = restore_request::outcome(&root)?.filter(|outcome| outcome.workspace_id == workspace_id);
+    Ok((pending.is_some() || outcome.is_some()).then_some(WorkspaceRestoreStatus { outcome, pending }))
 }
 
 fn restore_roots(system_root: &Path, workspaces: &[(String, String)]) -> Vec<PathBuf> {
@@ -1040,10 +1051,21 @@ mod tests {
             workspace_restore_outcome(workspace_id)
                 .unwrap()
                 .unwrap()
+                .outcome
+                .unwrap()
                 .request_id,
             request.request_id
         );
         assert!(!startup_restore_needed(&registered).unwrap());
+        let next = enqueue_workspace_restore(workspace_id, &backup.id).unwrap();
+        let current = workspace_restore_outcome(workspace_id).unwrap().unwrap();
+        let status = serde_json::to_value(current).unwrap();
+        assert_eq!(status["requestId"], request.request_id);
+        assert_eq!(status["report"]["backupId"], backup.id);
+        assert_eq!(status["pending"]["requestId"], next.request_id);
+        assert_eq!(status["pending"]["backupId"], backup.id);
+        assert!(workspace_restore_outcome("other-workspace").unwrap().is_none());
+        cancel_startup_restore(&next.request_id, &registered).unwrap();
     }
 
     #[test]
@@ -1088,7 +1110,9 @@ mod tests {
         assert_eq!(fs::read(&attachment).unwrap(), b"newer attachment");
         assert_eq!(fs::read(&metadata).unwrap(), original_metadata);
         assert_eq!(fs::read(&archived_attachment).unwrap(), changed);
-        assert!(workspace_restore_outcome(workspace_id).unwrap().is_none());
+        let state = workspace_restore_outcome(workspace_id).unwrap().unwrap();
+        assert!(state.outcome.is_none());
+        assert_eq!(state.pending.unwrap().request_id, request.request_id);
         assert_eq!(list_workspace_backups(workspace_id).unwrap().len(), 1);
         assert!(!restore_transaction::needs_recovery(&workspace.join(".zicode")).unwrap());
         assert_eq!(

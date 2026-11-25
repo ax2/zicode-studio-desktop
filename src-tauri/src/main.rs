@@ -1083,7 +1083,7 @@ fn restore_workspace_backup(
 fn workspace_restore_outcome(
     app: AppHandle,
     workspace_id: String,
-) -> Result<Option<crate::backup_store::RestoreOutcome>, String> {
+) -> Result<Option<crate::backup_store::WorkspaceRestoreStatus>, String> {
     resolve_workspace_root(&app, &workspace_id)?;
     crate::backup_store::workspace_restore_outcome(&workspace_id)
 }
