@@ -53,6 +53,48 @@ it("hashes the exact file inventory without copying, executing or claiming accep
   expect(readFileSync(join(f.directory, "tools.wasm"))).toEqual(before);
 });
 
+it.each([
+  ["packageId", "packageVersion"],
+  ["pluginId", "packageVersion"],
+  ["pluginId", "pluginVersion"],
+])("checks the receipt's %s and %s against the hashed manifest", async (idKey, versionKey) => {
+  const f = fixture();
+  const id = "com.zicode.devtools.synthetic";
+  const version = "0.1.0";
+  const manifest = Buffer.from(JSON.stringify({ id, version }));
+  writeFileSync(join(f.directory, "plugin.json"), manifest);
+  f.files.push({
+    path: "plugin.json",
+    size: manifest.length,
+    sha256: createHash("sha256").update(manifest).digest("hex"),
+  });
+  writeFileSync(f.index, JSON.stringify({ files: f.files, [idKey]: id, [versionKey]: version }));
+  await expect(verifyDevtoolsPackage(f.directory, f.index)).resolves.toMatchObject({
+    verified: true,
+  });
+
+  for (const claims of [
+    { [idKey]: id, [versionKey]: "0.1.1" },
+    { [idKey]: "com.zicode.devtools.another", [versionKey]: version },
+  ]) {
+    writeFileSync(f.index, JSON.stringify({ files: f.files, ...claims }));
+    await expect(verifyDevtoolsPackage(f.directory, f.index)).rejects.toThrow(
+      "package_identity_mismatch",
+    );
+  }
+});
+
+it("requires a hashed manifest if the receipt names a package", async () => {
+  const f = fixture();
+  writeFileSync(
+    f.index,
+    JSON.stringify({ files: f.files, packageId: "com.zicode.devtools.synthetic" }),
+  );
+  await expect(verifyDevtoolsPackage(f.directory, f.index)).rejects.toThrow(
+    "package_manifest_invalid",
+  );
+});
+
 it("recomputes a declared compact JSON files-array index", async () => {
   const f = fixture();
   const directoryIndexEncoding = {
