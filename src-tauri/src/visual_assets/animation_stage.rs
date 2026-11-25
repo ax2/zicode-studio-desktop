@@ -113,7 +113,8 @@ impl Kind {
             (Self::Stage, "atlas.input" | "recipe.json" | "clip.tscn")
             | (
                 Self::Project,
-                "project.godot" | "preview.tscn" | "clip.tscn" | "clip.tres" | "manifest.json",
+                "project.godot" | "preview.tscn" | "clip.tscn" | "clip.tres" | "manifest.json"
+                | "animation.gif",
             )
             | (Self::Slot, ".zicode-animation.lock" | "clip.tscn") => Some(Self::File),
             (Self::Stage, _) if input_name(name) => Some(Self::File),
