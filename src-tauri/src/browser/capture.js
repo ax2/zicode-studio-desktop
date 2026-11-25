@@ -140,33 +140,49 @@
   }
   const mainText = readText(document, textRemaining);
   const mainSelection = readSelection(document, getSelection());
-  let linkStructureRemaining = 24000;
-  function readLinks(doc, limit, scan) {
-    const links = [];
-    const seen = new Set();
+  let referenceStructureRemaining = 24000;
+  function readReferences(doc, linkLimit, imageLimit, scan) {
+    const links = [], images = [];
+    const linkUrls = new Set(), imageKeys = new Set();
     const pending = [[doc.body || doc.documentElement].values()];
-    let linksTruncated = false;
-    while (pending.length) {
+    let linksTruncated = false, imagesTruncated = false;
+    while (pending.length && !(linksTruncated && imagesTruncated)) {
       const next = pending.at(-1).next();
       if (next.done) { pending.pop(); continue; }
-      if (linkStructureRemaining === 0) { linksTruncated = true; break; }
-      linkStructureRemaining--;
-      const anchor = next.value;
-      if (anchor.nodeType !== Node.ELEMENT_NODE || anchor.matches(excluded)) continue;
-      pending.push(renderedChildren(anchor).values());
-      if (anchor.localName !== "a" || typeof anchor.href !== "string" || !anchor.href) continue;
-      if (scan.remaining === 0) { linksTruncated = true; break; }
-      scan.remaining--;
-      if (!visible(anchor) || anchor.querySelector('input,textarea,select,[contenteditable]')) continue;
-      const url = webUrl(anchor.href);
-      if (!url || seen.has(url)) continue;
-      if (links.length === limit) { linksTruncated = true; break; }
-      seen.add(url);
-      links.push({ label: shortText(anchor.innerText, 120), url });
+      if (referenceStructureRemaining === 0) { linksTruncated = imagesTruncated = true; break; }
+      referenceStructureRemaining--;
+      const element = next.value;
+      if (element.nodeType !== Node.ELEMENT_NODE || element.matches(excluded)) continue;
+      pending.push(renderedChildren(element).values());
+      if (element.localName === "a" && !linksTruncated && typeof element.href === "string" && element.href) {
+        if (scan.links === 0) { linksTruncated = true; continue; }
+        scan.links--;
+        if (!visible(element) || element.querySelector('input,textarea,select,[contenteditable]')) continue;
+        const url = webUrl(element.href);
+        if (!url || linkUrls.has(url)) continue;
+        if (links.length === linkLimit) { linksTruncated = true; continue; }
+        linkUrls.add(url);
+        links.push({ label: shortText(element.innerText, 120), url });
+      } else if (element.localName === "img" && !imagesTruncated) {
+        if (scan.images === 0) { imagesTruncated = true; continue; }
+        scan.images--;
+        const { naturalWidth: width, naturalHeight: height } = element;
+        if (!element.complete || !width || !height || width > 100000 || height > 100000 || !visible(element)) continue;
+        const alt = shortText(element.alt, 160);
+        // Only the selected, already-loaded srcset candidate is relevant.
+        const source = webUrl(element.currentSrc);
+        // Pixel requests resolve by URL and size in the ordinary document image collection.
+        const url = element.getRootNode() === doc ? source : null;
+        const key = source ? JSON.stringify([source, alt, width, height, url !== null]) : null;
+        if (key && imageKeys.has(key)) continue;
+        if (images.length === imageLimit) { imagesTruncated = true; continue; }
+        if (key) imageKeys.add(key);
+        images.push({ alt, width, height, url });
+      }
     }
-    return { links, linksTruncated };
+    return { links, linksTruncated, images, imagesTruncated };
   }
-  const mainLinks = readLinks(document, 20, { remaining: 1000 });
+  const mainReferences = readReferences(document, 20, 12, { links: 1000, images: 400 });
   let tablesRemaining = 4;
   let tablesToScan = 100;
   let tableTextRemaining = 3600;
@@ -243,36 +259,14 @@
     }
     return { tables, tablesTruncated };
   }
-  function readImages(doc, allowance, scanLimit) {
-    const images = [];
-    const imageKeys = new Set();
-    const pageImages = doc.images ?? [];
-    let imagesTruncated = pageImages.length > scanLimit;
-    for (let i = 0; i < Math.min(pageImages.length, scanLimit); i++) {
-      const img = pageImages[i];
-      const { naturalWidth: width, naturalHeight: height } = img;
-      if (!width || !height || width > 100000 || height > 100000 || !visible(img)) continue;
-      const alt = shortText(img.alt, 160);
-      // currentSrc describes the candidate already selected by the page, including srcset.
-      const url = webUrl(img.currentSrc);
-      const key = url ? JSON.stringify([url, alt, width, height]) : null;
-      if (key && imageKeys.has(key)) continue;
-      if (images.length === allowance) { imagesTruncated = true; break; }
-      if (key) imageKeys.add(key);
-      images.push({ alt, width, height, url });
-    }
-    return { images, imagesTruncated };
-  }
-  const mainImages = readImages(document, 12, 400);
   const mainTables = readTables(document);
   const frames = [];
   let framesOmitted = false;
   let framesToScan = 24;
   const origin = location.origin;
   let frameLinksRemaining = 12;
-  const frameLinksToScan = { remaining: 400 };
+  const frameReferenceScan = { links: 400, images: 400 };
   let frameImagesRemaining = 12;
-  let frameImagesToScan = 400;
   function readFrames(doc, path) {
     const children = doc.querySelectorAll('iframe,frame');
     if (path.length === 3) {
@@ -295,20 +289,18 @@
       const body = readText(child, 8000);
       const selection = readSelection(child, child.getSelection());
       const tables = readTables(child);
-      const references = readLinks(child, Math.min(6, frameLinksRemaining), frameLinksToScan);
+      const references = readReferences(child, Math.min(6, frameLinksRemaining),
+        Math.min(6, frameImagesRemaining), frameReferenceScan);
       frameLinksRemaining -= references.links.length;
-      const imageScan = Math.min(child.images?.length ?? 0, frameImagesToScan);
-      frameImagesToScan -= imageScan;
-      const media = readImages(child, Math.min(6, frameImagesRemaining), imageScan);
-      frameImagesRemaining -= media.images.length;
+      frameImagesRemaining -= references.images.length;
       const childPath = [...path, index];
       const timeOrigin = child.defaultView?.performance?.timeOrigin;
-      const imageLocator = media.images.some(image => image.url) && Number.isFinite(timeOrigin)
+      const imageLocator = references.images.some(image => image.url) && Number.isFinite(timeOrigin)
         ? { path: childPath, timeOrigin: String(timeOrigin) } : undefined;
-      if (body.text || selection.selection || tables.tables.length || media.images.length ||
+      if (body.text || selection.selection || tables.tables.length || references.images.length ||
           references.links.length || references.linksTruncated || body.textTruncated ||
-          selection.selectionTruncated || tables.tablesTruncated || media.imagesTruncated) {
-        frames.push({ title: clip(child.title || element.title || '', 512), url, ...body, ...selection, ...tables, ...references, ...media, imageLocator });
+          selection.selectionTruncated || tables.tablesTruncated || references.imagesTruncated) {
+        frames.push({ title: clip(child.title || element.title || '', 512), url, ...body, ...selection, ...tables, ...references, imageLocator });
       }
       readFrames(child, childPath);
     }
@@ -321,5 +313,5 @@
   };
   return { title: clip(document.title, 512), url: location.href, ...mainText, ...mainSelection,
     truncated: mainText.textTruncated || mainSelection.selectionTruncated,
-    ...mainLinks, ...mainTables, metadata, ...mainImages, frames, framesOmitted };
+    ...mainReferences, ...mainTables, metadata, frames, framesOmitted };
 })()
