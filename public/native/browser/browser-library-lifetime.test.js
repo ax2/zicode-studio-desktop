@@ -40,6 +40,8 @@ async function mount({
   readUrl = async () => ({ url: tab.url }),
   readPanel = async (_name, value) => value,
   takePreview = async () => "data:image/jpeg;base64,AA==",
+  documentRevision,
+  printPage = async () => ({}),
 } = {}) {
   const invoke = vi.fn(async (command, args) => {
     if (command === "browser_get_state") return { startupMode: "browser", session: { revision: 0, activeTab: tab.id, tabs: [tab] } };
@@ -48,9 +50,10 @@ async function mount({
     }
     if (command === "browser_history") return readPanel("Browsing history", history);
     const control = args?.request;
-    if (control?.kind === "status") return { surfaceRevision: 0, tabs: [tab] };
+    if (control?.kind === "status") return { surfaceRevision: 0, tabs: [{ ...tab, documentRevision }] };
     if (control?.kind === "url") return readUrl();
     if (control?.kind === "snapshot") return takePreview();
+    if (control?.kind === "printPage") return printPage();
     if (control?.kind === "downloads") return readPanel("Downloads", downloads);
     return {};
   });
@@ -239,4 +242,46 @@ it.each(["menu", "page shortcut"])("drops the %s tab search queued before leavin
   h.open("Search tabs");
   const fresh = await waitFor(() => panel("Search tabs"));
   expect(document.activeElement).toBe(getByRole(fresh, "searchbox"));
+});
+
+it.each(["menu", "page shortcut"])("drops the %s print queued before leaving Browser", async trigger => {
+  let reply;
+  const readUrl = vi.fn().mockImplementationOnce(() => new Promise(resolve => { reply = resolve; }))
+    .mockResolvedValue({ url: tab.url });
+  const h = await mount({ documentRevision: "owned:1", readUrl });
+  const print = () => trigger === "menu" ? h.open("Print page…") : h.fromPage("print");
+  const requests = () => h.invoke.mock.calls.filter(([command, args]) =>
+    command === "browser_control" && args?.request?.kind === "printPage"
+  );
+  h.open("Bookmarks");
+  await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
+  print();
+
+  await h.leave();
+  await h.returnToBrowser();
+  reply({ url: tab.url });
+  await app.finishWindowWrites();
+  expect(requests()).toHaveLength(0);
+
+  print();
+  await waitFor(() => expect(requests()).toHaveLength(1));
+  expect(requests()[0][1].request).toMatchObject({
+    tab: tab.id, expectedUrl: tab.url, expectedDocumentRevision: "owned:1",
+  });
+});
+
+it("does not show an old print failure after leaving and returning to Browser", async () => {
+  let fail;
+  const printPage = vi.fn().mockImplementationOnce(() => new Promise((_, reject) => { fail = reject; }));
+  const h = await mount({ documentRevision: "owned:1", printPage });
+  h.open("Print page…");
+  await waitFor(() => expect(printPage).toHaveBeenCalledOnce());
+
+  await h.leave();
+  await h.returnToBrowser();
+  fail(Error("Old print request failed"));
+  await app.finishWindowWrites();
+
+  expect(document.querySelector('.browser-footer > [role="status"]').textContent)
+    .not.toContain("Old print request failed");
 });

@@ -314,13 +314,17 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       setStatus(t("Wait for the current page to finish loading"));
       return;
     }
+    const generation = panelGeneration;
+    const current = () => generation === panelGeneration && outputIsCurrent(expected);
     return act(async () => {
-      if (!outputIsCurrent(expected)) return;
+      if (!current()) return;
       await syncSurface();
       await surface.settled();
-      if (!outputIsCurrent(expected)) return;
+      if (!current()) return;
       try { await control({ kind: "printPage", ...expected }); }
-      catch (error) { report(t(String(error?.message ?? error))); }
+      catch (error) {
+        if (generation === panelGeneration) report(t(String(error?.message ?? error)));
+      }
     });
   }
   async function runPageAction(action, source) {
