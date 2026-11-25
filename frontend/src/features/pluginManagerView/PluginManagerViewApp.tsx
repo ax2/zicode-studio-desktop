@@ -35,6 +35,7 @@ type ActivationSetup = {
   phase: "loading" | "failed" | "ready";
   focusOnMount: boolean;
   recoveryReason?: "enabled" | "stale-review";
+  activationError?: { sceneRevision: string; message: string };
 };
 
 export interface DeveloperPluginPreview {
@@ -647,26 +648,41 @@ export function PluginManagerViewApp({
           focusOnMount={activeSetup.focusOnMount}
           deferred={deferred}
           busy={Boolean(busy.activation)}
+          activationError={activeSetup.activationError?.sceneRevision === selectedPlugin.activationReview.sceneRevision
+            ? activeSetup.activationError.message
+            : undefined}
           installedTools={installedTools}
           onError={(error) => notify?.(friendlyPluginError(error))}
           onClose={(origin) => closeSetup(selectedPlugin.id, origin)}
-          onDefer={() => setDeferred(true)}
+          onDefer={() => {
+            setDeferred(true);
+            setActivation(current => current === activeSetup ? { ...current, activationError: undefined } : current);
+          }}
           onResume={() => setDeferred(false)}
           onActivate={canManagePlugins && registry.activateReviewed ? (grants, setupCard) => {
             const review = selectedPlugin.activationReview;
             if (!review) return;
+            const attempt = { ...activeSetup, activationError: undefined };
+            const currentScope = () => scopeKey() === attempt.scope && pageHeading.current?.isConnected;
+            setActivation(attempt);
             void runAction("activation", async () => {
               let recoveryReason: ActivationSetup["recoveryReason"];
               try {
                 const result = await registry.activateReviewed?.(selectedPlugin.id, review, grants);
                 if (result?.settingsLoaded === false) recoveryReason = "enabled";
               } catch (error) {
-                if (!isStalePluginActivationReview(error)) throw error;
+                if (!isStalePluginActivationReview(error)) {
+                  if (currentScope()) {
+                    const activationError = { sceneRevision: review.sceneRevision, message: friendlyPluginError(error) };
+                    setActivation(current => current === attempt ? { ...current, activationError } : current);
+                  }
+                  return;
+                }
                 recoveryReason = "stale-review";
               }
-              if (!recoveryReason || scopeKey() !== activeSetup.scope || !pageHeading.current?.isConnected) return;
+              if (!recoveryReason || !currentScope()) return;
               const focusOnMount = setupCard?.contains(setupCard.ownerDocument.activeElement) === true;
-              setActivation(current => current === activeSetup ? {
+              setActivation(current => current === attempt ? {
                 ...current, phase: "failed", recoveryReason, focusOnMount,
               } : current);
             });
