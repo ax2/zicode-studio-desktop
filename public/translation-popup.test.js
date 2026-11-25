@@ -125,3 +125,39 @@ it("moves focus only when a new snapshot hides or disables the active popup cont
   expect(document.activeElement).toBe(close);
   expect(invoke.mock.calls.map(([, { request }]) => request.kind)).toEqual(Array(4).fill("snapshot"));
 });
+
+it.each(["copy", "workbench", "snapshot"])("keeps the new status after a stale %s completion", async (kind) => {
+  const markup = readFileSync("public/translation-popup.html", "utf8");
+  const fixture = new DOMParser().parseFromString(markup, "text/html");
+  document.body.replaceChildren(fixture.querySelector("main"));
+  const draft = { text: "first source", sourceLang: "English", targetLang: "Chinese", result: { translated: "first result" } };
+  let popup = { revision: 1, status: "done", message: "", draft };
+  let receive, complete, hold = false;
+  const deferred = () => new Promise((resolve, reject) => {
+    complete = kind === "copy" ? resolve : () => reject(new Error("Stale request failed"));
+  });
+  const writeText = vi.fn(deferred);
+  vi.stubGlobal("navigator", { clipboard: { writeText } });
+  const invoke = vi.fn(async (_command, { request }) => {
+    if (request.kind === "workbench" || (kind === "snapshot" && hold)) return deferred();
+    return { locale: "en", languages: ["English", "Chinese"], service: { destination: "fixture", local: true }, popup };
+  });
+  vi.stubGlobal("__TAURI__", { core: { invoke }, window: { getCurrentWindow: () => ({
+    listen: async (_event, callback) => { receive = callback; },
+  }) } });
+  await import("./translation-popup.js");
+  if (kind === "snapshot") {
+    hold = true;
+    receive();
+    hold = false;
+  } else document.getElementById(kind).click();
+  expect(typeof complete).toBe("function");
+  if (kind === "copy") expect(writeText).toHaveBeenCalledExactlyOnceWith("first result");
+  popup = { revision: 2, status: "running", message: "", draft: { ...draft, text: "second source", result: null } };
+  receive();
+  const status = document.getElementById("status");
+  await vi.waitFor(() => expect(status.textContent).toBe("Translating…"));
+  complete();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(status.textContent).toBe("Translating…");
+});
