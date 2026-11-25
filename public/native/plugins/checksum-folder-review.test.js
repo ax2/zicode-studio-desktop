@@ -73,6 +73,30 @@ it("confirms before reading a directory and checks all 64 entries through four b
   expect(document.body.textContent).toContain("Could not read file");
 });
 
+it("preserves the binary marker until the confirmed Host result is normalized for the Worker", async () => {
+  const name = "报告  原件.txt";
+  const expected = "ab".repeat(32);
+  const report = [{ name, expected, actual: expected, status: "match" }];
+  const { gateway, button } = setup(report);
+  const input = document.querySelector("textarea");
+  const manifest = `${expected.toUpperCase()} *${name}`;
+  input.value = manifest;
+  input.dispatchEvent(new Event("input"));
+  button("Choose folder to verify").click();
+  await vi.waitFor(() => expect(button("Confirm and verify folder").hidden).toBe(false));
+  expect(gateway.checksumFolders.prepare.mock.calls[0][2]).toBe(manifest);
+  expect(gateway.checksumFolders.commit).not.toHaveBeenCalled();
+  expect(gateway.invoke).not.toHaveBeenCalled();
+  button("Confirm and verify folder").click();
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Manifest review completed"));
+  expect(gateway.invoke.mock.calls[0][4]).toEqual({
+    manifest: `${expected}  ${name}`,
+    files: [{ name, sha256: expected }],
+  });
+  expect(document.querySelector("li bdi").textContent).toBe(name);
+  expect(input.value).toBe(manifest);
+});
+
 it("discards a late Host response after cancellation and sends nothing to the Worker", async () => {
   const report = [{ name: "a.txt", expected: sha, actual: sha, status: "match" }];
   const { button, gateway } = setup(report);

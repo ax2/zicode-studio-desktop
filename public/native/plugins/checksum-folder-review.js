@@ -23,7 +23,7 @@ export function validateChecksumFolder(result, manifest) {
       result.entries.length !== lines.length || lines.length > 64) throw new Error("invalid_manifest_review");
   return result.entries.map(({ name, expected, actual, status }, index) => {
     const line = lines[index];
-    if (!/^[0-9a-f]{64}  .+$/iu.test(line) || expected !== line.slice(0, 64).toLowerCase() ||
+    if (!/^[0-9a-f]{64} [ *].+$/iu.test(line) || expected !== line.slice(0, 64).toLowerCase() ||
         name !== line.slice(66) || (actual === null
           ? status !== "missing" && status !== "read_error"
           : typeof actual !== "string" || !/^[0-9a-f]{64}$/u.test(actual) || status !== (actual === expected ? "match" : "mismatch"))) {
