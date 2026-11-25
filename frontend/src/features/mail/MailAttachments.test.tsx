@@ -50,3 +50,29 @@ it.each([false, true])("reports a pending attachment and allows the same button 
   const request = { kind: "downloadAttachment", accountId: "gmail", id: "42", part: 1 };
   expect(invoke.mock.calls).toEqual([[request], [request]]);
 });
+
+it("preserves cached attachment details and resumes downloads after reconnection", async () => {
+  setLocale("en");
+  const items = [{ id: 0, name: "evidence.bin", size: 27 }];
+  const invoke = vi.fn().mockResolvedValue({ saved: false });
+  const props = { items, invoke: invoke as Invoke, message: { accountId: "gmail", id: "42" } };
+  const view = render(<MailAttachments {...props} canDownload={false} />);
+  const button = screen.getByRole("button", { name: "Download attachment evidence.bin" });
+  expect(screen.getByText("evidence.bin · 27 B")).toBeTruthy();
+  const hint = screen.getByText("Connect this mail account to download attachments.");
+  expect(button.getAttribute("aria-describedby")).toBe(hint.id);
+  expect(button.getAttribute("aria-disabled")).toBe("true");
+  button.focus();
+  fireEvent.click(button);
+  expect(document.activeElement).toBe(button);
+  expect(invoke).not.toHaveBeenCalled();
+
+  view.rerender(<MailAttachments {...props} canDownload />);
+  expect(button.hasAttribute("aria-disabled")).toBe(false);
+  expect(button.hasAttribute("aria-describedby")).toBe(false);
+  fireEvent.click(button);
+  await screen.findByText("Download canceled.");
+  expect(invoke).toHaveBeenCalledExactlyOnceWith({
+    kind: "downloadAttachment", accountId: "gmail", id: "42", part: 0,
+  });
+});

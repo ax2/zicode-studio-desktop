@@ -296,7 +296,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
         }}>{t(needsLabelRefresh ? "Refresh this Gmail label" : "Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {message&&<article aria-label={t("Selected message")}><h3 translate="no">{message.subject||t("No subject")}</h3><p translate="no">{message.from}</p>
-        {body?<><MailBody text={body.plainText} html={body.html}/><MailAttachments key={message.id} items={body.attachments} invoke={invoke} message={{accountId:id,id:message.id}}/></>:localBodyFailed ? <>
+        {body?<><MailBody text={body.plainText} html={body.html}/><MailAttachments key={message.id} items={body.attachments} invoke={invoke} message={{accountId:id,id:message.id}} canDownload={!disconnected && grant.read === true}/></>:localBodyFailed ? <>
           <p role="alert">{t("Could not access local mail data.")}</p>
           <button className="ui-button" type="button" onClick={()=>select(message,"cache")}>{t("Try again")}</button>
         </>:!busy&&<p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
