@@ -38,6 +38,7 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const explain = provider === "gmail" ? gmailError : mailError;
+  const reviewButton = useRef<HTMLButtonElement>(null);
   const active = useRef<symbol | null>(null);
   const locked = useRef(false);
   const readReceipt = useCallback(() => invoke<Receipt>({
@@ -95,7 +96,7 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
   const checking = check === "pending" || check === "retrying";
   const showRetry = outcome === "unknown" || check === "failed" || check === "retrying";
   return <section aria-label={t("Send saved draft")}>
-    {!outcome&&<button className="ui-button" type="button" disabled={!configured || check !== "ready" || busy || !draft.recipient.trim()} onClick={()=>setReview(true)}>{t("Review before sending")}</button>}
+    {!outcome&&<button className="ui-button" ref={reviewButton} type="button" disabled={!configured || check !== "ready" || busy || !draft.recipient.trim()} onClick={()=>setReview(true)}>{t("Review before sending")}</button>}
     {review&&!outcome&&<section className="mail-send-review" aria-label={t("Confirm sending email")}>
       <p>{t("Send this saved draft now?")}</p><dl>
         <dt>{t("Mail account")}</dt><dd translate="no">{address}</dd><dt>{t("Recipient")}</dt><dd translate="no">{draft.recipient}</dd>
@@ -105,11 +106,15 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
         {draft.attachments?.map(file=><li key={file.id} translate="no">{file.name} ({file.size} B)</li>)}
       </ul>}
       <button className="ui-button" type="button" disabled={!configured || check !== "ready" || busy} onClick={()=>void submit()}>{t("Confirm and send email")}</button>
-      <button className="ui-button" type="button" onClick={()=>setReview(false)}>{t("Cancel")}</button>
+      <button className="ui-button" type="button" onClick={event => {
+        setReview(false);
+        if (event.currentTarget.ownerDocument.activeElement === event.currentTarget) reviewButton.current?.focus({ preventScroll: true });
+      }}>{t("Cancel")}</button>
     </section>}
     {busy&&<p role="status">{t("Sending saved draft…")}</p>}
     {checking && <p role="status">{t("Checking local delivery status…")}</p>}
-    {showRetry && <button className="ui-button" type="button" disabled={busy || checking} onClick={() => {
+    {showRetry && <button className="ui-button" type="button" aria-disabled={busy || checking || undefined} onClick={() => {
+      if (busy || checking) return;
       setCheck("retrying");
       setAttempt(attempt + 1);
     }}>{t("Check local delivery status")}</button>}

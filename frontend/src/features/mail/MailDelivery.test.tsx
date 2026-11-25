@@ -29,6 +29,46 @@ it.each([["gmail", null], ["alibaba", { status: null }]] as const)(
   },
 );
 
+it.each(["gmail", "alibaba"] as const)("returns focus to the %s review button after canceling", async provider => {
+  const invoke = vi.fn().mockResolvedValue(null);
+  show(invoke as Invoke, provider);
+  const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
+  await waitFor(() => expect(review.disabled).toBe(false));
+  fireEvent.click(review);
+  const cancel = screen.getByRole("button", { name: "Cancel" });
+  cancel.focus();
+  fireEvent.click(cancel);
+  expect(screen.queryByRole("region", { name: "Confirm sending email" })).toBeNull();
+  expect(document.activeElement).toBe(review);
+  expect(invoke.mock.calls).toEqual([[receipt]]);
+});
+
+it.each(["gmail", "alibaba"] as const)("keeps the %s local receipt retry focused through another failure", async provider => {
+  let fail!: (error: Error) => void;
+  const pending = new Promise((_, reject) => { fail = reject; });
+  const invoke = vi.fn().mockRejectedValueOnce(Error("local record is busy"))
+    .mockReturnValueOnce(pending).mockResolvedValueOnce(null);
+  show(invoke as Invoke, provider);
+  await screen.findByRole("alert");
+  const check = screen.getByRole("button", { name: "Check local delivery status" });
+  check.focus();
+  fireEvent.click(check);
+  await screen.findByText("Checking local delivery status…");
+  expect(check.getAttribute("aria-disabled")).toBe("true");
+  expect(check.matches(":disabled")).toBe(false);
+  expect(document.activeElement).toBe(check);
+  fireEvent.click(check);
+  expect(invoke.mock.calls).toEqual([[receipt], [receipt]]);
+  fail(Error("local record is still busy"));
+  await screen.findByRole("alert");
+  expect(check.hasAttribute("aria-disabled")).toBe(false);
+  expect(document.activeElement).toBe(check);
+  fireEvent.click(check);
+  const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
+  await waitFor(() => expect(review.disabled).toBe(false));
+  expect(invoke.mock.calls).toEqual([[receipt], [receipt], [receipt]]);
+});
+
 it("keeps an ambiguous Gmail send locked when the journal is empty and only rereads it on request", async () => {
   const replies = [null, null, null, { status: "accepted" }];
   const invoke = vi.fn(async (request: Record<string, unknown>) => {
