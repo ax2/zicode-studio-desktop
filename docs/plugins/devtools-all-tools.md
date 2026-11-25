@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：运行表格管线并保存 CSV
+
+`pipeline` 的本机配方执行范围已接入。选择并确认一份原生 JSON 配方和一份 UTF-8 表格，可复用原生操作生成带公式保护的新 CSV。隔离 Windows Studio 已验证反序文件角色、两份原件保护、保存和重启。[范围与冻结候选](../iterations/2026-11-26-table-pipeline.md)
+
 ## 2026-11-26 开发补充：从文本创建静态知识索引
 
 `rag-index` 的单份 TXT 创建范围已接入。确认共享 UTF-8 TXT 后可创建新的静态 SQLite 索引，并单独授权给关键词检索工具。隔离 Windows Studio 已验证保存、撤权和重启后在同一份索引完成英文 BM25 与中文匹配。[范围与冻结候选](../iterations/2026-11-26-knowledge-index-build.md)
