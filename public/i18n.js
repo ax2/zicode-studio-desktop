@@ -1251,6 +1251,7 @@ const zhCN = {
     "清除截至目前的所有访问记录（包括当前搜索结果以外的记录）？书签、标签页和网站数据会保留。",
   "Confirm clear history": "确认清空历史",
   "Browsing history cleared": "浏览历史已清空",
+  "History visit removed": "已移除这条浏览记录",
   "Refresh history": "刷新历史",
   "No browsing history found": "没有找到浏览记录",
   "Open in background tab": "在后台标签页中打开",
