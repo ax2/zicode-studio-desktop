@@ -131,12 +131,16 @@ export function PluginManagerViewApp({
   const [deferred, setDeferred] = useState(false);
   const pageHeading = useRef<HTMLElement>(null);
   const catalogSearch = useRef<HTMLInputElement>(null);
+  const packageReview = useRef<HTMLElement>(null);
+  const packageLauncher = useRef<HTMLButtonElement>(null);
   const recoveryCard = useRef<HTMLElement>(null);
   const retryAction = useRef<HTMLButtonElement>(null);
   const refreshRequest = useRef<ActivationSetup | null>(null);
   const activeSetup = activation?.scope === scopeKey() ? activation : null;
   const installBusy = Boolean(busy["preview-local"] || busy["preview-signed"] || busy["install-local"] ||
     busy["install-signed"] || activeSetup?.phase === "loading");
+  const pickingLocal = Boolean(busy["preview-local"] && !developerPreview);
+  const pickingSigned = Boolean(busy["preview-signed"] && !signedPreview);
   const selectedPlugin = activeSetup?.phase === "ready"
     ? registry.list().find((plugin) => plugin.id === activeSetup.receipt.pluginId &&
       plugin.activationReview?.packageRevision === activeSetup.receipt.packageRevision)
@@ -229,9 +233,9 @@ export function PluginManagerViewApp({
     }
   };
 
-  function selectPackage(kind: "local" | "signed", keepPreview = false) {
+  function selectPackage(kind: "local" | "signed", origin?: HTMLButtonElement) {
     if (installBusy || busy.activation) return;
-    if (!keepPreview) {
+    if (origin) {
       setDeveloperPreview(null);
       setSignedPreview(null);
       setStalePreview(null);
@@ -239,17 +243,48 @@ export function PluginManagerViewApp({
     const scope = scopeKey();
     void runAction(`preview-${kind}`, async () => {
       const current = () => scopeKey() === scope && pageHeading.current?.isConnected;
-      if (kind === "local") {
-        const preview = await selectDeveloperPlugin?.();
-        if (!preview || !current()) return;
-        setDeveloperPreview(preview);
-      } else {
-        const preview = await selectSignedPlugin?.();
-        if (!preview || !current()) return;
-        setSignedPreview(preview);
+      const owner = origin?.ownerDocument;
+      let ownsFocus = Boolean(origin && owner?.activeElement === origin);
+      const loseFocus = (event: Event) => {
+        if (event.target !== origin) ownsFocus = false;
+      };
+      if (ownsFocus && owner) {
+        owner.addEventListener("focusin", loseFocus);
+        owner.addEventListener("pointerdown", loseFocus, true);
       }
-      setStalePreview(null);
+      const canRestore = () => ownsFocus && owner &&
+        (owner.activeElement === origin || owner.activeElement === owner.body);
+      try {
+        if (kind === "local") {
+          const preview = await selectDeveloperPlugin?.();
+          if (preview && current()) showReview(() => setDeveloperPreview(preview));
+        } else {
+          const preview = await selectSignedPlugin?.();
+          if (preview && current()) showReview(() => setSignedPreview(preview));
+        }
+      } finally {
+        owner?.removeEventListener("focusin", loseFocus);
+        owner?.removeEventListener("pointerdown", loseFocus, true);
+        if (current() && canRestore() && owner && owner.activeElement === owner.body) origin?.focus();
+      }
+      function showReview(show: () => void) {
+        if (origin) packageLauncher.current = origin;
+        const accept = () => { show(); setStalePreview(null); };
+        if (!canRestore()) {
+          accept();
+          return;
+        }
+        flushSync(accept);
+        if (canRestore()) packageReview.current?.focus();
+      }
     });
+  }
+
+  function cancelPackageReview(clear: () => void) {
+    const review = packageReview.current;
+    if (review?.contains(review.ownerDocument.activeElement)) packageLauncher.current?.focus();
+    packageLauncher.current = null;
+    clear();
   }
 
   async function installReviewedPackage(
@@ -478,25 +513,27 @@ export function PluginManagerViewApp({
         <ActionButton
           label={t("Install local plugin")}
           variant="ui-button--primary"
-          disabled={!canManagePlugins || installBusy || Boolean(busy.activation) || typeof selectDeveloperPlugin !== "function" || typeof installDeveloperPlugin !== "function"}
+          disabled={!canManagePlugins || (installBusy && !pickingLocal) || Boolean(busy.activation) || typeof selectDeveloperPlugin !== "function" || typeof installDeveloperPlugin !== "function"}
           title={
             typeof selectDeveloperPlugin !== "function" || typeof installDeveloperPlugin !== "function"
               ? t("Local plugin installation is available in the desktop application.")
               : undefined
           }
-          busy={Boolean(busy["preview-local"])}
-          onClick={() => selectPackage("local")}
+          aria-busy={pickingLocal || undefined}
+          aria-disabled={pickingLocal || undefined}
+          onClick={(event) => selectPackage("local", event.currentTarget)}
         />
         <ActionButton
           label={t("Install signed package")}
           variant="ui-button--secondary"
           disabled={
-            !canManagePlugins || installBusy || Boolean(busy.activation) ||
+            !canManagePlugins || (installBusy && !pickingSigned) || Boolean(busy.activation) ||
             typeof selectSignedPlugin !== "function" ||
             typeof installSignedPlugin !== "function"
           }
-          busy={Boolean(busy["preview-signed"])}
-          onClick={() => selectPackage("signed")}
+          aria-busy={pickingSigned || undefined}
+          aria-disabled={pickingSigned || undefined}
+          onClick={(event) => selectPackage("signed", event.currentTarget)}
         />
         <ActionButton
           label={t("Refresh")}
@@ -512,7 +549,7 @@ export function PluginManagerViewApp({
         />
       </div>
       {developerPreview ? (
-        <section className="ui-card plugin-manager-preview" aria-label={t("Review local plugin")}>
+        <section ref={packageReview} tabIndex={-1} className="ui-card plugin-manager-preview" aria-label={t("Review local plugin")}>
           <strong>{t("Review local plugin")}</strong>
           <p>{`${developerPreview.name} · ${developerPreview.version} · ${developerPreview.publisher}`}</p>
           <p><code>{developerPreview.pluginId}</code></p>
@@ -528,22 +565,23 @@ export function PluginManagerViewApp({
               aria-busy={installBusy || undefined}
               onClick={() => {
                 if (installBusy) return;
-                if (stalePreview === developerPreview) return selectPackage("local", true);
+                if (stalePreview === developerPreview) return selectPackage("local");
                 void runAction("install-local", () => installReviewedPackage(developerPreview, scopeKey(),
                   async () => installDeveloperPlugin?.(developerPreview.sourcePath, developerPreview.contentSha256),
                   () => setDeveloperPreview(null)));
               }}
             />
-            <ActionButton label={t("Cancel")} disabled={installBusy} onClick={() => setDeveloperPreview(null)} />
+            <ActionButton label={t("Cancel")} disabled={installBusy} onClick={() => cancelPackageReview(() => setDeveloperPreview(null))} />
           </div>
         </section>
       ) : null}
       {signedPreview ? (
         <SignedPluginPreviewCard
+          cardRef={packageReview}
           preview={signedPreview}
           busy={installBusy}
-          onCancel={() => setSignedPreview(null)}
-          onReselect={stalePreview === signedPreview ? () => selectPackage("signed", true) : undefined}
+          onCancel={() => cancelPackageReview(() => setSignedPreview(null))}
+          onReselect={stalePreview === signedPreview ? () => selectPackage("signed") : undefined}
           onInstall={() => {
             void runAction("install-signed", async () => {
               const scope = scopeKey();
