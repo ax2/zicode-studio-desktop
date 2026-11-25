@@ -394,6 +394,7 @@ function Workspace({
               request={request}
               library={library}
               libraryId={config.libraryId}
+              reviewOutput={isGame}
             />
           )}
           <OutfitTaskHistory request={request} onOpen={setJob} />

@@ -3,6 +3,7 @@ import { t } from "../../shared/i18n";
 import { GenerationSummary } from "./GenerationFields";
 import { imageWorkflowLabel } from "./generation-types";
 import { type LibraryRequest, OutfitImagePreview } from "./OutfitImagePicker";
+import { type ImageSpecifications, OutputSpecifications } from "./OutputSpecifications";
 import { type ImageUsage, OutfitUsage } from "./OutfitUsage";
 import { type CreationRequest, type OutfitPlan, outfitError } from "./outfit-types";
 import { StyleSummary } from "./StyleFields";
@@ -16,20 +17,23 @@ type Job = {
   usage?: ImageUsage;
 };
 type Status = { job: Job | null; active: boolean; archived: { assetId: number } | null };
+type Preview = { base64: string; sha256: string; specifications?: ImageSpecifications | null };
 const statusBusyDelays = [250, 500, 1000];
 export function OutfitTask({
   id,
   request,
   library,
   libraryId,
+  reviewOutput = false,
 }: {
   id: string;
   request: CreationRequest;
   library: LibraryRequest;
   libraryId: string;
+  reviewOutput?: boolean;
 }) {
   const [status, setStatus] = useState<Status>();
-  const [preview, setPreview] = useState<{ base64: string; sha256: string }>();
+  const [preview, setPreview] = useState<Preview>();
   const [loadedDigest, setLoadedDigest] = useState("");
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
@@ -60,11 +64,12 @@ export function OutfitTask({
       setStatus(next);
       try {
         if (next.job?.state === "ready" && !next.archived) {
-          const result = (await request({ kind: "preview", id })) as {
-            mimeType: string;
-            base64: string;
-            sha256: string;
-          };
+          const inspect = reviewOutput && Boolean(next.job.plan.input.generation);
+          const result = (await request({
+            kind: "preview",
+            id,
+            ...(inspect ? { inspect: true } : {}),
+          })) as Preview & { mimeType: string };
           if (current && result.mimeType === "image/png" && result.base64.length <= 700_000)
             setPreview(result);
         }
@@ -79,7 +84,7 @@ export function OutfitTask({
       current = false;
       clearTimeout(timer);
     };
-  }, [request, id, revision]);
+  }, [request, id, revision, reviewOutput]);
   async function cancel() {
     setBusy(true);
     try {
@@ -219,6 +224,9 @@ export function OutfitTask({
             )}
           </figure>
         </div>
+      )}
+      {reviewOutput && plan?.input.generation && preview && loadedDigest === preview.sha256 && !archived && (
+        <OutputSpecifications original={preview.specifications} requested={plan.input.generation.options} />
       )}
       {archived ? (
         <p role="status">

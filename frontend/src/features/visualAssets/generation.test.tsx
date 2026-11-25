@@ -4,6 +4,7 @@ import { CreationSource } from "./CreationSource";
 import { basicCapabilities, type ImageCapabilities } from "./generation-types";
 import { OutfitWorkspace } from "./OutfitWorkspace";
 import type { ImageSettings, OutfitInput, OutfitPlan } from "./outfit-types";
+import type { ImageSpecifications } from "./OutputSpecifications";
 import { type Invoke, VisualAssetsApp } from "./VisualAssetsApp";
 
 vi.mock("../../shared/i18n", () => ({ t: (value: string) => value }));
@@ -28,7 +29,12 @@ const settings: ImageSettings = {
   size: "auto",
   quality: "low",
 };
-function host(caps = capabilities, ready = false, statusError?: () => string | undefined) {
+function host(
+  caps = capabilities,
+  ready = false,
+  statusError?: () => string | undefined,
+  specifications?: ImageSpecifications | null,
+) {
   const actions: Record<string, unknown>[] = [];
   const libraryActions: string[] = [];
   let plan: OutfitPlan;
@@ -84,7 +90,10 @@ function host(caps = capabilities, ready = false, statusError?: () => string | u
       };
     }
     if (action.kind === "preview")
-      return { mimeType: "image/png", base64: "aW1hZ2U=", sha256: "result" };
+      return {
+        mimeType: "image/png", base64: "aW1hZ2U=", sha256: "result",
+        ...(action.inspect ? { specifications } : {}),
+      };
     if (action.kind === "approve") return { assetId: 8 };
     throw new Error(`unexpected ${action.kind}`);
   });
@@ -279,6 +288,47 @@ it("opens a game asset template, reviews the edited brief, and saves only after 
   await screen.findByText("Generated image saved to the library.");
   expect(h.actions.filter(({ kind }) => kind === "approve")).toEqual([
     { kind: "approve", id: submission.id, sha256: "result" },
+  ]);
+});
+
+it.each([
+  { name: "matching", format: "png", width: 1024, height: 1024, hasTransparency: true },
+  { name: "mismatched", format: "jpeg", width: 512, height: 384, hasTransparency: false },
+  { name: "unknown", format: null, width: 0, height: 0, hasTransparency: false },
+] as const)("shows $name game asset specifications before separate approval", async (specimen) => {
+  const { format, width, height, hasTransparency } = specimen;
+  const h = host(capabilities, true, undefined, format ? { format, width, height, hasTransparency } : null);
+  render(<OutfitWorkspace invoke={h.invoke} workspaceId="workspace" workflow="game" />);
+  fireEvent.change(screen.getByLabelText("Game asset template"), { target: { value: "icon" } });
+  fireEvent.change(await screen.findByLabelText("Image size"), { target: { value: "1024x1024" } });
+  fireEvent.change(screen.getByLabelText("Image background"), { target: { value: "transparent" } });
+  await review();
+  expect(screen.queryByText("Original image size")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Confirm and generate image" }));
+  const approve = await screen.findByRole<HTMLButtonElement>("button", { name: "Approve and save generated image" });
+  expect(approve.disabled).toBe(true);
+  const [submitted] = h.actions.filter(({ kind }) => kind === "submit");
+  expect(h.actions.filter(({ kind }) => kind === "preview")).toEqual([
+    { kind: "preview", id: submitted.id, inspect: true },
+  ]);
+  fireEvent.load(screen.getByRole("img", { name: "Generated image" }));
+  expect(approve.disabled).toBe(false);
+  if (format) {
+    const actual = screen.getByLabelText("Actual image output");
+    expect(within(actual).getByText(`${width} × ${height} px`)).toBeTruthy();
+    expect(within(actual).getByText(format.toUpperCase())).toBeTruthy();
+    expect(within(actual).getByText(hasTransparency ? "Contains transparent or translucent pixels" : "All pixels are opaque")).toBeTruthy();
+  } else {
+    expect(screen.getByText("Original image specifications could not be read.")).toBeTruthy();
+  }
+  const mismatch = specimen.name === "mismatched";
+  expect(Boolean(screen.queryByText("Actual dimensions differ from the requested size."))).toBe(mismatch);
+  expect(Boolean(screen.queryByText("Actual transparency differs from the requested background."))).toBe(mismatch);
+  expect(h.actions.some(({ kind }) => kind === "approve")).toBe(false);
+  fireEvent.click(approve);
+  await screen.findByText("Generated image saved to the library.");
+  expect(h.actions.filter(({ kind }) => kind === "approve")).toEqual([
+    { kind: "approve", id: submitted.id, sha256: "result" },
   ]);
 });
 
