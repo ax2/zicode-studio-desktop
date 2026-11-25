@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.knowledge-index-build",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "rag-index",
+      "capabilityId": "devtools.knowledge.index.snapshot.create",
+      "title": "从文本创建静态知识索引",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "从已确认的一份 UTF-8 TXT 创建可离线检索的新 SQLite 知识索引，文件需另行确认保存。"
+    }
+  ]
+}
