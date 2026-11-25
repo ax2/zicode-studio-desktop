@@ -833,10 +833,16 @@ it("sends only the reviewed comparison to the configured browser model and keeps
   ]);
   expect(context.sources).toHaveLength(2);
   expect(request.prompt).not.toContain("Different live contents");
-  expect(within(getByRole(host, "list", { name: "Comparison sources" })).getAllByRole("listitem").map(node => node.textContent)).toEqual([
-    "Manual · https://example.org/manual", "Chosen page · https://example.invalid/chosen",
-  ]);
   expect(document.activeElement).toBe(answer);
+  const toggle = getByRole(host, "button", { name: "Compare open tabs" });
+  toggle.focus();
+  toggle.click();
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).toBe(toggle);
+  expect(queryByRole(host, "group", { name: "Compare open tabs" })).toBeNull();
+  expect(within(getByRole(host, "list", { name: "Comparison sources" })).getAllByRole("listitem").map(node => node.textContent)).toEqual([
+    "Manual · https://example.org/manual", "Chosen page · https://example.invalid/chosen · Page content was shortened",
+  ]);
 
   getByRole(host, "button", { name: "Save analysis to Artifacts" }).click();
   await waitFor(() => getByRole(host, "button", { name: "Open saved artifact" }));
@@ -863,7 +869,7 @@ it("sends only the reviewed comparison to the configured browser model and keeps
   expect(readTabs()).toEqual(["source", "chosen", "source", "chosen"]);
 });
 
-it("uses the reviewed selection scope independently for each comparison source", async () => {
+it.each([false, true])("uses the reviewed selection scope independently for each comparison source (shortened: %s)", async selectionTruncated => {
   const modelGateway = comparisonGateway();
   const handoff = vi.fn(), writes = new Map();
   vi.stubGlobal("fetch", vi.fn(async (url, options) => {
@@ -876,7 +882,7 @@ it("uses the reviewed selection scope independently for each comparison source",
   }));
   const capturePage = source => source.tab === "chosen" ? { ...source, page: {
     ...source.page, text: "Peer full-page material", textTruncated: true,
-    selection: "Peer reviewed selection", selectionTruncated: false,
+    selection: "Peer reviewed selection", selectionTruncated,
   } } : source;
   const { host, panel } = await openControlledComparison({ handoff, capturePage, target: browserComparisonSession, modelGateway });
   panel.getByRole("button", { name: "Read selected tabs" }).click();
@@ -891,14 +897,17 @@ it("uses the reviewed selection scope independently for each comparison source",
   expect(modelRequests(modelGateway)).toHaveLength(0);
   send.click();
   await waitFor(() => getByRole(host, "textbox", { name: "Browser model answer" }));
-  expect(within(getByRole(host, "list", { name: "Comparison sources" })).getAllByRole("listitem")[1].textContent)
-    .toContain("Selected text");
+  const list = within(getByRole(host, "list", { name: "Comparison sources" }));
+  const [primary, peer] = list.getAllByRole("listitem");
+  expect(primary.textContent).toBe("Manual · https://example.org/manual");
+  const suffix = selectionTruncated ? " · Selected text was shortened" : "";
+  expect(peer.textContent).toBe("Chosen page · https://example.invalid/chosen · Selected text" + suffix);
   const [, request] = modelRequests(modelGateway)[0];
   expect(request.prompt).not.toContain("Peer full-page material");
   const { sources } = JSON.parse(request.prompt.slice(request.prompt.indexOf("{\n")));
   expect(sources[0]).toMatchObject({ text: capture.page.text, citation: "[1]" });
   expect(sources[1]).toMatchObject({ selection: "Peer reviewed selection", selectionOnly: true,
-    selectionTruncated: false, truncated: false, citation: "[2]", url: "https://example.invalid/chosen" });
+    selectionTruncated, truncated: selectionTruncated, citation: "[2]", url: "https://example.invalid/chosen" });
   expect(sources[1]).not.toHaveProperty("text");
   expect(sources[1]).not.toHaveProperty("textTruncated");
 
@@ -912,7 +921,7 @@ it("uses the reviewed selection scope independently for each comparison source",
   await waitFor(() => getByRole(host, "button", { name: "Open saved note" }));
   const artifact = writes.get("/v2/artifacts/create");
   expect(artifact.provenance.sources[0]).not.toHaveProperty("selectionOnly");
-  expect(artifact.provenance.sources[1]).toMatchObject({ selectionOnly: true, selectionTruncated: false });
+  expect(artifact.provenance.sources[1]).toMatchObject({ selectionOnly: true, selectionTruncated });
   expect(artifact.provenance.sources[1]).not.toHaveProperty("textTruncated");
   expect(artifact.content).not.toContain("Page content was shortened");
   expect(writes.get("/v2/notes/create").content).not.toContain("Page content was shortened");
