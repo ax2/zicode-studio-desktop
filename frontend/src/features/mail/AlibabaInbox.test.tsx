@@ -95,6 +95,42 @@ it("saves client credentials explicitly and hides provider actions for a Gmail d
   expect(gmail.kinds()).toHaveLength(0);expect(screen.queryByRole("button",{name:"Refresh from server"})).toBeNull();
 });
 
+it.each([true, false])("retries credential status without losing cached mail (credentials enabled: %s)", async enabled => {
+  const a = setup("alibaba", false);
+  const backend = a.remote.getMockImplementation();
+  let credentialChecks = 0;
+  a.remote.mockImplementation(request => {
+    if (request.kind === "credentialStatus") {
+      if (++credentialChecks <= 2) return Promise.reject(Error("mail_vault_unavailable"));
+      return Promise.resolve({ enabled, configured: false });
+    }
+    if (request.kind === "cachedBody") return Promise.resolve({ summary, text: "Saved offline body" });
+    return backend?.(request) ?? Promise.reject(Error("Missing fixture"));
+  });
+  const failure = "Windows credential storage is unavailable.";
+  await screen.findByText(failure);
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Saved offline body");
+  expect(screen.getByText(failure)).toBeTruthy();
+  expect(screen.queryByText("System credentials are disabled in this profile.")).toBeNull();
+  expect(screen.getByLabelText("Client password").matches(":disabled")).toBe(true);
+  expect(button("Refresh from server").matches(":disabled")).toBe(true);
+
+  const before = a.kinds().length;
+  fireEvent.click(button("Retry"));
+  await waitFor(() => expect(button("Retry").matches(":disabled")).toBe(false));
+  expect(screen.getByText("Saved offline body")).toBeTruthy();
+  expect(screen.getByText(failure)).toBeTruthy();
+  fireEvent.click(button("Retry"));
+  await waitFor(() => expect(screen.queryByText(failure)).toBeNull());
+  expect(screen.getByText("Saved offline body")).toBeTruthy();
+  expect(screen.getByLabelText("Client password").matches(":disabled")).toBe(!enabled);
+  expect(Boolean(screen.queryByText("System credentials are disabled in this profile."))).toBe(!enabled);
+  expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  expect(button("Refresh from server").matches(":disabled")).toBe(true);
+  expect(a.kinds().slice(before)).toEqual(["credentialStatus", "credentialStatus"]);
+});
+
 it("reads a cached body from the same IMAP folder and epoch after an inbox refresh", async () => {
   const a = setup("alibaba", true, 0, "Saved Archive body");
   const folder = await screen.findByLabelText("IMAP folder");
