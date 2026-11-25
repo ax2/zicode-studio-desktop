@@ -209,6 +209,52 @@ it.each([
   expect(api.invoke).not.toHaveBeenCalled();
 });
 
+it("undoes only the imported JSON when the user has edited its independent query", async () => {
+  const { api, form, document, query, importFile, submit } = await mountJsonPath();
+  const oldDocument = '{"open":9,"closed":15}';
+  const selection = new NodeFile(['\uFEFF{"open":1,"closed":2}'], "selected.json");
+  fireEvent.change(document, { target: { value: oldDocument } });
+  fireEvent.change(query, { target: { value: "$.open" } });
+  await importFile([selection]);
+  fireEvent.change(query, { target: { value: "$.closed" } });
+  await act(async () => { form.getByRole("button", { name: "撤销上次导入" }).click(); });
+  expect(document.value).toBe(oldDocument);
+  expect(query.value).toBe("$.closed");
+  expect(api.invoke).not.toHaveBeenCalled();
+  expect(Buffer.from(await selection.arrayBuffer())).toEqual(Buffer.from('\uFEFF{"open":1,"closed":2}'));
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text: oldDocument, query: "$.closed" });
+});
+
+it("preserves only the latest JSON import undo and invalidates it on a JSON edit or catalog reload", async () => {
+  const { api, form, document, query, importFile, renderScope } = await mountJsonPath();
+  const undoLabel = { name: "撤销上次导入" };
+  const first = '{"a":1}';
+  const second = new NodeFile(['{"b":2}'], "second.json");
+  fireEvent.change(document, { target: { value: '{"before":true}' } });
+  await importFile([new NodeFile([first], "first.json")]);
+  fireEvent.change(query, { target: { value: "$.a" } });
+  await importFile([second]);
+  fireEvent.change(query, { target: { value: "$.b" } });
+  await act(async () => { form.getByRole("button", undoLabel).click(); });
+  expect(document.value).toBe(first);
+  expect(query.value).toBe("$.b");
+
+  await importFile([second]);
+  fireEvent.change(document, { target: { value: '{"edited":true}' } });
+  expect(form.queryByRole("button", undoLabel)).toBeNull();
+  await importFile([second]);
+  fireEvent.change(query, { target: { value: "$.reloaded" } });
+  expect(form.getByRole("button", undoLabel)).toBeTruthy();
+
+  await renderScope("workspace", jsonPathTool, "refreshed-revision");
+  expect(form.queryByRole("button", undoLabel)).toBeNull();
+  const refreshedQuery = form.getByRole("textbox", { name: /query/i });
+  fireEvent.change(refreshedQuery, { target: { value: "$.afterReload" } });
+  expect(form.queryByRole("button", undoLabel)).toBeNull();
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
 it("accepts exactly 8 KiB as the JSON query draft", async () => {
   const { document, importFile } = await mountJsonPath();
   const content = "{}" + " ".repeat(8190);
