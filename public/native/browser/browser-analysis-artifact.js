@@ -37,6 +37,7 @@ export function browserAnalysisArtifact(capture, analysis) {
     details.push(`${t("Source text")}: ${t("Selected text")}`);
     if (capture.page.selectionTruncated) details.push(t("Selected text was shortened"));
   }
+  if (source.textTruncated) details.push(t("Page content was shortened"));
   if (analysis.translation) {
     details.push(`${t("Document revision")}: ${source.documentRevision}`,
       ...browserTranslationDetails(analysis.translation).map(([label, value]) => `${t(label)}: ${value}`));
