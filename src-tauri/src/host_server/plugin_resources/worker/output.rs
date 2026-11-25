@@ -92,6 +92,13 @@ pub(super) fn register(
         return Err(rejected("result_too_large"));
     }
     validate_result(capability, &bundle.result)?;
+    if profiles.output == crate::plugin_worker::resource_output::Profile::ShortcutProfile1 {
+        use crate::plugin_resource_execution::shortcut_profile;
+        if !shortcut_profile::matches_capability(&request.access.owner.plugin_id, Some(&request.access.owner.capability_id)) {
+            return Err(rejected("invalid_output"));
+        }
+        shortcut_profile::validate_output(&bundle, profiles.source_bytes, &request.input).map_err(rejected)?;
+    }
     if profiles.output == crate::plugin_worker::resource_output::Profile::JsonCompare1 {
         let validate = if crate::plugin_resource_execution::json_transform::selected(capability.execution_profile.as_deref()) {
             crate::plugin_resource_execution::json_transform::validate_output

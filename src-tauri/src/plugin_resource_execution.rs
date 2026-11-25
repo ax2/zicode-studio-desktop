@@ -9,6 +9,8 @@ pub(crate) mod file_digest;
 pub(crate) mod json_compare;
 #[path = "plugin_resource_json_transform.rs"]
 pub(crate) mod json_transform;
+#[path = "plugin_resource_shortcut_profile.rs"]
+pub(crate) mod shortcut_profile;
 #[path = "plugin_resource_markdown.rs"]
 pub(crate) mod markdown;
 #[path = "plugin_resource_image_metadata.rs"]

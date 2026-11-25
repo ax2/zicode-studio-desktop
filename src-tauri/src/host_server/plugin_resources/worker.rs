@@ -424,8 +424,10 @@ fn execute(
         let markdown_profile = crate::plugin_resource_execution::markdown::selected(capability.execution_profile.as_deref());
         let digest_profile = crate::plugin_resource_execution::file_digest::selected(capability.execution_profile.as_deref());
         let encoding_profile = crate::plugin_resource_execution::encoding::operation(capability.execution_profile.as_deref());
+        use crate::plugin_resource_execution::shortcut_profile;
+        let shortcut_profile_selected = shortcut_profile::selected(capability.execution_profile.as_deref());
         let json_compare_profile = crate::plugin_resource_execution::json_file_selected(capability.execution_profile.as_deref());
-        if capability.execution_profile.is_some() && !image_processing_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !json_compare_profile && encoding_profile.is_none()
+        if capability.execution_profile.is_some() && !image_processing_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !json_compare_profile && !shortcut_profile_selected && encoding_profile.is_none()
         {
             return Err(rejected("resource_execution_profile_unsupported"));
         }
@@ -434,6 +436,12 @@ fn execute(
         }
         if json_compare_profile && crate::plugin_resource_execution::json_file_input_count(capability.execution_profile.as_deref(), &owner.plugin_id, Some(&owner.capability_id)) != Some(request.accesses().count()) {
             return Err(rejected("resource_profile_unsupported"));
+        }
+        if shortcut_profile_selected {
+            if !shortcut_profile::matches_capability(&owner.plugin_id, Some(&owner.capability_id)) || request.accesses().count() != 2 {
+                return Err(rejected("resource_profile_unsupported"));
+            }
+            shortcut_profile::validate_parameters(&request.input).map_err(rejected)?;
         }
         // Negotiated heavy profiles share the same global memory reservation pool.
         let profile_lease = if image_processing_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
@@ -513,6 +521,11 @@ fn execute(
     let json_compare_profile = crate::plugin_resource_execution::json_file_selected(output_contract.execution_profile.as_deref());
     if json_compare_profile && resources.iter().any(|resource| resource.bytes.len() > crate::plugin_resource_execution::json_compare::MAX_FILE) {
         return Err(rejected("resource_input_too_large"));
+    }
+    use crate::plugin_resource_execution::shortcut_profile;
+    if shortcut_profile::selected(output_contract.execution_profile.as_deref()) {
+        shortcut_profile::validate_inputs(&owner.plugin_id, Some(&owner.capability_id),
+            resources.iter().map(|resource| (resource.descriptor.mime_type.as_str(), resource.bytes.len()))).map_err(rejected)?;
     }
     if let Some(encoding) = encoding_profile {
         encoding.validate_input(&owner.plugin_id, Some(&owner.capability_id),
