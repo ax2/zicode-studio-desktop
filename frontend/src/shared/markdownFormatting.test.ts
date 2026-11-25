@@ -47,6 +47,20 @@ describe("markdown formatting helpers", () => {
     expect(edit.selection).toEqual({ start: 11, end: 14 });
   });
 
+  it.each(["curl download", "📎 文档 url 和 URL", "url url", ""])(
+    "selects only the link destination with the label %j",
+    (label) => {
+      const before = "See ";
+      const after = " next";
+      const edit = insertMarkdownLink(before + label + after, before.length, before.length + label.length);
+      expect(edit.next).toBe(before + "[" + label + "](url)" + after);
+      expect(edit.selection?.start).toBe(before.length + label.length + 3);
+      expect(edit.selection?.end).toBe(edit.cursor + 3);
+      const replaced = edit.next.slice(0, edit.selection?.start) + "https://example.test/" + edit.next.slice(edit.selection?.end);
+      expect(replaced).toBe(before + "[" + label + "](https://example.test/)" + after);
+    },
+  );
+
   it("converts CSV text into a Markdown table", () => {
     const table = csvToMarkdownTable("name,age\nAlice,30\nBob,25");
     expect(table).toBe(

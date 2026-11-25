@@ -75,9 +75,9 @@ export function insertMarkdownLink(
   end: number,
 ): MarkdownEdit {
   const selected = value.slice(start, end);
-  const insertion = selected ? `[${selected}](url)` : "[](url)";
-  const next = `${value.slice(0, start)}${insertion}${value.slice(end)}`;
-  const cursor = start + insertion.indexOf("url");
+  const prefix = `[${selected}](`;
+  const next = `${value.slice(0, start)}${prefix}url)${value.slice(end)}`;
+  const cursor = start + prefix.length;
   return {
     next,
     cursor,
