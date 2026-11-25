@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.integration-entries",
+  "packageVersion": "0.1.0",
+  "signatureVerified": false,
+  "directoryIndexSha256": "cd96407efe58e321e4e77c9dd6c360f0ea4caf9419e93de936372bbf8d61e4a6",
+  "files": [
+    {
+      "path": "catalog.json",
+      "size": 587,
+      "sha256": "63b35bde84b4d96dcfe715289bc10c3befa62c0baed9e8f8faf8ff0459b88033"
+    },
+    {
+      "path": "fixtures.json",
+      "size": 7200,
+      "sha256": "3741893d7a30f5f2543d513c815d50338c5d85992c5f68bb7c29786762110efa"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 56,
+      "sha256": "841a79980efce756b5b04d1a1536e8657ebed1979b9f1f3f15ebb8be43e02bcb"
+    },
+    {
+      "path": "plugin.json",
+      "size": 5607,
+      "sha256": "5b41199481d27bf6a1cc0632182a959d6fa5a68c6c7154daa7c98eab53cad9a7"
+    },
+    {
+      "path": "provenance.json",
+      "size": 8228,
+      "sha256": "49cc6d0e1f4b918521f002088d28fd18ffec0b256e6389f2f82cd7b31c895d2f"
+    },
+    {
+      "path": "README.md",
+      "size": 1540,
+      "sha256": "f26fae0ae17a94b87964df930078794a20fc086f2eae5136a27190e9d96874fa"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 164506,
+      "sha256": "8b813f9af8dd16b27e07d023792a3d5cf7d9093e6c50adf549f2b7f2e56cfa08"
+    }
+  ],
+  "fileCount": 8,
+  "totalBytes": 188821,
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}
