@@ -152,6 +152,57 @@ it("recovers an expired server page by refreshing the selected label",async()=>{
   fireEvent.click(refresh);
   await screen.findByText("Refresh 2");
 });
+it("keeps reading the same Gmail message when its label refresh succeeds", async () => {
+  const updated = { ...entry, subject: "Current message after refresh" };
+  let removed = false;
+  const { calls } = fixture(async request => {
+    if (request.kind === "status") return { connected: true, read: true };
+    if (request.kind === "cachedLabels") return [{ id: "Archive", name: "Archive" }];
+    if (request.kind === "cachedPage") return { items: [entry], nextCursor: null };
+    if (request.kind === "cachedBody") return { ...entry, plainText: "Keep reading this body" };
+    if (request.kind === "list") {
+      expect(request.label).toBe("INBOX");
+      return { items: removed ? [{ ...entry, id: "other", subject: "Another message" }] : [updated], nextCursor: null };
+    }
+    throw Error("Unexpected request");
+  });
+  const inbox = within(await screen.findByRole("region", { name: "Gmail inbox" }));
+  fireEvent.click(await inbox.findByRole("button", { name: /Inbox fixture/ }));
+  await inbox.findByText("Keep reading this body");
+
+  const refresh = inbox.getByRole("button", { name: "Refresh from server" });
+  fireEvent.click(refresh);
+  const row = await inbox.findByRole("button", { name: /Current message after refresh/ });
+  expect(row.getAttribute("aria-pressed")).toBe("true");
+  const reading = within(inbox.getByRole("article", { name: "Selected message" }));
+  expect(reading.getByRole("heading", { name: updated.subject })).toBeTruthy();
+  expect(reading.getByText("Keep reading this body")).toBeTruthy();
+  expect(calls.mock.calls.filter(([request]) => request.kind === "cachedBody")).toHaveLength(1);
+
+  removed = true;
+  fireEvent.click(refresh);
+  await inbox.findByRole("button", { name: /Another message/ });
+  expect(inbox.queryByRole("article", { name: "Selected message" })).toBeNull();
+});
+
+it("clears Gmail reading when switching labels even when the message ID is shared", async () => {
+  fixture(async request => {
+    if (request.kind === "status") return { connected: false };
+    if (request.kind === "cachedLabels") return [{ id: "Archive", name: "Archive" }];
+    if (request.kind === "cachedPage") {
+      return { items: [{ ...entry, subject: request.label === "Archive" ? "Shared message in Archive" : entry.subject }], nextCursor: null };
+    }
+    if (request.kind === "cachedBody") return { ...entry, plainText: "Previous label body" };
+    throw Error("Unexpected request");
+  });
+  const inbox = within(await screen.findByRole("region", { name: "Gmail inbox" }));
+  fireEvent.click(await inbox.findByRole("button", { name: /Inbox fixture/ }));
+  await inbox.findByText("Previous label body");
+  fireEvent.change(inbox.getByLabelText("Gmail label"), { target: { value: "Archive" } });
+  await inbox.findByRole("button", { name: /Shared message in Archive/ });
+  expect(inbox.queryByRole("article", { name: "Selected message" })).toBeNull();
+});
+
 it("refreshes the selected Gmail label at the expired pagination action", async () => {
   const labelId = "Label_Work";
   const message = { ...entry, subject: "Current project mail" };
