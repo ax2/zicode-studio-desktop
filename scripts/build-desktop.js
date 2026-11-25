@@ -6,13 +6,14 @@ const { spawnSync } = require("node:child_process");
 const { withCargoBin } = require("./cargo-path");
 
 const args = process.argv.slice(2);
-if (args.some((arg) => arg !== "--local" && arg !== "--shell-only") ||
-    (args.includes("--local") && args.includes("--shell-only"))) {
-  console.error("Usage: build-desktop.js [--local | --shell-only]");
-  process.exit(1);
-}
 const local = args.includes("--local");
 const shellOnly = args.includes("--shell-only");
+const rustTimings = args.includes("--rust-timings");
+if (args.some((arg) => !["--local", "--shell-only", "--rust-timings"].includes(arg)) ||
+    (shellOnly && (local || rustTimings))) {
+  console.error("Usage: build-desktop.js [--local] [--rust-timings] | build-desktop.js --shell-only");
+  process.exit(1);
+}
 if (shellOnly && process.platform !== "win32") {
   console.error("[build-desktop] Explorer selection bridge requires Windows");
   process.exit(1);
@@ -73,6 +74,10 @@ if (local) {
 // A local no-bundle build already has the Shell DLL beside the EXE in target/debug.
 // Bundling it again tries to overwrite a file Explorer may have loaded.
 if (process.platform === "win32" && !local) buildArgs.push("--config", "src-tauri/tauri.shell.windows.conf.json");
+if (rustTimings) {
+  buildArgs.push("--", "--timings");
+  console.log("[build-desktop] Cargo timing reports:", path.join(env.CARGO_TARGET_DIR, "cargo-timings"));
+}
 const result = spawnSync(process.execPath, ["run", "tauri", "build", ...buildArgs], {
   cwd: root,
   env,
