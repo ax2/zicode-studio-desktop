@@ -11,6 +11,8 @@ use windows::{
     Win32::System::Com::IStream,
 };
 
+// The standalone debug probe has no native file picker.
+#[cfg_attr(debug_assertions, allow(dead_code))]
 const MAX_FILE_BYTES: usize = 64 * 1024 * 1024;
 pub(super) const WINDOW_BYTES: usize = 128 * 1024 * 1024;
 
@@ -20,12 +22,14 @@ unsafe extern "system" {
 }
 
 pub(crate) struct Document {
+    #[cfg_attr(debug_assertions, allow(dead_code))]
     name: String,
     url: String,
     bytes: Vec<u8>,
 }
 
 impl Document {
+    #[cfg_attr(debug_assertions, allow(dead_code))]
     pub(crate) fn read(path: &Path) -> Result<Self, String> {
         if !path
             .extension()
@@ -79,6 +83,7 @@ impl Document {
     pub(crate) fn url(&self) -> &str {
         &self.url
     }
+    #[cfg_attr(debug_assertions, allow(dead_code))]
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
