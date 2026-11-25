@@ -146,7 +146,12 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       if (!append) {
         setExpiredCursor(null);
         if (selected !== label) setLabel(selected);
-        setPage(p); setBody(null); setMessage(null);
+        setPage(p);
+        const retained = selected === label
+          ? p?.items.find(item => item.id === message?.id)
+          : undefined;
+        setMessage(retained ?? null);
+        if (!retained) setBody(null);
       }
       else if (p) {
         setPage(old => {
