@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.expression-calculator",
+  "name": "ZiDevTools Expression Calculator",
+  "displayName": "公式计算器",
+  "description": "离线计算单个公式，支持精确分数、科学和复数运算、位运算、单位换算及排列组合。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "compute.wasi.v1": "=1.0.0-rc.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.calculator.evaluate"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.calculator.evaluate",
+        "title": "公式计算器",
+        "description": "离线计算单个公式，支持精确分数、科学和复数运算、位运算、单位换算及排列组合。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "type": "string",
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "公式",
+              "description": "输入一个公式，例如 1/3+1/6、comb(52,5) 或 5 km -> m。"
+            },
+            "angle": {
+              "type": "string",
+              "enum": [
+                "radians",
+                "degrees"
+              ],
+              "default": "radians",
+              "title": "角度单位",
+              "description": "三角函数默认用弧度 radians。选 degrees 改用角度。"
+            },
+            "constants": {
+              "type": "object",
+              "maxProperties": 64,
+              "additionalProperties": true,
+              "title": "常量（可选）",
+              "description": "JSON 对象如 {\"scale\":\"3/2\",\"offset\":0.75}。字符串为精确数，JSON 数字为有限近似数。"
+            }
+          },
+          "required": [
+            "formula"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "object",
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "exact"
+                            },
+                            "numerator": {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            "denominator": {
+                              "type": "string",
+                              "maxLength": 39
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "numerator",
+                            "denominator"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "approx"
+                            },
+                            "value": {
+                              "type": "string",
+                              "maxLength": 64
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "value"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "complex"
+                            },
+                            "real": {
+                              "type": "string",
+                              "maxLength": 64
+                            },
+                            "imaginary": {
+                              "type": "string",
+                              "maxLength": 64
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "real",
+                            "imaginary"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "approximate": {
+                      "type": "boolean"
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "value",
+                    "approximate",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 1024
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 1024,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "表达式计算",
+            "科学计算",
+            "排列组合",
+            "阶乘",
+            "位运算",
+            "单位换算",
+            "Expression calculator",
+            "Combinations"
+          ],
+          "description": "离线计算单个公式，支持精确分数、科学和复数运算、位运算、单位换算及排列组合。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [],
+    "optional": []
+  }
+}
