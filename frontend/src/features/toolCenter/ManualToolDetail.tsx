@@ -268,6 +268,16 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const hexEncode = transformsTool && tool.capabilityId === "devtools.transforms.hex.encode";
   const hexDecode = transformsTool && tool.capabilityId === "devtools.transforms.hex.decode";
   const sqlFormat = textPlugin && tool.capabilityId === "devtools.text.sql.format";
+  let failureNotice: string | undefined;
+  if (sqlFormat && result?.errorCode === "INPUT_TOO_LARGE" && result.errorMessage === "结果超过 48 KiB") {
+    // The frozen Text contract also uses INPUT_TOO_LARGE for requests and input text.
+    const indentChoices = fields?.find(field => field.key === "indent")?.choices;
+    const indent = values.indent ? indentChoices?.[Number(values.indent)] : "fourSpaces";
+    const canReduceIndent = tool.version === "0.4.2" && indent === "fourSpaces" && indentChoices?.includes("twoSpaces");
+    failureNotice = canReduceIndent
+      ? t("Formatted SQL exceeds the 48 KiB output limit. Select 2 spaces for indentation and run again.")
+      : t("Formatted SQL exceeds the 48 KiB output limit.");
+  }
   const base64Encode = textPlugin && tool.capabilityId === "devtools.text.base64.encode";
   const base64Decode = textPlugin && tool.capabilityId === "devtools.text.base64.decode";
   const base64Tool = base64Encode || base64Decode;
@@ -533,6 +543,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       </div>}
     </>}
     {result !== null && <ManualToolResultView result={result} dataTransform={dataTransform} dataMerge={tableMerge}
+      failureNotice={failureNotice}
       tablePreview={dataTransform ? transformed?.preview ?? null : merged?.preview}
       actions={downloadableResult && textDownload ? <>
         <div className="ui-toolbar">

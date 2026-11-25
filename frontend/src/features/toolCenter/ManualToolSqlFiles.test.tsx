@@ -183,3 +183,55 @@ it("downloads only a fresh successful SQL response as a separate file", async ()
     expect(download).toHaveBeenCalledTimes(1);
   } finally { download.mockRestore(); }
 });
+it("explains a confirmed oversized SQL result and keeps the source available for a smaller indentation", async () => {
+  const { api, form, pick, view } = await open(newTool, optionSchema);
+  const text = "select " + "(".repeat(136) + "amount" + ")".repeat(136) + " as amount from report_rows;\r\n";
+  const input = file("report.sql", "\uFEFF" + text);
+  const submit = () => act(async () => { fireEvent.click(form.getByRole("button", { name: "Execute tool" })); });
+  const response = { contractVersion: "1.0.0-rc.1", ok: false, data: null, error: { code: "INPUT_TOO_LARGE", message: "结果超过 48 KiB" } };
+  await pick(input);
+  vi.mocked(api.invoke).mockResolvedValueOnce({ result: response });
+  await submit();
+  expect(view.getByRole("alert").textContent).toContain("Formatted SQL exceeds the 48 KiB output limit. Select 2 spaces for indentation and run again.");
+  expect(view.queryByRole("button", { name: "Download formatted SQL" })).toBeNull();
+  expect(JSON.parse((view.getByLabelText("Original response") as HTMLTextAreaElement).value)).toEqual(response);
+
+  const indentation = form.getByRole("combobox", { name: "Indentation" });
+  const twoSpaces = within(indentation).getByRole<HTMLOptionElement>("option", { name: "2 spaces" });
+  fireEvent.change(indentation, { target: { value: twoSpaces.value } });
+  expect(api.invoke).toHaveBeenCalledTimes(1);
+  expect(view.getByRole("alert").textContent).not.toContain("Select 2 spaces");
+  vi.mocked(api.invoke).mockResolvedValueOnce({
+    result: { contractVersion: "1.0.0-rc.1", ok: true, data: { text: "SELECT amount FROM report_rows;" }, error: null },
+  });
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls.map(call => call[4])).toEqual([{ text }, { text, indent: "twoSpaces" }]);
+  expect(view.getByRole("button", { name: "Download formatted SQL" })).toBeTruthy();
+  expect(Buffer.from(await input.arrayBuffer())).toEqual(Buffer.from("\uFEFF" + text));
+});
+
+it.each([
+  [newTool, optionSchema, "输入超过 8192 UTF-8 字节", "Tool could not complete."],
+  [newTool, optionSchema, "请求超过 48 KiB", "Tool could not complete."],
+  [{ ...newTool, pluginId: "com.example.unknown" }, optionSchema, "结果超过 48 KiB", "Tool could not complete."],
+  [tool, schema, "结果超过 48 KiB", "Formatted SQL exceeds the 48 KiB output limit."],
+] as const)("keeps error guidance scoped to the confirmed SQL result limit %#", async (selected, shape, message, expected) => {
+  const { api, form, view } = await open(selected, shape);
+  fireEvent.change(form.getByRole("textbox", { name: /text/i }), { target: { value: "select 1;" } });
+  vi.mocked(api.invoke).mockResolvedValueOnce({
+    result: { contractVersion: "1.0.0-rc.1", ok: false, data: null, error: { code: "INPUT_TOO_LARGE", message } },
+  });
+  await act(async () => { fireEvent.click(form.getByRole("button", { name: "Execute tool" })); });
+  const alert = view.getByRole("alert").textContent;
+  expect(alert).toContain(expected);
+  expect(alert).not.toContain("Select 2 spaces");
+});
+
+it("preserves the normal failure for the Worker computation limit", async () => {
+  const { api, form, view } = await open(newTool, optionSchema);
+  fireEvent.change(form.getByRole("textbox", { name: /SQL text/ }), { target: { value: "select 1;" } });
+  vi.mocked(api.invoke).mockRejectedValueOnce({ code: "worker_fuel_exhausted" });
+  await act(async () => { fireEvent.click(form.getByRole("button", { name: "Execute tool" })); });
+  expect(view.getByRole("alert").textContent).not.toContain("48 KiB");
+  expect(view.queryByRole("button", { name: "Download formatted SQL" })).toBeNull();
+});
