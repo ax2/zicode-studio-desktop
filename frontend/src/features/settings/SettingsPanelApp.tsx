@@ -863,8 +863,8 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
         aria-live={error ? "assertive" : "polite"}
         data-tone={error ? "error" : undefined}
       >
-        {status ||
-          error ||
+        {error ||
+          status ||
           (latestUsableBackup
             ? `${t("Latest backup")}: ${new Date(latestUsableBackup.createdAt).toLocaleString()}`
             : backups.length > 0
@@ -907,7 +907,7 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                   if (
                     (await globalThis.confirm?.(
                       `${t("Delete workspace backup")} “${backup.damaged ? backup.id : new Date(backup.createdAt).toLocaleString()}”? ${t("This cannot be undone.")}`,
-                    )) === false
+                    )) !== true
                   ) {
                     return;
                   }
@@ -932,7 +932,7 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                       ).toLocaleString()}”? ${t(
                         "Restore overwrites current workspace data; the current state is snapshotted first.",
                       )}`,
-                    )) === false
+                    )) !== true
                   ) {
                     return;
                   }
