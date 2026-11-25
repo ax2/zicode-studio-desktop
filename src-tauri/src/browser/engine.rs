@@ -364,7 +364,7 @@ impl NativeBrowserEngine {
         self.downloads.install(&view.webview, self.policy.clone(), tab.to_string()).map_err(|error| startup_error("downloads", &error))?;
         page_controls::set_zoom(&view.webview, zoom).map_err(|error| startup_error("zoom", &error))?;
         page_controls::set_muted(&view.webview, muted).map_err(|error| startup_error("audio", &error))?;
-        page_controls::observe_zoom(&view.webview, tab.to_string(), tab_emit.clone())
+        page_controls::observe_zoom(&view.webview, tab.to_string(), view.navigation.web_zoom.clone(), tab_emit.clone())
             .map_err(|error| startup_error("zoom events", &error))?;
         match &mut start {
             ViewStart::Navigate(url) => {
@@ -419,6 +419,21 @@ impl NativeBrowserEngine {
     #[allow(dead_code)] // Only Studio exposes current PDF mode to browser chrome.
     pub(super) fn is_pdf_document(&self, tab: &str) -> bool {
         self.live_view(tab).is_some_and(|view| view.navigation.is_pdf_document())
+    }
+    #[allow(dead_code)] // The standalone probe does not expose settings to chrome.
+    pub(super) fn preserved_web_zoom(&self, tab: &str) -> Option<f64> {
+        self.live_view(tab)?.navigation.web_zoom.get()
+    }
+    #[allow(dead_code)] // Only Studio serializes the effective tab settings.
+    pub(super) fn preferred_page_settings(
+        &self,
+        tab: &str,
+        mut settings: page_controls::PageSettings,
+    ) -> page_controls::PageSettings {
+        if let Some(zoom) = self.preserved_web_zoom(tab) {
+            settings.zoom = zoom;
+        }
+        settings
     }
     pub fn view_if_open(&self, tab: &str) -> Option<&WebView> {
         self.live_view(tab).map(|view| &view.webview)

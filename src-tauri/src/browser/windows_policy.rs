@@ -1,11 +1,12 @@
-use super::{engine::EngineEvent, policy::BrowserPolicy};
+use super::{engine::{page_controls, EngineEvent}, policy::BrowserPolicy};
 
 #[path = "native_document_kind.rs"]
 mod native_document_kind;
 use std::{cell::Cell, rc::Rc, sync::Arc};
 use webview2_com::{
-    take_pwstr, HistoryChangedEventHandler, Microsoft::Web::WebView2::Win32::*,
-    NavigationCompletedEventHandler, NavigationStartingEventHandler, PermissionRequestedEventHandler,
+    take_pwstr, ContentLoadingEventHandler, HistoryChangedEventHandler,
+    Microsoft::Web::WebView2::Win32::*, NavigationCompletedEventHandler,
+    NavigationStartingEventHandler, PermissionRequestedEventHandler,
     SourceChangedEventHandler, WebResourceRequestedEventHandler,
 };
 use windows::core::{w, Interface, HSTRING, PWSTR};
@@ -64,6 +65,7 @@ pub(super) struct NavigationState {
     loaded: Rc<Cell<bool>>,
     pdf_document: Rc<Cell<bool>>,
     latest_commit: Rc<Cell<Option<u64>>>,
+    pub(super) web_zoom: Rc<Cell<Option<f64>>>,
 }
 
 impl NavigationState {
@@ -130,7 +132,9 @@ pub(super) fn install(
         // WebView2 can start a replacement before the previous navigation completes.
         let current_navigation = navigation.pending.clone();
         let started_navigation = current_navigation.clone();
-        let started_pdf = navigation.pdf_document.clone();
+        // Wry closes the controller when its WebView drops, releasing its event handlers.
+        let start_controller = view.controller();
+        let start_zoom = navigation.web_zoom.clone();
         let started_commit = navigation.latest_commit.clone();
         let started_emit = emit.clone();
         let started_tab = tab.clone();
@@ -142,12 +146,34 @@ pub(super) fn install(
                     args.Cancel(&mut canceled)?;
                     args.NavigationId(&mut id)?;
                     if !canceled.as_bool() && started_navigation.get() != Some(id) {
+                        // PDF navigation may round the effective factor by the time MIME is known.
+                        if start_zoom.get().is_none() {
+                            let mut previous = 1.0;
+                            if start_controller.ZoomFactor(&mut previous).is_ok() {
+                                start_zoom.set(Some(previous));
+                            }
+                        }
                         started_navigation.set(Some(id));
-                        started_pdf.set(false);
                         started_commit.set(None);
                         started_emit(EngineEvent::NavigationStarted {
                             tab: started_tab.clone(),
                         });
+                    }
+                }
+                Ok(())
+            })),
+            &mut token,
+        )?;
+        let previous_pdf = navigation.pdf_document.clone();
+        let loading_navigation = current_navigation.clone();
+        native.add_ContentLoading(
+            &ContentLoadingEventHandler::create(Box::new(move |_, args| {
+                if let Some(args) = args {
+                    let mut id = 0;
+                    args.NavigationId(&mut id)?;
+                    if loading_navigation.get() == Some(id) {
+                        // A new document, including an error page, has replaced the old PDF.
+                        previous_pdf.set(false);
                     }
                 }
                 Ok(())
@@ -179,6 +205,8 @@ pub(super) fn install(
         let nav_tab = tab.clone();
         let pdf_document = navigation.pdf_document.clone();
         let latest_commit = navigation.latest_commit.clone();
+        let page_controller = view.controller();
+        let web_zoom = navigation.web_zoom.clone();
         native.add_NavigationCompleted(
             &NavigationCompletedEventHandler::create(Box::new(move |sender, args| {
                 if let Some(args) = args {
@@ -193,7 +221,13 @@ pub(super) fn install(
                     args.IsSuccess(&mut success)?;
                     args.WebErrorStatus(&mut error)?;
                     let canceled = error == COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED;
-                    if !canceled {
+                    // An unsuccessful navigation can leave the old PDF on screen. Keep
+                    // its scale until a replacement document is known to have loaded.
+                    let keep_pdf_zoom = !success.as_bool() && pdf_document.get();
+                    if !keep_pdf_zoom {
+                        pdf_document.set(false);
+                    }
+                    if !canceled && !keep_pdf_zoom {
                         has_document.set(success.as_bool());
                     }
                     let committed_revision = has_document.get().then(&document_revision);
@@ -203,6 +237,18 @@ pub(super) fn install(
                         canceled,
                         document_revision: committed_revision.clone(),
                     });
+                    if keep_pdf_zoom {
+                        if let Some(document_revision) = committed_revision {
+                            nav_emit(EngineEvent::PdfDocument {
+                                tab: nav_tab.clone(),
+                                document_revision,
+                            });
+                        }
+                        return Ok(());
+                    }
+                    if committed_revision.is_none() || sender.is_none() {
+                        page_controls::finish_document_zoom(&page_controller, &web_zoom, false);
+                    }
                     if let Some(sender) = sender {
                         if let Some(document_revision) = committed_revision {
                             latest_commit.set(Some(id));
@@ -210,12 +256,19 @@ pub(super) fn install(
                             let current_type = pdf_document.clone();
                             let emit_type = nav_emit.clone();
                             let type_tab = nav_tab.clone();
+                            let classified_controller = page_controller.clone();
+                            let classified_zoom = web_zoom.clone();
                             if let Err(error) = native_document_kind::classify_pdf(&sender, move |pdf| {
-                                if pdf && current_commit.get() == Some(id) {
-                                    current_type.set(true);
+                                if current_commit.get() != Some(id) {
+                                    return;
+                                }
+                                current_type.set(pdf);
+                                page_controls::finish_document_zoom(&classified_controller, &classified_zoom, pdf);
+                                if pdf {
                                     emit_type(EngineEvent::PdfDocument { tab: type_tab, document_revision });
                                 }
                             }) {
+                                page_controls::finish_document_zoom(&page_controller, &web_zoom, false);
                                 log::debug!("Could not identify the browser document type: {error}");
                             }
                         }

@@ -386,3 +386,195 @@ fn native_pdf_find_reports_matching_and_missing_text() {
     assert_eq!(engine.document_revision(TAB).unwrap(), revision);
     assert_eq!(view.url().unwrap(), url);
 }
+
+#[test]
+#[ignore = "Opt-in Windows WebView2 test for PDF toolbar scale and ordinary tab zoom restoration"]
+fn native_pdf_toolbar_isolated_from_ordinary_page_zoom() {
+    use crate::browser::engine::{page_controls, EngineEvent};
+
+    let profile = tempfile::tempdir().unwrap();
+    let origin = inline_pdf(Arc::new(AtomicBool::new(false)));
+    let pdf = format!("{origin}{DOCUMENT}");
+    let html = format!("{origin}/page.pdf");
+    let owner = HiddenOwner::new();
+    let (sent, received) = mpsc::channel();
+    let mut engine = NativeBrowserEngine::new(
+        profile.path().join("browser"),
+        BrowserPolicy::isolated_probe(&origin).unwrap(),
+        Arc::new(move |event| {
+            let _ = sent.send(event);
+        }),
+    )
+    .unwrap();
+    engine
+        .create(&owner, TAB, &pdf, BOUNDS, 1.0, false)
+        .unwrap();
+    engine.activate(Some(TAB), BOUNDS, false).unwrap();
+    let view = engine.view(TAB).unwrap();
+    let measure_pdf = || {
+        wait("committed top-level PDF", || {
+            (view.url().ok().as_deref() == Some(&pdf)).then_some(())
+        });
+        let reader = owned_reader(view, &pdf);
+        let mark = stable_marker(view, "rendered PDF for scale", |pixels| pixels > 1000);
+        let result = call(
+            view,
+            Some(&reader),
+            "Runtime.evaluate",
+            json!({
+                "expression": "({width: innerWidth, density: devicePixelRatio})", "returnByValue":true,
+            }),
+        );
+        let zoom = page_controls::read(view).unwrap().zoom;
+        let ratio = result["result"]["value"].clone();
+        println!("PDF actual host zoom {zoom}, viewport {ratio}, marker pixels {mark}");
+        (zoom, ratio, mark)
+    };
+
+    wait("initial MIME classification", || {
+        engine.is_pdf_document(TAB).then_some(())
+    });
+    let original = measure_pdf();
+
+    engine.navigate(TAB, &html).unwrap();
+    wait("committed ordinary page", || {
+        (engine.export_ready(TAB)
+            && view.url().ok().as_deref() == Some(&html)
+            && !engine.is_pdf_document(TAB)
+            && engine.preserved_web_zoom(TAB).is_none())
+        .then_some(())
+    });
+    page_controls::set_zoom(view, 1.75).unwrap();
+    assert!((page_controls::read(view).unwrap().zoom - 1.75).abs() < 0.01);
+
+    engine.navigate(TAB, &pdf).unwrap();
+    wait("PDF navigation after page zoom", || {
+        engine.is_pdf_document(TAB).then_some(())
+    });
+    let after = measure_pdf();
+    assert_eq!(
+        after.1, original.1,
+        "PDF toolbar should keep its own viewport density"
+    );
+    assert_eq!(
+        after.2, original.2,
+        "PDF renderer should retain its initial scale"
+    );
+    assert!((after.0 - 1.0).abs() < 0.01);
+    let muted = page_controls::set_muted(view, true).unwrap();
+    let preferences = engine.preferred_page_settings(TAB, muted);
+    assert!(preferences.muted);
+    assert!((preferences.zoom - 1.75).abs() < 0.01);
+    let reader = owned_reader(view, &pdf);
+    let zoom_in = wait("visible PDF zoom after webpage zoom isolation", || {
+        toolbar_position(view, &reader, "zoom-in")
+    });
+    click_toolbar(view, &reader, zoom_in);
+    let enlarged = stable_marker(view, "independent PDF zoom", |pixels| {
+        pixels > original.2 * 11 / 10
+    });
+    let active_pdf_zoom = page_controls::read(view).unwrap().zoom;
+    println!(
+        "PDF toolbar zoom: {} -> {enlarged} at {active_pdf_zoom}; preserved webpage preference {}",
+        after.2, preferences.zoom
+    );
+
+    let finished = |label| {
+        wait(label, || {
+            received.try_iter().find_map(|event| match event {
+                EngineEvent::NavigationFinished {
+                    tab,
+                    success,
+                    canceled,
+                    ..
+                } if tab == TAB => Some((success, canceled)),
+                _ => None,
+            })
+        })
+    };
+    received.try_iter().for_each(drop);
+    engine
+        .navigate(TAB, &format!("{origin}/slow-navigation"))
+        .unwrap();
+    let requested = Instant::now();
+    wait("pending replacement for stop", || {
+        (!engine.export_ready(TAB) && requested.elapsed() >= Duration::from_millis(300))
+            .then_some(())
+    });
+    engine.action(TAB, "stop").unwrap();
+    let (success, canceled) = finished("stopped native navigation");
+    assert!(!success);
+    println!("WebView2 Stop completion canceled={canceled}");
+    assert_eq!(view.url().unwrap(), pdf);
+    assert!(engine.is_pdf_document(TAB));
+    assert_eq!(engine.preserved_web_zoom(TAB), Some(1.75));
+    assert_eq!(page_controls::read(view).unwrap().zoom, active_pdf_zoom);
+    let stopped = stable_marker(view, "PDF after cancel", |pixels| pixels == enlarged);
+    assert_eq!(stopped, enlarged);
+    println!("Stopped navigation retained PDF {stopped} marker pixels, PDF zoom {active_pdf_zoom} and 175% webpage preference");
+
+    received.try_iter().for_each(drop);
+    engine
+        .navigate(TAB, &format!("{origin}/broken-navigation"))
+        .unwrap();
+    assert_eq!(finished("failed native navigation"), (false, false));
+    let failed_source = view.url().unwrap();
+    let failed_pdf = engine.is_pdf_document(TAB);
+    let expected_marker = if failed_pdf { enlarged } else { 0 };
+    let failed_marker = stable_marker(view, "page after failed navigation", |pixels| {
+        pixels == expected_marker
+    });
+    let failed_settings = page_controls::read(view).unwrap();
+    println!("Failed navigation source {failed_source}; PDF marker {failed_marker}; PDF mode {failed_pdf}");
+    if failed_marker == 0 {
+        assert!(!failed_pdf, "the error page must not be reported as a PDF");
+    } else {
+        assert_eq!(failed_marker, enlarged);
+        assert!(failed_pdf);
+        assert_eq!(failed_settings.zoom, active_pdf_zoom);
+    }
+    assert_eq!(
+        engine.preferred_page_settings(TAB, failed_settings).zoom,
+        1.75
+    );
+
+    engine.navigate(TAB, &html).unwrap();
+    wait("return to ordinary zoom", || {
+        let zoom = page_controls::read(view).unwrap().zoom;
+        (engine.export_ready(TAB)
+            && view.url().ok().as_deref() == Some(&html)
+            && !engine.is_pdf_document(TAB)
+            && engine.preserved_web_zoom(TAB).is_none()
+            && (zoom - 1.75).abs() < 0.01)
+            .then_some(())
+    });
+    println!(
+        "Restored native ordinary-page zoom {}",
+        page_controls::read(view).unwrap().zoom
+    );
+    engine.navigate(TAB, &pdf).unwrap();
+    wait("reopen PDF before closing tab", || {
+        engine.is_pdf_document(TAB).then_some(())
+    });
+    let closed_revision = engine.document_revision(TAB).unwrap();
+    assert_eq!(engine.preserved_web_zoom(TAB), Some(1.75));
+    engine.destroy(TAB).unwrap();
+    assert!(engine.view_if_open(TAB).is_none());
+    assert!(!engine.is_pdf_document(TAB));
+
+    engine
+        .create(&owner, TAB, &html, BOUNDS, 1.25, false)
+        .unwrap();
+    engine.activate(Some(TAB), BOUNDS, false).unwrap();
+    let view = engine.view(TAB).unwrap();
+    wait("same tab ID on a fresh ordinary page", || {
+        (engine.export_ready(TAB)
+            && view.url().ok().as_deref() == Some(&html)
+            && engine.preserved_web_zoom(TAB).is_none())
+        .then_some(())
+    });
+    assert!(!engine.is_pdf_document(TAB));
+    assert_ne!(engine.document_revision(TAB).unwrap(), closed_revision);
+    assert_eq!(page_controls::read(view).unwrap().zoom, 1.25);
+    println!("Closed PDF tab was removed; the new WebView reused its ID at 125% with no PDF state");
+}

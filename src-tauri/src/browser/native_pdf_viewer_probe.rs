@@ -113,6 +113,15 @@ fn serve_inline_pdf(pdf: Vec<u8>, publish_html: Arc<AtomicBool>) -> String {
                 }
                 Some(DOCUMENT | "/page.pdf") => ("text/html", html),
                 Some("/nested-pdf") => ("application/pdf", &pdf),
+                Some("/slow-navigation") => {
+                    // Allow the test to stop a real pending request before any document commits.
+                    std::thread::spawn(move || {
+                        std::thread::sleep(Duration::from_secs(3));
+                        drop(stream);
+                    });
+                    continue;
+                }
+                Some("/broken-navigation") => continue,
                 _ => ("text/plain", b""),
             };
             let _ = write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: {kind}\r\nContent-Disposition: inline\r\nCache-Control: no-store\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());

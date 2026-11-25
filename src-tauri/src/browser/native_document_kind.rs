@@ -52,6 +52,7 @@ pub(super) fn classify_pdf(
         view.Source(&mut value)?;
         let value = take_pwstr(value);
         let Some(expected) = document_url(&value) else {
+            complete(false);
             return Ok(());
         };
         // Read only the root frame record. Nested frames can have a different MIME.
