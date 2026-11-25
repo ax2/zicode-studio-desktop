@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { MailAttachments } from "./MailAttachments";
 import { type CreateMailReply, gmailReplyNeedsRefresh } from "./GmailInbox";
@@ -51,6 +51,17 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const updatedAccounts = useRef(new Set<string>());
   const requestedOffset = useRef<number | null>(null);
   const displayedOffset = useRef<number | null>(null);
+  const queryInput = useRef<HTMLInputElement>(null);
+  const firstResult = useRef<HTMLButtonElement>(null);
+  const paginationFocus = useRef<HTMLButtonElement | null>(null);
+  useLayoutEffect(() => {
+    const button = paginationFocus.current;
+    paginationFocus.current = null;
+    if (!button || button.isConnected) return;
+    const owner = button.ownerDocument;
+    if (owner.activeElement !== owner.body) return;
+    (firstResult.current ?? queryInput.current)?.focus();
+  });
   useEffect(() => () => {
     ++searchGeneration.current;
     readingRequest.current = null;
@@ -65,6 +76,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const clear=useCallback(()=>{
     requestedOffset.current = null;
     displayedOffset.current = null;
+    paginationFocus.current = null;
     ++searchGeneration.current;
     updatedAccounts.current.clear();
     setBusy(false);
@@ -118,7 +130,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       clear();
     }
   }, [folder, folders, clear]);
-  const search = useCallback(async (start: number, background = false) => {
+  const search = useCallback(async (start: number, background = false, button?: HTMLButtonElement) => {
     requestedOffset.current = start;
     const version = ++searchGeneration.current;
     setBusy(true);
@@ -146,6 +158,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       updatedAccounts.current.clear();
       displayedOffset.current = nextOffset;
       requestedOffset.current = nextOffset;
+      paginationFocus.current = button && button.ownerDocument.activeElement === button ? button : null;
       setPage(results);
       setOffset(nextOffset);
     } catch {
@@ -155,9 +168,9 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       }
     } finally { if (version === searchGeneration.current) setBusy(false); }
   }, [invoke, scope, query, folder, closeReading]);
-  function navigatePage(start: number) {
+  function navigatePage(start: number, button: HTMLButtonElement) {
     if (paginationBlocked || requestedOffset.current !== displayedOffset.current) return;
-    void search(start);
+    void search(start, false, button);
   }
   useEffect(()=>{
     function cacheChanged(event:Event) {
@@ -260,20 +273,20 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
           {t("Retry saved labels or folders")}
         </button>
       </>}
-      <label>{t("Search cached mail")}<input className="ui-input" type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
+      <label>{t("Search cached mail")}<input ref={queryInput} className="ui-input" type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
       <button className="ui-button" type="submit" disabled={busy || loadingBody || !query.trim()}>{t("Search")}</button>
     </form>
     {busy && <p role="status">{t("Searching messages…")}</p>}
     {error && <p role="alert">{t("Could not access local mail data.")}</p>}
     {page && <>
       {!page.items.length && <p role="status">{t("No matching cached messages.")}</p>}
-      <ul className="mail-inbox-list">{page.items.map(hit=><li key={JSON.stringify([hit.account,hit.folder,hit.epoch,hit.id])}>
-        <button className="ui-button" type="button" aria-pressed={Boolean(reading && isSameMessage(reading.hit, hit))}
+      <ul className="mail-inbox-list">{page.items.map((hit, index)=><li key={JSON.stringify([hit.account,hit.folder,hit.epoch,hit.id])}>
+        <button ref={index === 0 ? firstResult : undefined} className="ui-button" type="button" aria-pressed={Boolean(reading && isSameMessage(reading.hit, hit))}
           onClick={()=>void open(hit)}><strong translate="no">{hit.subject || t("No subject")}</strong>
           <small translate="no">{hit.sender} · {hit.address}{hit.folder && <> · {hit.folder === "INBOX" ? t("Inbox") : hit.folder}</>}</small>
         </button></li>)}</ul>
-      {offset>0 && <button className="ui-button" type="button" aria-disabled={paginationBlocked || undefined} onClick={() => navigatePage(offset - 40)}>{t("Previous")}</button>}
-      {page.more && <button className="ui-button" type="button" aria-disabled={paginationBlocked || undefined} onClick={() => navigatePage(offset + 40)}>{t("Next")}</button>}
+      {offset>0 && <button className="ui-button" type="button" aria-disabled={paginationBlocked || undefined} onClick={event => navigatePage(offset - 40, event.currentTarget)}>{t("Previous")}</button>}
+      {page.more && <button className="ui-button" type="button" aria-disabled={paginationBlocked || undefined} onClick={event => navigatePage(offset + 40, event.currentTarget)}>{t("Next")}</button>}
     </>}
     {reading && <article aria-label={t("Cached message")} aria-busy={loadingBody || replying}><h3 translate="no">{reading.hit.subject||t("No subject")}</h3>
       <p translate="no">{reading.hit.sender} · {reading.hit.address}</p>
