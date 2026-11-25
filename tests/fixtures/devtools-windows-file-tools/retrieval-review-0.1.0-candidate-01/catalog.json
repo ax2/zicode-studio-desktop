@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.retrieval-review",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "rag-eval",
+      "capabilityId": "devtools.rag.report.review",
+      "title": "检索评测报告复核",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "复核本机 ZiDevTools 的仅检索或双路检索 JSON 报告，查看 Top K 命中、首个正确名次与 MRR。"
+    }
+  ]
+}
