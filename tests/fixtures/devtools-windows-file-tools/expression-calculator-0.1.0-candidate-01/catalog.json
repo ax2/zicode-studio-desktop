@@ -1,0 +1,15 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.expression-calculator",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.calculator.evaluate",
+      "title": "公式计算器",
+      "status": "candidate",
+      "scope": "离线计算单个公式，支持精确分数、科学和复数运算、位运算、单位换算及排列组合。"
+    }
+  ]
+}
