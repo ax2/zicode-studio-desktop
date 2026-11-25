@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：比较并合并快捷配置
+
+`unified-shortcuts` 的便携配置已可在支持专用档案的 Studio 中预览。确认共享两份独立版 JSON，可检查合并、替换和快捷序列冲突，并明确保存新的可导入 JSON。隔离 Windows Studio 已验证原件保护与重启读回。[范围与冻结候选](../iterations/2026-11-26-shortcut-profile.md)
+
 ## 2026-11-26 开发补充：会话文件转 Markdown
 
 `model-chat` 的离线文件导出范围已接入。确认共享独立版会话 JSON 后，可按原顺序将完整问答保存到新的纯文本围栏 Markdown。隔离 Windows Studio 已验证确认保存、原件保持与重启后读回 196,356 字节完整文件。[范围与冻结候选](../iterations/2026-11-26-conversation-markdown.md)
