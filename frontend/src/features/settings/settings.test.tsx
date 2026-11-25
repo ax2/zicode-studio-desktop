@@ -115,6 +115,52 @@ describe("conversation templates section", () => {
     expect(globalThis.localStorage?.getItem("zicode-chat-templates-custom")).toBeNull();
   });
 
+  it("focuses the template name and returns to its own edit button after saving", () => {
+    globalThis.localStorage.setItem("zicode-chat-templates-custom", JSON.stringify([
+      { id: "custom-one", label: "First fixture", icon: "1", prompt: "Original prompt" },
+      { id: "custom-two", label: "Second fixture", icon: "2", prompt: "Another prompt" },
+    ]));
+    const { store } = renderApp();
+    act(() => store.getState().openSettings("general"));
+    const edit = required<HTMLButtonElement>('[data-template-id="custom-two"] button');
+    edit.focus();
+    fireEvent.click(edit);
+    const name = required<HTMLInputElement>(`input[aria-label="${t("Template name")}"]`);
+    const save = required<HTMLButtonElement>(".settings-template-form .ui-button--primary");
+    expect(document.activeElement).toBe(name);
+    fireEvent.change(name, { target: { value: "Updated second fixture" } });
+    save.focus();
+    fireEvent.click(save);
+    expect(document.activeElement).toBe(edit);
+    expect(edit.getAttribute("aria-label")).toBe(`${t("Edit template")} Updated second fixture`);
+  });
+
+  it("leaves invalid input in the form and respects focus outside it when cancelled", () => {
+    const { store } = renderApp();
+    act(() => store.getState().openSettings("general"));
+    const add = required<HTMLButtonElement>("#add-chat-template");
+    add.focus();
+    fireEvent.click(add);
+    const name = required<HTMLInputElement>(`input[aria-label="${t("Template name")}"]`);
+    expect(document.activeElement).toBe(name);
+    fireEvent.change(name, { target: { value: "Keep this name" } });
+    const save = required<HTMLButtonElement>(".settings-template-form .ui-button--primary");
+    save.focus();
+    fireEvent.click(save);
+    expect(document.activeElement).toBe(save);
+    expect(name.value).toBe("Keep this name");
+    expect(document.querySelector(".settings-template-form [role=alert]")?.textContent).toBe(
+      t("Template name and prompt are required"),
+    );
+
+    const outside = required<HTMLButtonElement>('[data-settings-tab="general"]');
+    outside.focus();
+    fireEvent.click(required<HTMLButtonElement>(".settings-template-form .ui-button--ghost"));
+    expect(document.activeElement).toBe(outside);
+    expect(document.querySelector(".settings-template-form")).toBeNull();
+    expect(globalThis.localStorage.getItem("zicode-chat-templates-custom")).toBeNull();
+  });
+
   it("shows template transfer actions with export enabled once templates exist", async () => {
     renderApp();
     await waitFor(() => expect(document.getElementById("chat-templates-section")).toBeTruthy());

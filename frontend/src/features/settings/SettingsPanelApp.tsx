@@ -3,7 +3,7 @@ import { UpdatesTab } from "./UpdatesTab";
 import { SettingsToggle } from "./SettingsToggle";
 import { SystemInfoTab } from "./SystemInfoTab";
 import { getLocale, setLocale, supportedLocales } from "i18n";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { applyTheme, getCurrentTheme, themes } from "themes";
 import { t } from "../../shared/i18n";
 import { Select } from "../../shared/Select";
@@ -481,6 +481,20 @@ function TemplateSection() {
   const [notice, setNotice] = useState("");
   const [formError, setFormError] = useState("");
   const transferFileRef = useRef<HTMLInputElement | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const openedFrom = useRef<HTMLButtonElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (formOpen) {
+      nameInput.current?.focus();
+      return;
+    }
+    const button = openedFrom.current;
+    openedFrom.current = null;
+    if (button) (button.isConnected ? button : addButton.current)?.focus();
+  }, [formOpen]);
 
   const resetForm = () => {
     setFormOpen(false);
@@ -492,12 +506,20 @@ function TemplateSection() {
     setFormError("");
   };
 
-  const startNew = () => {
+  const closeForm = () => {
+    if (!formRef.current?.contains(document.activeElement)) openedFrom.current = null;
     resetForm();
+  };
+
+  const startNew = (button: HTMLButtonElement) => {
+    resetForm();
+    openedFrom.current = button;
     setFormOpen(true);
   };
 
-  const startEdit = (template: ChatTemplate) => {
+  const startEdit = (template: ChatTemplate, button: HTMLButtonElement) => {
+    if (formOpen) nameInput.current?.focus();
+    openedFrom.current = button;
     setEditingId(template.id);
     setName(template.label);
     setIcon(template.icon);
@@ -524,7 +546,7 @@ function TemplateSection() {
       : [...templates, { id: createTemplateId(), label, icon: iconText, prompt: promptText }];
     saveCustomTemplates(next);
     setTemplates(next);
-    resetForm();
+    closeForm();
   };
 
   const remove = (id: string) => {
@@ -595,7 +617,7 @@ function TemplateSection() {
                 type="button"
                 className="ui-button ui-button--ghost ui-button--sm"
                 aria-label={`${t("Edit template")} ${template.label}`}
-                onClick={() => startEdit(template)}
+                onClick={(event) => startEdit(template, event.currentTarget)}
               >
                 {t("Edit")}
               </button>
@@ -650,11 +672,12 @@ function TemplateSection() {
         </p>
       ) : null}
       {formOpen ? (
-        <div className="settings-template-form">
+        <div className="settings-template-form" ref={formRef}>
           <div className="settings-row">
             <span className="settings-label">{t("Template name")}</span>
             <input
               className="ui-input"
+              ref={nameInput}
               value={name}
               aria-label={t("Template name")}
               placeholder={t("e.g. Weekly review")}
@@ -690,7 +713,7 @@ function TemplateSection() {
             <button type="button" className="ui-button ui-button--primary" onClick={commit}>
               {t("Save template")}
             </button>
-            <button type="button" className="ui-button ui-button--ghost" onClick={resetForm}>
+            <button type="button" className="ui-button ui-button--ghost" onClick={closeForm}>
               {t("Cancel")}
             </button>
           </div>
@@ -700,7 +723,8 @@ function TemplateSection() {
           type="button"
           className="ui-button ui-button--secondary"
           id="add-chat-template"
-          onClick={startNew}
+          ref={addButton}
+          onClick={(event) => startNew(event.currentTarget)}
         >
           {t("Add custom template")}
         </button>
