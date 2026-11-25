@@ -211,3 +211,26 @@ it("keeps the current all-tools page after saving a favorite while refreshing th
   expect(api.search).toHaveBeenLastCalledWith("all", "", { offset: 40, revision: "rev", accessRevision: 3 }, expect.any(AbortSignal));
   expect(screen.getByRole<HTMLButtonElement>("button", { name: t("Previous page") }).disabled).toBe(false);
 });
+
+it.each(["剪贴板", "翻译"])("opens the current local match while the tool directory waits: %s", async query => {
+  const api = fixture();
+  vi.mocked(api.search).mockImplementation(() => new Promise(() => {}));
+  const { input, details } = await launcher(api);
+  const translation = vi.fn();
+  window.addEventListener("zicode:open-translation", translation, { once: true });
+  try {
+    fireEvent.change(input, { target: { value: query } });
+    await waitFor(() => expect(api.search).toHaveBeenCalledOnce());
+    expect(details.querySelector('.tool-launcher-results[aria-busy="true"]')).toBeTruthy();
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expect(api.openApplication).not.toHaveBeenCalled();
+    expect(translation).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    if (query === "翻译") expect(translation).toHaveBeenCalledOnce();
+    else expect(api.openApplication).toHaveBeenCalledExactlyOnceWith("local.clipboard:open");
+    expect(api.open).not.toHaveBeenCalled();
+    await waitFor(() => expect(details.open).toBe(false));
+  } finally {
+    window.removeEventListener("zicode:open-translation", translation);
+  }
+});
