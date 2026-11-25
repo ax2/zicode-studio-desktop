@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：MCP 客户端配置预览
+
+填写已知的本机 ZiDevTools MCP 服务程序路径，可预览 Codex TOML 或通用 JSON，并确认保存到 Studio 产物。隔离 Windows Studio 已验证预览、保存与重启后读取。[范围与冻结候选](../iterations/2026-11-26-mcp-client-export.md)
+
 ## 2026-11-26 开发补充：Python / Django 环境报告查看
 
 确认共享一份本机原生 JSON 后，可查看历史 Python 环境，并分别核对 Django 分发版本和模块来源记录。隔离 Windows Studio 已验证脱敏保存与重启读回。[范围与冻结候选](../iterations/2026-11-26-python-env-report.md)

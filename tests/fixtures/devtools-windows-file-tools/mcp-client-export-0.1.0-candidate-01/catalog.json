@@ -1,0 +1,22 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.mcp-client-export",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "mcp-export",
+      "capabilityId": "devtools.mcp.config.codex-toml",
+      "title": "MCP 配置 · Codex TOML",
+      "status": "candidate",
+      "scope": "预览 Codex TOML，仅启用两个知识工具并保留写入审批。可确认保存为 Studio 产物。"
+    },
+    {
+      "sourceToolId": "mcp-export",
+      "capabilityId": "devtools.mcp.config.generic-json",
+      "title": "MCP 配置 · 通用 JSON",
+      "status": "candidate",
+      "scope": "预览通用 mcpServers JSON 的 stdio 字段。可确认保存为 Studio 产物。"
+    }
+  ]
+}

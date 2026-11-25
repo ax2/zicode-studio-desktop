@@ -1,0 +1,306 @@
+{
+  "sourceRevision": "34798bdea329bf980f19525499f5ffc1c61d8b0b",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T20:50:43.809806+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "a09a176f09188a3db75b05244d50d38d718fdb688d8eb3e08bb69c4635c4d856",
+  "workerVerification": {
+    "passed": 36,
+    "wasmSha256": "a09a176f09188a3db75b05244d50d38d718fdb688d8eb3e08bb69c4635c4d856",
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "workerProfile": "compute.wasi.v1",
+    "cases": [
+      {
+        "case": "drive-root-toml",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "ec7527564b7530f187f06ce9d9cee6b45950bc48d3ddfd2f3d01db5033b6cd5b",
+        "ok": true,
+        "resultSha256": "3f9fe4b9a8811a9d652775c82d0bbe63e20da63508533f667d1ff2c0061bdc19",
+        "resultBytes": 263
+      },
+      {
+        "case": "drive-root-json",
+        "capabilityId": "devtools.mcp.config.generic-json",
+        "inputSha256": "ec7527564b7530f187f06ce9d9cee6b45950bc48d3ddfd2f3d01db5033b6cd5b",
+        "ok": true,
+        "resultSha256": "cef3ebe586f6039098ad4e77745301cb79ddbcf68aa971518b8047f61ea399e1",
+        "resultBytes": 221
+      },
+      {
+        "case": "apostrophe-unicode-spaces-toml",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "8b2eb7e5b6ea53fcaaeea9b5b59aeefd9e7ed745bf8606fdd22707615d39ae33",
+        "ok": true,
+        "resultSha256": "b51d2181c521a0a586b9ba9515d773152f4dca07be51d9664e4c2fdebb50030b",
+        "resultBytes": 292
+      },
+      {
+        "case": "apostrophe-unicode-spaces-json",
+        "capabilityId": "devtools.mcp.config.generic-json",
+        "inputSha256": "8b2eb7e5b6ea53fcaaeea9b5b59aeefd9e7ed745bf8606fdd22707615d39ae33",
+        "ok": true,
+        "resultSha256": "42a7c880d7ab4a7b1249cd06b9a0f0056c85e549fa6ee5e962c4a592282f7edc",
+        "resultBytes": 246
+      },
+      {
+        "case": "portable-version-name-toml",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "6b735a1e2560bee89e7a637c92095a75e8a7fd50dff4d3966d6339a5d0a352c9",
+        "ok": true,
+        "resultSha256": "7ed9ac340c0ed9bd66e9c979580a31f3c8abadb1bfa2bd8802980511278156f9",
+        "resultBytes": 307
+      },
+      {
+        "case": "portable-version-name-json",
+        "capabilityId": "devtools.mcp.config.generic-json",
+        "inputSha256": "6b735a1e2560bee89e7a637c92095a75e8a7fd50dff4d3966d6339a5d0a352c9",
+        "ok": true,
+        "resultSha256": "7f8729450548d62de3dd1d772d6bb088a115b3ff384edd1ae055f558e629c73f",
+        "resultBytes": 267
+      },
+      {
+        "case": "forward-separators-toml",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "0276e61db84d4e4ed5f475b1228be8b1c9852ce76cd3634cd7171de3e968993c",
+        "ok": true,
+        "resultSha256": "337227b58e07b1b8ad42d42c2cdf3503a0926433ec540fe246315f0bd2af181c",
+        "resultBytes": 274
+      },
+      {
+        "case": "forward-separators-json",
+        "capabilityId": "devtools.mcp.config.generic-json",
+        "inputSha256": "0276e61db84d4e4ed5f475b1228be8b1c9852ce76cd3634cd7171de3e968993c",
+        "ok": true,
+        "resultSha256": "5b91feef2f55ad2c831c797dff1e4f23fb51c0dcc54dc57c637c00c480900975",
+        "resultBytes": 230
+      },
+      {
+        "case": "shell-characters-retained-as-literal-toml",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "46c60b623dc3bdb31c540703631481d146551affa4021c556e7442ff20a84913",
+        "ok": true,
+        "resultSha256": "7cba0a9f59d2d3bae2843574a929577333319c9ab9484a8708c647b48ead98c7",
+        "resultBytes": 297
+      },
+      {
+        "case": "shell-characters-retained-as-literal-json",
+        "capabilityId": "devtools.mcp.config.generic-json",
+        "inputSha256": "46c60b623dc3bdb31c540703631481d146551affa4021c556e7442ff20a84913",
+        "ok": true,
+        "resultSha256": "7e54337f85c8e98c068d1e6670463ff15d96cda6ec4951a9c75076d0189d27e0",
+        "resultBytes": 257
+      },
+      {
+        "case": "1024-bytes-exactly-toml",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "e3a12f99c8788f969504e278b320389e626f2d626b62b2d3e60f6668e635e902",
+        "ok": true,
+        "resultSha256": "c79930e661f9e03aec004530fca2685504c9b6312a5864fc0858ded169ce486a",
+        "resultBytes": 1272
+      },
+      {
+        "case": "1024-bytes-exactly-json",
+        "capabilityId": "devtools.mcp.config.generic-json",
+        "inputSha256": "e3a12f99c8788f969504e278b320389e626f2d626b62b2d3e60f6668e635e902",
+        "ok": true,
+        "resultSha256": "b4bc5bba72f56307fe63999ffc66fe7f175b9ef1d6da5cad181d0313cdcc96d8",
+        "resultBytes": 1240
+      },
+      {
+        "case": "cannot-add-one-byte",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "bca7eaeb9e0dafaae47e0d900e73a412536777f8fa3da44a12975c504a198473",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "relative",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "19dacd29f9a970017028254ef4bf08aded22633611688c523fbcaa3ecd182131",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "relative-drive",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "a2a261909dbe953339cdf5f274483e77282fb130b70a7dd6d21aeb4ee139b4f6",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "remote-unc",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "5e47b674f49ebded893aa19e76d36e1b458f30b7c69f72fa5c464697dbd7cc11",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "external-device",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "5f1299d4469b11f1bb86dce5d3c24b7cb9350f79a47f22170bbbc511bb82be98",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "uri",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "f1c5bdec799bd0b1b5b155fa313d668641752b832fa33862e1f14742fe4250c1",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "not-the-native-executable",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "8acaedc596982a866d98be654778a05e9610d97ded21a78c67a5916ba3ebe171",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "bad-portable-version",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "5b83ac8dda008035931e4528e07ecfc8d089a4914de068ba32aa6d3575f5c670",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "double-extension",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "5e833195d3848181b9b24c72fb9882d04c4259ad4df72cb1853068ebddf1aa6b",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "alternate-data-stream",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "c283573417d3f32ff2458a6a525491cbaf8c646aa5f864c4b3875b20a38ae1ff",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "surrounding-quotes",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "854cb47cd38741c63cce0c84900cf27cb895521243293bf5f89b5215adc0784b",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "traversal",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "949f6af29844b65b02c16527df70ff982dd9e5a9783227f79bec13d21dd6b020",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "dot-segment",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "94a055b08210b1a79dc7a5956cf72ab41be264f9032583e157169091c6d06c94",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "empty-segment",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "609ac3cce362576097a55d14d1dd5d71aa1ac3348ba644888b3a1fd94758675d",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "too-wide-component",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "9a44d62d3dc6e2ffd823fa41c893662d2b9fcb8560872458d93141b5bcead22e",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "reserved-device-component",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "47f0d4aa08f18f23051f8b78a43cae408a1ec6f87088f92cd38ba608f4c68741",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "bad-windows-character",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "d3d897a7f487cb37166204063e0f141f64eb6755665e3659bdfcd3b8e1dbe45e",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "newline",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "6a3d496ad9318eca99181eee88acf0d34309358d69dff2e3be53935059033b70",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "unicode-separator",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "e27759bd6b98e40c9b4d78a7748cf41645fd8d48a648139ed9d3f243dfe41ff2",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "bidi-control",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "c1d84b81ac64ea63bcd4d0264002cda6df9724b63ee073c5adbf8c78d736cac4",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "null-byte",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "399d27e00c7f292f51d1f8ee8da784f54f7121798c81fa94b7ba53e3539fd5e7",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "empty",
+        "capabilityId": "devtools.mcp.config.codex-toml",
+        "inputSha256": "3d64919efe84fd30b791ee743d12a08b6c42bac3465515bca18fbbf80235c648",
+        "ok": false,
+        "resultSha256": "c4226c1e3ff2487b79876da176392fc33d61fe51dd011149329589eefce82494",
+        "resultBytes": 197
+      },
+      {
+        "case": "unexpected-setting",
+        "capabilityId": "devtools.mcp.config.generic-json",
+        "inputSha256": "1624b48b58564b48ba7558ade8d7b10eda952cf8e0e7119db83fa6779ccf0376",
+        "ok": false,
+        "resultSha256": "237d05b6fb1c0ba567da505a8ccf640e8e4360727aa8a1238bdad666490995c0",
+        "resultBytes": 134
+      },
+      {
+        "case": "non-string-path",
+        "capabilityId": "devtools.mcp.config.generic-json",
+        "inputSha256": "16bd82ea6773f9333204ca88217fd9e48575a52eac432ae49e97a761138f6734",
+        "ok": false,
+        "resultSha256": "237d05b6fb1c0ba567da505a8ccf640e8e4360727aa8a1238bdad666490995c0",
+        "resultBytes": 134
+      }
+    ],
+    "failures": []
+  }
+}
