@@ -585,6 +585,33 @@ it.each(["Next", "Previous"] as const)("keeps the %s pagination control focused 
   expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual(forward ? [0, 40, 40] : [0, 40, 0, 0]);
 });
 
+it.each([
+  { title: "reaches the last page", control: "Next", page: secondPage, result: /^Second fixture/ },
+  { title: "returns to the first page", control: "Previous", page: firstPage, result: /^First page hit 0/ },
+  { title: "leaves focus where the user moved it", control: "Next", page: secondPage, moveFocus: true },
+  { title: "keeps the current button when paging is still available", control: "Next", page: { ...secondPage, more: true } },
+  { title: "returns to the query when the cache has no results", control: "Next", page: { items: [], more: false }, empty: true },
+])("$title", async ({ control, page, result, moveFocus, empty }) => {
+  let finish!: (value: typeof page) => void;
+  const pending = new Promise<typeof page>(resolve => { finish = resolve; });
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage);
+  if (control === "Previous") invoke.mockResolvedValueOnce(secondPage);
+  invoke.mockReturnValueOnce(pending);
+  if (empty) invoke.mockResolvedValueOnce(page);
+  beginAllAccountSearch(invoke as Invoke, vi.fn() as Invoke);
+  if (control === "Previous") fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  const button = await screen.findByRole("button", { name: control });
+  const input = screen.getByRole("searchbox");
+  button.focus();
+  fireEvent.click(button);
+  if (moveFocus) input.focus();
+
+  await act(async () => finish(page));
+  if (empty) await screen.findByText("No matching cached messages.");
+  const expected = result ? screen.getByRole("button", { name: result }) : button;
+  expect(document.activeElement).toBe(moveFocus || empty ? input : expected);
+});
+
 it.each(["query", "account", "label"])("ignores a pending search page after changing the %s", async change => {
   setLocale("en");
   const accounts = [
@@ -598,14 +625,19 @@ it.each(["query", "account", "label"])("ignores a pending search page after chan
   render(<CachedMailSearch accounts={accounts} current="a" invoke={invoke as Invoke} gmail={gmail as Invoke}/>);
   fireEvent.change(screen.getByRole("searchbox"), { target: { value: "fixture" } });
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  const next = await screen.findByRole("button", { name: "Next" });
+  next.focus();
+  fireEvent.click(next);
   if (change === "query") fireEvent.change(screen.getByRole("searchbox"), { target: { value: "other" } });
   else if (change === "account") fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "b" } });
   else {
     await screen.findByRole("option", { name: "Archive" });
     fireEvent.change(screen.getByLabelText("Search Gmail label"), { target: { value: "Archive" } });
   }
+  const input = screen.getByRole("searchbox");
+  input.focus();
   await act(async () => finish(secondPage));
+  expect(document.activeElement).toBe(input);
   expect(screen.queryByRole("button", { name: /Second fixture/ })).toBeNull();
   expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
   await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" })));
