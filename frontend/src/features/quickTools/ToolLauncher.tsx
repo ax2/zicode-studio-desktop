@@ -143,9 +143,13 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
       placeholder={t("Search applications and tools")} value={query}
       onChange={event => { setQuery(event.target.value); setCursors([firstPage]); setActionError(false); }}
       onKeyDown={event => {
-        if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229 || !search || loading) return;
-        event.currentTarget.closest(".tool-launcher")?.querySelector<HTMLButtonElement>("[data-tool-launcher-open]")?.click();
-        event.preventDefault();
+        if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229 || !search) return;
+        const firstMatch = event.currentTarget.closest(".tool-launcher")
+          ?.querySelector<HTMLButtonElement>("[data-tool-launcher-open]:not(:disabled)");
+        if (firstMatch) {
+          event.preventDefault();
+          firstMatch.click();
+        }
       }} />
     <div className="ui-toolbar tool-launcher-views">
       <button type="button" className="ui-button ui-button--secondary" aria-pressed={list === "favorites"} onClick={() => changeView("favorites")}>{t("Favorite tools")}</button>
