@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useId,useRef,useState} from "react";
+import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState} from "react";
 import {t} from "../../shared/i18n";
 import {gmailError, type GmailGrantLoss} from "./GmailInbox";
 import {mailError} from "./AlibabaInbox";
@@ -46,7 +46,10 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
   const [error, setError] = useState<{ text: string; grantLoss?: GmailGrantLoss } | null>(null);
   const deliveryLocked = outcome !== null && outcome !== "not_submitted";
   const explain = provider === "gmail" ? gmailError : mailError;
+  const reviewId = useId();
   const reviewButton = useRef<HTMLButtonElement>(null);
+  const reviewHeading = useRef<HTMLHeadingElement>(null);
+  const reviewOrigin = useRef<HTMLButtonElement | null>(null);
   const active = useRef<symbol | null>(null);
   const locked = useRef(false);
   const readReceipt = useCallback(() => invoke<Receipt>({
@@ -71,6 +74,15 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
     });
     return () => { if (active.current === owner) active.current = null; };
   }, [readReceipt, attempt, provider]);
+
+  useLayoutEffect(() => {
+    const origin = reviewOrigin.current;
+    reviewOrigin.current = null;
+    const heading = reviewHeading.current;
+    if (!review || !heading || !origin || origin.ownerDocument.activeElement !== origin) return;
+    heading.focus({ preventScroll: true });
+    heading.scrollIntoView?.({ block: "start", inline: "nearest" });
+  }, [review]);
 
   async function submit() {
     const owner = active.current;
@@ -113,9 +125,13 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
   const errorText = error?.grantLoss && configured && onGmailGrantLost
     ? t("This draft was not sent. Review it again before sending.") : error?.text;
   return <section aria-label={t("Send saved draft")}>
-    {!deliveryLocked&&<button className="ui-button" ref={reviewButton} type="button" disabled={!configured || check !== "ready" || busy || !draft.recipient.trim()} onClick={()=>{setError(null);setReview(true)}}>{t("Review before sending")}</button>}
-    {review&&!deliveryLocked&&<section className="mail-send-review" aria-label={t("Confirm sending email")}>
-      <p>{t("Send this saved draft now?")}</p><dl>
+    {!deliveryLocked&&<button className="ui-button" ref={reviewButton} type="button" disabled={!configured || check !== "ready" || busy || !draft.recipient.trim()}
+      aria-expanded={review} aria-controls={review ? reviewId : undefined} onClick={event => {
+        if (!review) reviewOrigin.current = event.currentTarget;
+        setError(null);setReview(true);
+      }}>{t("Review before sending")}</button>}
+    {review&&!deliveryLocked&&<section className="mail-send-review" id={reviewId} aria-label={t("Confirm sending email")}>
+      <h3 ref={reviewHeading} tabIndex={-1}>{t("Send this saved draft now?")}</h3><dl>
         <dt>{t("Mail account")}</dt><dd translate="no">{address}</dd><dt>{t("Recipient")}</dt><dd translate="no">{draft.recipient}</dd>
         <dt>{t("Mail subject")}</dt><dd translate="no">{draft.subject||t("No subject")}</dd></dl>
       <DraftPreview text={draft.body}/>
