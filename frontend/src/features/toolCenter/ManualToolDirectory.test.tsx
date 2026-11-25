@@ -558,6 +558,54 @@ it("reloads an opened tool against the current catalog after a stale detail resp
   expect(gateway.invoke).not.toHaveBeenCalled();
 });
 
+it.each(["matching input", "permission change", "replacement tab"] as const)(
+  "handles a delayed details reload with %s", async mode => {
+    const gateway = api();
+    gateway.searchTools.mockResolvedValueOnce({ items: [tool(0)], total: 1, revision: "old", nextOffset: null })
+      .mockResolvedValueOnce({ items: [tool(0)], total: 1, revision: "new", nextOffset: null });
+    const detail = gateway.loadTool.getMockImplementation();
+    if (!detail) throw new Error("Missing test detail implementation");
+    const resolveDetail: ManualToolApi["loadTool"] = async (scene, selected) => {
+      const loaded = await detail(scene, selected);
+      return mode === "permission change" && selected.revision === "new"
+        ? { ...loaded, permissions: [{ name: "pi.tools.register", reason: "Requires review", required: false, granted: true }] }
+        : loaded;
+    };
+    gateway.loadTool.mockImplementation(resolveDetail);
+    gateway.invoke.mockRejectedValueOnce({ code: "catalog_changed" });
+    const container = await mount(gateway);
+    const input = () => container.querySelector<HTMLTextAreaElement>("form textarea");
+    const editDraft = async (value: string) => {
+      const field = input();
+      expect(field).not.toBeNull();
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(field, value);
+        field?.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    };
+
+    await click(container, "Open tool");
+    await editDraft("first attempt");
+    await click(container, "Execute tool");
+    let resume!: () => void;
+    gateway.loadTool.mockImplementationOnce((scene, selected) => new Promise(resolve => {
+      resume = () => { void resolveDetail(scene, selected).then(resolve); };
+    }));
+    await click(container, "Reload tool details");
+    if (mode === "replacement tab") {
+      await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close tool: Text 0"]')?.click());
+      await click(document.body, "Close tool");
+      await click(container, "Open tool");
+    }
+    const nextDraft = "late input 中文\nwith trailing space ";
+    await editDraft(nextDraft);
+    await act(async () => resume());
+    expect(input()?.value).toBe(mode === "permission change" ? "" : nextDraft);
+    expect(gateway.invoke).toHaveBeenCalledTimes(1);
+    expect(gateway.loadTool.mock.lastCall?.[1].revision).toBe(mode === "replacement tab" ? "old" : "new");
+  },
+);
+
 it("does not switch an opened tool to a different capability on reload", async () => {
   const gateway = api(); gateway.loadTool.mockRejectedValueOnce({ code: "capability_changed" });
   gateway.searchTools.mockResolvedValueOnce({ items: [tool(0)], total: 1, revision: "old", nextOffset: null })
