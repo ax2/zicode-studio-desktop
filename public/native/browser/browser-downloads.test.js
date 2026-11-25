@@ -368,6 +368,26 @@ it("does not regress a live update with an older list response or reinsert remov
   expect(dialog.querySelectorAll('[role="listitem"]')).toHaveLength(0);
 });
 
+it("applies the latest event to a row first returned by a pending page", async () => {
+  let emit, finish;
+  const invoke = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  const dialog = showBrowserDownloads({ invoke, subscribe: listener => { emit = listener; } });
+  emit(item("first", "downloading", 54));
+  emit(item("first", "cancelled", 54));
+  emit(item("outside-query", "completed", 100));
+  expect(dialog.querySelectorAll('[role="listitem"]')).toHaveLength(0);
+  finish(page([item("first"), item("separate")]));
+  await tick();
+  const first = dialog.querySelector('[data-download-id="first"]');
+  expect(first.textContent).toContain(t("Download cancelled"));
+  expect(first.textContent).toContain("54 B / 100 B");
+  expect(first.querySelectorAll("button:not([hidden])")).toHaveLength(1);
+  expect(getByRole(first, "button", { name: t("Remove from list") })).toBeTruthy();
+  expect(dialog.querySelector('[data-download-id="outside-query"]')).toBeNull();
+  expect(getByRole(dialog.querySelector('[data-download-id="separate"]'), "button", { name: t("Save to Downloads") })).toBeTruthy();
+  expect(invoke).toHaveBeenCalledOnce();
+});
+
 it("reloads the latest search immediately when the user returns to the pending keyword", async () => {
   let finishOldSearch;
   let matchingReads = 0;
