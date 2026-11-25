@@ -49,6 +49,7 @@ export interface BackupStoreOptions {
 interface BackupState {
   workspaceId: string | null;
   backups: WorkspaceBackup[];
+  queuedBackupId: string | null;
   available: boolean;
   loading: boolean;
   creating: boolean;
@@ -99,6 +100,21 @@ function isBackupRecord(value: unknown, workspaceId: string): value is Workspace
   );
 }
 
+const queuedMessage = () => t("Restore queued. Restart ZiCode Studio to apply the backup.");
+
+interface RestoreRequest {
+  requestId: string;
+  workspaceId: string;
+  backupId: string;
+}
+
+function isRestoreRequest(value: unknown, workspaceId: string): value is RestoreRequest {
+  if (!value || typeof value !== "object") return false;
+  const request = value as Partial<RestoreRequest>;
+  return typeof request.requestId === "string" && /^[a-f\d]{32}$/i.test(request.requestId) &&
+    request.workspaceId === workspaceId && typeof request.backupId === "string" && request.backupId.length > 0;
+}
+
 function isRestoreReport(value: unknown, backupId: string): boolean {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const report = value as Record<string, unknown>;
@@ -130,6 +146,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
         set({
           workspaceId,
           backups: [],
+          queuedBackupId: null,
           loading: false,
           creating: false,
           deletingId: null,
@@ -148,6 +165,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
     return {
       workspaceId: null,
       backups: [],
+      queuedBackupId: null,
       available: Boolean(invoke),
       loading: false,
       creating: false,
@@ -177,6 +195,15 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
             set({ backups: result });
           }
           const outcome = await invoke("workspace_restore_outcome", { workspaceId });
+          if (!isCurrent(workspaceId, epoch) || request !== loadRequest) return;
+          if (outcome && typeof outcome === "object" && "pending" in outcome) {
+            if (!isRestoreRequest(outcome.pending, workspaceId)) {
+              throw new Error(t("Could not load workspace backups."));
+            }
+            set({ queuedBackupId: outcome.pending.backupId, status: queuedMessage() });
+            return;
+          }
+          if (get().queuedBackupId) set({ queuedBackupId: null, status: "" });
           if (
             outcome &&
             typeof outcome === "object" &&
@@ -188,8 +215,6 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
             "backupId" in outcome.report &&
             typeof outcome.report.backupId === "string" &&
             isRestoreReport(outcome.report, outcome.report.backupId) &&
-            isCurrent(workspaceId, epoch) &&
-            request === loadRequest &&
             !get().status
           ) {
             set({ status: t("Workspace restored from backup.") });
@@ -235,6 +260,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
         const workspaceId = syncWorkspace();
         if (
           !workspaceId ||
+          get().queuedBackupId === id ||
           (expectedWorkspaceId && expectedWorkspaceId !== workspaceId) ||
           !invoke ||
           get().creating ||
@@ -259,6 +285,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
         const workspaceId = syncWorkspace();
         if (
           !workspaceId ||
+          get().queuedBackupId ||
           (expectedWorkspaceId && expectedWorkspaceId !== workspaceId) ||
           !invoke ||
           get().creating ||
@@ -274,17 +301,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
             workspaceId,
             backupId: id,
           });
-          if (
-            !report ||
-            typeof report !== "object" ||
-            !("requestId" in report) ||
-            typeof report.requestId !== "string" ||
-            !/^[a-f\d]{32}$/i.test(report.requestId) ||
-            !("workspaceId" in report) ||
-            report.workspaceId !== workspaceId ||
-            !("backupId" in report) ||
-            report.backupId !== id
-          ) {
+          if (!isRestoreRequest(report, workspaceId) || report.backupId !== id) {
             throw new Error(
               t(
                 "Restore result could not be confirmed. Inspect workspace data before trying again.",
@@ -292,9 +309,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
             );
           }
           if (isCurrent(workspaceId, epoch)) {
-            set({
-              status: t("Restore queued. Restart ZiCode Studio to apply the backup."),
-            });
+            set({ queuedBackupId: id, status: queuedMessage() });
             await get().load();
           }
         } catch (error) {
