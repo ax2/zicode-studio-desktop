@@ -93,8 +93,14 @@ async function stageLocalResources(configDir, debugDir, resources) {
     });
     if (existing && !existing.isFile()) throw Error("Expected a regular resource file: " + file.target);
     if (existing?.size !== file.size) return { file };
-    const expected = await digest(file.source, file.size);
-    return (await digest(file.target, file.size)) === expected ? null : { file, expected };
+    // Keep each pair within the batch until both reads have closed, including on failure.
+    const [source, target] = await Promise.allSettled([
+      digest(file.source, file.size), digest(file.target, file.size),
+    ]);
+    if (source.status === "rejected") throw source.reason;
+    if (target.status === "rejected") throw target.reason;
+    const expected = source.value;
+    return target.value === expected ? null : { file, expected };
   }
 
   async function repair({ file: { source, target, prepared, size }, expected }) {

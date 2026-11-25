@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, promises as fsPromises, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import staging from "./stage-local-resources.js";
 
 it("replaces same-size stale files beside the EXE and reuses matching prepared resources", async () => {
@@ -144,6 +144,75 @@ it("repairs missing and same-size changed files across resource batches", async 
     expect(readFileSync(join(output, "17.bin"))).toEqual(readFileSync(join(ui, "17.bin")));
     expect(readFileSync(join(output, "18.bin"), "utf8")).toBe("18.bin");
     expect(await staging.stageLocalResources(root, debug, { ui: "public" })).toBe(0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+it("waits for the target read to close before reporting a source read failure", async () => {
+  const root = mkdtempSync(join(tmpdir(), "studio-resource-read-error-"));
+  const debug = join(root, "debug");
+  const source = join(root, "source.bin");
+  const target = join(debug, "live.bin");
+  const sourceError = Error("source read failed");
+  const originalOpen = fsPromises.open.bind(fsPromises);
+  let targetClosed = false;
+  let targetStarted;
+  const started = new Promise(resolve => { targetStarted = resolve; });
+  let releaseTarget;
+  const ready = new Promise(resolve => { releaseTarget = resolve; });
+  const open = vi.spyOn(fsPromises, "open").mockImplementation(async (file, ...args) => {
+    if (file === source) throw sourceError;
+    if (file === target) {
+      targetStarted();
+      await ready;
+      const handle = await originalOpen(file, ...args);
+      return {
+        read: handle.read.bind(handle),
+        async close() {
+          await handle.close();
+          targetClosed = true;
+        },
+      };
+    }
+    return originalOpen(file, ...args);
+  });
+  let comparison;
+  try {
+    mkdirSync(debug);
+    writeFileSync(source, "abc");
+    writeFileSync(target, "xyz");
+    let finished = false;
+    comparison = staging.stageLocalResources(root, debug, { "source.bin": "live.bin" })
+      .catch(error => { finished = true; return error; });
+    await Promise.race([started, comparison.then(() => { throw Error("Comparison ended before opening target"); })]);
+    await new Promise(resolve => setImmediate(resolve));
+    expect(finished).toBe(false);
+    releaseTarget();
+    expect(await comparison).toBe(sourceError);
+    expect(targetClosed).toBe(true);
+    expect(readFileSync(target, "utf8")).toBe("xyz");
+  } finally {
+    releaseTarget();
+    await comparison;
+    open.mockRestore();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+it("applies successive sources with the same output name in order", async () => {
+  const root = mkdtempSync(join(tmpdir(), "studio-resource-shared-name-"));
+  try {
+    const debug = join(root, "debug");
+    mkdirSync(debug);
+    writeFileSync(join(root, "first.bin"), "abc");
+    writeFileSync(join(root, "second.bin"), "xyz");
+    const target = join(debug, "live.bin");
+    writeFileSync(target, "old");
+    const resources = { "first.bin": "live.bin", "second.bin": "live.bin" };
+    expect(await staging.stageLocalResources(root, debug, resources)).toBe(2);
+    expect(readFileSync(target, "utf8")).toBe("xyz");
+    expect(readFileSync(join(root, "first.bin"), "utf8")).toBe("abc");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
