@@ -35,7 +35,7 @@ export function showBrowserReader(page, onClose, position = {}) {
   function resize(step) {
     const next = Math.max(0, Math.min(3, size + step));
     if (next === size) return;
-    const anchor = scroll.scrollTop ? readingAnchor() : undefined;
+    const anchor = scroll.scrollTop ? reflowReadingAnchor() : undefined;
     size = next;
     paintSize();
     restoreReadingAnchor(anchor);

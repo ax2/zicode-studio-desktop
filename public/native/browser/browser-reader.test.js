@@ -160,6 +160,40 @@ it("keeps the current reading block and focus through font-size changes", async 
   expect(region.scrollTop).toBe(67.5);
 });
 
+it("keeps the visible text line when the font wraps a long paragraph differently", async () => {
+  const h = await setup();
+  h.replaceArticleText("Long article with different words and line lengths. ".repeat(18));
+  const dialog = await h.openFromMenu();
+  const region = getByRole(dialog, "region", { name: "Page content" });
+  const paragraph = region.querySelector("article > p:last-child");
+  region.getBoundingClientRect = () => ({ top: 80 });
+  paragraph.getBoundingClientRect = () => {
+    const larger = dialog.dataset.readerSize === "2";
+    const top = 80 + (larger ? 70 : 50) - region.scrollTop;
+    const height = larger ? 560 : 400;
+    return { left: 0, top, height, bottom: top + height };
+  };
+  const text = paragraph.firstChild;
+  Object.defineProperty(document, "caretPositionFromPoint", {
+    configurable: true, value: () => ({ offsetNode: text, offset: 112 }),
+  });
+  const createRange = document.createRange.bind(document);
+  vi.spyOn(document, "createRange").mockImplementation(() => {
+    const range = createRange();
+    range.getBoundingClientRect = () => ({
+      top: 80 + (dialog.dataset.readerSize === "2" ? 209 : 161) - region.scrollTop,
+      height: 28,
+    });
+    return range;
+  });
+  region.scrollTop = 150;
+
+  getByRole(dialog, "button", { name: "Larger reading text" }).click();
+  expect(region.scrollTop).toBe(198);
+  getByRole(dialog, "button", { name: "Smaller reading text" }).click();
+  expect(region.scrollTop).toBe(150);
+});
+
 it("anchors width changes to the visible line and follows subsequent user scrolling", async () => {
   let width = 890;
   vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(() => width);
