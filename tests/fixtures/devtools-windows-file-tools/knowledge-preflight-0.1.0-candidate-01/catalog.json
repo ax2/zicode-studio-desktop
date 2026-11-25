@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.knowledge-preflight",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "rag-sources",
+      "capabilityId": "devtools.knowledge.source.preflight",
+      "title": "知识源文件预检",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "切到「文件夹」并确认共享一层名称，检查适合纳入知识源的文件格式和排除规则。不读取正文。"
+    }
+  ]
+}
