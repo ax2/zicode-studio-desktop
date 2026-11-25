@@ -63,7 +63,7 @@ export function showBrowserTabSearch({ tabs, active, getIcon, onSelect, onClose 
 
   input.addEventListener("input", render);
   dialog.addEventListener("keydown", event => {
-    if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.isComposing || event.keyCode === 229 || event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.target === input && event.key === "Enter") {
       event.preventDefault();
       void choose(matches[0]?.id);
