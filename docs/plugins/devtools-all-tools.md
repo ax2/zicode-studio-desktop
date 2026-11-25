@@ -66,6 +66,8 @@ Compare 0.1.0 的「JSON 对比（数组按顺序）」和「JSON 对比（数�
 
 「SQL 格式化」可选取 8 KiB 以内的本机 UTF-8 SQL 文件，可撤销，保留原文件及原始换行。手动执行成功后，点击「下载格式化 SQL」获得一份独立的 UTF-8 `.sql` 文件。修改输入后需要重新执行。见[使用范围及 Windows 验收](../iterations/2026-11-25-sql-file.md)。
 
+Text 0.4.2 候选 01 另提供五种方言、缩进和关键字大小写。当前 Windows 隔离 Studio 已通过 10 个实际工具中心用例，密集语句的预算限制仍由 #28 跟踪。见[方言与排版验收](../iterations/2026-11-25-sql-file.md#text-042-方言与排版)。
+
 ## 2026-11-25 开发补充：YAML 与 JSON 文件转换
 
 两种转换均可从本机导入 8 KiB 以内的 UTF-8 文件并撤销。手动执行成功后，可下载当前完整结果，保留原件。冻结 Inspect 0.1.2 候选在生产 Windows Worker 通过两个方向的精确整数和中文样例。见[范围与验收](../iterations/2026-11-25-yaml-file-workflow.md)。
