@@ -6,6 +6,14 @@ import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const MAX_MANIFEST_BYTES = 256 * 1024;
+const identityFields = [
+  ["packageId", "id"],
+  ["pluginId", "id"],
+  ["packageVersion", "version"],
+  ["pluginVersion", "version"],
+];
+
 function reject(code) {
   throw new Error(code);
 }
@@ -105,6 +113,10 @@ export async function verifyDevtoolsPackage(packageDirectory, verificationFile) 
     logicalBytes += size;
     if (!Number.isSafeInteger(logicalBytes)) reject("package_size_invalid");
   }
+  const claims = identityFields.filter(([field]) => Object.hasOwn(index, field));
+  if (claims.length && expected.get("plugin.json")?.path !== "plugin.json") {
+    reject("package_manifest_invalid");
+  }
   const actual = new Map();
   const entryNames = new Set();
   async function walk(directory, prefix = "") {
@@ -134,9 +146,28 @@ export async function verifyDevtoolsPackage(packageDirectory, verificationFile) 
     if (!file || file.name !== item.path || file.size !== item.size) {
       reject("package_inventory_mismatch");
     }
-    const digest = await digestFile(file.path);
+    const checkIdentity = claims.length > 0 && item.path === "plugin.json";
+    if (checkIdentity && item.size > MAX_MANIFEST_BYTES) reject("package_manifest_invalid");
+    const bytes = checkIdentity ? await readFile(file.path) : null;
+    const digest = bytes
+      ? { size: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") }
+      : await digestFile(file.path);
     if (digest.size !== item.size || digest.sha256 !== item.sha256)
       reject("package_digest_mismatch");
+    if (bytes) {
+      let manifest;
+      try {
+        manifest = JSON.parse(bytes.toString("utf8"));
+      } catch {
+        reject("package_manifest_invalid");
+      }
+      for (const [field, manifestField] of claims) {
+        const value = index[field];
+        if (typeof value !== "string" || !value || manifest?.[manifestField] !== value) {
+          reject("package_identity_mismatch");
+        }
+      }
+    }
     verified.push({ path: item.path, ...digest });
   }
   // A receipt describes this observation, not a durable lock on a mutable folder.
