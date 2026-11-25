@@ -64,6 +64,9 @@ const byteTextFileTargets = [
 const utf8FileTargets = [
   { target: "utf8-text", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
 ] as const;
+const qrFileTargets = [
+  { target: "qr-source", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
+] as const;
 const traceFileTargets = [
   { target: "utf8-text", field: "text", label: "Import log file…", inputLabel: "Log file", fieldLabel: "Source text" },
 ] as const;
@@ -218,6 +221,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const jsonSchema = tool.pluginId === "com.zicode.devtools.json-schema" && tool.capabilityId === "devtools.json-schema.validate";
   const boundedTextTool = tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version &&
     fields?.some(field => field.key === "text" && field.kind === "string" && field.maxLength === 8192);
+  const qrFileTool = boundedTextTool && computePlugin && (tool.version === "0.1.0" || tool.version === "0.2.0") &&
+    tool.capabilityId === "devtools.compute.qr.png";
   const inspectTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.inspect" && tool.version === "0.1.2";
   const yamlToJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.to_json";
   const yamlFromJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.from_json";
@@ -246,7 +251,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const base64Decode = textPlugin && tool.capabilityId === "devtools.text.base64.decode";
   const base64Tool = base64Encode || base64Decode;
   const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
-    jsonSchema ? jsonSchemaFileTargets : sqlFormat ? sqlFileTargets :
+    jsonSchema ? jsonSchemaFileTargets : qrFileTool ? qrFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
         (base64Encode || hexEncode || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
           stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets : traceReport ? traceFileTargets :
@@ -426,7 +431,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const documentFileButtons = documentFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
     label={t(side.label)} inputLabel={t(side.inputLabel)}
     accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : yamlToJson ? ".yaml,.yml" :
-      base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : hexDecode ? ".txt,.hex" : urlInspect ? ".txt" :
+      base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : hexDecode ? ".txt,.hex" : urlInspect || qrFileTool ? ".txt" :
         htmlText ? ".html,.htm,.txt" : traceReport ? ".log,.txt,.traceback" : ""}
     loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" :
       yamlToJson ? "Reading YAML file…" : "Reading text file…"}

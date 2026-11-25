@@ -122,7 +122,7 @@ Windows 使用生产 Worker（SHA-256 `1bf0adf0d8e3e8874eca61258ef133de9875dac87
 
 ## 2026-11-24 开发补充：二维码 PNG 另存
 
-二维码工具保留图像预览和下载，并加入「将 PNG 另存为…」。在 Windows 系统窗口选择新文件，再在 Studio 复核位置、类型和字节数并确认。Studio 保存独立 Compute 插件生成的 PNG 原始字节，支持对完整文件回读校验，已有同名文件保持原样。见[二维码另存验收](../iterations/2026-11-24-qr-png-export.md)。本次属于 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 的隔离开发范围，安装清点沿用以下历史记录。
+二维码工具保留图像预览和下载，并加入「将 PNG 另存为…」。在 Windows 系统窗口选择新文件，再在 Studio 复核位置、类型和字节数并确认。Studio 保存独立 Compute 插件生成的 PNG 原始字节，支持对完整文件回读校验，已有同名文件保持原样。见[二维码另存验收](../iterations/2026-11-24-qr-png-export.md)。也可导入 2 KiB 内 UTF-8 原文并撤销，保留 BOM 和原换行。需手动执行。两版已验证短文本输出，2048 字节夹具达到现有运算预算，保留草稿。范围继续见 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28)，安装清点沿用以下历史记录。
 
 ## 2026-11-23 开发补充：Spring Actuator 真实服务
 

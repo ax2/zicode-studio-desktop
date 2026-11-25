@@ -2267,6 +2267,7 @@ const zhCN = {
   "Import left text file…": "导入左侧文本文件…",
   "Import right text file…": "导入右侧文本文件…",
   "Reading text file…": "正在读取文本文件…",
+  "QR input files must be 2 KiB or smaller.": "二维码原文文件不能超过 2 KiB。",
   "Text files must be 8 KiB or smaller.": "文本文件不能超过 8 KiB。",
   "Could not read the text file.": "无法读取文本文件。",
   "Import SQL file…": "导入 SQL 文件…",
