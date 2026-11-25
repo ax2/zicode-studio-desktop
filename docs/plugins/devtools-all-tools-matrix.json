@@ -2666,6 +2666,7 @@
     },
     {
       "sourceToolId": "url-inspect",
+      "currentWindowsAcceptance": "../iterations/2026-11-25-url-details-files.md",
       "title": "URL 解析",
       "sourceToolVersion": "1.0.2",
       "sourceStatus": "implemented",
