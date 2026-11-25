@@ -1,6 +1,10 @@
 # 下一版本发布要求
 
-## 开发中 v0.6.7
+## v0.7.5 浏览器与 Windows 集中验收
+
+当前公开版为 v0.7.4。v0.7.5 以浏览器为主，见[发行说明](v0.7.5.md)、[Issue 清单](v0.7.5.issues.json)和[发布与升级验收 #467](https://github.com/ax2/zicode-studio-desktop/issues/467)。冻结前按实际 Windows 产物和实时里程碑复核完成项、已知问题及后续排期。
+
+## 历史记录 · v0.6.7
 
 [本版说明](v0.6.7.md)记录已合入范围。笔记备份修复与恢复验证见 [#25](https://github.com/ax2/zicode-studio-desktop/issues/25)，Windows 安装包进度见 [#108](https://github.com/ax2/zicode-studio-desktop/issues/108)。
 
