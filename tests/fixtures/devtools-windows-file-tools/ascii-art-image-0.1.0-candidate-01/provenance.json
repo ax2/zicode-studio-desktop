@@ -1,0 +1,933 @@
+{
+  "sourceRevision": "515b9b6c785205ef5e44586d19d444e1a08dbf9c",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T09:17:56.658844+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin, 256 MiB maximum memory, 2 MiB stack",
+  "moduleSha256": "a8960396b971a7789e39e2daee3f5edeed7876bb1cfe3d7dbc1fa36af061445d",
+  "workerVerification": {
+    "targetProfile": "resource.wasi.image.ascii.v1",
+    "workerAdapterProfile": "resource.wasi.image.resize.v1",
+    "workerLimits": {
+      "fuel": 30000000000,
+      "memoryBytes": 268435456,
+      "deadlineMs": 10000
+    },
+    "sha256": {
+      "worker": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+      "wasm": "a8960396b971a7789e39e2daee3f5edeed7876bb1cfe3d7dbc1fa36af061445d",
+      "native": "64457ff04530a4c60567017575c21fa939522e95f36513e588d86b2aa60ac171"
+    },
+    "moduleMemoryBytes": 268435456,
+    "referenceNativeSha256": "1f19e1f92611ec33bc174b1637d48a0b0362c719cb329273b3663184077be16b",
+    "passed": 28,
+    "cases": [
+      {
+        "case": "transparent-white",
+        "inputBytes": 90,
+        "inputSha256": "3d8b32ef43276e9b64d5bebe4fce50139354426b9c9c6337e83ad75c33912474",
+        "requestedWidth": 8,
+        "mime": "image/png",
+        "expectedError": null,
+        "native": {
+          "byteLength": 27,
+          "height": 3,
+          "ok": true,
+          "width": 8
+        },
+        "worker": {
+          "byteLength": 27,
+          "height": 3,
+          "ok": true,
+          "width": 8
+        },
+        "metrics": {
+          "workerWallMs": 1755.51,
+          "peakWorkingSetBytes": 79159296,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "411f06c884e702cc262bd6b3cdc95389bd259550366be11298bb2ad21b7dcea1"
+      },
+      {
+        "case": "small-rgba-width-min",
+        "inputBytes": 424,
+        "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+        "requestedWidth": 8,
+        "mime": "image/png",
+        "expectedError": null,
+        "native": {
+          "byteLength": 27,
+          "height": 3,
+          "ok": true,
+          "width": 8
+        },
+        "worker": {
+          "byteLength": 27,
+          "height": 3,
+          "ok": true,
+          "width": 8
+        },
+        "metrics": {
+          "workerWallMs": 1731.65,
+          "peakWorkingSetBytes": 79843328,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "2b2710daaf472c698f28080c216683ba01b62e5931f4feea436cd94b7d84f7ef"
+      },
+      {
+        "case": "small-rgba-width-max",
+        "inputBytes": 424,
+        "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+        "requestedWidth": 120,
+        "mime": "image/png",
+        "expectedError": null,
+        "native": {
+          "byteLength": 5808,
+          "height": 48,
+          "ok": true,
+          "width": 120
+        },
+        "worker": {
+          "byteLength": 5808,
+          "height": 48,
+          "ok": true,
+          "width": 120
+        },
+        "metrics": {
+          "workerWallMs": 1827.21,
+          "peakWorkingSetBytes": 79929344,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "1c5f4e14f846389872c2a9b29353a5f4ca273006ae3815e4a84f331cfc210f7a"
+      },
+      {
+        "case": "width-below",
+        "inputBytes": 424,
+        "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+        "requestedWidth": 7,
+        "mime": "image/png",
+        "expectedError": "INVALID_WIDTH",
+        "native": {
+          "error": {
+            "code": "INVALID_WIDTH",
+            "message": "Use an integer width from 8 to 120. 宽度须为 8 至 120 的整数。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "INVALID_WIDTH",
+            "message": "Use an integer width from 8 to 120. 宽度须为 8 至 120 的整数。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1687.51,
+          "peakWorkingSetBytes": 79794176,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "width-above",
+        "inputBytes": 424,
+        "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+        "requestedWidth": 121,
+        "mime": "image/png",
+        "expectedError": "INVALID_WIDTH",
+        "native": {
+          "error": {
+            "code": "INVALID_WIDTH",
+            "message": "Use an integer width from 8 to 120. 宽度须为 8 至 120 的整数。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "INVALID_WIDTH",
+            "message": "Use an integer width from 8 to 120. 宽度须为 8 至 120 的整数。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1649.96,
+          "peakWorkingSetBytes": 80060416,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "width-fraction",
+        "inputBytes": 424,
+        "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+        "requestedWidth": 8.5,
+        "mime": "image/png",
+        "expectedError": "INVALID_REQUEST",
+        "native": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The approved image could not be read. 无法读取本次授权的图片。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The approved image could not be read. 无法读取本次授权的图片。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1640.81,
+          "peakWorkingSetBytes": 79908864,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "width-string",
+        "inputBytes": 424,
+        "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+        "requestedWidth": "8",
+        "mime": "image/png",
+        "expectedError": "INVALID_REQUEST",
+        "native": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The approved image could not be read. 无法读取本次授权的图片。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The approved image could not be read. 无法读取本次授权的图片。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1691.01,
+          "peakWorkingSetBytes": 79650816,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "missing-width",
+        "inputBytes": 424,
+        "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+        "requestedWidth": {},
+        "mime": "image/png",
+        "expectedError": "INVALID_REQUEST",
+        "native": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The approved image could not be read. 无法读取本次授权的图片。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The approved image could not be read. 无法读取本次授权的图片。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1702.26,
+          "peakWorkingSetBytes": 80363520,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "unexpected-input",
+        "inputBytes": 424,
+        "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+        "requestedWidth": {
+          "width": 8,
+          "path": "other.png"
+        },
+        "mime": "image/png",
+        "expectedError": "INVALID_REQUEST",
+        "native": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The approved image could not be read. 无法读取本次授权的图片。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "The approved image could not be read. 无法读取本次授权的图片。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1741.49,
+          "peakWorkingSetBytes": 80203776,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "unsupported-mime",
+        "inputBytes": 424,
+        "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+        "requestedWidth": 80,
+        "mime": "application/octet-stream",
+        "expectedError": "UNSUPPORTED_MIME",
+        "native": {
+          "error": {
+            "code": "UNSUPPORTED_MIME",
+            "message": "Choose an original PNG, JPEG or WebP image of the stated type. 请选择类型相符的 PNG、JPEG 或 WebP 原图。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "UNSUPPORTED_MIME",
+            "message": "Choose an original PNG, JPEG or WebP image of the stated type. 请选择类型相符的 PNG、JPEG 或 WebP 原图。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1642.88,
+          "peakWorkingSetBytes": 79400960,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "mime-mismatch",
+        "inputBytes": 424,
+        "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+        "requestedWidth": 80,
+        "mime": "image/jpeg",
+        "expectedError": "IMAGE_MIME_MISMATCH",
+        "native": {
+          "error": {
+            "code": "IMAGE_MIME_MISMATCH",
+            "message": "Choose an original PNG, JPEG or WebP image of the stated type. 请选择类型相符的 PNG、JPEG 或 WebP 原图。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "IMAGE_MIME_MISMATCH",
+            "message": "Choose an original PNG, JPEG or WebP image of the stated type. 请选择类型相符的 PNG、JPEG 或 WebP 原图。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1619.84,
+          "peakWorkingSetBytes": 79728640,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "empty",
+        "inputBytes": 0,
+        "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "requestedWidth": 80,
+        "mime": "image/png",
+        "expectedError": "INVALID_IMAGE",
+        "native": {
+          "error": {
+            "code": "INVALID_IMAGE",
+            "message": "The original image is damaged or invalid. 原图已损坏或无效。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "INVALID_IMAGE",
+            "message": "The original image is damaged or invalid. 原图已损坏或无效。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1601.49,
+          "peakWorkingSetBytes": 80322560,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "malformed",
+        "inputBytes": 22,
+        "inputSha256": "12f3be17d71af3fd75047b67223a04978c8c6f95e69b8cedebe7132e44e6966f",
+        "requestedWidth": 80,
+        "mime": "image/png",
+        "expectedError": "INVALID_IMAGE",
+        "native": {
+          "error": {
+            "code": "INVALID_IMAGE",
+            "message": "The original image is damaged or invalid. 原图已损坏或无效。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "INVALID_IMAGE",
+            "message": "The original image is damaged or invalid. 原图已损坏或无效。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1614.47,
+          "peakWorkingSetBytes": 79392768,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "exact-20mp-png",
+        "inputBytes": 90293,
+        "inputSha256": "48dcd93664fad41f01d6edb353c92a800be793f6d6af7c8865f9003330b8d45e",
+        "requestedWidth": 120,
+        "mime": "image/png",
+        "expectedError": null,
+        "native": {
+          "byteLength": 5808,
+          "height": 48,
+          "ok": true,
+          "width": 120
+        },
+        "worker": {
+          "byteLength": 5808,
+          "height": 48,
+          "ok": true,
+          "width": 120
+        },
+        "metrics": {
+          "workerWallMs": 2027.57,
+          "peakWorkingSetBytes": 148217856,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "a1344669020e9556ace74527d221aba9a9ecea0f992d503ae93c52f2d235d699"
+      },
+      {
+        "case": "exact-20mp-rgba16-png",
+        "inputBytes": 263356,
+        "inputSha256": "8f7a926910dbcd1a57296ce028f2baa1acc9d9bab6b0cd695675b408fb4ac53d",
+        "requestedWidth": 120,
+        "mime": "image/png",
+        "expectedError": null,
+        "native": {
+          "byteLength": 5808,
+          "height": 48,
+          "ok": true,
+          "width": 120
+        },
+        "worker": {
+          "byteLength": 5808,
+          "height": 48,
+          "ok": true,
+          "width": 120
+        },
+        "metrics": {
+          "workerWallMs": 2036.39,
+          "peakWorkingSetBytes": 273825792,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "bf4e2eb16400d723e3e8e4183d8dbd6252cf14c660c7a15aa6ac94ee33a89a1b"
+      },
+      {
+        "case": "large-jpeg-noise",
+        "inputBytes": 9049966,
+        "inputSha256": "1886ae9def357f2eb6a89fa70d6bc0abc79b2b8808b7900ccd573bbf50d8bad5",
+        "requestedWidth": 120,
+        "mime": "image/jpeg",
+        "expectedError": null,
+        "native": {
+          "byteLength": 5808,
+          "height": 48,
+          "ok": true,
+          "width": 120
+        },
+        "worker": {
+          "byteLength": 5808,
+          "height": 48,
+          "ok": true,
+          "width": 120
+        },
+        "metrics": {
+          "workerWallMs": 3210.1,
+          "peakWorkingSetBytes": 200310784,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "72f58346ed486c513ef9f156b7a7d8b5598dabdec1444498329b82fc2f9e89c5"
+      },
+      {
+        "case": "exact-20mp-alpha-webp",
+        "inputBytes": 51502,
+        "inputSha256": "1df96de1bb34e9f467d0330fd1d13544f19909402be5fe4b1e09129467067a44",
+        "requestedWidth": 120,
+        "mime": "image/webp",
+        "expectedError": null,
+        "native": {
+          "byteLength": 5808,
+          "height": 48,
+          "ok": true,
+          "width": 120
+        },
+        "worker": {
+          "byteLength": 5808,
+          "height": 48,
+          "ok": true,
+          "width": 120
+        },
+        "metrics": {
+          "workerWallMs": 1822.14,
+          "peakWorkingSetBytes": 117567488,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "a1344669020e9556ace74527d221aba9a9ecea0f992d503ae93c52f2d235d699"
+      },
+      {
+        "case": "large-lossy-webp",
+        "inputBytes": 73480,
+        "inputSha256": "75ad213db2b9006dea6794c67db87cfc1b84ff61b079ab9003bab6990c11a3df",
+        "requestedWidth": 120,
+        "mime": "image/webp",
+        "expectedError": null,
+        "native": {
+          "byteLength": 7260,
+          "height": 60,
+          "ok": true,
+          "width": 120
+        },
+        "worker": {
+          "byteLength": 7260,
+          "height": 60,
+          "ok": true,
+          "width": 120
+        },
+        "metrics": {
+          "workerWallMs": 2589.77,
+          "peakWorkingSetBytes": 145596416,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "7efbd1f195400ec3fac3d9e81a63423f8326bb73e1f5b40771a95caaff2ce0e5"
+      },
+      {
+        "case": "png-over-20mp",
+        "inputBytes": 67279,
+        "inputSha256": "8568818d9adf69f4d525b5f26abe23a86e3b7fa3d7f10416163a5630adc92092",
+        "requestedWidth": 80,
+        "mime": "image/png",
+        "expectedError": "IMAGE_DIMENSION_LIMIT",
+        "native": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1656.33,
+          "peakWorkingSetBytes": 47464448,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": null,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "width-20000",
+        "inputBytes": 83086,
+        "inputSha256": "d9dda32da6d5b67359949913964123959f64154a5c2903d2ddbefadf6f2b16b5",
+        "requestedWidth": 120,
+        "mime": "image/png",
+        "expectedError": null,
+        "native": {
+          "byteLength": 363,
+          "height": 3,
+          "ok": true,
+          "width": 120
+        },
+        "worker": {
+          "byteLength": 363,
+          "height": 3,
+          "ok": true,
+          "width": 120
+        },
+        "metrics": {
+          "workerWallMs": 2019.33,
+          "peakWorkingSetBytes": 114040832,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "797c4f871448e72dddc4e37c008a86433b499a2d5d4d96f32149f296c43d541b"
+      },
+      {
+        "case": "width-20001",
+        "inputBytes": 58604,
+        "inputSha256": "b8405293964663f59b81dba94c78adc07f45c57950d89c0c818cb845c93217c6",
+        "requestedWidth": 120,
+        "mime": "image/png",
+        "expectedError": "IMAGE_DIMENSION_LIMIT",
+        "native": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1687.7,
+          "peakWorkingSetBytes": 47357952,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": null,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "height-20000",
+        "inputBytes": 13885,
+        "inputSha256": "9f00634afdde48f8698a9bd985977e4f3687e3edf0de21e95292c44892c3df17",
+        "requestedWidth": 80,
+        "mime": "image/png",
+        "expectedError": null,
+        "native": {
+          "byteLength": 9720,
+          "height": 120,
+          "ok": true,
+          "width": 80
+        },
+        "worker": {
+          "byteLength": 9720,
+          "height": 120,
+          "ok": true,
+          "width": 80
+        },
+        "metrics": {
+          "workerWallMs": 1768.8,
+          "peakWorkingSetBytes": 47144960,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "a7c1b3bd0165845646b86ba924657a67e63bd19bce4cf37959f0e9699ee21705"
+      },
+      {
+        "case": "height-20001",
+        "inputBytes": 12596,
+        "inputSha256": "69154ca6b918e6340403d515a5f73d7f1a0c5269c85381f1b96c6b3d78ebd4e3",
+        "requestedWidth": 80,
+        "mime": "image/png",
+        "expectedError": "IMAGE_DIMENSION_LIMIT",
+        "native": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1742.82,
+          "peakWorkingSetBytes": 46522368,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": null,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "wide-20mp-single-row",
+        "inputBytes": 261812,
+        "inputSha256": "e3004657f623521aca146eeeda9e8bcce2024e4a85d409a551b706f35e0fa337",
+        "requestedWidth": 120,
+        "mime": "image/png",
+        "expectedError": "IMAGE_DIMENSION_LIMIT",
+        "native": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1680.3,
+          "peakWorkingSetBytes": 46407680,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": null,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "wide-20mp-two-rows",
+        "inputBytes": 388339,
+        "inputSha256": "de16e3474a979b8382df2f6732e1aacbe4bc7770d76e7de4405d80ab58edc3a8",
+        "requestedWidth": 120,
+        "mime": "image/png",
+        "expectedError": "IMAGE_DIMENSION_LIMIT",
+        "native": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1628.15,
+          "peakWorkingSetBytes": 47554560,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": null,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "tall-20mp-single-column",
+        "inputBytes": 174580,
+        "inputSha256": "dd1778f1a2b2877771a3a3209653b6a8711cb5d313b19b8aee247083acef2fc9",
+        "requestedWidth": 120,
+        "mime": "image/png",
+        "expectedError": "IMAGE_DIMENSION_LIMIT",
+        "native": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "Use at most 20,000 pixels per side and 20 million total. 图片每边最多 2 万像素，总计最多 2000 万像素。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 1856.88,
+          "peakWorkingSetBytes": 47591424,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": null,
+        "passed": true,
+        "outputSha256": null
+      },
+      {
+        "case": "exact-10-mib",
+        "inputBytes": 10485760,
+        "inputSha256": "b1196a54724833d9a8ecf0425fdf41b4bd0a5c5df3a308579712b6ff3bb23813",
+        "requestedWidth": 8,
+        "mime": "image/png",
+        "expectedError": null,
+        "native": {
+          "byteLength": 27,
+          "height": 3,
+          "ok": true,
+          "width": 8
+        },
+        "worker": {
+          "byteLength": 27,
+          "height": 3,
+          "ok": true,
+          "width": 8
+        },
+        "metrics": {
+          "workerWallMs": 2302.55,
+          "peakWorkingSetBytes": 57950208,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": "411f06c884e702cc262bd6b3cdc95389bd259550366be11298bb2ad21b7dcea1"
+      },
+      {
+        "case": "over-10-mib",
+        "inputBytes": 10485761,
+        "inputSha256": "20b051c1d2671c10f22b3e8bd9656885e0916b03655b6326a1a56a0dc393638e",
+        "requestedWidth": 8,
+        "mime": "image/png",
+        "expectedError": "INPUT_TOO_LARGE",
+        "native": {
+          "error": {
+            "code": "INPUT_TOO_LARGE",
+            "message": "The original image exceeds 10 MiB. 原图超过 10 MiB。"
+          },
+          "ok": false
+        },
+        "worker": {
+          "error": {
+            "code": "INPUT_TOO_LARGE",
+            "message": "The original image exceeds 10 MiB. 原图超过 10 MiB。"
+          },
+          "ok": false
+        },
+        "metrics": {
+          "workerWallMs": 2820.85,
+          "peakWorkingSetBytes": 77819904,
+          "memorySamplingError": null,
+          "stderr": "",
+          "timedOut": false,
+          "exitCode": 0
+        },
+        "matchesBaselineNative": true,
+        "passed": true,
+        "outputSha256": null
+      }
+    ]
+  }
+}

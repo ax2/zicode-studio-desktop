@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.ascii-art-image",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "ascii-art",
+      "capabilityId": "devtools.ascii.image.render",
+      "title": "图片转 ASCII 字符画",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "将本次明确选择的一张 PNG、JPEG 或 WebP 原图转换为 ASCII 字符画。原图最多 10 MiB、每边 2 万像素、总计 2000 万像素，输出为纯文本。"
+    }
+  ]
+}
