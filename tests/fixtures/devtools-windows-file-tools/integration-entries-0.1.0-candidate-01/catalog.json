@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.integration-entries",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "integrations",
+      "capabilityId": "devtools.integrations.directory.entries",
+      "title": "本机工具目录盘点",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "确认工作区目录的单层名称，盘点已知 Windows 工具入口并单独保存文本报告。"
+    }
+  ]
+}
