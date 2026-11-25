@@ -474,7 +474,7 @@ export function PluginManagerViewApp({
       ) : null}
       {selectedPlugin?.activationReview ? (
         <LocalPluginActivationCard
-          key={selectedPlugin.activationReview.sceneRevision + selectedPlugin.activationReview.packageRevision}
+          key={JSON.stringify([scopeKey(), selectedPlugin.id, selectedPlugin.activationReview.packageRevision])}
           plugin={selectedPlugin}
           deferred={deferred}
           busy={Boolean(busy.activation)}
