@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：会话文件转 Markdown
+
+`model-chat` 的离线文件导出范围已接入。确认共享独立版会话 JSON 后，可按原顺序将完整问答保存到新的纯文本围栏 Markdown。隔离 Windows Studio 已验证确认保存、原件保持与重启后读回 196,356 字节完整文件。[范围与冻结候选](../iterations/2026-11-26-conversation-markdown.md)
+
 ## 2026-11-26 开发补充：运行表格管线并保存 CSV
 
 `pipeline` 的本机配方执行范围已接入。选择并确认一份原生 JSON 配方和一份 UTF-8 表格，可复用原生操作生成带公式保护的新 CSV。隔离 Windows Studio 已验证反序文件角色、两份原件保护、保存和重启。[范围与冻结候选](../iterations/2026-11-26-table-pipeline.md)
