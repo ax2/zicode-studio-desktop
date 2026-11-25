@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：剪贴片段组合
+
+确认共享一份本机 JSON 后，可按原顺序生成段落、编号、单列 CSV 或 Markdown。隔离 Windows Studio 已验证四种实际保存、撤权和重启读回。[范围与冻结候选](../iterations/2026-11-26-clipboard-compose.md)
+
 ## 2026-11-26 开发补充：PNG 截图取色
 
 确认共享一张本机静态 PNG 后，按原始坐标读取单个像素的 RGBA 与 HEX。隔离 Windows Studio 已验证透明 RGB、越界、撤权和重启读回。[范围与冻结候选](../iterations/2026-11-26-screenshot-pixel.md)
