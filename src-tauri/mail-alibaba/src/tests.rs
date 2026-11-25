@@ -229,6 +229,44 @@ fn serve_imap(
     }
 }
 #[test]
+fn imap_sender_display_name_survives_cache_reopen_without_changing_reply_address() {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+        let alias = format!(
+            "From: =?UTF-8?B?{}?= <billing@example.test>\r\nSubject: Invoice\r\n\r\n",
+            STANDARD.encode("财务团队"),
+        );
+        let without_name = "From: only-address@example.test\r\nSubject: Another invoice\r\n\r\n";
+        let server = fixture_with_headers(
+            false,
+            false,
+            3,
+            10,
+            false,
+            vec![(30, alias), (20, without_name.into())],
+        );
+        mail.sync(&server.adapter, "synthetic", None, 3).unwrap();
+        server.thread.join().unwrap();
+    }
+
+    let mut db = Connection::open(&path).unwrap();
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let page = mail.cached_page(None, 3).unwrap();
+    assert_eq!(page.messages[0].sender_name.as_deref(), Some("财务团队"));
+    assert_eq!(page.messages[0].sender, "billing@example.test");
+    assert_eq!(page.messages[1].sender_name, None);
+    assert_eq!(page.messages[1].sender, "only-address@example.test");
+    let draft = mail.reply_draft("alias-reply", page.uid_validity, 30).unwrap();
+    assert_eq!(draft["recipient"], "billing@example.test");
+}
+
+#[test]
 fn imap_attachment_confirmation_expires_when_credentials_change_without_clearing_cache() {
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("mail.sqlite3");
