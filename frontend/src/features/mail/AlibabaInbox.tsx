@@ -82,12 +82,19 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
     return()=>{live.current=false;generation.current++}
   },[id,invoke,applyCredentialStatus,applySavedFolders]);
   async function run<T>(work:(isCurrent:()=>boolean)=>Promise<T>,apply:(value:T)=>void,reportError?:(message:string)=>void,scopeCurrent?:()=>boolean){
-    if(lock.current)return;lock.current=true;setBusy(true);
+    if(lock.current)return false;lock.current=true;setBusy(true);
     if (!reportError) setError("");
     const epoch=generation.current;
     const isCurrent = () => live.current && epoch === generation.current && (scopeCurrent?.() ?? true);
-    try{const v=await work(isCurrent);if(isCurrent())apply(v)}
-    catch(e){if(isCurrent()) (reportError ?? setError)(mailError(e))}
+    try {
+      const value = await work(isCurrent);
+      if (!isCurrent()) return false;
+      apply(value);
+      return true;
+    } catch (error) {
+      if (isCurrent()) (reportError ?? setError)(mailError(error));
+      return false;
+    }
     finally{if(live.current&&epoch===generation.current){lock.current=false;setBusy(false)}}
   }
   function retryCredentialStatus() {
