@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { matchesSearchTerms, prepareSearchQuery } from "../../shared/catalog-search";
 import { t } from "../../shared/i18n";
@@ -26,6 +26,13 @@ export interface PluginManagerRegistry {
   reload?(): Promise<unknown>;
   uninstall?(id: string): Promise<unknown>;
 }
+
+type ActivationSetup = {
+  receipt: PluginInstallReceipt;
+  scope: string;
+  phase: "loading" | "failed" | "ready";
+  focusOnMount: boolean;
+};
 
 export interface DeveloperPluginPreview {
   sourcePath: string;
@@ -116,14 +123,28 @@ export function PluginManagerViewApp({
   const [developerPreview, setDeveloperPreview] = useState<DeveloperPluginPreview | null>(null);
   const [signedPreview, setSignedPreview] = useState<SignedPluginPreview | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const [activation, setActivation] = useState<PluginInstallReceipt | null>(null);
+  const [activation, setActivation] = useState<ActivationSetup | null>(null);
   const [deferred, setDeferred] = useState(false);
-  const installBusy = Boolean(busy["preview-local"] || busy["preview-signed"] || busy["install-local"] || busy["install-signed"]);
-  const selectedPlugin = activation && registry.list().find((plugin) => plugin.id === activation.pluginId &&
-    plugin.activationReview?.packageRevision === activation.packageRevision);
+  const pageHeading = useRef<HTMLElement>(null);
+  const recoveryCard = useRef<HTMLElement>(null);
+  const retryAction = useRef<HTMLButtonElement>(null);
+  const refreshRequest = useRef<ActivationSetup | null>(null);
+  const activeSetup = activation?.scope === scopeKey() ? activation : null;
+  const installBusy = Boolean(busy["preview-local"] || busy["preview-signed"] || busy["install-local"] ||
+    busy["install-signed"] || activeSetup?.phase === "loading");
+  const selectedPlugin = activeSetup?.phase === "ready"
+    ? registry.list().find((plugin) => plugin.id === activeSetup.receipt.pluginId &&
+      plugin.activationReview?.packageRevision === activeSetup.receipt.packageRevision)
+    : undefined;
+
+  useLayoutEffect(() => {
+    if (activeSetup?.phase !== "failed" || !activeSetup.focusOnMount) return;
+    const owner = recoveryCard.current?.ownerDocument;
+    if (owner && owner.activeElement === owner.body) retryAction.current?.focus({ preventScroll: true });
+  }, [activeSetup]);
 
   const showActivation = (receipt: PluginInstallReceipt) => {
-    setActivation(receipt);
+    setActivation({ receipt, scope: scopeKey(), phase: "ready", focusOnMount: true });
     setDeferred(false);
   };
 
@@ -133,16 +154,43 @@ export function PluginManagerViewApp({
 
   const sceneId = getTarget?.()?.sceneId ?? "programming";
 
-  const scopeKey = () => {
+  function scopeKey() {
     const target = getTarget?.();
     return JSON.stringify([target?.sceneId ?? "programming", target?.workspaceId ?? null]);
-  };
+  }
+  async function readInstalledSetup(setup: ActivationSetup) {
+    if (scopeKey() !== setup.scope || !pageHeading.current?.isConnected ||
+      refreshRequest.current?.receipt === setup.receipt) return;
+
+    const reading: ActivationSetup = { ...setup, phase: "loading" };
+    refreshRequest.current = reading;
+    setActivation(reading);
+    let phase: "ready" | "failed" = "ready";
+    try {
+      await registry.setScene?.(sceneId);
+    } catch {
+      phase = "failed";
+    }
+    if (refreshRequest.current !== reading) return;
+    refreshRequest.current = null;
+    const heading = pageHeading.current;
+    if (!heading?.isConnected) return;
+    if (scopeKey() !== reading.scope) {
+      setActivation(current => current === reading ? null : current);
+      return;
+    }
+
+    const owner = heading.ownerDocument;
+    const focusOnMount = recoveryCard.current?.contains(owner.activeElement) === true ||
+      (setup.phase === "loading" && owner.activeElement === owner.body);
+    setActivation(current => current === reading ? { ...reading, phase, focusOnMount } : current);
+  }
+
   const completeInstall = async (receipt: PluginInstallReceipt, scope: string, closePreview: () => void) => {
     closePreview();
     if (scopeKey() !== scope) return;
-    await registry.setScene?.(sceneId);
-    if (scopeKey() !== scope) return;
-    showActivation(receipt);
+    setDeferred(false);
+    await readInstalledSetup({ receipt, scope, phase: "loading", focusOnMount: false });
   };
   const categoryPlugins = registry.list().filter((plugin) => matchesFilter(plugin, activeFilter));
   const searchTerms = prepareSearchQuery(query);
@@ -356,7 +404,7 @@ export function PluginManagerViewApp({
 
   return (
     <>
-      <section className="plugin-main-hero">
+      <section ref={pageHeading} className="plugin-main-hero">
         <span className="plugin-main-kicker">{t("Plugins")}</span>
         <h1>{t("Plugin Manager")}</h1>
         <p>
@@ -472,10 +520,28 @@ export function PluginManagerViewApp({
           }}
         />
       ) : null}
-      {selectedPlugin?.activationReview ? (
+      {activeSetup && activeSetup.phase !== "ready" ? (
+        <section ref={recoveryCard} className="ui-card plugin-manager-preview" aria-label={t("Plugin installation status")}>
+          <code>{activeSetup.receipt.pluginId}</code>
+          {activeSetup.phase === "loading" ? (
+            <p role="status">{t("Loading plugin settings…")}</p>
+          ) : (
+            <p role="alert">{t("Plugin installed. Its settings could not be loaded.")}</p>
+          )}
+          <div className="plugin-manager-preview-actions">
+            <button ref={retryAction} type="button" className="ui-button ui-button--secondary ui-button--sm"
+              aria-disabled={activeSetup.phase === "loading" || undefined}
+              onClick={() => { if (activeSetup.phase === "failed") void readInstalledSetup(activeSetup); }}>
+              {t("Reload plugin settings")}
+            </button>
+            <ActionButton label={t("Close")} onClick={() => setActivation(null)} />
+          </div>
+        </section>
+      ) : activeSetup && selectedPlugin?.activationReview ? (
         <LocalPluginActivationCard
           key={JSON.stringify([scopeKey(), selectedPlugin.id, selectedPlugin.activationReview.packageRevision])}
           plugin={selectedPlugin}
+          focusOnMount={activeSetup.focusOnMount}
           deferred={deferred}
           busy={Boolean(busy.activation)}
           installedTools={installedTools}
@@ -491,7 +557,7 @@ export function PluginManagerViewApp({
             });
           } : undefined}
         />
-      ) : activation ? <p role="status">{t("Plugin or permissions changed. Review them again.")}</p> : null}
+      ) : activeSetup ? <p role="status">{t("Plugin or permissions changed. Review them again.")}</p> : null}
       <div className="plugin-manager-filters" role="tablist" aria-label={t("Plugin filters")}>
         {MANAGER_FILTERS.map((filter) => (
           <button

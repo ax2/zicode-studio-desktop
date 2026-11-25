@@ -21,7 +21,9 @@ const tool = {
 };
 const button = (name: string) => screen.getByRole<HTMLButtonElement>("button", { name });
 
-function setup({ required = true, existing = false, failed = false, activationFails = false, activationDelay = Promise.resolve() } = {}) {
+function setup({ required = true, existing = false, failed = false, activationFails = false, activationDelay = Promise.resolve(),
+  getTarget = () => ({ sceneId: "programming", workspaceId: "fixture" }),
+} = {}) {
   const permissionDetails = {
     required: required ? [{ name: "resource.read", reason: "Read the chosen JSON file" }] : [],
     optional: required ? [{ name: "pi.tools.register", reason: "Pi integration" }] : [],
@@ -52,7 +54,7 @@ function setup({ required = true, existing = false, failed = false, activationFa
   };
   const notify = vi.fn();
   render(<PluginManagerViewApp registry={{ list: () => installed ? [plugin] : [], setScene, activateReviewed }}
-    selectDeveloperPlugin={async () => preview} installDeveloperPlugin={installDeveloperPlugin}
+    getTarget={getTarget} selectDeveloperPlugin={async () => preview} installDeveloperPlugin={installDeveloperPlugin}
     installedTools={installedTools} notify={notify} />);
   return { plugin, setScene, installDeveloperPlugin, activateReviewed, installedTools, notify };
 }
@@ -93,6 +95,68 @@ it("reviews exact package content then grants only the checked permission and wa
   fireEvent.click(button("Open Format JSON"));
   await waitFor(() => expect(flow.installedTools.open).toHaveBeenCalledWith(preview.pluginId, packageRevision, tool, "directory"));
 });
+
+it.each([true, false])("recovers a saved installation with required permissions %s using only a registry read", async required => {
+  const flow = setup({ required });
+  flow.setScene.mockRejectedValueOnce(Error("Synthetic registry error"));
+  await reviewPackage();
+  fireEvent.click(button("Install reviewed plugin"));
+  await screen.findByRole("alert");
+  expect(screen.getByText("Plugin installed. Its settings could not be loaded.")).toBeTruthy();
+  expect(screen.queryByRole("region", { name: "Review local plugin" })).toBeNull();
+  expect(flow.installDeveloperPlugin).toHaveBeenCalledTimes(1);
+  expect(flow.activateReviewed).not.toHaveBeenCalled();
+
+  let finish!: () => void;
+  flow.setScene.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  const retry = button("Reload plugin settings");
+  retry.focus();
+  fireEvent.click(retry);
+  fireEvent.click(retry);
+  expect(retry.getAttribute("aria-disabled")).toBe("true");
+  expect(document.activeElement).toBe(retry);
+  expect(flow.setScene.mock.calls).toEqual([["programming"], ["programming"]]);
+  await act(async () => finish());
+  await screen.findByRole("region", { name: "Installed plugin setup" });
+  expect(button("Enable plugin").disabled).toBe(required);
+  expect(flow.installDeveloperPlugin).toHaveBeenCalledTimes(1);
+  expect(flow.activateReviewed).not.toHaveBeenCalled();
+});
+
+it.each(["switch workspace", "dismiss feedback", "move focus", "replace package"] as const)(
+  "guards a delayed installation refresh when the user decides to %s", async outcome => {
+    let target = { sceneId: "programming", workspaceId: "fixture" };
+    const flow = setup({ required: false, getTarget: () => target });
+    flow.setScene.mockRejectedValueOnce(Error("Synthetic registry error"));
+    await reviewPackage();
+    fireEvent.click(button("Install reviewed plugin"));
+    await screen.findByRole("alert");
+    let finish!: () => void;
+    flow.setScene.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    const retry = button("Reload plugin settings");
+    retry.focus();
+    fireEvent.click(retry);
+    if (outcome === "switch workspace") target = { ...target, workspaceId: "another" };
+    if (outcome === "dismiss feedback") fireEvent.click(button("Close"));
+    if (outcome === "replace package") {
+      flow.plugin.activationReview = { ...activationReview, packageRevision: "replacement" };
+    }
+    const search = screen.getByRole("searchbox");
+    search.focus();
+    await act(async () => finish());
+    expect(document.activeElement).toBe(search);
+    if (outcome === "move focus") {
+      expect(setupCard().getByRole("button", { name: "Enable plugin" })).toBeTruthy();
+    } else {
+      expect(screen.queryByRole("region", { name: "Installed plugin setup" })).toBeNull();
+      if (outcome === "replace package") {
+        expect(screen.getByText("Plugin or permissions changed. Review them again.")).toBeTruthy();
+      }
+    }
+    expect(flow.installDeveloperPlugin).toHaveBeenCalledTimes(1);
+    expect(flow.activateReviewed).not.toHaveBeenCalled();
+  },
+);
 
 it("lets a user cancel installation and defer permission without persisting checkbox decisions", async () => {
   const flow = setup();
