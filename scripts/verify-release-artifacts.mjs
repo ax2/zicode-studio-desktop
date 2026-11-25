@@ -18,7 +18,8 @@ const bundleTypes = {
 const requested = process.argv[2]?.split(",").map((value) => value.trim());
 const tag = process.env.RELEASE_TAG;
 const sha = process.env.RELEASE_SHA;
-if (!requested?.length || !tag || !sha || !process.env.RUNNER_TEMP) throw Error("Missing frozen release context");
+if (!requested?.length || !tag || !sha || !process.env.RUNNER_TEMP)
+  throw Error("Missing frozen release context");
 validateReleaseBundleTypes(process.env.PI_TARGET_PLATFORM, requested);
 
 const bundleDirectory = releaseBundleDirectory(
@@ -52,6 +53,19 @@ for (const type of requested) {
   files.push(filePath);
 }
 
+const installerAcceptance =
+  process.env.PI_TARGET_PLATFORM === "windows-x64"
+    ? JSON.parse(
+        fs.readFileSync(
+          path.join(process.env.RUNNER_TEMP, "studio-installer-acceptance.json"),
+          "utf8",
+        ),
+      )
+    : undefined;
+
 await stageBundles(files, path.join(process.env.RUNNER_TEMP, "studio-verified-bundles"), {
-  tag, sha, target: process.env.PI_TARGET_PLATFORM,
+  tag,
+  sha,
+  target: process.env.PI_TARGET_PLATFORM,
+  installerAcceptance,
 });
