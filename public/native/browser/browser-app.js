@@ -1313,10 +1313,12 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const selectedTab = selected(); let current = null;
     if (selectedTab && !selectedTab.localPdf && pageAvailable(selectedTab.id)) {
       const result = await control({ kind: "url", tab: selectedTab.id }).catch(error => {
-        if (ownsPage()) throw error;
+        // Browsing the saved library does not require a live page URL.
+        if (ownsPage() && (editCurrent || shortcut)) throw error;
+        return null;
       });
       if (!ownsPage()) return;
-      const url = typeof result === "string" ? result : result.url;
+      const url = typeof result === "string" ? result : result?.url;
       if (/^https?:/.test(url)) current = { url, title: url === selectedTab.url ? selectedTab.title : url };
     }
     await openLibrary(ownsPage, onClose => showBrowserBookmarks({ invoke, current, editCurrent, editShortcut: shortcut, onClose: () => {
