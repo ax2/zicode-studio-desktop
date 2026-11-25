@@ -1,5 +1,7 @@
 mod api;
 mod attachment;
+#[cfg(test)]
+mod authorization_tests;
 mod oauth;
 pub(crate) mod reply;
 mod sync;
@@ -340,16 +342,19 @@ pub(crate) async fn mail_gmail(
             .open(url.to_string(), None)
             .map_err(|_| "gmail_browser_unavailable")?;
         let code = login.wait(&stop).await?;
-        let mut tok = oauth::tokens(
-            &client,
-            TOKEN,
-            &cfg,
-            &[
-                ("grant_type", "authorization_code"),
-                ("code", code.as_str()),
-                ("code_verifier", login.verifier.as_str()),
-                ("redirect_uri", login.redirect.as_str()),
-            ],
+        let mut tok = oauth::until_cancelled(
+            &stop,
+            oauth::tokens(
+                &client,
+                TOKEN,
+                &cfg,
+                &[
+                    ("grant_type", "authorization_code"),
+                    ("code", code.as_str()),
+                    ("code_verifier", login.verifier.as_str()),
+                    ("redirect_uri", login.redirect.as_str()),
+                ],
+            ),
         )
         .await?;
         let access = Zeroizing::new(std::mem::take(&mut tok.access_token));
@@ -365,7 +370,8 @@ pub(crate) async fn mail_gmail(
         if !allowed(&scope, READ) {
             return Err("gmail_permission_denied".into());
         }
-        let identity = api::profile(&client, api::BASE, &access).await?;
+        let identity =
+            oauth::until_cancelled(&stop, api::profile(&client, api::BASE, &access)).await?;
         if !identity.eq_ignore_ascii_case(&address) {
             return Err("gmail_account_mismatch".into());
         }
