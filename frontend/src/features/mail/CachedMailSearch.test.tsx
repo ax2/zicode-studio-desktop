@@ -692,3 +692,37 @@ it("closes the previous reading when a cache refresh falls back to a different p
   expect(screen.queryByText("Opened before automatic page fallback")).toBeNull();
   expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
 });
+
+it("keeps the cached search submit action focusable and blocks resubmission while reading", async () => {
+  setLocale("en");
+  let rejectRead: ((reason: Error) => void) | undefined;
+  const local = vi.fn()
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectRead = reject; }))
+    .mockResolvedValueOnce({ items: [], more: false });
+  const account = { id: "one", address: "first@example.test", provider: "alibaba" };
+  render(<CachedMailSearch accounts={[account]} current="one" invoke={local as Invoke} />);
+  const input = screen.getByRole("searchbox", { name: "Search cached mail" });
+  const submit = screen.getByRole("button", { name: "Search" });
+  if (!(submit instanceof HTMLButtonElement) || !submit.form) throw new Error("Cached search form missing");
+  expect(submit.disabled).toBe(true);
+
+  fireEvent.change(input, { target: { value: "invoice" } });
+  submit.focus();
+  fireEvent.click(submit);
+  expect(submit.disabled).toBe(false);
+  expect(submit.getAttribute("aria-disabled")).toBe("true");
+  expect(screen.getByText("Searching messages…")).toBeTruthy();
+  fireEvent.submit(submit.form);
+  expect(local).toHaveBeenCalledTimes(1);
+
+  await act(async () => rejectRead?.(new Error("local storage busy")));
+  expect(document.activeElement).toBe(submit);
+  expect(submit.getAttribute("aria-disabled")).toBeNull();
+  expect(screen.getByRole("alert")).toBeTruthy();
+  fireEvent.click(submit);
+  await screen.findByText("No matching cached messages.");
+  expect(local.mock.calls).toEqual([
+    [{ kind: "search", account: "one", query: "invoice", offset: 0 }],
+    [{ kind: "search", account: "one", query: "invoice", offset: 0 }],
+  ]);
+});
