@@ -13,7 +13,7 @@ async function mount(closedTabs = [], restoredDocument = null) {
   let session = { revision: 1, tabs: [tab("a"), tab("b")], activeTab: "a", closedTabs };
   let visible = null, emit;
   const views = new Set(), requests = [];
-  const hooks = { openLocalPdf: async () => null, save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), navigate: async () => {},
+  const hooks = { openLocalPdf: async () => null, save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), printPage: async () => {}, navigate: async () => {},
     developerTools: async () => {}, pageSettings: async () => ({ zoom: 1, muted: false }), findStart: async () => ({}), findStatus: async () => ({ active: 1, count: 2 }) };
   const invoke = async (name, args) => {
     if (name === "browser_get_state") return { startupMode: "browser", session: structuredClone(session) };
@@ -47,6 +47,7 @@ async function mount(closedTabs = [], restoredDocument = null) {
       }
       if (r.kind === "close") views.delete(r.tab);
       if (r.kind === "savePdf") return hooks.savePdf();
+      if (r.kind === "printPage") return hooks.printPage();
       if (r.kind === "navigate") return hooks.navigate();
       if (r.kind === "openDeveloperTools") return hooks.developerTools();
       if (r.kind === "pageSettings") return hooks.pageSettings();
@@ -326,6 +327,35 @@ it.each([
   await waitFor(() => expect(h.requests.filter(request => request.kind === kind)).toEqual([
     { kind, tab: "a", expectedUrl: tab("a").url, expectedDocumentRevision: "a:2" },
   ]));
+});
+
+it("keeps keyboard focus reachable when a print menu request fails", async () => {
+  const h = await mount();
+  const menu = h.root.querySelector(".browser-options");
+  const trigger = menu.querySelector("summary");
+  const entry = menu.querySelector('[data-i18n-text="Print page…"]');
+  let fail;
+  h.hooks.printPage = () => new Promise((_, reject) => { fail = reject; });
+  const printFromMenu = () => {
+    menu.open = true;
+    entry.focus();
+    entry.click();
+  };
+
+  printFromMenu();
+  expect(menu.open).toBe(false);
+  expect(document.activeElement).toBe(trigger);
+  await waitFor(() => expect(fail).toBeTypeOf("function"));
+  const address = h.root.querySelector(".browser-address");
+  address.focus();
+  fail(Error("Fixture print unavailable"));
+  await waitFor(() => expect(h.status()).toBe("Fixture print unavailable"));
+  expect(document.activeElement).toBe(address);
+
+  h.hooks.printPage = async () => {};
+  printFromMenu();
+  await waitFor(() => expect(h.requests.filter(request => request.kind === "printPage")).toHaveLength(2));
+  expect(document.activeElement).toBe(trigger);
 });
 
 it("rechecks the document before dispatching either print shortcut", async () => {
