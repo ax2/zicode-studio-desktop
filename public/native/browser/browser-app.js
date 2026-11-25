@@ -46,7 +46,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   let root, viewport, assistant, read, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
   let initialized = false, initPromise, lastSurface = "", surfaceError = "", saveTail = Promise.resolve();
-  let shortcutSurface;
+  let shortcutSurface, openingLocalPdf = false;
   let developerToolsPending = false, developerToolsError = "", refreshDeveloperTools;
   let actionTail = Promise.resolve(), restoreError = "", statusMessage = "";
   const enqueue = work => { const result = actionTail.then(work); actionTail = result.catch(report); return result; };
@@ -382,24 +382,36 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     await activation.add({ id: crypto.randomUUID(), url: "about:blank", title: t("New tab") });
     address.focus(); address.select();
   }
-  async function openLocalPdf(returnFocus) {
-    if (blocked()) return;
-    const id = crypto.randomUUID(), openedFrom = active;
-    const opening = control({ kind: "openLocalPdf", tab: id });
-    creatingTabs.set(id, opening);
-    try {
-      const document = await opening;
-      if (!document) { returnFocus?.focus({ preventScroll: true }); return; }
-      nativeTabs.add(id);
-      if (!visible || crashedTabs.has(id)) {
-        await discardTabView(id);
-        return;
+  function openLocalPdf(returnFocus, source = selected()?.id, fromPage = false) {
+    const current = () => initialized && !blocked() && selected()?.id === source &&
+      (!fromPage || pageAvailable(source));
+    if (openingLocalPdf || !current()) return;
+    openingLocalPdf = true;
+    return act(async () => {
+      const id = crypto.randomUUID();
+      try {
+        if (!current()) return;
+        const opening = control({ kind: "openLocalPdf", tab: id });
+        creatingTabs.set(id, opening);
+        const file = await opening;
+        if (!file) {
+          if (!current()) return;
+          if (fromPage) await control({ kind: "focusPage", tab: source });
+          else if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+          return;
+        }
+        nativeTabs.add(id);
+        if (!current() || crashedTabs.has(id)) {
+          await discardTabView(id);
+          return;
+        }
+        await activation.add({ id, url: file.url, title: file.name, localPdf: true, localPdfOpener: source });
+        tabStripControls.focusTab(id);
+      } finally {
+        creatingTabs.delete(id);
+        openingLocalPdf = false;
       }
-      await activation.add({ id, url: document.url, title: document.name, localPdf: true, localPdfOpener: openedFrom });
-      tabStripControls.focusTab(id);
-    } finally {
-      creatingTabs.delete(id);
-    }
+    });
   }
   async function discardTabView(id, reopening = false) {
     questionDrafts.delete(id);
@@ -998,9 +1010,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (visible && initialized && !blocked() && selected()?.id === tab && find.element.hidden && pageAvailable(tab)) await control({ kind: "focusPage", tab });
     }, report });
     fullscreen = createBrowserFullscreen({ control, report, beforeChange: () => { const menu = root.querySelector(".browser-options"); if (menu) menu.open = false; }, afterChange: () => run(syncSurface) });
-    shortcuts = setupBrowserShortcuts({ available: () => visible && initialized && !blocked(), getTab: selected, focusChrome: tab => control({ kind: "focusChrome", tab }), find: () => find.open(), address, tabAction: (action, source) => enqueue(() => tabShortcut(action, source)),
+    shortcuts = setupBrowserShortcuts({ available: () => visible && initialized && !blocked() && !openingLocalPdf, getTab: selected, focusChrome: tab => control({ kind: "focusChrome", tab }), find: () => find.open(), address, tabAction: (action, source) => enqueue(() => tabShortcut(action, source)),
       pageAction: (action, source) => action === "print" ? queuePrint(source) : enqueue(() => runPageAction(action, source)),
       fullscreen: () => fullscreen.toggle(),
+      openLocalPdf: (fromPage, source) => openLocalPdf(document.activeElement, source, fromPage),
       translateSelection: tab => act(() => translatePageSelection(tab, true)),
       searchTabs: (fromPage, source) => act(() => {
         if (!blocked() && selected()?.id === source) return openTabSearch(options, fromPage);
@@ -1048,7 +1061,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const options = createBrowserOptions(startup, () => act(async () => {
       await syncSurface();
       if (active && pageAvailable(active)) await control({ kind: "action", tab: active, action: "selectAll" });
-    }), { reopen: () => act(reopen), canReopen: () => closedTabs.length > 0, openLocalPdf: anchor => act(() => openLocalPdf(anchor)),
+    }), { reopen: () => act(reopen), canReopen: () => closedTabs.length > 0, openLocalPdf,
       windows: action => action === "canReopen" ? invoke("browser_window_command", { action }).catch(() => false) :
         action==="profiles" ? act(async()=>{
           if(tabSearch)return;
