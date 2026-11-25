@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { getLocale, setLocale } from "../../i18n.js";
 import { setupBrowserApp } from "./browser-app.js";
 
@@ -46,9 +46,10 @@ async function setup() {
   let emit, documentRevision = "1";
   const page = { url: tab.url, title: tab.title, blocks: [{ kind: "paragraph", text: "Synthetic article" }] };
   const present = vi.fn(async () => {});
+  const readArticle = vi.fn(async () => ({ tab: tab.id, documentRevision, page }));
   const invoke = vi.fn(async (command, args) => {
     if (command === "browser_get_state") return { startupMode: "browser", session: { revision: 0, activeTab: tab.id, tabs: [tab] } };
-    if (command === "browser_read_article") return { tab: tab.id, documentRevision, page };
+    if (command === "browser_read_article") return readArticle();
     if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs: [{ ...tab, documentRevision }] };
     if (args?.request?.kind === "snapshot") return "data:image/jpeg;base64,AA==";
     if (args?.request?.kind === "present") return present();
@@ -62,12 +63,16 @@ async function setup() {
   const menu = root.querySelector(".browser-options");
   const trigger = menu.querySelector("summary");
   const findReader = () => waitFor(() => getByRole(document.body, "dialog", { name: "Reading mode" }));
+  const requestFromMenu = () => {
+    trigger.focus();
+    menu.open = true;
+    getByRole(menu, "button", { name: "Reading mode" }).click();
+  };
   return {
-    invoke, present, trigger, address: root.querySelector(".browser-address"),
+    invoke, present, trigger, address: root.querySelector(".browser-address"), readArticle, requestFromMenu,
+    render: () => app.renderContent(root),
     openFromMenu() {
-      trigger.focus();
-      menu.open = true;
-      getByRole(menu, "button", { name: "Reading mode" }).click();
+      requestFromMenu();
       return findReader();
     },
     openFromPage() {
@@ -312,6 +317,45 @@ it("restores the native page after Escape and resets position when the same addr
   const newPage = await h.openFromPage();
   expect(getByRole(newPage, "region").scrollTop).toBe(0);
   expect(newPage.dataset.readerSize).toBe("1");
+});
+
+it("closes an active reader when leaving Browser and retains the final reading position", async () => {
+  const h = await setup();
+  const dialog = await h.openFromMenu();
+  const region = scrollArticle(dialog, 390);
+  region.scrollTop = 424; // No scroll event has been dispatched yet.
+  await app.canDeactivate();
+  expect(queryByRole(document.body, "dialog", { name: "Reading mode" })).toBeNull();
+  h.render();
+  h.address.focus();
+  await app.finishWindowWrites();
+  expect(document.activeElement).toBe(h.address);
+  expect(h.invoke).not.toHaveBeenCalledWith("browser_control", focusPage);
+  const reopened = await h.openFromMenu();
+  expect(getByRole(reopened, "region").scrollTop).toBe(424);
+  expect(reopened.dataset.readerSize).toBe("2");
+});
+
+it.each(["success", "failure"])("ignores a late %s after leaving and returning to Browser", async (outcome) => {
+  const h = await setup();
+  let settle;
+  const article = await h.readArticle();
+  h.readArticle.mockImplementationOnce(() => new Promise((resolve, reject) => { settle = [resolve, reject]; }));
+  h.requestFromMenu();
+  await waitFor(() => expect(settle).toBeDefined());
+  try {
+    await app.canDeactivate();
+    h.render();
+    h.address.focus();
+  } finally {
+    if (outcome === "success") settle[0](article);
+    else settle[1](Error("Obsolete extraction failed"));
+  }
+  await app.finishWindowWrites();
+  expect(queryByRole(document.body, "dialog", { name: "Reading mode" })).toBeNull();
+  expect(document.body.textContent).not.toContain("Obsolete extraction failed");
+  expect(document.activeElement).toBe(h.address);
+  expect(await h.openFromMenu()).toBeTruthy();
 });
 
 it("keeps new chrome focus while the webview is still being presented", async () => {
