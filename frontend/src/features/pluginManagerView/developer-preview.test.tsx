@@ -43,7 +43,8 @@ function setup({ required = true, existing = false, failed = false, activationFa
     return { settingsLoaded: true };
   });
   const setScene = vi.fn(async () => {});
-  const installDeveloperPlugin = vi.fn(async () => {
+  const selectDeveloperPlugin = vi.fn(async (): Promise<typeof preview | null> => preview);
+  const installDeveloperPlugin = vi.fn(async (_sourcePath: string, _checksum: string) => {
     if (failed) throw new Error("Plugin package changed after preview");
     installed = true;
     return { pluginId: plugin.id, packageRevision };
@@ -55,9 +56,9 @@ function setup({ required = true, existing = false, failed = false, activationFa
   };
   const notify = vi.fn();
   render(<PluginManagerViewApp registry={{ list: () => installed ? [plugin] : [], setScene, activateReviewed }}
-    getTarget={getTarget} selectDeveloperPlugin={async () => preview} installDeveloperPlugin={installDeveloperPlugin}
+    getTarget={getTarget} selectDeveloperPlugin={selectDeveloperPlugin} installDeveloperPlugin={installDeveloperPlugin}
     installedTools={installedTools} notify={notify} />);
-  return { plugin, setScene, installDeveloperPlugin, activateReviewed, installedTools, notify };
+  return { plugin, setScene, selectDeveloperPlugin, installDeveloperPlugin, activateReviewed, installedTools, notify };
 }
 
 async function reviewPackage() {
@@ -199,6 +200,34 @@ it("leaves an existing enabled package alone on failed reinstallation", async ()
   expect(flow.plugin.permissions).toEqual({ "resource.read": true });
   expect(flow.activateReviewed).not.toHaveBeenCalled();
   expect(flow.installedTools.open).not.toHaveBeenCalled();
+});
+
+it("discards a rejected digest and requires selection and approval of the new package", async () => {
+  const flow = setup({ existing: true });
+  const fresh = { ...preview, contentSha256: "b".repeat(64) };
+  flow.selectDeveloperPlugin.mockResolvedValueOnce(preview).mockResolvedValueOnce(null).mockResolvedValueOnce(fresh);
+  flow.installDeveloperPlugin.mockRejectedValueOnce("Developer plugin changed after preview; select it again");
+  await reviewPackage();
+  clickFocused(button("Install reviewed plugin"));
+  expect((await screen.findByRole("alert")).textContent).toBe("The plugin package changed after preview. Select it again.");
+  const reselect = button("Select plugin package again");
+  expect(document.activeElement).toBe(reselect);
+  expect(screen.queryByRole("button", { name: "Install reviewed plugin" })).toBeNull();
+  expect(flow.plugin.enabled).toBe(true);
+  expect(flow.plugin.permissions).toEqual({ "resource.read": true });
+
+  await act(async () => clickFocused(reselect));
+  expect(button("Select plugin package again")).toBe(reselect);
+  expect(flow.installDeveloperPlugin).toHaveBeenCalledTimes(1);
+  await act(async () => clickFocused(reselect));
+  expect(flow.installDeveloperPlugin).toHaveBeenCalledTimes(1);
+  clickFocused(button("Install reviewed plugin"));
+  await screen.findByRole("region", { name: "Installed plugin setup" });
+  expect(flow.installDeveloperPlugin.mock.calls).toEqual([
+    [preview.sourcePath, preview.contentSha256],
+    [fresh.sourcePath, fresh.contentSha256],
+  ]);
+  expect(flow.activateReviewed).not.toHaveBeenCalled();
 });
 
 it("shows failure without reporting availability or implicitly opening anything", async () => {

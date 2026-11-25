@@ -6128,6 +6128,7 @@ const zhCN = {
     "恢复回滚未完成。请停止使用此工作区并保留备份。待恢复文件位于：",
   "The backup contains no restorable app data.": "备份中没有可恢复的应用数据。",
   "Choose a .zicode-plugin package file.": "请选择 .zicode-plugin 插件包文件。",
+  "Select plugin package again": "重新选择插件包",
   "The plugin package changed after preview. Select it again.":
     "插件包在预览后已变化，请重新选择。",
   "The plugin package is too large.": "插件包过大。",

@@ -81,6 +81,12 @@ export function isStalePluginActivationReview(error: unknown): boolean {
   return message === "Plugin or permissions changed after review; review them again";
 }
 
+export function isStalePluginPackagePreview(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message === "Developer plugin changed after preview; select it again" ||
+    message === "Signed plugin package changed after preview; select it again";
+}
+
 /**
  * Map raw Rust errors from plugin package commands to friendly localized
  * messages so users see understandable feedback instead of internal strings.
