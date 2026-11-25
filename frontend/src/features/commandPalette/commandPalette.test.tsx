@@ -151,6 +151,46 @@ describe("command palette (React)", () => {
     expect(document.activeElement).toBe(button);
   });
 
+  it("keeps composition Escape with the input method and closes on ordinary Escape", () => {
+    const { button, palette, overlay, list } = mount();
+    const action = vi.fn();
+    setupCommandPalette({ button, palette, overlay, list, commands: [{ label: "Notes", action }] });
+    button.focus();
+    button.click();
+    const input = list.querySelector("input") as HTMLInputElement;
+    const pressEscape = (options: KeyboardEventInit = {}) => input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true, ...options }),
+    );
+    input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+    expect(pressEscape()).toBe(true);
+    input.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true }));
+    expect(pressEscape({ isComposing: true })).toBe(true);
+    expect(pressEscape({ keyCode: 229 })).toBe(true);
+    expect(palette.classList.contains("hidden")).toBe(false);
+    expect(overlay.classList.contains("hidden")).toBe(false);
+    expect(document.activeElement).toBe(input);
+    expect(action).not.toHaveBeenCalled();
+
+    expect(pressEscape()).toBe(false);
+    expect(palette.classList.contains("hidden")).toBe(true);
+    expect(overlay.classList.contains("hidden")).toBe(true);
+    expect(document.activeElement).toBe(button);
+  });
+
+  it("clears the tracked composition when the search input loses focus", () => {
+    const { button, palette, overlay, list } = mount();
+    setupCommandPalette({ button, palette, overlay, list, commands: [{ label: "Notes" }] });
+    button.focus();
+    button.click();
+    const input = list.querySelector("input") as HTMLInputElement;
+    input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+    button.focus();
+    input.focus();
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(palette.classList.contains("hidden")).toBe(true);
+    expect(document.activeElement).toBe(button);
+  });
+
   it("restores focus to the previously focused element when opened by shortcut", () => {
     const { button, palette, overlay, list } = mount();
     const input = document.createElement("input");
