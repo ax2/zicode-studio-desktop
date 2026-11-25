@@ -1,4 +1,7 @@
 //! Bounded resource-only JSON path queries and structural comparisons.
+use serde::Deserialize;
+use serde_json::{Value, value::RawValue};
+
 pub(crate) const PROFILE: &str = "resource.wasi.json-file-compare.v1";
 pub(crate) const PLUGIN: &str = "com.zicode.devtools.compare-json-file";
 pub(crate) const MAX_FILE: usize = 1024 * 1024;
@@ -146,20 +149,23 @@ pub(crate) fn validate_output(
     {
         return Err(invalid);
     }
-    let value = parse_output(&blob.bytes).ok_or(invalid)?;
     if count == 1 {
-        return value
+        return parse_output(&blob.bytes)
+            .ok_or(invalid)?
             .as_array()
             .filter(|rows| rows.len() <= 10_000)
             .map(|_| ())
             .ok_or(invalid);
     }
-    let changes = value["changes"].as_array().ok_or(invalid)?;
     let order = if capability == CAPABILITIES[1] {
         "by index"
     } else {
         "ignored (duplicates retained)"
     };
+    let Some(value) = parse_output(&blob.bytes) else {
+        return validate_precise_diff_report(&blob.bytes, order).ok_or(invalid);
+    };
+    let changes = value["changes"].as_array().ok_or(invalid)?;
     if value.as_object().is_none_or(|object| object.len() != 3)
         || value["arrayOrder"] != order
         || value["equal"].as_bool() != Some(changes.is_empty())
@@ -189,8 +195,7 @@ pub(crate) fn validate_output(
     Ok(())
 }
 
-fn parse_output(bytes: &[u8]) -> Option<serde_json::Value> {
-    use serde::Deserialize;
+fn output_depth_is_bounded(bytes: &[u8]) -> Option<()> {
     // Inputs allow 127 nested arrays or objects. A diff adds three wrappers:
     // the report, its changes array, and the change record.
     const MAX_DEPTH: usize = 130;
@@ -222,6 +227,12 @@ fn parse_output(bytes: &[u8]) -> Option<serde_json::Value> {
             }
         }
     }
+    (depth == 0 && !inside_string).then_some(())
+}
+
+fn parse_output(bytes: &[u8]) -> Option<serde_json::Value> {
+    use serde::Deserialize;
+    output_depth_is_bounded(bytes)?;
     let mut deserializer = serde_json::Deserializer::from_slice(bytes);
     deserializer.disable_recursion_limit();
     let value = serde_json::Value::deserialize(&mut deserializer).ok()?;
@@ -229,9 +240,118 @@ fn parse_output(bytes: &[u8]) -> Option<serde_json::Value> {
     Some(value)
 }
 
+// Numeric tokens can be valid JSON beyond the finite binary-float range.
+// Validate a temporary projection inside before/after, never the report shape
+// or path. The original verified bytes remain the only output or saved data.
+fn valid_report_data(fragment: &RawValue) -> bool {
+    let raw = fragment.get();
+    if serde_json::from_str::<Value>(raw).is_ok() {
+        return true;
+    }
+    let bytes = raw.as_bytes();
+    let mut projection = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'"' {
+            let start = index;
+            index += 1;
+            while index < bytes.len() {
+                let byte = bytes[index];
+                index += 1;
+                if byte == b'\\' {
+                    index += 1;
+                } else if byte == b'"' {
+                    break;
+                }
+            }
+            let Some(string) = bytes.get(start..index) else {
+                return false;
+            };
+            projection.extend_from_slice(string);
+        } else if matches!(bytes[index], b'-' | b'0'..=b'9') {
+            let start = index;
+            while index < bytes.len()
+                && matches!(bytes[index], b'-' | b'+' | b'0'..=b'9' | b'.' | b'e' | b'E')
+            {
+                index += 1;
+            }
+            if serde_json::from_slice::<&RawValue>(&bytes[start..index]).is_err() {
+                return false;
+            }
+            projection.push(b'0');
+        } else {
+            projection.push(bytes[index]);
+            index += 1;
+        }
+    }
+    serde_json::from_slice::<Value>(&projection).is_ok()
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PreciseDiffReport<'a> {
+    array_order: String,
+    equal: bool,
+    #[serde(borrow)]
+    changes: Vec<PreciseChange<'a>>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum ChangeKind {
+    Changed,
+    Added,
+    Removed,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreciseChange<'a> {
+    kind: ChangeKind,
+    path: String,
+    #[serde(borrow, default, deserialize_with = "present_value")]
+    before: Option<&'a RawValue>,
+    #[serde(borrow, default, deserialize_with = "present_value")]
+    after: Option<&'a RawValue>,
+}
+
+fn present_value<'de, D: serde::Deserializer<'de>>(
+    input: D,
+) -> Result<Option<&'de RawValue>, D::Error> {
+    // A field that explicitly contains null still counts as one payload.
+    <&RawValue>::deserialize(input).map(Some)
+}
+
+pub(crate) fn validate_precise_diff_report(input: &[u8], expected_order: &str) -> Option<()> {
+    if input.len() > MAX_OUTPUT {
+        return None;
+    }
+    output_depth_is_bounded(input)?;
+    let report: PreciseDiffReport<'_> = serde_json::from_slice(input).ok()?;
+    if report.array_order != expected_order
+        || report.changes.len() > 10_000
+        || report.equal != report.changes.is_empty()
+    {
+        return None;
+    }
+    for change in report.changes {
+        if !change.path.is_empty() && !change.path.starts_with('/') {
+            return None;
+        }
+        match (change.kind, change.before, change.after) {
+            (ChangeKind::Changed, Some(before), Some(after))
+                if valid_report_data(before) && valid_report_data(after) => {}
+            (ChangeKind::Added, None, Some(after)) if valid_report_data(after) => {}
+            (ChangeKind::Removed, Some(before), None) if valid_report_data(before) => {}
+            _ => return None,
+        }
+    }
+    Some(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::parse_output;
+    use super::{MAX_OUTPUT, parse_output, validate_precise_diff_report};
 
     #[test]
     fn json_file_output_preserves_allowed_input_depth_and_rejects_unbounded_nesting() {
@@ -242,5 +362,84 @@ mod tests {
         assert!(parse_output(&serde_json::to_vec(&brackets).unwrap()).is_some());
         assert!(parse_output(br#""\uD800""#).is_none());
         assert!(parse_output(b"[{}] {}").is_none());
+    }
+    #[test]
+    fn precise_numeric_values_do_not_skip_report_shape_or_unicode_checks() {
+        let with_payload = |before: &str, after: &str| {
+            format!(
+                r#"{{"arrayOrder":"by index","equal":false,"changes":[{{"kind":"changed","path":"/v","before":{before},"after":{after}}}]}}"#
+            )
+        };
+        let nested = |depth: usize| format!("{}1e99999{}", "[".repeat(depth), "]".repeat(depth));
+        let positives = [
+            ("high-exp", with_payload("1e99999", "1e100000")),
+            (
+                "u64-plus",
+                with_payload("18446744073709551616", "18446744073709551617"),
+            ),
+            ("explicit-null", with_payload("null", "1e99999")),
+            ("at-depth", with_payload("null", &nested(127))),
+            (
+                "escaped-string",
+                with_payload(r#"{"v":"\uD83D\uDE00"}"#, "1e99999"),
+            ),
+        ];
+        for (case, bytes) in positives {
+            assert!(
+                validate_precise_diff_report(bytes.as_bytes(), "by index").is_some(),
+                "{case}"
+            );
+            assert!(bytes.contains("1e99999") || bytes.contains("18446744073709551617"));
+        }
+        let controls = [
+            (
+                "overwritten-invalid-value",
+                with_payload("1e99999", "2").replace(
+                    r#""before":1e99999"#,
+                    r#""before":"\uD800","before":1e99999"#,
+                ),
+            ),
+            (
+                "duplicate-report-field",
+                with_payload("1e99999", "2")
+                    .replace(r#""equal":false"#, r#""equal":true,"equal":false"#),
+            ),
+            (
+                "lone-surrogate",
+                with_payload(r#"{"bad":"\uD800","value":1e99999}"#, "2"),
+            ),
+            ("bad-exponent", with_payload("1e-", "1e99999")),
+            (
+                "truncated",
+                with_payload("1e99999", "2").trim_end_matches('}').into(),
+            ),
+            (
+                "wrong-path-type",
+                with_payload("1e99999", "2").replace(r#""/v""#, "1e99999"),
+            ),
+            (
+                "wrong-equal-type",
+                with_payload("1e99999", "2").replace("false", "1e99999"),
+            ),
+            (
+                "wrong-order-type",
+                with_payload("1e99999", "2").replace(r#""by index""#, "1e99999"),
+            ),
+            (
+                "missing-after",
+                with_payload("1e99999", "2").replace(r#","after":2"#, ""),
+            ),
+            ("beyond-depth", with_payload("null", &nested(128))),
+            (
+                "beyond-volume",
+                with_payload("1e99999", "2") + " ".repeat(MAX_OUTPUT).as_str(),
+            ),
+        ];
+        for (case, content) in controls {
+            assert!(
+                validate_precise_diff_report(content.as_bytes(), "by index").is_none(),
+                "{case}"
+            );
+        }
     }
 }
