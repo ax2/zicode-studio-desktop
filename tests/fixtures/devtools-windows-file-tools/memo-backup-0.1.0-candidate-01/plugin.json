@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.memo-backup",
+  "name": "ZiDevTools Memo Backup Markdown",
+  "displayName": "备忘备份提取 Markdown",
+  "description": "查看 ZiDevTools JSON 备份里的普通备忘，按序号提取单条完整 Markdown。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.memos.backup.markdown"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.memos.backup.markdown",
+        "title": "备忘备份提取 Markdown",
+        "description": "查看 ZiDevTools JSON 备份里的普通备忘，按序号提取单条完整 Markdown。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json",
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "memoNumber": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64,
+              "title": "备忘序号（可选）",
+              "description": "留空列出可提取的备忘，填写其在备份中的序号后执行提取。"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "memoNumber": {
+                      "oneOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 64
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "totalRecords": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "eligibleMemos": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "byteLength": {
+                      "oneOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 131072
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 10000
+                    }
+                  },
+                  "required": [
+                    "memoNumber",
+                    "totalRecords",
+                    "eligibleMemos",
+                    "byteLength",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 40960,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "备忘备份",
+            "备忘导出",
+            "提取 Markdown",
+            "Extract memo backup"
+          ],
+          "description": "查看 ZiDevTools JSON 备份里的普通备忘，按序号提取单条完整 Markdown。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的本机备忘备份快照。"
+      }
+    ],
+    "optional": []
+  }
+}
