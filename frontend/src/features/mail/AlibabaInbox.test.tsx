@@ -224,3 +224,62 @@ it("drops the old Alibaba selection when the same UID appears in a new mailbox g
     { kind: "cachedBody", accountId: "a", uidValidity: 7, uid: summary.uid },
   ]);
 });
+
+it("keeps the active IMAP message when another cached folder fails to open", async () => {
+  setLocale("en");
+  const accounts = [{ id: "a", provider: "alibaba", address: "local@example.test" }];
+  const local = vi.fn(async (r: Record<string, unknown>) => {
+    if (r.kind === "accounts") return accounts;
+    if (r.kind === "drafts") return [];
+    throw Error("Unexpected local operation");
+  });
+  const inbox = { uidValidity: 7, messages: [summary], next: null };
+  const archive = { ...summary, subject: "Archive same UID" };
+  let failFolder!: (reason: Error) => void;
+  const pending = new Promise<never>((_resolve, reject) => { failFolder = reject; });
+  let archiveReads = 0;
+  const remote = vi.fn(async (r: Record<string, unknown>) => {
+    if (r.kind === "credentialStatus") return { enabled: true, configured: true };
+    if (r.kind === "cachedFolders") return ["Archive", "Empty", "Uncached"].map(id => ({ id, name: id }));
+    if (r.kind === "cachedPage") {
+      if (r.folder === "Archive") return ++archiveReads === 1 ? pending : { ...inbox, uidValidity: 9, messages: [archive] };
+      if (r.folder === "Empty") return { ...inbox, messages: [] };
+      if (r.folder === "Uncached") throw Error("mail_cache_empty");
+      return inbox;
+    }
+    if (r.kind === "cachedBody") return r.folder === "Archive"
+      ? { summary: archive, text: "Archive fixture body" }
+      : { summary, text: "Original inbox body" };
+    throw Error("Unexpected provider operation");
+  });
+  render(<Mail invoke={local as Invoke} transport={remote as Invoke}/>);
+  const select = await screen.findByLabelText<HTMLSelectElement>("IMAP folder");
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Original inbox body");
+  const set = (value: string) => fireEvent.change(select, { target: { value } });
+  set("Archive");
+  expect(select.value).toBe("INBOX");
+  expect(screen.queryByText("Original inbox body")).toBeTruthy();
+  await act(async () => failFolder(Error("mail_storage")));
+  await screen.findByText("Could not access local mail data.");
+  expect(select.value).toBe("INBOX");
+  expect(screen.queryByText("Original inbox body")).toBeTruthy();
+
+  set("Archive");
+  fireEvent.click(await screen.findByRole("button", { name: /Archive same UID/ }));
+  await screen.findByText("Archive fixture body");
+  expect(select.value).toBe("Archive");
+  expect(screen.queryByText("Original inbox body")).toBeNull();
+  expect(remote.mock.calls.filter(([r]) => r.kind === "cachedBody").map(([r]) => r)).toEqual([
+    { kind: "cachedBody", accountId: "a", uid: 30, uidValidity: 7 },
+    { kind: "cachedBody", accountId: "a", folder: "Archive", uid: 30, uidValidity: 9 },
+  ]);
+  set("Empty");
+  await screen.findByText("No messages on this page.");
+  expect(select.value).toBe("Empty");
+  expect(screen.queryByRole("article", { name: "Selected message" })).toBeNull();
+  set("Uncached");
+  await screen.findByText("No inbox has been saved on this device yet.");
+  expect(select.value).toBe("Uncached");
+  expect(remote.mock.calls.some(([r]) => ["read", "sync", "send", "replyDraft"].includes(String(r.kind)))).toBe(false);
+});
