@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.clipboard-compose",
+  "packageVersion": "0.1.0",
+  "signatureVerified": false,
+  "directoryIndexSha256": "3f0bf642714da2927b47d0c6be15a5b4c0544587b02f0bb2d7f932bd672b994f",
+  "files": [
+    {
+      "path": "catalog.json",
+      "size": 574,
+      "sha256": "ed0c629d45254e757ae69c937f943954bceba3d320b99f6a8d160f47c8d4c6de"
+    },
+    {
+      "path": "fixtures.json",
+      "size": 9917,
+      "sha256": "bf89a2c40691ef51170acc98800638b3d18100061f0fd8ab07ae4ce79bbfc431"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 56,
+      "sha256": "841a79980efce756b5b04d1a1536e8657ebed1979b9f1f3f15ebb8be43e02bcb"
+    },
+    {
+      "path": "plugin.json",
+      "size": 5221,
+      "sha256": "0091bf962bbd8932094d0072a5691135453f3333ec66d45b280f7cac696eec5c"
+    },
+    {
+      "path": "provenance.json",
+      "size": 11165,
+      "sha256": "5abbfaa2eb363556bba7f67adb7b8c6724a9b8dfbf4af93fc2223fee46b69c1a"
+    },
+    {
+      "path": "README.md",
+      "size": 1396,
+      "sha256": "4a5c65b1d1e534b9191af676ed144806badc728fc0a4a673382c9cd653e4f5f8"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 187382,
+      "sha256": "71f1c7e7a9875f40fe9ff8a62df2a6fb26db082b9f4e1614d9d83d601db9ad43"
+    }
+  ],
+  "fileCount": 8,
+  "totalBytes": 216808,
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}
