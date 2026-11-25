@@ -11,4 +11,6 @@
 - 两个窗口发出的 JSON 下载内容均为 1329 字节，与生产 Worker 返回逐字节一致，SHA-256 为 0225780f98ed53871beddfdd6eccc44693f60ba754abf7d12750fd9712de1b00。另通过真实 Host 的预览、确认和保存回执。下载证明读取了真实 WebView 发出的字节。第一次尝试用调试协议指定 Windows 下载目录未观察到落盘，原生文件对话框和安装版下载仍由 [#28](https://github.com/ax2/zicode-studio-desktop/issues/28) 跟踪。
 - 工具中心 45 套件 328 项通过，24 项既有跳过。类型、定向 Biome、设计及中文词条检查通过。工具中心构件 SHA-256 为 0b4f64aa6bb9bb2a0cd01d4461dec884571db77c37c840495428a3682fb9c412。最终宽英和窄中回执 SHA-256 分别为 f3e74a70dda2bd9e9d864cf405afcc389ea2fd6a2894dcb4c0d345690c9b55d4 和 a1a53f008a090bfb9e9296bc34937864cebe8f0787ea0efaa676b729295c79e0。
 
+- 新增落盘对照。同一正式工具中心构件加载真实 Worker 回执中的 1329 字节报告后，在独立 Windows Chromium 中实际写出下载文件。1180 px 英文与 420 px 中文均成功，文件与 Worker 原报告逐字节相同。每组只在显式执行后由用户点击下载一次，修改输入会隐藏旧下载入口。落盘回执 SHA-256 `7737c26c451a26fcdf31c3c44fa7c6cffa1d50f47c5b2e43309bee69f9c92c63`。原生 WebView2 下载目录和系统对话框继续纳入集中验收。
+
 仍使用原有 48 KiB 结果上限。独立版更大输入、配置优先级和实时服务接口有各自的验收范围。
