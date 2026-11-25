@@ -99,7 +99,7 @@ export function createBrowserCaptureFrames(page, recognizeImage, reviewImage) {
     if (frame.tablesTruncated) details.append(paragraph(t("Only some table data is shown.")));
     if (frame.images?.length) {
       const target = { title: frame.title, url: frame.url, locator: frame.imageLocator };
-      const bound = action => action && frame.imageLocator && (image => action(image, target));
+      const bound = action => action && frame.imageLocator && ((image, language) => action(image, target, language));
       const images = createBrowserCaptureImageList(frame.images, bound(recognizeImage), bound(reviewImage));
       const scroll = document.createElement("div");
       scroll.className = "browser-capture-media-scroll";

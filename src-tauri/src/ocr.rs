@@ -59,6 +59,9 @@ $language = $env:ZICODE_OCR_LANGUAGE
 $engine = $null
 if ($language) {
     $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage([Windows.Globalization.Language]::new($language))
+    if ($null -eq $engine -and $env:ZICODE_OCR_REQUIRE_LANGUAGE -eq '1') {
+        exit 3
+    }
 }
 if ($null -eq $engine) {
     $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
@@ -127,6 +130,7 @@ fn run_windows_ocr(
     png_path: &Path,
     language: Option<&str>,
     cancelled: Option<&AtomicBool>,
+    require_language: bool,
 ) -> Result<String, String> {
     let mut command = crate::process_command::new_command("powershell.exe");
     command
@@ -137,8 +141,13 @@ fn run_windows_ocr(
             WINDOWS_OCR_SCRIPT,
         ])
         .env("ZICODE_OCR_IMAGE", png_path);
+    command.env_remove("ZICODE_OCR_LANGUAGE");
+    command.env_remove("ZICODE_OCR_REQUIRE_LANGUAGE");
     if let Some(language) = language.map(str::trim).filter(|value| !value.is_empty()) {
         command.env("ZICODE_OCR_LANGUAGE", language);
+        if require_language {
+            command.env("ZICODE_OCR_REQUIRE_LANGUAGE", "1");
+        }
     }
     let mut child = command
         .stdout(std::process::Stdio::piped())
@@ -234,6 +243,9 @@ fn run_windows_ocr(
             .map_err(|_| "Windows OCR error reader failed".to_string())?,
     };
     if !output.status.success() {
+        if require_language && output.status.code() == Some(3) {
+            return Err("The selected OCR language is not installed.".into());
+        }
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
         let message = if stderr.is_empty() {
             "Windows OCR failed".to_string()
@@ -258,6 +270,7 @@ fn run_windows_ocr(
     _png_path: &Path,
     _language: Option<&str>,
     _cancelled: Option<&AtomicBool>,
+    _require_language: bool,
 ) -> Result<String, String> {
     Err("OCR is only available on Windows".to_string())
 }
@@ -272,16 +285,17 @@ pub(crate) fn extract_text_cancellable(
     cancelled: Option<&AtomicBool>,
 ) -> Result<OcrResult, String> {
     let img = decode_image(&request.image, workspace_root)?;
-    extract_decoded_text(&img, request.language.as_deref(), cancelled)
+    extract_decoded_text(&img, request.language.as_deref(), cancelled, false)
 }
 
 pub(crate) fn extract_decoded_text(
     img: &image::DynamicImage,
     language: Option<&str>,
     cancelled: Option<&AtomicBool>,
+    require_language: bool,
 ) -> Result<OcrResult, String> {
     let png_path = save_temp_png(img)?;
-    let text_result = run_windows_ocr(&png_path, language, cancelled);
+    let text_result = run_windows_ocr(&png_path, language, cancelled, require_language);
     let _ = std::fs::remove_file(&png_path);
     let text = text_result?;
     let char_count = text.chars().count();

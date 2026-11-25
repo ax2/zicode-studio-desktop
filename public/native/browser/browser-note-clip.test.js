@@ -6,6 +6,7 @@ import { t } from "../../i18n.js";
 import { navigateToNote } from "../features/notes-navigation.js";
 import { NotesGateway } from "../plugins/notes-gateway.js";
 import { showBrowserCapture } from "./browser-capture-preview.js";
+import { createBrowserImageOcr } from "./browser-image-ocr.js";
 import { browserDraftPrompt } from "./browser-chat-draft.js";
 import { browserNoteContent, createBrowserNoteWriter } from "./browser-note-snapshot.js";
 const descriptors = ["showModal", "close"].map(name => [name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name)]);
@@ -287,7 +288,7 @@ it("requests OCR only on its own action and separately opts in to including the 
   action.click();
   await waitFor(() => expect(getByRole(media, "textbox").value).toBe("<em>Text</em>"));
   expect(document.activeElement).toBe(getByRole(media, "textbox"));
-  expect(recognizeImage).toHaveBeenCalledWith(image, undefined);
+  expect(recognizeImage).toHaveBeenCalledWith(image, undefined, undefined);
   const include = getByRole(media, "checkbox", { name: t("Include this image text in the page note or chat draft") });
   expect(include.checked).toBe(false);
   expect(media.querySelector("em")).toBeNull();
@@ -412,6 +413,68 @@ it("saves and reopens only explicitly selected OCR text from the page and an emb
   }
 });
 
+it("lets each image choose a language for its own retry", async () => {
+  const one = { alt: "Inventory", width: 1000, height: 224, url: "https://example.org/cjk.png" };
+  const two = { ...one, alt: "Receipt", url: "https://example.org/en.png" };
+  const snapshot = { ...capture, documentRevision: "ocr-1", page: { ...capture.page, images: [one, two] } };
+  let finish;
+  const recognizeImage = vi.fn()
+    .mockRejectedValueOnce(Error("No text was recognized in the image"))
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const host = document.createElement("aside"), trigger = document.createElement("button");
+  document.body.append(trigger, host);
+  const dialog = showBrowserCapture(snapshot, vi.fn(), undefined, undefined, undefined, false, { host, trigger, recognizeImage });
+  const details = dialog.querySelector(".browser-capture-media");
+  const [first, second] = details.querySelectorAll(".browser-image-ocr");
+  const language = getByRole(first, "combobox", { name: t("OCR language") });
+  const run = getByRole(first, "button", { name: t("Recognize text locally") });
+  expect(language.value).toBe("");
+  run.click();
+  await waitFor(() => expect(run.disabled).toBe(false));
+  expect(recognizeImage).toHaveBeenLastCalledWith(one, undefined, undefined);
+  expect(getByRole(first, "status").textContent).toBe(t("No text was recognized in the image"));
+
+  language.value = "zh-CN";
+  language.dispatchEvent(new Event("change", { bubbles: true }));
+  expect(recognizeImage).toHaveBeenCalledTimes(1);
+  expect(getByRole(second, "combobox", { name: t("OCR language") }).value).toBe("");
+  run.click();
+  expect(language.disabled).toBe(true);
+  expect(recognizeImage).toHaveBeenLastCalledWith(one, undefined, "zh-CN");
+  finish({ source: one, pageUrl: snapshot.page.url, documentRevision: snapshot.documentRevision,
+    capturedAt: "2026-11-25T01:13:02Z", text: "中 文 文 件 校 对", truncated: false });
+  await waitFor(() => expect(getByRole(first, "textbox").value).toBe("中 文 文 件 校 对"));
+  expect(getByRole(first, "checkbox").checked).toBe(false);
+  expect(getByRole(second, "button", { name: t("Recognize text locally") }).disabled).toBe(false);
+});
+
+it("can replace a nonempty OCR result without carrying its approval forward", async () => {
+  const source = { alt: "Inventory", width: 1000, height: 224, url: "https://example.org/cjk.png" };
+  const first = { source, text: "Wrong guess", truncated: false };
+  const second = { source, text: "中 文 文 件 校 对", truncated: false };
+  const request = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+  const recognition = createBrowserImageOcr(source, request);
+  document.body.append(recognition.element);
+  const language = getByRole(recognition.element, "combobox", { name: t("OCR language") });
+  getByRole(recognition.element, "button", { name: t("Recognize text locally") }).click();
+  await waitFor(() => expect(getByRole(recognition.element, "textbox").value).toBe(first.text));
+  getByRole(recognition.element, "checkbox").click();
+  expect(recognition.attachment()).toBe(first);
+  expect(getByRole(recognition.element, "button", { name: t("Recognize text again") })).toBeTruthy();
+
+  language.value = "zh-CN";
+  language.dispatchEvent(new Event("change", { bubbles: true }));
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(recognition.attachment()).toBeUndefined();
+  expect(queryByRole(recognition.element, "textbox")).toBeNull();
+  getByRole(recognition.element, "button", { name: t("Recognize text locally") }).click();
+  await waitFor(() => expect(getByRole(recognition.element, "textbox").value).toBe(second.text));
+  expect(request).toHaveBeenLastCalledWith(source, "zh-CN");
+  expect(recognition.attachment()).toBeUndefined();
+  getByRole(recognition.element, "checkbox").click();
+  expect(recognition.attachment()).toBe(second);
+});
+
 it("reports when local OCR finds no text and lets the user retry", async () => {
   const image = { alt: "Blank image", width: 200, height: 60, url: "https://example.org/blank.png" };
   const snapshot = { ...capture, page: { ...capture.page, images: [image] } };
@@ -467,7 +530,7 @@ it("recognizes an image-only frame with its reviewed locator and opts into its r
   expect(recognizeImage).not.toHaveBeenCalled();
   getByRole(details, "button", { name: t("Recognize text locally") }).click();
   await waitFor(() => expect(getByRole(details, "textbox").value).toBe("Inventory count"));
-  expect(recognizeImage).toHaveBeenCalledWith(image, { title: frame.title, url: frame.url, locator: frame.imageLocator });
+  expect(recognizeImage).toHaveBeenCalledWith(image, { title: frame.title, url: frame.url, locator: frame.imageLocator }, undefined);
   const includeFrame = getByRole(details, "checkbox", { name: t("Include frames in the page note or chat draft") });
   const includeImage = getByRole(details, "checkbox", { name: t("Include this image text in the page note or chat draft") });
   expect(includeFrame.checked).toBe(false);

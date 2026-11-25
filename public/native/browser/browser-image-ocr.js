@@ -8,6 +8,14 @@ export function createBrowserImageOcr(image, recognize) {
   button.type = "button";
   button.className = "ui-button ui-button--secondary";
   button.textContent = t("Recognize text locally");
+  const language = document.createElement("select");
+  language.className = "ui-select";
+  language.setAttribute("aria-label", t("OCR language"));
+  language.append(
+    new Option(t("Default OCR language"), ""),
+    new Option(t("Simplified Chinese"), "zh-CN"),
+    new Option(t("English"), "en-US"),
+  );
   const status = document.createElement("p");
   status.setAttribute("role", "status");
   status.hidden = true;
@@ -22,15 +30,31 @@ export function createBrowserImageOcr(image, recognize) {
   const label = document.createElement("label");
   label.append(include, t("Include this image text in the page note or chat draft"));
   label.hidden = true;
-  element.append(button, status, label, output);
+  element.append(language, button, status, label, output);
   let result;
+  const clearResult = () => {
+    const wasIncluded = include.checked;
+    result = undefined;
+    include.checked = false;
+    label.hidden = output.hidden = true;
+    output.value = "";
+    button.textContent = t("Recognize text locally");
+    if (wasIncluded) include.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  language.addEventListener("change", () => {
+    if (language.disabled) return;
+    clearResult();
+    status.hidden = true;
+  });
   button.addEventListener("click", async () => {
     const hadFocus = document.activeElement === button;
-    button.disabled = true;
+    if (button.disabled) return;
+    button.disabled = language.disabled = true;
+    clearResult();
     status.hidden = false;
     status.textContent = t("Recognizing image text…");
     try {
-      const recognized = await recognize(image);
+      const recognized = await recognize(image, language.value || undefined);
       if (!element.isConnected) return;
       if (!recognized) { status.hidden = true; return; }
       if (!recognized.text.trim()) {
@@ -45,11 +69,11 @@ export function createBrowserImageOcr(image, recognize) {
       if (hadFocus && (document.activeElement === button || document.activeElement === document.body)) {
         output.focus({ preventScroll: true });
       }
-      button.hidden = true;
+      button.textContent = t("Recognize text again");
     } catch (error) {
       if (element.isConnected) status.textContent = t(String(error?.message ?? error));
     } finally {
-      button.disabled = false;
+      button.disabled = language.disabled = false;
       if (hadFocus && !button.hidden && element.isConnected && document.activeElement === document.body) {
         button.focus({ preventScroll: true });
       }

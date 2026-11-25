@@ -129,3 +129,77 @@ async fn creates_cited_local_notes_without_fetch_and_keeps_existing_notes() {
 
     host.stop_and_wait().await.unwrap();
 }
+
+#[cfg(windows)]
+#[tokio::test]
+#[ignore = "requires the installed Windows English and Simplified Chinese recognizers and generated OCR fixture"]
+async fn persists_reviewed_windows_ocr_text_in_an_isolated_notes_vault() {
+    let fixtures = std::path::PathBuf::from(
+        std::env::var_os("ZICODE_BROWSER_OCR_NOTES_FIXTURE")
+            .expect("set the generated OCR fixture directory"),
+    );
+    let data: Value =
+        serde_json::from_slice(&std::fs::read(fixtures.join("notes-payload.json")).unwrap()).unwrap();
+    let recognize = |file: &str, language: Option<&str>| {
+        let bytes = std::fs::read(fixtures.join(file)).unwrap();
+        let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png).unwrap();
+        crate::ocr::extract_decoded_text(&image, language, None, true).map(|result| result.text)
+    };
+    assert_eq!(
+        recognize("primary.png", None).unwrap_err(),
+        "No text was recognized in the image"
+    );
+    for name in ["primary", "embedded", "unselected"] {
+        let text = recognize(&format!("{name}.png"), Some("zh-CN")).unwrap();
+        assert_eq!(text, data["texts"][name].as_str().unwrap());
+    }
+    assert_eq!(
+        recognize("english.png", Some("en-US")).unwrap(),
+        data["texts"]["english"].as_str().unwrap()
+    );
+    let root = std::env::temp_dir().join(format!("browser-ocr-note-{}", uuid::Uuid::new_v4()));
+    let public = root.join("public");
+    std::fs::create_dir_all(&public).unwrap();
+    std::fs::write(public.join("index.html"), "Isolated browser OCR Notes acceptance").unwrap();
+    let start = || {
+        let metadata = MetadataStore::open(&root.join("metadata.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        HostServer::start(public.clone(), NativePiManager::new(4), auth)
+    };
+    let host = start().await.unwrap();
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let workspace = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    let notebook: Value = client
+        .post(format!("{}/v2/notes/notebooks", host.origin()))
+        .json(&json!({"workspaceId":workspace,"sceneId":"programming","title":"OCR acceptance"}))
+        .send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+    let notebook_id = notebook["notebook"]["id"].as_str().unwrap();
+    let mut draft = data["note"].clone();
+    draft["workspaceId"] = json!(workspace);
+    draft["sceneId"] = json!("programming");
+    draft["notebookId"] = json!(notebook_id);
+    let created: Value = client.post(format!("{}/v2/notes/create", host.origin()))
+        .json(&draft).send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+    let note = &created["note"];
+    assert_eq!(note["content"], draft["content"]);
+    for property in ["url", "capturedAt", "documentRevision"] {
+        assert_eq!(note["source"][property], draft["source"][property]);
+    }
+    assert_eq!(note["source"]["contentHash"], content_hash(draft["content"].as_str().unwrap()));
+    host.stop_and_wait().await.unwrap();
+    let reopened_host = start().await.unwrap();
+    let note_id = note["id"].as_str().unwrap();
+    let reopened: Value = client.get(format!("{}/v2/notes/note", reopened_host.origin()))
+        .query(&[("sceneId", "programming"), ("workspaceId", workspace), ("notebookId", notebook_id), ("noteId", note_id)])
+        .send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+    assert_eq!(reopened, created);
+    let body = reopened["note"]["content"].as_str().unwrap();
+    for name in ["primary", "embedded"] {
+        assert!(body.contains(data["texts"][name].as_str().unwrap()));
+    }
+    for forbidden in [data["texts"]["unselected"].as_str().unwrap(), "EXCLUDED FRAME BODY", "/unselected.png", "data:image/"] {
+        assert!(!body.contains(forbidden));
+    }
+    assert!(body.contains("fixture-child-84") && body.contains("https://ocr-fixture.invalid/embedded"));
+    reopened_host.stop_and_wait().await.unwrap();
+}

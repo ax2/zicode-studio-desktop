@@ -47,11 +47,11 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   text.setAttribute("data-i18n-aria-label", "Page content");
   const pagePreview = `${capture.page.selection ? `${t("Selected text")}\n${capture.page.selection}\n\n` : ""}${capture.page.text}`;
   text.value = pagePreview;
-  const recognizeImage = dock?.recognizeImage && (async (image, frame) => {
+  const recognizeImage = dock?.recognizeImage && (async (image, frame, language) => {
     if (busy || !isOpen()) return;
     setBusy(true);
     try {
-      const result = await dock.recognizeImage(image, frame);
+      const result = await dock.recognizeImage(image, frame, language);
       return isOpen() ? result : undefined;
     } finally { setBusy(false); }
   });
@@ -220,7 +220,9 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
     if (dock) dialog.setAttribute("aria-busy", String(busy));
     if (question) question.disabled = busy;
     if (selectionScope) selectionScope.disabled = busy;
-    for (const button of dialog.querySelectorAll(".browser-image-ocr button")) button.disabled = busy;
+    for (const control of dialog.querySelectorAll(".browser-image-ocr button, .browser-image-ocr select")) {
+      control.disabled = busy;
+    }
     if (busy) {
       for (const button of actions.querySelectorAll("button:not(:disabled)")) {
         if (button === draftCancelButton) continue;
