@@ -1,4 +1,5 @@
 mod api;
+mod attachment;
 mod oauth;
 pub(crate) mod reply;
 mod sync;
@@ -235,6 +236,11 @@ pub(crate) async fn mail_gmail(
         }
         _ => {}
     }
+    let check_attachment_scope = || -> std::result::Result<(), String> {
+        crate::resource_export_picker::context(&window, &scope)?;
+        attachment::check_generation(&path, &scope, &account_id, cache_epoch)?;
+        Ok(())
+    };
     let download = if let Request::DownloadAttachment { id, part } = &request {
         if !api::valid_id(id) {
             return Err("gmail_invalid".into());
@@ -258,6 +264,7 @@ pub(crate) async fn mail_gmail(
         let Some(target) = target else {
             return Ok(json!({"saved":false}));
         };
+        check_attachment_scope()?;
         Some((target, item))
     } else {
         None
@@ -401,6 +408,9 @@ pub(crate) async fn mail_gmail(
     ) {
         return Err("gmail_confirmation_required".into());
     }
+    if download.is_some() {
+        check_attachment_scope()?;
+    }
     let refreshed = oauth::tokens(
         &client,
         TOKEN,
@@ -458,13 +468,17 @@ pub(crate) async fn mail_gmail(
         }
         Request::DownloadAttachment { id, part } => {
             let (target, item) = download.ok_or("mail_attachment_missing")?;
-            let bytes = api::attachment(&client, api::BASE, &access, &id, part, &item).await?;
-            let _g = current()?;
-            crate::resource_export_picker::context(&window, &scope)?;
-            if store::cache_generation(&path, &scope, &account_id)? != cache_epoch {
-                return Err("mail_attachment_changed".into());
-            }
-            crate::mail_attachment::save(&target, &bytes)?;
+            let verify = || -> std::result::Result<_, String> {
+                let guard = current()?;
+                check_attachment_scope()?;
+                Ok(guard)
+            };
+            attachment::save_confirmed(
+                &target,
+                verify,
+                api::attachment(&client, api::BASE, &access, &id, part, &item),
+            )
+            .await?;
             json!({"saved":true})
         }
         Request::Send {
