@@ -4222,6 +4222,7 @@ const zhCN = {
   "Mail drafts": "邮件草稿",
   "New draft": "新建草稿",
   "Reload drafts": "重新载入草稿",
+  "Could not load this account’s saved drafts.": "无法载入此账号已保存的草稿。",
   "Reload draft attachments": "重新载入草稿附件",
   "Recipient": "收件人",
   "Mail subject": "邮件主题",
