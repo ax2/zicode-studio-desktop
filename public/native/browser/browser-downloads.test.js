@@ -460,3 +460,43 @@ it("drops queued pagination when the download search changes", async () => {
   expect(dialog.querySelector('[data-download-id="recent"]')).toBeNull();
   expect(document.activeElement).toBe(search);
 });
+
+it("switches only to the exact available tab of a lost operation, without replaying a download", async () => {
+  const firstTab = { id: "tab-one" };
+  const recovery = { ...item("old", "interrupted"), tab: firstTab.id, error: "Studio closed before this download finished" };
+  const entries = [
+    recovery,
+    { ...recovery, id: "same-url-other-tab", tab: "tab-two" },
+    { ...recovery, id: "cancelled", state: "cancelled" },
+    { ...recovery, id: "paused", state: "paused", canResume: true },
+  ];
+  const invoke = vi.fn(async () => page(entries));
+  const onSwitchTab = vi.fn(async () => true), onClose = vi.fn();
+  const dialog = showBrowserDownloads({ invoke, getDownloadTab: id => id === firstTab.id ? firstTab : undefined, onSwitchTab, onClose });
+  await tick();
+  const label = t("Switch to download tab");
+  const button = getByRole(dialog.querySelector('[data-download-id="old"]'), "button", { name: label });
+  expect([...dialog.querySelectorAll("button")].filter(node => !node.hidden && node.textContent === label)).toEqual([button]);
+  button.click(); await tick();
+  expect(onSwitchTab).toHaveBeenCalledExactlyOnceWith(firstTab);
+  expect(onClose).toHaveBeenCalledExactlyOnceWith(firstTab.id);
+  expect(invoke.mock.calls.map(([, { request }]) => request.kind)).toEqual(["downloads"]);
+});
+
+it("keeps the recovery guide visible if the selected download tab is no longer available", async () => {
+  const target = { id: "closed-tab" };
+  let live = target;
+  const invoke = vi.fn(async () => page([{ ...item("old", "interrupted"), tab: target.id,
+    error: "Studio closed before this download finished" }]));
+  const dialog = showBrowserDownloads({ invoke, getDownloadTab: () => live, onSwitchTab: async tab => tab === live });
+  await tick();
+  const label = t("Switch to download tab");
+  const button = getByRole(dialog, "button", { name: label });
+  live = undefined;
+  button.click(); await tick();
+  expect(dialog.open).toBe(true);
+  expect(getByRole(dialog, "status").textContent).toBe(t("Browser tab is no longer available"));
+  expect(button.hidden).toBe(true);
+  expect(dialog.textContent).toContain(t("This download can’t be resumed after Studio closes. Return to the page that started it, download again, and choose where to save when prompted."));
+  expect(invoke.mock.calls.every(([, { request }]) => request.kind === "downloads")).toBe(true);
+});

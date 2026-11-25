@@ -1307,7 +1307,26 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     }, onOpen: openSavedPage }), returnToPage);
   }
   function openDownloads(returnToPage) {
-    return openLibrary(libraryOwner(), onClose => showBrowserDownloads({ invoke, onClose,
+    const ownsPage = libraryOwner();
+    // The journal and tab session belong to this browser window. Reuse the
+    // existing view so switching never reopens a URL or starts a download.
+    const getDownloadTab = id => tabs.find(tab => tab.id === id && pageAvailable(id));
+    return openLibrary(ownsPage, onClose => showBrowserDownloads({
+      invoke, getDownloadTab,
+      onSwitchTab: target => {
+        const panel = libraryPanel;
+        return enqueue(async () => {
+          if (panel !== libraryPanel || !panel?.open || !ownsPage() || getDownloadTab(target.id) !== target) {
+            return false;
+          }
+          if (target.id !== active) await select(target.id);
+          return true;
+        });
+      },
+      onClose: tab => {
+        onClose();
+        if (tab && active === tab && !surfaceUnavailable()) tabStripControls.focusTab(tab);
+      },
       subscribe: observer => { downloadObservers.add(observer); return () => downloadObservers.delete(observer); },
     }), returnToPage);
   }
