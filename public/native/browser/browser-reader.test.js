@@ -5,11 +5,17 @@ import { setupBrowserApp } from "./browser-app.js";
 
 const dialogMethods = ["showModal", "close"].map(name => [name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name)]);
 const tab = { id: "article", url: "https://example.invalid/article", title: "Article" };
-let app, locale;
+const caretMethod = Object.getOwnPropertyDescriptor(document, "caretPositionFromPoint");
+let app, locale, observers;
 beforeEach(() => {
   locale = getLocale();
   setLocale("en");
-  vi.stubGlobal("ResizeObserver", class { observe() {} });
+  observers = [];
+  vi.stubGlobal("ResizeObserver", class {
+    constructor(callback) { this.resize = callback; }
+    observe(target) { observers.push({ target, resize: this.resize, disconnect: this.disconnect }); }
+    disconnect = vi.fn();
+  });
   vi.spyOn(document, "hidden", "get").mockReturnValue(false);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, width: 900, height: 580 });
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
@@ -27,6 +33,8 @@ afterEach(async () => {
   document.body.replaceChildren();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  if (caretMethod) Object.defineProperty(document, "caretPositionFromPoint", caretMethod);
+  else delete document.caretPositionFromPoint;
   for (const [name, descriptor] of dialogMethods) {
     if (descriptor) Object.defineProperty(HTMLDialogElement.prototype, name, descriptor);
     else delete HTMLDialogElement.prototype[name];
@@ -149,6 +157,54 @@ it("keeps the current reading block and focus through font-size changes", async 
   expect(document.activeElement).toBe(smaller);
   smaller.click();
   expect(region.scrollTop).toBe(67.5);
+});
+
+it("anchors width changes to the visible line and follows subsequent user scrolling", async () => {
+  let width = 890;
+  vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(() => width);
+  const h = await setup();
+  const dialog = await h.openFromMenu();
+  const region = getByRole(dialog, "region", { name: "Page content" });
+  const paragraph = region.querySelector("article > p:last-child");
+  const observer = observers.find(entry => entry.target === region);
+  const bounds = () => ({ top: 80, left: 0, height: 500, bottom: 580 });
+  region.getBoundingClientRect = bounds;
+  paragraph.getBoundingClientRect = bounds;
+
+  const caret = vi.fn(() => ({ offsetNode: paragraph.firstChild, offset: 0 }));
+  Object.defineProperty(document, "caretPositionFromPoint", { configurable: true, value: caret });
+  const createRange = document.createRange.bind(document);
+  vi.spyOn(document, "createRange").mockImplementation(() => {
+    const range = createRange();
+    range.getBoundingClientRect = () => ({
+      height: 28,
+      top: 80 + (width === 890 ? 159 : 318) + range.startOffset * 18 - region.scrollTop,
+    });
+    return range;
+  });
+  function userScroll(top) {
+    region.scrollTop = top;
+    region.dispatchEvent(new Event("scroll"));
+  }
+
+  userScroll(150);
+  width = 398;
+  observer.resize();
+  expect(region.scrollTop).toBe(309);
+  region.dispatchEvent(new Event("scroll")); // The resize adjustment leaves the original anchor in place.
+  observer.resize();
+  expect(caret).toHaveBeenCalledTimes(1);
+  width = 890;
+  observer.resize();
+  expect(region.scrollTop).toBe(150);
+
+  caret.mockReturnValue({ offsetNode: paragraph.firstChild, offset: 5 });
+  userScroll(200);
+  width = 398;
+  observer.resize();
+  expect(region.scrollTop).toBe(359);
+  closeFromButton(dialog);
+  expect(observer.disconnect).toHaveBeenCalledOnce();
 });
 
 it("restores the native page after Escape and resets position when the same address reloads", async () => {
