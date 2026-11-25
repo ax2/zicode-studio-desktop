@@ -498,7 +498,15 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
             compact={independentMerge && (field.key === "leftKey" || field.key === "rightKey")}
             onOmit={() => { setDraft(previous => { const next = { ...previous.values }; delete next[field.key]; return { values: next }; });
               if (invalidField === field.key) { setInvalidField(""); setError(""); } }}
-            onChange={value => setDraft(previous => ({ values: { ...previous.values, [field.key]: value } }))} />;
+            onChange={value => setDraft(previous => {
+              const next = { ...previous.values, [field.key]: value };
+              const previousUndo = previous.undo;
+              if (jsonPath && field.key === "query" && previousUndo?.kind === "import" &&
+                  previousUndo.identity === transformIdentity) {
+                return { values: next, undo: { ...previousUndo, values: { ...previousUndo.values, query: value } } };
+              }
+              return { values: next };
+            })} />;
         })}
         {draftFileTool && workbenchDraftActive && <WorkbenchDraftFileActions key={transformIdentity}
           tool={tool} values={values} disabled={!canReadDraft} onRestore={restoreDraftFile} />}
