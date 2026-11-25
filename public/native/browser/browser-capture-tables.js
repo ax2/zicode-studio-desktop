@@ -5,6 +5,12 @@ export function selectCapturedTables(tables = [], tableIndexes) {
   return tableIndexes ? tables.filter((_, index) => tableIndexes.includes(index)) : tables;
 }
 
+function appendTableText(element, value) {
+  const [first, ...lines] = value.split("\n");
+  element.append(first);
+  for (const line of lines) element.append(document.createElement("br"), line);
+}
+
 export function renderBrowserCaptureTables(tables, controls = []) {
   const scroll = document.createElement("div"); scroll.className = "browser-capture-tables-scroll";
   scroll.tabIndex = 0; scroll.setAttribute("role", "region"); scroll.setAttribute("aria-label", t("Page tables"));
@@ -12,7 +18,7 @@ export function renderBrowserCaptureTables(tables, controls = []) {
     if (controls[index]) scroll.append(controls[index]);
     const table = document.createElement("table");
     table.setAttribute("translate", "no");
-    if (caption) table.createCaption().textContent = caption;
+    if (caption) appendTableText(table.createCaption(), caption);
     const body = table.createTBody();
     rows.forEach((row, index) => {
       const header = index === 0 && firstRowHeader;
@@ -20,7 +26,7 @@ export function renderBrowserCaptureTables(tables, controls = []) {
       for (const value of row) {
         const cell = document.createElement(header ? "th" : "td");
         if (header) cell.scope = "col";
-        cell.textContent = value; tr.append(cell);
+        appendTableText(cell, value); tr.append(cell);
       }
     });
     scroll.append(table);
