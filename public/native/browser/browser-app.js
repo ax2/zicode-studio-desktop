@@ -72,6 +72,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const pdfDocuments = new Map();
   const readerPositions = new Map();
   const questionDrafts = new Map();
+  let captureDismissals = 0;
   const questionScope = () => {
     const { sceneId, workspaceId, instanceId, sessionId } = getTarget() ?? {};
     return JSON.stringify([sceneId, workspaceId, instanceId, sessionId]);
@@ -1359,6 +1360,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       throw new Error(t("Wait for the current page to finish loading"));
     }
     const url = tab.url, version = pageVersions.get(tab.id);
+    const dismissal = captureDismissals;
     let owner = questionScope();
     const sameDocument = () => active === tab.id && selected()?.url === url &&
       !navigationStates.has(tab.id) && pageVersions.get(tab.id) === version;
@@ -1366,11 +1368,19 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (blocked() || !sameDocument()) throw new Error(t("Page changed. Read it again."));
       if (questionScope() !== owner) throw new Error(t("Page or conversation changed. Read the page again."));
     };
-    const capture = await invoke("browser_capture_page", { tab: tab.id, expectedUrl: url });
-    ensureOpenSource();
-    if (capture.page.url !== url) throw new Error(t("Page changed. Read it again."));
-    const canOpenConversation = getTarget()?.runtimeMode === "tools" && await canOpenDraftConversation?.();
-    ensureOpenSource();
+    let capture, canOpenConversation;
+    try {
+      capture = await invoke("browser_capture_page", { tab: tab.id, expectedUrl: url });
+      if (dismissal !== captureDismissals) return;
+      ensureOpenSource();
+      if (capture.page.url !== url) throw new Error(t("Page changed. Read it again."));
+      canOpenConversation = getTarget()?.runtimeMode === "tools" && await canOpenDraftConversation?.();
+      if (dismissal !== captureDismissals) return;
+      ensureOpenSource();
+    } catch (error) {
+      if (dismissal === captureDismissals) throw error;
+      return;
+    }
     if (assistant.querySelector('[aria-busy="true"]')) return;
     let captureElement;
     // A successful handoff can detach the Browser while Chat becomes active.
@@ -1474,7 +1484,11 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (!isCurrent()) throw new Error(t("Page changed. Read it again."));
       return result;
     };
-    captureElement = showBrowserCapture(capture, () => void run(syncSurface), onPrepareDraft ? (attachments, isPreparing) => prepareBrowserDraft({
+    const onDismiss = () => {
+      captureDismissals++;
+      void run(syncSurface);
+    };
+    captureElement = showBrowserCapture(capture, onDismiss, onPrepareDraft ? (attachments, isPreparing) => prepareBrowserDraft({
       capture, isCurrent: () => isPreparing() && ownsQuestion(), getTarget, handoff: onPrepareDraft, attachments, openConversation,
       readCurrent: () => invoke("browser_capture_page", { tab: tab.id, expectedUrl: capture.page.url }),
     }) : undefined, (isOpen, analysis) => createBrowserNoteWriter({ capture, getTarget, analysis,
