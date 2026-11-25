@@ -11712,6 +11712,7 @@ dependencies = [
  "toml 0.9.12+spec-1.1.0",
  "tower",
  "tower-http",
+ "unicase",
  "unicode-normalization",
  "uuid",
  "wasmtime",
