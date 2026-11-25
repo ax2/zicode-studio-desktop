@@ -1051,9 +1051,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       openLocalPdf: (fromPage, source) => openLocalPdf(document.activeElement, source, fromPage),
       localPdfPending: () => openingLocalPdf,
       translateSelection: tab => act(() => translatePageSelection(tab, true)),
-      searchTabs: (fromPage, source) => act(() => {
-        if (!blocked() && selected()?.id === source) return openTabSearch(options, fromPage);
-      }), openPanel: (action, fromPage, source) => act(() => {
+      searchTabs: (fromPage, source) => queueTabSearch(options, fromPage, () => !blocked() && selected()?.id === source),
+      openPanel: (action, fromPage, source) => act(() => {
         if (blocked() || selected()?.id !== source) return;
         const returnToPage = fromPage ? source : undefined;
         if (action === "bookmark" && nativeTabs.has(source)) return openBookmarks(true, returnToPage);
@@ -1107,7 +1106,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       bookmarks: () => act(() => openBookmarks(false)), downloads: () => act(() => openDownloads()), history: () => act(() => openHistory()), siteSettings: () => {
         const source = readerSource();
         return act(() => openSiteSettings(source));
-      }, searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
+      }, searchTabs: () => queueTabSearch(options), pageControls, find: () => find.open(), fullscreen, searchSettings,
       reader: () => {
         const source = readerSource();
         return act(() => openReader(source, options.querySelector("summary")));
@@ -1230,7 +1229,15 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       },
     });
   }
-  async function openTabSearch(options, fromPage = false) {
+  function queueTabSearch(options, fromPage = false, shortcutAvailable) {
+    const source = active;
+    const generation = panelGeneration;
+    return act(() => {
+      if (panelGeneration !== generation || active !== source || shortcutAvailable?.() === false) return;
+      return openTabSearch(options, fromPage);
+    });
+  }
+  async function openTabSearch(options, fromPage) {
     if (surfaceUnavailable() || tabSearch) return;
     const source = active;
     const generation = panelGeneration;
