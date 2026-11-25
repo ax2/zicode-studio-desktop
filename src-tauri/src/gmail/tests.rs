@@ -950,3 +950,109 @@ async fn gmail_older_page_distinguishes_request_limits_from_permission_denial() 
     );
     server.abort();
 }
+
+#[tokio::test]
+async fn gmail_reply_considers_an_unambiguous_recipient_from_cached_mail() {
+    use axum::{extract::Path, http::HeaderMap, routing::get, Json, Router};
+
+    let app = Router::new()
+        .route("/messages", get(|| async {
+            Json(json!({"messages":[{"id":"duplicate"},{"id":"malformed"},{"id":"fallback"},{"id":"single"},{"id":"multiple_from"}]}))
+        }))
+        .route("/messages/{id}", get(|Path(id): Path<String>, request: HeaderMap| async move {
+            let header = |name: &str, value: &str| json!({"name": name, "value": value});
+            let mut headers = vec![
+                header("From", "Fixture <sender@example.test>"),
+                header("Subject", "Local recipient fixture"),
+                header("Message-ID", "<original@example.test>"),
+            ];
+            if request["authorization"] == "Bearer fixture_peer" {
+                headers.push(header("Reply-To", "peer@example.test"));
+            } else {
+                assert_eq!(request["authorization"], "Bearer fixture_owner");
+                match id.as_str() {
+                    "duplicate" => {
+                        headers.push(header("Reply-To", "first@example.test"));
+                        headers.push(header("reply-to", "second@example.test"));
+                    }
+                    "malformed" => headers.push(json!({"name": "Reply-To", "value": null})),
+                    "multiple_from" => headers.push(header("from", "another@example.test")),
+                    "single" => headers.push(header("Reply-To", "one@example.test")),
+                    "fallback" => {}
+                    _ => unreachable!(),
+                }
+            }
+            Json(json!({
+                "id":id,"threadId":"thread_1","labelIds":["INBOX"],
+                "payload":{"mimeType":"text/plain","headers":headers,"body":{"data":"T2ZmbGluZSBib2R5"}}
+            }))
+        }));
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let profile = tempfile::tempdir().unwrap();
+    let path = profile.path().join("mail.sqlite3");
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch("CREATE TABLE accounts(scope,id,provider,address);
+        CREATE TABLE drafts(scope,account,id,revision INTEGER,recipient,subject,body,PRIMARY KEY(scope,account,id));
+        INSERT INTO accounts VALUES('w','owner','gmail','owner@example.test'),('w','peer','gmail','peer@example.test');").unwrap();
+    drop(db);
+
+    let page = api::list(&client, &base, "fixture_owner", "INBOX", None, 10)
+        .await
+        .unwrap();
+    assert_eq!(page["items"].as_array().unwrap().len(), 5);
+    store::cache(&path, "w", "owner", 0, "page", "10:", &page).unwrap();
+    for (id, recipient) in [
+        ("single", "one@example.test"),
+        ("fallback", "sender@example.test"),
+    ] {
+        assert_eq!(
+            store::reply_draft(&path, "w", "owner", id).unwrap()["recipient"],
+            recipient
+        );
+    }
+    let peer = api::read(&client, &base, "fixture_peer", "duplicate")
+        .await
+        .unwrap();
+    store::cache(&path, "w", "peer", 0, "body", "duplicate", &peer).unwrap();
+
+    for id in ["duplicate", "malformed", "multiple_from"] {
+        assert_eq!(
+            store::reply_draft(&path, "w", "owner", id),
+            Err("gmail_reply_unavailable"),
+            "page {id}"
+        );
+        let body = api::read(&client, &base, "fixture_owner", id)
+            .await
+            .unwrap();
+        assert_eq!(body["plainText"], "Offline body");
+        store::cache(&path, "w", "owner", 0, "body", id, &body).unwrap();
+        assert_eq!(
+            store::cached(&path, "w", "owner", "body", id).unwrap()["plainText"],
+            "Offline body"
+        );
+        assert_eq!(
+            store::reply_draft(&path, "w", "owner", id),
+            Err("gmail_reply_unavailable"),
+            "body {id}"
+        );
+    }
+    assert_eq!(
+        store::reply_draft(&path, "w", "peer", "duplicate").unwrap()["recipient"],
+        "peer@example.test"
+    );
+    let db = rusqlite::Connection::open(&path).unwrap();
+    for table in ["drafts", "gmail_reply"] {
+        let count: i64 = db
+            .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 3);
+    }
+    server.abort();
+}
