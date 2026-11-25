@@ -1404,6 +1404,7 @@
     },
     {
       "sourceToolId": "html-escape",
+      "currentWindowsAcceptance": "../iterations/2026-11-25-html-entity-files.md",
       "title": "HTML 转义",
       "sourceToolVersion": "1.0.2",
       "sourceStatus": "implemented",

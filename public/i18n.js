@@ -2287,6 +2287,7 @@ const zhCN = {
   "JSON string file": "JSON 字符串文件",
   "JSON string": "JSON 字符串",
   "Download restored text": "下载还原后的文本",
+  "Download escaped text": "下载转义后的文本",
   "Import Hex text file…": "导入 Hex 文本文件…",
   "Hex text file": "Hex 文本文件",
   "Hex text": "十六进制文本",
