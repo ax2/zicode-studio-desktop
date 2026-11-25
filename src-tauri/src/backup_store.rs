@@ -1047,6 +1047,68 @@ mod tests {
     }
 
     #[test]
+    fn queued_restore_rejects_same_length_backup_damage_and_preserves_current_data() {
+        if !super::test_support::isolated() {
+            return;
+        }
+        let system = crate::app_paths::system_root().unwrap();
+        let workspace = system.join("tampered-snapshot-workspace");
+        let workspace_id = "tampered-snapshot-workspace";
+        let notes = workspace.join(".zicode/notes");
+        let note = notes.join("note.md");
+        let attachment = notes.join("attachments/proof.bin");
+        fs::create_dir_all(attachment.parent().unwrap()).unwrap();
+        fs::write(&note, b"original note").unwrap();
+        fs::write(&attachment, b"original attachment").unwrap();
+        let backup = create_workspace_backup(workspace_id, &workspace).unwrap();
+        fs::write(&note, b"newer note").unwrap();
+        fs::write(&attachment, b"newer attachment").unwrap();
+        let request = enqueue_workspace_restore(workspace_id, &backup.id).unwrap();
+
+        let snapshot = workspace_backups_dir(workspace_id)
+            .unwrap()
+            .join(&backup.id);
+        let metadata = snapshot.join("backup.json");
+        let original_metadata = fs::read(&metadata).unwrap();
+        let archived_attachment = snapshot.join("notes/attachments/proof.bin");
+        let changed = b"Original attachment";
+        assert_eq!(
+            fs::metadata(&archived_attachment).unwrap().len(),
+            changed.len() as u64
+        );
+        fs::write(&archived_attachment, changed).unwrap();
+        let registered = [(
+            workspace_id.to_owned(),
+            workspace.to_string_lossy().into_owned(),
+        )];
+
+        let failure = apply_startup_restore(&registered).unwrap_err();
+        assert!(failure.contains("Backup content checksum does not match metadata"));
+        assert_eq!(fs::read(&note).unwrap(), b"newer note");
+        assert_eq!(fs::read(&attachment).unwrap(), b"newer attachment");
+        assert_eq!(fs::read(&metadata).unwrap(), original_metadata);
+        assert_eq!(fs::read(&archived_attachment).unwrap(), changed);
+        assert!(workspace_restore_outcome(workspace_id).unwrap().is_none());
+        assert_eq!(list_workspace_backups(workspace_id).unwrap().len(), 1);
+        assert!(!restore_transaction::needs_recovery(&workspace.join(".zicode")).unwrap());
+        assert_eq!(
+            cancellable_startup_restore(&registered).unwrap().as_deref(),
+            Some(request.request_id.as_str())
+        );
+
+        cancel_startup_restore(&request.request_id, &registered).unwrap();
+        assert!(!startup_restore_needed(&registered).unwrap());
+        assert!(system
+            .join(format!(
+                "workspace-restore-cancelled-{}.json",
+                request.request_id
+            ))
+            .is_file());
+        assert_eq!(fs::read(&note).unwrap(), b"newer note");
+        assert_eq!(fs::read(&attachment).unwrap(), b"newer attachment");
+    }
+
+    #[test]
     fn missing_snapshot_can_be_cancelled_without_changing_workspace_bytes() {
         if !super::test_support::isolated() {
             return;
