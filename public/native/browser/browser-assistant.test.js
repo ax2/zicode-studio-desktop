@@ -370,6 +370,39 @@ async function openControlledAssistant({ capturePage, handoff, target, modelGate
   return { host, assistant, readTabs, emit };
 }
 
+it.each(["success", "failure"])("ignores an in-flight refresh after closing the assistant (%s)", async outcome => {
+  const target = { sceneId: "programming", workspaceId: "workspace", sessionId: "session", runtimeMode: "ai" };
+  const handoff = vi.fn();
+  let reads = 0, finishRefresh;
+  const capturePage = source => {
+    if (++reads !== 2) return source;
+    return new Promise((resolve, reject) => {
+      finishRefresh = () => {
+        if (outcome === "success") resolve(source);
+        else reject(new Error("Delayed capture failed"));
+      };
+    });
+  };
+  const { host, assistant } = await openControlledAssistant({ capturePage, handoff, target });
+  const panel = within(assistant);
+  const read = getByRole(host, "button", { name: "Read page" });
+  const question = () => panel.getByRole("textbox", { name: "Question about this page" });
+  question().value = "Keep my unsent question";
+  question().dispatchEvent(new Event("input", { bubbles: true }));
+  read.click();
+  await waitFor(() => expect(finishRefresh).toBeTypeOf("function"));
+  panel.getByRole("button", { name: "Close" }).click();
+  expect(assistant.hidden).toBe(true);
+  finishRefresh();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(assistant.hidden).toBe(true);
+  expect(document.activeElement).toBe(read);
+  expect(host.textContent).not.toContain("Delayed capture failed");
+  expect(handoff).not.toHaveBeenCalled();
+  read.click();
+  await waitFor(() => expect(question().value).toBe("Keep my unsent question"));
+});
+
 async function openControlledComparison(options) {
   const { host, readTabs } = await openControlledAssistant(options);
   (await waitFor(() => getByRole(host, "button", { name: "Compare open tabs" }))).click();
