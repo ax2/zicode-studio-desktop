@@ -20,6 +20,7 @@ export function SignedPluginPreviewCard({
   cardRef,
   preview,
   busy,
+  installError,
   onInstall,
   onReselect,
   onCancel,
@@ -27,6 +28,7 @@ export function SignedPluginPreviewCard({
   cardRef?: Ref<HTMLElement>;
   preview: SignedPluginPreview;
   busy: boolean;
+  installError?: string;
   onInstall(): void;
   onReselect?(): void;
   onCancel(): void;
@@ -71,11 +73,12 @@ export function SignedPluginPreviewCard({
       <p>{`${t("Permissions")}: ${preview.permissions.length ? preview.permissions.join(", ") : t("No permissions requested")}`}</p>
       <p>{`${t("Key fingerprint")}: ${preview.publisherKeyId}`}</p>
       <p>{t(preview.trusted ? "Publisher already trusted" : "Publisher approval required")}</p>
-      {onReselect ? <p role="alert">{t("The plugin package changed after preview. Select it again.")}</p> : null}
+      {onReselect ? <p role="alert">{t("The plugin package changed after preview. Select it again.")}</p>
+        : installError ? <p role="alert"><strong>{t("Install failed")}</strong> <span>{installError}</span></p> : null}
       <div className="plugin-manager-preview-actions">
         <button type="button" className="ui-button ui-button--sm ui-button--primary" aria-disabled={busy || undefined} aria-busy={busy}
           onClick={() => { if (!busy) (onReselect ?? onInstall)(); }}>
-          {t(onReselect ? "Select plugin package again" : "Install reviewed signed package")}
+          {t(onReselect ? "Select plugin package again" : installError ? "Try again" : "Install reviewed signed package")}
         </button>
         <button type="button" className="ui-button ui-button--sm ui-button--ghost" disabled={busy} onClick={onCancel}>
           {t("Cancel")}

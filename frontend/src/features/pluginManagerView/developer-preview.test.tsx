@@ -21,7 +21,7 @@ const tool = {
 };
 const button = (name: string) => screen.getByRole<HTMLButtonElement>("button", { name });
 
-function setup({ required = true, existing = false, failed = false, activationFails = false, activationDelay = Promise.resolve(),
+function setup({ required = true, existing = false, activationFails = false, activationDelay = Promise.resolve(),
   getTarget = () => ({ sceneId: "programming", workspaceId: "fixture" }),
 } = {}) {
   const permissionDetails = {
@@ -45,7 +45,6 @@ function setup({ required = true, existing = false, failed = false, activationFa
   const setScene = vi.fn(async () => {});
   const selectDeveloperPlugin = vi.fn(async (): Promise<typeof preview | null> => preview);
   const installDeveloperPlugin = vi.fn(async (_sourcePath: string, _checksum: string) => {
-    if (failed) throw new Error("Plugin package changed after preview");
     installed = true;
     return { pluginId: plugin.id, packageRevision };
   });
@@ -250,13 +249,28 @@ it("explicitly enables a permission-free package and keeps existing enablement o
   expect(flow.plugin.enabled).toBe(true);
 });
 
-it("leaves an existing enabled package alone on failed reinstallation", async () => {
-  const flow = setup({ existing: true, failed: true });
-  await reviewPackage();
-  fireEvent.click(button("Install reviewed plugin"));
-  await waitFor(() => expect(flow.notify).toHaveBeenCalledWith("The plugin package changed after preview. Select it again."));
+it.each(["Try again", "Cancel"])("keeps confirmed old settings after an installation failure and lets the user %s", async next => {
+  const flow = setup({ existing: true });
+  flow.installDeveloperPlugin.mockRejectedValueOnce(new Error("Cannot prepare plugin upgrade: Access is denied. (os error 5)"));
+  const review = within(await reviewPackage());
+  fireEvent.click(review.getByRole("button", { name: "Install reviewed plugin" }));
+  const alert = within(await review.findByRole("alert"));
+  expect(alert.getByText("Install failed")).toBeTruthy();
+  expect(alert.getByText("Could not access the plugin folder.")).toBeTruthy();
   expect(flow.plugin.enabled).toBe(true);
   expect(flow.plugin.permissions).toEqual({ "resource.read": true });
+  expect(flow.installDeveloperPlugin).toHaveBeenCalledOnce();
+  expect(flow.notify).not.toHaveBeenCalled();
+  expect(flow.setScene).not.toHaveBeenCalled();
+  fireEvent.click(review.getByRole("button", { name: next }));
+  if (next === "Try again") {
+    await screen.findByRole("region", { name: "Installed plugin setup" });
+    expect(flow.installDeveloperPlugin.mock.calls).toEqual(Array(2).fill([preview.sourcePath, preview.contentSha256]));
+  } else {
+    expect(flow.installDeveloperPlugin).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("region", { name: "Installed plugin setup" })).toBeNull();
+  }
+  expect(screen.queryByRole("region", { name: "Review local plugin" })).toBeNull();
   expect(flow.activateReviewed).not.toHaveBeenCalled();
   expect(flow.installedTools.open).not.toHaveBeenCalled();
 });

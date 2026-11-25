@@ -122,7 +122,8 @@ export function friendlyPluginError(error: unknown): string {
       /cannot (select|resolve) plugin directory|not a directory/i,
       t("Please choose a plugin directory."),
     ],
-    [/cannot create plugin registry directory/i, t("Could not access the plugin folder.")],
+    [/cannot create plugin registry directory|cannot prepare (?:plugin upgrade|signed plugin update):.*os error 5/i,
+      t("Could not access the plugin folder.")],
   ];
   for (const [pattern, friendly] of fallbacks) {
     if (pattern.test(message)) return friendly;

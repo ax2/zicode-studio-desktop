@@ -126,6 +126,7 @@ export function PluginManagerViewApp({
   const [developerPreview, setDeveloperPreview] = useState<DeveloperPluginPreview | null>(null);
   const [signedPreview, setSignedPreview] = useState<SignedPluginPreview | null>(null);
   const [stalePreview, setStalePreview] = useState<DeveloperPluginPreview | SignedPluginPreview | null>(null);
+  const [installFailure, setInstallFailure] = useState<{ preview: DeveloperPluginPreview | SignedPluginPreview; message: string } | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [activation, setActivation] = useState<ActivationSetup | null>(null);
   const [deferred, setDeferred] = useState(false);
@@ -139,6 +140,8 @@ export function PluginManagerViewApp({
   const activeSetup = activation?.scope === scopeKey() ? activation : null;
   const installBusy = Boolean(busy["preview-local"] || busy["preview-signed"] || busy["install-local"] ||
     busy["install-signed"] || activeSetup?.phase === "loading");
+  const localInstallError = installFailure?.preview === developerPreview ? installFailure.message : undefined;
+  const signedInstallError = installFailure?.preview === signedPreview ? installFailure.message : undefined;
   const pickingLocal = Boolean(busy["preview-local"] && !developerPreview);
   const pickingSigned = Boolean(busy["preview-signed"] && !signedPreview);
   const selectedPlugin = activeSetup?.phase === "ready"
@@ -239,6 +242,7 @@ export function PluginManagerViewApp({
       setDeveloperPreview(null);
       setSignedPreview(null);
       setStalePreview(null);
+      setInstallFailure(null);
     }
     const scope = scopeKey();
     void runAction(`preview-${kind}`, async () => {
@@ -284,6 +288,7 @@ export function PluginManagerViewApp({
     const review = packageReview.current;
     if (review?.contains(review.ownerDocument.activeElement)) packageLauncher.current?.focus();
     packageLauncher.current = null;
+    setInstallFailure(null);
     clear();
   }
 
@@ -292,12 +297,14 @@ export function PluginManagerViewApp({
     install: () => Promise<PluginInstallReceipt | null | undefined>,
     close: () => void,
   ) {
+    setInstallFailure(null);
     let receipt: PluginInstallReceipt | null | undefined;
     try {
       receipt = await install();
     } catch (error) {
-      if (!isStalePluginPackagePreview(error)) throw error;
-      if (scopeKey() === scope && pageHeading.current?.isConnected) setStalePreview(preview);
+      if (scopeKey() !== scope || !pageHeading.current?.isConnected) return;
+      if (isStalePluginPackagePreview(error)) setStalePreview(preview);
+      else setInstallFailure({ preview, message: friendlyPluginError(error) });
       return;
     }
     if (receipt) await completeInstall(receipt, scope, close);
@@ -560,10 +567,11 @@ export function PluginManagerViewApp({
           <p>{`${t("Declared tools")}: ${developerPreview.capabilityCount}`}</p>
           <p>{`${t("Permissions")}: ${developerPreview.permissions.length ? developerPreview.permissions.join(", ") : t("No permissions requested")}`}</p>
           <p>{t("Unsigned development package. Review its permissions after installing.")}</p>
-          {stalePreview === developerPreview ? <p role="alert">{t("The plugin package changed after preview. Select it again.")}</p> : null}
+          {stalePreview === developerPreview ? <p role="alert">{t("The plugin package changed after preview. Select it again.")}</p>
+            : localInstallError ? <p role="alert"><strong>{t("Install failed")}</strong> <span>{localInstallError}</span></p> : null}
           <div className="plugin-manager-preview-actions">
             <ActionButton
-              label={t(stalePreview === developerPreview ? "Select plugin package again" : "Install reviewed plugin")}
+              label={t(stalePreview === developerPreview ? "Select plugin package again" : localInstallError ? "Try again" : "Install reviewed plugin")}
               variant="ui-button--primary"
               aria-disabled={installBusy || undefined}
               aria-busy={installBusy || undefined}
@@ -584,6 +592,7 @@ export function PluginManagerViewApp({
           cardRef={packageReview}
           preview={signedPreview}
           busy={installBusy}
+          installError={signedInstallError}
           onCancel={() => cancelPackageReview(() => setSignedPreview(null))}
           onReselect={stalePreview === signedPreview ? () => selectPackage("signed") : undefined}
           onInstall={() => {
