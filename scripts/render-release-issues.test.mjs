@@ -40,3 +40,32 @@ test("the release page supplies its own title", () => {
     assert.ok(output(text).startsWith(text+"\n\n"));
   }
 });
+
+test("keeps a frozen limitation when a later numbered release closes its issue", () => {
+  const tag = "v1.9.0";
+  const current = { milestones: [tag], extraCompleted: [], known: [8], exclude: {},
+    knownNotes: { 8: "Still present in these installer bytes." } };
+  const before = issue(8, { state: "open", milestone: { title: "v1.9.0" } });
+  const later = issue(8, { milestone: { title: "v1.10.0" } });
+  const expected = render("Original.", current, [before], tag);
+  assert.equal(render("Original.", current, [later], tag), expected);
+  assert.match(expected, /## 已知问题\n\n- \[#8\].*Still present in these installer bytes/);
+});
+
+test("still requires review when proof does not establish a fix in a later version", () => {
+  const tag = "v1.9.0";
+  const current = { milestones: [tag], extraCompleted: [], known: [8], exclude: {},
+    knownNotes: { 8: "Pinned limitation." } };
+  const later = issue(8, { milestone: { title: "v1.10.0" } });
+  for (const [candidate, rows] of [
+    [current, [issue(8, { milestone: { title: tag } })]],
+    [current, [issue(8, { milestone: { title: "v1.8.9" } })]],
+    [current, [issue(8, { milestone: { title: "v0.0.0" } })]],
+    [current, [{ ...later, milestone: null }]],
+    [current, [{ ...later, state_reason: "not_planned" }]],
+    [current, []],
+    [{ ...current, knownNotes: { 8: " " } }, [later]],
+    [{ ...current, extraCompleted: [8] }, [later]],
+    [{ ...current, milestones: [tag, "v1.10.0"] }, [later]],
+  ]) assert.throws(() => render("Original.", candidate, rows, tag), /stale known issue/);
+});
