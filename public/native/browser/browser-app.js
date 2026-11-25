@@ -212,11 +212,13 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     }
   }
   function persist(nextTabs, nextActive) {
-    const snapshot = nextTabs.filter(tab => !tab.popupOpener).map(({ id, url, title, zoom = 1, muted = false, pinned, group }) => ({
+    const snapshot = nextTabs.filter(tab => !tab.popupOpener && !tab.localPdf).map(({ id, url, title, zoom = 1, muted = false, pinned, group }) => ({
       id, url, title, zoom, muted, ...(pinned ? { pinned: true } : {}), ...(group ? { group } : {}),
     }));
-    const opener = nextTabs.find(tab => tab.id === nextActive)?.popupOpener;
-    const activeTab = opener ? snapshot.find(tab => tab.id === opener)?.id ?? snapshot[0]?.id ?? null : nextActive;
+    const selectedTab = nextTabs.find(tab => tab.id === nextActive);
+    const opener = selectedTab?.popupOpener ?? selectedTab?.localPdfOpener;
+    const activeTab = selectedTab?.localPdf || opener
+      ? snapshot.find(tab => tab.id === opener)?.id ?? snapshot[0]?.id ?? null : nextActive;
     // A failed write must not poison every subsequent retry.
     saveTail = saveTail.catch(() => {}).then(async () => {
       const result = await invoke("browser_save_session", { expectedRevision: revision, tabs: snapshot, activeTab });
@@ -244,7 +246,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   function developerToolsState() {
     if (developerToolsPending) return { description: t("Opening developer tools…") };
     const tab = selected();
-    if (!tab || !/^https?:/.test(tab.url) || !URL.canParse(tab.url)) {
+    if (!tab || tab.localPdf || !/^https?:/.test(tab.url) || !URL.canParse(tab.url)) {
       return { description: t("Open a webpage to use developer tools.") };
     }
     const { id, url } = tab;
@@ -292,7 +294,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   function outputDocument(id) {
     const page = selected(), documentRevision = documentRevisions.get(id);
-    if (!page || page.id !== id || !pageAvailable(id) || navigationStates.has(id) ||
+    if (!page || page.localPdf || page.id !== id || !pageAvailable(id) || navigationStates.has(id) ||
         !/^https?:/.test(page.url) || !documentRevision) return null;
     return { tab: id, expectedUrl: page.url, expectedDocumentRevision: documentRevision };
   }
@@ -305,6 +307,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     return false;
   }
   function queuePrint(id) {
+    if (selected()?.localPdf) { setStatus(t("Studio exports and printing are unavailable for local PDFs.")); return; }
     const expected = outputDocument(id);
     if (!expected) {
       setStatus(t("Wait for the current page to finish loading"));
@@ -379,6 +382,25 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     await activation.add({ id: crypto.randomUUID(), url: "about:blank", title: t("New tab") });
     address.focus(); address.select();
   }
+  async function openLocalPdf(returnFocus) {
+    if (blocked()) return;
+    const id = crypto.randomUUID(), openedFrom = active;
+    const opening = control({ kind: "openLocalPdf", tab: id });
+    creatingTabs.set(id, opening);
+    try {
+      const document = await opening;
+      if (!document) { returnFocus?.focus({ preventScroll: true }); return; }
+      nativeTabs.add(id);
+      if (!visible || crashedTabs.has(id)) {
+        await discardTabView(id);
+        return;
+      }
+      await activation.add({ id, url: document.url, title: document.name, localPdf: true, localPdfOpener: openedFrom });
+      tabStripControls.focusTab(id);
+    } finally {
+      creatingTabs.delete(id);
+    }
+  }
   async function discardTabView(id, reopening = false) {
     questionDrafts.delete(id);
     if (nativeTabs.has(id)) {
@@ -415,7 +437,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       void find.close({ stopNative: false });
     }
     paint();
-    if (tab?.popupOpener || tab?.popupRequest) void act(() => close(id));
+    if (tab?.popupOpener || tab?.popupRequest || tab?.localPdf) void act(() => close(id));
   }
   async function reopenCrashedTab(tab, url = tab.url) {
     // Create a fresh navigation. Native Reload could replay the crashed request.
@@ -448,14 +470,15 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function close(id) {
     const index = tabs.findIndex(tab => tab.id === id);
     if (index < 0) return;
-    const { popupOpener } = tabs[index];
+    const { popupOpener, localPdfOpener, localPdf } = tabs[index];
+    const transient = popupOpener || localPdf;
     // Flush current URL/title before the Host records a durable tab's removal.
-    if (!popupOpener) await save();
+    if (!transient) await save();
     const wasActive = active === id;
     const nextTabs = tabs.filter(tab => tab.id !== id);
     const fallback = nextTabs[Math.min(index, nextTabs.length - 1)]?.id ?? null;
-    const nextActive = wasActive ? nextTabs.find(tab => tab.id === popupOpener)?.id ?? fallback : active;
-    if (!popupOpener) await persist(nextTabs, nextActive);
+    const nextActive = wasActive ? nextTabs.find(tab => tab.id === (popupOpener ?? localPdfOpener))?.id ?? fallback : active;
+    if (!transient) await persist(nextTabs, nextActive);
     tabs = nextTabs;
     active = nextActive;
     if (wasActive) closePageAssistant();
@@ -570,7 +593,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   const pinState = (id = active) => {
     const tab = tabs.find(item => item.id === id);
-    const available = !tab?.popupOpener;
+    const available = !tab?.popupOpener && !tab?.localPdf;
     return { available, pinned: Boolean(tab?.pinned), enabled: Boolean(available && tab && (tab.pinned || tabs.filter(item => item.pinned).length < browserPinLimit)) };
   };
   async function togglePin(id = active) {
@@ -606,7 +629,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     paintStatus();
     paintHistoryControls();
     refreshDeveloperTools?.();
-    bookmarkButton.disabled = !/^https?:/.test(selected()?.url ?? "");
+    read.disabled = selected()?.localPdf === true;
+    bookmarkButton.disabled = selected()?.localPdf || !/^https?:/.test(selected()?.url ?? "");
     paintReloadControl();
     const focusedTab = tabStripControls.focusedControl();
     if (!ordering.dragging) {
@@ -615,7 +639,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       const item = document.createElement("div"); item.className = "browser-tab";
       const button = makeButton(tab.title || tab.url, () => select(tab.id));
       button.setAttribute("role", "tab"); button.setAttribute("aria-selected", String(tab.id === active));
-      button.title = tab.url; button.classList.add("browser-tab-title");
+      button.title = tab.localPdf ? tab.title : tab.url; button.classList.add("browser-tab-title");
       button.setAttribute("aria-label", tab.title || tab.url);
       if (tab.pinned) {
         item.dataset.pinned = "";
@@ -623,7 +647,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         button.setAttribute("aria-label", `${tab.title || tab.url} (${t("Pinned tab")})`);
       }
       const label = document.createElement("span"); label.className = "browser-tab-label"; label.textContent = tab.title || tab.url;
-      button.replaceChildren(createBrowserTabIcon(tab.url, favicons.get(tab.id)), label);
+      button.replaceChildren(createBrowserTabIcon(tab.localPdf ? "about:blank" : tab.url, favicons.get(tab.id)), label);
       if (tab.group) {
         item.dataset.tabGroup = tab.group.id;
         const prefix = document.createElement("span");
@@ -651,7 +675,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     }
     tabStripControls.refresh();
     if (focusedTab && !ordering.dragging) tabStripControls.focusTab(focusedTab.id, focusedTab.selector);
-    addressEditor.sync(selected());
+    const page = selected();
+    addressEditor.sync(page?.localPdf ? { ...page, url: "" } : page);
     if (!tabs.length) { preview.clear(); viewport.textContent = t("Open a new tab to browse"); }
     else if (!startupState.pending() && !viewport.querySelector(".browser-overlay-preview, .browser-new-tab-shortcuts")) viewport.textContent = "";
   }
@@ -696,7 +721,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         crashedTabs.add(tab.id);
         continue;
       }
-      if (recentlyClosed.has(tab.id) || tab.processFailed) {
+      if (tab.localPdf || recentlyClosed.has(tab.id) || tab.processFailed) {
         // A shell reload can interrupt native cleanup after a committed close.
         await control({ kind: "close", tab: tab.id }).catch(report);
         continue;
@@ -843,7 +868,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         row?.querySelector(".browser-tab-icon")?.replaceWith(createBrowserTabIcon(tab.url, favicons.get(tab.id)));
         return;
       }
-      if (payload.kind === "title") tab.title = payload.title;
+      if (payload.kind === "title" && !tab.localPdf) tab.title = payload.title;
       const routeChanged = payload.kind === "visited" && payload.sameDocument;
       if (routeChanged && tab.id === active) clearDeveloperToolsError();
       if (payload.kind === "loading" || routeChanged) {
@@ -854,7 +879,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       }
       if (routeChanged || ["title", "loading"].includes(payload.kind)) {
         paint();
-        if (!tab.popupOpener) { clearTimeout(saveTimer); saveTimer = setTimeout(() => void act(save), 150); }
+        if (!tab.popupOpener && !tab.localPdf) { clearTimeout(saveTimer); saveTimer = setTimeout(() => void act(save), 150); }
       }
       if (payload.kind.endsWith("Blocked")) setStatus(t("This browser action is not available yet"));
     };
@@ -921,7 +946,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           disabled: pendingSuspensions.has(tab),
           hint: "Timers pause until you select this tab again",
         });
-        if (/^https?:/.test(tab.url)) {
+        if (!tab.localPdf && /^https?:/.test(tab.url)) {
           actions.push(
             { label: "Copy tab address", action: () => act(() => copyTabAddress(id)) },
             { label: "Open this page in a new tab", action: () => act(() => openTabPage(id)) },
@@ -991,6 +1016,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     searchSettings = createBrowserSearchSettings({ save: engine => invoke("browser_set_search_engine", { engine }), report });
     let exportingPage = false;
     const exportPage = (kind, success, pending) => {
+      if (selected()?.localPdf) { setStatus(t("Studio exports and printing are unavailable for local PDFs.")); return; }
       if (exportingPage) return;
       const expected = outputDocument(active);
       if (!expected) {
@@ -1022,7 +1048,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const options = createBrowserOptions(startup, () => act(async () => {
       await syncSurface();
       if (active && pageAvailable(active)) await control({ kind: "action", tab: active, action: "selectAll" });
-    }), { reopen: () => act(reopen), canReopen: () => closedTabs.length > 0,
+    }), { reopen: () => act(reopen), canReopen: () => closedTabs.length > 0, openLocalPdf: anchor => act(() => openLocalPdf(anchor)),
       windows: action => action === "canReopen" ? invoke("browser_window_command", { action }).catch(() => false) :
         action==="profiles" ? act(async()=>{
           if(tabSearch)return;
@@ -1043,7 +1069,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       }),
       screenshot: () => exportPage("saveScreenshot", "Screenshot saved to Downloads"),
       websiteShortcuts: {
-        available: () => !root.hasAttribute("data-private-browser"),
+        available: () => !selected()?.localPdf && !root.hasAttribute("data-private-browser"),
         list: listWebsiteShortcuts,
         open: item => void openSavedPage(item).catch(report),
         add: returnFocus => {
@@ -1220,7 +1246,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const ownsPage = libraryOwner();
     if (libraryPanel || !ownsPage()) return;
     const selectedTab = selected(); let current = null;
-    if (selectedTab && pageAvailable(selectedTab.id)) {
+    if (selectedTab && !selectedTab.localPdf && pageAvailable(selectedTab.id)) {
       const result = await control({ kind: "url", tab: selectedTab.id }).catch(error => {
         if (ownsPage()) throw error;
       });
@@ -1245,7 +1271,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     return openLibrary(libraryOwner(), onClose => showBrowserHistory({ invoke, onOpen: openSavedPage, onClose }), returnToPage);
   }
   async function openSiteSettings(source) {
-    if (siteSettingsPanel || surfaceUnavailable()) return;
+    if (siteSettingsPanel || surfaceUnavailable() || selected()?.localPdf) return;
     if (!source || !pageAvailable(source.id) || navigationStates.has(source.id)) {
       setStatus(t("Wait for the current page to finish loading"));
       return;
@@ -1275,6 +1301,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function tabPage(id) {
     const tab = tabs.find(item => item.id === id);
     if (!tab) throw new Error(t("Browser tab is no longer available"));
+    if (tab.localPdf) throw new Error(t("This browser action is not available yet"));
     const url = pageAvailable(id) ? (await control({ kind: "url", tab: id })).url : tab.url;
     if (!/^https?:/.test(url)) throw new Error(t("This browser action is not available yet"));
     return { url, title: url === tab.url ? tab.title : url, zoom: tab.zoom, muted: tab.muted };
@@ -1302,7 +1329,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (!onTranslateSelection || blocked() || active !== source) return;
     const tab = selected(), url = tab?.url;
     let text = "", provenance;
-    if (tab && pageAvailable(source) && /^https?:/.test(url)) {
+    if (tab && !tab.localPdf && pageAvailable(source) && /^https?:/.test(url)) {
       const version = pageVersions.get(source);
       await syncSurface();
       const { page, documentRevision, capturedAt } = await invoke("browser_read_selection", { tab: source, expectedUrl: url });
@@ -1321,7 +1348,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     return tab && { id: tab.id, url: tab.url, version: pageVersions.get(tab.id) };
   }
   async function openReader(source, returnControl) {
-    if (blocked()) return;
+    if (blocked() || selected()?.localPdf) return;
     if (!source || !pageAvailable(source.id) || !/^https?:/.test(source.url) || navigationStates.has(source.id)) {
       throw new Error(t("Wait for the current page to finish loading"));
     }
@@ -1355,7 +1382,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   async function readPage() {
     const tab = selected();
-    if (blocked() || assistant.querySelector('[aria-busy="true"]')) return;
+    if (tab?.localPdf || blocked() || assistant.querySelector('[aria-busy="true"]')) return;
     if (!tab || !pageAvailable(tab.id) || !/^https?:/.test(tab.url) || navigationStates.has(tab.id)) {
       throw new Error(t("Wait for the current page to finish loading"));
     }
@@ -1500,6 +1527,11 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function navigate(submission, source) {
     if (active !== source || blocked()) return;
     const url = resolveBrowserAddress(submission.text, searchSettings.value());
+    if (selected()?.localPdf) {
+      await activation.add({ id: crypto.randomUUID(), url, title: url });
+      addressEditor.accepted(submission);
+      return;
+    }
     if (!active) await add();
     await find.close();
     if (crashedTabs.has(active)) {

@@ -8,6 +8,8 @@ pub(crate) mod native_privacy_tests;
 use super::{policy::BrowserPolicy, proxy_endpoint::HttpProxy};
 #[path = "event_lifetime.rs"]
 mod event_lifetime;
+#[path = "local_pdf.rs"]
+pub(super) mod local_pdf;
 #[path = "native_view.rs"]
 mod native_view;
 #[path = "native_process_failure.rs"]
@@ -150,6 +152,7 @@ impl Bounds {
 
 enum ViewStart<'a> {
     Navigate(&'a str),
+    LocalPdf(Arc<local_pdf::Document>),
     Popup(native_popups::Pending),
 }
 
@@ -211,6 +214,17 @@ impl NativeBrowserEngine {
     ) -> Result<(), String> {
         self.create_view(parent, tab, ViewStart::Navigate(url), bounds, zoom, muted)
     }
+    #[allow(dead_code)] // The standalone general browser probe does not show a file picker.
+    pub(super) fn create_local_pdf(&mut self, parent: &impl HasWindowHandle, tab: &str, bounds: Bounds, document: local_pdf::Document) -> Result<(), String> {
+        let retained: usize = self.views.values().map(|view| view.local_pdf_bytes).sum();
+        if retained + document.len() > local_pdf::WINDOW_BYTES {
+            return Err("Close an open local PDF before opening another large PDF.".into());
+        }
+        self.create_view(parent, tab, ViewStart::LocalPdf(Arc::new(document)), bounds, 1.0, false)
+    }
+    pub(super) fn is_local_pdf(&self, tab: &str) -> bool {
+        self.views.get(tab).is_some_and(|view| view.local_pdf_bytes > 0)
+    }
     #[allow(dead_code)] // The standalone probe has no Studio popup commands.
     pub fn create_popup(&mut self, parent: &impl HasWindowHandle, tab: &str, url: &str, bounds: Bounds, settings: (f64, bool), request: &str) -> Result<(), String> {
         let pending = self.popups.claim(request, url)?;
@@ -245,11 +259,16 @@ impl NativeBrowserEngine {
                 if !self.policy.permits(url) { return Err("Browser navigation blocked".into()); }
                 None
             }
+            ViewStart::LocalPdf(_) => None,
             ViewStart::Popup(request) => { self.validate_opener(request)?; Some(request.tab.clone()) }
         };
         let resources_ready = std::rc::Rc::new(std::cell::Cell::new(opener.is_none()));
         let gate = resources_ready.clone();
-        let transient = opener.is_some();
+        let local_pdf = match &start { ViewStart::LocalPdf(document) => Some(document), _ => None };
+        let local_pdf_bytes = local_pdf.map_or(0, |document| document.len());
+        let local_pdf_url = local_pdf.map(|document| document.url().to_owned());
+        let pdf_navigation = local_pdf_url.clone();
+        let transient = opener.is_some() || local_pdf_bytes > 0;
         let shared_emit = self.emit.clone();
         let (events, tab_emit) = event_lifetime::EventLifetime::new(Arc::new(move |mut event| {
             if let EngineEvent::Visited { transient: value, .. } = &mut event { *value = transient; }
@@ -288,7 +307,10 @@ impl NativeBrowserEngine {
             // General form data must not be retained without a Studio privacy setting.
             .with_general_autofill_enabled(false)
             .with_navigation_handler(move |url| {
-                let permitted = gate.get() && nav_policy.permits(&url);
+                let permitted = gate.get() && match pdf_navigation.as_deref() {
+                    Some(document) => url == "about:blank" || local_pdf::Document::owns_url(document, &url),
+                    None => nav_policy.permits(&url),
+                };
                 if permitted {
                     nav_revision.fetch_add(1, Ordering::SeqCst);
                     nav_favicon.clear();
@@ -329,6 +351,7 @@ impl NativeBrowserEngine {
             favicon,
             events,
             opener,
+            local_pdf_bytes,
             closing: Default::default(),
             navigation: Default::default(),
             webview: view,
@@ -348,7 +371,11 @@ impl NativeBrowserEngine {
         std::fs::create_dir_all(&download_staging).map_err(|error| error.to_string())?;
         native_favicon::install(&view.webview, tab.to_string(), view.favicon.clone(), tab_emit.clone());
         native_shortcuts::install(&view.webview, tab.to_string(), tab_emit.clone()).map_err(|error| startup_error("shortcuts", &error))?;
-        native_popups::install(&view.webview, self.policy.clone(), tab.to_string(), document.1.clone(), self.popups.clone(), tab_emit.clone()).map_err(|error| startup_error("popups", &error))?;
+        if local_pdf_url.is_some() {
+            local_pdf::block_external_navigation(&view.webview).map_err(|error| startup_error("local PDF external navigation policy", &error))?;
+        } else {
+            native_popups::install(&view.webview, self.policy.clone(), tab.to_string(), document.1.clone(), self.popups.clone(), tab_emit.clone()).map_err(|error| startup_error("popups", &error))?;
+        }
         native_context_menu::install(&view.webview, self.policy.clone(), tab.to_string(), self.menu_chinese.clone(), self.menu_cache.clone(), tab_emit.clone()).map_err(|error| startup_error("context menu", &error))?;
         let navigation_document = document.clone();
         super::windows_policy::install(
@@ -370,6 +397,11 @@ impl NativeBrowserEngine {
             ViewStart::Navigate(url) => {
                 super::windows_policy::install_resources(&view.webview, self.policy.clone()).map_err(|error| startup_error("resource policy", &error))?;
                 view.webview.load_url(url).map_err(|error| startup_error("navigation", &error))?;
+            }
+            ViewStart::LocalPdf(document) => {
+                super::windows_policy::install_local_pdf(&view.webview, document.clone())
+                    .map_err(|error| startup_error("local PDF resource policy", &error))?;
+                view.webview.load_url(document.url()).map_err(|error| startup_error("local PDF navigation", &error))?;
             }
             ViewStart::Popup(request) => {
                 self.validate_opener(request)?;
@@ -491,7 +523,7 @@ impl NativeBrowserEngine {
         view.suspension.request(&view.webview, complete)
     }
     pub fn navigate(&self, tab: &str, url: &str) -> Result<(), String> {
-        if !self.policy.permits(url) {
+        if self.is_local_pdf(tab) || !self.policy.permits(url) {
             return Err("Browser navigation blocked".into());
         }
         let (view, _work) = self.begin_page_work(tab)?;

@@ -13,7 +13,7 @@ async function mount(closedTabs = [], restoredDocument = null) {
   let session = { revision: 1, tabs: [tab("a"), tab("b")], activeTab: "a", closedTabs };
   let visible = null, emit;
   const views = new Set(), requests = [];
-  const hooks = { save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), navigate: async () => {},
+  const hooks = { openLocalPdf: async () => null, save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), navigate: async () => {},
     developerTools: async () => {}, pageSettings: async () => ({ zoom: 1, muted: false }), findStart: async () => ({}), findStatus: async () => ({ active: 1, count: 2 }) };
   const invoke = async (name, args) => {
     if (name === "browser_get_state") return { startupMode: "browser", session: structuredClone(session) };
@@ -30,6 +30,15 @@ async function mount(closedTabs = [], restoredDocument = null) {
         // The existing view can finish loading while its startup snapshot is in flight.
         emit({ kind: "navigationFinished", tab: "a", success: true, documentRevision: restoredDocument });
         return { surfaceRevision: 0, tabs: [tab("a")] };
+      }
+      if (r.kind === "openLocalPdf") {
+        const pdf = await hooks.openLocalPdf(r.tab);
+        if (pdf) {
+          views.add(r.tab);
+          emit({ kind: "navigationFinished", tab: r.tab, success: true, documentRevision: `${r.tab}:1` });
+          emit({ kind: "pdfDocument", tab: r.tab, documentRevision: `${r.tab}:1` });
+        }
+        return pdf;
       }
       if (r.kind === "create") {
         await hooks.create();
@@ -128,6 +137,56 @@ it("keeps pending PDF matches and unrelated focus when classification arrives fo
   } finally { complete({}); }
   await waitFor(() => expect(find.querySelector("[role=status]").textContent).toBe(`1 / 2 · ${t("First PDF match")}`));
   expect(h.requests.some(r => r.kind === "findStop" || r.kind === "focusPage")).toBe(false);
+});
+
+it("opens a selected local PDF in a transient tab and leaves normal navigation, storage and cancellation intact", async () => {
+  const h = await mount();
+  const menu = h.root.querySelector(".browser-options");
+  const open = () => { menu.open = true; menu.querySelector(".browser-open-local-pdf").click(); };
+  const before = h.saved();
+  h.hooks.openLocalPdf = vi.fn(async () => null);
+  open();
+  await waitFor(() => expect(h.hooks.openLocalPdf).toHaveBeenCalledOnce());
+  await waitFor(() => expect(document.activeElement).toBe(menu.querySelector("summary")));
+  expect(h.selected()).toBe("a");
+  expect(h.visible()).toBe("a");
+  expect(h.saved()).toEqual(before);
+
+  const pdfUrl = "https://studio-local-pdf.invalid/fixture/document.pdf";
+  h.hooks.openLocalPdf = vi.fn(async tab => ({ tab, url: pdfUrl, name: "Synthetic document.pdf" }));
+  open();
+  await waitFor(() => expect(h.hooks.openLocalPdf).toHaveBeenCalledOnce());
+  const id = h.hooks.openLocalPdf.mock.calls[0][0];
+  await waitFor(() => expect(h.visible()).toBe(id));
+  expect(h.selected()).toBe(id);
+  const row = h.root.querySelector(`[data-browser-tab-id="${id}"]`);
+  expect(row.querySelector('[role="tab"]').title).toBe("Synthetic document.pdf");
+  expect(h.root.querySelector(".browser-address").value).toBe("");
+  expect(h.root.querySelector(".browser-read").disabled).toBe(true);
+  expect(h.saved().tabs).toEqual(before.tabs);
+  expect(h.saved().activeTab).toBe("a");
+  expect(h.saved().closedTabs).toEqual(before.closedTabs);
+  expect(JSON.stringify(h.saved())).not.toMatch(/studio-local-pdf|Synthetic document/);
+  menu.open = true;
+  menu.querySelector('[data-i18n-text="Save page PDF to Downloads"]').click();
+  await waitFor(() => expect(h.status()).toBe(t("Studio exports and printing are unavailable for local PDFs.")));
+  expect(h.requests.some(request => request.kind === "savePdf" && request.tab === id)).toBe(false);
+
+  const publicUrl = "https://example.org/ordinary-from-pdf";
+  const address = h.root.querySelector(".browser-address");
+  address.focus();
+  address.value = publicUrl;
+  address.dispatchEvent(new Event("input", { bubbles: true }));
+  address.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  await waitFor(() => expect(h.saved().tabs.some(tab => tab.url === publicUrl)).toBe(true));
+  expect(h.requests.some(request => request.kind === "navigate" && request.tab === id)).toBe(false);
+  expect(h.views.has(id)).toBe(true);
+
+  h.select(id);
+  await waitFor(() => expect(h.visible()).toBe(id));
+  h.root.querySelector(`[data-browser-tab-id="${id}"] .browser-tab-close`).click();
+  await waitFor(() => expect(h.views.has(id)).toBe(false));
+  expect(h.saved().closedTabs).toEqual(before.closedTabs);
 });
 
 it("updates an open zoom menu as PDF classification arrives and rejects older settings", async () => {
