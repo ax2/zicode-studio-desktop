@@ -1,0 +1,15 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.root-solver",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.roots.bisect",
+      "title": "非线性方程求根",
+      "status": "candidate",
+      "scope": "用区间二分法估算 f(x)=0 的一个候选点，显示收敛状态、残差和迭代次数。"
+    }
+  ]
+}

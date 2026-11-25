@@ -1,0 +1,353 @@
+{
+  "generator": "scripts/verify_root_solver_plugin.py",
+  "cases": [
+    {
+      "id": "default-radical",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "6780db8a979635077348accfa66345bb3b9542bb177f65631d65ccbc7eabc1a8",
+      "ok": true
+    },
+    {
+      "id": "left-endpoint",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "9482b4d8c780b037d0998c800c7155c3eca5b096cd7f637ebea9eeabbb8d016d",
+      "ok": true
+    },
+    {
+      "id": "right-endpoint",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "89df07c7df3aedd3d948c4d099aaed4295774083911c33d0a7b87abca3ed7fe4",
+      "ok": true
+    },
+    {
+      "id": "midpoint-exact",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "9f11283ac1d3317ba3a2eef9b904baa803c2c40bab564f7e3e01b0347533d622",
+      "ok": true
+    },
+    {
+      "id": "one-iteration-nonconverged",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "21143cd0727bae1effff78c3e6d9be68ed58c67920ff20bc105b71e41490af9c",
+      "ok": true
+    },
+    {
+      "id": "native-max-iterations",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "bfe7e2a7204b07d936a341da379308953da1a016120bf73044036ee6b0e5ce0a",
+      "ok": true
+    },
+    {
+      "id": "width-tolerance-is-not-residual",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "db8ef8e4fbcdd7f4ea7788cd206a84b42cec6355f5940e267e482c3c928d9db5",
+      "ok": true
+    },
+    {
+      "id": "bisection-radians",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "88f126ed14e1d8cbcbb907b4329573c98e1e8b24e1f25d964eface16127537a4",
+      "ok": true
+    },
+    {
+      "id": "bisection-degrees",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "00210e415fd77e5bfad39540c55bbe6aaee33a1225d00279b80b0ffc7dd62cf5",
+      "ok": true
+    },
+    {
+      "id": "explicit-real-constants",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "1617ef7e8f259bf700772e08c00f240e1f9c06c9907012859f5d6256708b0656",
+      "ok": true
+    },
+    {
+      "id": "constants-use-exact-signed-literals",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "f35b4e7b7674f72222926ef56a4d82288d90d7b504a5845386614f896576ba10",
+      "ok": true
+    },
+    {
+      "id": "native-64-constant-entries",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "7ffa9405ca9286783e3f98fb4a3749bcb95a95c1df5f9fe4cdd02e11811010f4",
+      "ok": true
+    },
+    {
+      "id": "multiple-roots-left-bracket",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "1a3fb602a27debc779aa5dc9036dac80779980b3210994aab0eeb38ec587c88a",
+      "ok": true
+    },
+    {
+      "id": "multiple-roots-right-bracket",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "324bbba5f9d65ced35260959aa99e66626f404a2952d91ace8ddbbaa31ff812a",
+      "ok": true
+    },
+    {
+      "id": "multiple-roots-with-central-match",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "0926123f6a70a21838a789152af729504f1e07ddc1616b9698811aed6ab476c2",
+      "ok": true
+    },
+    {
+      "id": "no-global-root-search-for-even-bracket",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "bc4fe370583c869e47c776b6a8c4f7168425222417a23e04279a1802714fe601",
+      "ok": false
+    },
+    {
+      "id": "even-multiplicity-may-not-bracket",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "993f99c85c9543f98427057c8eb47d78f5b593ce4c7d46f67741c5d5ab3c2077",
+      "ok": false
+    },
+    {
+      "id": "pole-at-midpoint-rejected",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "3e48eb18e9a391c0268af498ee32e33d7d2c957343e2639fad70084f53dc618e",
+      "ok": false
+    },
+    {
+      "id": "domain-error-rejected",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "8c5db637a42cd641e11fac8c0f6e791b38b2529772ae0beb3a56f810d518909a",
+      "ok": false
+    },
+    {
+      "id": "complex-result-rejected",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "f902418af244ee50df89fdfabff4cac4a7ae1c7bf6f2d454599cc0b1ddbd3daa",
+      "ok": false
+    },
+    {
+      "id": "non-midpoint-pole-only-width-converges",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "afa0aec0a69363990facd1f0e573911da37baf9ca30561f45a997d611acb3766",
+      "ok": true
+    },
+    {
+      "id": "wide-bracket-small-tolerance",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "344ed4666d0d71c4397808717091df9ea4fb0233afe67f5e43f670ebba02cd32",
+      "ok": true
+    },
+    {
+      "id": "f64-adjacent-ends",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "6856f0b7d53979ec48d6aad3b91db95a323584b4fe36f961a80e6e54cdffd7b1",
+      "ok": true
+    },
+    {
+      "id": "native-512-tokens-wide-bracket",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "8036db74bba0fb0b97d07c289e4ca79eb72d4c1525959bb49d83147112da3dd4",
+      "ok": true
+    },
+    {
+      "id": "native-503-tokens-fraction-chain-wide-bracket",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "01f92c9ed2f7a18814e44ba5d250b505dd2240181a3e5342db849676cfea6c6c",
+      "ok": true
+    },
+    {
+      "id": "native-2048-byte-formula",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "7660ab62b7419dd3023b3ba7da2e505968e5b04bece335eb3138c94038e5c605",
+      "ok": true
+    },
+    {
+      "id": "wide-bracket-many-dynamic-functions-budget",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "db7705f427e7e7d3bc6df883484aa39c11d77c404cefe0c6dc0e14204362171b",
+      "ok": false
+    },
+    {
+      "id": "narrow-bracket-dynamic-functions",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "c675f243d811abd3f322bae815dea58884e4917903c9298b677201e1a767451a",
+      "ok": true
+    },
+    {
+      "id": "native-legal-depth",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "81fa303027296cf46981ca5c55cad0a136b2cfdbacad55a72895dd38ca3b1753",
+      "ok": true
+    },
+    {
+      "id": "native-depth-limit",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "aaa401b61d27724c265ac0ac169952d72716787aadf39226aa04d14cc91b4be7",
+      "ok": false
+    },
+    {
+      "id": "native-token-limit",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "101e73df5874ea54db0f6b436c7559f77e5510b8e0ce9639b062008b013627bd",
+      "ok": false
+    },
+    {
+      "id": "native-byte-limit",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "87bf924b7a2e3628131133d4fdd1517a3db2546b5898542688b2cbbec206f083",
+      "ok": false
+    },
+    {
+      "id": "no-empty-formula",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "f6d6adc2a0f5263fa447abccf88d070233c94a808039c8c1df9106a6dc816d87",
+      "ok": false
+    },
+    {
+      "id": "no-assignment",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "5e9c7486259288d4566e3ec1324269a803a081076104d78fcef25e42262ad728",
+      "ok": false
+    },
+    {
+      "id": "no-inline-unit-conversion",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "2b6129aa82e71f7684889d4b80b56e93d6aac2eb2547af1d8a9d21a3f82cac41",
+      "ok": false
+    },
+    {
+      "id": "missing-symbol",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "d8ec574dae380140815c813233272aaa5b329ff62e59833ab6b58857e8784099",
+      "ok": false
+    },
+    {
+      "id": "same-endpoints",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "caefd5c9d50ec7f951748365a8f87046a7f2d3d30142faf65de8588c7fc6f2d7",
+      "ok": false
+    },
+    {
+      "id": "reversed-endpoints",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "da5efc83854068b711ad16c7ad6a205436275442ba4861943fcecb8b2ca373ec",
+      "ok": false
+    },
+    {
+      "id": "upper-endpoint-above-bound",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "c6e8b339e4ae7c42b9cbdaa559b97b3c22befd56c222551c85dc284606fe6230",
+      "ok": false
+    },
+    {
+      "id": "lower-endpoint-below-bound",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "beaac77807d08131ff13e5be529795384c028741e5598e7f06b905d0e3f48dfc",
+      "ok": false
+    },
+    {
+      "id": "numeric-endpoints-only",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "995cba6e57b6cee5ca3d55b2db72abe0aaea5e0c6d2471fe67bc5bc1ce189c9a",
+      "ok": false
+    },
+    {
+      "id": "tolerance-below-minimum",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "7c9b0088e1552d33530e5f177cb0ce68bd31ffad8ce0176a0509a9813587252e",
+      "ok": false
+    },
+    {
+      "id": "tolerance-above-maximum",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "c4d861eb47f23b417e629ba3ed9468104e7fa9c76a92dfd6909f9ffe4586a5c9",
+      "ok": false
+    },
+    {
+      "id": "negative-tolerance",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "aa3471add6bf66277792839756c0a6ac254b5b9d8d7d78d1b961822ac4828f95",
+      "ok": false
+    },
+    {
+      "id": "iterations-above-bound",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "9696349f22cf76256e86f2e75b18625010b8f77505929c348d65467c1ecef857",
+      "ok": false
+    },
+    {
+      "id": "iterations-below-bound",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "18eca696af3a8c9a8d0fe9ea96062141245606978928c03d0b5301f9a3c09823",
+      "ok": false
+    },
+    {
+      "id": "iterations-must-be-integer",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "d9836e0b8dbe12393fcdde921ab690db96ccd8d3bf3cf3e51c47a2f1cd481158",
+      "ok": false
+    },
+    {
+      "id": "invalid-angle-unit",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "499312785a5c08daabb41a6c290897e8cde24c9a114115d975578f8d6bccdf85",
+      "ok": false
+    },
+    {
+      "id": "constants-cannot-shadow-coordinate",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "24e24034983cd19acb7d1fb614cb8eaaf41f627d15ea732cdbf5f0be26278952",
+      "ok": false
+    },
+    {
+      "id": "constants-cannot-shadow-builtins",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "1111111fa968e8f8ec0a0c630babd79b6806ed792fc76ff7c1d24e2a9e2785e5",
+      "ok": false
+    },
+    {
+      "id": "constants-cannot-use-session-ans",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "615a43ade1ebc7d2c96c1e30b56682d684b5bc68544730a09023c5c4690b3f7b",
+      "ok": false
+    },
+    {
+      "id": "constants-maximum-count",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "a4d210620c81e3611cc42900a136e246f17f53c0b8bb98e21f89862e8e8026e4",
+      "ok": false
+    },
+    {
+      "id": "constants-reject-invalid-name",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "104c724b156724da83229ca67839c14118c3d4ec39455e50f836b86616999694",
+      "ok": false
+    },
+    {
+      "id": "constants-reject-bad-fraction",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "ad446afd46304828fcc32b499a0ab636752bd76d847c05f191ecb206f0c17a16",
+      "ok": false
+    },
+    {
+      "id": "constants-reject-non-finite",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "b8970aaa7fb9e54d70c7f86cfed540dedf1ddd4f7619ba7fbc853d7699cdef99",
+      "ok": false
+    },
+    {
+      "id": "constants-value-byte-limit",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "fca6ecf1675644a63d30da8c5c692c8c3bd407c00f1a2f69b4e91f75cd929b06",
+      "ok": false
+    },
+    {
+      "id": "strict-request-shape",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "19ef57285b252be76e598e0ac4a1ba9d79e061298ec4531242a361824028d110",
+      "ok": false
+    },
+    {
+      "id": "request-byte-limit",
+      "capabilityId": "devtools.roots.bisect",
+      "inputSha256": "67a66bc3b826d50ccb023fc55d6359299e996830806d65e1b507064d87640779",
+      "ok": false
+    }
+  ]
+}
