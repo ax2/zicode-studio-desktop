@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { browserDraftPrompt } from "./browser-chat-draft.js";
 import { browserNoteContent } from "./browser-note-snapshot.js";
+import { renderBrowserCaptureTables } from "./browser-capture-tables.js";
 
 const script = readFileSync("src-tauri/src/browser/capture.js", "utf8");
 
@@ -341,6 +342,55 @@ test("captures loaded composed image metadata without exposing unsupported pixel
   });
 });
 
+test("keeps rendered inline values and real line breaks in structured table text", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  document.body.innerHTML = '<table><caption>费用<strong>明细</strong>（净额）</caption>' +
+    '<tr><th>项目</th><th>金额</th></tr>' +
+    '<tr><td>商品<span>名</span>称<span hidden>hidden cell text</span></td><td>¥<strong>1,234</strong><sup>.50</sup></td></tr>' +
+    '<tr><td>Address <em>line</em>, one<br>Address line two<div>Final line</div></td><td>Open <b>now</b>!</td></tr></table>';
+  const page = captureSelection();
+  expect(page).toMatchObject({
+    tables: [{
+      caption: "费用明细（净额）",
+      firstRowHeader: true,
+      rows: [
+        ["项目", "金额"],
+        ["商品名称", "¥1,234.50"],
+        ["Address line, one\nAddress line two\nFinal line", "Open now!"],
+      ],
+    }],
+    tablesTruncated: false,
+  });
+  const capture = { page, capturedAt: "2026-11-25T00:00:00Z" };
+  const note = browserNoteContent(capture, false, { includeTables: true });
+  expect(note).toContain("| 商品名称 | ¥1,234.50 |");
+  expect(note).toContain("| Address line, one Address line two Final line | Open now\\! |");
+  expect(note).toContain("Address line, one  \nAddress line two  \nFinal line");
+  expect(note).not.toContain("hidden cell text");
+  const preview = renderBrowserCaptureTables(page.tables);
+  expect(preview.querySelector("caption")?.textContent).toBe("费用明细（净额）");
+  expect(preview.querySelectorAll("td br")).toHaveLength(2);
+  expect(browserDraftPrompt(capture, { includeTables: true })).toContain(JSON.stringify(page.tables[0].rows[2][0]));
+});
+
+test("retains the structured table character and text-node clipping limits", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  const value = "字".repeat(119) + "😀";
+  document.body.innerHTML = '<table><tr><td>' + value + '尾</td><td>' + '<span>x</span>'.repeat(65) + '</td></tr></table>';
+  expect(captureSelection()).toMatchObject({
+    tables: [{ rows: [[value, "x".repeat(64)]] }],
+    tablesTruncated: true,
+  });
+
+  const cell = "<td>" + value + "</td>";
+  const row = "<tr>" + cell.repeat(8) + "</tr>";
+  document.body.innerHTML = "<table>" + row.repeat(16) + "</table>";
+  const page = captureSelection();
+  expect(page.tablesTruncated).toBe(true);
+  const size = page.tables[0].rows.flat().reduce((total, value) => total + [...value].length, 0);
+  expect(size).toBe(3600);
+});
+
 test("captures rendered component tables in order while keeping nested table data separate", () => {
   vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
   const table = (caption, value) => `<table><caption>${caption}</caption><tr><td>${value}</td></tr></table>`;
@@ -355,7 +405,7 @@ test("captures rendered component tables in order while keeping nested table dat
   expect(captureSelection()).toMatchObject({
     tables: [
       { caption: "Plain", firstRowHeader: false, rows: [["First"]] },
-      { caption: "Component", firstRowHeader: false, rows: [["Before after"]] },
+      { caption: "Component", firstRowHeader: false, rows: [["Before\nafter"]] },
       { caption: "Assigned", firstRowHeader: false, rows: [["Second"]] },
     ],
     tablesTruncated: false,
