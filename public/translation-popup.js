@@ -33,8 +33,12 @@ function setLanguages(choices, selected) {
 
 async function refresh() {
   const current = ++requestNumber;
-  const { popup, service, languages, locale: language } = await invoke({ kind: "snapshot" });
-  if (current !== requestNumber || !popup) return;
+  const updated = await invoke({ kind: "snapshot" }).catch(error => {
+    if (current === requestNumber) report(error);
+    return null;
+  });
+  if (current !== requestNumber || !updated?.popup) return;
+  const { popup, service, languages, locale: language } = updated;
   locale = language;
   document.documentElement.lang = language;
   for (const element of document.querySelectorAll("[data-message]")) {
@@ -90,15 +94,21 @@ field("retry").addEventListener("click", () => {
 });
 field("workbench").addEventListener("click", () => {
   if (!snapshot) return;
-  void invoke({ kind: "workbench", revision: snapshot.revision }).catch(report);
+  const { revision } = snapshot;
+  void invoke({ kind: "workbench", revision }).catch(error => {
+    if (snapshot?.revision === revision) report(error);
+  });
 });
 field("copy").addEventListener("click", async () => {
+  if (!snapshot?.draft.result) return;
+  const { revision } = snapshot;
+  let copyStatus = "Copied";
   try {
     await navigator.clipboard.writeText(field("result").value);
-    status("Copied");
   } catch {
-    status("Clipboard access is not available");
+    copyStatus = "Clipboard access is not available";
   }
+  if (snapshot?.revision === revision) status(copyStatus);
 });
 function close() {
   void invoke({ kind: "close" }).catch(report);
