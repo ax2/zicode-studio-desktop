@@ -1,0 +1,343 @@
+{
+  "sourceRevision": "525ed11a8137123926488318b7cc1f18b453dae1",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T17:46:59.142940+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "sqlite": "3.46.0",
+  "zig": "0.15.2",
+  "moduleSha256": "44f67d958e548d18e84a2d15673c46cfb45b05474163f2b618d26c51d6f347a0",
+  "workerVerification": {
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "wasmSha256": "44f67d958e548d18e84a2d15673c46cfb45b05474163f2b618d26c51d6f347a0",
+    "wasmBytes": 1020756,
+    "sqliteReader": "3.53.1",
+    "profile": "resource.wasi.input.draft2",
+    "outputProfile": "resource.wasi.output.draft1",
+    "cases": [
+      {
+        "case": "bom-csv-text-exact",
+        "sourceSha256": "6dadbe17ad3c78c4984685cf059e5132d2dadea0f90ca466aebe63a338ab52dc",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv",
+          "tableName": "支出\"; DROP TABLE other;--"
+        },
+        "code": null,
+        "rows": 2,
+        "columns": 3,
+        "bytes": 8192,
+        "sha256": "0f733bec6e6b3ba454116e12dfcbb9a40846522f5eb34477b9e0e8fe72943421"
+      },
+      {
+        "case": "tsv-text-exact",
+        "sourceSha256": "c31a7b578e949793296e75a3d2877c9ba98487b81270944f915924bd5ac58dd0",
+        "mime": "application/octet-stream",
+        "options": {
+          "format": "tsv"
+        },
+        "code": null,
+        "rows": 1,
+        "columns": 3,
+        "bytes": 8192,
+        "sha256": "a0fbb3fd16966b4538c6143d0f3618601a96c7f57a8b157ae2bd0618c75a1a5b"
+      },
+      {
+        "case": "cleared-table-name-uses-default",
+        "sourceSha256": "c31a7b578e949793296e75a3d2877c9ba98487b81270944f915924bd5ac58dd0",
+        "mime": "application/octet-stream",
+        "options": {
+          "format": "tsv",
+          "tableName": ""
+        },
+        "code": null,
+        "rows": 1,
+        "columns": 3,
+        "bytes": 8192,
+        "sha256": "a0fbb3fd16966b4538c6143d0f3618601a96c7f57a8b157ae2bd0618c75a1a5b"
+      },
+      {
+        "case": "header-only",
+        "sourceSha256": "762274cd5d6616561b696d4c8258fe03d5ad916d5f838beee77cd98e652adbab",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv"
+        },
+        "code": null,
+        "rows": 0,
+        "columns": 3,
+        "bytes": 8192,
+        "sha256": "de82c27cacb1115a1a472cf0a46c86794b142e1156d5b837f287df40a4aee580"
+      },
+      {
+        "case": "empty-column-json-table",
+        "sourceSha256": "f2a2be6d4862836689dd75ac9ebc1c30e3c6f2849c1a9ecc8f5593d015a067dd",
+        "mime": "application/json",
+        "options": {
+          "format": "json"
+        },
+        "code": null,
+        "rows": 0,
+        "columns": 3,
+        "bytes": 8192,
+        "sha256": "de82c27cacb1115a1a472cf0a46c86794b142e1156d5b837f287df40a4aee580"
+      },
+      {
+        "case": "json-mixed-and-missing",
+        "sourceSha256": "3a795f38601ae2edc9bee838ee13c4d8ccb490af0d1a7cef0750683fe64f5bbb",
+        "mime": "application/json",
+        "options": {
+          "format": "json"
+        },
+        "code": null,
+        "rows": 2,
+        "columns": 8,
+        "bytes": 8192,
+        "sha256": "8b836b8f151a57c8e4b73047fc1bd7b942f6edd2cde3242fb17d434c66e108da"
+      },
+      {
+        "case": "exact-16-kib-single-cell",
+        "sourceSha256": "7aaed0389fb85fee90fb2ec5743e182815306bff6ba55010edbd7605cfaf2ca8",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv"
+        },
+        "code": null,
+        "rows": 1,
+        "columns": 1,
+        "bytes": 24576,
+        "sha256": "45e4e375d6d6ff2e179f1cf98f24741631f6103b6f100f06c7fb8fa1a3558230"
+      },
+      {
+        "case": "exact-16-kib-json",
+        "sourceSha256": "cc29c7aa8eacb5072e349dbd0569aad698e5647454f75a42ed1a3ea59033eed1",
+        "mime": "application/json",
+        "options": {
+          "format": "json"
+        },
+        "code": null,
+        "rows": 1,
+        "columns": 1,
+        "bytes": 8192,
+        "sha256": "dd4e90ed4303e2b5aff12215eae072bb21e490a67f2d80640dba4be8dfcd6866"
+      },
+      {
+        "case": "exact-128-by-16-csv",
+        "sourceSha256": "a88722f56f4996a6d5f3e5b9b0f2f0406c9cbb9163e4f3aa0d67587fc6445333",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv"
+        },
+        "code": null,
+        "rows": 128,
+        "columns": 16,
+        "bytes": 16384,
+        "sha256": "5415a27f0459eca10b60c49a644debecf68e221d61149c53750875c969774955"
+      },
+      {
+        "case": "combined-dense-csv-max-bytes-and-cells",
+        "sourceSha256": "300839908d8c835621ff04589109b0cece20e27f5ae4e0dfd196b0aac7ed20cb",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv"
+        },
+        "code": null,
+        "rows": 128,
+        "columns": 16,
+        "bytes": 28672,
+        "sha256": "bd507494b81e17a3bf6087645e6bfbd20b53c498b1a2494d7ae1deca397badfb"
+      },
+      {
+        "case": "exact-128-by-16-json",
+        "sourceSha256": "631a9c12267bcdbe1f0dd22f4b5d88962c0ff2621d4f9145a7b22f7057b493d3",
+        "mime": "application/json",
+        "options": {
+          "format": "json"
+        },
+        "code": null,
+        "rows": 128,
+        "columns": 16,
+        "bytes": 28672,
+        "sha256": "285b9300e91548637831e40b6b185712ca235714433a1450698f928b588d9e01"
+      },
+      {
+        "case": "dense-16-kib-nested-json",
+        "sourceSha256": "f89a7b3a56fd5c1e0d08e3e260e4e2ff57bc29c1aee54cf536d5f3ae1ec98676",
+        "mime": "application/json",
+        "options": {
+          "format": "json"
+        },
+        "code": null,
+        "rows": 1,
+        "columns": 1,
+        "bytes": 20480,
+        "sha256": "3b6258d0cf824cbea4fae599620f76e5d2ab3bcc9938867f053b19f92f8406d7"
+      },
+      {
+        "case": "exact-512-byte-unicode-table-name",
+        "sourceSha256": "7add6c9b2b72149c62b8df2bd98e003a2bdfa14e91c1bd03588389752608c003",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv",
+          "tableName": "𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀"
+        },
+        "code": null,
+        "rows": 1,
+        "columns": 1,
+        "bytes": 8192,
+        "sha256": "469906a2b27f4d8afd0e22310598a40b98381a1e844079878d2bb3d41ec6900b"
+      },
+      {
+        "case": "plus-one-input-byte",
+        "sourceSha256": "3107b2f5c8dcca85d66dc24fd18fa458204c80391637cb36815433a1bd829fd3",
+        "mime": "application/json",
+        "options": {
+          "format": "json"
+        },
+        "code": "INPUT_TOO_LARGE"
+      },
+      {
+        "case": "plus-one-row",
+        "sourceSha256": "4b4be337f6bc6ffc15dd6894e60bfb52418e0ab889762b2273bc1a181d91d7ca",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv"
+        },
+        "code": "INVALID_TABLE"
+      },
+      {
+        "case": "plus-one-column",
+        "sourceSha256": "c9f73504f741842e366f0e8d8a4de6019151720ce8fed4be142e360ef1e0e7bb",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv"
+        },
+        "code": "INVALID_TABLE"
+      },
+      {
+        "case": "jagged-csv",
+        "sourceSha256": "782e03f548c724ddb9176192231cdc25bb1c36ebdfa874894001aa89423152cb",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv"
+        },
+        "code": "INVALID_TABLE"
+      },
+      {
+        "case": "jagged-json",
+        "sourceSha256": "3291851dce85418f5491f23cb5672fa342d96df35df884c7053ec5cd6b1db0f4",
+        "mime": "application/json",
+        "options": {
+          "format": "json"
+        },
+        "code": "INVALID_TABLE"
+      },
+      {
+        "case": "objects-expand-to-17-columns",
+        "sourceSha256": "5cd268f116b616b0c4c198d033f9627e99031be7716ac9af1c080c1f590519f9",
+        "mime": "application/json",
+        "options": {
+          "format": "json"
+        },
+        "code": "INVALID_TABLE"
+      },
+      {
+        "case": "unsupported-empty-json-array",
+        "sourceSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "mime": "application/json",
+        "options": {
+          "format": "json"
+        },
+        "code": "INVALID_TABLE"
+      },
+      {
+        "case": "unplanned-guest-command",
+        "sourceSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv",
+          "command": "write"
+        },
+        "code": "INVALID_REQUEST"
+      },
+      {
+        "case": "wrong-format",
+        "sourceSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+        "mime": "text/csv",
+        "options": {
+          "format": "sql"
+        },
+        "code": "INVALID_REQUEST"
+      },
+      {
+        "case": "invalid-utf8",
+        "sourceSha256": "353df48126d128c164d41e6872911912e68683ae1b130dc75aa1a8e32f74ed80",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv"
+        },
+        "code": "INVALID_UTF8"
+      },
+      {
+        "case": "unsupported-resource",
+        "sourceSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+        "mime": "image/png",
+        "options": {
+          "format": "csv"
+        },
+        "code": "UNSUPPORTED_MIME"
+      },
+      {
+        "case": "invalid-table-prefix",
+        "sourceSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv",
+          "tableName": "SQLite_hidden"
+        },
+        "code": "INVALID_IDENTIFIERS"
+      },
+      {
+        "case": "whitespace-table-name",
+        "sourceSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv",
+          "tableName": " \t"
+        },
+        "code": "INVALID_IDENTIFIERS"
+      },
+      {
+        "case": "identifier-nul",
+        "sourceSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv",
+          "tableName": "name\u0000"
+        },
+        "code": "INVALID_IDENTIFIERS"
+      },
+      {
+        "case": "513-byte-table-name",
+        "sourceSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv",
+          "tableName": "𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀x"
+        },
+        "code": "INVALID_IDENTIFIERS"
+      },
+      {
+        "case": "ascii-equivalent-columns",
+        "sourceSha256": "0a450565c90d82f96535c6399d9a28c1dec0cd0dd8d51a6634e34c8a9f34bf5f",
+        "mime": "text/csv",
+        "options": {
+          "format": "csv"
+        },
+        "code": "INVALID_IDENTIFIERS"
+      }
+    ],
+    "failures": []
+  }
+}

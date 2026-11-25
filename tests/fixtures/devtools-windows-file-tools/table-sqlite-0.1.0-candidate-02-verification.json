@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.table-sqlite",
+  "packageVersion": "0.1.0",
+  "signatureVerified": false,
+  "directoryIndexSha256": "edf7b238b14c30d7dc4d6f358701bfc3b6faddceda51223696905c3342fd2d36",
+  "files": [
+    {
+      "path": "catalog.json",
+      "size": 585,
+      "sha256": "bbb18583ec2eccbebcbd0339fea5fefdb14c51320d2a0f9508e1fcc45276d877"
+    },
+    {
+      "path": "fixtures.json",
+      "size": 9185,
+      "sha256": "a35776aebac752dab9c9ff5c84d361b7d0d7116e9b899e6025b5f4f5a4cd29d6"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 101,
+      "sha256": "ee0004d6b21f915d9c8c1fca37d4db4e9f8fe8a13d3d845ab329c6350836fd15"
+    },
+    {
+      "path": "plugin.json",
+      "size": 5781,
+      "sha256": "81b6e0b03b6dc71af350df76a4e94f17b67dd9bd4f24f23ca6e7c2cc50bf2441"
+    },
+    {
+      "path": "provenance.json",
+      "size": 11763,
+      "sha256": "e5d8bf6095753babc11201fbdc5030c1a284cd1afa6b7f77d7907f2a4ca3c530"
+    },
+    {
+      "path": "README.md",
+      "size": 1962,
+      "sha256": "34cce4a311c9512d77b80eeb6e601486e45695718000faf9d878fc5b9b318434"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 1020756,
+      "sha256": "44f67d958e548d18e84a2d15673c46cfb45b05474163f2b618d26c51d6f347a0"
+    }
+  ],
+  "fileCount": 8,
+  "totalBytes": 1051230,
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}

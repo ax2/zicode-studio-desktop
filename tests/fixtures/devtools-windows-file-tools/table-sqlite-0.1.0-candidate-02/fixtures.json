@@ -1,0 +1,303 @@
+{
+  "generator": "scripts/verify_table_sqlite_plugin.py",
+  "cases": [
+    {
+      "id": "bom-csv-text-exact",
+      "inputSha256": "6dadbe17ad3c78c4984685cf059e5132d2dadea0f90ca466aebe63a338ab52dc",
+      "inputBytes": 90,
+      "input": {
+        "format": "csv",
+        "tableName": "支出\"; DROP TABLE other;--"
+      },
+      "mime": "text/csv",
+      "error": null
+    },
+    {
+      "id": "tsv-text-exact",
+      "inputSha256": "c31a7b578e949793296e75a3d2877c9ba98487b81270944f915924bd5ac58dd0",
+      "inputBytes": 61,
+      "input": {
+        "format": "tsv"
+      },
+      "mime": "application/octet-stream",
+      "error": null
+    },
+    {
+      "id": "cleared-table-name-uses-default",
+      "inputSha256": "c31a7b578e949793296e75a3d2877c9ba98487b81270944f915924bd5ac58dd0",
+      "inputBytes": 61,
+      "input": {
+        "format": "tsv",
+        "tableName": ""
+      },
+      "mime": "application/octet-stream",
+      "error": null
+    },
+    {
+      "id": "header-only",
+      "inputSha256": "762274cd5d6616561b696d4c8258fe03d5ad916d5f838beee77cd98e652adbab",
+      "inputBytes": 35,
+      "input": {
+        "format": "csv"
+      },
+      "mime": "text/csv",
+      "error": null
+    },
+    {
+      "id": "empty-column-json-table",
+      "inputSha256": "f2a2be6d4862836689dd75ac9ebc1c30e3c6f2849c1a9ecc8f5593d015a067dd",
+      "inputBytes": 61,
+      "input": {
+        "format": "json"
+      },
+      "mime": "application/json",
+      "error": null
+    },
+    {
+      "id": "json-mixed-and-missing",
+      "inputSha256": "3a795f38601ae2edc9bee838ee13c4d8ccb490af0d1a7cef0750683fe64f5bbb",
+      "inputBytes": 204,
+      "input": {
+        "format": "json"
+      },
+      "mime": "application/json",
+      "error": null
+    },
+    {
+      "id": "exact-16-kib-single-cell",
+      "inputSha256": "7aaed0389fb85fee90fb2ec5743e182815306bff6ba55010edbd7605cfaf2ca8",
+      "inputBytes": 16384,
+      "input": {
+        "format": "csv"
+      },
+      "mime": "text/csv",
+      "error": null
+    },
+    {
+      "id": "exact-16-kib-json",
+      "inputSha256": "cc29c7aa8eacb5072e349dbd0569aad698e5647454f75a42ed1a3ea59033eed1",
+      "inputBytes": 16384,
+      "input": {
+        "format": "json"
+      },
+      "mime": "application/json",
+      "error": null
+    },
+    {
+      "id": "exact-128-by-16-csv",
+      "inputSha256": "a88722f56f4996a6d5f3e5b9b0f2f0406c9cbb9163e4f3aa0d67587fc6445333",
+      "inputBytes": 4279,
+      "input": {
+        "format": "csv"
+      },
+      "mime": "text/csv",
+      "error": null
+    },
+    {
+      "id": "combined-dense-csv-max-bytes-and-cells",
+      "inputSha256": "300839908d8c835621ff04589109b0cece20e27f5ae4e0dfd196b0aac7ed20cb",
+      "inputBytes": 16384,
+      "input": {
+        "format": "csv"
+      },
+      "mime": "text/csv",
+      "error": null
+    },
+    {
+      "id": "exact-128-by-16-json",
+      "inputSha256": "631a9c12267bcdbe1f0dd22f4b5d88962c0ff2621d4f9145a7b22f7057b493d3",
+      "inputBytes": 11054,
+      "input": {
+        "format": "json"
+      },
+      "mime": "application/json",
+      "error": null
+    },
+    {
+      "id": "dense-16-kib-nested-json",
+      "inputSha256": "f89a7b3a56fd5c1e0d08e3e260e4e2ff57bc29c1aee54cf536d5f3ae1ec98676",
+      "inputBytes": 16384,
+      "input": {
+        "format": "json"
+      },
+      "mime": "application/json",
+      "error": null
+    },
+    {
+      "id": "exact-512-byte-unicode-table-name",
+      "inputSha256": "7add6c9b2b72149c62b8df2bd98e003a2bdfa14e91c1bd03588389752608c003",
+      "inputBytes": 6,
+      "input": {
+        "format": "csv",
+        "tableName": "𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀"
+      },
+      "mime": "text/csv",
+      "error": null
+    },
+    {
+      "id": "plus-one-input-byte",
+      "inputSha256": "3107b2f5c8dcca85d66dc24fd18fa458204c80391637cb36815433a1bd829fd3",
+      "inputBytes": 16385,
+      "input": {
+        "format": "json"
+      },
+      "mime": "application/json",
+      "error": "INPUT_TOO_LARGE"
+    },
+    {
+      "id": "plus-one-row",
+      "inputSha256": "4b4be337f6bc6ffc15dd6894e60bfb52418e0ab889762b2273bc1a181d91d7ca",
+      "inputBytes": 4312,
+      "input": {
+        "format": "csv"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_TABLE"
+    },
+    {
+      "id": "plus-one-column",
+      "inputSha256": "c9f73504f741842e366f0e8d8a4de6019151720ce8fed4be142e360ef1e0e7bb",
+      "inputBytes": 61,
+      "input": {
+        "format": "csv"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_TABLE"
+    },
+    {
+      "id": "jagged-csv",
+      "inputSha256": "782e03f548c724ddb9176192231cdc25bb1c36ebdfa874894001aa89423152cb",
+      "inputBytes": 19,
+      "input": {
+        "format": "csv"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_TABLE"
+    },
+    {
+      "id": "jagged-json",
+      "inputSha256": "3291851dce85418f5491f23cb5672fa342d96df35df884c7053ec5cd6b1db0f4",
+      "inputBytes": 34,
+      "input": {
+        "format": "json"
+      },
+      "mime": "application/json",
+      "error": "INVALID_TABLE"
+    },
+    {
+      "id": "objects-expand-to-17-columns",
+      "inputSha256": "5cd268f116b616b0c4c198d033f9627e99031be7716ac9af1c080c1f590519f9",
+      "inputBytes": 138,
+      "input": {
+        "format": "json"
+      },
+      "mime": "application/json",
+      "error": "INVALID_TABLE"
+    },
+    {
+      "id": "unsupported-empty-json-array",
+      "inputSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "inputBytes": 2,
+      "input": {
+        "format": "json"
+      },
+      "mime": "application/json",
+      "error": "INVALID_TABLE"
+    },
+    {
+      "id": "unplanned-guest-command",
+      "inputSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+      "inputBytes": 6,
+      "input": {
+        "format": "csv",
+        "command": "write"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_REQUEST"
+    },
+    {
+      "id": "wrong-format",
+      "inputSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+      "inputBytes": 6,
+      "input": {
+        "format": "sql"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_REQUEST"
+    },
+    {
+      "id": "invalid-utf8",
+      "inputSha256": "353df48126d128c164d41e6872911912e68683ae1b130dc75aa1a8e32f74ed80",
+      "inputBytes": 5,
+      "input": {
+        "format": "csv"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_UTF8"
+    },
+    {
+      "id": "unsupported-resource",
+      "inputSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+      "inputBytes": 6,
+      "input": {
+        "format": "csv"
+      },
+      "mime": "image/png",
+      "error": "UNSUPPORTED_MIME"
+    },
+    {
+      "id": "invalid-table-prefix",
+      "inputSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+      "inputBytes": 6,
+      "input": {
+        "format": "csv",
+        "tableName": "SQLite_hidden"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_IDENTIFIERS"
+    },
+    {
+      "id": "whitespace-table-name",
+      "inputSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+      "inputBytes": 6,
+      "input": {
+        "format": "csv",
+        "tableName": " \t"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_IDENTIFIERS"
+    },
+    {
+      "id": "identifier-nul",
+      "inputSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+      "inputBytes": 6,
+      "input": {
+        "format": "csv",
+        "tableName": "name\u0000"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_IDENTIFIERS"
+    },
+    {
+      "id": "513-byte-table-name",
+      "inputSha256": "4cb75bbc37ad9f043e5f15f9b715134a79a525399a5a0d2c82a812375eb16ea4",
+      "inputBytes": 6,
+      "input": {
+        "format": "csv",
+        "tableName": "𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀𠀀x"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_IDENTIFIERS"
+    },
+    {
+      "id": "ascii-equivalent-columns",
+      "inputSha256": "0a450565c90d82f96535c6399d9a28c1dec0cd0dd8d51a6634e34c8a9f34bf5f",
+      "inputBytes": 12,
+      "input": {
+        "format": "csv"
+      },
+      "mime": "text/csv",
+      "error": "INVALID_IDENTIFIERS"
+    }
+  ]
+}
