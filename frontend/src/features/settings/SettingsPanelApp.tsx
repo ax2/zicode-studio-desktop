@@ -871,6 +871,11 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
               ? t("No usable backups; review damaged snapshots below")
               : t("No backups yet"))}
       </p>
+      {error && queuedBackupId && (
+        <p className="settings-help" role="status">
+          {t("Restore queued. Restart ZiCode Studio to apply the backup.")}
+        </p>
+      )}
       {backups.length > 0 ? (
         <ul className="workspace-backup-list" aria-label={t("Workspace backups")}>
           {visibleBackups.map((backup) => (
