@@ -18,6 +18,7 @@ pub(super) const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS generation_output_ar
 
 pub(super) const INPUT: &str = "pending.comfy-review.input";
 pub(super) const THUMBNAIL: &str = "pending.comfy-review.png";
+pub(super) const SPECIFICATIONS: &str = "pending.comfy-review.json";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -174,16 +175,34 @@ pub(super) fn digest(bytes: &[u8]) -> String {
 }
 
 pub(super) fn thumbnail(db: &mut Connection, library: &Path, bytes: &[u8]) -> Result<String> {
-    // The SQLite writer lock covers both preview files and their recovery.
+    with_review_input(db, library, bytes, |input| {
+        let thumbnail = library.join(THUMBNAIL);
+        worker::generate(input, &thumbnail)?;
+        Ok(preview::read_thumbnail(&thumbnail)?)
+    })
+}
+
+pub(super) fn inspect(
+    db: &mut Connection,
+    library: &Path,
+    bytes: &[u8],
+) -> Result<worker::image_specifications::Specifications> {
+    with_review_input(db, library, bytes, |input| {
+        worker::image_specifications::inspect(input, &library.join(SPECIFICATIONS))
+    })
+}
+
+fn with_review_input<T>(
+    db: &mut Connection,
+    library: &Path,
+    bytes: &[u8],
+    process: impl FnOnce(&Path) -> Result<T>,
+) -> Result<T> {
+    // The SQLite writer lock covers staged files and recovery.
     let tx = db.transaction_with_behavior(TransactionBehavior::Immediate)?;
     imports::recover(&tx, library)?;
     let input = library.join(INPUT);
-    let thumbnail = library.join(THUMBNAIL);
-    let result: Result<String> = (|| {
-        super::animation::write_new(&input, bytes)?;
-        worker::generate(&input, &thumbnail)?;
-        Ok(preview::read_thumbnail(&thumbnail)?)
-    })();
+    let result = super::animation::write_new(&input, bytes).and_then(|()| process(&input));
     imports::clear_generation_preview(library)?;
     tx.commit()?;
     result
