@@ -387,7 +387,12 @@ export function createNoteDraftRecovery({
         if (draft) void forget(draft);
         if (source) {
           restored.delete(id);
-          for (const draft of source) void forget(draft);
+          for (const draft of source) {
+            // The user may remove a recovered link before saving other edits.
+            if (!draft.attachmentMarkdown || state.selectedNote?.content.includes(draft.attachmentMarkdown)) {
+              void forget(draft);
+            }
+          }
         }
       }
     },
