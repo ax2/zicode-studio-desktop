@@ -2043,6 +2043,7 @@ const zhCN = {
   "The saved file changed, is unavailable, or access was revoked. Refresh before trying again.":
     "文件已变化、无法读取或访问权限已撤销，请刷新后重试。",
   "Saved file access changed. Refresh the library.": "已保存文件的访问状态发生变化，请刷新文件库。",
+  "This saved file changed. Refresh the list before opening it again.": "此已保存文件已更改，请刷新列表后再打开。",
   "Verified original file downloaded.": "已校验并下载原始文件。",
   "File contents are verified only when opened.": "打开时才校验文件内容。",
   "Some incomplete or changed records were skipped. Existing files were kept.":
