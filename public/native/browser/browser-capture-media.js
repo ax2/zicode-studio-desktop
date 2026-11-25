@@ -41,7 +41,8 @@ export function createBrowserCaptureImageList(images, recognizeImage, reviewImag
 
 export function createBrowserCaptureMedia(page, recognizeImage, reviewImage) {
   const images = page.images ?? [];
-  const imageList = createBrowserCaptureImageList(images, recognizeImage, reviewImage);
+  const recognizePageImage = recognizeImage && ((image, language) => recognizeImage(image, undefined, language));
+  const imageList = createBrowserCaptureImageList(images, recognizePageImage, reviewImage);
   const { imageText } = imageList;
   const metadata = pageMetadataRows(page.metadata);
   const include = document.createElement("input"); include.type = "checkbox";
