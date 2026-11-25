@@ -43,6 +43,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const replyPending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [failedRefresh, setFailedRefresh] = useState<number | null>(null);
   const searchGeneration = useRef(0);
   const readingRequest = useRef<{ hit: Hit; pending: boolean; canDownload: boolean } | null>(null);
   const readingAccess = reading && searchBodyAccess(reading.hit, gmail, alibaba);
@@ -52,6 +53,8 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const requestedOffset = useRef<number | null>(null);
   const displayedOffset = useRef<number | null>(null);
   const queryInput = useRef<HTMLInputElement>(null);
+  const refreshRetry = useRef<HTMLButtonElement>(null);
+  const refreshRetryInFlight = useRef(false);
   const firstResult = useRef<HTMLButtonElement>(null);
   const paginationFocus = useRef<HTMLButtonElement | null>(null);
   const readingHeading = useRef<HTMLHeadingElement>(null);
@@ -75,6 +78,21 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     readingRequest.current = null;
   }, []);
 
+  useEffect(() => {
+    // Mail keeps its view mounted when switching applications.
+    function abandonRetry(event: Event) {
+      const { pluginId } = (event as CustomEvent<{ pluginId: string }>).detail;
+      if (pluginId === "com.zicode.mail" || !refreshRetryInFlight.current) return;
+      refreshRetryInFlight.current = false;
+      ++searchGeneration.current;
+      requestedOffset.current = displayedOffset.current;
+      setBusy(false);
+      setError(true);
+    }
+    document.addEventListener("zicode:active-plugin-changed", abandonRetry);
+    return () => document.removeEventListener("zicode:active-plugin-changed", abandonRetry);
+  }, []);
+
   const closeReading = useCallback((account?: string) => {
     if (account && readingRequest.current?.hit.account !== account) return;
     readingRequest.current = null;
@@ -88,10 +106,12 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     paginationFocus.current = null;
     ++searchGeneration.current;
     updatedAccounts.current.clear();
+    refreshRetryInFlight.current = false;
     setBusy(false);
     setPage(null);
     closeReading();
     setError(false);
+    setFailedRefresh(null);
   },[closeReading]);
   const readDirectory = useCallback(async () => {
     if (!directoryInvoke) return;
@@ -142,9 +162,13 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const search = useCallback(async (start: number, background = false, button?: HTMLButtonElement) => {
     requestedOffset.current = start;
     const version = ++searchGeneration.current;
+    refreshRetryInFlight.current = background && Boolean(button);
     setBusy(true);
     setError(false);
-    if (!background) updatedAccounts.current.clear();
+    if (!background) {
+      updatedAccounts.current.clear();
+      setFailedRefresh(null);
+    }
     try {
       const readPage = (position: number) => invoke<Page>({
         kind: "search", account: scope || null, ...(folder ? { label: folder } : {}),
@@ -167,15 +191,23 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       updatedAccounts.current.clear();
       displayedOffset.current = nextOffset;
       requestedOffset.current = nextOffset;
-      paginationFocus.current = button && button.ownerDocument.activeElement === button ? button : null;
+      const focusOwner = button ?? refreshRetry.current;
+      paginationFocus.current = focusOwner && focusOwner.ownerDocument.activeElement === focusOwner ? focusOwner : null;
+      setFailedRefresh(null);
       setPage(results);
       setOffset(nextOffset);
     } catch {
       if (version === searchGeneration.current) {
         requestedOffset.current = displayedOffset.current;
         setError(true);
+        if (background) setFailedRefresh(start);
       }
-    } finally { if (version === searchGeneration.current) setBusy(false); }
+    } finally {
+      if (version === searchGeneration.current) {
+        refreshRetryInFlight.current = false;
+        setBusy(false);
+      }
+    }
   }, [invoke, scope, query, folder, closeReading]);
   function navigatePage(start: number, button: HTMLButtonElement) {
     if (searchBlocked || requestedOffset.current !== displayedOffset.current) return;
@@ -302,6 +334,10 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     </form>
     {busy && <p role="status">{t("Searching messages…")}</p>}
     {error && <p role="alert">{t("Could not access local mail data.")}</p>}
+    {failedRefresh !== null && <button ref={refreshRetry} className="ui-button" type="button"
+      aria-disabled={searchBlocked || undefined} onClick={event => {
+        if (!searchBlocked) void search(failedRefresh, true, event.currentTarget);
+      }}>{t("Retry cached search")}</button>}
     {page && <>
       {!page.items.length && <p role="status">{t("No matching cached messages.")}</p>}
       <ul className="mail-inbox-list">{page.items.map((hit, index)=><li key={JSON.stringify([hit.account,hit.folder,hit.epoch,hit.id])}>

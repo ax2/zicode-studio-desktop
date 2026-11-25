@@ -106,6 +106,7 @@ const zhCN = {
   "Search scope": "搜索范围",
   "All local mail accounts": "所有本地邮箱账号",
   "Search cached mail": "搜索缓存邮件",
+  "Retry cached search": "重试缓存搜索",
   "No matching cached messages.": "缓存中没有匹配的邮件。",
   "Cached message": "缓存邮件",
   "Back to search results": "返回搜索结果",
