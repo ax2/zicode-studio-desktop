@@ -65,6 +65,42 @@ it("automatically finishes pending refresh pages without waiting for manual pagi
   await screen.findByText("Showing messages retrieved from the server.");
   expect(a.kinds().filter(kind=>kind==="catchUp")).toHaveLength(2);
 });
+it("keeps the committed first page visible after a catch-up connection failure", async () => {
+  setLocale("en");
+  const newer = { ...summary, uid: 52, subject: "Newly synced message" };
+  const interrupted = "Newer messages were refreshed. Some older messages could not be synced. Refresh from server to try again.";
+  let catchUpCalls = 0;
+  const remote = vi.fn(async (request: Record<string, unknown>) => {
+    switch (request.kind) {
+      case "credentialStatus": return { configured: true, enabled: true };
+      case "cachedFolders": return [];
+      case "cachedPage": return { uidValidity: 7, messages: [summary], next: null };
+      case "cachedBody": return { summary: newer, text: "Newly synced body" };
+      case "sync": return { uidValidity: 7, messages: [newer], next: null, pending: true };
+      case "catchUp": {
+        if (++catchUpCalls === 1) throw Error("mail_connect");
+        return false;
+      }
+      default: throw Error("unexpected operation");
+    }
+  });
+  render(<AlibabaInbox id="a" folder="INBOX" setFolder={vi.fn()} invoke={remote as Invoke}
+    discard={() => true} onReply={vi.fn()} onConfigured={vi.fn()} onBusy={vi.fn()} />);
+  await screen.findByRole("button", { name: /Inbox fixture/ });
+  fireEvent.click(button("Refresh from server"));
+  await screen.findByText(interrupted);
+  fireEvent.click(await screen.findByRole("button", { name: /Newly synced message/ }));
+  await screen.findByText("Newly synced body");
+  expect(screen.getByText(interrupted)).toBeTruthy();
+  expect(screen.queryByText(/local data is unchanged/)).toBeNull();
+  expect(catchUpCalls).toBe(1);
+  expect(remote.mock.calls.map(([request]) => request.kind)).not.toContain("read");
+  fireEvent.click(button("Refresh from server"));
+  await waitFor(() => expect(screen.queryByText(interrupted)).toBeNull());
+  expect(catchUpCalls).toBe(2);
+  expect(remote.mock.calls.filter(([request]) => request.kind === "catchUp").map(([request]) => request))
+    .toEqual(Array(2).fill({ kind: "catchUp", accountId: "a", limit: 20 }));
+});
 it("switches to an offline folder and reads the same UID in that folder",async()=>{
   const a=setup();
   const select=await screen.findByLabelText("IMAP folder");
