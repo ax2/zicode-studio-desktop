@@ -1,0 +1,482 @@
+{
+  "sourceRevision": "d9bb15cf65792d2407f5b8673aeb28c24dc8ffb6",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T12:10:56.029346+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "bfa612a75f82e91fe6f3643dafd9b43c5e316cd91f1f67e8944c4b46f82c5a29",
+  "workerVerification": {
+    "passed": 58,
+    "wasmSha256": "bfa612a75f82e91fe6f3643dafd9b43c5e316cd91f1f67e8944c4b46f82c5a29",
+    "workerSha256": "1bf0adf0d8e3e8874eca61258ef133de9875dac87c0cbd76a83a45a2d7f2f1a3",
+    "workerProfile": "compute.wasi.v1",
+    "cases": [
+      {
+        "case": "default-radical",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "6780db8a979635077348accfa66345bb3b9542bb177f65631d65ccbc7eabc1a8",
+        "ok": true,
+        "resultSha256": "644a56188e27ed76b0d6d4740e6bb846fa50466cdbe69b5905215fd6407d94a5",
+        "resultBytes": 291
+      },
+      {
+        "case": "left-endpoint",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "9482b4d8c780b037d0998c800c7155c3eca5b096cd7f637ebea9eeabbb8d016d",
+        "ok": true,
+        "resultSha256": "6baf3f71b2113f8b4e2fefb256fcd828924e131153aea632799101e0f9c70666",
+        "resultBytes": 251
+      },
+      {
+        "case": "right-endpoint",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "89df07c7df3aedd3d948c4d099aaed4295774083911c33d0a7b87abca3ed7fe4",
+        "ok": true,
+        "resultSha256": "337b84338bf94690d4922b1fe1fce7c9b4b23bca1c229f801be69909299f5e34",
+        "resultBytes": 251
+      },
+      {
+        "case": "midpoint-exact",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "9f11283ac1d3317ba3a2eef9b904baa803c2c40bab564f7e3e01b0347533d622",
+        "ok": true,
+        "resultSha256": "0c8708bf0caab81f15684662c23b0158e9ef12b26a02d2e6c4960fa79c5db93f",
+        "resultBytes": 251
+      },
+      {
+        "case": "one-iteration-nonconverged",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "21143cd0727bae1effff78c3e6d9be68ed58c67920ff20bc105b71e41490af9c",
+        "ok": true,
+        "resultSha256": "a2a42c8164f05f1aff85c7e68a66db6aa05a908f29e695694c137c03ab574ea4",
+        "resultBytes": 246
+      },
+      {
+        "case": "native-max-iterations",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "bfe7e2a7204b07d936a341da379308953da1a016120bf73044036ee6b0e5ce0a",
+        "ok": true,
+        "resultSha256": "644a56188e27ed76b0d6d4740e6bb846fa50466cdbe69b5905215fd6407d94a5",
+        "resultBytes": 291
+      },
+      {
+        "case": "width-tolerance-is-not-residual",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "db8ef8e4fbcdd7f4ea7788cd206a84b42cec6355f5940e267e482c3c928d9db5",
+        "ok": true,
+        "resultSha256": "c2d8d0f953de71ae2ae5bef20e41c495dcc3c38ef439c5b420c746e21becc975",
+        "resultBytes": 275
+      },
+      {
+        "case": "bisection-radians",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "88f126ed14e1d8cbcbb907b4329573c98e1e8b24e1f25d964eface16127537a4",
+        "ok": true,
+        "resultSha256": "64ba1cd9a33fa92a5e7a012de564aff44cb174b8e2de30b8999877be5d258fa7",
+        "resultBytes": 292
+      },
+      {
+        "case": "bisection-degrees",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "00210e415fd77e5bfad39540c55bbe6aaee33a1225d00279b80b0ffc7dd62cf5",
+        "ok": true,
+        "resultSha256": "aec5a8a2815c322f199cbf0c0d48c20c1ded442fd70869fe8175f6374ef47868",
+        "resultBytes": 292
+      },
+      {
+        "case": "explicit-real-constants",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "1617ef7e8f259bf700772e08c00f240e1f9c06c9907012859f5d6256708b0656",
+        "ok": true,
+        "resultSha256": "b3e9e56c760a53df656be4c3562de83b9fe6ab8311bda5e90e6000b38b2453f1",
+        "resultBytes": 253
+      },
+      {
+        "case": "constants-use-exact-signed-literals",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "f35b4e7b7674f72222926ef56a4d82288d90d7b504a5845386614f896576ba10",
+        "ok": true,
+        "resultSha256": "b3e9e56c760a53df656be4c3562de83b9fe6ab8311bda5e90e6000b38b2453f1",
+        "resultBytes": 253
+      },
+      {
+        "case": "native-64-constant-entries",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "7ffa9405ca9286783e3f98fb4a3749bcb95a95c1df5f9fe4cdd02e11811010f4",
+        "ok": true,
+        "resultSha256": "ad33dccf96b2ac26200f8a6594aebb16b6fb7e93f49b19ea4ab841c007d4a551",
+        "resultBytes": 290
+      },
+      {
+        "case": "multiple-roots-left-bracket",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "1a3fb602a27debc779aa5dc9036dac80779980b3210994aab0eeb38ec587c88a",
+        "ok": true,
+        "resultSha256": "b8c9c4ed099c1e252a1f4849807a8f099f09e74de0eccacf4587d8ce3e40789c",
+        "resultBytes": 291
+      },
+      {
+        "case": "multiple-roots-right-bracket",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "324bbba5f9d65ced35260959aa99e66626f404a2952d91ace8ddbbaa31ff812a",
+        "ok": true,
+        "resultSha256": "e001eef4b545f9cdb0e1684bd9c783008c0e2e98ff23cd6088ab0a7015cf8f1c",
+        "resultBytes": 289
+      },
+      {
+        "case": "multiple-roots-with-central-match",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "0926123f6a70a21838a789152af729504f1e07ddc1616b9698811aed6ab476c2",
+        "ok": true,
+        "resultSha256": "7243ab6f7e4c348ed6d4b2fc1b231ec67d8cac9508e2680bb6339d6230e041e5",
+        "resultBytes": 252
+      },
+      {
+        "case": "no-global-root-search-for-even-bracket",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "bc4fe370583c869e47c776b6a8c4f7168425222417a23e04279a1802714fe601",
+        "ok": false,
+        "resultSha256": "900dbdec74ab4ce6a874b2c15f69be3922a44c03a19d78ec9e884c60f9be5635",
+        "resultBytes": 177
+      },
+      {
+        "case": "even-multiplicity-may-not-bracket",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "993f99c85c9543f98427057c8eb47d78f5b593ce4c7d46f67741c5d5ab3c2077",
+        "ok": false,
+        "resultSha256": "900dbdec74ab4ce6a874b2c15f69be3922a44c03a19d78ec9e884c60f9be5635",
+        "resultBytes": 177
+      },
+      {
+        "case": "pole-at-midpoint-rejected",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "3e48eb18e9a391c0268af498ee32e33d7d2c957343e2639fad70084f53dc618e",
+        "ok": false,
+        "resultSha256": "8102d13b90e902765bdb0e20231eae6ed98bb86fac16df29d491b958e2522028",
+        "resultBytes": 177
+      },
+      {
+        "case": "domain-error-rejected",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "8c5db637a42cd641e11fac8c0f6e791b38b2529772ae0beb3a56f810d518909a",
+        "ok": false,
+        "resultSha256": "9b2a11f3885bd7e1513a64e43cc04405d912b28ebae19be0dab2363ccdb4ae35",
+        "resultBytes": 162
+      },
+      {
+        "case": "complex-result-rejected",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "f902418af244ee50df89fdfabff4cac4a7ae1c7bf6f2d454599cc0b1ddbd3daa",
+        "ok": false,
+        "resultSha256": "9b2a11f3885bd7e1513a64e43cc04405d912b28ebae19be0dab2363ccdb4ae35",
+        "resultBytes": 162
+      },
+      {
+        "case": "non-midpoint-pole-only-width-converges",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "afa0aec0a69363990facd1f0e573911da37baf9ca30561f45a997d611acb3766",
+        "ok": true,
+        "resultSha256": "d012f9aef9ea9e0f9301a7d45aadfba690d1e5b561caf4ccbc30810f28494885",
+        "resultBytes": 291
+      },
+      {
+        "case": "wide-bracket-small-tolerance",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "344ed4666d0d71c4397808717091df9ea4fb0233afe67f5e43f670ebba02cd32",
+        "ok": true,
+        "resultSha256": "f1d0cfa62e247a57d5d4f30abaf3fa7069f0fb789b2b3c46e61b7ea87806ca90",
+        "resultBytes": 292
+      },
+      {
+        "case": "f64-adjacent-ends",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "6856f0b7d53979ec48d6aad3b91db95a323584b4fe36f961a80e6e54cdffd7b1",
+        "ok": true,
+        "resultSha256": "cf8d3a8bffebeff22436789c6a21063f84596beb691f3f7cdccfbc5a0157dbb5",
+        "resultBytes": 272
+      },
+      {
+        "case": "native-512-tokens-wide-bracket",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "8036db74bba0fb0b97d07c289e4ca79eb72d4c1525959bb49d83147112da3dd4",
+        "ok": true,
+        "resultSha256": "f1d0cfa62e247a57d5d4f30abaf3fa7069f0fb789b2b3c46e61b7ea87806ca90",
+        "resultBytes": 292
+      },
+      {
+        "case": "native-503-tokens-fraction-chain-wide-bracket",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "01f92c9ed2f7a18814e44ba5d250b505dd2240181a3e5342db849676cfea6c6c",
+        "ok": true,
+        "resultSha256": "f1d0cfa62e247a57d5d4f30abaf3fa7069f0fb789b2b3c46e61b7ea87806ca90",
+        "resultBytes": 292
+      },
+      {
+        "case": "native-2048-byte-formula",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "7660ab62b7419dd3023b3ba7da2e505968e5b04bece335eb3138c94038e5c605",
+        "ok": true,
+        "resultSha256": "f1d0cfa62e247a57d5d4f30abaf3fa7069f0fb789b2b3c46e61b7ea87806ca90",
+        "resultBytes": 292
+      },
+      {
+        "case": "wide-bracket-many-dynamic-functions-budget",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "db7705f427e7e7d3bc6df883484aa39c11d77c404cefe0c6dc0e14204362171b",
+        "ok": false,
+        "resultSha256": "57f06349e64738d3d82127ecb6d76f21feff59b8e62b56a5b623e6e81abe88ac",
+        "resultBytes": 204
+      },
+      {
+        "case": "narrow-bracket-dynamic-functions",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "c675f243d811abd3f322bae815dea58884e4917903c9298b677201e1a767451a",
+        "ok": true,
+        "resultSha256": "ea9da08ed6ec66d127546effce83789a408a453ce9b00c4fa2c9b7d345565865",
+        "resultBytes": 291
+      },
+      {
+        "case": "native-legal-depth",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "81fa303027296cf46981ca5c55cad0a136b2cfdbacad55a72895dd38ca3b1753",
+        "ok": true,
+        "resultSha256": "9ad13f1056165bcd4d6114e824022177ac3f8de8427d214f1a35126b48ed071d",
+        "resultBytes": 251
+      },
+      {
+        "case": "native-depth-limit",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "aaa401b61d27724c265ac0ac169952d72716787aadf39226aa04d14cc91b4be7",
+        "ok": false,
+        "resultSha256": "83e96a401615745556aa2053d970c5a6e5d3dae657702682da235698b9bde0cb",
+        "resultBytes": 143
+      },
+      {
+        "case": "native-token-limit",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "101e73df5874ea54db0f6b436c7559f77e5510b8e0ce9639b062008b013627bd",
+        "ok": false,
+        "resultSha256": "9a147ceebeecd007f003e23c71bb9aa6957cf909a53ceae1d36dce72281481ee",
+        "resultBytes": 131
+      },
+      {
+        "case": "native-byte-limit",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "87bf924b7a2e3628131133d4fdd1517a3db2546b5898542688b2cbbec206f083",
+        "ok": false,
+        "resultSha256": "b778dee95746a9dc203e359eafe70fd4530d3312ceb361ddeec0896f259797d8",
+        "resultBytes": 134
+      },
+      {
+        "case": "no-empty-formula",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "f6d6adc2a0f5263fa447abccf88d070233c94a808039c8c1df9106a6dc816d87",
+        "ok": false,
+        "resultSha256": "b778dee95746a9dc203e359eafe70fd4530d3312ceb361ddeec0896f259797d8",
+        "resultBytes": 134
+      },
+      {
+        "case": "no-assignment",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "5e9c7486259288d4566e3ec1324269a803a081076104d78fcef25e42262ad728",
+        "ok": false,
+        "resultSha256": "b67507371922940b23eb30d4db18154f7bb3c5723169be22f2c39cfff0719173",
+        "resultBytes": 132
+      },
+      {
+        "case": "no-inline-unit-conversion",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "2b6129aa82e71f7684889d4b80b56e93d6aac2eb2547af1d8a9d21a3f82cac41",
+        "ok": false,
+        "resultSha256": "83c6cea30d138646b2294f0baacaadc090f8e0bbe342643bd15078d4b892649e",
+        "resultBytes": 132
+      },
+      {
+        "case": "missing-symbol",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "d8ec574dae380140815c813233272aaa5b329ff62e59833ab6b58857e8784099",
+        "ok": false,
+        "resultSha256": "6f2f29539cbea5d582d5aa36790889ee1fc344acc7c45de479f4baf71f4cde34",
+        "resultBytes": 132
+      },
+      {
+        "case": "same-endpoints",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "caefd5c9d50ec7f951748365a8f87046a7f2d3d30142faf65de8588c7fc6f2d7",
+        "ok": false,
+        "resultSha256": "617bc8b2e74ed7341e5c200b4141ca6b611a1837f879444a6ded805a66e3845d",
+        "resultBytes": 164
+      },
+      {
+        "case": "reversed-endpoints",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "da5efc83854068b711ad16c7ad6a205436275442ba4861943fcecb8b2ca373ec",
+        "ok": false,
+        "resultSha256": "617bc8b2e74ed7341e5c200b4141ca6b611a1837f879444a6ded805a66e3845d",
+        "resultBytes": 164
+      },
+      {
+        "case": "upper-endpoint-above-bound",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "c6e8b339e4ae7c42b9cbdaa559b97b3c22befd56c222551c85dc284606fe6230",
+        "ok": false,
+        "resultSha256": "617bc8b2e74ed7341e5c200b4141ca6b611a1837f879444a6ded805a66e3845d",
+        "resultBytes": 164
+      },
+      {
+        "case": "lower-endpoint-below-bound",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "beaac77807d08131ff13e5be529795384c028741e5598e7f06b905d0e3f48dfc",
+        "ok": false,
+        "resultSha256": "617bc8b2e74ed7341e5c200b4141ca6b611a1837f879444a6ded805a66e3845d",
+        "resultBytes": 164
+      },
+      {
+        "case": "numeric-endpoints-only",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "995cba6e57b6cee5ca3d55b2db72abe0aaea5e0c6d2471fe67bc5bc1ce189c9a",
+        "ok": false,
+        "resultSha256": "43281607136b013f07ca788cd793e4e3fad3b5cdc644534859be1f9228e4cd97",
+        "resultBytes": 143
+      },
+      {
+        "case": "tolerance-below-minimum",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "7c9b0088e1552d33530e5f177cb0ce68bd31ffad8ce0176a0509a9813587252e",
+        "ok": false,
+        "resultSha256": "10904524e160f2ce1acf581a3050b3a1dda3d04c3562ddee19c49281ff753bf0",
+        "resultBytes": 148
+      },
+      {
+        "case": "tolerance-above-maximum",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "c4d861eb47f23b417e629ba3ed9468104e7fa9c76a92dfd6909f9ffe4586a5c9",
+        "ok": false,
+        "resultSha256": "10904524e160f2ce1acf581a3050b3a1dda3d04c3562ddee19c49281ff753bf0",
+        "resultBytes": 148
+      },
+      {
+        "case": "negative-tolerance",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "aa3471add6bf66277792839756c0a6ac254b5b9d8d7d78d1b961822ac4828f95",
+        "ok": false,
+        "resultSha256": "10904524e160f2ce1acf581a3050b3a1dda3d04c3562ddee19c49281ff753bf0",
+        "resultBytes": 148
+      },
+      {
+        "case": "iterations-above-bound",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "9696349f22cf76256e86f2e75b18625010b8f77505929c348d65467c1ecef857",
+        "ok": false,
+        "resultSha256": "ba21bab4d55349333676e290f6425b5dead70c391b3a7d115b5944bafeb239ab",
+        "resultBytes": 137
+      },
+      {
+        "case": "iterations-below-bound",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "18eca696af3a8c9a8d0fe9ea96062141245606978928c03d0b5301f9a3c09823",
+        "ok": false,
+        "resultSha256": "ba21bab4d55349333676e290f6425b5dead70c391b3a7d115b5944bafeb239ab",
+        "resultBytes": 137
+      },
+      {
+        "case": "iterations-must-be-integer",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "d9836e0b8dbe12393fcdde921ab690db96ccd8d3bf3cf3e51c47a2f1cd481158",
+        "ok": false,
+        "resultSha256": "43281607136b013f07ca788cd793e4e3fad3b5cdc644534859be1f9228e4cd97",
+        "resultBytes": 143
+      },
+      {
+        "case": "invalid-angle-unit",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "499312785a5c08daabb41a6c290897e8cde24c9a114115d975578f8d6bccdf85",
+        "ok": false,
+        "resultSha256": "43281607136b013f07ca788cd793e4e3fad3b5cdc644534859be1f9228e4cd97",
+        "resultBytes": 143
+      },
+      {
+        "case": "constants-cannot-shadow-coordinate",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "24e24034983cd19acb7d1fb614cb8eaaf41f627d15ea732cdbf5f0be26278952",
+        "ok": false,
+        "resultSha256": "e3c8817d9a5424054416cca258e8f7ed859e76341c5fe094e5e64700168e9967",
+        "resultBytes": 218
+      },
+      {
+        "case": "constants-cannot-shadow-builtins",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "1111111fa968e8f8ec0a0c630babd79b6806ed792fc76ff7c1d24e2a9e2785e5",
+        "ok": false,
+        "resultSha256": "e3c8817d9a5424054416cca258e8f7ed859e76341c5fe094e5e64700168e9967",
+        "resultBytes": 218
+      },
+      {
+        "case": "constants-cannot-use-session-ans",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "615a43ade1ebc7d2c96c1e30b56682d684b5bc68544730a09023c5c4690b3f7b",
+        "ok": false,
+        "resultSha256": "e3c8817d9a5424054416cca258e8f7ed859e76341c5fe094e5e64700168e9967",
+        "resultBytes": 218
+      },
+      {
+        "case": "constants-maximum-count",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "a4d210620c81e3611cc42900a136e246f17f53c0b8bb98e21f89862e8e8026e4",
+        "ok": false,
+        "resultSha256": "510e2ee403b2c58bcfa347d82431929b93056d4a3ae53ae3b364b86f27edd28a",
+        "resultBytes": 132
+      },
+      {
+        "case": "constants-reject-invalid-name",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "104c724b156724da83229ca67839c14118c3d4ec39455e50f836b86616999694",
+        "ok": false,
+        "resultSha256": "e3c8817d9a5424054416cca258e8f7ed859e76341c5fe094e5e64700168e9967",
+        "resultBytes": 218
+      },
+      {
+        "case": "constants-reject-bad-fraction",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "ad446afd46304828fcc32b499a0ab636752bd76d847c05f191ecb206f0c17a16",
+        "ok": false,
+        "resultSha256": "bae66c6b15414a84447d5bdc62b9089bf82cfcaf272023e92abb369406d8a838",
+        "resultBytes": 123
+      },
+      {
+        "case": "constants-reject-non-finite",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "b8970aaa7fb9e54d70c7f86cfed540dedf1ddd4f7619ba7fbc853d7699cdef99",
+        "ok": false,
+        "resultSha256": "b030dd93606908c0c2a281b4e37ec8f306daf1e5f1f3d175580afff72d03df79",
+        "resultBytes": 141
+      },
+      {
+        "case": "constants-value-byte-limit",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "fca6ecf1675644a63d30da8c5c692c8c3bd407c00f1a2f69b4e91f75cd929b06",
+        "ok": false,
+        "resultSha256": "4c39a4cc768dcfa7ad06815b6304ba718ff14e44750172779c020883b915cc82",
+        "resultBytes": 142
+      },
+      {
+        "case": "strict-request-shape",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "19ef57285b252be76e598e0ac4a1ba9d79e061298ec4531242a361824028d110",
+        "ok": false,
+        "resultSha256": "43281607136b013f07ca788cd793e4e3fad3b5cdc644534859be1f9228e4cd97",
+        "resultBytes": 143
+      },
+      {
+        "case": "request-byte-limit",
+        "capabilityId": "devtools.roots.bisect",
+        "inputSha256": "67a66bc3b826d50ccb023fc55d6359299e996830806d65e1b507064d87640779",
+        "ok": false,
+        "resultSha256": "1b83bcacb1738d9273eeff049dc1aa5cfd28d1e88cdabacf18df178e21202120",
+        "resultBytes": 125
+      }
+    ],
+    "failures": []
+  }
+}
