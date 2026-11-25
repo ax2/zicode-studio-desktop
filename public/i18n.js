@@ -107,6 +107,7 @@ const zhCN = {
   "Search cached mail": "搜索缓存邮件",
   "No matching cached messages.": "缓存中没有匹配的邮件。",
   "Cached message": "缓存邮件",
+  "Back to search results": "返回搜索结果",
   "No subject": "无主题",
   "Load older messages": "加载更早邮件",
   "No inbox has been saved on this device yet.": "此设备尚无已缓存的收件箱。",

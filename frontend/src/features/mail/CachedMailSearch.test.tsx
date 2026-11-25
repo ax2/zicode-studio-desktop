@@ -553,6 +553,39 @@ it("keeps the last valid search page and its opened mail when navigation fails",
   expect(gmail.mock.calls).toEqual([[{ kind: "cachedBody", accountId: "a", id: "first-0" }]]);
 });
 
+it("focuses the opened reader and returns to the exact account result while its offline body is pending", async () => {
+  let finish!: (body: { plainText: string }) => void;
+  const pending = new Promise<{ plainText: string }>(resolve => { finish = resolve; });
+  const invoke = vi.fn().mockResolvedValue({ items: [firstHit, secondHit], more: false });
+  const gmail = vi.fn().mockReturnValueOnce(pending).mockResolvedValueOnce({ plainText: "First account body" });
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  const second = await screen.findByRole("button", { name: /^Second fixture/ });
+  second.focus();
+  fireEvent.click(second);
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Second fixture" }));
+  expect(gmail).toHaveBeenCalledWith({ kind: "cachedBody", accountId: "b", id: "42" });
+
+  const back = screen.getByRole("button", { name: "Back to search results" });
+  back.focus();
+  fireEvent.click(back);
+  expect(document.activeElement).toBe(second);
+  expect(screen.queryByRole("article")).toBeNull();
+  expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("fixture");
+  expect(invoke).toHaveBeenCalledTimes(1);
+
+  const first = screen.getByRole("button", { name: /^First fixture/ });
+  first.focus();
+  fireEvent.click(first);
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "First fixture" }));
+  await screen.findByText("First account body");
+  const query = screen.getByRole("searchbox");
+  query.focus();
+  await act(async () => finish({ plainText: "Late second account body" }));
+  expect(document.activeElement).toBe(query);
+  expect(screen.queryByText("Late second account body")).toBeNull();
+  expect(screen.getByText("First account body")).toBeTruthy();
+});
+
 it.each(["Next", "Previous"] as const)("keeps the %s pagination control focused through a failed read", async control => {
   let fail!: (reason: Error) => void;
   const pending = new Promise<never>((_resolve, reject) => { fail = reject; });
