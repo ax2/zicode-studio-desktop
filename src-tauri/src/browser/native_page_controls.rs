@@ -1,7 +1,11 @@
 //! Native page controls. No page scripts or system audio settings are modified.
 use super::{event_lifetime::Emit, EngineEvent};
 use serde::Serialize;
-use webview2_com::{Microsoft::Web::WebView2::Win32::ICoreWebView2_8, ZoomFactorChangedEventHandler};
+use std::{cell::Cell, rc::Rc};
+use webview2_com::{
+    Microsoft::Web::WebView2::Win32::{ICoreWebView2Controller, ICoreWebView2_8},
+    ZoomFactorChangedEventHandler,
+};
 use windows::core::{Interface, BOOL};
 use wry::WebViewExtWindows;
 
@@ -28,9 +32,33 @@ pub fn read(view: &wry::WebView) -> Result<PageSettings, String> {
         })
     }
 }
+pub(crate) fn finish_document_zoom(
+    controller: &ICoreWebView2Controller,
+    web_zoom: &Cell<Option<f64>>,
+    pdf: bool,
+) {
+    let result = (|| {
+        let settings = unsafe { controller.CoreWebView2()?.Settings()? };
+        unsafe {
+            settings.SetIsZoomControlEnabled(!pdf)?;
+            if pdf {
+                controller.SetZoomFactor(1.0)?;
+            } else if let Some(previous) = web_zoom.get() {
+                controller.SetZoomFactor(previous)?;
+                web_zoom.set(None);
+            }
+        }
+        Ok::<(), windows::core::Error>(())
+    })();
+    if let Err(error) = result {
+        log::debug!("Could not apply browser document zoom: {error}");
+    }
+}
+
 pub(super) fn observe_zoom(
     view: &wry::WebView,
     tab: String,
+    web_zoom: Rc<Cell<Option<f64>>>,
     emit: Emit,
 ) -> windows::core::Result<()> {
     let mut token = 0;
@@ -39,7 +67,12 @@ pub(super) fn observe_zoom(
         view.webview().Settings()?.SetIsZoomControlEnabled(true)?;
         view.controller().add_ZoomFactorChanged(
             &ZoomFactorChangedEventHandler::create(Box::new(move |sender, _| {
-                let Some(controller) = sender else { return Ok(()); };
+                let Some(controller) = sender else {
+                    return Ok(());
+                };
+                if web_zoom.get().is_some() {
+                    return Ok(());
+                }
                 let mut visible = BOOL::default();
                 controller.IsVisible(&mut visible)?;
                 if !visible.as_bool() {

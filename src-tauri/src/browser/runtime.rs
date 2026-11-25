@@ -108,7 +108,7 @@ pub(super) fn execute(
                         let title = webview2_com::take_pwstr(title).chars().take(512).collect::<String>();
                         title_result.map_err(|error| error.to_string())?;
                         let history = super::windows_policy::history_state(&view.webview()).map_err(|e|e.to_string())?;
-                        Ok(json!({"id":id,"history":history,"title":title,"popupOpener":browser.engine.popup_opener(id),"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"favicon":browser.engine.favicon(id),"settings":super::engine::page_controls::read(view)?,
+                        Ok(json!({"id":id,"history":history,"title":title,"popupOpener":browser.engine.popup_opener(id),"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"favicon":browser.engine.favicon(id),"settings":browser.engine.preferred_page_settings(id, super::engine::page_controls::read(view)?),
                             "pdfDocument":browser.engine.is_pdf_document(id),
                             "documentRevision":browser.engine.export_ready(id).then(|| browser.engine.document_revision(id)).transpose()?}))
                     };
@@ -282,16 +282,23 @@ pub(super) fn execute(
                 unsafe { view.webview().OpenDevToolsWindow() }.map_err(|e| e.to_string())?;
             }
             Request::PageSettings { tab } => {
-                let settings = super::engine::page_controls::read(browser.engine.view(&tab)?)?;
+                let live = super::engine::page_controls::read(browser.engine.view(&tab)?)?;
+                let settings = browser.engine.preferred_page_settings(&tab, live);
                 return Ok(json!({ "zoom": settings.zoom, "muted": settings.muted, "pdfDocument": browser.engine.is_pdf_document(&tab) }));
             }
             Request::SetZoom { tab, zoom } => {
                 if browser.engine.is_pdf_document(&tab) {
                     return Err("Use the PDF toolbar for zoom.".into());
                 }
+                if browser.engine.preserved_web_zoom(&tab).is_some() {
+                    return Err("Wait for the current page to finish loading".into());
+                }
                 return serde_json::to_value(super::engine::page_controls::set_zoom(browser.engine.view(&tab)?, zoom)?).map_err(|e| e.to_string());
             }
-            Request::SetMuted { tab, muted } => return serde_json::to_value(super::engine::page_controls::set_muted(browser.engine.view(&tab)?,muted)?).map_err(|e|e.to_string()),
+            Request::SetMuted { tab, muted } => {
+                let live = super::engine::page_controls::set_muted(browser.engine.view(&tab)?, muted)?;
+                return serde_json::to_value(browser.engine.preferred_page_settings(&tab, live)).map_err(|e| e.to_string());
+            }
             Request::Url { tab } => {
                 return Ok(
                     json!({"url":browser.engine.view(&tab)?.url().map_err(|e|e.to_string())?}),
