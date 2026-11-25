@@ -1,0 +1,204 @@
+{
+  "generator": "scripts/verify_ascii_art_image_plugin.py",
+  "cases": [
+    {
+      "id": "transparent-white",
+      "inputSha256": "3d8b32ef43276e9b64d5bebe4fce50139354426b9c9c6337e83ad75c33912474",
+      "input": 8,
+      "mime": "image/png",
+      "error": null
+    },
+    {
+      "id": "small-rgba-width-min",
+      "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+      "input": 8,
+      "mime": "image/png",
+      "error": null
+    },
+    {
+      "id": "small-rgba-width-max",
+      "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+      "input": 120,
+      "mime": "image/png",
+      "error": null
+    },
+    {
+      "id": "width-below",
+      "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+      "input": 7,
+      "mime": "image/png",
+      "error": "INVALID_WIDTH"
+    },
+    {
+      "id": "width-above",
+      "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+      "input": 121,
+      "mime": "image/png",
+      "error": "INVALID_WIDTH"
+    },
+    {
+      "id": "width-fraction",
+      "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+      "input": 8.5,
+      "mime": "image/png",
+      "error": "INVALID_REQUEST"
+    },
+    {
+      "id": "width-string",
+      "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+      "input": "8",
+      "mime": "image/png",
+      "error": "INVALID_REQUEST"
+    },
+    {
+      "id": "missing-width",
+      "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+      "input": {},
+      "mime": "image/png",
+      "error": "INVALID_REQUEST"
+    },
+    {
+      "id": "unexpected-input",
+      "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+      "input": {
+        "width": 8,
+        "path": "other.png"
+      },
+      "mime": "image/png",
+      "error": "INVALID_REQUEST"
+    },
+    {
+      "id": "unsupported-mime",
+      "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+      "input": 80,
+      "mime": "application/octet-stream",
+      "error": "UNSUPPORTED_MIME"
+    },
+    {
+      "id": "mime-mismatch",
+      "inputSha256": "68a1ee73302d5d235e14165ac048b05ef4232f047140295be67ff7355dd8815e",
+      "input": 80,
+      "mime": "image/jpeg",
+      "error": "IMAGE_MIME_MISMATCH"
+    },
+    {
+      "id": "empty",
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "input": 80,
+      "mime": "image/png",
+      "error": "INVALID_IMAGE"
+    },
+    {
+      "id": "malformed",
+      "inputSha256": "12f3be17d71af3fd75047b67223a04978c8c6f95e69b8cedebe7132e44e6966f",
+      "input": 80,
+      "mime": "image/png",
+      "error": "INVALID_IMAGE"
+    },
+    {
+      "id": "exact-20mp-png",
+      "inputSha256": "48dcd93664fad41f01d6edb353c92a800be793f6d6af7c8865f9003330b8d45e",
+      "input": 120,
+      "mime": "image/png",
+      "error": null
+    },
+    {
+      "id": "exact-20mp-rgba16-png",
+      "inputSha256": "8f7a926910dbcd1a57296ce028f2baa1acc9d9bab6b0cd695675b408fb4ac53d",
+      "input": 120,
+      "mime": "image/png",
+      "error": null
+    },
+    {
+      "id": "large-jpeg-noise",
+      "inputSha256": "1886ae9def357f2eb6a89fa70d6bc0abc79b2b8808b7900ccd573bbf50d8bad5",
+      "input": 120,
+      "mime": "image/jpeg",
+      "error": null
+    },
+    {
+      "id": "exact-20mp-alpha-webp",
+      "inputSha256": "1df96de1bb34e9f467d0330fd1d13544f19909402be5fe4b1e09129467067a44",
+      "input": 120,
+      "mime": "image/webp",
+      "error": null
+    },
+    {
+      "id": "large-lossy-webp",
+      "inputSha256": "75ad213db2b9006dea6794c67db87cfc1b84ff61b079ab9003bab6990c11a3df",
+      "input": 120,
+      "mime": "image/webp",
+      "error": null
+    },
+    {
+      "id": "png-over-20mp",
+      "inputSha256": "8568818d9adf69f4d525b5f26abe23a86e3b7fa3d7f10416163a5630adc92092",
+      "input": 80,
+      "mime": "image/png",
+      "error": "IMAGE_DIMENSION_LIMIT"
+    },
+    {
+      "id": "width-20000",
+      "inputSha256": "d9dda32da6d5b67359949913964123959f64154a5c2903d2ddbefadf6f2b16b5",
+      "input": 120,
+      "mime": "image/png",
+      "error": null
+    },
+    {
+      "id": "width-20001",
+      "inputSha256": "b8405293964663f59b81dba94c78adc07f45c57950d89c0c818cb845c93217c6",
+      "input": 120,
+      "mime": "image/png",
+      "error": "IMAGE_DIMENSION_LIMIT"
+    },
+    {
+      "id": "height-20000",
+      "inputSha256": "9f00634afdde48f8698a9bd985977e4f3687e3edf0de21e95292c44892c3df17",
+      "input": 80,
+      "mime": "image/png",
+      "error": null
+    },
+    {
+      "id": "height-20001",
+      "inputSha256": "69154ca6b918e6340403d515a5f73d7f1a0c5269c85381f1b96c6b3d78ebd4e3",
+      "input": 80,
+      "mime": "image/png",
+      "error": "IMAGE_DIMENSION_LIMIT"
+    },
+    {
+      "id": "wide-20mp-single-row",
+      "inputSha256": "e3004657f623521aca146eeeda9e8bcce2024e4a85d409a551b706f35e0fa337",
+      "input": 120,
+      "mime": "image/png",
+      "error": "IMAGE_DIMENSION_LIMIT"
+    },
+    {
+      "id": "wide-20mp-two-rows",
+      "inputSha256": "de16e3474a979b8382df2f6732e1aacbe4bc7770d76e7de4405d80ab58edc3a8",
+      "input": 120,
+      "mime": "image/png",
+      "error": "IMAGE_DIMENSION_LIMIT"
+    },
+    {
+      "id": "tall-20mp-single-column",
+      "inputSha256": "dd1778f1a2b2877771a3a3209653b6a8711cb5d313b19b8aee247083acef2fc9",
+      "input": 120,
+      "mime": "image/png",
+      "error": "IMAGE_DIMENSION_LIMIT"
+    },
+    {
+      "id": "exact-10-mib",
+      "inputSha256": "b1196a54724833d9a8ecf0425fdf41b4bd0a5c5df3a308579712b6ff3bb23813",
+      "input": 8,
+      "mime": "image/png",
+      "error": null
+    },
+    {
+      "id": "over-10-mib",
+      "inputSha256": "20b051c1d2671c10f22b3e8bd9656885e0916b03655b6326a1a56a0dc393638e",
+      "input": 8,
+      "mime": "image/png",
+      "error": "INPUT_TOO_LARGE"
+    }
+  ]
+}

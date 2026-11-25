@@ -52,7 +52,10 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             .ok_or_else(|| "Invalid plugin profile range".to_string())?;
         if matches!(
             name.as_str(),
-            "tool.open.v1" | "view.operation.directory.v1" | crate::plugin_resource_execution::IMAGE_CROP_PROFILE
+            "tool.open.v1"
+            | "view.operation.directory.v1"
+            | crate::plugin_resource_execution::IMAGE_CROP_PROFILE
+            | crate::plugin_resource_execution::ascii_art::PROFILE
         ) && range != "=1.0.0-preview.1"
         {
             return Err(format!("{name} requires the exact preview profile version"));
@@ -70,6 +73,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             | "file.input.hints.v1"
             | "resource.output.types.v1"
             | "resource.host.input.v1"
+            | crate::plugin_resource_execution::ascii_art::PROFILE
             | crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE
             | crate::plugin_resource_execution::IMAGE_CROP_PROFILE
             | crate::plugin_resource_regex::PROFILE
@@ -309,7 +313,10 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             );
         }
     }
-    use crate::plugin_resource_execution::{IMAGE_CROP_CAPABILITY_ID, IMAGE_CROP_PLUGIN_ID, IMAGE_CROP_PROFILE, IMAGE_RESIZE_PROFILE, is_image_processing_profile};
+    use crate::plugin_resource_execution::{
+        IMAGE_CROP_CAPABILITY_ID, IMAGE_CROP_PLUGIN_ID, IMAGE_CROP_PROFILE, IMAGE_MIME_TYPES,
+        IMAGE_RESIZE_PROFILE, ascii_art, is_image_processing_profile,
+    };
     crate::plugin_resource_execution::markdown::validate_manifest(manifest)?;
     crate::plugin_resource_execution::file_digest::validate_manifest(manifest)?;
     crate::plugin_resource_execution::encoding::validate_manifest(manifest)?;
@@ -329,7 +336,10 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             is_image_processing_profile(capability.get("executionProfile").and_then(serde_json::Value::as_str))
         })
         .collect::<Vec<_>>();
-    for profile in [IMAGE_RESIZE_PROFILE, IMAGE_CROP_PROFILE].into_iter().filter(|profile| requirements.contains_key(*profile)) {
+    for profile in [IMAGE_RESIZE_PROFILE, IMAGE_CROP_PROFILE, ascii_art::PROFILE]
+        .into_iter()
+        .filter(|profile| requirements.contains_key(*profile))
+    {
         let runtime = &manifest.runtime;
         let required_permission = manifest
             .permissions
@@ -339,10 +349,18 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             .any(|permission| permission.name == "resource.read");
         let mut selected = image_processing_capabilities.iter().copied().filter(|capability| capability["executionProfile"] == profile);
         let scoped_capability = selected.next().is_some_and(|capability| {
-            capability.get("outputSchema").is_some() && capability.get("resourceInputMax").is_none()
-                && (profile != IMAGE_CROP_PROFILE || (manifest.id == IMAGE_CROP_PLUGIN_ID
-                    && capability["id"] == IMAGE_CROP_CAPABILITY_ID
-                    && capability["resourceInputMimeTypes"] == serde_json::json!(crate::plugin_resource_execution::IMAGE_MIME_TYPES)))
+            let identity = match profile {
+                IMAGE_CROP_PROFILE => Some((IMAGE_CROP_PLUGIN_ID, IMAGE_CROP_CAPABILITY_ID)),
+                ascii_art::PROFILE => Some((ascii_art::PLUGIN_ID, ascii_art::CAPABILITY_ID)),
+                _ => None,
+            };
+            capability.get("outputSchema").is_some()
+                && capability.get("resourceInputMax").is_none()
+                && identity.is_none_or(|(plugin_id, capability_id)| {
+                    manifest.id == plugin_id
+                        && capability["id"] == capability_id
+                        && capability["resourceInputMimeTypes"] == serde_json::json!(IMAGE_MIME_TYPES)
+                })
         }) && selected.next().is_none();
         if manifest.schema_version != 2
             || !requirements.contains_key("output.schema.v1")
@@ -582,6 +600,42 @@ mod tests {
         value.required_profiles = json!({"resource.output.types.v1":"=1.0.0-preview.1"});
         assert!(super::super::validate_manifest(&value, None).is_err());
     }
+    #[test]
+    fn image_ascii_execution_profile_requires_the_known_image_capability() {
+        use crate::plugin_resource_execution::{IMAGE_MIME_TYPES, ascii_art};
+        let mut value = manifest(json!({
+            (ascii_art::PROFILE): "=1.0.0-preview.1",
+            "output.schema.v1": "=1.0.0-rc.1",
+            "resource.input.types.v1": "=1.0.0-preview.1",
+            "resource.output.types.v1": "=1.0.0-preview.1"
+        }));
+        value.id = ascii_art::PLUGIN_ID.into();
+        value.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+        value.runtime["resourceOutputProfile"] =
+            json!(crate::plugin_worker::resource_output::PROFILE);
+        value.permissions.required = serde_json::from_value(json!([
+            {"name":"resource.read","reason":"Read one confirmed image"}
+        ]))
+        .unwrap();
+        value.contributes = json!({"capabilities":[{
+            "id":ascii_art::CAPABILITY_ID,
+            "inputSchema":{"type":"object"},
+            "outputSchema":{"type":"object"},
+            "executionProfile":ascii_art::PROFILE,
+            "resourceInputMimeTypes":IMAGE_MIME_TYPES
+        }]});
+        super::super::validate_manifest(&value, None).unwrap();
+
+        let mut wrong_provider = value.clone();
+        wrong_provider.id = "com.example.images".into();
+        assert!(super::super::validate_manifest(&wrong_provider, None).is_err());
+        let mut nonexact_version = value.clone();
+        nonexact_version.required_profiles[ascii_art::PROFILE] = json!(">=1.0.0-preview.1");
+        assert!(super::super::validate_manifest(&nonexact_version, None).is_err());
+        value.contributes["capabilities"][0]["resourceInputMimeTypes"] = json!(["text/plain"]);
+        assert!(super::super::validate_manifest(&value, None).is_err());
+    }
+
     #[test]
     fn image_resize_execution_profile_is_capability_scoped_and_fully_negotiated() {
         let mut value = manifest(json!({

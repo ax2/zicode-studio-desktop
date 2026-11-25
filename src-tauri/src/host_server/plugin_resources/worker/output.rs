@@ -62,7 +62,10 @@ pub(super) fn register(
         let metadata=bundle.resources.iter().map(|resource|(resource.mime_type.as_str(),resource.bytes.len())).collect::<Vec<_>>();
         crate::plugin_regex_review::validate_outputs(&bundle.result,&metadata).map_err(rejected)?;
     }
-    if profiles.image_processing {
+    use crate::plugin_resource_execution::ascii_art;
+    if ascii_art::selected(capability.execution_profile.as_deref()) {
+        ascii_art::validate_output(&request.input, &bundle).map_err(rejected)?;
+    } else if profiles.image_processing {
         if let Some(result) = normalize_image_failure(&bundle.result)? {
             if !bundle.resources.is_empty() {
                 return Err(rejected("invalid_output"));

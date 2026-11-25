@@ -537,8 +537,13 @@ fn execute(
             return Err(rejected("resource_profile_unsupported"));
         }
         let resource = &resources[0];
-        if resource.descriptor.byte_length
-            > crate::plugin_resource_execution::IMAGE_RESIZE_MAX_RESOURCE_BYTES
+        use crate::plugin_resource_execution::{IMAGE_RESIZE_MAX_RESOURCE_BYTES, ascii_art};
+        let max_bytes = if ascii_art::selected(output_contract.execution_profile.as_deref()) {
+            ascii_art::MAX_RESOURCE_BYTES
+        } else {
+            IMAGE_RESIZE_MAX_RESOURCE_BYTES
+        };
+        if resource.descriptor.byte_length > max_bytes
             || resource.bytes.len() != resource.descriptor.byte_length
         {
             return Err(rejected("resource_input_too_large"));
@@ -559,7 +564,7 @@ fn execute(
     let metadata_profile=crate::plugin_resource_execution::metadata::selected(output_contract.execution_profile.as_deref());
     if image_processing_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
         // The existing Worker profile selects shared image budgets, not an operation.
-        // The Host separately negotiates the precise crop contract and validates its output.
+        // The Host negotiates each image operation and validates its own output contract.
         worker_request["executionProfile"] = if image_processing_profile {
             json!(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE)
         } else {

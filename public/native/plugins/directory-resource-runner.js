@@ -228,6 +228,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     markdownDraftMode, allowOriginalFile: fileDigest, nativeStream, includePreviewSource: Boolean(crop),
     ...(fullFileEncoding ? { maxBytes: 8 * 1024 * 1024 } : {}),
     ...(jsonFile ? { maxBytes: 1024 * 1024 } : {}),
+    ...(detail.capability.executionProfile === "resource.wasi.image.ascii.v1" ? { maxBytes: 10 * 1024 * 1024 } : {}),
     readInput: (resource, offset, length, current) => read({ capabilityId: tool.capabilityId }, resource, offset, length, current),
     minResources: detail.capability.resourceInputMin ?? 1, resourceLabels: detail.capability.resourceInputLabels ?? [],
     isCurrent: () => valid() && !running,
