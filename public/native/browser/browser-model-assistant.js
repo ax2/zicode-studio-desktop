@@ -130,11 +130,18 @@ export function createBrowserModelAssistant({ actions, question, selectionScope,
   }
   function showComparisonSources(sources) {
     answerSources.hidden = !sources;
-    answerSources.replaceChildren(...(sources ?? []).map(({ title, url, selectionOnly }) => {
+    answerSources.replaceChildren(...(sources ?? []).map(({ title, url, selectionOnly, selectionTruncated, textTruncated }) => {
       const item = document.createElement("li");
       const text = document.createElement("p");
       const address = title && title !== url ? `${title} · ${url}` : url;
-      text.textContent = selectionOnly ? address + " · " + t("Selected text") : address;
+      const details = [address];
+      if (selectionOnly) {
+        details.push(t("Selected text"));
+        if (selectionTruncated) details.push(t("Selected text was shortened"));
+      } else if (textTruncated) {
+        details.push(t("Page content was shortened"));
+      }
+      text.textContent = details.join(" · ");
       item.append(text);
       return item;
     }));
