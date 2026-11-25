@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：录屏章节元数据
+
+确认本机 JSON 章节计划后，可预览并保存完整 FFmpeg 章节元数据。隔离 Windows Studio 已验证按次共享、确认保存和重启读回。[使用范围与冻结候选](../iterations/2026-11-26-recording-chapters.md)
+
 ## 2026-11-26 开发补充：图片批处理（小型 PNG）
 
 确认一至两张本机小型静态 PNG 后，可等比缩小并分别保存结果。Windows 隔离 Studio 验证了单份取消、分别保存及重启读回。[使用范围与冻结候选](../iterations/2026-11-26-image-batch-png.md)
