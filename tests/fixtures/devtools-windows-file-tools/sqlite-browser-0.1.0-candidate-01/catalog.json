@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.sqlite-browser",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "sqlite",
+      "capabilityId": "devtools.sqlite.snapshot.browse",
+      "title": "SQLite 浏览器",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "逐次确认一份本机 SQLite 静态文件，查看目录和普通表数据页，可明确生成完整页 CSV。"
+    }
+  ]
+}

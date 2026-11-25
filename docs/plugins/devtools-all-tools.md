@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：SQLite 浏览器
+
+确认一份本机静态 SQLite 数据库后，可查看目录、分页阅读普通表并确认保存当前页 CSV。已在隔离 Windows Studio 验证取消、确认保存、重启和撤权。[使用范围与冻结候选](../iterations/2026-11-26-sqlite-browser.md)
+
 ## 2026-11-26 开发补充：表格另存 SQLite
 
 工具中心可将确认共享的 CSV、TSV 或 JSON 表格保存为新的 SQLite 单表文件。Windows 隔离 Studio 已验证取消、确认写入、撤权以及重启后逐字节读回。[使用范围与冻结候选](../iterations/2026-11-26-table-sqlite-export.md)

@@ -1,0 +1,453 @@
+{
+  "sourceRevision": "d4acd309897466bdaba94cf93ad1f4bf76eaafd7",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T18:31:52.562924+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "sqlite": "3.46.0",
+  "zig": "0.15.2",
+  "moduleSha256": "ccc46ca96623d9c18c2819f58b53f7c47d636db8c4f39c391c72598e6888267c",
+  "workerVerification": {
+    "wasmSha256": "ccc46ca96623d9c18c2819f58b53f7c47d636db8c4f39c391c72598e6888267c",
+    "wasmBytes": 1033616,
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "sqliteReader": "3.53.1",
+    "profile": "resource.wasi.input.draft2",
+    "outputProfile": "resource.wasi.output.draft1",
+    "cases": [
+      {
+        "case": "catalog",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {},
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "catalog-cleared-name",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/octet-stream",
+        "options": {
+          "tableName": ""
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "page-1",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "entries",
+          "page": 1
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "page-2",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "entries",
+          "page": 2
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "page-4",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "entries",
+          "page": 4
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "page-9",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "entries",
+          "page": 9
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "page-10",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "entries",
+          "page": 10
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "page-16",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "entries",
+          "page": 16
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "quoted-table-formula-protection",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "带\"引号",
+          "exportCsv": true
+        },
+        "code": null,
+        "outputSha256": "20e16807c280acbbcd573f4e408b6b61c98abf2a7c5a1d7b6854e3a9146ce3a3"
+      },
+      {
+        "case": "page-3-only-csv",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/octet-stream",
+        "options": {
+          "tableName": "entries",
+          "page": 3,
+          "exportCsv": true
+        },
+        "code": null,
+        "outputSha256": "c3019aaef2dd6309cbcbf39b8986aa5eac93d23790a2ca6f3eef5dfc2d66a46a"
+      },
+      {
+        "case": "empty-table",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "blank"
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "bounded-text-and-blob-preview",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "preview_only"
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "ordinary-underscore-table",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "community_data"
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "catalog-page-1",
+        "sourceSha256": "4be51e1a4338efb813b473eaca18975100777feafb534ddae78aa3c64906fa48",
+        "inputBytes": 12288,
+        "mime": "application/x-zicode-sqlite",
+        "options": {},
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "catalog-page-2",
+        "sourceSha256": "4be51e1a4338efb813b473eaca18975100777feafb534ddae78aa3c64906fa48",
+        "inputBytes": 12288,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "page": 2
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "catalog-exact-object-limit",
+        "sourceSha256": "ea48f73291a8ad06532a03303aedfffd1f9fa6e582916392bd72e856b6388965",
+        "inputBytes": 6656,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "page": 4
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "exact-128-kib",
+        "sourceSha256": "35366ccfb4734cd532d835e891bb4280b2608dee53cd8f8814c584e7db8c6358",
+        "inputBytes": 131072,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "fixed"
+        },
+        "code": null,
+        "outputSha256": null
+      },
+      {
+        "case": "byte-limit-plus-one",
+        "sourceSha256": "68647c583d6a9f361374cbcb0069891bb7c51f90dbebeaba245c12243396a66f",
+        "inputBytes": 131073,
+        "mime": "application/x-zicode-sqlite",
+        "options": {},
+        "code": "INPUT_TOO_LARGE",
+        "outputSha256": null
+      },
+      {
+        "case": "invalid-file",
+        "sourceSha256": "9e0645d3dc9538a17b12b65d5a78a96603ff8e5983bc3c5d64db19735fa34e3c",
+        "inputBytes": 10,
+        "mime": "application/octet-stream",
+        "options": {},
+        "code": "INVALID_DATABASE",
+        "outputSha256": null
+      },
+      {
+        "case": "partial-file",
+        "sourceSha256": "97e37a28b7af202fa985ebabd15d4de43c0e1a0adc8d025b8c9300e48595a371",
+        "inputBytes": 13823,
+        "mime": "application/x-zicode-sqlite",
+        "options": {},
+        "code": "INVALID_DATABASE",
+        "outputSha256": null
+      },
+      {
+        "case": "shorter-whole-page",
+        "sourceSha256": "c502eede41640ae197ffd7c3d75af8c8cf21a1d5920160dc725ff1ccfb53889e",
+        "inputBytes": 13312,
+        "mime": "application/x-zicode-sqlite",
+        "options": {},
+        "code": "INVALID_DATABASE",
+        "outputSha256": null
+      },
+      {
+        "case": "wal-mode",
+        "sourceSha256": "d8168516f81b0353f835ede3b9521e9c19a2a59cab40bf8118074bbc9b6b97d4",
+        "inputBytes": 8192,
+        "mime": "application/x-zicode-sqlite",
+        "options": {},
+        "code": "WAL_SNAPSHOT",
+        "outputSha256": null
+      },
+      {
+        "case": "utf16-database",
+        "sourceSha256": "a1c1e39a56b4bb6d66d8da5dba3ec8996f7f7162ca633babf4ad485c32dece0f",
+        "inputBytes": 8192,
+        "mime": "application/x-zicode-sqlite",
+        "options": {},
+        "code": "UNSUPPORTED_ENCODING",
+        "outputSha256": null
+      },
+      {
+        "case": "no-such-table",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "missing"
+        },
+        "code": "UNSUPPORTED_TABLE",
+        "outputSha256": null
+      },
+      {
+        "case": "sqlite-internal-table",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "sqlite_schema"
+        },
+        "code": "UNSUPPORTED_TABLE",
+        "outputSha256": null
+      },
+      {
+        "case": "view-not-executed",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "derived_view"
+        },
+        "code": "UNSUPPORTED_TABLE",
+        "outputSha256": null
+      },
+      {
+        "case": "virtual-table-unsupported",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "indexed_text"
+        },
+        "code": "UNSUPPORTED_TABLE",
+        "outputSha256": null
+      },
+      {
+        "case": "fts-shadow-not-ordinary",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "indexed_text_data"
+        },
+        "code": "UNSUPPORTED_TABLE",
+        "outputSha256": null
+      },
+      {
+        "case": "same-virtual-prefix-conservatively-excluded",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "indexed_text_backup"
+        },
+        "code": "UNSUPPORTED_TABLE",
+        "outputSha256": null
+      },
+      {
+        "case": "object-limit",
+        "sourceSha256": "9786b7f21d6122e0ddd33177f8b3f0a651d71104f3a173b208f356455afba5a2",
+        "inputBytes": 28672,
+        "mime": "application/x-zicode-sqlite",
+        "options": {},
+        "code": "SCHEMA_LIMIT",
+        "outputSha256": null
+      },
+      {
+        "case": "object-limit-plus-one",
+        "sourceSha256": "86e7ba7e9971576165612d07de6679b445e04f4ad2d595eb1c26708d48318324",
+        "inputBytes": 38400,
+        "mime": "application/x-zicode-sqlite",
+        "options": {},
+        "code": "SCHEMA_LIMIT",
+        "outputSha256": null
+      },
+      {
+        "case": "generated-column-unsupported",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "generated"
+        },
+        "code": "UNSUPPORTED_TABLE",
+        "outputSha256": null
+      },
+      {
+        "case": "over-column-limit",
+        "sourceSha256": "ccd29decd79b849b6723ec6c9ea331538408b00d42ffd560b2ef00008e190d09",
+        "inputBytes": 8192,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "wide"
+        },
+        "code": "PAGE_READ_FAILED",
+        "outputSha256": null
+      },
+      {
+        "case": "over-page-limit",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "entries",
+          "page": 17
+        },
+        "code": "PAGE_LIMIT",
+        "outputSha256": null
+      },
+      {
+        "case": "page-zero",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "entries",
+          "page": 0
+        },
+        "code": "PAGE_LIMIT",
+        "outputSha256": null
+      },
+      {
+        "case": "open-ended-sql-rejected",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "sql": "SELECT 1"
+        },
+        "code": "INVALID_REQUEST",
+        "outputSha256": null
+      },
+      {
+        "case": "unsupported-mime",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "image/png",
+        "options": {},
+        "code": "UNSUPPORTED_MIME",
+        "outputSha256": null
+      },
+      {
+        "case": "empty-page-with-csv",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "blank",
+          "exportCsv": true
+        },
+        "code": "CSV_PAGE_UNAVAILABLE",
+        "outputSha256": null
+      },
+      {
+        "case": "lossy-values-never-exported",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "tableName": "preview_only",
+          "exportCsv": true
+        },
+        "code": "CSV_PAGE_UNAVAILABLE",
+        "outputSha256": null
+      },
+      {
+        "case": "catalog-csv-rejected",
+        "sourceSha256": "76f6023dba59a5267609342faa91059f940e835aca3414a944a2ea75a7436e04",
+        "inputBytes": 13824,
+        "mime": "application/x-zicode-sqlite",
+        "options": {
+          "exportCsv": true
+        },
+        "code": "CSV_NEEDS_TABLE",
+        "outputSha256": null
+      }
+    ],
+    "failures": []
+  }
+}

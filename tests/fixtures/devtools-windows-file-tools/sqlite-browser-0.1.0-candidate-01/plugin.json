@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.sqlite-browser",
+  "name": "ZiDevTools Read-only SQLite Browser",
+  "displayName": "SQLite 浏览器",
+  "description": "逐次确认一份本机 SQLite 静态文件，查看目录和普通表数据页，可明确生成完整页 CSV。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.sqlite.snapshot.browse"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.sqlite.snapshot.browse",
+        "title": "SQLite 浏览器",
+        "description": "逐次确认一份本机 SQLite 静态文件，查看目录和普通表数据页，可明确生成完整页 CSV。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/x-zicode-sqlite"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "tableName": {
+              "type": "string",
+              "maxLength": 512,
+              "title": "表名（留空查看目录）",
+              "description": "填写目录中的普通表名，再次执行查看具体数据页。"
+            },
+            "page": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16,
+              "title": "页码（可选）",
+              "default": 1,
+              "description": "每页最多 16 项或 16 行。"
+            },
+            "exportCsv": {
+              "type": "boolean",
+              "title": "生成此页 CSV（可选）",
+              "default": false,
+              "description": "仅从指定普通表生成完整页 CSV。保存时另行确认。"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "catalog",
+                        "table"
+                      ]
+                    },
+                    "page": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16
+                    },
+                    "rowCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 16
+                    },
+                    "columnCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 16
+                    },
+                    "hasNext": {
+                      "type": "boolean"
+                    },
+                    "truncatedCells": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 256
+                    },
+                    "csvBytes": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 24576
+                        }
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 49152
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "page",
+                    "rowCount",
+                    "columnCount",
+                    "hasNext",
+                    "truncatedCells",
+                    "csvBytes",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "浏览 SQLite",
+            "SQLite 导出 CSV",
+            "SQLite Snapshot Browser"
+          ],
+          "description": "逐次确认一份本机 SQLite 静态文件，查看目录和普通表数据页，可明确生成完整页 CSV。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "只读取本次明确确认的 SQLite 静态快照。"
+      }
+    ],
+    "optional": []
+  }
+}
