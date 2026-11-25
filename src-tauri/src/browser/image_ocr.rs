@@ -76,6 +76,7 @@ impl ImageOcrLanguage {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Preserve the existing IPC keys while adding an optional language.
 pub(crate) async fn browser_recognize_image_text(
     window: WebviewWindow,
     tab: String,
