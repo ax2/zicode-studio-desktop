@@ -126,7 +126,10 @@ export interface ManualToolDetailProps {
 
 interface ToolDraft {
   values: Record<string, string>;
-  undo?: { identity: string; values: Record<string, string>; kind: "apply" | "import"; mergeSide?: MergeSide; scopeBound?: boolean };
+  undo?: {
+    identity: string; values: Record<string, string>; kind: "apply" | "import";
+    mergeSide?: MergeSide; scopeBound?: boolean; textDiffField?: string;
+  };
 }
 
 interface DraftExecution {
@@ -409,8 +412,12 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const next = await readManualToolFile(file, values, target, choices);
       if (!isCurrent()) return;
       setInvalidField("");
+      const textDiffField = textDiff ? textDiffFileTargets.find(side => side.target === target)?.field : undefined;
       setDraft(current => current.values === values
-        ? { values: { ...values, ...next }, undo: { identity: transformIdentity, values, kind: "import" } }
+        ? {
+          values: { ...values, ...next },
+          undo: { identity: transformIdentity, values, kind: "import", textDiffField },
+        }
         : current);
     } catch (reason) {
       if (isCurrent()) setError(reason instanceof Error ? reason.message :
@@ -525,9 +532,11 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
             onChange={value => setDraft(previous => {
               const next = { ...previous.values, [field.key]: value };
               const previousUndo = previous.undo;
-              if (jsonPath && field.key === "query" && previousUndo?.kind === "import" &&
-                  previousUndo.identity === transformIdentity) {
-                return { values: next, undo: { ...previousUndo, values: { ...previousUndo.values, query: value } } };
+              const editsOtherDiffSide = textDiff && previousUndo?.textDiffField &&
+                (field.key === "left" || field.key === "right") && field.key !== previousUndo.textDiffField;
+              if (previousUndo?.kind === "import" && previousUndo.identity === transformIdentity &&
+                  (editsOtherDiffSide || (jsonPath && field.key === "query"))) {
+                return { values: next, undo: { ...previousUndo, values: { ...previousUndo.values, [field.key]: value } } };
               }
               return { values: next };
             })} />;

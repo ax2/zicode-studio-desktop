@@ -342,6 +342,29 @@ it("imports either text file without running and undoes only the last import", a
   expect(right.value).toBe("prior right");
 });
 
+it.each(["left", "right"] as const)("restores only the %s import after editing the other text", async side => {
+  const { api, form, left, right, pick, submit } = await mountTextDiff();
+  const [imported, other] = side === "left" ? [left, right] : [right, left];
+  fireEvent.change(imported, { target: { value: "draft before import" } });
+  fireEvent.change(other, { target: { value: "original other draft" } });
+  const file = new NodeFile(["导入\r\n文本\r\n"], "fixture.txt");
+  await pick(side, [file]);
+  fireEvent.change(other, { target: { value: "keep this edit" } });
+  await act(async () => { form.getByRole("button", { name: "撤销上次导入" }).click(); });
+  expect(imported.value).toBe("draft before import");
+  expect(other.value).toBe("keep this edit");
+  expect(api.invoke).not.toHaveBeenCalled();
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({
+    left: left.value,
+    right: right.value,
+  });
+
+  await pick(side, [file]);
+  fireEvent.change(imported, { target: { value: "edit the imported text itself" } });
+  expect(form.queryByRole("button", { name: "撤销上次导入" })).toBeNull();
+});
+
 it("accepts exactly 8 KiB, retains both drafts on invalid UTF-8 or one extra byte", async () => {
   const { form, left, right, pick, api } = await mountTextDiff();
   const boundary = "中".repeat(2730) + "aa";
