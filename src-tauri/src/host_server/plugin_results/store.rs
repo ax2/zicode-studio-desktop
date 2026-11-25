@@ -104,7 +104,11 @@ fn workbench_exports(operation: &str, output: &str) -> Option<TableExports> {
 
 fn is_json_diff_report(text: &str, order: &str) -> bool {
     let Ok(value) = serde_json::from_str::<Value>(text) else {
-        return false;
+        return crate::plugin_resource_execution::json_compare::validate_precise_diff_report(
+            text.as_bytes(),
+            order,
+        )
+        .is_some();
     };
     let Some(changes) = value.get("changes").and_then(Value::as_array) else {
         return false;
@@ -507,9 +511,29 @@ mod tests {
     fn json_diff_export_requires_the_declared_mode_and_consistent_report() {
         let report = r#" { "arrayOrder":"by index","changes":[],"equal":true } "#;
         assert!(is_json_diff_report(report, "by index"));
-        assert!(!is_json_diff_report(report, "ignored (duplicates retained)"));
-        assert!(!is_json_diff_report(&report.replace("true", "false"), "by index"));
+        assert!(!is_json_diff_report(
+            report,
+            "ignored (duplicates retained)"
+        ));
+        assert!(!is_json_diff_report(
+            &report.replace("true", "false"),
+            "by index"
+        ));
         assert!(!is_json_diff_report("[]", "by index"));
+        let precise = r#"{"arrayOrder":"by index","changes":[{"kind":"changed","path":"/x","before":1e99999,"after":1e100000}],"equal":false}"#;
+        assert!(is_json_diff_report(precise, "by index"));
+        assert!(!is_json_diff_report(
+            precise,
+            "ignored (duplicates retained)"
+        ));
+        assert!(!is_json_diff_report(
+            &precise.replace(r#""/x""#, "1e99999"),
+            "by index"
+        ));
+        assert!(!is_json_diff_report(
+            &precise.replace("1e99999", r#""\uD800""#),
+            "by index"
+        ));
     }
 
     #[test]

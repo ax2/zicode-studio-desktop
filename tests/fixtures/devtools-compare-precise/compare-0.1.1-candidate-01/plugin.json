@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.compare",
+  "name": "ZiDevTools Compare",
+  "displayName": "ZiDevTools 查询与对比",
+  "description": "JSON路径查询、有序/无序JSON对比、正则匹配及文本差异；复用独立工具共享Rust核心。 JSON 对比采用精确十进制数值，变化中保留原始数字。",
+  "version": "0.1.1",
+  "publisher": "zicode",
+  "engines": {
+    "zicode": ">=0.5.3 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.compare.json.path",
+    "onCapability:devtools.compare.json.diff.ordered",
+    "onCapability:devtools.compare.json.diff.unordered",
+    "onCapability:devtools.compare.regex.matches",
+    "onCapability:devtools.compare.text.diff"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "capabilities": [
+      {
+        "id": "devtools.compare.json.path",
+        "title": "JSON 路径查询",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "query": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "text",
+            "query"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "JSONPath",
+            "路径查询",
+            "JSON query"
+          ],
+          "description": "JSON 路径查询；仅处理显式提供的有界文本，不读取文件或网络。"
+        }
+      },
+      {
+        "id": "devtools.compare.json.diff.ordered",
+        "title": "JSON 对比（数组按顺序）",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "left": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "right": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "left",
+            "right"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "JSON diff",
+            "结构化对比",
+            "数组顺序"
+          ],
+          "description": "JSON 对比（数组按顺序）；仅处理显式提供的有界文本，不读取文件或网络。"
+        }
+      },
+      {
+        "id": "devtools.compare.json.diff.unordered",
+        "title": "JSON 对比（数组忽略顺序）",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "left": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "right": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "left",
+            "right"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "JSON unordered",
+            "无序数组对比"
+          ],
+          "description": "JSON 对比（数组忽略顺序）；仅处理显式提供的有界文本，不读取文件或网络。"
+        }
+      },
+      {
+        "id": "devtools.compare.regex.matches",
+        "title": "正则表达式匹配",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "pattern": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "text",
+            "pattern"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "regex",
+            "正则",
+            "捕获组"
+          ],
+          "description": "正则表达式匹配；仅处理显式提供的有界文本，不读取文件或网络。"
+        }
+      },
+      {
+        "id": "devtools.compare.text.diff",
+        "title": "文本差异对比",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "left": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "right": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "left",
+            "right"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "text diff",
+            "文本对比",
+            "unified diff"
+          ],
+          "description": "文本差异对比；仅处理显式提供的有界文本，不读取文件或网络。"
+        }
+      }
+    ],
+    "commands": [],
+    "piTools": [
+      {
+        "name": "devtools_compare_json_path",
+        "title": "JSON 路径查询",
+        "description": "JSON 路径查询 on explicitly provided bounded text.",
+        "capability": "devtools.compare.json.path",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "query": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "text",
+            "query"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_compare_json_diff_ordered",
+        "title": "JSON 对比（数组按顺序）",
+        "description": "JSON 对比（数组按顺序） on explicitly provided bounded text.",
+        "capability": "devtools.compare.json.diff.ordered",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "left": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "right": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "left",
+            "right"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_compare_json_diff_unordered",
+        "title": "JSON 对比（数组忽略顺序）",
+        "description": "JSON 对比（数组忽略顺序） on explicitly provided bounded text.",
+        "capability": "devtools.compare.json.diff.unordered",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "left": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "right": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "left",
+            "right"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_compare_regex_matches",
+        "title": "正则表达式匹配",
+        "description": "正则表达式匹配 on explicitly provided bounded text.",
+        "capability": "devtools.compare.regex.matches",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "pattern": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "text",
+            "pattern"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_compare_text_diff",
+        "title": "文本差异对比",
+        "description": "文本差异对比 on explicitly provided bounded text.",
+        "capability": "devtools.compare.text.diff",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "left": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "right": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "left",
+            "right"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [],
+    "optional": [
+      {
+        "name": "pi.tools.register",
+        "reason": "显式授权后允许当前场景AI使用这五项本地计算操作。"
+      }
+    ]
+  }
+}
