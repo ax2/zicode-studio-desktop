@@ -147,17 +147,12 @@ function ApiKeysPanel({ store }: { store: ConfigStore }) {
     return <div className="settings-api-keys-empty">{t("No providers known.")}</div>;
   }
 
-  const sorted = [...providers].sort((a, b) => Number(b.configured) - Number(a.configured));
   const query = search.trim().toLocaleLowerCase();
-  let visibleCount = 0;
-  for (const provider of sorted) {
-    const matchesQuery =
-      !query ||
-      `${provider.displayName || ""} ${provider.provider || ""}`
-        .toLocaleLowerCase()
-        .includes(query);
-    if (matchesQuery && (revealAll || Boolean(query) || provider.configured)) visibleCount += 1;
-  }
+  const visibleProviders = providers
+    .filter((provider) => query
+      ? `${provider.displayName || ""} ${provider.provider}`.toLocaleLowerCase().includes(query)
+      : revealAll || provider.configured)
+    .sort((a, b) => Number(b.configured) - Number(a.configured));
 
   return (
     <>
@@ -184,13 +179,12 @@ function ApiKeysPanel({ store }: { store: ConfigStore }) {
           {revealAll ? t("Show configured only") : t("Show all providers")}
         </button>
       </div>
-      <div
-        className="settings-api-keys-empty"
-        style={visibleCount > 0 ? { display: "none" } : undefined}
-      >
-        {t("No configured providers. Search or show all providers to add a key.")}
-      </div>
-      {sorted.map((provider) => (
+      {visibleProviders.length === 0 ? (
+        <div className="settings-api-keys-empty">
+          {query ? t("No matches") : t("No configured providers. Search or show all providers to add a key.")}
+        </div>
+      ) : null}
+      {visibleProviders.map((provider) => (
         <ApiKeyRow key={provider.provider} store={store} provider={provider} />
       ))}
     </>
