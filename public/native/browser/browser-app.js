@@ -49,6 +49,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   let shortcutSurface, openingLocalPdf = false;
   let developerToolsPending = false, developerToolsError = "", refreshDeveloperTools;
   let actionTail = Promise.resolve(), restoreError = "", statusMessage = "";
+  let requestedBlankTab = null, openingBlankTab = null;
   const enqueue = work => { const result = actionTail.then(work); actionTail = result.catch(report); return result; };
   const act = work => enqueue(work).catch(() => {});
   let saveTimer;
@@ -378,9 +379,30 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     discard: discardTabView,
   });
   const select = activation.select;
-  async function add() {
-    await activation.add({ id: crypto.randomUUID(), url: "about:blank", title: t("New tab") });
-    address.focus(); address.select();
+  function blankTabRequest() {
+    return { id: crypto.randomUUID(), addressVersion: addressEditor.editVersion };
+  }
+  function queueBlankTab(current = () => true) {
+    const previous = requestedBlankTab?.id;
+    const request = blankTabRequest();
+    requestedBlankTab = request;
+    return enqueue(async () => {
+      if (current(previous)) await add(request);
+      else if (requestedBlankTab === request) requestedBlankTab = null;
+    });
+  }
+  async function add(request = blankTabRequest()) {
+    requestedBlankTab ??= request;
+    openingBlankTab = request.id;
+    try {
+      await activation.add({ id: request.id, url: "about:blank", title: t("New tab") });
+      if (requestedBlankTab === request && document.activeElement !== address) {
+        address.focus(); address.select();
+      }
+    } finally {
+      openingBlankTab = null;
+      if (requestedBlankTab === request) requestedBlankTab = null;
+    }
   }
   function openLocalPdf(returnFocus, source = selected()?.id, fromPage = false) {
     const current = () => initialized && !blocked() && selected()?.id === source &&
@@ -525,7 +547,6 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     if (number && (!numberedTab || numberedTab.id === source)) return;
     // A tab command commits to another page; do not keep the prior address draft.
     if (document.activeElement === address) address.blur();
-    if (action === "newTab") return add();
     if (action === "closeTab" && source) await close(source);
     else if (action === "reopenTab") await reopen();
     else if (numberedTab) await select(numberedTab.id);
@@ -688,14 +709,17 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     tabStripControls.refresh();
     if (focusedTab && !ordering.dragging) tabStripControls.focusTab(focusedTab.id, focusedTab.selector);
     const page = selected();
-    addressEditor.sync(page?.localPdf ? { ...page, url: "" } : page);
+    // Preserve a draft for the requested blank tab across earlier queued blank-tab commits.
+    const addressVersion = openingBlankTab === page?.id ? requestedBlankTab?.addressVersion : undefined;
+    addressEditor.sync(page?.localPdf ? { ...page, url: "" } : page, addressVersion);
     if (!tabs.length) { preview.clear(); viewport.textContent = t("Open a new tab to browse"); }
     else if (!startupState.pending() && !viewport.querySelector(".browser-overlay-preview, .browser-new-tab-shortcuts")) viewport.textContent = "";
   }
   function makeButton(label, action) {
     const button = document.createElement("button"); button.type = "button";
     button.className = "ui-button ui-button--ghost"; button.textContent = label;
-    button.addEventListener("click", () => act(action)); return button;
+    if (action) button.addEventListener("click", () => act(action));
+    return button;
   }
   function failStartup() {
     restoreError = t("Could not restore the browser. Your saved tabs are kept. Please retry.");
@@ -931,7 +955,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     strip.dataset.pageHeaderOwner = "com.zicode.browser";
     tabsHost = document.createElement("div"); tabsHost.className = "browser-tabs"; tabsHost.setAttribute("role", "tablist"); tabsHost.setAttribute("aria-label", t("Browser tabs"));
     ordering = setupBrowserTabOrdering(tabsHost, { onMove: change => void act(() => reorder(change)), onFinish: paint });
-    const newTab = makeButton("+", add);
+    const newTab = makeButton("+");
+    newTab.addEventListener("click", () => void queueBlankTab().catch(() => {}));
     newTab.setAttribute("aria-keyshortcuts", "Control+t");
     tabStripControls = createBrowserTabStrip(tabsHost, newTab);
     tabMenu = setupBrowserTabMenu(tabsHost, {
@@ -997,7 +1022,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     nav.addEventListener("submit", event => {
       event.preventDefault();
       const submission = addressEditor.submission();
-      const source = active;
+      const request = requestedBlankTab;
+      if (request && !addressEditor.hasEditedSince(request.addressVersion)) return;
+      const source = request?.id ?? active;
       if (submission?.text) void act(() => navigate(submission, source));
     });
     const footer = document.createElement("div"); footer.className = "browser-footer";
@@ -1010,7 +1037,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (visible && initialized && !blocked() && selected()?.id === tab && find.element.hidden && pageAvailable(tab)) await control({ kind: "focusPage", tab });
     }, report });
     fullscreen = createBrowserFullscreen({ control, report, beforeChange: () => { const menu = root.querySelector(".browser-options"); if (menu) menu.open = false; }, afterChange: () => run(syncSurface) });
-    shortcuts = setupBrowserShortcuts({ available: () => visible && initialized && !blocked(), getTab: selected, focusChrome: tab => control({ kind: "focusChrome", tab }), find: () => find.open(), address, tabAction: (action, source) => enqueue(() => tabShortcut(action, source)),
+    shortcuts = setupBrowserShortcuts({ available: () => visible && initialized && !blocked(), getTab: selected, focusChrome: tab => control({ kind: "focusChrome", tab }), find: () => find.open(), address,
+      tabAction: (action, source) => action === "newTab"
+        ? queueBlankTab(previous => !blocked() && (active === (source ?? null) || active === previous))
+        : enqueue(() => tabShortcut(action, source)),
       pageAction: (action, source) => action === "print" ? queuePrint(source) : enqueue(() => runPageAction(action, source)),
       fullscreen: () => fullscreen.toggle(),
       openLocalPdf: (fromPage, source) => openLocalPdf(document.activeElement, source, fromPage),
