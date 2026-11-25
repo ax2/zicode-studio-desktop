@@ -110,6 +110,32 @@ it("does not open an old Bookmarks request after leaving and reopening Browser",
   await waitFor(() => expect(dialog.isConnected).toBe(false));
 });
 
+it("opens saved bookmarks even if the current page URL is temporarily unavailable", async () => {
+  const failed = Error("Current native URL unavailable");
+  const readUrl = vi.fn()
+    .mockRejectedValueOnce(failed)
+    .mockRejectedValueOnce(failed)
+    .mockResolvedValue({ url: "http://127.0.0.1/live-url" });
+  const h = await mount({ readUrl });
+
+  h.open("Bookmarks");
+  const library = await waitFor(() => panel("Bookmarks"));
+  await waitFor(() => getByRole(library, "button", { name: t("Open bookmark") + ": Saved" }));
+  expect(getByRole(library, "button", { name: t("Bookmark this page") }).disabled).toBe(true);
+  expect(getByRole(library, "button", { name: t("New bookmark") }).disabled).toBe(false);
+  getByRole(library, "button", { name: t("Close") }).click();
+  await waitFor(() => expect(library.isConnected).toBe(false));
+
+  document.querySelector(".browser-bookmark-toggle").click();
+  await waitFor(() => expect(document.querySelector('.browser-footer > [role="status"]').textContent).toContain(failed.message));
+  expect(queryByRole(document.body, "dialog", { name: t("Bookmarks") })).toBeNull();
+
+  document.querySelector(".browser-bookmark-toggle").click();
+  const editor = await waitFor(() => panel("Bookmarks"));
+  await waitFor(() => expect(getByLabelText(editor, t("Bookmark URL")).value).toBe("http://127.0.0.1/live-url"));
+  expect(readUrl).toHaveBeenCalledTimes(3);
+});
+
 it.each(["Bookmarks", "Browsing history", "Downloads"])("closes %s on switching applications even if its list is still loading", async name => {
   let reply;
   const readPanel = vi.fn()
