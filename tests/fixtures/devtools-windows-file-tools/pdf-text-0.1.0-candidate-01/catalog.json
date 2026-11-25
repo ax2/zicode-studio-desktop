@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.pdf-text",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "pdf-text",
+      "capabilityId": "devtools.pdf-text.page",
+      "title": "提取 PDF 单页文本",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "本机读取明确提供的 PDF，按页码提取一页嵌入文本。文件限 128 KiB、32 页，预览限 6 KiB。"
+    }
+  ]
+}
