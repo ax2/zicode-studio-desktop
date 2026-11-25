@@ -408,3 +408,73 @@ it("does not show a late retry after changing the active Gmail account", async (
     Array.from({ length: 2 }, () => ({ kind: "cachedBody", accountId: "one", id: entry.id })),
   );
 });
+
+it("keeps the current Gmail label and cached body when another label read fails", async () => {
+  const archived = { ...entry, id: "archive", subject: "Archive cached message" };
+  let archiveReads = 0;
+  let failLabel!: (error: Error) => void;
+  const pending = new Promise<never>((_resolve, reject) => { failLabel = reject; });
+  const view = fixture(async request => {
+    if (request.kind === "status") return { connected: true, read: true };
+    if (request.kind === "cachedLabels") return ["Archive", "Empty", "Uncached"].map(id => ({ id, name: id }));
+    if (request.kind === "cachedPage") {
+      if (request.label === "Archive") return ++archiveReads === 1 ? pending : { items: [archived], nextCursor: null };
+      if (request.label === "Empty") return { items: [], nextCursor: null };
+      if (request.label === "Uncached") return null;
+      return { items: [entry], nextCursor: null };
+    }
+    if (request.kind === "cachedBody") return request.id === archived.id
+      ? { ...archived, plainText: "Archive cached body" }
+      : { ...entry, plainText: "Original cached body" };
+    throw Error("Unexpected Gmail request");
+  });
+  const label = await screen.findByLabelText<HTMLSelectElement>("Gmail label");
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Original cached body");
+  const setLabel = (value: string) => fireEvent.change(label, { target: { value } });
+  setLabel("Archive");
+  expect(label.value).toBe("INBOX");
+  expect(screen.queryByText("Original cached body")).toBeTruthy();
+  await act(async () => failLabel(Error("gmail_storage")));
+  await screen.findByText("Could not access local mail data.");
+  expect(label.value).toBe("INBOX");
+  expect(screen.queryByText("Original cached body")).toBeTruthy();
+
+  setLabel("Archive");
+  fireEvent.click(await screen.findByRole("button", { name: /Archive cached message/ }));
+  await screen.findByText("Archive cached body");
+  expect(label.value).toBe("Archive");
+  expect(screen.queryByText("Original cached body")).toBeNull();
+  setLabel("Empty");
+  await screen.findByText("No messages on this page.");
+  expect(label.value).toBe("Empty");
+  expect(screen.queryByRole("article", { name: "Selected message" })).toBeNull();
+  setLabel("Uncached");
+  await screen.findByText("No inbox has been saved on this device yet.");
+  expect(label.value).toBe("Uncached");
+  expect(view.calls.mock.calls.some(([request]) => ["list", "read", "replyDraft", "send"].includes(String(request.kind)))).toBe(false);
+});
+
+it("drops a pending Gmail label page after switching to another account", async () => {
+  let finishLabel!: (value: unknown) => void;
+  const pending = new Promise(resolve => { finishLabel = resolve; });
+  const other = { ...entry, subject: "Other account message" };
+  const view = fixture(async request => {
+    if (request.kind === "status") return { connected: true, read: true };
+    if (request.kind === "cachedLabels") return request.accountId === "one" ? [{ id: "Archive", name: "Archive" }] : [];
+    if (request.kind === "cachedPage") {
+      if (request.accountId === "two") return { items: [other], nextCursor: null };
+      return request.label === "Archive" ? pending : { items: [entry], nextCursor: null };
+    }
+    throw Error("Unexpected Gmail request");
+  }, [account("one"), account("two")]);
+  await screen.findByText("Inbox fixture");
+  fireEvent.change(screen.getByLabelText("Gmail label"), { target: { value: "Archive" } });
+  expect(view.calls).toHaveBeenCalledWith({ kind: "cachedPage", accountId: "one", label: "Archive", cursor: null, limit: 20 });
+  fireEvent.change(screen.getByLabelText("Mail account"), { target: { value: "two" } });
+  await screen.findByText("Other account message");
+  await act(async () => finishLabel({ items: [{ ...entry, subject: "Stale archive result" }], nextCursor: null }));
+  expect(screen.queryByText("Stale archive result")).toBeNull();
+  expect(screen.getByLabelText<HTMLSelectElement>("Gmail label").value).toBe("INBOX");
+  expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("two");
+});
