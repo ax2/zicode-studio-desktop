@@ -19,12 +19,13 @@ function PermissionName({ name }: { name: string }) {
 }
 
 export function LocalPluginActivationCard({
-  plugin, focusOnMount = true, deferred, busy, installedTools, onClose, onDefer, onResume, onActivate, onError,
+  plugin, focusOnMount = true, deferred, busy, activationError, installedTools, onClose, onDefer, onResume, onActivate, onError,
 }: {
   plugin: ManagedPlugin;
   focusOnMount?: boolean;
   deferred: boolean;
   busy: boolean;
+  activationError?: string;
   installedTools?: InstalledToolActions;
   onClose(origin?: HTMLButtonElement): void;
   onDefer(): void;
@@ -197,6 +198,7 @@ export function LocalPluginActivationCard({
             {required.length + optional.length === 0 ? <p>{t("No permissions requested")}</p> : null}
           </fieldset>
           {pending ? <p>{t("Select the required permissions to enable this plugin.")}</p> : null}
+          {activationError ? <p role="alert">{activationError}</p> : null}
         </>
       )}
       <div className="plugin-manager-preview-actions">

@@ -309,7 +309,7 @@ it("shows failure without reporting availability or implicitly opening anything"
   fireEvent.click(setupCard().getByRole("checkbox", { name: /Read selected resources/ }));
   fireEvent.click(setupCard().getByRole("checkbox", { name: /Make tools available to Pi/ }));
   fireEvent.click(button("Authorize and enable"));
-  await waitFor(() => expect(flow.notify).toHaveBeenCalledWith("Cannot save permissions"));
+  expect((await setupCard().findByRole("alert")).textContent).toBe("Cannot save permissions");
   expect(flow.activateReviewed).toHaveBeenCalledWith(preview.pluginId, activationReview, ["resource.read", "pi.tools.register"]);
   expect(setupCard().getByRole("status").textContent).toBe("Permission required");
   expect(flow.plugin.permissions).toEqual({});
@@ -377,15 +377,28 @@ it("places focus on the available next action after the reviewed revision change
   expect(flow.installedTools.open).not.toHaveBeenCalled();
 });
 
-it("returns focus to retry after a permission write fails", async () => {
-  const flow = setup({ activationFails: true });
+it("shows a permission write failure in the current review and retries only on confirmation", async () => {
+  const flow = setup();
+  flow.activateReviewed.mockRejectedValueOnce(new Error("Cannot save permissions"));
   await installPackage();
-  fireEvent.click(setupCard().getByRole("checkbox", { name: /Read selected resources/ }));
+  const permission = setupCard().getByRole<HTMLInputElement>("checkbox", { name: /Read selected resources/ });
+  fireEvent.click(permission);
   const authorize = button("Authorize and enable");
   clickFocused(authorize);
-  await waitFor(() => expect(flow.notify).toHaveBeenCalledWith("Cannot save permissions"));
+  expect((await setupCard().findByRole("alert")).textContent).toBe("Cannot save permissions");
+  expect(flow.notify).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(authorize);
   expect(authorize.disabled).toBe(false);
+  expect(permission.checked).toBe(true);
+  expect(flow.plugin.enabled).toBe(false);
+  expect(flow.plugin.permissions).toEqual({});
+  clickFocused(authorize);
+  await setupCard().findByRole("button", { name: "Open Format JSON" });
+  expect(setupCard().queryByRole("alert")).toBeNull();
+  expect(flow.activateReviewed.mock.calls).toEqual([
+    [preview.pluginId, activationReview, ["resource.read"]],
+    [preview.pluginId, activationReview, ["resource.read"]],
+  ]);
 });
 
 it("recovers the settings of a confirmed activation without applying its grants again", async () => {
