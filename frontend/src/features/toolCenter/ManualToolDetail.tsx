@@ -215,9 +215,13 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const jsonSchema = tool.pluginId === "com.zicode.devtools.json-schema" && tool.capabilityId === "devtools.json-schema.validate";
   const boundedTextTool = tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version &&
     fields?.some(field => field.key === "text" && field.kind === "string" && field.maxLength === 8192);
-  const yamlConverter = boundedTextTool && tool.pluginId === "com.zicode.devtools.inspect" && tool.version === "0.1.2";
-  const yamlToJson = yamlConverter && tool.capabilityId === "devtools.inspect.yaml.to_json";
-  const yamlFromJson = yamlConverter && tool.capabilityId === "devtools.inspect.yaml.from_json";
+  const inspectTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.inspect" && tool.version === "0.1.2";
+  const yamlToJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.to_json";
+  const yamlFromJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.from_json";
+  const unicodeInspect = inspectTool && tool.capabilityId === "devtools.inspect.unicode.inspect";
+  const unicodeNfc = inspectTool && tool.capabilityId === "devtools.inspect.unicode.nfc";
+  const unicodeNfkc = inspectTool && tool.capabilityId === "devtools.inspect.unicode.nfkc";
+  const unicodeNormalize = unicodeNfc || unicodeNfkc;
   const textPlugin = boundedTextTool && tool.pluginId === "com.zicode.devtools.text" && tool.version === "0.4.1";
   const transformsTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.transforms" && tool.version === "0.1.1";
   const textLines = transformsTool && /^devtools\.transforms\.lines\.(deduplicate|ascending|descending|nonempty|trim)$/.test(tool.capabilityId);
@@ -237,7 +241,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
     jsonSchema ? jsonSchemaFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
-        (base64Encode || hexEncode) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
+        (base64Encode || hexEncode || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
           stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets :
           (textLines || textStatistics || stringEscape || htmlText) ? utf8FileTargets : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
@@ -254,7 +258,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     : hexDecode ? { label: "Download decoded text", stem: "hex-decoded", extension: "txt", mime: "text/plain;charset=utf-8" }
     : urlInspect ? { label: "Download JSON", stem: "url-details", extension: "json", mime: "application/json" }
     : htmlEscape ? { label: "Download escaped text", stem: "html-escaped", extension: "txt", mime: "text/plain;charset=utf-8" }
-    : htmlUnescape ? { label: "Download restored text", stem: "html-restored", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
+    : htmlUnescape ? { label: "Download restored text", stem: "html-restored", extension: "txt", mime: "text/plain;charset=utf-8" }
+    : unicodeInspect ? { label: "Download JSON", stem: "unicode-code-points", extension: "json", mime: "application/json" }
+    : unicodeNormalize ? { label: "Download normalized text", stem: unicodeNfc ? "unicode-nfc" : "unicode-nfkc", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
@@ -370,7 +376,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const wire = response.result;
       const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
         wire.contractVersion === "1.0.0-rc.1";
-      if (textDownload && ownsExecution() && outcome.successful && declared && (base64Tool || textLines || stringUnescape || hexEncode || hexDecode || htmlText || outcome.text.trim().length > 0)) {
+      if (textDownload && ownsExecution() && outcome.successful && declared && (base64Tool || textLines || stringUnescape || hexEncode || hexDecode || htmlText || unicodeNormalize || outcome.text.trim().length > 0)) {
         setDownloadExecution({ identity: transformIdentity, sequence, api, source: values, text: outcome.text });
       }
       if (independentMerge && outcome.successful) {

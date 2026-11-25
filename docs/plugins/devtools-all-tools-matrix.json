@@ -3622,6 +3622,7 @@
     },
     {
       "sourceToolId": "unicode",
+      "currentWindowsAcceptance": "../iterations/2026-11-25-unicode-tool-files.md",
       "latestCandidateEvidenceRef": "inspect011HostWorkerVerification",
       "latestCandidatePiEvidenceRef": "inspect011PiVerification",
       "latestCandidateNativeEvidenceRef": "inspect011CurrentDebugNativeVerification",
