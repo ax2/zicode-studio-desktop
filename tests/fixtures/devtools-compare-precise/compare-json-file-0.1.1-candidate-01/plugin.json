@@ -1,0 +1,352 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.compare-json-file",
+  "name": "ZiDevTools JSON File Compare",
+  "displayName": "ZiDevTools JSON 文件查询与对比",
+  "description": "每项输入最多 1 MiB 的 UTF-8 JSON。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。 JSON 对比采用精确十进制数值，变化中保留原始数字。",
+  "version": "0.1.1",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.6.3 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "resource.wasi.json-file-compare.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.compare.json-file.path",
+    "onCapability:devtools.compare.json-file.diff.ordered",
+    "onCapability:devtools.compare.json-file.diff.unordered"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "capabilities": [
+      {
+        "id": "devtools.compare.json-file.path",
+        "title": "JSON 文件路径查询",
+        "executionProfile": "resource.wasi.json-file-compare.v1",
+        "maxResultBytes": 2048,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "schemaVersion": {
+                  "type": "integer",
+                  "const": 1
+                },
+                "material": {
+                  "type": "string",
+                  "const": "json-file-result"
+                },
+                "sourceByteCounts": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1048576
+                  }
+                },
+                "outputByteCount": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8388608
+                }
+              },
+              "required": [
+                "ok",
+                "schemaVersion",
+                "material",
+                "sourceByteCounts",
+                "outputByteCount"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json",
+          "text/plain"
+        ],
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "JSONPath",
+            "JSON 文件查询"
+          ],
+          "description": "每项输入最多 1 MiB 的 UTF-8 JSON。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。"
+        }
+      },
+      {
+        "id": "devtools.compare.json-file.diff.ordered",
+        "title": "JSON 文件对比（数组按顺序）",
+        "executionProfile": "resource.wasi.json-file-compare.v1",
+        "maxResultBytes": 2048,
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "schemaVersion": {
+                  "type": "integer",
+                  "const": 1
+                },
+                "material": {
+                  "type": "string",
+                  "const": "json-file-result"
+                },
+                "sourceByteCounts": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1048576
+                  }
+                },
+                "outputByteCount": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8388608
+                }
+              },
+              "required": [
+                "ok",
+                "schemaVersion",
+                "material",
+                "sourceByteCounts",
+                "outputByteCount"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json",
+          "text/plain"
+        ],
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "JSON diff",
+            "JSON 文件对比",
+            "数组按下标"
+          ],
+          "description": "每项输入最多 1 MiB 的 UTF-8 JSON。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。"
+        },
+        "resourceInputMin": 2,
+        "resourceInputMax": 2
+      },
+      {
+        "id": "devtools.compare.json-file.diff.unordered",
+        "title": "JSON 文件对比（数组忽略顺序）",
+        "executionProfile": "resource.wasi.json-file-compare.v1",
+        "maxResultBytes": 2048,
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "schemaVersion": {
+                  "type": "integer",
+                  "const": 1
+                },
+                "material": {
+                  "type": "string",
+                  "const": "json-file-result"
+                },
+                "sourceByteCounts": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1048576
+                  }
+                },
+                "outputByteCount": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8388608
+                }
+              },
+              "required": [
+                "ok",
+                "schemaVersion",
+                "material",
+                "sourceByteCounts",
+                "outputByteCount"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json",
+          "text/plain"
+        ],
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "JSON unordered",
+            "无序 JSON 对比"
+          ],
+          "description": "每项输入最多 1 MiB 的 UTF-8 JSON。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。"
+        },
+        "resourceInputMin": 2,
+        "resourceInputMax": 2
+      }
+    ],
+    "commands": [],
+    "piTools": []
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次明确选择和确认的 JSON 文件快照。"
+      }
+    ],
+    "optional": []
+  }
+}

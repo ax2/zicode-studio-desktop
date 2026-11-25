@@ -1,0 +1,25 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.compare-json-file",
+  "packageVersion": "0.1.1",
+  "tools": [
+    {
+      "sourceToolId": "json-path",
+      "capabilityId": "devtools.compare.json-file.path",
+      "title": "JSON 文件路径查询",
+      "scope": "每项输入最多 1 MiB 的 UTF-8 JSON。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。"
+    },
+    {
+      "sourceToolId": "json-diff",
+      "capabilityId": "devtools.compare.json-file.diff.ordered",
+      "title": "JSON 文件对比（数组按顺序）",
+      "scope": "每项输入最多 1 MiB 的 UTF-8 JSON。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。 JSON 对比精确保留并比较十进制数字。"
+    },
+    {
+      "sourceToolId": "json-diff",
+      "capabilityId": "devtools.compare.json-file.diff.unordered",
+      "title": "JSON 文件对比（数组忽略顺序）",
+      "scope": "每项输入最多 1 MiB 的 UTF-8 JSON。仅在确认文件并执行后读取，输出保留为可另存的 JSON，最多 8 MiB。 JSON 对比精确保留并比较十进制数字。"
+    }
+  ]
+}

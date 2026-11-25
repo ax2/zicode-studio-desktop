@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.compare",
+  "packageVersion": "0.1.1",
+  "signatureVerified": false,
+  "files": [
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 268,
+      "sha256": "ce96b6dd55e81b4b98a115783717fc2f531c59296a55baf4e7752ab92b5849a2"
+    },
+    {
+      "path": "README.md",
+      "size": 586,
+      "sha256": "b2af71b825ecf9ea7ce5b9745fd1c13cbd6dd1e69e1bbad4baf482960a3cfad8"
+    },
+    {
+      "path": "catalog.json",
+      "size": 1854,
+      "sha256": "220e857f5238e1fcdca53be6a2df3079be3855c3adb7aa1110d0ef1652ebb4dd"
+    },
+    {
+      "path": "fixtures.json",
+      "size": 975369,
+      "sha256": "362fd8fd647a79844df0735ef93a46097f55354757a058978a59fb28b5375e55"
+    },
+    {
+      "path": "licenses/regex-automata-LICENSE-APACHE",
+      "size": 10847,
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+    },
+    {
+      "path": "licenses/regex-automata-LICENSE-MIT",
+      "size": 1071,
+      "sha256": "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+    },
+    {
+      "path": "plugin.json",
+      "size": 8781,
+      "sha256": "1db9610c03bc3a7fc7c96f300d669b40f8e63ff1d5f63ce830aae3c3cf04c4a3"
+    },
+    {
+      "path": "provenance.json",
+      "size": 528,
+      "sha256": "0514ad73d587a4281104787ddb66beaaccedfcae58bce2f6f73732254ab53065"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 1707459,
+      "sha256": "9a9580787e6bb37fec29ba889622d08e41bc032be8b599d43f11e24174ffe886"
+    }
+  ],
+  "fileCount": 10,
+  "totalBytes": 2707860,
+  "directoryIndexSha256": "dd1397be4c0c43b17bf051fa169a946ae0aa9b192a2c7ddefdfedab7135871ce",
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}
