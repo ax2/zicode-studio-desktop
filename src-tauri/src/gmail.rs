@@ -258,6 +258,12 @@ pub(crate) async fn mail_gmail(
         Ok(())
     };
     let download = if let Request::DownloadAttachment { id, part } = &request {
+        // Bind the explicit selection to the account grant active when it opened.
+        let authorization_generation = gate
+            .state
+            .lock()
+            .map_err(|_| "gmail_unavailable")?
+            .generation;
         if !api::valid_id(id) {
             return Err("gmail_invalid".into());
         }
@@ -281,7 +287,7 @@ pub(crate) async fn mail_gmail(
             return Ok(json!({"saved":false}));
         };
         check_attachment_scope()?;
-        Some((target, item))
+        Some((target, item, authorization_generation))
     } else {
         None
     };
@@ -297,6 +303,12 @@ pub(crate) async fn mail_gmail(
             Request::Connect { .. } | Request::Disconnect { .. }
         ) {
             g.invalidate()
+        }
+        if download
+            .as_ref()
+            .is_some_and(|(_, _, expected)| g.generation != *expected)
+        {
+            return Err("gmail_cancelled".into());
         }
         (g.generation, g.stop.clone())
     };
@@ -504,7 +516,7 @@ pub(crate) async fn mail_gmail(
             data
         }
         Request::DownloadAttachment { id, part } => {
-            let (target, item) = download.ok_or("mail_attachment_missing")?;
+            let (target, item, _) = download.ok_or("mail_attachment_missing")?;
             let verify = || -> std::result::Result<_, String> {
                 let guard = current()?;
                 check_attachment_scope()?;
