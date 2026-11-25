@@ -469,6 +469,8 @@ export function PluginManagerViewApp({
             <strong>{t("Permissions")}</strong>
             {permissions.map((permission) => {
               const granted = plugin.permissions?.[permission.name] === true;
+              const actionKey = `permission-${plugin.id}-${permission.name}`;
+              const pending = Boolean(busy[actionKey]);
               return (
                 <div className="plugin-manager-permission" key={permission.name}>
                   <span title={t(permission.reason ?? "")}>{permission.name}</span>
@@ -476,10 +478,12 @@ export function PluginManagerViewApp({
                     label={t(granted ? "Allowed" : "Denied")}
                     variant="ui-button--ghost"
                     disabled={!canManagePlugins || awaitingSettings || Boolean(busy.activation)}
-                    busy={Boolean(busy[`permission-${plugin.id}-${permission.name}`])}
+                    aria-busy={pending || undefined}
+                    aria-disabled={pending || undefined}
                     ariaPressed={granted}
                     onClick={() => {
-                      void runAction(`permission-${plugin.id}-${permission.name}`, async () => {
+                      if (pending) return;
+                      void runAction(actionKey, async () => {
                         await registry.setPermission?.(plugin.id, permission.name, !granted);
                       });
                     }}
