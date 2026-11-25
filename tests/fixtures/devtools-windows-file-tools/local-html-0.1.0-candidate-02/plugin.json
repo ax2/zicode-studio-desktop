@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.local-html",
+  "name": "ZiDevTools Local HTML Preview",
+  "displayName": "本机 HTML 正文预览",
+  "description": "确认一份本机 UTF-8 HTML，查看标题及最多 6 KiB 的纯文本摘录。单份文件最多 16 KiB。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.html.local.preview"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.html.local.preview",
+        "title": "本机 HTML 正文预览",
+        "description": "确认一份本机 UTF-8 HTML，查看标题及最多 6 KiB 的纯文本摘录。单份文件最多 16 KiB。",
+        "resourceInputMimeTypes": [
+          "text/html"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "maxLength": 180
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 16384
+                    },
+                    "bodyByteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 262144
+                    },
+                    "previewByteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6144
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 8000
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "byteLength",
+                    "bodyByteLength",
+                    "previewByteLength",
+                    "truncated",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 16384,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "HTML 文件",
+            "网页正文提取",
+            "HTML 转纯文本",
+            "Local HTML text preview"
+          ],
+          "description": "确认一份本机 UTF-8 HTML，查看标题及最多 6 KiB 的纯文本摘录。单份文件最多 16 KiB。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的本机 HTML 文件快照。"
+      }
+    ],
+    "optional": []
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.local-html",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "browser-clipper",
+      "capabilityId": "devtools.html.local.preview",
+      "title": "本机 HTML 正文预览",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "确认一份本机 UTF-8 HTML，查看标题及最多 6 KiB 的纯文本摘录。单份文件最多 16 KiB。"
+    }
+  ]
+}
