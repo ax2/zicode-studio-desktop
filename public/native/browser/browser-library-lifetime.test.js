@@ -214,3 +214,29 @@ it.each(["menu", "page shortcut"])("drops a pending tab search from the %s after
   getByRole(fresh, "button", { name: t("Close") }).click();
   await waitFor(() => expect(fresh.isConnected).toBe(false));
 });
+
+it.each(["menu", "page shortcut"])("drops the %s tab search queued before leaving Browser", async trigger => {
+  let reply;
+  const readUrl = vi.fn().mockImplementationOnce(() => new Promise(resolve => { reply = resolve; }))
+    .mockResolvedValue({ url: tab.url });
+  const h = await mount({ readUrl });
+  h.open("Bookmarks");
+  await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
+  if (trigger === "menu") h.open("Search tabs");
+  else h.fromPage("searchTabs");
+
+  await h.leave();
+  await h.returnToBrowser();
+  const address = getByRole(document.body, "textbox", { name: t("Web address") });
+  fireEvent.input(address, { target: { value: "still editing" } });
+  address.focus();
+  reply({ url: tab.url });
+  await app.finishWindowWrites();
+  expect(queryByRole(document.body, "dialog", { name: t("Search tabs") })).toBeNull();
+  expect(document.activeElement).toBe(address);
+  expect(address.value).toBe("still editing");
+
+  h.open("Search tabs");
+  const fresh = await waitFor(() => panel("Search tabs"));
+  expect(document.activeElement).toBe(getByRole(fresh, "searchbox"));
+});
