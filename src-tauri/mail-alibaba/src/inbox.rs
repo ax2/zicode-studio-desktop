@@ -287,8 +287,9 @@ fn older_end(session: &mut imap::Session<Bounded>, exists: u32, before: u32) -> 
             .map_err(|_| "mail_list_failed")?;
         let uid = rows
             .iter()
-            .find(|r| u64::from(r.message) == mid)
-            .and_then(|r| r.uid)
+            // An unsolicited FLAGS response can precede the requested sequence UID.
+            .filter(|r| u64::from(r.message) == mid)
+            .find_map(|r| r.uid)
             .filter(|u| *u > 0)
             .ok_or("mail_inbox_changed")?;
         if uid < before {

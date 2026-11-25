@@ -61,7 +61,7 @@ fn fixture_with_uid_validity(
         count,
         stride,
         reject_search,
-        ImapContent { headers, uid_validity, legacy_text: false, unsolicited_flags: None },
+        ImapContent { headers, uid_validity, legacy_text: false, unsolicited_flags: None, cursor_probe: None },
     )
 }
 
@@ -71,11 +71,19 @@ enum FetchStage {
     Part,
 }
 
+#[derive(Clone, Copy, Debug)]
+enum CursorProbe {
+    LeadingFlags,
+    MissingUid,
+    WrongSequence,
+}
+
 struct ImapContent {
     headers: Vec<(u32, String)>,
     uid_validity: u32,
     legacy_text: bool,
     unsolicited_flags: Option<(FetchStage, u32)>,
+    cursor_probe: Option<CursorProbe>,
 }
 
 fn fixture_with_content(
@@ -168,7 +176,7 @@ fn serve_imap(
     content: ImapContent,
     trace: std::sync::mpsc::Sender<String>,
 ) {
-    let ImapContent { headers, uid_validity, legacy_text, unsolicited_flags } = content;
+    let ImapContent { headers, uid_validity, legacy_text, unsolicited_flags, cursor_probe } = content;
     let default_header = &MSG[..MSG.find("\r\n\r\n").unwrap() + 4];
     let header_for = |uid| {
         headers
@@ -266,6 +274,22 @@ fn serve_imap(
                 }
                 let uid = seq * stride;
                 if upper.ends_with("(UID)") {
+                    if let Some(probe) = cursor_probe.filter(|_| !is_uid) {
+                        let flags = format!("* {seq} FETCH (FLAGS (\\Seen))");
+                        trace.send(flags.clone()).unwrap();
+                        emit(s, &format!("{flags}\r\n"));
+                        if matches!(probe, CursorProbe::MissingUid) {
+                            continue;
+                        }
+                        if matches!(probe, CursorProbe::WrongSequence) {
+                            let other = if seq == 1 { 2 } else { 1 };
+                            let unread = format!("* {other} FETCH (UID {})", other * stride);
+                            trace.send(unread.clone()).unwrap();
+                            emit(s, &format!("{unread}\r\n"));
+                            continue;
+                        }
+                        trace.send(format!("* {seq} FETCH (UID {uid})")).unwrap();
+                    }
                     emit(s, &format!("* {seq} FETCH (UID {uid})\r\n"));
                 } else {
                     let bytes = if header { header_for(uid) } else { MSG };
@@ -291,6 +315,7 @@ fn fixture_with_unsolicited_flags(stage: FetchStage, payload_uid: u32) -> Fixtur
             uid_validity: 7,
             legacy_text: false,
             unsolicited_flags: Some((stage, payload_uid)),
+            cursor_probe: None,
         },
     )
 }
@@ -388,6 +413,7 @@ fn imap_legacy_chinese_text_survives_cache_reopen_without_changing_attachments()
                 uid_validity: 7,
                 legacy_text: true,
                 unsolicited_flags: None,
+                cursor_probe: None,
             },
         )
     };
@@ -962,6 +988,81 @@ fn refresh_after_uidvalidity_change_does_not_search_retired_uids() {
     // UID 30 was reused, but its old cached body did not migrate to either generation.
     assert!(matches!(mail.cached_body(7, 30), Err("mail_cache_empty")));
     assert!(matches!(mail.cached_body(8, 30), Err("mail_cache_empty")));
+}
+
+#[test]
+fn imap_expunged_cursor_ignores_flags_before_the_sequence_uid() {
+    let temp = tempfile::tempdir().unwrap();
+    let database = temp.path().join("mail.sqlite3");
+    let mut db = Connection::open(&database).unwrap();
+    seed(&db);
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let fixture = fixture(false, false);
+    let first = mail.sync(&fixture.adapter, "synthetic", None, 1).unwrap();
+    fixture.thread.join().unwrap();
+    assert_eq!(first.messages[0].uid, 30);
+    let cursor = first.next.unwrap();
+    assert_eq!(cursor.before, 30);
+
+    for probe in [
+        CursorProbe::MissingUid,
+        CursorProbe::WrongSequence,
+        CursorProbe::LeadingFlags,
+    ] {
+        // Only the newest previously downloaded message was expunged.
+        let fixture = fixture_with_content(
+            false,
+            false,
+            2,
+            10,
+            false,
+            ImapContent {
+                headers: vec![],
+                uid_validity: 7,
+                legacy_text: false,
+                unsolicited_flags: None,
+                cursor_probe: Some(probe),
+            },
+        );
+        let page = mail.sync(&fixture.adapter, "synthetic", Some(cursor.clone()), 2);
+        fixture.thread.join().unwrap();
+        let wire: Vec<_> = fixture.rx.try_iter().collect();
+        eprintln!(
+            "{probe:?}: {wire:?}, outcome={:?}",
+            page.as_ref().map(|_| "success")
+        );
+        assert_eq!(wire[0], "UID FETCH 30 (UID)");
+        assert_eq!(wire[1], "FETCH 2 (UID)");
+        assert_eq!(wire[2], "* 2 FETCH (FLAGS (\\Seen))");
+        if matches!(probe, CursorProbe::LeadingFlags) {
+            assert_eq!(wire[3], "* 2 FETCH (UID 20)");
+            let page = page.unwrap();
+            let uids: Vec<_> = page.messages.iter().map(|message| message.uid).collect();
+            assert_eq!(uids, [20, 10]);
+            assert!(page.next.is_none());
+            assert_eq!(
+                wire[4],
+                "FETCH 1:2 (UID RFC822.SIZE BODY.PEEK[HEADER]<0.65536>)"
+            );
+            assert_eq!(wire.len(), 5);
+        } else {
+            if matches!(probe, CursorProbe::WrongSequence) {
+                assert_eq!(wire[3], "* 1 FETCH (UID 10)");
+            }
+            assert!(matches!(page, Err("mail_inbox_changed")));
+            assert!(wire.iter().all(|entry| !entry.contains("HEADER")));
+            assert_eq!(mail.cached_page(None, 3).unwrap().messages.len(), 1);
+        }
+    }
+
+    drop(mail);
+    drop(db);
+    let mut db = Connection::open(&database).unwrap();
+    let mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let saved = mail.cached_page(Some(cursor), 2).unwrap();
+    let uids: Vec<_> = saved.messages.iter().map(|message| message.uid).collect();
+    assert_eq!(uids, [20, 10]);
+    assert!(saved.next.is_none());
 }
 
 #[test]
