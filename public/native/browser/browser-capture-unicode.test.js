@@ -95,8 +95,12 @@ function captureFrames({ text = "Main body", selection = "Main selection", withI
   const nested = doc("", "about:srcdoc", withImage ? "" : "Nested document", "");
   if (withImage) {
     nested.defaultView = { performance: { timeOrigin: 45.5 } };
-    nested.images.push({ naturalWidth: 320, naturalHeight: 160, alt: "Embedded scan", currentSrc: new URL("/scan.png", origin).href,
-      getClientRects: () => [{}], closest: () => null, nodeType: 1 });
+    nested.body.childNodes.push({
+      nodeType: 1, localName: "img", matches: () => false, childNodes: [],
+      naturalWidth: 320, naturalHeight: 160, alt: "Embedded scan", complete: true,
+      currentSrc: new URL("/scan.png", origin).href, getRootNode: () => nested,
+      getClientRects: () => [{}], closest: () => null,
+    });
   }
   const sameOrigin = doc("Same origin", `${origin}/inner`, "😀 for frame", "😀", [iframe(nested, { title: "Inline title" })]);
   const hidden = doc("Invisible title", `${origin}/hidden`, "Hidden content", "");
@@ -309,6 +313,32 @@ test("captures composed links in order and excludes links absent from the render
     expect(text).toContain("https://example.org/component");
     expect(text).not.toContain("https://example.org/assigned");
   }
+});
+
+test("captures loaded composed image metadata without exposing unsupported pixel actions", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  document.body.innerHTML = '<img alt="Shared"><section id="host"><img slot="shown" alt="Slotted">' +
+    '<img alt="Unslotted"></section><img alt="Pending"><div id="closed"></div>';
+  const root = document.getElementById("host").attachShadow({ mode: "open" });
+  root.innerHTML = '<img alt="Shared"><img alt="Shared"><slot name="shown"><img alt="Fallback"></slot>' +
+    '<div aria-hidden="true"><img alt="Hidden"></div><div contenteditable><img alt="Editable"></div>';
+  document.getElementById("closed").attachShadow({ mode: "closed" }).innerHTML = '<img alt="Closed">';
+  for (const image of [...document.querySelectorAll("img"), ...root.querySelectorAll("img")]) {
+    Object.defineProperties(image, {
+      complete: { value: image.alt !== "Pending" },
+      currentSrc: { value: "https://example.org/picture.png" },
+      naturalWidth: { value: 20 },
+      naturalHeight: { value: 10 },
+    });
+  }
+  expect(captureSelection()).toMatchObject({
+    images: [
+      { alt: "Shared", width: 20, height: 10, url: "https://example.org/picture.png" },
+      { alt: "Shared", width: 20, height: 10, url: null },
+      { alt: "Slotted", width: 20, height: 10, url: "https://example.org/picture.png" },
+    ],
+    imagesTruncated: false,
+  });
 });
 
 test("keeps a paragraph selection on a page with many unrelated controls", () => {
