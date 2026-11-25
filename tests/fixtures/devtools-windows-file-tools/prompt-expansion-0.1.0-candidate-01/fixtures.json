@@ -1,0 +1,263 @@
+{
+  "generator": "scripts/verify_prompt_template_plugin.py",
+  "cases": [
+    {
+      "id": "original-variable-order-and-uniqueness",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "74eb6233ae49c8863046980f39e9236c2f9c44197626708d571a86e6c0e31475",
+      "ok": true
+    },
+    {
+      "id": "escapes-unicode-and-original-layout",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "86e1953536152358381e05143654a3cf7cb8a0321e44c4c83bcc125a7e42a3d0",
+      "ok": true
+    },
+    {
+      "id": "no-variables",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "ba4e59fbde0ae011b554a4a46491c4beaec38ec7fbd6c7c442512199d41a2629",
+      "ok": true
+    },
+    {
+      "id": "literal-braces",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "3f31b0c5ff73f98a96649b22630a572f51afd1ce0794d8344b5ddad778449647",
+      "ok": true
+    },
+    {
+      "id": "unchanged-original-escape-adjacency",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "250c4700e76817e06ee136176066b5b4491a5f5b0f982d9212d51d106c563331",
+      "ok": true
+    },
+    {
+      "id": "one-pass-values-are-not-reparsed",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "4a04f27f5278b12035cc38ce1017ed43fbb9e1e458ea4b61cfe2350258655f17",
+      "ok": true
+    },
+    {
+      "id": "unused-values-are-ignored",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "33db959f866c0deda59bb3b3c65f5c13a8588bdd72e84ad0c1478bf7ee9bf5ea",
+      "ok": true
+    },
+    {
+      "id": "missing-variable",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "ab73407a974b22ba4c85e8c302ad71bf0cfc6936b7ebe3936a626c00912365ce",
+      "ok": false
+    },
+    {
+      "id": "whitespace-is-not-a-value",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "256e5676e9b406328cadae60b592821f93469d3372dcc3ff48fee9960ec5b474",
+      "ok": false
+    },
+    {
+      "id": "nonempty-whitespace-is-preserved",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "c128784b3cae5e76811900bcc6ac44bc8d65f7dfe878b7e4464291dbc835d191",
+      "ok": true
+    },
+    {
+      "id": "empty-template",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "3f368e2555717b9e2664aba309837265f562cd4e7ed433d7ac1a1c327474897e",
+      "ok": false
+    },
+    {
+      "id": "disallowed-control",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "b3c0f490c6956b30bb458c912baab0cd2bff1fcf47840723105a8b0e894e9f8b",
+      "ok": false
+    },
+    {
+      "id": "open-without-close",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "27c22585f523bf967da22747d80c65674560d1abca08e0543db6f4152c1e671d",
+      "ok": false
+    },
+    {
+      "id": "close-without-open",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "c2b46c753e1687f3c088adb6079e7c63e39851e2c4cf7720e0e871e2dc47ead7",
+      "ok": false
+    },
+    {
+      "id": "forbid-empty-name",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "d7bd69fd73cfd129fb9c6e573093148c135f6485fee161fc8f4fa3c53eb95312",
+      "ok": false
+    },
+    {
+      "id": "forbid-space-in-name",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "a40b2e24146e57bf8b2bbc4c6d405832960f5bdb3c2ae8e598a979dd613b1209",
+      "ok": false
+    },
+    {
+      "id": "forbid-unicode-name",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "63d99d9c67083ee3795e64b94eeb87df6111b8db4a7dc919c075f0b8ed9202af",
+      "ok": false
+    },
+    {
+      "id": "forbid-name-leading-digit",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "b9c38e74a6db1c2272cb94adff079259c2a3c3d81cdf582694f443dafda2c37c",
+      "ok": false
+    },
+    {
+      "id": "exact-name-limit",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "a1659a55adb78ee1ba9f05fa2f803780710453690cf901c3c36b734392b5f937",
+      "ok": true
+    },
+    {
+      "id": "name-one-over",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "43e846bac86faed1ad47cba50ce7dad95d3e4971e2ae0a4d51fc8d5b15b99375",
+      "ok": false
+    },
+    {
+      "id": "twelve-distinct-names-sorted",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "3e44630427938bc1f2f22eeab4c8612d52db8f3247c8c0b64e06e1d9721dbd26",
+      "ok": true
+    },
+    {
+      "id": "thirteenth-name-rejected",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "efbde927f08ca32d79ce255353207e931a93241661ae92ca8a3ded274b3273c2",
+      "ok": false
+    },
+    {
+      "id": "thirteenth-binding-rejected",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "c96b1527af071fea6d6c0a0c9eaa12427e40b5ee0066eb2d036a3ced52fd99e1",
+      "ok": false
+    },
+    {
+      "id": "numeric-binding-rejected",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "71c0739c7447f092db924272a22e4a83e90f94938db1e57f9c71ae8f61e0f6f9",
+      "ok": false
+    },
+    {
+      "id": "bindings-object-required",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "3b4f9ab192a720aaf609ce5a4324ff343fbb85494b79ed3f329b39c161bcd1d6",
+      "ok": false
+    },
+    {
+      "id": "inspect-has-no-binding-field",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "a4b0266c759212c6a375c2d7ad0613306438c8a2373e53dbcdbac3945d31f6a8",
+      "ok": false
+    },
+    {
+      "id": "reject-unknown-input",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "45a66d6c8cbfe3bb3d44cc4616b554739092e2d4943ced1bfc2cc0029a35bf66",
+      "ok": false
+    },
+    {
+      "id": "sixteen-kib-unicode",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "7f7df81f40569a27d269ab6e35e3ef7688426324783fb12d011ed6c4f2b9c306",
+      "ok": true
+    },
+    {
+      "id": "extra-template-byte",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "133e1a4165732c4b5bf545c5c654a8304260c9be0a96d55386b6bdf9bf563f6e",
+      "ok": false
+    },
+    {
+      "id": "dense-open-literals-inspect",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "0e983b27fc74b126dc012b898de149bfd4ce2a400c50e5919a011a075debf919",
+      "ok": true
+    },
+    {
+      "id": "dense-open-literals-expand",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "0e983b27fc74b126dc012b898de149bfd4ce2a400c50e5919a011a075debf919",
+      "ok": true
+    },
+    {
+      "id": "dense-close-literals-inspect",
+      "capabilityId": "devtools.prompt.variables",
+      "inputSha256": "56bbd625840c810e1638142fbf33bbf301dad2e7a2837d00be33e7b39416f108",
+      "ok": true
+    },
+    {
+      "id": "dense-close-literals-expand",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "56bbd625840c810e1638142fbf33bbf301dad2e7a2837d00be33e7b39416f108",
+      "ok": true
+    },
+    {
+      "id": "dense-one-variable-repeated",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "7653c622aa65f57ed71ce5b99249fd3c399dff03225fd72dd27a5b39ab29b575",
+      "ok": true
+    },
+    {
+      "id": "dense-one-byte-separators",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "f643a72349e4544bbe842e00335da125c0b4aaaf4a8720566c1da57f7c138b5e",
+      "ok": true
+    },
+    {
+      "id": "one-byte-separated-open-literals",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "abd5aae8964dd91a80d8f0d51ac4ba54b71526acb214db3ce44eb3440a342850",
+      "ok": true
+    },
+    {
+      "id": "one-byte-separated-close-literals",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "1e89373ea2ce0280f6c3d4e1289b2284ffac99fa4aa097898cba49ae592fed48",
+      "ok": true
+    },
+    {
+      "id": "max-native-expansion-prefix-only",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "ac9f67cd08fca379444cef950844d51baa6e172f83e8d4ea0977a3118d877a7e",
+      "ok": true
+    },
+    {
+      "id": "one-byte-expansion-over-max",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "9cfc577a773f3ff3bdcea2f0f2eb7dd896b47e62cea0b556f8e5de512af6aaf7",
+      "ok": false
+    },
+    {
+      "id": "cut-at-whole-utf8-character",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "66b9b864560d156380a63afbdbb808ba0f960d0b32d448da8e889f1d143ecc8b",
+      "ok": true
+    },
+    {
+      "id": "escape-heavy-result-stays-within-wire-limit",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "b6085786053f567b5d7753125e45d6f2aa1ed631fb03311ff2498694f05bb95a",
+      "ok": true
+    },
+    {
+      "id": "exact-wire-request-limit",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "69a43a1ce15e565748e11c7cd04365d09e2510f8ebc7db0f2acd6b1d7c07ce16",
+      "ok": true
+    },
+    {
+      "id": "wire-request-one-byte-over",
+      "capabilityId": "devtools.prompt.expand",
+      "inputSha256": "3aa7906494f716dfaa4dc4cdf44e5a4f7843213c6873fadb8102f8b01392e338",
+      "ok": false
+    }
+  ]
+}

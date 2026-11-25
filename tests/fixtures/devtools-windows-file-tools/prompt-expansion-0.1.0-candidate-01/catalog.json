@@ -1,0 +1,22 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.prompt-expansion",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "prompt-library",
+      "capabilityId": "devtools.prompt.variables",
+      "title": "提示词变量检查",
+      "status": "candidate",
+      "scope": "检查本机模板正文中最多 12 个不同变量，并识别四花括号字面。模板最多 16 KiB。"
+    },
+    {
+      "sourceToolId": "prompt-library",
+      "capabilityId": "devtools.prompt.expand",
+      "title": "提示词模板展开",
+      "status": "candidate",
+      "scope": "填写文本变量并离线展开一次。完整展开最多 128 KiB，工具中心显示最多 16 KiB 的有界预览。"
+    }
+  ]
+}
