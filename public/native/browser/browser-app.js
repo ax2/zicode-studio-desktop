@@ -1231,11 +1231,16 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     });
   }
   async function openTabSearch(options, fromPage = false) {
-    if (!visible || tabSearch) return;
+    if (surfaceUnavailable() || tabSearch) return;
     const source = active;
+    const generation = panelGeneration;
+    const current = () => !surfaceUnavailable() && panelGeneration === generation && active === source;
     const previousFocus = document.activeElement;
-    await hide(true);
-    if (!visible) return;
+    await hide(true, current);
+    if (!current()) {
+      await syncSurface();
+      return;
+    }
     tabSearch = showBrowserTabSearch({
       tabs: [...tabs], active, getIcon: id => favicons.get(id),
       onSelect: id => enqueue(async () => {

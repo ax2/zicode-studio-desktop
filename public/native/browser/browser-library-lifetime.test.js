@@ -186,3 +186,31 @@ it.each(["Browsing history", "Downloads"])("drops a pending %s open before the o
   expect(queryByRole(document.body, "dialog", { name: t(name) })).toBeNull();
   expect(readPanel).not.toHaveBeenCalled();
 });
+
+it.each(["menu", "page shortcut"])("drops a pending tab search from the %s after leaving and returning", async trigger => {
+  let reply;
+  const takePreview = vi.fn()
+    .mockImplementationOnce(() => new Promise(resolve => { reply = resolve; }))
+    .mockResolvedValue("data:image/jpeg;base64,AA==");
+  const h = await mount({ takePreview });
+  const search = () => trigger === "menu" ? h.open("Search tabs") : h.fromPage("searchTabs");
+  search();
+  await waitFor(() => expect(takePreview).toHaveBeenCalledOnce());
+  await h.leave();
+  await h.returnToBrowser();
+  const address = getByRole(document.body, "textbox", { name: t("Web address") });
+  fireEvent.input(address, { target: { value: "unsent draft" } });
+  address.focus();
+  reply("data:image/jpeg;base64,AA==");
+  await app.finishWindowWrites();
+  expect(queryByRole(document.body, "dialog", { name: t("Search tabs") })).toBeNull();
+  expect(document.activeElement).toBe(address);
+  expect(address.value).toBe("unsent draft");
+  expect(h.invoke).not.toHaveBeenCalledWith("browser_control", { request: expect.objectContaining({ kind: "focusPage" }) });
+
+  search();
+  const fresh = await waitFor(() => panel("Search tabs"));
+  expect(document.activeElement).toBe(getByRole(fresh, "searchbox"));
+  getByRole(fresh, "button", { name: t("Close") }).click();
+  await waitFor(() => expect(fresh.isConnected).toBe(false));
+});
