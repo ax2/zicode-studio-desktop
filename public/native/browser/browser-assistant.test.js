@@ -732,6 +732,60 @@ function comparisonGateway(request = () => ({ ok: true, data: compareCompletion 
 }
 const modelRequests = modelGateway => modelGateway.call.mock.calls.filter(([name]) => name === "browser_model_request");
 
+it.each([
+  { kind: "summary", textTruncated: false, selectionOnly: false, selectionTruncated: true },
+  { kind: "analysis", textTruncated: true, selectionOnly: false, selectionTruncated: false },
+  { kind: "summary", textTruncated: true, selectionOnly: true, selectionTruncated: false },
+  { kind: "analysis", textTruncated: true, selectionOnly: true, selectionTruncated: true },
+])("keeps the reviewed single-page scope in both destinations (%j)", async flags => {
+  const { kind, textTruncated, selectionOnly, selectionTruncated } = flags;
+  const modelGateway = comparisonGateway(() => ({ ok: true, data: { text: "Fixture answer", model: comparisonModel } }));
+  const writes = new Map();
+  vi.stubGlobal("fetch", vi.fn(async (url, options) => {
+    if (url.pathname === "/v2/notes") return Response.json({ snapshot: { notebooks: [{ id: "book", title: "Research" }] } });
+    const draft = JSON.parse(options.body);
+    writes.set(url.pathname, draft);
+    if (url.pathname === "/v2/artifacts/create") return Response.json({ artifact: { id: "report" } });
+    if (url.pathname === "/v2/notes/create") return Response.json({ note: { ...draft, id: "note" } });
+    throw Error("Unexpected request");
+  }));
+  const capturePage = source => ({ ...source, page: {
+    ...source.page, text: "Unstored original body", selection: "Unstored original selection",
+    textTruncated, selectionTruncated, truncated: textTruncated || selectionTruncated,
+  } });
+  const { host } = await openControlledAssistant({ target: browserComparisonSession, modelGateway, capturePage, handoff: vi.fn() });
+  if (selectionOnly) getByRole(host, "checkbox", { name: "Use only selected text for AI and Chat drafts" }).click();
+  if (kind === "analysis") {
+    const question = getByRole(host, "textbox", { name: "Question about this page" });
+    question.value = "How does it work?";
+    question.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  const share = getByRole(host, "button", { name: `Send ${selectionOnly ? "selection" : "page"} and ${kind === "analysis" ? "ask" : "summarize"}` });
+  await waitFor(() => expect(share.disabled).toBe(false));
+  expect(modelRequests(modelGateway)).toHaveLength(0);
+  share.click();
+  await waitFor(() => getByRole(host, "button", { name: "Save analysis to Notes" }));
+  getByRole(host, "button", { name: "Save analysis to Artifacts" }).click();
+  await waitFor(() => getByRole(host, "button", { name: "Open saved artifact" }));
+  getByRole(host, "button", { name: "Save analysis to Notes" }).click();
+  const save = getByRole(host, "button", { name: "Save analysis to notebook" });
+  await waitFor(() => expect(save.disabled).toBe(false));
+  save.click();
+  await waitFor(() => getByRole(host, "button", { name: "Open saved note" }));
+  const shortenedBody = !selectionOnly && textTruncated;
+  for (const saved of writes.values()) {
+    expect(saved.content.includes("Page content was shortened")).toBe(shortenedBody);
+    expect(saved.content.includes("Selected text was shortened")).toBe(selectionOnly && selectionTruncated);
+    expect(saved.content).toContain("Fixture answer");
+    expect(JSON.stringify(saved)).not.toContain("Unstored original");
+  }
+  expect(writes.get("/v2/artifacts/create").provenance.source).toEqual({
+    url: capture.page.url, title: capture.page.title, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision,
+    ...(shortenedBody ? { textTruncated: true } : {}),
+  });
+  expect(modelRequests(modelGateway)).toHaveLength(1);
+});
+
 it("sends only the reviewed comparison to the configured browser model and keeps its numbered sources", async () => {
   const handoff = vi.fn(), modelGateway = comparisonGateway();
   const writes = [];

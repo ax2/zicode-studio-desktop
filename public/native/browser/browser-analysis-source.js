@@ -23,7 +23,10 @@ export function browserAnalysisPageSource(capture, analysis) {
   if (!pageUrl || !browserAnalysisLabel(analysis?.kind) || typeof analysis?.text !== "string" || !analysis.text.trim()) {
     throw invalid();
   }
-  const base = { url, title, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision };
+  const textTruncated = (analysis.kind === "summary" || analysis.kind === "analysis") &&
+    !analysis.selectionOnly && capture.page.textTruncated === true;
+  const base = { url, title, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision,
+    ...(textTruncated && { textTruncated: true }) };
   if (analysis.kind !== "image") return base;
 
   const image = analysis.image;
