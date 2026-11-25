@@ -1,0 +1,234 @@
+{
+  "sourceRevision": "5abfc8e78cdee8c1cd576614d4fd04e7c2fe56e9",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T09:15:18.346165+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "e8064564816b8d3498fc92fbb4d86510850117533dac053c86a71db3f917f6da",
+  "workerVerification": {
+    "passed": 31,
+    "wasmSha256": "e8064564816b8d3498fc92fbb4d86510850117533dac053c86a71db3f917f6da",
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "workerProfile": "compute.wasi.v1",
+    "cases": [
+      {
+        "case": "leap-difference",
+        "capabilityId": "devtools.date.difference",
+        "inputSha256": "8c11ebd0bd71a62a519dd6e8be5e0f688e819e5e34977b76e33e7d87a924a763",
+        "ok": true,
+        "resultSha256": "5bc712cc20f8d3606b0af8fd45e0a1dbaebcc26494dafc06ae24d3ab885c9d4a"
+      },
+      {
+        "case": "signed-difference",
+        "capabilityId": "devtools.date.difference",
+        "inputSha256": "55447ad527e689865f88ee4671d6bd046aa10c1441963d78187b88c8af309d67",
+        "ok": true,
+        "resultSha256": "7199bc8d39cd7a075b76cab7a155e119eafd5224e28bb864d33cae1e05189288"
+      },
+      {
+        "case": "positive-entire-range",
+        "capabilityId": "devtools.date.difference",
+        "inputSha256": "3e941877a54f11f2ef02bf089211e478fb18e6278627985a08a20078161dafa6",
+        "ok": true,
+        "resultSha256": "58414e97b9d0428499bcb052116765080414b2fb45d016b1b67a97bab1c4f2ed"
+      },
+      {
+        "case": "negative-entire-range",
+        "capabilityId": "devtools.date.difference",
+        "inputSha256": "f0130063cc568807a8fc572f8c8123128eb3fc29411963fa29309bf6dff146a5",
+        "ok": true,
+        "resultSha256": "249c453a9c723f421300ee0483f90dfdb02b9028918549decbe69d102be633d8"
+      },
+      {
+        "case": "invalid-century-date",
+        "capabilityId": "devtools.date.difference",
+        "inputSha256": "787ddc80cd96da3532e34e440beeeb5d14ed391b8e4a93d1cff31044e6ba509d",
+        "ok": false,
+        "resultSha256": "ecd52ad62d4468f33ac1f02644f3347848b69bde16bee166d057b262fe9e3e2e"
+      },
+      {
+        "case": "year-zero-rejected",
+        "capabilityId": "devtools.date.difference",
+        "inputSha256": "0c9816bf907912be0611d8ddec4eed30a6e4ef0247fb5049a78390ca2b3f05a7",
+        "ok": false,
+        "resultSha256": "e8f8aefafe189d4305249c2fab35914ddb70edfd532e9db298605c60e40457cf"
+      },
+      {
+        "case": "invalid-unpadded-date",
+        "capabilityId": "devtools.date.difference",
+        "inputSha256": "34f476cdbeec742ef8db22408e070fa5d01b340d875b6932aef824505cd7e001",
+        "ok": false,
+        "resultSha256": "ac5d571d48bcdc807f66b591e86466820b8efafd69c01f885e208ba358104e47"
+      },
+      {
+        "case": "integer-offset-day",
+        "capabilityId": "devtools.date.offset",
+        "inputSha256": "bf886d30c57b9d2f4ee7b1f4cb6c6470704d3b87325802d38e7ea235bfee65ca",
+        "ok": true,
+        "resultSha256": "93dac7f28185370cff8a9bcd5953902943fc2db7d882d36b6287bf70ab054407"
+      },
+      {
+        "case": "end-of-month-explicit-error",
+        "capabilityId": "devtools.date.offset",
+        "inputSha256": "c22dc0d102ce1b417957006a883e6c101c49db6c4ff65d65cb40d681cbbb4305",
+        "ok": false,
+        "resultSha256": "596d5b643a56bc71b7a399c98e150f60e9a2f140fea762b3f460e217c0c324af"
+      },
+      {
+        "case": "month-end-clamp",
+        "capabilityId": "devtools.date.offset",
+        "inputSha256": "a7ca6d5f86c7546619896dc40316acb3f245654cde417457d3922392f4e227d6",
+        "ok": true,
+        "resultSha256": "ab2777a073e9dd7930cd39f341ea2258c434f21383a38bc789a35edb4a215d74"
+      },
+      {
+        "case": "reverse-month-end-clamp",
+        "capabilityId": "devtools.date.offset",
+        "inputSha256": "35b1d48e55cff51f610d631daa4e279d05768e1dd9b09ff960565641d8271088",
+        "ok": true,
+        "resultSha256": "ab2777a073e9dd7930cd39f341ea2258c434f21383a38bc789a35edb4a215d74"
+      },
+      {
+        "case": "leap-year-clamp",
+        "capabilityId": "devtools.date.offset",
+        "inputSha256": "0ee360e968001278bc3e7c781ec28eb5f6646b02d28b58bffc5ca66fd63127f6",
+        "ok": true,
+        "resultSha256": "4e118b09dddadccb1036e8aa3cc4bc972730fc8d2e5d9e3ab2d2d9c55a53e255"
+      },
+      {
+        "case": "year-rollover",
+        "capabilityId": "devtools.date.offset",
+        "inputSha256": "9973174485ba454af0b44e605d07a1790659520204e9b4863537012ffeceaf5c",
+        "ok": true,
+        "resultSha256": "8cc18ddb5a905573510f838bb767e7c920c95011e074a6739902f756f5c75304"
+      },
+      {
+        "case": "upper-date-bound",
+        "capabilityId": "devtools.date.offset",
+        "inputSha256": "d390484a6eb630be1adbcbfcc68b27a113f1978d042c6e818ba2893766ad9de7",
+        "ok": false,
+        "resultSha256": "0213823fe4f4c7d35402853abb8fcc00831f4a26b780c0ce99007ca49bd6f881"
+      },
+      {
+        "case": "lower-date-bound",
+        "capabilityId": "devtools.date.offset",
+        "inputSha256": "ef423a594a7aa6a829b781b734b597246783bf56c4b8602d0c11bec6c0053de2",
+        "ok": false,
+        "resultSha256": "0213823fe4f4c7d35402853abb8fcc00831f4a26b780c0ce99007ca49bd6f881"
+      },
+      {
+        "case": "amount-budget",
+        "capabilityId": "devtools.date.offset",
+        "inputSha256": "5cf35cdd373d58c8ac89795e1749a29775cfd94f9d2e885fbef486c452bb673e",
+        "ok": false,
+        "resultSha256": "0b58a21c02a4eff07433e9ae26c92652ad1a1279605aeaa91574a9cd6b7bb953"
+      },
+      {
+        "case": "noninteger-amount",
+        "capabilityId": "devtools.date.offset",
+        "inputSha256": "cccf7d08e8b105099eeca13aa11cb9e29c0adf07bd16390ea974475e4a2b5696",
+        "ok": false,
+        "resultSha256": "b72d83a4a3c52f412ca86c7a74933c6fdd2587418c220a279f4be9362aed0530"
+      },
+      {
+        "case": "weekday-default-excludes-start",
+        "capabilityId": "devtools.date.workday_count",
+        "inputSha256": "eeea20e6104861896aced5b6043173e3238335d981c06e1e2f61e0363799dca2",
+        "ok": true,
+        "resultSha256": "a85d9224da22428ef64d044e6c75385ad347c848dcb3e2ac8819a90bb0a28d52"
+      },
+      {
+        "case": "weekday-include-start",
+        "capabilityId": "devtools.date.workday_count",
+        "inputSha256": "9e9238d2ae25da24796fcd6d0c14177ebecdc9cc7d778cdfcd7ae8235903add2",
+        "ok": true,
+        "resultSha256": "baa09ce0851c303da62e9602d812d9f333531802713e602e5635af3b4adbab20"
+      },
+      {
+        "case": "same-weekend-count",
+        "capabilityId": "devtools.date.workday_count",
+        "inputSha256": "5091919cd694b0f2b52032d5285f493bb7bd94776ad4527d32fff39be9bc84ee",
+        "ok": true,
+        "resultSha256": "06f267c8a3f60b5c17739d7b39ffa3617be341f022f0b408706dc18ae090664a"
+      },
+      {
+        "case": "reversed-weekday-count-rejected",
+        "capabilityId": "devtools.date.workday_count",
+        "inputSha256": "f0130063cc568807a8fc572f8c8123128eb3fc29411963fa29309bf6dff146a5",
+        "ok": false,
+        "resultSha256": "6515f2a9ea4fe73bffb4c33cbd1cba2311f17cf590d771a9d253ef2b65c7e9a9"
+      },
+      {
+        "case": "full-span-weekday-count",
+        "capabilityId": "devtools.date.workday_count",
+        "inputSha256": "53cc2f374e602575f147baa53c4f63a19a14890245042d4a1ee093c868fe5296",
+        "ok": true,
+        "resultSha256": "ef867b90efcc2d325eba03da7931ecaa29458dca3f4c7d0c50e6b1f5f353a678"
+      },
+      {
+        "case": "offset-across-weekend",
+        "capabilityId": "devtools.date.workday_offset",
+        "inputSha256": "545416fb34cfa39d034ce5d74de8c5e52edf24763a9d7c7a0e6c9ce8e6109d88",
+        "ok": true,
+        "resultSha256": "af9e0c94a80de7a3b97a47628d2a20d211182e2c37261731357cf5c016ca63b6"
+      },
+      {
+        "case": "offset-back-across-weekend",
+        "capabilityId": "devtools.date.workday_offset",
+        "inputSha256": "162a91343e19a9ac51ddff89f7cdf3b9a5f1d86550e12daee776a43a9a754e4a",
+        "ok": true,
+        "resultSha256": "dac0b40d73b66aceb645a7a80601c1316225341c663ae46cfc45553cffea2232"
+      },
+      {
+        "case": "offset-zero-keeps-weekend",
+        "capabilityId": "devtools.date.workday_offset",
+        "inputSha256": "69c2041b939d183d0ebc7f1bfad1f8d6f8fe029e71fc79d4fbcfacb271c9f8db",
+        "ok": true,
+        "resultSha256": "90c7e0417a561002d66dcfed36375cd68fde5ff2698571af03ae48ac9d5c2b0a"
+      },
+      {
+        "case": "full-span-forward-weekdays",
+        "capabilityId": "devtools.date.workday_offset",
+        "inputSha256": "0b1043d460c949a1dc68ddd64777a3d8b18f930068cabc36634ccb5d4f1a8440",
+        "ok": true,
+        "resultSha256": "de051f5e9640e54cee30d82e8a836546353742d3739999ea90d184f721ace0cd"
+      },
+      {
+        "case": "full-span-reverse-weekdays",
+        "capabilityId": "devtools.date.workday_offset",
+        "inputSha256": "df45ad29adb65c247719e9f1c454c6898645e98936b103cd0229137d0456bb45",
+        "ok": true,
+        "resultSha256": "4da413dd927bad79f56a6e2b0d5dff2cdab5ccd438a4a4a7deee32de26700574"
+      },
+      {
+        "case": "one-weekday-beyond-range",
+        "capabilityId": "devtools.date.workday_offset",
+        "inputSha256": "8511d5a5919a54b5a5bebacde4b1e2d37df126c7188dee9f58fcf7c5fc369a4c",
+        "ok": false,
+        "resultSha256": "859f7abcac8c5f8e478e749b9d70e6531a209a2a3ea6051c91c7c12e668b936a"
+      },
+      {
+        "case": "extra-argument-rejected",
+        "capabilityId": "devtools.date.difference",
+        "inputSha256": "e40c6ea62ff04cd879429e9de42a4443547be28d4c41f47c359db35402355673",
+        "ok": false,
+        "resultSha256": "b72d83a4a3c52f412ca86c7a74933c6fdd2587418c220a279f4be9362aed0530"
+      },
+      {
+        "case": "request-size-budget",
+        "capabilityId": "devtools.date.difference",
+        "inputSha256": "d826ab9b68d674cac7bd07c6202d111d6f71eda899d86c8ee24aa3e4fa825009",
+        "ok": false,
+        "resultSha256": "fd0db75261d216401d12f61536933009da0df5dff953bf49351ae38b9a43b42e"
+      },
+      {
+        "case": "unknown-operation",
+        "capabilityId": "devtools.date.undefined",
+        "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "ok": false,
+        "resultSha256": "30f9b756a0d520dea210fff62a57e0261fdc51a9242bbbf5eeb1c16bbd2de3eb"
+      }
+    ]
+  }
+}

@@ -1,0 +1,581 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.date-calculator",
+  "name": "ZiDevTools Civil Date Calculator",
+  "displayName": "日期与工作日",
+  "description": "离线计算公历日期差、日期偏移、工作日计数与偏移。工作日按周一至周五计算。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "compute.wasi.v1": "=1.0.0-rc.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.date.difference",
+    "onCapability:devtools.date.offset",
+    "onCapability:devtools.date.workday_count",
+    "onCapability:devtools.date.workday_offset"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.date.difference",
+        "title": "日期差",
+        "description": "计算结束日期减去开始日期的带符号天数。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "string",
+              "maxLength": 10,
+              "minLength": 10,
+              "title": "开始日期",
+              "description": "格式 YYYY-MM-DD，公历 0001–9999 年。"
+            },
+            "end": {
+              "type": "string",
+              "maxLength": 10,
+              "minLength": 10,
+              "title": "结束日期",
+              "description": "格式 YYYY-MM-DD。"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "days": {
+                      "type": "integer",
+                      "minimum": -4000000,
+                      "maximum": 4000000
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 80
+                    }
+                  },
+                  "required": [
+                    "days",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 2048,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "相差天数",
+            "Date difference"
+          ],
+          "description": "计算结束日期减去开始日期的带符号天数。"
+        }
+      },
+      {
+        "id": "devtools.date.offset",
+        "title": "日期加减",
+        "description": "按天、月或年偏移公历日期。可显式选择截到目标月末。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "string",
+              "maxLength": 10,
+              "minLength": 10,
+              "title": "开始日期",
+              "description": "格式 YYYY-MM-DD，公历 0001–9999 年。"
+            },
+            "amount": {
+              "type": "integer",
+              "minimum": -4000000,
+              "maximum": 4000000,
+              "title": "偏移量",
+              "description": "输入整数，负数表示向前，正数表示向后。"
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "days",
+                "months",
+                "years"
+              ],
+              "title": "单位",
+              "description": "days 天，months 月，years 年。"
+            },
+            "clamp": {
+              "type": "boolean",
+              "title": "截到月末"
+            }
+          },
+          "required": [
+            "start",
+            "amount",
+            "unit"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string",
+                      "maxLength": 10
+                    },
+                    "weekday": {
+                      "type": "string",
+                      "maxLength": 12
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 80
+                    }
+                  },
+                  "required": [
+                    "date",
+                    "weekday",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 2048,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "月末日期",
+            "Date offset"
+          ],
+          "description": "按天、月或年偏移公历日期。可显式选择截到目标月末。"
+        }
+      },
+      {
+        "id": "devtools.date.workday_count",
+        "title": "工作日计数",
+        "description": "按周一至周五计算天数，结束日包含在内。可选择包含开始日。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "string",
+              "maxLength": 10,
+              "minLength": 10,
+              "title": "开始日期",
+              "description": "格式 YYYY-MM-DD，公历 0001–9999 年。"
+            },
+            "end": {
+              "type": "string",
+              "maxLength": 10,
+              "minLength": 10,
+              "title": "结束日期",
+              "description": "格式 YYYY-MM-DD。"
+            },
+            "includeStart": {
+              "type": "boolean",
+              "title": "包含开始日"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "days": {
+                      "type": "integer",
+                      "minimum": -4000000,
+                      "maximum": 4000000
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 80
+                    },
+                    "weekdaysOnly": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "days",
+                    "text",
+                    "weekdaysOnly"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 2048,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "工作日天数",
+            "Count weekdays"
+          ],
+          "description": "按周一至周五计算天数，结束日包含在内。可选择包含开始日。"
+        }
+      },
+      {
+        "id": "devtools.date.workday_offset",
+        "title": "工作日加减",
+        "description": "按周一至周五正向或反向偏移。输入 0 保持起始日。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "string",
+              "maxLength": 10,
+              "minLength": 10,
+              "title": "开始日期",
+              "description": "格式 YYYY-MM-DD，公历 0001–9999 年。"
+            },
+            "amount": {
+              "type": "integer",
+              "minimum": -4000000,
+              "maximum": 4000000,
+              "title": "偏移量",
+              "description": "输入整数，负数表示向前，正数表示向后。"
+            }
+          },
+          "required": [
+            "start",
+            "amount"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string",
+                      "maxLength": 10
+                    },
+                    "weekday": {
+                      "type": "string",
+                      "maxLength": 12
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 80
+                    },
+                    "weekdaysOnly": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "date",
+                    "weekday",
+                    "text",
+                    "weekdaysOnly"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 2048,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "工作日偏移",
+            "Shift weekdays"
+          ],
+          "description": "按周一至周五正向或反向偏移。输入 0 保持起始日。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [],
+    "optional": []
+  }
+}
