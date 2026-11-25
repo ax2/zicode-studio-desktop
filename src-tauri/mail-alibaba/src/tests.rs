@@ -55,6 +55,30 @@ fn fixture_with_uid_validity(
     headers: Vec<(u32, String)>,
     uid_validity: u32,
 ) -> Fixture {
+    fixture_with_content(
+        smtp,
+        drop_final,
+        count,
+        stride,
+        reject_search,
+        ImapContent { headers, uid_validity, legacy_text: false },
+    )
+}
+
+struct ImapContent {
+    headers: Vec<(u32, String)>,
+    uid_validity: u32,
+    legacy_text: bool,
+}
+
+fn fixture_with_content(
+    smtp: bool,
+    drop_final: bool,
+    count: u32,
+    stride: u32,
+    reject_search: bool,
+    content: ImapContent,
+) -> Fixture {
     let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
     ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
@@ -107,7 +131,7 @@ fn fixture_with_uid_validity(
         if smtp {
             serve_smtp(&mut s, drop_final, tx, &recorded_smtp)
         } else {
-            serve_imap(&mut s, count, stride, reject_search, headers, uid_validity, tx)
+            serve_imap(&mut s, count, stride, reject_search, content, tx)
         }
     });
     Fixture {
@@ -134,10 +158,10 @@ fn serve_imap(
     count: u32,
     stride: u32,
     reject_search: bool,
-    headers: Vec<(u32, String)>,
-    uid_validity: u32,
+    content: ImapContent,
     trace: std::sync::mpsc::Sender<String>,
 ) {
+    let ImapContent { headers, uid_validity, legacy_text } = content;
     let default_header = &MSG[..MSG.find("\r\n\r\n").unwrap() + 4];
     let header_for = |uid| {
         headers
@@ -192,15 +216,22 @@ fn serve_imap(
             let a = a.parse::<u32>().unwrap();
             let b = b.parse::<u32>().unwrap();
             assert!(b >= a && b - a < 40, "page must be bounded");
+            // Known GB18030 and Big5 fixture bytes encoded as MIME base64.
+            let (plain_charset, plain, html_charset, html_transfer, html) = if legacy_text {
+                ("GB18030", "1f3OxJU4xDA=", "Big5", "BASE64", "PHA+wWPF6aW/pOU8L3A+")
+            } else {
+                let plain = if archive { "T3RoZXI=" } else { "5L2g5aW9" };
+                ("UTF-8", plain, "UTF-8", "8BIT", "<p>HTML fixture</p>")
+            };
             if upper.contains("BODYSTRUCTURE") {
                 let header = header_for(a);
-                let tree=format!(r#"((("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "BASE64" 8 1)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "8BIT" 19 1) "ALTERNATIVE")("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BASE64" 8 NIL ("ATTACHMENT" ("FILENAME" "proof.bin")))("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BINARY" {} NIL ("ATTACHMENT" ("FILENAME" "large.bin"))) "MIXED")"#,LARGE_ATTACHMENT);
+                let tree=format!(r#"((("TEXT" "PLAIN" ("CHARSET" "{plain_charset}") NIL NIL "BASE64" {} 1)("TEXT" "HTML" ("CHARSET" "{html_charset}") NIL NIL "{html_transfer}" {} 1) "ALTERNATIVE")("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BASE64" 8 NIL ("ATTACHMENT" ("FILENAME" "proof.bin")))("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BINARY" {} NIL ("ATTACHMENT" ("FILENAME" "large.bin"))) "MIXED")"#,plain.len(),html.len(),LARGE_ATTACHMENT);
                 emit(s,&format!("* 3 FETCH (UID {a} RFC822.SIZE {} BODYSTRUCTURE {tree} BODY[HEADER]<0> {{{}}}\r\n{header})\r\n{tag} OK fetched\r\n",MSG.len()+LARGE_ATTACHMENT,header.len()));
                 continue;
             }
             if upper.starts_with("UID FETCH") && upper.contains("BODY.PEEK[") && !upper.contains("[HEADER]") {
                 let section=upper.split("BODY.PEEK[").nth(1).unwrap().split(']').next().unwrap();
-                let data=match section {"1.1"=>if archive {"T3RoZXI="} else {"5L2g5aW9"}.to_owned(),"1.2"=>"<p>HTML fixture</p>".to_owned(),"2"=>if archive {"QkJCQg=="} else {"AP8BAg=="}.to_owned(),"3"=>"Z".repeat(LARGE_ATTACHMENT),other=>panic!("Unexpected payload fetch {other}")};
+                let data=match section {"1.1"=>plain.to_owned(),"1.2"=>html.to_owned(),"2"=>if archive {"QkJCQg=="} else {"AP8BAg=="}.to_owned(),"3"=>"Z".repeat(LARGE_ATTACHMENT),other=>panic!("Unexpected payload fetch {other}")};
                 emit(s,&format!("* 3 FETCH (UID {a} BODY[{section}]<0> {{{}}}\r\n{data})\r\n{tag} OK fetched\r\n",data.len()));
                 continue;
             }
@@ -227,6 +258,81 @@ fn serve_imap(
             panic!("Unexpected synthetic IMAP command")
         }
     }
+}
+
+#[test]
+fn imap_legacy_chinese_text_survives_cache_reopen_without_changing_attachments() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("legacy-mail.sqlite3");
+    let server = || {
+        fixture_with_content(
+            false,
+            false,
+            3,
+            10,
+            false,
+            ImapContent {
+                headers: vec![(
+                    30,
+                    concat!(
+                        "From: =?GBK?B?ssbO8c3FttM=?= <finance@example.test>\r\n",
+                        "Reply-To: reply@example.test\r\n",
+                        "Subject: =?GB18030?B?ssbO8bGose0=?=\r\n",
+                        "MIME-Version: 1.0\r\n\r\n",
+                    )
+                    .into(),
+                )],
+                uid_validity: 7,
+                legacy_text: true,
+            },
+        )
+    };
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+        let page = server();
+        let online = mailbox.sync(&page.adapter, "synthetic", None, 3).unwrap();
+        page.thread.join().unwrap();
+        assert_eq!(online.messages[1].subject, "测试");
+        let reader = server();
+        mailbox.read(&reader.adapter, "synthetic", 7, 30).unwrap();
+        reader.thread.join().unwrap();
+    }
+    let mut db = Connection::open(&path).unwrap();
+    let mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+    let list = mailbox.cached_page(None, 3).unwrap();
+    let letter = mailbox.cached_body(7, 30).unwrap();
+    assert_eq!(
+        (
+            list.messages[0].subject.as_str(),
+            list.messages[0].sender_name.as_deref(),
+            letter.summary.subject.as_str(),
+            letter.text.as_str(),
+            letter.html.as_deref(),
+        ),
+        (
+            "财务报表",
+            Some("财务团队"),
+            "财务报表",
+            "正文𢀖",
+            Some("<p>繁體正文</p>")
+        ),
+    );
+    assert_eq!(letter.summary.reply_to, "reply@example.test");
+    assert_eq!(letter.attachments[0].name, "proof.bin");
+    let download = server();
+    let bytes = mailbox
+        .read_attachment(
+            &download.adapter,
+            "synthetic",
+            7,
+            30,
+            &letter.attachments[0],
+        )
+        .unwrap();
+    download.thread.join().unwrap();
+    assert_eq!(bytes, [0, 255, 1, 2]);
 }
 
 #[test]
