@@ -224,7 +224,13 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
           setReplyRefresh(false);
           void run("reply",active=>onReply(id,()=>invoke<Draft>({kind:"replyDraft",accountId:id,id:message.id}),active),()=>{});
         }}>{t("Create reply draft")}</button>}
-        {replyRefresh&&<button className="ui-button" type="button" disabled={!grant.read} onClick={()=>select(message,"download")}>{t("Refresh message to reply")}</button>}
+        {replyRefresh&&<button className="ui-button" type="button" disabled={!grant.read} onClick={() => {
+          void run("read", () => invoke<Body>({kind:"read",accountId:id,id:message.id}), refreshed => {
+            setBody(refreshed);
+            setLocalBodyFailed(false);
+            setReplyRefresh(false);
+          });
+        }}>{t("Refresh message to reply")}</button>}
       </article>}
     </fieldset>
     {notice&&<p role="status">{notice}</p>}
