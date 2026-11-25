@@ -92,6 +92,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       }
       catch(e){if(!network&&!cursor&&String(e).includes("mail_cache_empty"))return null;throw e}
     },p=>{
+      if (target !== folder) setFolder(target);
       if(!p){setPage(null);setSelected(null);setBody(null);setOnline(false);return}
       setPage(old=>cursor&&old&&old.uidValidity===p.uidValidity?{...p,messages:[...old.messages,...p.messages.filter(n=>!old.messages.some(m=>m.uid===n.uid))]}:p);
       if(network)window.dispatchEvent(new CustomEvent("studio-mail-cache-updated",{detail:id}));
@@ -159,9 +160,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       </form>
     </fieldset>
     <fieldset disabled={busy}><legend>{t("Inbox")}</legend>
-      <label>{t("IMAP folder")}<select className="ui-select" value={folder} onChange={e=>{
-        const next=e.target.value;setFolder(next);setPage(null);setBody(null);setSelected(null);setOnline(false);load(false,null,next);
-      }}><option value="INBOX">{t("Inbox")}</option>{folders.filter(f=>f.id!=="INBOX").map(f=><option key={f.id} value={f.id} translate="no">{f.name}</option>)}</select></label>
+      <label>{t("IMAP folder")}<select className="ui-select" value={folder} onChange={e=>load(false,null,e.target.value)}><option value="INBOX">{t("Inbox")}</option>{folders.filter(f=>f.id!=="INBOX").map(f=><option key={f.id} value={f.id} translate="no">{f.name}</option>)}</select></label>
       <button className="ui-button" type="button" disabled={!configured} onClick={refreshFolders}>{t("Refresh folder list")}</button>
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(folder==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
       <button className="ui-button" type="button" disabled={!configured} onClick={()=>load(true)}>{t("Refresh from server")}</button>
