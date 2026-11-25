@@ -94,8 +94,10 @@ export function TaskMain({
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<SuperAgentTask | null>(null);
   const [grouped, setGrouped] = useState(false);
-  const [query, setQuery] = useState("");
-  const [dateRange, setDateRange] = useState<TaskDateRange>("all");
+  const query = store((state) => state.query);
+  const setQuery = store((state) => state.setQuery);
+  const dateRange = store((state) => state.dateRange);
+  const setDateRange = store((state) => state.setDateRange);
   const taskSearch = useRef<HTMLInputElement>(null);
   const editorTitle = useRef<HTMLInputElement>(null);
   const editOrigin = useRef<{ task: SuperAgentTask; button: HTMLButtonElement; returnFocus: boolean } | null>(null);
@@ -143,10 +145,7 @@ export function TaskMain({
 
   const focusedTaskVisible = visible.some((task) => task.id === focusTaskId);
   useEffect(() => {
-    if (!focusTaskId) return;
-    setQuery("");
-    setDateRange("all");
-    if (!focusedTaskVisible) return;
+    if (!focusTaskId || !focusedTaskVisible) return;
     const escaped =
       typeof CSS !== "undefined" && typeof CSS.escape === "function"
         ? CSS.escape(focusTaskId)
