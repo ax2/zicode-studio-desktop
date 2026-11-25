@@ -552,9 +552,29 @@ fn native_pdf_toolbar_isolated_from_ordinary_page_zoom() {
         "Restored native ordinary-page zoom {}",
         page_controls::read(view).unwrap().zoom
     );
-    let controller = view.controller();
+    engine.navigate(TAB, &pdf).unwrap();
+    wait("reopen PDF before closing tab", || {
+        engine.is_pdf_document(TAB).then_some(())
+    });
+    let closed_revision = engine.document_revision(TAB).unwrap();
+    assert_eq!(engine.preserved_web_zoom(TAB), Some(1.75));
     engine.destroy(TAB).unwrap();
-    assert!(engine.view(TAB).is_err());
-    assert!(unsafe { controller.CoreWebView2() }.is_err());
-    println!("Closed tab released its native WebView2");
+    assert!(engine.view_if_open(TAB).is_none());
+    assert!(!engine.is_pdf_document(TAB));
+
+    engine
+        .create(&owner, TAB, &html, BOUNDS, 1.25, false)
+        .unwrap();
+    engine.activate(Some(TAB), BOUNDS, false).unwrap();
+    let view = engine.view(TAB).unwrap();
+    wait("same tab ID on a fresh ordinary page", || {
+        (engine.export_ready(TAB)
+            && view.url().ok().as_deref() == Some(&html)
+            && engine.preserved_web_zoom(TAB).is_none())
+        .then_some(())
+    });
+    assert!(!engine.is_pdf_document(TAB));
+    assert_ne!(engine.document_revision(TAB).unwrap(), closed_revision);
+    assert_eq!(page_controls::read(view).unwrap().zoom, 1.25);
+    println!("Closed PDF tab was removed; the new WebView reused its ID at 125% with no PDF state");
 }
