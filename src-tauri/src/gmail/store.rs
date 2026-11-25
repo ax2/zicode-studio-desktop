@@ -45,6 +45,17 @@ pub fn cache(
     }
     Ok(())
 }
+pub(super) fn disconnect_local<T>(
+    read_credential: impl FnOnce() -> Result<T>,
+    clear_cached_mail: impl FnOnce() -> Result<()>,
+    delete_credential: impl FnOnce() -> Result<()>,
+) -> Result<T> {
+    let credential = read_credential()?;
+    // A cache error must leave the token available for a later revocation attempt.
+    clear_cached_mail()?;
+    delete_credential()?;
+    Ok(credential)
+}
 pub fn clear_cache(p: &Path, scope: &str, account: &str) -> Result<()> {
     let mut db = db(p)?;
     let tx = db.transaction().map_err(|_| "gmail_storage")?;

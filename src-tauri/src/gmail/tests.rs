@@ -721,3 +721,44 @@ async fn cancelling_gmail_refresh_releases_account_during_expired_history_recove
     );
     std::fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn disconnect_retries_cache_cleanup_with_the_original_revocation_credential() {
+    use std::cell::{Cell, RefCell};
+
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    let writer = rusqlite::Connection::open(&path).unwrap();
+    let letter = json!({"id":"test","plainText":"cached"});
+    store::cache(&path, "one", "gmail", 0, "body", "test", &letter).unwrap();
+    store::cache(&path, "two", "gmail", 0, "body", "test", &letter).unwrap();
+
+    let saved = RefCell::new(Some("isolated-revocation-grant"));
+    let removed = Cell::new(0);
+    let disconnect = || {
+        store::disconnect_local(
+            || Ok(*saved.borrow()),
+            || store::clear_cache(&path, "one", "gmail"),
+            || {
+                removed.set(removed.get() + 1);
+                saved.borrow_mut().take();
+                Ok(())
+            },
+        )
+    };
+
+    writer.execute_batch("BEGIN IMMEDIATE").unwrap();
+    let blocked = disconnect();
+    writer.execute_batch("ROLLBACK").unwrap();
+    assert_eq!(blocked, Err("gmail_storage"));
+    assert_eq!(store::cached(&path, "one", "gmail", "body", "test").unwrap(), letter);
+    assert_eq!(store::cache_generation(&path, "one", "gmail").unwrap(), 0);
+    assert_eq!(removed.get(), 0, "a failed cache transaction must preserve the grant for revocation");
+
+    assert_eq!(disconnect(), Ok(Some("isolated-revocation-grant")));
+    assert_eq!(removed.get(), 1);
+    assert!(saved.borrow().is_none());
+    assert_eq!(store::cache_generation(&path, "one", "gmail").unwrap(), 1);
+    assert_eq!(store::cached(&path, "one", "gmail", "body", "test").unwrap(), json!(null));
+    assert_eq!(store::cached(&path, "two", "gmail", "body", "test").unwrap(), letter);
+}
