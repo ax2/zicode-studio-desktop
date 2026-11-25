@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3" xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" IgnorableNamespaces="uap uap3 com rescap">
-  <Identity Name="ZiCode.Studio.QuickNotes" Publisher="CN=ZiCode Studio" Version="0.6.9.0" ProcessorArchitecture="x64"/>
+  <Identity Name="ZiCode.Studio.QuickNotes" Publisher="CN=ZiCode Studio" Version="0.7.8.0" ProcessorArchitecture="x64"/>
   <Properties><DisplayName>ZiCode Quick Notes</DisplayName><PublisherDisplayName>ZiCode Studio</PublisherDisplayName><Logo>Assets\StoreLogo.png</Logo></Properties>
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22000.0" MaxVersionTested="10.0.26100.0"/>
@@ -18,7 +18,10 @@
               <WidgetProvider>
                 <ProviderIcons><Icon Path="Assets\Square44x44Logo.png"/></ProviderIcons>
                 <Activation><CreateInstance ClassId="7f455b49-267d-445f-82b4-11b14469cda1"/></Activation>
-                <Definitions><Definition Id="QuickNotes" DisplayName="ZiCode Quick Notes" Description="New, recent and pinned Studio notes" AllowMultiple="false"><Capabilities><Capability><Size Name="medium"/></Capability></Capabilities><ThemeResources><Icons><Icon Path="Assets\Square44x44Logo.png"/></Icons></ThemeResources></Definition></Definitions>
+                <Definitions><Definition Id="QuickNotes" DisplayName="ZiCode Quick Notes" Description="New, recent and pinned Studio notes" AllowMultiple="false"><Capabilities><Capability><Size Name="medium"/></Capability></Capabilities><ThemeResources>
+                  <Icons><Icon Path="Assets\Square44x44Logo.png"/></Icons>
+                  <Screenshots><Screenshot Path="Assets\QuickNotes.png" DisplayAltText="New, recent and pinned note shortcuts"/></Screenshots>
+                </ThemeResources></Definition></Definitions>
               </WidgetProvider>
             </uap3:Properties>
           </uap3:AppExtension>
