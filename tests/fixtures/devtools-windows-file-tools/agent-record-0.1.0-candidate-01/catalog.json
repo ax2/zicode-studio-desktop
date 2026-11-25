@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.agent-record",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "agent-replay",
+      "capabilityId": "devtools.agent-record.inspect",
+      "title": "Agent 运行记录检查",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "检查本次确认的一份 Agent JSON 导出，显示状态、调用时间线和使用量。支持 v1–v5 和 64 KiB。"
+    }
+  ]
+}

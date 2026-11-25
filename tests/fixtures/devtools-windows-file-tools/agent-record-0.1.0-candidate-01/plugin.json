@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.agent-record",
+  "name": "ZiDevTools Agent Record Inspector",
+  "displayName": "Agent 运行记录检查",
+  "description": "检查本次确认的一份 Agent JSON 导出，显示状态、调用时间线和使用量。支持 v1–v5 和 64 KiB。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.agent-record.inspect"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.agent-record.inspect",
+        "title": "Agent 运行记录检查",
+        "description": "检查本次确认的一份 Agent JSON 导出，显示状态、调用时间线和使用量。支持 v1–v5 和 64 KiB。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "recordSchemaVersion": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 65536
+                    },
+                    "finishedAtUtc": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "completed",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "approvalRecorded": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "allowedToolCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "maxCalls": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4
+                    },
+                    "callsMade": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4
+                    },
+                    "modelTokensReported": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 20
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "steps": {
+                      "type": "array",
+                      "maxItems": 4,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "step": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 4
+                          },
+                          "toolNumber": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 8
+                          },
+                          "elapsedMs": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 86400000
+                          },
+                          "contentItems": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000
+                          },
+                          "responseBytes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4194304
+                          },
+                          "modelExcerptBytes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4096
+                          },
+                          "isError": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "step",
+                          "toolNumber",
+                          "elapsedMs",
+                          "contentItems",
+                          "responseBytes",
+                          "modelExcerptBytes",
+                          "isError"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "sourceDeclarationCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 40
+                    },
+                    "numberedCitationCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 40
+                    },
+                    "generatorToolVersion": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 32
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "fingerprintStructurallyVerified": {
+                      "type": "boolean"
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 2048
+                    }
+                  },
+                  "required": [
+                    "recordSchemaVersion",
+                    "byteLength",
+                    "finishedAtUtc",
+                    "status",
+                    "approvalRecorded",
+                    "allowedToolCount",
+                    "maxCalls",
+                    "callsMade",
+                    "modelTokensReported",
+                    "steps",
+                    "sourceDeclarationCount",
+                    "numberedCitationCount",
+                    "generatorToolVersion",
+                    "fingerprintStructurallyVerified",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 4096,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "Agent 记录",
+            "Agent 回放记录",
+            "运行记录 JSON",
+            "Agent record inspector"
+          ],
+          "description": "检查本次确认的一份 Agent JSON 导出，显示状态、调用时间线和使用量。支持 v1–v5 和 64 KiB。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的 Agent JSON 文件快照。"
+      }
+    ],
+    "optional": []
+  }
+}
