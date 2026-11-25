@@ -131,6 +131,37 @@ describe("task center React app", () => {
     expect(store.getState().filter).toBe("all");
   });
 
+  it("moves from Edit to the task title and returns to the original Edit button on cancel", async () => {
+    setLocale("en");
+    const call = mockCall([{ id: "edit-me", title: "Edit this draft", status: "draft" }]);
+    renderStore(call);
+    const edit = await screen.findByRole("button", { name: "Edit" });
+    edit.focus();
+    fireEvent.click(edit);
+    const title = screen.getByRole<HTMLInputElement>("textbox", { name: "Title" });
+    expect(document.activeElement).toBe(title);
+    fireEvent.change(title, { target: { value: "discard this unsaved edit" } });
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    cancel.focus();
+    fireEvent.click(cancel);
+    expect(document.activeElement).toBe(edit);
+    expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+    expect(screen.getByText("Edit this draft")).toBeTruthy();
+    expect(call.mock.calls.map(([operation]) => operation)).toEqual(["read_super_agent_tasks"]);
+  });
+
+  it("preserves focus outside the editor when the task form closes", async () => {
+    setLocale("en");
+    renderStore(mockCall([{ id: "edit-me", title: "Edit this draft", status: "draft" }]));
+    const edit = await screen.findByRole("button", { name: "Edit" });
+    edit.focus();
+    fireEvent.click(edit);
+    const search = screen.getByRole("searchbox", { name: "Search tasks" });
+    search.focus();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(document.activeElement).toBe(search);
+  });
+
   it("groups tasks and exposes recoverable actions", async () => {
     setLocale("en");
     const call = mockCall([
