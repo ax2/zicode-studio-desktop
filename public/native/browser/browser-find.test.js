@@ -63,6 +63,44 @@ it("debounces composition, supports Ctrl+F and Escape, and respects inactive or 
   available = true; const key = new KeyboardEvent("keydown", { key: "f", ctrlKey: true, cancelable: true }); document.dispatchEvent(key); expect(key.defaultPrevented).toBe(true); expect(document.activeElement).toBe(ui.input);
 });
 
+it("keeps IME candidate keys out of native page find and searches the committed query once", async () => {
+  const control = vi.fn(async request => request.kind === "findStatus" ? { count: 3, active: 1 } : undefined);
+  const ui = setup(control);
+  await type(ui.input, "previous");
+  const keys = () => control.mock.calls.map(([request]) => request.kind).filter(kind => kind !== "findStatus");
+  const press = (key, options = {}) => ui.input.dispatchEvent(new KeyboardEvent("keydown", {
+    key, bubbles: true, cancelable: true, ...options,
+  }));
+
+  ui.input.dispatchEvent(new CompositionEvent("compositionstart"));
+  ui.input.value = "zhong";
+  ui.input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+  expect(press("Enter")).toBe(true);
+  expect(press("Escape")).toBe(true);
+  await vi.advanceTimersByTimeAsync(150);
+  expect(keys()).toEqual(["findStart"]);
+
+  ui.input.value = "中文";
+  ui.input.dispatchEvent(new CompositionEvent("compositionend"));
+  ui.input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+  expect(press("Enter", { keyCode: 229 })).toBe(true);
+  expect(press("Escape", { keyCode: 229 })).toBe(true);
+  expect(press("f", { ctrlKey: true, keyCode: 229 })).toBe(true);
+  await vi.advanceTimersByTimeAsync(150);
+  expect(keys()).toEqual(["findStart", "findStart"]);
+  expect(control).toHaveBeenCalledWith({ kind: "findStart", tab: "a", text: "中文", caseSensitive: false });
+  expect(document.activeElement).toBe(ui.input);
+  expect(find.element.hidden).toBe(false);
+
+  expect(press("Enter")).toBe(false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(keys().at(-1)).toBe("findStep");
+  expect(press("Escape")).toBe(false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(keys().at(-1)).toBe("findStop");
+  expect(find.element.hidden).toBe(true);
+});
+
 it("shows PDF matches and zero results without offering directional stepping", async () => {
   let matches = { active: 1, count: 3 };
   const control = vi.fn(async request => request.kind === "findStatus" ? matches : undefined);

@@ -4,7 +4,7 @@ import { t } from "../../i18n.js";
 // query, navigation or tab from changing the visible search state.
 export function createBrowserFind({ control, getTab, available, isPdf = () => false, restoreFocus = async () => {}, report = () => {} }) {
   let tab = null, epoch = 0, timer, poll, tail = Promise.resolve();
-  let matches = null;
+  let matches = null, composing = false;
   const element = document.createElement("form"); element.className = "browser-find"; element.hidden = true; element.setAttribute("role", "search"); element.setAttribute("aria-label", t("Find in page"));
   const input = document.createElement("input"); input.className = "ui-input ui-input--sm"; input.type = "search"; input.maxLength = 256; input.placeholder = t("Find in page"); input.setAttribute("aria-label", t("Find in page"));
   const counter = document.createElement("span"); counter.className = "browser-find-count"; counter.setAttribute("role", "status"); counter.setAttribute("aria-live", "polite");
@@ -59,7 +59,7 @@ export function createBrowserFind({ control, getTab, available, isPdf = () => fa
     void enqueue(async () => { if (!valid(id, version) || isPdf(id)) return; try { await control({ kind: "findStep", tab: id, backward }); const result = await control({ kind: "findStatus", tab: id }); if (valid(id, version)) paint(result); } catch (error) { failure(error, id, version); } });
   }
   async function close({ stopNative = true } = {}) {
-    const id = tab; tab = null; matches = null; epoch++; clearTimeout(timer); timer = null; clearTimeout(poll); element.hidden = true;
+    const id = tab; tab = null; matches = null; composing = false; epoch++; clearTimeout(timer); timer = null; clearTimeout(poll); element.hidden = true;
     if (id && stopNative) await enqueue(() => control({ kind: "findStop", tab: id })).catch(report);
   }
   async function dismiss() {
@@ -83,10 +83,14 @@ export function createBrowserFind({ control, getTab, available, isPdf = () => fa
     input.focus();
     input.select();
   }
-  input.addEventListener("input", event => { if (!event.isComposing) search(); }); input.addEventListener("compositionend", search);
-  element.addEventListener("submit", event => { event.preventDefault(); step(false); });
-  element.addEventListener("keydown", event => { if (event.isComposing) return; if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); void dismiss(); } else if (event.key === "Enter" && event.target === input) { event.preventDefault(); step(event.shiftKey); } });
-  const keydown = event => { if (!available() || event.isComposing || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "f") return; event.preventDefault(); event.stopPropagation(); open(); };
+  const isComposing = event => event.isComposing || event.keyCode === 229 || (composing && event.target === input);
+  input.addEventListener("compositionstart", () => { composing = true; });
+  input.addEventListener("compositionend", () => { composing = false; search(); });
+  input.addEventListener("blur", () => { composing = false; });
+  input.addEventListener("input", event => { if (!isComposing(event)) search(); });
+  element.addEventListener("submit", event => { event.preventDefault(); if (!composing) step(false); });
+  element.addEventListener("keydown", event => { if (isComposing(event)) return; if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); void dismiss(); } else if (event.key === "Enter" && event.target === input) { event.preventDefault(); step(event.shiftKey); } });
+  const keydown = event => { if (!available() || isComposing(event) || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "f") return; event.preventDefault(); event.stopPropagation(); open(); };
   document.addEventListener("keydown", keydown, true);
   return { element, open, close, refreshMatchControls,
     destroy() { document.removeEventListener("keydown", keydown, true); return close(); } };
