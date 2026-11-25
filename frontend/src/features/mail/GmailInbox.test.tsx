@@ -296,3 +296,57 @@ it.each([false, true])("refreshes Gmail directories with the current label prese
     expect(cached).toEqual([{ kind: "cachedPage", accountId: "one", label: "INBOX", cursor: null, limit: 20 }]);
   }
 });
+
+it.each(["cancel", "denied", "moved"] as const)("keeps the Gmail authorization keyboard flow when %s", async outcome => {
+  let deny!: (reason: Error) => void;
+  const v = fixture(async request => {
+    switch (request.kind) {
+      case "status": return { connected: false };
+      case "cachedPage": case "cachedLabels": case "cancel": return null;
+      case "connect": return new Promise((_, reject) => { deny = reject; });
+      default: throw Error("Unexpected Gmail request");
+    }
+  });
+  const signIn = await screen.findByRole("button", { name: "Sign in to read Gmail" });
+  await waitFor(() => expect(signIn.matches(":disabled")).toBe(false));
+  signIn.focus();
+  fireEvent.click(signIn);
+  const stop = await screen.findByRole("button", { name: "Cancel sign-in" });
+  expect(document.activeElement).toBe(stop);
+
+  const address = screen.getByRole("textbox", { name: "Email address" });
+  if (outcome === "cancel") {
+    fireEvent.click(stop);
+    await screen.findByText("Sign-in canceled.");
+  } else {
+    if (outcome === "moved") address.focus();
+    await act(async () => deny(Error("gmail_authorization_denied")));
+    await screen.findByText("Google authorization was declined. Your drafts are unchanged.");
+  }
+  expect(signIn.matches(":disabled")).toBe(false);
+  expect(document.activeElement).toBe(outcome === "moved" ? address : signIn);
+  expect(v.calls.mock.calls.some(([request]) => request.kind === "send")).toBe(false);
+  if (outcome !== "moved") {
+    fireEvent.click(signIn);
+    await screen.findByRole("button", { name: "Cancel sign-in" });
+    expect(v.calls.mock.calls.filter(([request]) => request.kind === "connect")).toHaveLength(2);
+  }
+});
+
+it("moves focus to Reconnect when the first Gmail authorization succeeds", async () => {
+  let approve!: (grant: { connected: boolean; read: boolean; send: boolean }) => void;
+  fixture(async request => {
+    if (request.kind === "status") return { connected: false };
+    if (request.kind === "cachedPage" || request.kind === "cachedLabels") return null;
+    if (request.kind === "connect") return new Promise(resolve => { approve = resolve; });
+    throw Error("Unexpected Gmail request");
+  });
+  const signIn = await screen.findByRole("button", { name: "Sign in to read Gmail" });
+  await waitFor(() => expect(signIn.matches(":disabled")).toBe(false));
+  signIn.focus();
+  fireEvent.click(signIn);
+  const stop = await screen.findByRole("button", { name: "Cancel sign-in" });
+  expect(document.activeElement).toBe(stop);
+  await act(async () => approve({ connected: true, read: true, send: false }));
+  expect(document.activeElement).toBe(await screen.findByRole("button", { name: "Reconnect Gmail" }));
+});
