@@ -206,22 +206,40 @@ export function showBrowserBookmarks({ invoke, current, currentSource, editCurre
   const header = document.createElement("header");
   header.className = "browser-library-heading";
   header.append(heading, close);
+  const retry = el("button", "ui-button ui-button--secondary", t("Reload bookmarks"));
+  retry.type = "button";
+  retry.addEventListener("click", () => void loadInitial());
+  async function loadInitial() {
+    if (busy) return;
+    const previous = document.activeElement;
+    let loaded = false;
+    await run(async () => {
+      message.textContent = t("Loading…");
+      const saved = await request({ kind: "list" });
+      if (!dialog.open) return;
+      library = saved;
+      message.textContent = "";
+      if (editShortcut && !current) await beginEdit({ ...newBookmark(), shortcut: true });
+      else if ((editShortcut || editCurrent) && canBookmarkCurrent()) await beginCurrent(editShortcut);
+      else render();
+      loaded = true;
+    });
+    if (!dialog.open) return;
+    const active = document.activeElement;
+    const restore = active === previous ||
+      (previous === retry && [dialog, document.body].includes(active));
+    if (!loaded) {
+      if (!retry.isConnected) content.append(retry);
+      if (restore) retry.focus({ preventScroll: true });
+    } else if (restore) {
+      (content.querySelector(".browser-bookmark-editor input") ?? content.querySelector('input[type="search"]'))
+        ?.focus({ preventScroll: true });
+    }
+  }
   dialog.append(header, content, message);
   dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
   document.body.append(dialog); dialog.showModal(); close.focus();
-  void run(async () => {
-    const saved = await request({ kind: "list" });
-    if (!dialog.open) return;
-    library = saved;
-    if (editShortcut) {
-      if (current) await beginCurrent(true);
-      else await beginEdit({ ...newBookmark(), shortcut: true });
-    } else if (editCurrent && current) await beginCurrent();
-    else render();
-  }).then(() => {
-    if (!dialog.open || document.activeElement !== close) return;
-    content.querySelector(editShortcut || (editCurrent && current) ? ".browser-bookmark-editor input" : 'input[type="search"]')?.focus({ preventScroll: true });
-  });
+  void loadInitial();
   // Read the optional page details outside the saved-library loading state.
   if (currentSource) void currentSource.read().then(page => {
     if (!page || !dialog.open || !currentSource.isCurrent()) return;
