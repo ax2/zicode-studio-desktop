@@ -64,8 +64,9 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
 
   const dismissDrawer = (options) => {
     const focused = document.activeElement;
+    const wasOpen = !sidebar.classList.contains("collapsed");
     setCollapsed(true, options);
-    if (!toggle.disabled && (focused === document.body || sidebar.contains(focused))) {
+    if (wasOpen && !toggle.disabled && (focused === document.body || sidebar.contains(focused))) {
       toggle.focus({ preventScroll: true });
     }
   };
@@ -93,7 +94,8 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
   const handleOverlay = () => dismissDrawer();
   const handleRequest = (event) => {
     if (!isMobile()) return;
-    setCollapsed(event.detail?.open === false);
+    if (event.detail?.open === false) dismissDrawer();
+    else setCollapsed(false);
   };
   const handleSidebarAction = (event) => {
     if (!isMobile()) return;

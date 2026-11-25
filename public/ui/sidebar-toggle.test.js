@@ -66,6 +66,29 @@ describe("mobile function area", () => {
     expect(document.activeElement).toBe(bottom);
   });
 
+  it("restores focus for an explicit close only while the drawer still owns it", () => {
+    controller = render();
+    const toggle = document.getElementById("sidebar-toggle");
+    const search = document.getElementById("session-search-input");
+    const bottom = document.getElementById("bottom-navigation");
+    const close = () => document.dispatchEvent(
+      new CustomEvent("zicode:function-area-request", { detail: { open: false } }),
+    );
+    toggle.click();
+    search.focus();
+    close();
+    expect(document.activeElement).toBe(toggle);
+
+    toggle.click();
+    bottom.focus();
+    close();
+    expect(document.activeElement).toBe(bottom);
+
+    bottom.blur();
+    close();
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it("does not suspend the main view when the backdrop is hidden by the layout", () => {
     controller = render();
     const main = document.querySelector(".main");
