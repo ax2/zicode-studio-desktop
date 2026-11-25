@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.keyword-index",
+  "name": "ZiDevTools Static Knowledge Index Keyword Search",
+  "displayName": "本机知识索引关键词检索",
+  "description": "查询一次明确确认的 ZiDevTools v1 静态知识索引副本，显示可核对的来源、匹配片段与引用；用户确认后保存文本。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.knowledge.keyword.snapshot.search"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.knowledge.keyword.snapshot.search",
+        "title": "本机知识索引关键词检索",
+        "description": "查询一次明确确认的 ZiDevTools v1 静态知识索引副本，显示可核对的来源、匹配片段与引用；用户确认后保存文本。",
+        "resourceInputMimeTypes": [
+          "application/x-zicode-sqlite",
+          "application/octet-stream"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "maxLength": 120,
+              "minLength": 1,
+              "title": "关键词",
+              "description": "最多 120 字符；字面检索 12 个词，FTS5 4 个词项。"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "phrase",
+                "all",
+                "any"
+              ],
+              "default": "auto",
+              "title": "匹配方式（可选）",
+              "description": "auto 自动；phrase 字面短语；all 全部词；any 任一词。"
+            },
+            "sourceId": {
+              "type": "string",
+              "maxLength": 64,
+              "title": "来源 ID（可选）",
+              "description": "省略则搜索授权副本中的所有来源。"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "default": 5,
+              "title": "最多结果（可选）"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "literalMatch": {
+                      "type": "boolean"
+                    },
+                    "hits": {
+                      "type": "array",
+                      "maxItems": 10,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sourceId": {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          "relative": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "location": {
+                            "type": "string",
+                            "maxLength": 160
+                          },
+                          "ordinal": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000
+                          },
+                          "fileSha256": {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          "chunkSha256": {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          "excerpt": {
+                            "type": "string",
+                            "maxLength": 262
+                          }
+                        },
+                        "required": [
+                          "sourceId",
+                          "relative",
+                          "location",
+                          "ordinal",
+                          "fileSha256",
+                          "chunkSha256",
+                          "excerpt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 24576
+                    }
+                  },
+                  "required": [
+                    "literalMatch",
+                    "hits",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "知识索引查询",
+            "FTS5 检索",
+            "Offline knowledge keyword search"
+          ],
+          "description": "查询一次明确确认的 ZiDevTools v1 静态知识索引副本，显示可核对的来源、匹配片段与引用；用户确认后保存文本。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次明确确认的静态 SQLite 知识索引副本。"
+      }
+    ],
+    "optional": []
+  }
+}
