@@ -152,6 +152,55 @@ it("recovers an expired server page by refreshing the selected label",async()=>{
   fireEvent.click(refresh);
   await screen.findByText("Refresh 2");
 });
+it("refreshes the selected Gmail label at the expired pagination action", async () => {
+  const labelId = "Label_Work";
+  const message = { ...entry, subject: "Current project mail" };
+  let initialPages = 0;
+  const { calls } = fixture(async request => {
+    if (request.kind === "status") return { connected: true, read: true };
+    if (request.kind === "cachedLabels") return [{ id: labelId, name: "Projects" }];
+    if (request.kind === "cachedPage") return { items: [entry], nextCursor: null };
+    if (request.kind === "cachedBody") return { ...message, plainText: "Current cached body" };
+    if (request.kind === "list") {
+      expect(request.label).toBe(labelId);
+      if (request.cursor === "expired-token") throw Error("gmail_page_expired");
+      if (request.cursor === "fresh-token") {
+        return { items: [{ ...message, id: "older", subject: "Older project mail" }], nextCursor: null };
+      }
+      if (++initialPages === 2) throw Error("gmail_rate_limited");
+      return { items: [message], nextCursor: initialPages === 1 ? "expired-token" : "fresh-token" };
+    }
+    throw Error("Unexpected request");
+  });
+  const inbox = within(await screen.findByRole("region", { name: "Gmail inbox" }));
+  await inbox.findByRole("option", { name: "Projects" });
+  const label = inbox.getByLabelText<HTMLSelectElement>("Gmail label");
+  fireEvent.change(label, { target: { value: labelId } });
+  await waitFor(() => expect(label.value).toBe(labelId));
+  fireEvent.click(inbox.getByRole("button", { name: "Refresh from server" }));
+  fireEvent.click(await inbox.findByRole("button", { name: /Current project mail/ }));
+  await inbox.findByText("Current cached body");
+
+  fireEvent.click(inbox.getByRole("button", { name: "Load older messages" }));
+  await inbox.findByText("This mail page expired. Refresh from the server to continue.");
+  const recover = inbox.getByRole("button", { name: "Refresh this Gmail label" });
+  expect(inbox.queryByRole("button", { name: "Load older messages" })).toBeNull();
+  expect(inbox.getByText("Current cached body")).toBeTruthy();
+  expect(calls.mock.calls.filter(([request]) => request.kind === "list").map(([request]) => request.cursor))
+    .toEqual([null, "expired-token"]);
+
+  fireEvent.click(recover);
+  await inbox.findByText("Google has limited requests. Try again later.");
+  expect(inbox.getByText("Current cached body")).toBeTruthy();
+  expect(label.value).toBe(labelId);
+  fireEvent.click(recover);
+
+  fireEvent.click(await inbox.findByRole("button", { name: "Load older messages" }));
+  await inbox.findByRole("button", { name: /Older project mail/ });
+  expect(calls.mock.calls.filter(([request]) => request.kind === "list").map(([request]) => [request.label, request.cursor]))
+    .toEqual([[labelId, null], [labelId, "expired-token"], [labelId, null], [labelId, null], [labelId, "fresh-token"]]);
+});
+
 it("cancels browser authorization; a late successful result cannot grant sending",async()=>{
   let done:((v:unknown)=>void)|undefined;
   const v=fixture(async r=>{
