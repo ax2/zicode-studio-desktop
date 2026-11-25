@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.flow-recipe",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "text-flow",
+      "capabilityId": "devtools.flow.recipe.inspect",
+      "title": "文本流程配方检查",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "检查一份经确认的本机 JSON 配方。显示动作、材料类型、影响和副输出，支持格式 1 至 4、最多 16 步、64 KiB。"
+    }
+  ]
+}
