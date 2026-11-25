@@ -12,13 +12,13 @@
 
 ## 单独构建与验证
 
-在启用 x64 的 Visual Studio 开发者 PowerShell 中，使用 PowerShell 7、Windows SDK（含 C++/WinRT 和 MakeAppx）：
+在启用 x64 的 Visual Studio 开发者 PowerShell 中，使用 PowerShell 7、Windows SDK（含 C++/WinRT、MakePri 和 MakeAppx）：
 
 ```powershell
 ./windows/notes-widget/build.ps1 -OutputDirectory C:/temp/zicode-widget-build
 ```
 
-输出目录须尚不存在。构建器核对固定版本的微软 Windows App SDK Widgets 元数据、编译 Provider，在独立进程创建真实 COM 接口并检查卡片，然后使用 MakeAppx 验证和打包。已有的 NuGet 归档可通过 `-WidgetsSdkArchive` 指定；SDK 工具路径可通过 `-SdkTools` 指定。输出包为 `ZiCode.QuickNotes.x64.msix`，此命令不签名或安装。
+输出目录须尚不存在。构建器核对固定版本的微软 Windows App SDK Widgets 元数据、编译 Provider，在独立进程创建真实 COM 接口并检查卡片。随后生成小组件选择器的资源索引，再使用 MakeAppx 验证和打包。包内预览包含英文默认图和简体中文图，只展示三项操作。已有的 NuGet 归档可通过 `-WidgetsSdkArchive` 指定；SDK 工具路径可通过 `-SdkTools` 指定。输出包为 `ZiCode.QuickNotes.x64.msix`，此命令不签名或安装。
 
 ## 小组件面板验收
 
@@ -26,4 +26,4 @@
 
 本机原型验收覆盖真实 COM 接口、卡片内容、MSIX 打包、真实 Studio 的三个入口和重启定位。系统面板的注册、固定与宿主回调仍需要在上述独立环境验收。
 
-微软资料见 [小组件提供程序](https://learn.microsoft.com/en-us/windows/apps/develop/widgets/widget-providers) 和 [小组件包清单](https://learn.microsoft.com/en-us/windows/apps/develop/widgets/widget-provider-manifest)。
+微软资料见 [小组件提供程序](https://learn.microsoft.com/en-us/windows/apps/develop/widgets/widget-providers) 、[小组件包清单](https://learn.microsoft.com/en-us/windows/apps/develop/widgets/widget-provider-manifest)和[小组件选择器预览要求](https://learn.microsoft.com/en-us/windows/apps/design/widgets/widgets-picker-integration)。
