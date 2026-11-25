@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.pdf-text",
+  "name": "ZiDevTools PDF Page Text",
+  "displayName": "提取 PDF 单页文本",
+  "description": "本机读取明确提供的 PDF，按页码提取一页嵌入文本。文件限 128 KiB、32 页，预览限 6 KiB。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.pdf-text.page"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.pdf-text.page",
+        "title": "提取 PDF 单页文本",
+        "description": "本机读取明确提供的 PDF，按页码提取一页嵌入文本。文件限 128 KiB、32 页，预览限 6 KiB。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "page": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32,
+              "default": 1,
+              "title": "页码 / Page number"
+            }
+          },
+          "required": [
+            "page"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "page": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 32
+                },
+                "pageCount": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 32
+                },
+                "sourceByteCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 131072
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "blank",
+                    "text",
+                    "image-without-text",
+                    "no-extractable-text"
+                  ]
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 6144
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "ok",
+                "page",
+                "pageCount",
+                "sourceByteCount",
+                "status",
+                "content",
+                "truncated"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "PDF 文本提取",
+            "PDF 取文字",
+            "PDF page text"
+          ],
+          "description": "本机读取明确提供的 PDF，按页码提取一页嵌入文本。文件限 128 KiB、32 页，预览限 6 KiB。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的 PDF 临时快照。"
+      }
+    ],
+    "optional": []
+  }
+}

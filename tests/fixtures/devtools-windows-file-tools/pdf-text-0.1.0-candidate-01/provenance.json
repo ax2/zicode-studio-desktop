@@ -1,0 +1,194 @@
+{
+  "sourceRevision": "f0d66c294b186636ac816f6e251425d4d8cc1455",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T07:00:57.079240+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "53e78045dbc16538eed638cb6bec64807ae7e3f8e7ecbb49c27452e20546686f",
+  "workerVerification": {
+    "passed": 16,
+    "wasmSha256": "53e78045dbc16538eed638cb6bec64807ae7e3f8e7ecbb49c27452e20546686f",
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "workerProfile": "resource.wasi.input.draft2",
+    "cases": [
+      {
+        "case": "selected-second-page",
+        "inputSha256": "675bc723704cdddba04c31025487721a032c5be9f1fb65c5b31409c8a35f2886",
+        "inputBytes": 893,
+        "input": {
+          "page": 2
+        },
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "a39485f727074d7a3a5cc2a9d2e254a17b3216d548008975ec4dd3d6b4f0dc04"
+      },
+      {
+        "case": "flate-second-page",
+        "inputSha256": "3093e0c9ae2a48c2c07c2bbb594d45270058b7a8cec6b1c52c41a805d4cdf5dc",
+        "inputBytes": 951,
+        "input": {
+          "page": 2
+        },
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "fc3237eb7c0e0eb187e0c9c33366d81fdbf1d1faa8ef663a332f87de3cffecd0"
+      },
+      {
+        "case": "blank-page",
+        "inputSha256": "d85d8605ecf75a94256421cf441e5bfc26c865d3d1b0712fb708a5a1ced9cb86",
+        "inputBytes": 838,
+        "input": {
+          "page": 2
+        },
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "82dcfc5f55eabaf993d65809255e18674dbae1b6c1685ef21919e39babbdc5d0"
+      },
+      {
+        "case": "image-without-text",
+        "inputSha256": "5d373a3977ec0119f6316485c51e0b52a6c0dc9ad364dcbb7b26725a955819a6",
+        "inputBytes": 797,
+        "input": {
+          "page": 1
+        },
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "4f383e7718d465b9147cfe241395491d95a3ea52b1808707197221563dff0d89"
+      },
+      {
+        "case": "vector-without-text",
+        "inputSha256": "f08305bb427efd928c8cd5cf9ea3ec429980654951b36307c0c52249a37e2fa3",
+        "inputBytes": 592,
+        "input": {
+          "page": 1
+        },
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "81576f541f0e22cd1e89753ad2cd61da79afdf202c04d131b05ce287e0d62f3e"
+      },
+      {
+        "case": "text-preview-bound",
+        "inputSha256": "bb201a32aff6e9646e0cb57549da03d4ffcacb3d55771e335741d0bb1cc36373",
+        "inputBytes": 6834,
+        "input": {
+          "page": 1
+        },
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "66ceb86cfd1c89118eb14e89dee62b3ba74709a01b23657d9f305396905c9e7d"
+      },
+      {
+        "case": "exact-128kib",
+        "inputSha256": "1f7fb0125f09106c51f526aef04928d85579de5b6604eaaf8356431c7a38f2a3",
+        "inputBytes": 131072,
+        "input": {
+          "page": 2
+        },
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "77db16732e14b5bf18184d03a3cc552722402d82d7cbd642ae99b4bb71edc7a5"
+      },
+      {
+        "case": "over-128kib",
+        "inputSha256": "0fe744793b62cf4b3f9dec188ce32d8da86ac78faf1def8cd681f9ea8113ecd1",
+        "inputBytes": 131073,
+        "input": {
+          "page": 2
+        },
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "00b4a694625ee566d0a940970ea0b31bfd117eba7f986ff8dfe9ba27694d7193"
+      },
+      {
+        "case": "encrypted-container-marker",
+        "inputSha256": "bd09c198be6c42602660498d6cb5fb9b33129eb4369fc717d822ded2ec5c4042",
+        "inputBytes": 877,
+        "input": {
+          "page": 1
+        },
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "5e07bb21f1009045449280f11d70a739a3fb1160137ea9a4834928cb56c74c35"
+      },
+      {
+        "case": "broken-pdf",
+        "inputSha256": "07c5645f33693441592d266a8e0a5fde233d050bc7f6cd019a17e37e1486bf05",
+        "inputBytes": 18,
+        "input": {
+          "page": 1
+        },
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "6f6e22dbd8e8e4db13996411718405273bc2751271230b4aa547eb0848d0c434"
+      },
+      {
+        "case": "plain-text",
+        "inputSha256": "f1b0e0f8af56ec8cac50fdf369909c8b8da9eca070c221f925b4064b46ad2950",
+        "inputBytes": 9,
+        "input": {
+          "page": 1
+        },
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "6f6e22dbd8e8e4db13996411718405273bc2751271230b4aa547eb0848d0c434"
+      },
+      {
+        "case": "nonexistent-page",
+        "inputSha256": "675bc723704cdddba04c31025487721a032c5be9f1fb65c5b31409c8a35f2886",
+        "inputBytes": 893,
+        "input": {
+          "page": 3
+        },
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "d743b1af0835bf050c33a5323de17ca0129aeb75d61b30265a5a2a5d8ab0dc2d"
+      },
+      {
+        "case": "nonpositive-page",
+        "inputSha256": "675bc723704cdddba04c31025487721a032c5be9f1fb65c5b31409c8a35f2886",
+        "inputBytes": 893,
+        "input": {
+          "page": 0
+        },
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "d743b1af0835bf050c33a5323de17ca0129aeb75d61b30265a5a2a5d8ab0dc2d"
+      },
+      {
+        "case": "wrong-mime",
+        "inputSha256": "675bc723704cdddba04c31025487721a032c5be9f1fb65c5b31409c8a35f2886",
+        "inputBytes": 893,
+        "input": {
+          "page": 1
+        },
+        "mime": "image/png",
+        "ok": false,
+        "resultSha256": "148dd3fae26e4102d0d963c5ab349fbe7aaa746ac76288e330abf87d7cef10ab"
+      },
+      {
+        "case": "undeclared-option",
+        "inputSha256": "675bc723704cdddba04c31025487721a032c5be9f1fb65c5b31409c8a35f2886",
+        "inputBytes": 893,
+        "input": {
+          "page": 1,
+          "other": true
+        },
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "c8560319dc91ae6734246c3a19208d306f2bb4f197ca19e0c78f550ebbc58258"
+      },
+      {
+        "case": "more-than-32-pages",
+        "inputSha256": "c666f0440a70e503b61ed248188fd6a717517c5774efd1e89eeb2ddab283a33b",
+        "inputBytes": 7804,
+        "input": {
+          "page": 1
+        },
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "bd17bb5d3e7537fc5adf2532c6cfe045aec4bb5fc86f38f1b1760426d3be2e79"
+      }
+    ]
+  }
+}
