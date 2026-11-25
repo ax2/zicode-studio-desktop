@@ -83,6 +83,8 @@ const zhCN = {
   "Retry saved IMAP folders": "重试读取本机 IMAP 文件夹",
   "No additional IMAP folders are saved on this device.": "此设备尚未保存其他 IMAP 文件夹。",
   "Search IMAP folder": "搜索 IMAP 文件夹",
+  "Could not read saved labels or folders.": "无法读取本机保存的标签或文件夹。",
+  "Retry saved labels or folders": "重试读取本机标签或文件夹",
   "All folders": "所有文件夹",
   "This mail page expired. Refresh from the server to continue.": "此邮件页已过期，请从服务器刷新后继续。",
   "Gmail label": "Gmail 标签",
