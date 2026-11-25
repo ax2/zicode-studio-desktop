@@ -351,7 +351,7 @@ mod tests {
     #[ignore = "requires en-US Windows OCR and ZICODE_OCR_TEST_FILE with the text STUDIO LAYOUT CHECK"]
     fn windows_child_recognizes_the_prepared_image() {
         let path = std::env::var_os("ZICODE_OCR_TEST_FILE").expect("OCR fixture path");
-        let text = run_windows_ocr(Path::new(&path), Some("en-US"), None)
+        let text = run_windows_ocr(Path::new(&path), Some("en-US"), None, false)
             .expect("Windows child process recognizes the image");
         assert_eq!(text.trim(), "STUDIO LAYOUT CHECK");
     }

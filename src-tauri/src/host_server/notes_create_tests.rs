@@ -146,7 +146,7 @@ async fn persists_reviewed_windows_ocr_text_in_an_isolated_notes_vault() {
         crate::ocr::extract_decoded_text(&image, language, None, true).map(|result| result.text)
     };
     assert_eq!(
-        recognize("primary.png", None).unwrap_err(),
+        recognize("primary.png", Some("en-US")).unwrap_err(),
         "No text was recognized in the image"
     );
     for name in ["primary", "embedded", "unselected"] {
@@ -160,11 +160,22 @@ async fn persists_reviewed_windows_ocr_text_in_an_isolated_notes_vault() {
     let root = std::env::temp_dir().join(format!("browser-ocr-note-{}", uuid::Uuid::new_v4()));
     let public = root.join("public");
     std::fs::create_dir_all(&public).unwrap();
+    crate::desktop_profile::initialize([
+        "--isolated-profile".into(),
+        root.join("profile").into_os_string(),
+    ])
+    .unwrap();
     std::fs::write(public.join("index.html"), "Isolated browser OCR Notes acceptance").unwrap();
     let start = || {
         let metadata = MetadataStore::open(&root.join("metadata.sqlite3")).unwrap();
         let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
-        HostServer::start(public.clone(), NativePiManager::new(4), auth)
+        HostServer::start_with_mode(
+            public.clone(),
+            NativePiManager::new(4),
+            auth,
+            std::collections::HashMap::new(),
+            crate::host_server::HostMode::IsolatedDesktop,
+        )
     };
     let host = start().await.unwrap();
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
