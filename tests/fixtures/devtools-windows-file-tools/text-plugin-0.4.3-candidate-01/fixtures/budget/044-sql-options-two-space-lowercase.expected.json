@@ -1,0 +1,1 @@
+{"contractVersion":"1.0.0-rc.1","ok":true,"data":{"text":"select\n  a_very_long_column_name_that_pushes_the_line_wrap_threshold,\n  another_very_long_column_name_that_pushes_the_line_wrap_threshold,\n  'MiXeD'\nfrom users\nwhere active = true"},"error":null}
