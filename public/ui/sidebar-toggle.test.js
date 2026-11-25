@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupSidebarToggle } from "./sidebar-toggle.js";
 
 function render(width = 390) {
@@ -23,7 +23,15 @@ function render(width = 390) {
 describe("mobile function area", () => {
   let controller;
 
-  afterEach(() => controller?.destroy());
+  function resize(width) {
+    window.innerWidth = width;
+    window.dispatchEvent(new Event("resize"));
+  }
+
+  afterEach(() => {
+    controller?.destroy();
+    vi.restoreAllMocks();
+  });
 
   beforeEach(() => {
     controller = null;
@@ -147,6 +155,61 @@ describe("mobile function area", () => {
     window.dispatchEvent(new Event("resize"));
     expect(document.getElementById("sidebar").classList.contains("collapsed")).toBe(false);
     expect(document.getElementById("sidebar-toggle").getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("consumes the same-route drawer entry once when the window widens", () => {
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    controller = render();
+    document.getElementById("sidebar-toggle").click();
+    resize(1180);
+    resize(1180);
+    expect(back).toHaveBeenCalledOnce();
+    expect(document.getElementById("sidebar-overlay").getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("leaves a nested layer in control and never backs out of a replaced destination", () => {
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    controller = render();
+    const toggle = document.getElementById("sidebar-toggle");
+    toggle.click();
+    history.pushState({ zicodeMobileLayer: "nested-dialog" }, "", location.href);
+    resize(1180);
+    expect(back).not.toHaveBeenCalled();
+    expect(history.state.zicodeMobileLayer).toBe("nested-dialog");
+
+    history.replaceState(null, "", "/app/chat");
+    resize(420);
+    toggle.click();
+    history.replaceState({ ...history.state, route: "settings" }, "", "/app/#/settings/updates");
+    resize(1180);
+    expect(back).not.toHaveBeenCalled();
+    expect(location.hash).toBe("#/settings/updates");
+    expect(history.state).toEqual({ route: "settings" });
+  });
+
+  it("keeps a drawer reopened during a pending Back after rapid resizes", () => {
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    controller = render();
+    const toggle = document.getElementById("sidebar-toggle");
+    toggle.click();
+    resize(1180);
+    resize(420);
+    toggle.click();
+    expect(back).toHaveBeenCalledOnce();
+    history.replaceState(null, "", location.href);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(history.state.zicodeMobileLayer).toBe("function-area");
+  });
+
+  it("does not repeat the Back triggered by actively closing the drawer", () => {
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
+    controller = render();
+    const toggle = document.getElementById("sidebar-toggle");
+    toggle.click();
+    toggle.click();
+    resize(1180);
+    expect(back).toHaveBeenCalledOnce();
   });
 
   it("treats a short coarse-pointer landscape viewport as mobile", () => {
