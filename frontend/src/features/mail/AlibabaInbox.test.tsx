@@ -431,3 +431,83 @@ it.each(["account", "folder"])("drops an expired-cursor recovery after changing 
   expect(props.setFolder).not.toHaveBeenCalled();
   if (change === "account") expect(screen.getByText("Other account mail")).toBeTruthy();
 });
+
+it.each([false, true])("retries only the local IMAP directory while preserving the current email (cached folders: %s)", async hasFolders => {
+  const a = setup("alibaba", false);
+  const backend = a.remote.getMockImplementation();
+  if (!backend) throw Error("Missing transport fixture");
+  let retries = 0;
+  const cursor = { uidValidity: 7, before: summary.uid };
+  a.remote.mockImplementation(async request => {
+    if (request.kind === "cachedFolders") {
+      if (retries < 2) throw Error("mail_storage");
+      return hasFolders ? [{ id: "Archive", name: "Saved archive" }] : [];
+    }
+    if (request.kind === "cachedPage") {
+      if (request.cursor) return { uidValidity: 7, messages: [{ ...summary, uid: 20, subject: "Earlier saved mail" }], next: null };
+      return { uidValidity: 7, messages: [summary], next: cursor };
+    }
+    if (request.kind === "cachedBody") {
+      return { summary, text: "Currently reading offline", attachments: [{ id: 0, name: "retained.pdf", size: 10 }] };
+    }
+    return backend(request);
+  });
+  const inbox = within(await screen.findByRole("region", { name: "Alibaba Mail inbox" }));
+  const error = "Could not read saved IMAP folders.";
+  await inbox.findByText(error);
+  const retry = () => inbox.getByRole("button", { name: "Retry saved IMAP folders" });
+  expect(inbox.getByRole("button", { name: "Refresh folder list" }).matches(":disabled")).toBe(true);
+
+  fireEvent.click(await inbox.findByRole("button", { name: /Inbox fixture/ }));
+  await inbox.findByText("Currently reading offline");
+  fireEvent.change(inbox.getByLabelText("Client password"), { target: { value: "synthetic unsaved input" } });
+  const before = a.remote.mock.calls.length;
+  ++retries;
+  await act(async () => fireEvent.click(retry()));
+  expect(inbox.getByText(error)).toBeTruthy();
+  expect(inbox.getByText("Currently reading offline")).toBeTruthy();
+
+  ++retries;
+  await act(async () => fireEvent.click(retry()));
+  expect(inbox.queryByText(error)).toBeNull();
+  expect(inbox.queryByRole("button", { name: "Retry saved IMAP folders" })).toBeNull();
+  expect(inbox.getByText("Currently reading offline")).toBeTruthy();
+  expect(inbox.getByRole("button", { name: "Download attachment retained.pdf" })).toBeTruthy();
+  expect(inbox.getByLabelText("Client password")).toHaveProperty("value", "synthetic unsaved input");
+  expect(inbox.getByLabelText("IMAP folder")).toHaveProperty("value", "INBOX");
+  expect(Boolean(inbox.queryByRole("option", { name: "Saved archive" }))).toBe(hasFolders);
+  expect(Boolean(inbox.queryByText("No additional IMAP folders are saved on this device."))).toBe(!hasFolders);
+  expect(a.remote.mock.calls.slice(before).map(([request]) => request)).toEqual([
+    { kind: "cachedFolders", accountId: "a" }, { kind: "cachedFolders", accountId: "a" },
+  ]);
+  fireEvent.click(inbox.getByRole("button", { name: "Load older messages" }));
+  await inbox.findByRole("button", { name: /Earlier saved mail/ });
+  expect(a.remote).toHaveBeenLastCalledWith({ kind: "cachedPage", accountId: "a", cursor, limit: 20 });
+});
+
+it("ignores a late saved directory response from a previous IMAP account", async () => {
+  setLocale("en");
+  let retry = false, finish!: (value: unknown) => void;
+  const pending = new Promise<unknown>(resolve => { finish = resolve; });
+  const remote = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === "credentialStatus") return { enabled: false, configured: false };
+    if (request.kind === "cachedPage") return { uidValidity: 7, messages: [summary], next: null };
+    if (request.kind === "cachedFolders" && request.accountId === "b") return [{ id: "Other", name: "Other account folder" }];
+    if (request.kind === "cachedFolders" && retry) return pending;
+    throw Error("mail_storage");
+  });
+  const props = {
+    folder: "INBOX", setFolder: vi.fn(), invoke: remote as Invoke, discard: () => true,
+    onBusy: vi.fn(), onConfigured: vi.fn(), onReply: vi.fn(),
+  };
+  const view = render(<AlibabaInbox id="a" {...props}/>);
+  const button = await screen.findByRole("button", { name: "Retry saved IMAP folders" });
+  retry = true;
+  fireEvent.click(button);
+  expect(remote).toHaveBeenLastCalledWith({ kind: "cachedFolders", accountId: "a" });
+  view.rerender(<AlibabaInbox id="b" {...props}/>);
+  await screen.findByRole("option", { name: "Other account folder" });
+  await act(async () => finish([{ id: "Old", name: "Old account folder" }]));
+  expect(screen.queryByRole("option", { name: "Old account folder" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Retry saved IMAP folders" })).toBeNull();
+});

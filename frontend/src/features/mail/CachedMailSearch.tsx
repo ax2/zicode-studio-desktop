@@ -28,6 +28,9 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const [scope, setScope] = useState(current);
   const [folder, setFolder] = useState("");
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [directoryFailed, setDirectoryFailed] = useState(false);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const directoryGeneration = useRef(0);
   const provider = accounts.find(account => account.id === scope)?.provider;
   const directoryInvoke = provider === "gmail" ? gmail : provider === "alibaba" ? alibaba : undefined;
   const directoryKind = provider === "gmail" ? "cachedLabels" : "cachedFolders";
@@ -68,19 +71,23 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     closeReading();
     setError(false);
   },[closeReading]);
+  const readDirectory = useCallback(async () => {
+    if (!directoryInvoke) return;
+    const request = ++directoryGeneration.current;
+    setDirectoryLoading(true);
+    try {
+      const rows = await directoryInvoke<Folder[] | null>({ kind: directoryKind, accountId: scope });
+      if (request !== directoryGeneration.current) return;
+      setFolders(Array.isArray(rows) ? rows : []);
+      setDirectoryFailed(false);
+    } catch {
+      if (request === directoryGeneration.current) setDirectoryFailed(true);
+    } finally {
+      if (request === directoryGeneration.current) setDirectoryLoading(false);
+    }
+  }, [directoryInvoke, directoryKind, scope]);
   useEffect(() => {
-    const invokeDirectory = directoryInvoke;
-    if (!invokeDirectory) return;
-    let version = 0;
-    const readDirectory = async () => {
-      const request = ++version;
-      try {
-        const rows = await invokeDirectory<Folder[] | null>({ kind: directoryKind, accountId: scope });
-        if (request === version) setFolders(Array.isArray(rows) ? rows : []);
-      } catch {
-        // Search remains available for the inbox and across all local folders.
-      }
-    };
+    if (!directoryInvoke) return;
     function directoryChanged(event: Event) {
       if ((event as CustomEvent<string>).detail !== scope) return;
       if (event.type === "studio-mail-cache-cleared") setFolders([]);
@@ -90,11 +97,20 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     window.addEventListener("studio-mail-directory-updated", directoryChanged);
     window.addEventListener("studio-mail-cache-cleared", directoryChanged);
     return () => {
-      ++version;
+      ++directoryGeneration.current;
       window.removeEventListener("studio-mail-directory-updated", directoryChanged);
       window.removeEventListener("studio-mail-cache-cleared", directoryChanged);
     };
-  }, [scope, directoryKind, directoryInvoke]);
+  }, [scope, directoryInvoke, readDirectory]);
+  function changeScope(next: string) {
+    ++directoryGeneration.current;
+    clear();
+    setFolder("");
+    setFolders([]);
+    setDirectoryFailed(false);
+    setDirectoryLoading(false);
+    setScope(next);
+  }
   useEffect(() => {
     if (folder && folder !== "INBOX" && !folders.some(item => item.id === folder)) {
       setFolder("");
@@ -221,7 +237,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   }
   return <fieldset><legend>{t("Search cached inboxes")}</legend>
     <form onSubmit={e=>{e.preventDefault(); if(query.trim()) void search(0)}}>
-      <label>{t("Search scope")}<select className="ui-select" value={scope} onChange={e => { clear(); setFolder(""); setFolders([]); setScope(e.target.value); }}>
+      <label>{t("Search scope")}<select className="ui-select" value={scope} onChange={e => changeScope(e.target.value)}>
         {accounts.map(a=><option key={a.id} value={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}
         <option value="">{t("All local mail accounts")}</option>
       </select></label>
@@ -233,6 +249,12 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
             <option key={item.id} value={item.id} translate="no">{item.name}</option>)}
         </select>
       </label>}
+      {directoryFailed && <>
+        <p role="status">{t("Could not read saved labels or folders.")}</p>
+        <button className="ui-button" type="button" disabled={directoryLoading} onClick={() => void readDirectory()}>
+          {t("Retry saved labels or folders")}
+        </button>
+      </>}
       <label>{t("Search cached mail")}<input className="ui-input" type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
       <button className="ui-button" type="submit" disabled={busy || loadingBody || !query.trim()}>{t("Search")}</button>
     </form>

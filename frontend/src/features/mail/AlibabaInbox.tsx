@@ -10,6 +10,7 @@ type Cursor={folder?:string;uidValidity:number,before:number};
 type Summary={uid:number,subject:string,sender:string,replyTo:string};
 type Page={pending?:boolean;uidValidity:number,messages:Summary[],next:Cursor|null};
 type Body={summary:Summary,text:string,html?:string|null;bodyLimited?:boolean;attachments?:Attachment[]};
+type Folder = { id: string; name: string };
 type CredentialStatus = { configured: boolean; enabled: boolean };
 const mailErrorCode = (error: unknown) => String(error).replace(/^Error:\s*/, "");
 export function mailError(error:unknown) {
@@ -36,7 +37,16 @@ export function mailError(error:unknown) {
 }
 export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfigured,onBusy,draftBusy = false}:{id:string,folder:string,setFolder:(id:string)=>void,invoke:Invoke,discard:()=>boolean|Promise<boolean>,draftBusy?:boolean,
   onReply:(draft:Draft)=>void,onConfigured:(value:boolean)=>void,onBusy:(value:boolean)=>void}) {
-  const [folders,setFolders]=useState<{id:string;name:string}[]>([]);
+  const [folders,setFolders]=useState<Folder[]>([]);
+  const [savedFoldersState, setSavedFoldersState] = useState<"failed" | "empty" | null>(null);
+  const applySavedFolders = useCallback((items: Folder[]) => {
+    if (!Array.isArray(items)) {
+      setSavedFoldersState("failed");
+      return;
+    }
+    setFolders(items);
+    setSavedFoldersState(items.some(item => item.id !== "INBOX") ? null : "empty");
+  }, []);
   const [configured,setConfigured]=useState(false),[enabled,setEnabled]=useState(false),[secret,setSecret]=useState("");
   const [credentialError, setCredentialError] = useState("");
   const [page,setPage]=useState<Page|null>(null),[body,setBody]=useState<Body|null>(null),[selected,setSelected]=useState<MessageRef|null>(null);
@@ -55,21 +65,22 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
   }, []);
   useEffect(()=>{onBusy(busy);return()=>onBusy(false)},[busy,onBusy]);
   const req=<T,>(kind:string,args:Record<string,unknown>={})=>invoke<T>({kind,accountId:id,...args});
-  useEffect(()=>{live.current=true;const epoch=++generation.current;lock.current=true;setBusy(true);
+  useEffect(()=>{live.current=true;const epoch=++generation.current;lock.current=true;setBusy(true);setSavedFoldersState(null);
     void(async()=>{try{
       const [credentials,inbox,directory]=await Promise.allSettled([
         invoke<CredentialStatus>({kind:"credentialStatus",accountId:id}),
         invoke<Page>({kind:"cachedPage",accountId:id,limit:20}),
-        invoke<{id:string;name:string}[]>({kind:"cachedFolders",accountId:id})]);
+        invoke<Folder[]>({kind:"cachedFolders",accountId:id})]);
       if(!live.current||generation.current!==epoch)return;
-      if(directory.status==="fulfilled" && Array.isArray(directory.value))setFolders(directory.value);
+      if (directory.status === "fulfilled") applySavedFolders(directory.value);
+      else setSavedFoldersState("failed");
       if (credentials.status === "fulfilled") applyCredentialStatus(credentials.value);
       else applyCredentialStatus(null, mailError(credentials.reason));
       if(inbox.status==="fulfilled")setPage(inbox.value);
       else if(!String(inbox.reason).includes("mail_cache_empty"))setError(mailError(inbox.reason));
     }finally{if(live.current&&generation.current===epoch){lock.current=false;setBusy(false)}}})();
     return()=>{live.current=false;generation.current++}
-  },[id,invoke,applyCredentialStatus]);
+  },[id,invoke,applyCredentialStatus,applySavedFolders]);
   async function run<T>(work:(isCurrent:()=>boolean)=>Promise<T>,apply:(value:T)=>void,reportError?:(message:string)=>void,scopeCurrent?:()=>boolean){
     if(lock.current)return;lock.current=true;setBusy(true);
     if (!reportError) setError("");
@@ -122,11 +133,14 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       setOnline(network);
     }, undefined, () => activeFolder.current === folder);
   }
+  function retrySavedFolders() {
+    void run(() => req<Folder[]>("cachedFolders"), applySavedFolders, () => setSavedFoldersState("failed"));
+  }
   function refreshFolders() {
     void run(async isCurrent => {
-      const items = await req<{ id: string; name: string }[]>("folders");
+      const items = await req<Folder[]>("folders");
       if (!isCurrent()) return;
-      setFolders(items);
+      applySavedFolders(items);
       window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: id }));
       if (folder === "INBOX" || items.some(item => item.id === folder)) return;
       setFolder("INBOX");
@@ -178,13 +192,20 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
         <MailDisconnect connected={configured} label={t("Remove client password")} prompt={t("Remove this account’s saved client password?")}
           disconnect={clear=>run(()=>req("forgetPassword",{clearCache:clear}),()=>{
             setSecret("");setConfigured(false);setOnline(false);onConfig.current(false);
-            if(clear){setFolders([]);setFolder("INBOX");setPage(null);setSelected(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
+            if(clear){applySavedFolders([]);setFolder("INBOX");setPage(null);setSelected(null);setBody(null);window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared",{detail:id}))}
           })}/>
       </form>
     </fieldset>
     <fieldset disabled={busy}><legend>{t("Inbox")}</legend>
-      <label>{t("IMAP folder")}<select className="ui-select" value={folder} onChange={e=>load(false,null,e.target.value)}><option value="INBOX">{t("Inbox")}</option>{folders.filter(f=>f.id!=="INBOX").map(f=><option key={f.id} value={f.id} translate="no">{f.name}</option>)}</select></label>
+      <label>{t("IMAP folder")}<select className="ui-select" value={folder} onChange={e=>load(false,null,e.target.value)}><option value="INBOX">{t("Inbox")}</option>
+        {folder !== "INBOX" && !folders.some(item => item.id === folder) && <option value={folder} translate="no">{folder}</option>}
+        {folders.filter(f=>f.id!=="INBOX").map(f=><option key={f.id} value={f.id} translate="no">{f.name}</option>)}</select></label>
       <button className="ui-button" type="button" disabled={!configured} onClick={refreshFolders}>{t("Refresh folder list")}</button>
+      {savedFoldersState === "failed" && <>
+        <p role="status">{t("Could not read saved IMAP folders.")}</p>
+        <button className="ui-button" type="button" onClick={retrySavedFolders}>{t("Retry saved IMAP folders")}</button>
+      </>}
+      {savedFoldersState === "empty" && <p role="status">{t("No additional IMAP folders are saved on this device.")}</p>}
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(folder==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
       <button className="ui-button" type="button" disabled={!configured} onClick={()=>load(true)}>{t("Refresh from server")}</button>
       {page?<><p>{online?t("Showing messages retrieved from the server."):t("Showing messages saved on this device.")}</p>

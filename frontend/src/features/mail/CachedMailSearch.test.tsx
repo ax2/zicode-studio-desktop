@@ -86,6 +86,121 @@ it("discards stale label lists and resets a removed folder without replaying a w
   expect(local).toHaveBeenCalledExactlyOnceWith({ kind: "search", account: "b", label: "Archive", query: "invoice", offset: 0 });
 });
 
+const directoryFailure = "Could not read saved labels or folders.";
+const directoryRetry = "Retry saved labels or folders";
+
+it.each([
+  ["gmail", "cachedLabels", "Search Gmail label"],
+  ["alibaba", "cachedFolders", "Search IMAP folder"],
+])("recovers a missing initial %s search directory without a server request", async (provider, kind, filter) => {
+  setLocale("en");
+  const account = { id: "one", address: "first@example.test", provider };
+  let available = false;
+  const directory = vi.fn(async () => {
+    if (!available) throw Error("local directory unavailable");
+    return [{ id: "Archive", name: "Recovered archive" }];
+  });
+  const local = vi.fn(async () => ({ items: [], more: false }));
+  render(<CachedMailSearch accounts={[account]} current="one" invoke={local as Invoke}
+    gmail={provider === "gmail" ? directory as Invoke : undefined} alibaba={provider === "alibaba" ? directory as Invoke : undefined} />);
+  await screen.findByText(directoryFailure);
+  fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "saved invoice" } });
+  const retry = screen.getByRole("button", { name: directoryRetry });
+  await act(async () => fireEvent.click(retry));
+  expect(retry.matches(":disabled")).toBe(false);
+  expect(screen.getByText(directoryFailure)).toBeTruthy();
+
+  available = true;
+  fireEvent.click(retry);
+  await screen.findByRole("option", { name: "Recovered archive" });
+  expect(screen.queryByText(directoryFailure)).toBeNull();
+  expect(screen.queryByRole("button", { name: directoryRetry })).toBeNull();
+  expect(screen.getByDisplayValue("saved invoice")).toBeTruthy();
+  expect(directory.mock.calls).toEqual([[{ kind, accountId: "one" }], [{ kind, accountId: "one" }], [{ kind, accountId: "one" }]]);
+  expect(local).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText(filter), { target: { value: "Archive" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await screen.findByText("No matching cached messages.");
+  expect(local).toHaveBeenCalledExactlyOnceWith({ kind: "search", account: "one", label: "Archive", query: "saved invoice", offset: 0 });
+});
+
+it("keeps the selected search folder and open body until a successful directory read removes that folder", async () => {
+  setLocale("en");
+  const account = { id: "one", address: "first@example.test", provider: "gmail" };
+  const archive = { id: "Archive", name: "Saved archive" };
+  const hit = { account: account.id, address: account.address, provider: account.provider, id: "42",
+    folder: archive.id, epoch: null, subject: "Saved search hit", sender: "Fixture" };
+  let rows: typeof archive[] | null = [archive], failed = false;
+  const gmail = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === "cachedBody") return { plainText: "Still reading this body" };
+    if (request.kind !== "cachedLabels" || failed) throw Error("local directory unavailable");
+    return rows;
+  });
+  const local = vi.fn(async () => ({ items: [hit], more: false }));
+  render(<CachedMailSearch accounts={[account]} current="one" invoke={local as Invoke} gmail={gmail as Invoke} />);
+  await screen.findByRole("option", { name: archive.name });
+  const filter = screen.getByLabelText<HTMLSelectElement>("Search Gmail label");
+  fireEvent.change(filter, { target: { value: archive.id } });
+  fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "invoice" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Saved search hit/ }));
+  await screen.findByText("Still reading this body");
+  const directoryChanged = () => window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: account.id }));
+
+  failed = true;
+  await act(async () => directoryChanged());
+  await screen.findByText(directoryFailure);
+  expect(filter.value).toBe(archive.id);
+  expect(screen.getByText("Still reading this body")).toBeTruthy();
+  failed = false;
+  rows = [archive, { id: "Receipts", name: "Recovered receipts" }];
+  fireEvent.click(screen.getByRole("button", { name: directoryRetry }));
+  await screen.findByRole("option", { name: "Recovered receipts" });
+  expect(filter.value).toBe(archive.id);
+  expect(screen.getByText("Still reading this body")).toBeTruthy();
+
+  failed = true;
+  await act(async () => directoryChanged());
+  await screen.findByText(directoryFailure);
+  failed = false;
+  rows = null;
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: directoryRetry })));
+  expect(filter.value).toBe("");
+  expect(screen.queryByText("Still reading this body")).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Saved search hit/ })).toBeNull();
+  expect(screen.getByDisplayValue("invoice")).toBeTruthy();
+  expect(local).toHaveBeenCalledExactlyOnceWith({ kind: "search", account: "one", label: archive.id, query: "invoice", offset: 0 });
+  expect(gmail.mock.calls.filter(([request]) => request.kind !== "cachedLabels")).toEqual([[{ kind: "cachedBody", accountId: "one", id: "42" }]]);
+});
+
+it.each(["changing account", "reading a newer directory"])("ignores a late search directory retry after %s", async change => {
+  setLocale("en");
+  const accounts = ["one", "two"].map(id => ({ id, address: id + "@example.test", provider: "gmail" }));
+  let status: "failed" | "held" | "fresh" = "failed";
+  let resolveOld!: (folders: { id: string; name: string }[]) => void;
+  const gmail = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.accountId === "two" || status === "fresh") return [{ id: "Fresh", name: "Fresh label" }];
+    if (status === "held") return new Promise(resolve => { resolveOld = resolve; });
+    throw Error("local directory unavailable");
+  });
+  render(<CachedMailSearch accounts={accounts} current="one" invoke={vi.fn() as Invoke} gmail={gmail as Invoke} />);
+  const retry = await screen.findByRole("button", { name: directoryRetry });
+  status = "held";
+  fireEvent.click(retry);
+  expect(retry.matches(":disabled")).toBe(true);
+  if (change === "changing account") {
+    fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "two" } });
+  } else {
+    status = "fresh";
+    await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: "one" })));
+  }
+  await screen.findByRole("option", { name: "Fresh label" });
+  await act(async () => resolveOld([{ id: "Late", name: "Late label" }]));
+  expect(screen.getByRole("option", { name: "Fresh label" })).toBeTruthy();
+  expect(screen.queryByRole("option", { name: "Late label" })).toBeNull();
+  expect(screen.queryByText(directoryFailure)).toBeNull();
+});
+
 function emptyDirectory(invoke: Invoke): Invoke {
   return async <T,>(request: Record<string, unknown>) => {
     if (request.kind === "cachedFolders" || request.kind === "cachedLabels") return [] as T;
