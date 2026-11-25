@@ -134,12 +134,54 @@ it("keeps attachments on picker cancellation and removes only the selected saved
   render(<Mail invoke={invoke}/>);
   const draftButton = await screen.findByRole("button",{name:"Files"});
   await act(async()=>fireEvent.click(draftButton));
-  await act(async()=>fireEvent.click(screen.getByRole("button",{name:"Add attachment"})));
+  const add = screen.getByRole("button", { name: "Add attachment" });
+  add.focus();
+  await act(async()=>fireEvent.click(add));
+  expect(document.activeElement).toBe(add);
   expect(screen.getAllByRole("button",{name:"Remove attachment"})).toHaveLength(2);
-  await act(async()=>fireEvent.click(screen.getAllByRole("button",{name:"Remove attachment"})[1]));
+  const remove = screen.getAllByRole("button", { name: "Remove attachment" })[1];
+  remove.focus();
+  await act(async()=>fireEvent.click(remove));
   expect(calls.find(request=>request.kind==="removeAttachment")).toEqual({kind:"removeAttachment",account:"a",id:"d",revision:4,attachment:"second"});
   expect(screen.queryByText(/second\.bin/)).toBeNull();
   expect(screen.getByText(/first\.bin/)).toBeTruthy();
+  expect(document.activeElement).toBe(add);
+});
+
+it("keeps deliberate focus movement and does not replay attachment focus after opening another draft", async () => {
+  setLocale("en");
+  const drafts = [
+    { id: "first", revision: 4, subject: "Draft one", recipient: "", body: "Previous draft" },
+    { id: "second", revision: 7, subject: "Draft two", recipient: "", body: "Current draft" },
+  ];
+  let finish!: () => void;
+  const invoke = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === "accounts") return [{ id: "a", provider: "gmail", address: "one@example.test" }];
+    if (request.kind === "drafts") return drafts;
+    if (request.kind === "pickAttachment") return new Promise(resolve => {
+      finish = () => resolve({ changed: false });
+    });
+    throw Error("Unexpected local request");
+  });
+  render(<Mail invoke={invoke as Invoke} />);
+  const first = await screen.findByRole("button", { name: "Draft one" });
+  await act(async () => fireEvent.click(first));
+  const add = screen.getByRole("button", { name: "Add attachment" });
+  add.focus();
+  fireEvent.click(add);
+  const second = screen.getByRole("button", { name: "Draft two" });
+  expect(second.matches(":disabled")).toBe(true);
+  const search = screen.getByRole("searchbox", { name: "Search cached mail" });
+  search.focus();
+  search.blur();
+  await act(async () => finish());
+  expect(document.activeElement).toBe(document.body);
+  await act(async () => fireEvent.click(second));
+  expect((screen.getByLabelText("Message body") as HTMLTextAreaElement).value).toBe("Current draft");
+  expect(document.activeElement).not.toBe(add);
+  expect(invoke.mock.calls.filter(([request]) => request.kind === "pickAttachment")).toEqual([
+    [{ kind: "pickAttachment", account: "a", id: "first", revision: 4 }],
+  ]);
 });
 
 it.each([["gmail", "pickAttachment"], ["alibaba", "removeAttachment"]])(
@@ -179,11 +221,14 @@ it.each([["gmail", "pickAttachment"], ["alibaba", "removeAttachment"]])(
     await act(async () => fireEvent.click(selected));
     await screen.findByRole("region", { name: "Send saved draft" });
     const control = operation === "pickAttachment" ? "Add attachment" : "Remove attachment";
-    await act(async () => fireEvent.click(screen.getByRole("button", { name: control })));
+    const action = screen.getByRole("button", { name: control });
+    action.focus();
+    await act(async () => fireEvent.click(action));
     expect((await screen.findByRole("alert")).textContent).toContain("Attachment change saved");
     expect(screen.queryByRole("region", { name: "Send saved draft" })).toBeNull();
     expect(screen.queryByRole("button", { name: control })).toBeNull();
     const retry = screen.getByRole("button", { name: "Reload draft attachments" });
+    expect(document.activeElement).toBe(retry);
     await act(async () => fireEvent.click(retry));
     expect(screen.queryByRole("region", { name: "Send saved draft" })).toBeNull();
     await act(async () => fireEvent.click(retry));

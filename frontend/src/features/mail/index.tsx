@@ -34,6 +34,11 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   const lock=useRef(true);
   const source = useRef<{ invoke: Invoke } | null>(null);
   const composeBody=useRef<HTMLTextAreaElement>(null);
+  const addAttachmentButton = useRef<HTMLButtonElement>(null);
+  const reloadDraftButton = useRef<HTMLButtonElement>(null);
+  const attachmentFocus = useRef<{
+    account: string; draftId: string; button: HTMLButtonElement;
+  } | null>(null);
   const focusReply=useRef<string | undefined>(undefined);
   const [passwordOwner,setPasswordOwner]=useState("");
   const [mailActivity,setMailActivity]=useState<{account:string;activity:AlibabaActivity}|null>(null);
@@ -103,6 +108,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     setGmailSendOwner("");
     setMailActivity(null);
     focusReply.current = undefined;
+    attachmentFocus.current = null;
     void (async () => {
       try {
         const rows = await nextSource.invoke<Account[]>({ kind: "accounts" });
@@ -141,6 +147,28 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     });
     return()=>clearTimeout(timer);
   },[busy,mailBusy,edit.id]);
+  useLayoutEffect(() => {
+    const action = attachmentFocus.current;
+    if (!action) return;
+    if (action.account !== account || action.draftId !== edit.id) {
+      attachmentFocus.current = null;
+      return;
+    }
+    const { button } = action;
+    const doc = button.ownerDocument;
+    if (busy || mailBusy) {
+      const focusMoved = (event: FocusEvent) => {
+        if (event.target !== button && event.target !== doc.body) attachmentFocus.current = null;
+      };
+      doc.addEventListener("focusin", focusMoved);
+      return () => doc.removeEventListener("focusin", focusMoved);
+    }
+    attachmentFocus.current = null;
+    if (doc.activeElement !== doc.body && doc.activeElement !== button) return;
+    const next = attachmentRefresh ? reloadDraftButton.current :
+      button.isConnected && !button.matches(":disabled") ? button : addAttachmentButton.current;
+    if (next && doc.activeElement !== next) next.focus();
+  }, [account, edit.id, attachmentRefresh, busy, mailBusy]);
   const discard=async()=>!dirty||await window.confirm(t("Discard unsaved draft changes?"));
   function change(key:"recipient"|"subject"|"body",value:string){setEdit({...edit,[key]:value});setDirty(true)}
   async function readDraftAttachments(target: AttachmentRefresh, isCurrent: () => boolean) {
@@ -165,6 +193,14 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     if (!result.changed || !isCurrent()) return;
     await readDraftAttachments({account, id:edit.id, revision:result.revision ?? edit.revision + 1}, isCurrent);
   }
+  function startAttachment(button: HTMLButtonElement, attachment?: string) {
+    void run(isCurrent => {
+      if (edit.id && button.ownerDocument.activeElement === button) {
+        attachmentFocus.current = { account, draftId: edit.id, button };
+      }
+      return changeAttachment(isCurrent, attachment);
+    });
+  }
   const recoveringAttachments = attachmentRefresh !== null;
   const draftBlocked = busy || recoveringAttachments;
   const savedDraftReady = Boolean(edit.id) && !recoveringAttachments;
@@ -186,7 +222,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     {account&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
     {edit.gmailReply&&<p>{t("Changing the recipient or subject sends this as a new message.")}</p>}
     <div className="mail-list"><button className="ui-button" type="button" disabled={recoveringAttachments} onClick={()=>void run(async()=>{if(await discard()){setEdit(blank());setDirty(false)}})}>{t("New draft")}</button>
-    <button className="ui-button" type="button" onClick={()=>void run(async isCurrent=>{
+    <button className="ui-button" type="button" ref={reloadDraftButton} onClick={()=>void run(async isCurrent=>{
       if (attachmentRefresh) await readDraftAttachments(attachmentRefresh, isCurrent);
       else if(await discard()) await load(account);
     })}>{t(attachmentRefresh ? "Reload draft attachments" : "Reload drafts")}</button>
@@ -199,8 +235,8 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
       const saved=await invoke<{id:string,revision:number}>({kind:"save",account,id:edit.id,revision:edit.revision,recipient:edit.recipient,subject:edit.subject,body:edit.body});const d={...edit,...saved};setEdit(d);setDirty(false);setDrafts(old=>[d,...old.filter(item=>item.id!==d.id)]);
     })}>{t("Save draft")}</button>
     {savedDraftReady && <div>
-      <button className="ui-button" type="button" disabled={dirty} onClick={()=>void run(changeAttachment)}>{t("Add attachment")}</button>
-      {edit.attachments?.map(file=><div key={file.id}>{file.name} ({file.size} B) <button className="ui-button" type="button" disabled={dirty} onClick={()=>void run(isCurrent=>changeAttachment(isCurrent,file.id))}>{t("Remove attachment")}</button></div>)}
+      <button className="ui-button" type="button" ref={addAttachmentButton} disabled={dirty} onClick={event=>startAttachment(event.currentTarget)}>{t("Add attachment")}</button>
+      {edit.attachments?.map(file=><div key={file.id}>{file.name} ({file.size} B) <button className="ui-button" type="button" disabled={dirty} onClick={event=>startAttachment(event.currentTarget,file.id)}>{t("Remove attachment")}</button></div>)}
     </div>}
     {gmail&&owner&&savedDraftReady&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} provider="gmail" invoke={gmail} id={account} address={owner.address} draft={edit} configured={gmailSendOwner===account}/>}
     {alibaba&&owner&&savedDraftReady&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} invoke={alibaba} id={account} address={owner.address} draft={edit} configured={passwordOwner===account}/>}
