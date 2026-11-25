@@ -4,7 +4,7 @@ import { setupSidebarToggle } from "./sidebar-toggle.js";
 function render(width = 390) {
   Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: width });
   document.body.innerHTML = `
-    <aside id="sidebar">
+    <aside id="sidebar" tabindex="-1">
       <input id="session-search-input" type="search" />
       <button class="plugin-sidebar-view-header">Disclosure</button>
       <button class="content-action">Open item</button>
@@ -15,7 +15,11 @@ function render(width = 390) {
       <div id="workspace-switcher-menu"><button class="workspace-switcher-item">WS</button></div>
     </aside>
     <div id="sidebar-overlay" aria-hidden="true"></div>
-    <button id="sidebar-toggle" aria-expanded="true"></button>
+    <main class="main">
+      <button id="sidebar-toggle" aria-expanded="true"></button>
+      <button id="obscured-action">Main action</button>
+    </main>
+    <button id="bottom-navigation">Bottom navigation</button>
   `;
   return setupSidebarToggle();
 }
@@ -43,6 +47,45 @@ describe("mobile function area", () => {
     expect(document.getElementById("sidebar").classList.contains("collapsed")).toBe(true);
     expect(document.getElementById("sidebar-toggle").getAttribute("aria-expanded")).toBe("false");
     expect(document.getElementById("sidebar-overlay").getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("suspends the covered main view and releases it without moving focus from bottom navigation", () => {
+    controller = render();
+    const main = document.querySelector(".main");
+    const sidebar = document.getElementById("sidebar");
+    const toggle = document.getElementById("sidebar-toggle");
+    const bottom = document.getElementById("bottom-navigation");
+    toggle.focus();
+    toggle.click();
+    expect(main.hasAttribute("inert")).toBe(true);
+    expect(bottom.closest("[inert]")).toBeNull();
+    expect(document.activeElement).toBe(sidebar);
+    bottom.focus();
+    bottom.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(main.hasAttribute("inert")).toBe(false);
+    expect(document.activeElement).toBe(bottom);
+  });
+
+  it("does not suspend the main view when the backdrop is hidden by the layout", () => {
+    controller = render();
+    const main = document.querySelector(".main");
+    const toggle = document.getElementById("sidebar-toggle");
+    document.getElementById("sidebar-overlay").style.display = "none";
+    toggle.focus();
+    toggle.click();
+    expect(main.hasAttribute("inert")).toBe(false);
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it("leaves Escape to an open top-level dialog before dismissing the drawer", () => {
+    controller = render();
+    const toggle = document.getElementById("sidebar-toggle");
+    toggle.click();
+    const dialog = document.createElement("dialog");
+    dialog.open = true;
+    document.querySelector(".main").append(dialog);
+    dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
   });
 
   it("opens from application navigation and closes after choosing content", async () => {

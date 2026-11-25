@@ -7,6 +7,7 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
   const toggle = document.getElementById("sidebar-toggle");
   const overlay = document.getElementById("sidebar-overlay");
   if (!sidebar || !toggle) return null;
+  const main = toggle.closest(".main");
 
   const mobileMedia =
     mobileBreakpoint === 768 && typeof window.matchMedia === "function"
@@ -20,6 +21,20 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
   let drawerUrl;
   let ownsDrawerEntry = false;
   let pendingBackUrl;
+  let ownsMainInert = false;
+  const syncMainInteraction = () => {
+    if (!main || !overlay) return;
+    const covered = overlay.classList.contains("visible") &&
+      window.getComputedStyle(overlay).display !== "none";
+    if (covered && !main.hasAttribute("inert")) {
+      if (main.contains(document.activeElement)) sidebar.focus({ preventScroll: true });
+      main.setAttribute("inert", "");
+      ownsMainInert = true;
+    } else if (!covered && ownsMainInert) {
+      main.removeAttribute("inert");
+      ownsMainInert = false;
+    }
+  };
   const leaveDrawer = (replace) => {
     if (!pendingBackUrl && drawerHistory?.leave({ replace }) && !replace) {
       pendingBackUrl = drawerUrl;
@@ -33,6 +48,7 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
     overlay?.classList.toggle("visible", !collapsed && isMobile());
     overlay?.setAttribute("aria-hidden", String(collapsed || !isMobile()));
     toggle.setAttribute("aria-expanded", String(!collapsed));
+    syncMainInteraction();
     if (!isMobile()) return;
     if (!collapsed && changed) {
       drawerUrl = window.location.href;
@@ -46,10 +62,17 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
     }
   };
 
+  const dismissDrawer = (options) => {
+    const focused = document.activeElement;
+    setCollapsed(true, options);
+    if (!toggle.disabled && (focused === document.body || sidebar.contains(focused))) {
+      toggle.focus({ preventScroll: true });
+    }
+  };
   drawerHistory = setupMobileHistoryLayer({
     id: "function-area",
     isActive: () => !pendingBackUrl && isMobile() && !sidebar.classList.contains("collapsed"),
-    onBack: () => setCollapsed(true, { fromHistory: true }),
+    onBack: () => dismissDrawer({ fromHistory: true }),
   });
 
   const syncAvailability = () => {
@@ -61,12 +84,13 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
       (!available ||
         (sidebar.classList.contains("collapsed") && overlay?.classList.contains("visible")))
     ) setCollapsed(true, { discardHistory: true });
+    else syncMainInteraction();
   };
   if (mobile) setCollapsed(true, { discardHistory: true });
   syncAvailability();
 
   const handleToggle = () => setCollapsed(!sidebar.classList.contains("collapsed"));
-  const handleOverlay = () => setCollapsed(true);
+  const handleOverlay = () => dismissDrawer();
   const handleRequest = (event) => {
     if (!isMobile()) return;
     setCollapsed(event.detail?.open === false);
@@ -84,7 +108,7 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
       )
     )
       return;
-    queueMicrotask(() => setCollapsed(true));
+    queueMicrotask(() => dismissDrawer());
   };
   const handleKeydown = (event) => {
     if (
@@ -92,12 +116,12 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
       event.key !== "Escape" ||
       event.isComposing ||
       event.keyCode === 229 ||
+      event.target?.closest?.("dialog[open], [aria-modal='true']") ||
       !isMobile() ||
       sidebar.classList.contains("collapsed")
     )
       return;
-    setCollapsed(true);
-    toggle.focus({ preventScroll: true });
+    dismissDrawer();
   };
   const handleResize = () => {
     const nextMobile = isMobile();
@@ -145,6 +169,7 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
     setCollapsed,
     destroy() {
       availabilityObserver.disconnect();
+      if (ownsMainInert) main.removeAttribute("inert");
       toggle.removeEventListener("click", handleToggle);
       overlay?.removeEventListener("click", handleOverlay);
       sidebar.removeEventListener("click", handleSidebarAction);
