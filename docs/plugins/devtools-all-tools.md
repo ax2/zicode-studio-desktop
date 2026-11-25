@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：JDK 环境报告查看
+
+确认共享一份本机 JSON 后，可查看独立版采集的 JDK 快照并保存脱敏文本。隔离 Windows Studio 已验证单环境、对照、错误报告、撤权与重启。[范围与冻结候选](../iterations/2026-11-26-jdk-report.md)
+
 ## 2026-11-26 开发补充：剪贴片段组合
 
 确认共享一份本机 JSON 后，可按原顺序生成段落、编号、单列 CSV 或 Markdown。隔离 Windows Studio 已验证四种实际保存、撤权和重启读回。[范围与冻结候选](../iterations/2026-11-26-clipboard-compose.md)
