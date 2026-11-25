@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import type { SavedAtlasSource } from "./AnimationPanel";
 import { CreationReview } from "./CreationReview";
 import { type GameAssetTemplateId, gameAssetTemplates } from "./creation-workflows";
 import { GenerationFields } from "./GenerationFields";
@@ -22,12 +23,15 @@ import { StyleFields } from "./StyleFields";
 import { defaultPreservation, type StyleInput, stylePresets } from "./style-presets";
 import type { Invoke } from "./VisualAssetsApp";
 
-export function OutfitWorkspace(props: {
+type WorkspaceProps = {
   invoke: Invoke;
   workspaceId: string;
   sceneId?: string;
   workflow?: "outfit" | "style" | "generate" | "game";
-}) {
+  onUseAsAtlas?: (source: SavedAtlasSource) => void;
+};
+
+export function OutfitWorkspace(props: WorkspaceProps) {
   return (
     <Workspace
       key={JSON.stringify([props.workspaceId, props.sceneId, props.workflow])}
@@ -40,12 +44,8 @@ function Workspace({
   workspaceId,
   sceneId,
   workflow = "outfit",
-}: {
-  invoke: Invoke;
-  workspaceId: string;
-  sceneId?: string;
-  workflow?: "outfit" | "style" | "generate" | "game";
-}) {
+  onUseAsAtlas,
+}: WorkspaceProps) {
   const isStyle = workflow === "style";
   const isGame = workflow === "game";
   const isGeneration = workflow === "generate" || isGame;
@@ -391,6 +391,7 @@ function Workspace({
             <OutfitTask
               key={job}
               id={job}
+              onUseAsAtlas={onUseAsAtlas}
               request={request}
               library={library}
               libraryId={config.libraryId}

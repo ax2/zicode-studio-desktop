@@ -788,6 +788,8 @@ const zhCN = {
   "Image sequence": "图片序列",
   "Sprite atlas": "精灵图集",
   "Atlas image": "图集图片",
+  "Use as sprite atlas": "用作精灵图集",
+  "The saved image belongs to a different visual library.": "已保存的图片属于另一个视觉素材库。",
   "Frame image": "帧图片",
   "Select an image from this page": "从当前页选择图片",
   Frame: "帧",
