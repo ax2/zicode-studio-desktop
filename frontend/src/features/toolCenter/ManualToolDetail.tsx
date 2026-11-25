@@ -51,6 +51,19 @@ const sqlFileTargets = [
   { target: "sql-format", field: "text", label: "Import SQL file…", inputLabel: "SQL file", fieldLabel: "SQL text" },
 ] as const;
 
+const sqlOptions = new Map<string, { label: string; choices: ReadonlyMap<string, string> }>([
+  ["dialect", { label: "SQL dialect", choices: new Map([
+    ["generic", "Generic SQL"], ["postgresql", "PostgreSQL"], ["mysql", "MySQL"],
+    ["sqlite", "SQLite"], ["sqlserver", "SQL Server"],
+  ]) }],
+  ["indent", { label: "Indentation", choices: new Map([
+    ["twoSpaces", "2 spaces"], ["fourSpaces", "4 spaces"], ["tabs", "Tabs"],
+  ]) }],
+  ["keywordCase", { label: "Keyword case", choices: new Map([
+    ["uppercase", "Uppercase"], ["lowercase", "Lowercase"], ["preserve", "Keep original case"],
+  ]) }],
+]);
+
 const yamlToJsonFiles = [
   { target: "yaml-to-json", field: "text", label: "Import YAML file…", inputLabel: "YAML input file", fieldLabel: "YAML text" },
 ] as const;
@@ -241,7 +254,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const javaTrace = tracePlugin && tool.capabilityId === "devtools.trace.java.trace";
   const pythonTrace = tracePlugin && tool.capabilityId === "devtools.trace.django.trace";
   const traceReport = javaTrace || pythonTrace;
-  const textPlugin = boundedTextTool && tool.pluginId === "com.zicode.devtools.text" && tool.version === "0.4.1";
+  const textPlugin = boundedTextTool && tool.pluginId === "com.zicode.devtools.text" &&
+    (tool.version === "0.4.1" || tool.version === "0.4.2");
   const transformsTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.transforms" && tool.version === "0.1.1";
   const textLines = transformsTool && /^devtools\.transforms\.lines\.(deduplicate|ascending|descending|nonempty|trim)$/.test(tool.capabilityId);
   const textStatistics = transformsTool && tool.capabilityId === "devtools.transforms.stats.inspect";
@@ -466,9 +480,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
         accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
         {fields.map(field => {
           const side = documentFileTargets.find(target => target.field === field.key);
-          const label = side?.fieldLabel ?? (independentMerge ? independentMergeLabels.get(field.key) : undefined);
+          const sqlOption = sqlFormat && tool.version === "0.4.2" ? sqlOptions.get(field.key) : undefined;
+          const label = side?.fieldLabel ?? sqlOption?.label ?? (independentMerge ? independentMergeLabels.get(field.key) : undefined);
           return <ManualToolInput key={field.key} id={`${detailId}-${field.key}`}
-            field={label ? { ...field, label: t(label) } : field} value={values[field.key]}
+            field={label ? { ...field, label: t(label) } : field} value={values[field.key]} choiceLabels={sqlOption?.choices}
             disabled={editingLocked} invalid={invalidField === field.key}
             compact={independentMerge && (field.key === "leftKey" || field.key === "rightKey")}
             onOmit={() => { setDraft(previous => { const next = { ...previous.values }; delete next[field.key]; return { values: next }; });

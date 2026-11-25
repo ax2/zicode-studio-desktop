@@ -1,10 +1,13 @@
 import { getLocale, t } from "../../shared/i18n";
 import type { ToolField, ToolScalar } from "./manual-tool-fields";
 
-export function ManualToolInput({ field, id, value, disabled, invalid, compact = false, onChange, onOmit }: {
-  field: ToolField; id: string; value?: string; disabled: boolean; invalid: boolean; compact?: boolean; onChange(value: string): void; onOmit?(): void;
+export function ManualToolInput({ field, id, value, disabled, invalid, compact = false, choiceLabels, onChange, onOmit }: {
+  field: ToolField; id: string; value?: string; disabled: boolean; invalid: boolean; compact?: boolean;
+  choiceLabels?: ReadonlyMap<string, string>; onChange(value: string): void; onOmit?(): void;
 }) {
   function choiceLabel(choice: ToolScalar) {
+    const label = typeof choice === "string" ? choiceLabels?.get(choice) : undefined;
+    if (label) return t(label);
     return typeof choice === "boolean" ? t(choice ? "True" : "False") : choice === "" ? t("Empty text") : String(choice);
   }
   function changeText(updated: string) {
@@ -50,6 +53,6 @@ export function ManualToolInput({ field, id, value, disabled, invalid, compact =
     {!field.required && value !== undefined && onOmit && <button type="button" className="ui-button ui-button--secondary ui-button--sm"
       disabled={disabled} onClick={onOmit}>{t("Omit optional input")}</button>}
     {field.suggested && value !== field.suggested.input && <button type="button" className="ui-button ui-button--secondary ui-button--sm"
-      disabled={disabled} onClick={() => onChange(field.suggested?.input ?? "")}>{t("Use declared default")}: {field.suggested.preview}</button>}
+      disabled={disabled} onClick={() => onChange(field.suggested?.input ?? "")}>{t("Use declared default")}: {choiceLabels ? choiceLabel(field.suggested.preview) : field.suggested.preview}</button>}
   </div>;
 }

@@ -13,6 +13,16 @@ const tool: ManualTool = {
 };
 const schema = { type: "object", properties: { text: { type: "string", maxLength: 8192 } },
   required: ["text"], additionalProperties: false };
+const newTool = { ...tool, version: "0.4.2" };
+const optionSchema = {
+  ...schema,
+  properties: {
+    ...schema.properties,
+    dialect: { type: "string", title: "SQL dialect", enum: ["generic", "postgresql", "mysql", "sqlite", "sqlserver"], default: "generic" },
+    indent: { type: "string", title: "Indentation", enum: ["twoSpaces", "fourSpaces", "tabs"], default: "fourSpaces" },
+    keywordCase: { type: "string", title: "Keyword case", enum: ["uppercase", "lowercase", "preserve"], default: "uppercase" },
+  },
+};
 
 afterEach(cleanup);
 
@@ -84,6 +94,7 @@ it("only exposes SQL file import for the existing enabled compatible formatter",
   for (const [selected, input] of [
     [{ ...tool, capabilityId: "devtools.text.base64.encode" }, schema],
     [{ ...tool, version: "0.4.0" }, schema],
+    [{ ...tool, version: "0.4.3" }, optionSchema],
     [tool, { ...schema, properties: { text: { type: "string", maxLength: 4096 } } }],
   ] as const) {
     const { form, view } = await open(selected, input);
@@ -92,6 +103,42 @@ it("only exposes SQL file import for the existing enabled compatible formatter",
   }
   const { form } = await open({ ...tool, enabled: false });
   expect(form.queryByLabelText("SQL file", { exact: true })).toBeNull();
+});
+
+it("keeps the new options when importing or undoing SQL and clears a result after changing an option", async () => {
+  const { api, form, pick, view } = await open(newTool, optionSchema);
+  const editor = form.getByRole("textbox", { name: /SQL text/ });
+  const submit = async () => { await act(async () => { fireEvent.click(form.getByRole("button", { name: "Execute tool" })); }); };
+  const choose = (label: string, choice: string) => {
+    const input = form.getByRole<HTMLSelectElement>("combobox", { name: label });
+    const option = within(input).getByRole<HTMLOptionElement>("option", { name: choice });
+    fireEvent.change(input, { target: { value: option.value } });
+  };
+  const source = "select $tag$原文;$tag$;";
+  fireEvent.change(editor, { target: { value: "select 0;" } });
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text: "select 0;" });
+
+  choose("SQL dialect", "PostgreSQL");
+  choose("Indentation", "2 spaces");
+  choose("Keyword case", "Lowercase");
+  await pick(file("input.sql", source));
+  fireEvent.click(form.getByRole("button", { name: "Undo last import" }));
+  expect((editor as HTMLTextAreaElement).value).toBe("select 0;");
+  await pick(file("input.sql", source));
+  expect(api.invoke).toHaveBeenCalledTimes(1);
+
+  vi.mocked(api.invoke).mockResolvedValueOnce({
+    result: { contractVersion: "1.0.0-rc.1", ok: true, data: { text: source }, error: null },
+  });
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[1][4]).toEqual({
+    text: source, dialect: "postgresql", indent: "twoSpaces", keywordCase: "lowercase",
+  });
+  expect(view.getByRole("button", { name: "Download formatted SQL" })).toBeTruthy();
+  choose("Keyword case", "Keep original case");
+  expect(view.queryByRole("button", { name: "Download formatted SQL" })).toBeNull();
+  expect(api.invoke).toHaveBeenCalledTimes(2);
 });
 
 it("downloads only a fresh successful SQL response as a separate file", async () => {

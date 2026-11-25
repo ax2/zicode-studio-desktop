@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.text","sceneId":"coding","capabilityId":"devtools.text.sql.format","commandId":null,"input":{"text":"select `order`, '$1 -- literal' as note # keep from, where\nfrom `table` where id = ?","dialect":"mysql"}}
