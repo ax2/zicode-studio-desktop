@@ -109,6 +109,22 @@ export function NotesNav({ store }: { store: NotesStore }) {
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchDeleteArmed, setBatchDeleteArmed] = useState(false);
   const batchArmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    const sidebar = nav?.closest<HTMLElement>("#sidebar");
+    if (!nav || !sidebar) return;
+    const resumeNoteNavigation = (event: FocusEvent) => {
+      if (!(event.relatedTarget instanceof HTMLElement) || event.relatedTarget.id !== "sidebar-toggle") return;
+      if (!sidebar.ownerDocument.querySelector("#sidebar-overlay.visible")) return;
+      // The drawer is now open. Resume at the active note when its notebook still shows it.
+      const activeNote = nav.querySelector<HTMLElement>(".notes-tree-note.active");
+      if (activeNote && isTreeItemVisible(activeNote)) activeNote.focus();
+    };
+    sidebar.addEventListener("focus", resumeNoteNavigation);
+    return () => sidebar.removeEventListener("focus", resumeNoteNavigation);
+  }, []);
+
   const armBatchDelete = () => {
     if (!batchDeleteArmed) {
       setBatchDeleteArmed(true);
@@ -165,7 +181,7 @@ export function NotesNav({ store }: { store: NotesStore }) {
   };
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: arrow-key navigation container for the tree; items remain individually keyboard-activatable
-    <div className="notes-nav" onKeyDown={handleNavKeydown}>
+    <div className="notes-nav" ref={navRef} onKeyDown={handleNavKeydown}>
       <div className="notes-nav-actions">
         <button
           type="button"
