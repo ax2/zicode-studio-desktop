@@ -71,12 +71,22 @@ it("keeps a recovered attachment until the saved note includes its link", async 
   const reopened = mount();
   await reopened.getState().selectNote(saved);
   await reopened.getState().refreshDrafts();
+  const codeOnly = "Edited body without the link\n\n" + String.fromCharCode(96) + markdown + String.fromCharCode(96);
   await reopened.getState().recoverDraft(recovered.id);
-  await reopened.getState().recoverDraft(recovered.id);
-  expect(reopened.getState().draftContent.split(markdown)).toHaveLength(2);
+  reopened.getState().setDraft({ content: codeOnly });
   await reopened.getState().saveEditor();
   await reopened.getState().refreshDrafts();
-  expect(saved.content).toBe("Edited body without the link\n\n" + markdown + "\n");
+  expect(saved.content).toBe(codeOnly);
+  expect(records.get(recovered.id)?.attachmentMarkdown).toBe(markdown);
+
+  await reopened.getState().recoverDraft(recovered.id);
+  await reopened.getState().recoverDraft(recovered.id);
+  expect(reopened.getState().draftContent).toBe(codeOnly + "\n\n" + markdown + "\n");
+  const renamed = codeOnly + "\n\n" + markdown.replace("receipt.txt", "Renamed receipt") + "\n";
+  reopened.getState().setDraft({ content: renamed });
+  await reopened.getState().saveEditor();
+  await reopened.getState().refreshDrafts();
+  expect(saved.content).toBe(renamed);
   expect(reopened.getState().recoveryDrafts).toHaveLength(0);
   expect(records.has(recovered.id)).toBe(false);
   expect(uploadAttachment).toHaveBeenCalledTimes(1);

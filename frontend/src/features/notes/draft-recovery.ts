@@ -1,4 +1,6 @@
 import { t } from "../../shared/i18n";
+// @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
+import { renderMarkdown } from "../../../../public/ui/markdown.js";
 import { type AttachmentEditor, appendAttachment } from "./attachment-uploads";
 import { draftScope, type NoteDraft, type NoteDraftRepository } from "./draft-repository";
 import { createDraftCopySaver } from "./draft-copy-save";
@@ -21,6 +23,15 @@ export interface NoteRecoveryState {
   saveIncomingDraft(id: string, notebookId: string): Promise<void>;
   acknowledgeDraftSave(id: string): Promise<void>;
 }
+function hasAttachment(content: string, markdown: string): boolean {
+  // Match the same links and images that Notes preview makes available.
+  const attachments = /<(?:a href|img src)="(\/attachments\/[^"]+)"/g;
+  const target = renderMarkdown(markdown).matchAll(attachments).next().value?.[1];
+  if (!target) return false;
+  const rendered: string = renderMarkdown(content);
+  return Array.from(rendered.matchAll(attachments)).some((match) => match[1] === target);
+}
+
 export function createNoteDraftRecovery({
   get,
   set,
@@ -207,7 +218,7 @@ export function createNoteDraftRecovery({
           get().selectedNote?.notebookId === draft.note.notebookId;
         if (!sameNote()) await get().selectNote(draft.note);
         if (!scope.isCurrent() || !sameNote() || get().editorLocked || get().transferBusy) return;
-        if (get().draftContent.includes(draft.attachmentMarkdown)) {
+        if (hasAttachment(get().draftContent, draft.attachmentMarkdown)) {
           if (get().dirty) rememberSource(idFor(get()), draft);
           else await forget(draft);
           return;
@@ -389,7 +400,7 @@ export function createNoteDraftRecovery({
           restored.delete(id);
           for (const draft of source) {
             // The user may remove a recovered link before saving other edits.
-            if (!draft.attachmentMarkdown || state.selectedNote?.content.includes(draft.attachmentMarkdown)) {
+            if (!draft.attachmentMarkdown || hasAttachment(state.selectedNote?.content ?? "", draft.attachmentMarkdown)) {
               void forget(draft);
             }
           }
