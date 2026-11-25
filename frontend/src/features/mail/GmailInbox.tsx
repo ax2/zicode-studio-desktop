@@ -95,13 +95,20 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     return()=>{epoch.current++;if(operation.current==="connect")void invoke({kind:"cancel",accountId:id}).catch(()=>{})};
   },[id,invoke,setLabel]);
   async function run<T>(kind:string,task:(isCurrent:()=>boolean)=>Promise<T>,apply:(result:T)=>void){
-    if(operation.current)return;const gen=++epoch.current;operation.current=kind;setBusy(kind);setNotice("");
-    try {const value=await task(()=>epoch.current===gen);if(epoch.current===gen)apply(value)}
-    catch(e){if(epoch.current===gen&&kind!=="cachedLabels"){
-      setNotice(gmailError(e));
-      if(kind==="reply")setReplyRefresh(gmailReplyNeedsRefresh(e));
-      if(String(e).includes("gmail_reauthorize"))saveGrant(none);
-    }}
+    if(operation.current)return false;const gen=++epoch.current;operation.current=kind;setBusy(kind);setNotice("");
+    try {
+      const value = await task(() => epoch.current === gen);
+      if (epoch.current !== gen) return false;
+      apply(value);
+      return true;
+    } catch (error) {
+      if (epoch.current === gen && kind !== "cachedLabels") {
+        setNotice(gmailError(error));
+        if (kind === "reply") setReplyRefresh(gmailReplyNeedsRefresh(error));
+        if (String(error).includes("gmail_reauthorize")) saveGrant(none);
+      }
+      return false;
+    }
     finally {if(epoch.current===gen){operation.current="";setBusy("")}}
   }
   function connect(send: boolean, origin: HTMLButtonElement) {
