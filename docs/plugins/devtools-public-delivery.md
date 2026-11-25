@@ -166,3 +166,9 @@ $dest = "studio-plugin-$package"
 | 文本 / 表格流程 1.13.0（text-flow） | [文本流程配方检查](../iterations/2026-11-25-flow-recipe-inspection.md) | [flow-recipe-0.1.0-candidate-02](../../tests/fixtures/devtools-windows-file-tools/flow-recipe-0.1.0-candidate-02) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/flow-recipe-0.1.0-candidate-02-verification.json) |
 
 Windows 全新稀疏检出启用 CRLF 转换后，20 份外部收据与 160 个包文件（6,914,976 字节）逐项匹配。核对了包身份、源工具 ID 以及清单声明的 37 个能力。来源版本来自 [ZiDevTools 目录提交](https://github.com/ax2/zi-devtools/blob/ebc79dc3ab9fa08c7240767b6e4289cb14f78dd7/docs/tools.json)。先前的 [154 项矩阵](devtools-windows-current.json) 保留 2026-10-30 冻结数据。各项业务验收沿用表中与同一冻结候选对应的 Windows 回执。
+
+### Windows 同装与重开验证
+
+将上述 20 包放在同一份专用 Windows 测试资料里，真实 Studio Host 逐一预览安装、审核并启用，按各包声明授予最少权限。37 个目录和详情条目均可独立定位，操作标识和工具访问标识无冲突。停止并重新打开同一资料后，已启用状态和权限保持，160 个已安装文件与冻结收据一致。公式、均值、模板和逐次授权的日志四个代表操作通过真实 Worker 复现。Host 回执 SHA-256 `4cb288b496a96e5852f2421aed2a2749ac8713841e312100590638b777ed5176`。
+
+另将实际 Host 目录回执交给生产工具中心，在无窗口 DOM 审核 37 张工具卡与 20 个来源筛选。界面回执 SHA-256 `dc6a3aff10868c06db1a03b9eb03aeb6ebf800211ffff9abf3765493b1f4f609`。正式安装器、原生系统选取以及每个源工具的剩余操作继续沿各自验收记录跟进。[同装验收回执](https://github.com/ax2/zicode-studio-desktop/issues/26#issuecomment-7167949326)
