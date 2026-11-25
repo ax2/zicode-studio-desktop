@@ -68,6 +68,47 @@ describe("documents store", () => {
     expect(store.getState().result?.markdown).toContain("# Introduction");
   });
 
+
+  it("finishes only the latest selected document after a conversion already started", async () => {
+    const latest = { ...RESULT, markdown: "# Second copy" };
+    let finish = (result: typeof RESULT): void => { throw new Error(result.fileName); };
+    const pending = new Promise<typeof RESULT>((resolve) => { finish = resolve; });
+    const convert = vi.fn().mockReturnValueOnce(pending).mockResolvedValue(latest);
+    const { store, notify } = createStore(stubGateway({ import: convert }));
+
+    const first = store.getState().importFile("report.docx", "data:base64,AAAA");
+    await vi.waitFor(() => expect(convert).toHaveBeenCalledTimes(1));
+    const second = store.getState().importFile("report.docx", "data:base64,BBBB");
+    await vi.waitFor(() => expect(store.getState().document).toBe("data:base64,BBBB"));
+    expect(convert).toHaveBeenCalledTimes(1);
+    expect(store.getState().result).toBeNull();
+
+    finish(RESULT);
+    await Promise.all([first, second]);
+    expect(convert).toHaveBeenCalledTimes(2);
+    expect(convert).toHaveBeenLastCalledWith(expect.objectContaining({ document: "data:base64,BBBB" }));
+    expect(store.getState().result).toEqual(latest);
+    expect(notify).toHaveBeenCalledExactlyOnceWith("Document imported");
+  });
+
+  it("ignores an earlier file read that completes after accepting the next file", async () => {
+    let finish = (data: string): void => { throw new Error(data); };
+    const slowRead = new Promise<string>((resolve) => { finish = resolve; });
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    const earlier = store.getState().importFile("old.pdf", slowRead);
+    await store.getState().importFile("report.docx", "data:base64,BBBB");
+    finish("data:base64,AAAA");
+    await earlier;
+
+    expect(gateway.import).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      fileName: "report.docx",
+      document: "data:base64,BBBB",
+    }));
+    expect(store.getState().fileName).toBe("report.docx");
+    expect(store.getState().result?.fileName).toBe("report.docx");
+  });
+
   it("adds the converted Markdown into the chat composer", async () => {
     const gateway = stubGateway();
     const onUseInChat = vi.fn();

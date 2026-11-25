@@ -31,6 +31,7 @@ function DocumentsNav() {
 
 function DocumentsMain({ store }: { store: DocumentsStore }) {
   const fileName = store((state) => state.fileName);
+  const hasDocument = store((state) => Boolean(state.document));
   const busy = store((state) => state.busy);
   const saving = store((state) => state.saving);
   const error = store((state) => state.error);
@@ -53,11 +54,7 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
       store.setState({ error: t("Only PDF and DOCX files are supported") });
       return;
     }
-    readFileAsDataUrl(file)
-      .then((dataUrl) => void store.getState().importFile(file.name, dataUrl))
-      .catch((reason: unknown) => {
-        store.setState({ error: reason instanceof Error ? reason.message : String(reason) });
-      });
+    void store.getState().importFile(file.name, readFileAsDataUrl(file));
   };
 
   return (
@@ -111,7 +108,7 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
             <button
               type="button"
               className="ui-button ui-button--secondary ui-button--sm"
-              disabled={busy}
+              disabled={busy || !hasDocument}
               aria-busy={busy}
               onClick={() => void store.getState().run()}
             >
@@ -264,7 +261,7 @@ export function createDocumentsApp(options: DocumentsOptions): DocumentsAppApi {
       return Promise.resolve();
     },
     setTarget() {
-      return store.getState().loadNotebooks();
+      return store.getState().syncTarget();
     },
   };
 }
