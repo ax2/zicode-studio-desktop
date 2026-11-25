@@ -2102,6 +2102,8 @@ const zhCN = {
   "Preview crop source": "预览裁剪原图",
   "Apply crop area": "应用选区",
   "Crop source image": "裁剪原图",
+  "Crop area": "裁剪选区",
+  "Left {x}, top {y}, width {width}, height {height} pixels. Arrow keys move 1 pixel. Hold Shift to move 10 pixels.": "左侧 {x}、顶部 {y}、宽 {width}、高 {height} 像素。方向键移动 1 像素，按住 Shift 移动 10 像素。",
   "Could not preview this PNG. You can enter crop pixels manually.": "无法预览这张 PNG，仍可手动输入裁剪像素。",
   "Drag across the PNG to select the crop area.": "拖动图片选取裁剪范围。",
   "Crop area applied. Review the pixel values before running.": "已应用选区。执行前可核对像素数值。",
