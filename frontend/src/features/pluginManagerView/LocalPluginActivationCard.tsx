@@ -51,6 +51,7 @@ export function LocalPluginActivationCard({
   const [toolAttempt, setToolAttempt] = useState(0);
   const [toolList, setToolList] = useState<{
     scope: string; attempt: number; actions: InstalledToolActions; page: ToolPage | null;
+    catalogChanged?: true;
   }>();
   const tools = toolList && toolList.scope === toolScope && toolList.attempt === toolAttempt && toolList.actions === installedTools
     ? toolList.page
@@ -107,14 +108,21 @@ export function LocalPluginActivationCard({
     return () => { active = false; };
   }, [installedTools, plugin.id, packageRevision, toolAttempt, toolScope]);
 
-  const open = async (action: () => Promise<unknown>) => {
+  const open = async (action: () => Promise<unknown>, page?: ToolPage) => {
     // Keep the opening buttons focusable while preventing duplicate navigation.
     if (opening) return;
     setOpening(true);
     try {
       await action();
     } catch (error) {
-      onError(error);
+      if (page && error && typeof error === "object" && "code" in error && error.code === "catalog_changed") {
+        setToolList(current => current?.page === page && current.scope === toolScope &&
+          current.attempt === toolAttempt && current.actions === installedTools
+          ? { ...current, page: null, catalogChanged: true }
+          : current);
+      } else {
+        onError(error);
+      }
     } finally {
       setOpening(false);
     }
@@ -131,7 +139,9 @@ export function LocalPluginActivationCard({
           {toolScope && tools === undefined ? <p role="status">{t("Finding available tools…")}</p> : null}
           {toolScope && toolListFailed ? (
             <div className="plugin-manager-preview-actions">
-              <p role="status">{t("Could not load this plugin’s tools.")}</p>
+              <p role="status">{t(toolList?.catalogChanged
+                ? "Tool changed. Reload its details before retrying."
+                : "Could not load this plugin’s tools.")}</p>
               <button ref={retryAction} type="button" className="ui-button ui-button--secondary ui-button--sm" disabled={opening}
                 onClick={(event) => {
                   keepFocusInCard(event.currentTarget, { retryScope: toolScope });
@@ -148,7 +158,7 @@ export function LocalPluginActivationCard({
                       if (!(await installedTools.open(plugin.id, packageRevision, tool, tools.revision))) {
                         throw new Error(t("Could not open this tool. Try again."));
                       }
-                    })}>{t("Open {tool}").replace("{tool}", t(tool.title))}</button>
+                    }, tools)}>{t("Open {tool}").replace("{tool}", t(tool.title))}</button>
                 </li>
               ))}
             </ul>
