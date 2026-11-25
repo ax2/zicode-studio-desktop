@@ -54,6 +54,8 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const queryInput = useRef<HTMLInputElement>(null);
   const firstResult = useRef<HTMLButtonElement>(null);
   const paginationFocus = useRef<HTMLButtonElement | null>(null);
+  const readingHeading = useRef<HTMLHeadingElement>(null);
+  const openedResult = useRef<{button: HTMLButtonElement; focusPending: boolean} | null>(null);
   useLayoutEffect(() => {
     const button = paginationFocus.current;
     paginationFocus.current = null;
@@ -62,6 +64,12 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     if (owner.activeElement !== owner.body) return;
     (firstResult.current ?? queryInput.current)?.focus();
   });
+  useLayoutEffect(() => {
+    const result = openedResult.current;
+    if (!reading || !result?.focusPending) return;
+    result.focusPending = false;
+    if (result.button.ownerDocument.activeElement === result.button) readingHeading.current?.focus();
+  }, [reading]);
   useEffect(() => () => {
     ++searchGeneration.current;
     readingRequest.current = null;
@@ -70,6 +78,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const closeReading = useCallback((account?: string) => {
     if (account && readingRequest.current?.hit.account !== account) return;
     readingRequest.current = null;
+    openedResult.current = null;
     setReading(null);
     setReplyError(null);
   }, []);
@@ -192,7 +201,11 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       window.removeEventListener("studio-mail-cache-updated",cacheChanged);
     };
   },[scope,search,closeReading]);
-  async function open(hit: Hit, action: "cache" | "download" | "reply-refresh" = "cache") {
+  async function open(
+    hit: Hit,
+    action: "cache" | "download" | "reply-refresh" = "cache",
+    resultButton?: HTMLButtonElement,
+  ) {
     const previous = readingRequest.current;
     const download = action !== "cache";
     const replyRefresh = action === "reply-refresh";
@@ -200,6 +213,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     if (download && (previous?.hit !== hit || (replyRefresh ? !original || !replyError?.refresh : !previous.canDownload))) return;
     if (previous?.pending && isSameMessage(previous.hit, hit)) return;
     const request = { hit, pending: true, canDownload: false };
+    if (resultButton) openedResult.current = { button: resultButton, focusPending: true };
     readingRequest.current = request;
     if (!original) setReplyError(null);
     const access = searchBodyAccess(hit, gmail, alibaba);
@@ -230,6 +244,11 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     } finally {
       request.pending = false;
     }
+  }
+  function returnToResults() {
+    const button = openedResult.current?.button;
+    (button?.isConnected ? button : queryInput.current)?.focus();
+    closeReading();
   }
   async function replyToReading() {
     const source = readingRequest.current;
@@ -282,13 +301,15 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       {!page.items.length && <p role="status">{t("No matching cached messages.")}</p>}
       <ul className="mail-inbox-list">{page.items.map((hit, index)=><li key={JSON.stringify([hit.account,hit.folder,hit.epoch,hit.id])}>
         <button ref={index === 0 ? firstResult : undefined} className="ui-button" type="button" aria-pressed={Boolean(reading && isSameMessage(reading.hit, hit))}
-          onClick={()=>void open(hit)}><strong translate="no">{hit.subject || t("No subject")}</strong>
+          onClick={event => void open(hit, "cache", event.currentTarget)}><strong translate="no">{hit.subject || t("No subject")}</strong>
           <small translate="no">{hit.sender} · {hit.address}{hit.folder && <> · {hit.folder === "INBOX" ? t("Inbox") : hit.folder}</>}</small>
         </button></li>)}</ul>
       {offset>0 && <button className="ui-button" type="button" aria-disabled={paginationBlocked || undefined} onClick={event => navigatePage(offset - 40, event.currentTarget)}>{t("Previous")}</button>}
       {page.more && <button className="ui-button" type="button" aria-disabled={paginationBlocked || undefined} onClick={event => navigatePage(offset + 40, event.currentTarget)}>{t("Next")}</button>}
     </>}
-    {reading && <article aria-label={t("Cached message")} aria-busy={loadingBody || replying}><h3 translate="no">{reading.hit.subject||t("No subject")}</h3>
+    {reading && <article aria-label={t("Cached message")} aria-busy={loadingBody || replying}>
+      <h3 ref={readingHeading} tabIndex={-1} translate="no">{reading.hit.subject||t("No subject")}</h3>
+      <button className="ui-button" type="button" onClick={returnToResults}>{t("Back to search results")}</button>
       <p translate="no">{reading.hit.sender} · {reading.hit.address}</p>
       {reading.status === "loading" && <p role="status">{t("Loading…")}</p>}
       {(reading.status === "failed" || reading.status === "missing") && reading.error && <p role="alert">{reading.error}</p>}
