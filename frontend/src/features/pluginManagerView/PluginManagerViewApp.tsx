@@ -130,6 +130,7 @@ export function PluginManagerViewApp({
   const [activation, setActivation] = useState<ActivationSetup | null>(null);
   const [deferred, setDeferred] = useState(false);
   const pageHeading = useRef<HTMLElement>(null);
+  const catalogSearch = useRef<HTMLInputElement>(null);
   const recoveryCard = useRef<HTMLElement>(null);
   const retryAction = useRef<HTMLButtonElement>(null);
   const refreshRequest = useRef<ActivationSetup | null>(null);
@@ -267,6 +268,17 @@ export function PluginManagerViewApp({
     if (receipt) await completeInstall(receipt, scope, close);
   }
 
+  function closeSetup(pluginId: string, origin?: HTMLButtonElement) {
+    if (!origin || origin.ownerDocument.activeElement !== origin) {
+      setActivation(null);
+      return;
+    }
+    flushSync(() => setActivation(null));
+    const review = [...(pageHeading.current?.parentElement?.querySelectorAll<HTMLButtonElement>("button[data-review-plugin-id]") ?? [])]
+      .find(button => button.dataset.reviewPluginId === pluginId && !button.disabled);
+    (review ?? catalogSearch.current)?.focus();
+  }
+
   const renderCard = (plugin: ManagedPlugin) => {
     const isDeveloperOrSigned = plugin.origin === "developer" || plugin.origin === "signed";
     const helpPage = helpPageForPlugin(plugin.id);
@@ -322,6 +334,7 @@ export function PluginManagerViewApp({
           {!plugin.enabled && activationReview && registry.activateReviewed ? (
             <ActionButton
               label={t("Review and enable")}
+              data-review-plugin-id={plugin.id}
               disabled={!canManagePlugins || installBusy || awaitingSettings || Boolean(busy.activation)}
               onClick={event => showActivation({ pluginId: plugin.id, packageRevision: activationReview.packageRevision }, event.currentTarget)}
             />
@@ -585,7 +598,7 @@ export function PluginManagerViewApp({
           busy={Boolean(busy.activation)}
           installedTools={installedTools}
           onError={(error) => notify?.(friendlyPluginError(error))}
-          onClose={() => setActivation(null)}
+          onClose={(origin) => closeSetup(selectedPlugin.id, origin)}
           onDefer={() => setDeferred(true)}
           onResume={() => setDeferred(false)}
           onActivate={canManagePlugins && registry.activateReviewed ? (grants, setupCard) => {
@@ -632,6 +645,7 @@ export function PluginManagerViewApp({
         <label htmlFor="plugin-manager-search">{t("Search plugins and tools")}</label>
         <input
           id="plugin-manager-search"
+          ref={catalogSearch}
           className="ui-input"
           type="search"
           value={query}
