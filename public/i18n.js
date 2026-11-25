@@ -1105,6 +1105,7 @@ const zhCN = {
   "Could not show the downloaded file in File Explorer": "无法在资源管理器中显示下载文件。",
   "Download search is too long": "下载搜索关键词过长",
   "Show older downloads": "显示更早的下载",
+  "Switch to download tab": "切换到下载标签",
   "Could not save download history": "下载记录未能保存",
   "A download is waiting. Open Downloads to choose where to save it.":
     "有文件等待下载，请打开下载列表选择保存位置。",

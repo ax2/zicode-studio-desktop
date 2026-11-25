@@ -8,9 +8,9 @@ export function downloadSize(bytes) {
   const unit = bytes < 1024 ** 2 ? 1024 : bytes < 1024 ** 3 ? 1024 ** 2 : 1024 ** 3;
   return `${(bytes / unit).toFixed(1)} ${unit === 1024 ? "KB" : unit === 1024 ** 2 ? "MB" : "GB"}`;
 }
-export function showBrowserDownloads({ invoke, onClose, subscribe }) {
+export function showBrowserDownloads({ invoke, onClose, subscribe, getDownloadTab, onSwitchTab }) {
   let closed = false, generation = 0, timer, nextBefore = null, acting = null;
-  let loadingBefore, pendingOlder = false;
+  let loadingBefore, pendingOlder = false, switchedTab;
   let records = new Map(), loadedOlder = false, query = "", awaitingFirstPage = true;
   const rows = new Map(), liveUpdates = new Map();
   const el = (tag, className = "", text) => {
@@ -39,9 +39,20 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
   }
   async function action(kind, id) {
     if (closed || acting) return;
-    const focused = rows.get(id)?.element.contains(document.activeElement) ? document.activeElement : null;
+    const row = rows.get(id);
+    const target = kind === "switchTab" ? row?.downloadTab : undefined;
+    if (kind === "switchTab" && !target) return;
+    const focused = row?.element.contains(document.activeElement) ? document.activeElement : null;
     acting = id; generation++; pendingOlder = false; actionError = ""; updateMessage(); render();
     try {
+      if (target) {
+        if (!await onSwitchTab(target)) throw new Error(t("Browser tab is no longer available"));
+        if (dialog.open) {
+          switchedTab = target.id;
+          dialog.close();
+        }
+        return;
+      }
       await request({ kind, id });
       if (!closed && kind === "downloadRemove") {
         const row = rows.get(id), focused = row?.element.contains(document.activeElement);
@@ -52,7 +63,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     catch (error) { if (!closed) { actionError = t(String(error?.message ?? error)); updateMessage(); } }
     finally {
       acting = null;
-      if (!closed) {
+      if (!closed && dialog.open) {
         render(); await load();
         if (!closed && focused && mayRestore(focused)) restoreRowFocus(focused);
       }
@@ -75,11 +86,12 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     });
     const cancel = button("Cancel download", () => action("downloadCancel", id));
     const reveal = button("Show in File Explorer", () => action("downloadReveal", id));
+    const switchTab = button("Switch to download tab", () => action("switchTab", id));
     const remove = button("Remove from list", () => action("downloadRemove", id));
     remove.title = t("Remove this record; keep the downloaded file");
-    tools.append(save, choose, pause, cancel, reveal, remove); element.append(title, url, status, progress, path, feedback, tools);
+    tools.append(save, choose, pause, cancel, reveal, switchTab, remove); element.append(title, url, status, progress, path, feedback, tools);
     list.append(element);
-    const row = { element, title, url, status, progress, path, feedback, tools, save, choose, pause, cancel, reveal, remove }; rows.set(id, row); return row;
+    const row = { element, title, url, status, progress, path, feedback, tools, save, choose, pause, cancel, reveal, switchTab, remove }; rows.set(id, row); return row;
   }
   function render() {
     empty.hidden = records.size > 0 || Boolean(loadError);
@@ -106,8 +118,9 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
         : record.state === "downloading" && record.stalled
         ? t("No recent progress. Cancel to try again.")
         : "";
+      const lostOperation = record.state === "interrupted" && record.error === "Studio closed before this download finished";
       let feedback = record.error ? t(record.error) : guidance;
-      if (record.state === "interrupted" && record.error === "Studio closed before this download finished") {
+      if (lostOperation) {
         feedback = t("This download can’t be resumed after Studio closes. Return to the page that started it, download again, and choose where to save when prompted.");
       }
       row.feedback.textContent = feedback;
@@ -118,9 +131,11 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
       row.pause.textContent = t(paused ? "Continue download" : "Pause download");
       row.cancel.hidden = !transferring && record.state !== "waiting";
       row.reveal.hidden = record.state !== "completed" || !record.path;
+      row.downloadTab = lostOperation && onSwitchTab ? getDownloadTab?.(record.tab) : undefined;
+      row.switchTab.hidden = !row.downloadTab;
       row.remove.hidden = !["completed", "cancelled", "failed", "interrupted"].includes(record.state);
       row.tools.hidden = row.cancel.hidden && row.reveal.hidden && row.remove.hidden;
-      for (const control of [row.save, row.choose, row.pause, row.cancel, row.reveal, row.remove]) control.disabled = !!acting;
+      for (const control of [row.save, row.choose, row.pause, row.cancel, row.reveal, row.switchTab, row.remove]) control.disabled = !!acting;
     }
     if (!acting && list.contains(focused) && mayRestore(focused) &&
         (!available(focused) || document.activeElement !== focused)) restoreRowFocus(focused);
@@ -231,7 +246,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     if (loadingBefore !== undefined) liveUpdates.set(download.id, download);
     render();
   });
-  dialog.addEventListener("close", () => { closed = true; unsubscribe?.(); generation++; clearTimeout(timer); dialog.remove(); onClose?.(); }, { once: true });
+  dialog.addEventListener("close", () => { closed = true; unsubscribe?.(); generation++; clearTimeout(timer); dialog.remove(); onClose?.(switchedTab); }, { once: true });
   document.body.append(dialog);
   dialog.showModal();
   search.focus({ preventScroll: true });
