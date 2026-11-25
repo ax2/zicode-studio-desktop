@@ -38,6 +38,81 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
+it("restores focused note clipping controls after failures without taking focus from another view", async () => {
+  const trigger = document.createElement("button");
+  const other = document.createElement("button");
+  const host = document.createElement("aside");
+  document.body.append(trigger, host, other);
+  const unread = Promise.withResolvers();
+  const unsaved = Promise.withResolvers();
+  const moved = Promise.withResolvers();
+  const stale = Promise.withResolvers();
+  const writer = {
+    notebooks: vi.fn().mockReturnValueOnce(unread.promise)
+      .mockResolvedValueOnce([{ id: "selected", title: "Selected notebook" }])
+      .mockReturnValueOnce(stale.promise),
+    save: vi.fn().mockReturnValueOnce(unsaved.promise).mockReturnValueOnce(moved.promise),
+  };
+  const mount = () => showBrowserCapture(capture, vi.fn(), undefined, () => writer, undefined, false, { host, trigger });
+  const panel = mount();
+  const start = getByRole(panel, "button", { name: t("Save to Notes"), exact: true });
+  start.focus(); start.click();
+  unread.reject(Error("Read failed"));
+  await waitFor(() => expect(panel.textContent).toContain("Read failed"));
+  expect(document.activeElement).toBe(start);
+  start.click();
+  const notebook = getByRole(panel, "combobox", { name: t("Notebook"), exact: true });
+  const title = getByRole(panel, "textbox", { name: t("Note title"), exact: true });
+  const scope = getByRole(panel, "combobox", { name: t("Save content"), exact: true });
+  await waitFor(() => expect(document.activeElement).toBe(notebook));
+  notebook.value = "selected"; title.value = "Edited clipping"; scope.value = "selection";
+  const save = getByRole(panel, "button", { name: t("Save page to notebook"), exact: true });
+  save.focus(); save.click();
+  unsaved.reject(Error("Save failed"));
+  await waitFor(() => expect(panel.textContent).toContain("Save failed"));
+  expect(document.activeElement).toBe(save);
+  expect([notebook.value, title.value, scope.value]).toEqual(["selected", "Edited clipping", "selection"]);
+  save.click(); other.focus();
+  moved.reject(Error("Try again"));
+  await waitFor(() => expect(panel.textContent).toContain("Try again"));
+  expect(document.activeElement).toBe(other);
+  expect(writer.save).toHaveBeenNthCalledWith(2, expect.objectContaining({ notebookId: "selected", title: "Edited clipping", selectionOnly: true }));
+  panel.invalidateBrowserCapture(false);
+  const next = mount();
+  const nextStart = getByRole(next, "button", { name: t("Save to Notes"), exact: true });
+  nextStart.focus(); nextStart.click();
+  next.invalidateBrowserCapture(false); other.focus();
+  stale.reject(Error("Old document"));
+  await stale.promise.catch(() => {});
+  expect(document.activeElement).toBe(other);
+  expect(host.childElementCount).toBe(0);
+});
+
+it("keeps focus elsewhere when programmatic note clipping succeeds after the user moves focus", async () => {
+  const trigger = document.createElement("button");
+  const other = document.createElement("button");
+  const host = document.createElement("aside");
+  document.body.append(trigger, host, other);
+  const loading = Promise.withResolvers();
+  const saving = Promise.withResolvers();
+  const writer = { notebooks: () => loading.promise, save: () => saving.promise };
+  const panel = showBrowserCapture(capture, vi.fn(), undefined, () => writer, undefined, false, { host, trigger });
+  trigger.focus();
+  getByRole(panel, "button", { name: t("Save to Notes"), exact: true }).click();
+  other.focus();
+  loading.resolve([{ id: "chosen", title: "Notebook for clips" }]);
+  const notebook = getByRole(panel, "combobox", { name: t("Notebook"), exact: true });
+  await waitFor(() => expect(notebook.value).toBe("chosen"));
+  expect(document.activeElement).toBe(other);
+
+  trigger.focus();
+  getByRole(panel, "button", { name: t("Save page to notebook"), exact: true }).click();
+  other.focus();
+  saving.resolve();
+  await waitFor(() => getByRole(panel, "button", { name: t("Open saved note"), exact: true }));
+  expect(document.activeElement).toBe(other);
+});
+
 it("keeps the source and question after a rejected handoff and Escape returns focus to the toolbar", async () => {
   const prepare = vi.fn(async () => { throw new Error("Conversation changed"); });
   const { host, panel, trigger, close } = openDock(prepare);

@@ -46,7 +46,7 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
       framePreviewLabel.hidden = true;
     }
   }
-  const status = node("p", "browser-note-clip-status"); status.setAttribute("role", "status");
+  const status = node("p", "browser-note-clip-status"); status.setAttribute("role", "status"); status.tabIndex = -1;
   const save = node("button", "ui-button ui-button--primary", t(analysis ? "Save analysis to notebook" : "Save page to notebook"));
   save.type = "button"; save.disabled = true;
   const selectImageText = node("p", "ui-muted", t("Select the recognized image text you want to save."));
@@ -68,23 +68,36 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
     selectImageText.hidden = !missingImageText;
     save.disabled = !ready || missingImageText;
   }
+  function holdActionFocus(control) {
+    const initialFocus = document.activeElement;
+    const hadActionFocus = initialFocus === control;
+    if (hadActionFocus) status.focus({ preventScroll: true });
+    const anchor = hadActionFocus ? status : initialFocus;
+    return { hadActionFocus, stillFocused: () => document.hasFocus() && document.activeElement === anchor };
+  }
   notebook.addEventListener("change", () => { newTitle.hidden = notebook.value !== "new"; });
   button.addEventListener("click", async () => {
     if (busy || saved || !canStart() || !isOpen()) return;
     panel.hidden = false;
     if (ready) { notebook.focus(); return; }
-    busy = true; button.disabled = true; status.textContent = t("Loading…");
+    status.textContent = t("Loading…");
+    const { hadActionFocus, stillFocused } = holdActionFocus(button);
+    busy = true; button.disabled = true;
     try {
       const notebooks = await writer.notebooks(); if (!isOpen()) return;
       notebook.replaceChildren(...notebooks.map(v => option(v.id, v.title)), option("new", t("Create notebook")));
       newTitle.hidden = notebook.value !== "new"; ready = true; updateScope(); status.textContent = "";
-      notebook.focus();
     } catch (error) { if (isOpen()) status.textContent = String(error?.message ?? error); }
     finally { busy = false; button.disabled = false; }
+    if (!isOpen() || panel.hidden) return;
+    if (ready && stillFocused()) notebook.focus();
+    if (!ready && hadActionFocus && stillFocused()) button.focus({ preventScroll: true });
   });
   save.addEventListener("click", async () => {
     if (!ready || save.disabled || busy || saved || !canStart() || !isOpen()) return;
-    busy = true; panel.disabled = true; button.disabled = true; setBusy(true); status.textContent = t("Saving…");
+    status.textContent = t("Saving…");
+    const { hadActionFocus, stillFocused } = holdActionFocus(save);
+    busy = true; panel.disabled = true; button.disabled = true; setBusy(true);
     try {
       const frameSelection = frameSelections.get(mode.value);
       const content = frameSelection ? { frameSelectionIndex: frameSelection.index } :
@@ -96,7 +109,11 @@ export function createBrowserNoteClip({ capture, writer, setBusy, isOpen, attach
       save.textContent = t("Saved to Notes");
     } catch (error) { status.textContent = String(error?.message ?? error); }
     finally { busy = false; setBusy(false); panel.disabled = saved; button.disabled = saved; }
-    if (saved && isOpen()) { open.hidden = false; open.classList.remove("hidden"); open.focus(); }
+    if (!isOpen() || panel.hidden) return;
+    if (saved) {
+      open.hidden = false; open.classList.remove("hidden");
+      if (stillFocused()) open.focus();
+    } else if (hadActionFocus && stillFocused()) save.focus({ preventScroll: true });
   });
   open.addEventListener("click", () => {
     if (!saved || !canStart() || !isOpen()) return;
