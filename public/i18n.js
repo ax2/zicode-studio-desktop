@@ -5722,6 +5722,7 @@ const zhCN = {
   "Plugin installation status": "插件安装状态",
   "Loading plugin settings…": "正在加载插件设置…",
   "Plugin installed. Its settings could not be loaded.": "插件已安装，暂时无法加载其设置。",
+  "Plugin enabled. Its settings could not be loaded.": "插件已启用，暂时无法加载其设置。",
   "Reload plugin settings": "重新加载插件设置",
   "Permission required": "待授权",
   "Review and enable": "核对权限并启用",

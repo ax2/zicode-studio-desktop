@@ -29,7 +29,7 @@ export function LocalPluginActivationCard({
   onClose(): void;
   onDefer(): void;
   onResume(): void;
-  onActivate?(grants: string[]): void;
+  onActivate?(grants: string[], setupCard: HTMLElement | null): void;
   onError(error: unknown): void;
 }) {
   const card = useRef<HTMLElement>(null);
@@ -205,7 +205,7 @@ export function LocalPluginActivationCard({
               disabled={busy || !onActivate || missingRequired.some(({ name }) => !chosen.includes(name))}
               onClick={(event) => {
                 keepFocusInCard(event.currentTarget, "activate");
-                onActivate?.(chosen);
+                onActivate?.(chosen, card.current);
               }}>
               {t(chosen.length ? "Authorize and enable" : "Enable plugin")}
             </button>
