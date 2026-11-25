@@ -649,3 +649,40 @@ it("drops a pending Gmail label page after switching to another account", async 
   expect(screen.getByLabelText<HTMLSelectElement>("Gmail label").value).toBe("INBOX");
   expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("two");
 });
+
+
+it("cancels a held Gmail refresh, restores keyboard focus, and ignores the late page", async () => {
+  let resolvePrevious!: (page: unknown) => void;
+  let refreshes = 0;
+  const previousPage = new Promise(resolve => { resolvePrevious = resolve; });
+  const view = fixture(async request => {
+    switch (request.kind) {
+      case "status": return { connected: true, read: true };
+      case "cachedLabels": return [];
+      case "cachedPage": return { items: [entry], nextCursor: null };
+      case "cachedBody": return { ...entry, plainText: "Body saved on this device" };
+      case "cancel": return null;
+      case "list": return ++refreshes === 1
+        ? previousPage
+        : { items: [{ ...entry, subject: "Fresh subject" }], nextCursor: null };
+      default: throw Error("Unexpected Gmail request");
+    }
+  });
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Body saved on this device");
+  const refresh = screen.getByRole("button", { name: "Refresh from server" });
+  refresh.focus();
+  fireEvent.click(refresh);
+  const cancel = await screen.findByRole("button", { name: "Cancel Gmail refresh" });
+  expect(document.activeElement).toBe(cancel);
+  fireEvent.click(cancel);
+  await screen.findByText("Gmail refresh canceled.");
+  expect(document.activeElement).toBe(refresh);
+  expect(screen.getByText("Body saved on this device")).toBeTruthy();
+  expect(view.calls).toHaveBeenCalledWith({ kind: "cancel", accountId: "one" });
+  fireEvent.click(refresh);
+  await screen.findByRole("button", { name: /Fresh subject/ });
+  await act(async () => resolvePrevious({ items: [{ ...entry, subject: "Late subject" }], nextCursor: null }));
+  expect(screen.queryByText("Late subject")).toBeNull();
+  expect(screen.getByText("Body saved on this device")).toBeTruthy();
+});

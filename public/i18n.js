@@ -174,6 +174,8 @@ const zhCN = {
   "Complete authorization in your browser. No email will be sent.": "请在浏览器中完成授权。此步骤不会发送邮件。",
   "Cancel sign-in": "取消登录",
   "Sign-in canceled.": "已取消登录。",
+  "Cancel Gmail refresh": "取消刷新 Gmail",
+  "Gmail refresh canceled.": "已取消刷新 Gmail。",
   "No older cached page is available.": "更早的邮件尚未缓存在本机。",
   "Some message text exceeds the reading limit.": "部分正文超出阅读大小限制。",
   "transfer size": "传输大小",

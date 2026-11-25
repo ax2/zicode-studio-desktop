@@ -417,14 +417,17 @@ pub(crate) async fn mail_gmail(
     if download.is_some() {
         check_attachment_scope()?;
     }
-    let refreshed = oauth::tokens(
-        &client,
-        TOKEN,
-        &cfg,
-        &[
-            ("grant_type", "refresh_token"),
-            ("refresh_token", &saved.refresh),
-        ],
+    let refreshed = oauth::until_cancelled(
+        &stop,
+        oauth::tokens(
+            &client,
+            TOKEN,
+            &cfg,
+            &[
+                ("grant_type", "refresh_token"),
+                ("refresh_token", &saved.refresh),
+            ],
+        ),
     )
     .await;
     let mut token = match refreshed {
@@ -458,13 +461,19 @@ pub(crate) async fn mail_gmail(
         }
         Request::List { label, cursor, limit } => {
             let key = key_for(label.as_deref(), &cursor, limit)?;
-            let label=label.as_deref().unwrap_or("INBOX");
-            let folder = sync::CachedLabel { path: &path, scope: &scope, account: &account_id, label };
-            let snapshot = sync::fetch(&client, api::BASE, &access, folder, cursor.as_deref(), limit).await?;
-            let _g=current()?;
-            sync::apply(&path,&scope,&account_id,label,cache_epoch,&key,&snapshot)?;
+            let label = label.as_deref().unwrap_or("INBOX");
+            let folder = sync::CachedLabel {
+                path: &path,
+                scope: &scope,
+                account: &account_id,
+                label,
+            };
+            let snapshot =
+                sync::fetch(&client, api::BASE, &access, folder, cursor.as_deref(), limit, &stop)
+                    .await?;
+            let _g = current()?;
+            sync::apply(&path, &scope, &account_id, label, cache_epoch, &key, &snapshot)?;
             snapshot.page
-
         }
         Request::Read { id } => {
             let data = api::read(&client, api::BASE, &access, &id).await?;
