@@ -12,6 +12,8 @@ type Page={pending?:boolean;uidValidity:number,messages:Summary[],next:Cursor|nu
 type Body={summary:Summary,text:string,html?:string|null;bodyLimited?:boolean;attachments?:Attachment[]};
 type Folder = { id: string; name: string };
 type CredentialStatus = { configured: boolean; enabled: boolean };
+export type AlibabaActivity = "blocking" | "offline-body" | null;
+
 const mailErrorCode = (error: unknown) => String(error).replace(/^Error:\s*/, "");
 export function mailError(error:unknown) {
   const code=mailErrorCode(error);
@@ -36,7 +38,7 @@ export function mailError(error:unknown) {
   return t(messages[code]??"Mail operation failed. Check the account and try again.");
 }
 export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfigured,onBusy,draftBusy = false}:{id:string,folder:string,setFolder:(id:string)=>void,invoke:Invoke,discard:()=>boolean|Promise<boolean>,draftBusy?:boolean,
-  onReply:(draft:Draft)=>void,onConfigured:(value:boolean)=>void,onBusy:(value:boolean)=>void}) {
+  onReply:(draft:Draft)=>void,onConfigured:(value:boolean)=>void,onBusy:(activity:AlibabaActivity)=>void}) {
   const [folders,setFolders]=useState<Folder[]>([]);
   const [savedFoldersState, setSavedFoldersState] = useState<"failed" | "empty" | null>(null);
   const applySavedFolders = useCallback((items: Folder[]) => {
@@ -51,7 +53,9 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
   const [credentialError, setCredentialError] = useState("");
   const [page,setPage]=useState<Page|null>(null),[body,setBody]=useState<Body|null>(null),[selected,setSelected]=useState<MessageRef|null>(null);
   const [localBodyFailed, setLocalBodyFailed] = useState(false);
-  const [online,setOnline]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState("");
+  const [online,setOnline]=useState(false),[error,setError]=useState("");
+  const [activity, setActivity] = useState<AlibabaActivity>("blocking");
+  const busy = activity !== null;
   const live=useRef(false),lock=useRef(false),generation=useRef(0),onConfig=useRef(onConfigured);
   const activeFolder = useRef(folder);
   activeFolder.current = folder;
@@ -63,9 +67,9 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
     setCredentialError(error);
     onConfig.current(configured);
   }, []);
-  useEffect(()=>{onBusy(busy);return()=>onBusy(false)},[busy,onBusy]);
+  useEffect(()=>{onBusy(activity);return()=>onBusy(null)},[activity,onBusy]);
   const req=<T,>(kind:string,args:Record<string,unknown>={})=>invoke<T>({kind,accountId:id,...args});
-  useEffect(()=>{live.current=true;const epoch=++generation.current;lock.current=true;setBusy(true);setSavedFoldersState(null);
+  useEffect(()=>{live.current=true;const epoch=++generation.current;lock.current=true;setActivity("blocking");setSavedFoldersState(null);
     void(async()=>{try{
       const [credentials,inbox,directory]=await Promise.allSettled([
         invoke<CredentialStatus>({kind:"credentialStatus",accountId:id}),
@@ -78,11 +82,16 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       else applyCredentialStatus(null, mailError(credentials.reason));
       if(inbox.status==="fulfilled")setPage(inbox.value);
       else if(!String(inbox.reason).includes("mail_cache_empty"))setError(mailError(inbox.reason));
-    }finally{if(live.current&&generation.current===epoch){lock.current=false;setBusy(false)}}})();
+    }finally{if(live.current&&generation.current===epoch){lock.current=false;setActivity(null)}}})();
     return()=>{live.current=false;generation.current++}
   },[id,invoke,applyCredentialStatus,applySavedFolders]);
-  async function run<T>(work:(isCurrent:()=>boolean)=>Promise<T>,apply:(value:T)=>void,reportError?:(message:string)=>void,scopeCurrent?:()=>boolean){
-    if(lock.current)return false;lock.current=true;setBusy(true);
+  async function run<T>(
+    work:(isCurrent:()=>boolean)=>Promise<T>, apply:(value:T)=>void,
+    { reportError, scopeCurrent, activity = "blocking" }: {
+      reportError?:(message:string)=>void; scopeCurrent?:()=>boolean; activity?: NonNullable<AlibabaActivity>;
+    } = {},
+  ) {
+    if(lock.current)return false;lock.current=true;setActivity(activity);
     if (!reportError) setError("");
     const epoch=generation.current;
     const isCurrent = () => live.current && epoch === generation.current && (scopeCurrent?.() ?? true);
@@ -95,11 +104,11 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       if (isCurrent()) (reportError ?? setError)(mailError(error));
       return false;
     }
-    finally{if(live.current&&epoch===generation.current){lock.current=false;setBusy(false)}}
+    finally{if(live.current&&epoch===generation.current){lock.current=false;setActivity(null)}}
   }
   function retryCredentialStatus() {
     void run(() => req<CredentialStatus>("credentialStatus"), applyCredentialStatus,
-      message => applyCredentialStatus(null, message));
+      { reportError: message => applyCredentialStatus(null, message) });
   }
   function load(network:boolean,cursor:Cursor|null=null,target=folder){
     const args={limit:20,...(target==="INBOX"?{}:{folder:target})};
@@ -138,10 +147,10 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       setPage(old=>append&&old&&old.uidValidity===p.uidValidity?{...p,messages:[...old.messages,...p.messages.filter(n=>!old.messages.some(m=>m.uid===n.uid))]}:p);
       if(network)window.dispatchEvent(new CustomEvent("studio-mail-cache-updated",{detail:id}));
       setOnline(network);
-    }, undefined, () => activeFolder.current === folder);
+    }, { scopeCurrent: () => activeFolder.current === folder });
   }
   function retrySavedFolders() {
-    void run(() => req<Folder[]>("cachedFolders"), applySavedFolders, () => setSavedFoldersState("failed"));
+    void run(() => req<Folder[]>("cachedFolders"), applySavedFolders, { reportError: () => setSavedFoldersState("failed") });
   }
   function refreshFolders() {
     void run(async isCurrent => {
@@ -183,7 +192,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
         if (isCurrent()) setLocalBodyFailed(true);
         return null;
       }
-    }, setBody);
+    }, setBody, { activity: allowServer ? "blocking" : "offline-body" });
   }
   const chosen=selected && (selected.folder ?? "INBOX") === folder && selected.uidValidity === page?.uidValidity
     ? page.messages.find(m=>m.uid===selected.uid) : undefined;
@@ -222,6 +231,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {selected&&chosen&&<article aria-label={t("Selected message")}><h3 translate="no">{chosen.subject||t("No subject")}</h3><p translate="no">{chosen.sender}</p>
         {headerLimited && <p role="status">{t("Only part of the message header could be read. Reply is unavailable.")}</p>}
+        {activity === "offline-body" && <p role="status">{t("Loading…")}</p>}
         {body?<>{body.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}<MailBody text={body.text} html={body.html}/><MailAttachments key={selected.uidValidity+"-"+selected.uid} items={body.attachments} invoke={invoke} message={{accountId:id,...selected}}/></>:localBodyFailed ? <>
           <p role="alert">{t("Could not access local mail data.")}</p>
           <button className="ui-button" type="button" onClick={()=>readCached(selected,false)}>{t("Try again")}</button>

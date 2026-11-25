@@ -53,6 +53,53 @@ it("locks account creation until the initial mailbox and drafts have both loaded
   expect(invoke.mock.calls.map(([r])=>r.kind)).toEqual(["accounts","drafts"]);
 });
 
+it.each(["success", "failure"] as const)("switches accounts during a local Alibaba body read and discards its late %s", async outcome => {
+  setLocale("en");
+  const accounts = [
+    { id: "ali", provider: "alibaba", address: "ali@example.test" },
+    { id: "gmail", provider: "gmail", address: "gmail@example.test" },
+  ];
+  const aliMessage = { uid: 42, subject: "Alibaba result", sender: "sender@example.test" };
+  const gmailMessage = { id: "42", subject: "Gmail result", from: "sender@example.test" };
+  const local = vi.fn(async (request: Record<string, unknown>) => request.kind === "accounts" ? accounts : []);
+  let complete!: () => void;
+  const ali = vi.fn(async (request: Record<string, unknown>) => {
+    switch (request.kind) {
+      case "credentialStatus": return { configured: true, enabled: true };
+      case "cachedFolders": return [];
+      case "cachedPage": return { uidValidity: 7, messages: [aliMessage], next: null };
+      case "cachedBody": return new Promise((resolve, reject) => {
+        complete = () => outcome === "success" ? resolve({ summary: aliMessage, text: "Stale body" }) : reject(Error("mail_storage"));
+      });
+      default: throw Error("Unexpected Alibaba operation");
+    }
+  });
+  const gmail = vi.fn(async (request: Record<string, unknown>) => {
+    switch (request.kind) {
+      case "status": return { connected: false };
+      case "cachedLabels": return [];
+      case "cachedPage": return { items: [gmailMessage], nextCursor: null };
+      case "cachedBody": return { ...gmailMessage, plainText: "Current cached body" };
+      default: throw Error("Unexpected Gmail operation");
+    }
+  });
+  render(<Mail invoke={local as Invoke} transport={ali as Invoke} gmailTransport={gmail as Invoke} />);
+  fireEvent.click(await screen.findByRole("button", { name: /Alibaba result/ }));
+  await screen.findByText("Loading…");
+  const account = screen.getByLabelText<HTMLSelectElement>("Mail account");
+  expect(account.matches(":disabled")).toBe(false);
+  expect(screen.getByRole("button", { name: "Add local account" }).matches(":disabled")).toBe(true);
+  fireEvent.change(account, { target: { value: "gmail" } });
+  fireEvent.click(await screen.findByRole("button", { name: /Gmail result/ }));
+  await screen.findByText("Current cached body");
+  await act(async () => complete());
+  expect(screen.getByText("Current cached body")).toBeTruthy();
+  expect(screen.queryByText("Stale body")).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(ali.mock.calls.map(([request]) => request.kind)).not.toContain("read");
+  expect(gmail).toHaveBeenCalledWith({ kind: "cachedBody", accountId: "gmail", id: "42" });
+});
+
 it("retains unsaved mail when its tool tab closes and the surface is reattached",async()=>{
   setLocale("en");
   const invoke=async<T,>(r:Record<string,unknown>)=>(r.kind==="accounts"?[{id:"a",provider:"alibaba",address:"a@example.test"}]:[]) as T;
