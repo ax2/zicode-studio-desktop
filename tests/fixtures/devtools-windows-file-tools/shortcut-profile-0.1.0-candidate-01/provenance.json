@@ -1,0 +1,1347 @@
+{
+  "sourceRevision": "f92b681adf16a46aacc7de46aa60fdd4336220ad",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T23:39:34.538008+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "a97a12cec1f01a726534e7a2139a9777678472b6c0e14edb72568fb3c9ca47ba",
+  "workerVerification": {
+    "workerSha256": "3ae442b9909cbc996e2ad95307311cd577d9b14c5d66d95fdd67eddeeee2c03a",
+    "wasmSha256": "a97a12cec1f01a726534e7a2139a9777678472b6c0e14edb72568fb3c9ca47ba",
+    "wasmBytes": 250425,
+    "inputProfile": "resource.wasi.input.draft2",
+    "outputProfile": "resource.wasi.output.draft1",
+    "executionProfile": "resource.wasi.shortcuts.profile.v1",
+    "genericJsonDenied": true,
+    "cases": [
+      {
+        "case": "native-merge-controls-and-dormant",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 161,
+            "sha256": "1f54fc896b4abde30cbd0d8d20acaa5422f580c8996ddfe28527d9cbbea23286"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 149,
+            "sha256": "e4087bbb4b6c5d102ad5e9a7cf59e5c98d186900f994ab4180ac938c0752d54c"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 3,
+          "changedCount": 2,
+          "conflictPairs": 0,
+          "incomingCount": 3,
+          "mode": "merge",
+          "outputBytes": 318,
+          "resultCount": 4,
+          "text": "合并预览 · 3 项 → 4 项\n变更 2 项，快捷序列冲突 0 对\nopen:data：无自定义项 → F A\nopen:json：Q J → Q K\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 318,
+          "sha256": "62073a3836be387f9c26b36606d0885dbc4fb9f75f601622682aba753243eef9"
+        }
+      },
+      {
+        "case": "native-replace",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 161,
+            "sha256": "1f54fc896b4abde30cbd0d8d20acaa5422f580c8996ddfe28527d9cbbea23286"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 149,
+            "sha256": "e4087bbb4b6c5d102ad5e9a7cf59e5c98d186900f994ab4180ac938c0752d54c"
+          }
+        ],
+        "options": {
+          "mode": "replace"
+        },
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 3,
+          "changedCount": 3,
+          "conflictPairs": 0,
+          "incomingCount": 3,
+          "mode": "replace",
+          "outputBytes": 237,
+          "resultCount": 3,
+          "text": "替换预览 · 3 项 → 3 项\n变更 3 项，快捷序列冲突 0 对\nopen:data：无自定义项 → F A\nopen:json：Q J → Q K\nopen:plugin:sample/tool：Z O → 无自定义项\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 237,
+          "sha256": "b905b6e5613d5aae360957290458ae4118554c292a4d4f97682665f1852f2197"
+        }
+      },
+      {
+        "case": "explicit-incoming-first",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 149,
+            "sha256": "e4087bbb4b6c5d102ad5e9a7cf59e5c98d186900f994ab4180ac938c0752d54c"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 161,
+            "sha256": "1f54fc896b4abde30cbd0d8d20acaa5422f580c8996ddfe28527d9cbbea23286"
+          }
+        ],
+        "options": {
+          "incomingPosition": 1
+        },
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 3,
+          "changedCount": 2,
+          "conflictPairs": 0,
+          "incomingCount": 3,
+          "mode": "merge",
+          "outputBytes": 318,
+          "resultCount": 4,
+          "text": "合并预览 · 3 项 → 4 项\n变更 2 项，快捷序列冲突 0 对\nopen:data：无自定义项 → F A\nopen:json：Q J → Q K\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 318,
+          "sha256": "62073a3836be387f9c26b36606d0885dbc4fb9f75f601622682aba753243eef9"
+        }
+      },
+      {
+        "case": "default-merge-with-empty",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 0,
+          "changedCount": 0,
+          "conflictPairs": 0,
+          "incomingCount": 0,
+          "mode": "merge",
+          "outputBytes": 36,
+          "resultCount": 0,
+          "text": "合并预览 · 0 项 → 0 项\n变更 0 项，快捷序列冲突 0 对\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 36,
+          "sha256": "36273650ecbdbdf06347e7920fc36ea16a5479a233ee4400d200da540378bbaa"
+        }
+      },
+      {
+        "case": "replace-removes-when-empty",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 161,
+            "sha256": "1f54fc896b4abde30cbd0d8d20acaa5422f580c8996ddfe28527d9cbbea23286"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {
+          "mode": "replace"
+        },
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 3,
+          "changedCount": 3,
+          "conflictPairs": 0,
+          "incomingCount": 0,
+          "mode": "replace",
+          "outputBytes": 36,
+          "resultCount": 0,
+          "text": "替换预览 · 3 项 → 0 项\n变更 3 项，快捷序列冲突 0 对\nopen:files：停用 → 无自定义项\nopen:json：Q J → 无自定义项\nopen:plugin:sample/tool：Z O → 无自定义项\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 36,
+          "sha256": "36273650ecbdbdf06347e7920fc36ea16a5479a233ee4400d200da540378bbaa"
+        }
+      },
+      {
+        "case": "same-file-contents-with-distinct-ids",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 161,
+            "sha256": "1f54fc896b4abde30cbd0d8d20acaa5422f580c8996ddfe28527d9cbbea23286"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 161,
+            "sha256": "1f54fc896b4abde30cbd0d8d20acaa5422f580c8996ddfe28527d9cbbea23286"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 3,
+          "changedCount": 0,
+          "conflictPairs": 0,
+          "incomingCount": 3,
+          "mode": "merge",
+          "outputBytes": 251,
+          "resultCount": 3,
+          "text": "合并预览 · 3 项 → 3 项\n变更 0 项，快捷序列冲突 0 对\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 251,
+          "sha256": "633506fa1a5969ea2a1abd6b82963f7360ef27855192ed10e7ec3a7b4f0d0a1e"
+        }
+      },
+      {
+        "case": "import-explicit-disable",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 65,
+            "sha256": "0a1fa7b46dd27521964f0a399c6c2ed5337970feda340835716ca4af9616e270"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 64,
+            "sha256": "50987e55974c7e8343fc36b73f2ec51c2e86db8aebc37b990ee8fe5b73c7fc18"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 1,
+          "changedCount": 1,
+          "conflictPairs": 0,
+          "incomingCount": 1,
+          "mode": "merge",
+          "outputBytes": 102,
+          "resultCount": 1,
+          "text": "合并预览 · 1 项 → 1 项\n变更 1 项，快捷序列冲突 0 对\nopen:json：A → 停用\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 102,
+          "sha256": "5f9e113d2ccb74b97167e6604e96c11d083c20b8affb3029856b788ef4887a01"
+        }
+      },
+      {
+        "case": "different-inactive-commands-allowed",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 64,
+            "sha256": "50987e55974c7e8343fc36b73f2ec51c2e86db8aebc37b990ee8fe5b73c7fc18"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 65,
+            "sha256": "ae5c87f1b98b26474740980f36534bc915c9633f57d6a289a7bed2fc67afe3e6"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 1,
+          "changedCount": 1,
+          "conflictPairs": 0,
+          "incomingCount": 1,
+          "mode": "merge",
+          "outputBytes": 167,
+          "resultCount": 2,
+          "text": "合并预览 · 1 项 → 2 项\n变更 1 项，快捷序列冲突 0 对\nopen:files：无自定义项 → 停用\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 167,
+          "sha256": "a33aef2af05a2b2f7910b36e3e3f2ec4d22f4dadbdffc570143d4121893984bb"
+        }
+      },
+      {
+        "case": "native-unicode-whitespace",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 82,
+            "sha256": "b2705e6ea1d71d9b8e9a6b7fbc2ca084d5b48fb97339c4ab58304ea39615f858"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 0,
+          "changedCount": 1,
+          "conflictPairs": 0,
+          "incomingCount": 1,
+          "mode": "merge",
+          "outputBytes": 109,
+          "resultCount": 1,
+          "text": "合并预览 · 0 项 → 1 项\n变更 1 项，快捷序列冲突 0 对\nopen:json：无自定义项 → A C B D\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 109,
+          "sha256": "f119b837827ba9088118b6dd8c04b011b15bfc97314f954b45301b5315fdc081"
+        }
+      },
+      {
+        "case": "retains-fixed-search",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 62,
+            "sha256": "d67c12b3dc9e99132f50dcb69a52ce6c7a3dd92c89760f7ef8c4d99934979f75"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 65,
+            "sha256": "f24858f8d9b843c75bfe1c899a4f7c6eeb75341ab2aaf76fa2b50bd42479a56c"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 1,
+          "changedCount": 1,
+          "conflictPairs": 0,
+          "incomingCount": 1,
+          "mode": "merge",
+          "outputBytes": 165,
+          "resultCount": 2,
+          "text": "合并预览 · 1 项 → 2 项\n变更 1 项，快捷序列冲突 0 对\nopen:tool：无自定义项 → Q\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 165,
+          "sha256": "380719f932cb1aa3c9f3591125473933e2a1bc78bbd45cdc94a8943aa625b85c"
+        }
+      },
+      {
+        "case": "legacy-recorder-controls",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 163,
+            "sha256": "bcf33b7aab1603924b0a38639cff45c9daa80a6d084be0a7986d4271e7b1cc88"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 0,
+          "changedCount": 3,
+          "conflictPairs": 0,
+          "incomingCount": 3,
+          "mode": "merge",
+          "outputBytes": 253,
+          "resultCount": 3,
+          "text": "合并预览 · 0 项 → 3 项\n变更 3 项，快捷序列冲突 0 对\nrecorder:pause：无自定义项 → R P\nrecorder:start：无自定义项 → R S\nrecorder:stop：无自定义项 → R E\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 253,
+          "sha256": "052c2d8daebbac7806eb851e17f86d34fa3e3cc782aafc69b6485cfa2fb7008b"
+        }
+      },
+      {
+        "case": "ui-reserved-conflict",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 161,
+            "sha256": "1f54fc896b4abde30cbd0d8d20acaa5422f580c8996ddfe28527d9cbbea23286"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 71,
+            "sha256": "504bb2366ade4f72645b8277c69adb8fbdab57cd2cb8291569d8b33604ac362a"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 3,
+          "changedCount": 1,
+          "conflictPairs": 1,
+          "incomingCount": 1,
+          "mode": "merge",
+          "outputBytes": 0,
+          "resultCount": 4,
+          "text": "合并预览 · 3 项 → 4 项\n变更 1 项，快捷序列冲突 1 对\nopen:reserved：无自定义项 → K O\nsearch [K] 与 open:reserved [K O] 冲突\n请修正冲突后重试；本次没有可保存文件。"
+        },
+        "output": null
+      },
+      {
+        "case": "prefix-conflict-between-files",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 62,
+            "sha256": "cd67137a1a8f16b99ac79ec9b786c21f84f80cb8e6cbac3a121d2a66b7f35f82"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 64,
+            "sha256": "fe9b319c8ee035a950ec7b84b0b9e099ffbf362e94adb5194e10fed36d33ea8c"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 1,
+          "changedCount": 1,
+          "conflictPairs": 1,
+          "incomingCount": 1,
+          "mode": "merge",
+          "outputBytes": 0,
+          "resultCount": 2,
+          "text": "合并预览 · 1 项 → 2 项\n变更 1 项，快捷序列冲突 1 对\nopen:b：无自定义项 → A Z\nopen:a [A] 与 open:b [A Z] 冲突\n请修正冲突后重试；本次没有可保存文件。"
+        },
+        "output": null
+      },
+      {
+        "case": "equal-conflict-between-files",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 64,
+            "sha256": "d2f00e7c5d2e6ee3ba1fa2a77e31ddecba0c60490c58af710bce15f76c51b460"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 64,
+            "sha256": "fe9b319c8ee035a950ec7b84b0b9e099ffbf362e94adb5194e10fed36d33ea8c"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 1,
+          "changedCount": 1,
+          "conflictPairs": 1,
+          "incomingCount": 1,
+          "mode": "merge",
+          "outputBytes": 0,
+          "resultCount": 2,
+          "text": "合并预览 · 1 项 → 2 项\n变更 1 项，快捷序列冲突 1 对\nopen:b：无自定义项 → A Z\nopen:a [A Z] 与 open:b [A Z] 冲突\n请修正冲突后重试；本次没有可保存文件。"
+        },
+        "output": null
+      },
+      {
+        "case": "dormant-prefix-conflict",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 79,
+            "sha256": "fca42c5f7ee172d2ba59215c312fb24bd11d8f031415f4f6deb9b845fd5fef71"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 64,
+            "sha256": "fe9b319c8ee035a950ec7b84b0b9e099ffbf362e94adb5194e10fed36d33ea8c"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 1,
+          "changedCount": 1,
+          "conflictPairs": 1,
+          "incomingCount": 1,
+          "mode": "merge",
+          "outputBytes": 0,
+          "resultCount": 2,
+          "text": "合并预览 · 1 项 → 2 项\n变更 1 项，快捷序列冲突 1 对\nopen:b：无自定义项 → A Z\nopen:b [A Z] 与 open:plugin:sample/tool [A] 冲突\n请修正冲突后重试；本次没有可保存文件。"
+        },
+        "output": null
+      },
+      {
+        "case": "reserved-search-prefix-in-both-modes",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 100,
+            "sha256": "ce728e4a08ef1cd936a2015876e9564536b4504f8c6efcf7c038e21e7e9eeb01"
+          }
+        ],
+        "options": {
+          "mode": "replace"
+        },
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 0,
+          "changedCount": 2,
+          "conflictPairs": 3,
+          "incomingCount": 2,
+          "mode": "replace",
+          "outputBytes": 0,
+          "resultCount": 2,
+          "text": "替换预览 · 0 项 → 2 项\n变更 2 项，快捷序列冲突 3 对\nopen:a：无自定义项 → K O\nopen:b：无自定义项 → K\nsearch [K] 与 open:a [K O] 冲突\nsearch [K] 与 open:b [K] 冲突\nopen:a [K O] 与 open:b [K] 冲突\n请修正冲突后重试；本次没有可保存文件。"
+        },
+        "output": null
+      },
+      {
+        "case": "replace-removes-conflict-in-base",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 62,
+            "sha256": "312d3118fc26089da8ff9b93c74f49f4cf2b288965315286dd01f5bd55d1e412"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 64,
+            "sha256": "501d7719048fb1cb937e4a8fc30b87f18232750b13a5efa86a1a419db0cbf05a"
+          }
+        ],
+        "options": {
+          "mode": "replace"
+        },
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 1,
+          "changedCount": 2,
+          "conflictPairs": 0,
+          "incomingCount": 1,
+          "mode": "replace",
+          "outputBytes": 102,
+          "resultCount": 1,
+          "text": "替换预览 · 1 项 → 1 项\n变更 2 项，快捷序列冲突 0 对\nopen:a：Z → 无自定义项\nopen:b：无自定义项 → Z B\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 102,
+          "sha256": "bc6106fd802988c303b89ab9f3f47ccd7f83e1de8f05d115f108e5b2399c7462"
+        }
+      },
+      {
+        "case": "empty-removes-conflict-in-merge",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 62,
+            "sha256": "cd67137a1a8f16b99ac79ec9b786c21f84f80cb8e6cbac3a121d2a66b7f35f82"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 99,
+            "sha256": "2a4d2488f867aed0cb6fc08ba086624f119350345ed9754806adb1b0e800b6a3"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 1,
+          "changedCount": 2,
+          "conflictPairs": 0,
+          "incomingCount": 2,
+          "mode": "merge",
+          "outputBytes": 163,
+          "resultCount": 2,
+          "text": "合并预览 · 1 项 → 2 项\n变更 2 项，快捷序列冲突 0 对\nopen:a：A → 停用\nopen:b：无自定义项 → A Z\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 163,
+          "sha256": "178e734a3ce17b4c27c17054a42c1ee9e5a5a91067f240d12fcd2ca24b16519c"
+        }
+      },
+      {
+        "case": "same-starting-key-is-not-prefix",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 64,
+            "sha256": "93d36fb71921b646f7c3116e6898a6b8f7bb1577351619e7cbc753df9886fe90"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 64,
+            "sha256": "fe9b319c8ee035a950ec7b84b0b9e099ffbf362e94adb5194e10fed36d33ea8c"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 1,
+          "changedCount": 1,
+          "conflictPairs": 0,
+          "incomingCount": 1,
+          "mode": "merge",
+          "outputBytes": 166,
+          "resultCount": 2,
+          "text": "合并预览 · 1 项 → 2 项\n变更 1 项，快捷序列冲突 0 对\nopen:b：无自定义项 → A Z\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 166,
+          "sha256": "309b75a4d82e02eace28ec79c373eeaa46057f0ccffc5ee614a14fb3c9e328e9"
+        }
+      },
+      {
+        "case": "exact-command-length-512",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 570,
+            "sha256": "fb98024ee46f5e079be83890cb5072ec35df595f1068b7a329e14065af8c24bc"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 0,
+          "changedCount": 1,
+          "conflictPairs": 0,
+          "incomingCount": 1,
+          "mode": "merge",
+          "outputBytes": 608,
+          "resultCount": 1,
+          "text": "合并预览 · 0 项 → 1 项\n变更 1 项，快捷序列冲突 0 对\nopen:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…：无自定义项 → A B\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 608,
+          "sha256": "523e2c7ddecc612958ac40a2deb4b054213429fd7e175a8c368ad261fa7d6ba0"
+        }
+      },
+      {
+        "case": "empty-open-command",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 61,
+            "sha256": "d4b62cd3d93d787e0acbbe3e18ac401b6b6cae1e1332d5dc2ba8455e1cf00f1c"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "unsupported-id",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 66,
+            "sha256": "0d632999eacb6d76cdb959fb5349126b10d81f71835c52543a7c7adf6d462803"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "unsupported-sequence",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 70,
+            "sha256": "7c3dfba80a08407e7c638f90f9c55b090ff9ace1af2191875d81827400d5409e"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "non-ascii-letter",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 64,
+            "sha256": "6358596c8f346c559be53af10c073e18270f38135659b8c89602deea8423d7da"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "wrong-fixed-k",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 62,
+            "sha256": "b5e1367193bcea1342feb76b811ec3faf0341d3a71d87589334eb4c671de61b1"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "command-over-512",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 571,
+            "sha256": "996c47554f51b598c1646c2a743cb46dea011b814c57ccbdd20bb6b703b0bbf3"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "no-base-schema",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 1,
+            "sha256": "021fb596db81e6d02bf3d2586ee3981fe519f275c0ac9ca76bbcf2ebb4097d96"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_BASE",
+          "message": "基准文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "wrong-incoming-version",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "940120503fef3fd83c8e12cbc51343008fc7b5d5f9e12319249582adf1131875"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "unknown-incoming-field",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 49,
+            "sha256": "2ea1dbab7cc9c361075cd3df32e2b957a2667b070fde26c5a43e98fe3175ff4a"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "unknown-binding-field",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 74,
+            "sha256": "c64efb3b819a2508e143bb91676fb2422dadbcab9303401bb9b4bd015dfb9503"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "duplicate-command-rejected",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 98,
+            "sha256": "d6990d3649928f3a4175ddab45e258ff8dd3881ac4c2b7cfa3765335cfe41aad"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "duplicate-json-keys",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 39,
+            "sha256": "dead909d4ad7b490e2023c1d3a3a0b1113bdfe47dc4da8ffe62d5d0ffec44944"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "invalid-utf8",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 1,
+            "sha256": "a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_INCOMING",
+          "message": "导入文件必须是有效的独立版快捷配置 JSON（版本 1）。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "unsupported-mode",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {
+          "mode": "activate"
+        },
+        "error": {
+          "code": "INVALID_REQUEST",
+          "message": "请选择合并或替换，并填写导入文件位置 1 或 2。"
+        },
+        "hostError": "invalid_parameters",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "unsupported-position",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {
+          "incomingPosition": 3
+        },
+        "error": {
+          "code": "INVALID_REQUEST",
+          "message": "请选择合并或替换，并填写导入文件位置 1 或 2。"
+        },
+        "hostError": "invalid_parameters",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "forbidden-parameters",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {
+          "activeFile": "path"
+        },
+        "error": {
+          "code": "INVALID_REQUEST",
+          "message": "请选择合并或替换，并填写导入文件位置 1 或 2。"
+        },
+        "hostError": "invalid_parameters",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "one-source",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_RESOURCE",
+          "message": "请确认共享一份基准配置和一份导入配置。"
+        },
+        "hostError": "resource_profile_unsupported",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "same-resource-id",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_RESOURCE",
+          "message": "请确认共享一份基准配置和一份导入配置。"
+        },
+        "hostError": "Invalid resource Worker frame",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "altered-resource-digest",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_RESOURCE",
+          "message": "请确认共享一份基准配置和一份导入配置。"
+        },
+        "hostError": "Resource Worker content mismatch",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "foreign-plugin",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_REQUEST",
+          "message": "请选择合并或替换，并填写导入文件位置 1 或 2。"
+        },
+        "hostError": "resource_profile_unsupported",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "foreign-capability",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_REQUEST",
+          "message": "请选择合并或替换，并填写导入文件位置 1 或 2。"
+        },
+        "hostError": "resource_profile_unsupported",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "command-is-disallowed",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_REQUEST",
+          "message": "请选择合并或替换，并填写导入文件位置 1 或 2。"
+        },
+        "hostError": "Shortcut profile requires authorized resources",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "plain-normalization",
+        "sources": [
+          {
+            "mime": "text/plain",
+            "bytes": 161,
+            "sha256": "1f54fc896b4abde30cbd0d8d20acaa5422f580c8996ddfe28527d9cbbea23286"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 149,
+            "sha256": "e4087bbb4b6c5d102ad5e9a7cf59e5c98d186900f994ab4180ac938c0752d54c"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 3,
+          "changedCount": 2,
+          "conflictPairs": 0,
+          "incomingCount": 3,
+          "mode": "merge",
+          "outputBytes": 318,
+          "resultCount": 4,
+          "text": "合并预览 · 3 项 → 4 项\n变更 2 项，快捷序列冲突 0 对\nopen:data：无自定义项 → F A\nopen:json：Q J → Q K\n请确认保存新配置。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 318,
+          "sha256": "62073a3836be387f9c26b36606d0885dbc4fb9f75f601622682aba753243eef9"
+        }
+      },
+      {
+        "case": "reject-image",
+        "sources": [
+          {
+            "mime": "image/png",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "INVALID_RESOURCE",
+          "message": "请确认共享一份基准配置和一份导入配置。"
+        },
+        "hostError": "resource_input_type_unsupported",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "exact-two-file-byte-and-binding-limits",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 16384,
+            "sha256": "62b3603f52ec5037db3863302225c52d3ddce079991ef81d8cf71772040ba8e0"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 16384,
+            "sha256": "e3b4372e3860574ef0433597c71d8e6cca26f7f547cab5e34d18eaf26c9775fc"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 32,
+          "changedCount": 32,
+          "conflictPairs": 0,
+          "incomingCount": 32,
+          "mode": "merge",
+          "outputBytes": 33510,
+          "resultCount": 64,
+          "text": "合并预览 · 32 项 → 64 项\n变更 32 项，快捷序列冲突 0 对\nopen:incoming-00-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…：无自定义项 → B A A\nopen:incoming-01-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…：无自定义项 → B A B\nopen:incoming-02-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…：无自定义项 → B A C\nopen:incoming-03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…：无自定义项 → B A D\nopen:incoming-04-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…：无自定义项 → B A E\nopen:incoming-05-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…：无自定义项 → B A F\n请确认保存新配置。\n变更和冲突各最多展示 6 条。"
+        },
+        "output": {
+          "mime": "application/json",
+          "bytes": 33510,
+          "sha256": "d2fa80dd2e15da90ee90aebbe5c82ed98eeb5f2343de8d24d4d939c3e6443eca"
+        }
+      },
+      {
+        "case": "byte-limit-plus-one",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 16385,
+            "sha256": "1d84ea17e2d4fad85a5169b0915a8d5c5aa82547d56b337c07cf4b6b3d898d01"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 16384,
+            "sha256": "e3b4372e3860574ef0433597c71d8e6cca26f7f547cab5e34d18eaf26c9775fc"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "FILE_LIMIT",
+          "message": "每份快捷配置 JSON 最多 16 KiB。"
+        },
+        "hostError": "resource_input_too_large",
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "binding-limit-plus-one",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 15905,
+            "sha256": "978715dc30aa9e0ff407d8070601101ca43304fae490e42b18f7a733a01a56d3"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 27,
+            "sha256": "37205a7f23ed067993395414b26457d7eb603bf78e181254ac6d2a74ea2918d9"
+          }
+        ],
+        "options": {},
+        "error": {
+          "code": "BINDING_LIMIT",
+          "message": "每份快捷配置最多 32 项。"
+        },
+        "hostError": null,
+        "report": null,
+        "output": null
+      },
+      {
+        "case": "dense-conflicts-are-counted-not-truncated",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 1232,
+            "sha256": "0ef1033c7ba5c7bd18fdb4f6494c4cd5c5313b81d5e4eec993446cc02739ef8f"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 1232,
+            "sha256": "9b1c1184f338402a7ae4e1cd9f86c199ba5a0e72a70b9ef7cb3791abfd76a360"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "report": {
+          "baseCount": 32,
+          "changedCount": 32,
+          "conflictPairs": 2016,
+          "incomingCount": 32,
+          "mode": "merge",
+          "outputBytes": 0,
+          "resultCount": 64,
+          "text": "合并预览 · 32 项 → 64 项\n变更 32 项，快捷序列冲突 2016 对\nopen:b0：无自定义项 → Z\nopen:b1：无自定义项 → Z\nopen:b10：无自定义项 → Z\nopen:b11：无自定义项 → Z\nopen:b12：无自定义项 → Z\nopen:b13：无自定义项 → Z\nopen:a0 [Z] 与 open:a1 [Z] 冲突\nopen:a0 [Z] 与 open:a10 [Z] 冲突\nopen:a0 [Z] 与 open:a11 [Z] 冲突\nopen:a0 [Z] 与 open:a12 [Z] 冲突\nopen:a0 [Z] 与 open:a13 [Z] 冲突\nopen:a0 [Z] 与 open:a14 [Z] 冲突\n请修正冲突后重试；本次没有可保存文件。\n变更和冲突各最多展示 6 条。"
+        },
+        "output": null
+      }
+    ],
+    "failures": []
+  }
+}

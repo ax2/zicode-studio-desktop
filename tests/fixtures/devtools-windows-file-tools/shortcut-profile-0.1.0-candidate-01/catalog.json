@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.shortcut-profile",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "unified-shortcuts",
+      "capabilityId": "devtools.shortcuts.profile.merge",
+      "title": "比较并合并快捷配置",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "确认共享两份独立版快捷配置，指定导入文件的位置，预览合并或替换及冲突，并确认保存新的配置 JSON。"
+    }
+  ]
+}

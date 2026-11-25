@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.shortcut-profile",
+  "name": "ZiDevTools Shortcut Profile Review",
+  "displayName": "比较并合并快捷配置",
+  "description": "确认共享两份独立版快捷配置，指定导入文件的位置，预览合并或替换及冲突，并确认保存新的配置 JSON。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "resource.wasi.shortcuts.profile.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.shortcuts.profile.merge"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.shortcuts.profile.merge",
+        "title": "比较并合并快捷配置",
+        "description": "确认共享两份独立版快捷配置，指定导入文件的位置，预览合并或替换及冲突，并确认保存新的配置 JSON。",
+        "executionProfile": "resource.wasi.shortcuts.profile.v1",
+        "resourceInputMin": 2,
+        "resourceInputMax": 2,
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "merge",
+                "replace"
+              ],
+              "title": "预览方式",
+              "description": "merge 保留未替换项；replace 仅保留导入项。留空合并。"
+            },
+            "incomingPosition": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2,
+              "title": "导入文件在列表的位置",
+              "description": "填写 1 或 2，留空使用第 2 份。另一份是基准。"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "maxLength": 4096
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "merge",
+                        "replace"
+                      ]
+                    },
+                    "baseCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 32
+                    },
+                    "incomingCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 32
+                    },
+                    "resultCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "changedCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "conflictPairs": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2080
+                    },
+                    "outputBytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 49152
+                    }
+                  },
+                  "required": [
+                    "text",
+                    "mode",
+                    "baseCount",
+                    "incomingCount",
+                    "resultCount",
+                    "changedCount",
+                    "conflictPairs",
+                    "outputBytes"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 48
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "快捷配置预览",
+            "快捷键导入比较",
+            "Shortcut Profile"
+          ],
+          "description": "确认共享两份独立版快捷配置，指定导入文件的位置，预览合并或替换及冲突，并确认保存新的配置 JSON。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "只读取本次确认的两份便携配置 JSON。"
+      }
+    ],
+    "optional": []
+  }
+}
