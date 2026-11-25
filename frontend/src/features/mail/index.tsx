@@ -30,6 +30,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   const [provider,setProvider]=useState("gmail"), [address,setAddress]=useState("");
   const [drafts,setDrafts]=useState<Draft[]>([]), [edit,setEdit]=useState<Draft>(blank);
   const [dirty,setDirty]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState("");
+  const [draftsUnavailable, setDraftsUnavailable] = useState(false);
   const [attachmentRefresh, setAttachmentRefresh] = useState<AttachmentRefresh | null>(null);
   const lock=useRef(true);
   const source = useRef<{ invoke: Invoke } | null>(null);
@@ -64,12 +65,18 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
       setError(t(code ? localMailErrors[code] : "Could not access local mail data."));
     }finally{if(isCurrent()){lock.current=false;setBusy(false)}}
   }
-  function applyAccount(id:string, rows:Draft[]){
+  function applyAccount(id:string, rows:Draft[] | null){
     if(id!==account){setLabel("INBOX");setPasswordOwner("");setGmailAuthorization(null);setMailActivity(null)}
-    setAccount(id);setDrafts(rows);setEdit(blank());setDirty(false);setAttachmentRefresh(null);
+    setAccount(id);setDrafts(rows ?? []);setDraftsUnavailable(rows === null);setEdit(blank());setDirty(false);setAttachmentRefresh(null);
   }
-  async function load(id:string){
-    const rows = id ? await invoke<Draft[]>({kind:"drafts",account:id}) : [];
+  async function load(id:string, isCurrent:()=>boolean){
+    if (!isCurrent()) return;
+    const rows = id ? await invoke<Draft[]>({kind:"drafts",account:id}).catch(() => null) : [];
+    if (!isCurrent()) return;
+    if (rows === null && id === account) {
+      if (!draftsUnavailable) throw Error("mail_storage");
+      return;
+    }
     if (id !== account) setSearchVersion(version => version + 1);
     applyAccount(id,rows);
   }
@@ -79,7 +86,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     focusReply.current=draft.id;
   }
   async function replyFromCache(id:string, create:()=>Promise<Draft>, isCurrent:()=>boolean){
-    if(mailBusy || attachmentRefresh || !isCurrent() || !accounts.some(row=>row.id===id && (row.provider==="alibaba"||row.provider==="gmail")))return;
+    if(mailBusy || draftsUnavailable || attachmentRefresh || !isCurrent() || !accounts.some(row=>row.id===id && (row.provider==="alibaba"||row.provider==="gmail")))return;
     await run(async()=>{
       if(!await discard() || !isCurrent())return;
       const rows=id===account ? undefined : await invoke<Draft[]>({kind:"drafts",account:id});
@@ -104,6 +111,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     setDirty(false);
     setAttachmentRefresh(null);
     setLabel("INBOX");
+    setDraftsUnavailable(false);
     setPasswordOwner("");
     setGmailAuthorization(null);
     setMailActivity(null);
@@ -114,11 +122,12 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
         const rows = await nextSource.invoke<Account[]>({ kind: "accounts" });
         if (source.current !== nextSource) return;
         const id = rows[0]?.id ?? "";
-        const drafts = id ? await nextSource.invoke<Draft[]>({ kind: "drafts", account: id }) : [];
+        const drafts = id ? await nextSource.invoke<Draft[]>({ kind: "drafts", account: id }).catch(() => null) : [];
         if (source.current !== nextSource) return;
         setAccounts(rows);
         setAccount(id);
-        setDrafts(drafts);
+        setDrafts(drafts ?? []);
+        setDraftsUnavailable(drafts === null);
         setSearchVersion(version => version + 1);
       } catch {
         if (source.current === nextSource) setError(t("Could not access local mail data."));
@@ -218,15 +227,18 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
         : current);
   }
   const recoveringAttachments = attachmentRefresh !== null;
-  const draftBlocked = busy || recoveringAttachments;
+  const draftBlocked = busy || recoveringAttachments || draftsUnavailable;
   const savedDraftReady = Boolean(edit.id) && !recoveringAttachments;
   return <section className="mail-local"><h2>{t("Mail")}</h2>
     {!alibaba&&!gmail&&<p>{t("Local drafts only. No mailbox is connected.")}</p>}
     <fieldset disabled={busy}><legend>{t("Mail accounts")}</legend>
-    {accounts.length>0&&<label>{t("Mail account")}<select className="ui-select" value={account} disabled={accountSwitchBlocked} onChange={e=>{const id=e.target.value;void run(async()=>{if(await discard())await load(id)})}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}</select></label>}
-    <form onSubmit={e=>{e.preventDefault();void run(async()=>{if(!await discard())return;
+    {accounts.length>0&&<label>{t("Mail account")}<select className="ui-select" value={account} disabled={accountSwitchBlocked} onChange={e=>{const id=e.target.value;void run(async isCurrent=>{if(await discard())await load(id,isCurrent)})}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}</select></label>}
+    <form onSubmit={e=>{e.preventDefault();void run(async isCurrent=>{if(!await discard()||!isCurrent())return;
       const added=await invoke<{id:string}>({kind:"add",provider,address});
-      setAccounts(await invoke<Account[]>({kind:"accounts"}));setAddress("");await load(added.id);
+      if (!isCurrent()) return;
+      const accounts=await invoke<Account[]>({kind:"accounts"});
+      if (!isCurrent()) return;
+      setAccounts(accounts);setAddress("");await load(added.id,isCurrent);
     })}}><label>{t("Mail provider")}<select className="ui-select" value={provider} disabled={mailBusy} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
     <label>{t("Email address")}<input className="ui-input" disabled={mailBusy} required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button className="ui-button ui-button--primary" type="submit" disabled={mailBusy}>{t("Add local account")}</button></form></fieldset>
@@ -235,12 +247,16 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
       grantLoss={gmailAuthorization?.account===account ? gmailAuthorization.loss : undefined} onReply={replyFromCache} draftBusy={draftBlocked}/>}
     {alibaba&&<AlibabaInbox key={account} id={account} folder={label} setFolder={setLabel} invoke={alibaba} discard={discard} onBusy={reportAlibabaBusy}
       onConfigured={v=>setPasswordOwner(v?account:"")} onReply={openReply} draftBusy={draftBlocked}/>}
-    {account&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
+    {account&&draftsUnavailable&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
+      <p role="alert">{t("Could not load this account’s saved drafts.")}</p>
+      <button className="ui-button" type="button" onClick={()=>void run(isCurrent=>load(account,isCurrent))}>{t("Reload drafts")}</button>
+    </fieldset>}
+    {account&&!draftsUnavailable&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
     {edit.gmailReply&&<p>{t("Changing the recipient or subject sends this as a new message.")}</p>}
     <div className="mail-list"><button className="ui-button" type="button" disabled={recoveringAttachments} onClick={()=>void run(async()=>{if(await discard()){setEdit(blank());setDirty(false)}})}>{t("New draft")}</button>
     <button className="ui-button" type="button" ref={reloadDraftButton} onClick={()=>void run(async isCurrent=>{
       if (attachmentRefresh) await readDraftAttachments(attachmentRefresh, isCurrent);
-      else if(await discard()) await load(account);
+      else if(await discard()) await load(account,isCurrent);
     })}>{t(attachmentRefresh ? "Reload draft attachments" : "Reload drafts")}</button>
     {drafts.map(d=><button className="ui-button" key={d.id} type="button" disabled={recoveringAttachments} aria-pressed={edit.id===d.id} onClick={()=>void run(async()=>{if(await discard()){setEdit(d);setDirty(false)}})}>{d.subject||d.recipient||t("Untitled draft")}</button>)}</div>
     {attachmentRefresh&&<p role="alert">{t("Attachment change saved. Reload the draft attachments to continue.")}</p>}

@@ -303,13 +303,54 @@ it.each(["accounts", "drafts"])("hides a stale draft when the replacement source
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "Add attachment" })));
   await screen.findByRole("button", { name: "Reload draft attachments" });
   view.rerender(<Mail invoke={replacement as Invoke}/>);
-  await screen.findByText("Could not access local mail data.");
+  await screen.findByText(failedRead === "accounts" ? "Could not access local mail data." : "Could not load this account’s saved drafts.");
+  expect(screen.queryByRole("combobox", { name: "Mail account" }) !== null).toBe(failedRead === "drafts");
+  expect(screen.queryByRole("button", { name: "Reload drafts" }) !== null).toBe(failedRead === "drafts");
   expect(screen.queryByRole("button", { name: draft.subject })).toBeNull();
   expect(screen.queryByLabelText("Message body")).toBeNull();
   expect(screen.queryByRole("button", { name: "Add attachment" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Delete draft" })).toBeNull();
   expect(replacement.mock.calls.map(([request]) => request.kind))
     .toEqual(failedRead === "accounts" ? ["accounts"] : ["accounts", "drafts"]);
+});
+
+it("keeps accounts and cached mail available while the selected account’s drafts cannot load", async () => {
+  setLocale("en");
+  let recovered = false;
+  const invoke = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === "accounts") return ["a", "b"].map(id => ({ id, provider: "gmail", address: id + "@example.test" }));
+    if (request.kind !== "drafts") throw Error("unexpected local write");
+    if (request.account === "a" && !recovered) throw Error("mail_storage");
+    return [{ id: "same-draft", revision: 1, recipient: "", subject: "Draft " + request.account, body: "Text " + request.account }];
+  });
+  const remote = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === "status") return { connected: false };
+    if (request.kind === "cachedLabels") return [];
+    if (request.kind === "cachedPage") return { items: [{ id: "42", subject: "Cached " + request.accountId }], nextCursor: null };
+    if (request.kind === "cachedBody") return { id: "42", plainText: "Offline body " + request.accountId };
+    throw Error("unexpected mail operation");
+  });
+  render(<Mail invoke={invoke as Invoke} gmailTransport={remote as Invoke} />);
+  await screen.findByText("Could not load this account’s saved drafts.");
+  fireEvent.click(await screen.findByRole("button", { name: /Cached a/ }));
+  await screen.findByText("Offline body a");
+  expect(screen.queryByLabelText("Message body")).toBeNull();
+  expect(screen.getByRole("button", { name: "Create reply draft" }).matches(":disabled")).toBe(true);
+  const account = screen.getByRole("combobox", { name: "Mail account" });
+  fireEvent.change(account, { target: { value: "b" } });
+  await screen.findByRole("button", { name: "Draft b" });
+  expect(screen.queryByText("Offline body a")).toBeNull();
+  fireEvent.change(account, { target: { value: "a" } });
+  await screen.findByText("Could not load this account’s saved drafts.");
+  expect(screen.queryByRole("button", { name: "Draft b" })).toBeNull();
+  fireEvent.click(await screen.findByRole("button", { name: /Cached a/ }));
+  await screen.findByText("Offline body a");
+  recovered = true;
+  fireEvent.click(screen.getByRole("button", { name: "Reload drafts" }));
+  await screen.findByRole("button", { name: "Draft a" });
+  expect(screen.getByText("Offline body a")).toBeTruthy();
+  expect(screen.queryByText("Could not load this account’s saved drafts.")).toBeNull();
+  expect(invoke.mock.calls.filter(([request]) => request.kind === "drafts").map(([request]) => request.account)).toEqual(["a", "b", "a", "a"]);
 });
 
 
