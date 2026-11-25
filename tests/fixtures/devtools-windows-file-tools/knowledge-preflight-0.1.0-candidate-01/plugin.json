@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.knowledge-preflight",
+  "name": "ZiDevTools Knowledge Source Preflight",
+  "displayName": "知识源文件预检",
+  "description": "切到「文件夹」并确认共享一层名称，检查适合纳入知识源的文件格式和排除规则。不读取正文。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.knowledge.source.preflight"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.knowledge.source.preflight",
+        "title": "知识源文件预检",
+        "description": "切到「文件夹」并确认共享一层名称，检查适合纳入知识源的文件格式和排除规则。不读取正文。",
+        "resourceInputMimeTypes": [
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "excludes": {
+              "type": "string",
+              "maxLength": 960,
+              "title": "额外排除规则",
+              "description": "最多 8 条，以逗号、分号或换行分隔。支持 *.扩展名 和相对名称。"
+            }
+          }
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "fileContentsChecked": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "entryCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "eligibleCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "excludedCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "unsupportedCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "directoriesNotScanned": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "candidatesTruncated": {
+                  "type": "boolean"
+                },
+                "formatCounts": {
+                  "type": "object",
+                  "properties": {
+                    "markdown": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "text": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "html": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "pdf": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "docx": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "image": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    }
+                  },
+                  "required": [
+                    "markdown",
+                    "text",
+                    "html",
+                    "pdf",
+                    "docx",
+                    "image"
+                  ],
+                  "additionalProperties": false
+                },
+                "candidates": {
+                  "type": "array",
+                  "maxItems": 24,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "maxLength": 255
+                      },
+                      "format": {
+                        "type": "string",
+                        "enum": [
+                          "markdown",
+                          "text",
+                          "html",
+                          "pdf",
+                          "docx",
+                          "image"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "format"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "ok",
+                "fileContentsChecked",
+                "entryCount",
+                "eligibleCount",
+                "excludedCount",
+                "unsupportedCount",
+                "directoriesNotScanned",
+                "candidatesTruncated",
+                "formatCounts",
+                "candidates"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 24576,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "知识源预检",
+            "文档格式统计",
+            "目录知识文件",
+            "Knowledge source preflight"
+          ],
+          "description": "切到「文件夹」并确认共享一层名称，检查适合纳入知识源的文件格式和排除规则。不读取正文。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的目录名称快照。"
+      },
+      {
+        "name": "resource.directory.read",
+        "reason": "经逐次确认读取一层相对名称和类型。"
+      }
+    ],
+    "optional": []
+  }
+}
