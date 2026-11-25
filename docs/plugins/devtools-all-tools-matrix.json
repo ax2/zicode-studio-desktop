@@ -4919,6 +4919,7 @@
     },
     {
       "sourceToolId": "java-trace",
+      "currentWindowsAcceptance": "../iterations/2026-11-25-trace-log-files.md",
       "title": "Java 异常链",
       "sourceToolVersion": "1.0.3",
       "sourceStatus": "implemented",
@@ -4939,6 +4940,7 @@
     },
     {
       "sourceToolId": "django-trace",
+      "currentWindowsAcceptance": "../iterations/2026-11-25-trace-log-files.md",
       "title": "Django / Python 堆栈",
       "sourceToolVersion": "1.0.3",
       "sourceStatus": "implemented",

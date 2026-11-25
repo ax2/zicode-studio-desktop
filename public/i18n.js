@@ -2276,6 +2276,8 @@ const zhCN = {
   "Choose a YAML file.": "请选择 YAML 文件。",
   "Import UTF-8 text file…": "导入 UTF-8 文本文件…",
   "UTF-8 text file": "UTF-8 文本文件",
+  "Import log file…": "导入日志文件…",
+  "Log file": "日志文件",
   "Import Base64 file…": "导入 Base64 文件…",
   "Base64 input file": "Base64 输入文件",
   "Base64 text": "Base64 文本",

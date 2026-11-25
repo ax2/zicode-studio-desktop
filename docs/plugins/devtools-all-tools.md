@@ -46,6 +46,10 @@ Base64 编码和解码均可显式导入 8 KiB 内的 UTF-8 文件并撤销，�
 
 Unicode 码点、NFC 和 NFKC 支持导入 8 KiB 内 UTF-8 文件。保留 BOM 和准确字节偏移，可下载完整码点 JSON 或规范化 TXT。实测 48 KiB 报告超限时保留输入。见[范围与验收](../iterations/2026-11-25-unicode-tool-files.md)。
 
+## 2026-11-25 开发补充：Java 与 Python 堆栈日志文件
+
+「Java 异常链」和「Django / Python 堆栈」可导入 8 KiB 内 UTF-8 日志并撤销，手动执行成功后下载本次完整 JSON。已用冻结 Trace 0.1.1 与生产 Windows Worker 验证异常链、完整报告和 48 KiB 输出保护。见[范围与验收](../iterations/2026-11-25-trace-log-files.md)。
+
 ## 2026-11-25 开发补充：HTML 实体文件转义与还原
 
 HTML 转义和还原均可导入 8 KiB 内 UTF-8 文件，手动执行成功后下载当前完整 TXT。两种窗口已用生产 Windows Worker 验证五种实体、原文件保留和完整扩展输出。见[范围与验收](../iterations/2026-11-25-html-entity-files.md)。

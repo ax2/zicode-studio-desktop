@@ -64,6 +64,9 @@ const byteTextFileTargets = [
 const utf8FileTargets = [
   { target: "utf8-text", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
 ] as const;
+const traceFileTargets = [
+  { target: "utf8-text", field: "text", label: "Import log file…", inputLabel: "Log file", fieldLabel: "Source text" },
+] as const;
 const urlTextFileTargets = [
   { target: "url-inspect", field: "text", label: "Import URL text file…", inputLabel: "URL text file", fieldLabel: "URL text" },
 ] as const;
@@ -222,6 +225,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const unicodeNfc = inspectTool && tool.capabilityId === "devtools.inspect.unicode.nfc";
   const unicodeNfkc = inspectTool && tool.capabilityId === "devtools.inspect.unicode.nfkc";
   const unicodeNormalize = unicodeNfc || unicodeNfkc;
+  const tracePlugin = boundedTextTool && tool.pluginId === "com.zicode.devtools.trace" && tool.version === "0.1.1";
+  const javaTrace = tracePlugin && tool.capabilityId === "devtools.trace.java.trace";
+  const pythonTrace = tracePlugin && tool.capabilityId === "devtools.trace.django.trace";
+  const traceReport = javaTrace || pythonTrace;
   const textPlugin = boundedTextTool && tool.pluginId === "com.zicode.devtools.text" && tool.version === "0.4.1";
   const transformsTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.transforms" && tool.version === "0.1.1";
   const textLines = transformsTool && /^devtools\.transforms\.lines\.(deduplicate|ascending|descending|nonempty|trim)$/.test(tool.capabilityId);
@@ -242,7 +249,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     jsonSchema ? jsonSchemaFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
         (base64Encode || hexEncode || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
-          stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets :
+          stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets : traceReport ? traceFileTargets :
           (textLines || textStatistics || stringEscape || htmlText) ? utf8FileTargets : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
@@ -259,6 +266,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     : urlInspect ? { label: "Download JSON", stem: "url-details", extension: "json", mime: "application/json" }
     : htmlEscape ? { label: "Download escaped text", stem: "html-escaped", extension: "txt", mime: "text/plain;charset=utf-8" }
     : htmlUnescape ? { label: "Download restored text", stem: "html-restored", extension: "txt", mime: "text/plain;charset=utf-8" }
+    : traceReport ? { label: "Download JSON", stem: javaTrace ? "java-trace" : "python-trace", extension: "json", mime: "application/json" }
     : unicodeInspect ? { label: "Download JSON", stem: "unicode-code-points", extension: "json", mime: "application/json" }
     : unicodeNormalize ? { label: "Download normalized text", stem: unicodeNfc ? "unicode-nfc" : "unicode-nfkc", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
@@ -419,7 +427,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     label={t(side.label)} inputLabel={t(side.inputLabel)}
     accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : yamlToJson ? ".yaml,.yml" :
       base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : hexDecode ? ".txt,.hex" : urlInspect ? ".txt" :
-        htmlText ? ".html,.htm,.txt" : ""}
+        htmlText ? ".html,.htm,.txt" : traceReport ? ".log,.txt,.traceback" : ""}
     loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" :
       yamlToJson ? "Reading YAML file…" : "Reading text file…"}
     disabled={editingLocked || !detail?.enabled} loading={fileLoading === side.target}
