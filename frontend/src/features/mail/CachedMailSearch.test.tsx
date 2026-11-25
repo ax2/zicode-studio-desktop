@@ -464,3 +464,19 @@ it.each(["query", "account", "label"])("ignores a pending search page after chan
   await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" })));
   expect(invoke.mock.calls.map(([r]) => r.offset)).toEqual([0, 40]);
 });
+
+
+it("closes the previous reading when a cache refresh falls back to a different page", async () => {
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage)
+    .mockResolvedValueOnce({ items: [], more: false }).mockResolvedValueOnce(firstPage);
+  const gmail = vi.fn(async () => ({ plainText: "Opened before automatic page fallback" }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Second fixture/ }));
+  await screen.findByText("Opened before automatic page fallback");
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" })));
+  await screen.findByRole("button", { name: /First page hit 0/ });
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual([0, 40, 40, 0]);
+  expect(screen.queryByText("Opened before automatic page fallback")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
+});

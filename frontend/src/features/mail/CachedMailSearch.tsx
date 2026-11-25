@@ -122,7 +122,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
         if (version !== searchGeneration.current) return;
       }
       const selected = readingRequest.current?.hit;
-      const changedPage = start !== displayedOffset.current;
+      const changedPage = nextOffset !== displayedOffset.current;
       const selectedWasRemoved = selected && updatedAccounts.current.has(selected.account) &&
         !results.items.some(hit => isSameMessage(hit, selected));
       if (!background || changedPage || selectedWasRemoved) closeReading();
