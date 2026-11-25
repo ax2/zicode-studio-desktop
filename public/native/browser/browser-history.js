@@ -16,7 +16,10 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
     content.disabled = true;
     message.textContent = "";
     try { await work(); }
-    catch (error) { message.textContent = t(String(error?.message ?? error)); }
+    catch (error) {
+      const detail = t(String(error?.message ?? error));
+      message.textContent = [message.textContent, detail].filter(Boolean).join(" · ");
+    }
     finally {
       busy = false;
       content.disabled = false;
@@ -49,12 +52,32 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
         : t("Showing unfiltered history.");
     }
   }
-  const load = async (query, before = null) => {
-    const result = await request({ kind: "list", query, before });
-    if (!dialog.open) return;
+  function applyPage(result, query, before = null) {
     page = { ...result, query, entries: before ? [...page.entries, ...result.entries] : result.entries };
-    hideClear(); render();
-  };
+    hideClear();
+    render();
+  }
+  async function load(query, before = null) {
+    const result = await request({ kind: "list", query, before });
+    if (dialog.open) applyPage(result, query, before);
+  }
+  async function mutateHistory(change) {
+    const query = page.query;
+    const result = await request(change);
+    if (!dialog.open) return;
+    const cleared = change.kind === "clear";
+    message.textContent = t(cleared ? "Browsing history cleared" : "History visit removed");
+    // The host returns the updated unfiltered page with the write receipt.
+    if (!query) {
+      applyPage(result, query);
+      return;
+    }
+    const filtered = cleared
+      ? { entries: [], latestId: 0, nextBefore: null }
+      : { ...page, entries: page.entries.filter(visit => visit.id !== change.id) };
+    applyPage(filtered, query);
+    await load(query);
+  }
   const submitSearch = () => run(async () => { submittedQuery = search.value.trim(); await load(submittedQuery); }, () => search);
   form.addEventListener("submit", event => { event.preventDefault(); void submitSearch(); });
   search.addEventListener("search", () => { if (!search.value && (submittedQuery || page.query)) void submitSearch(); });
@@ -77,9 +100,7 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
     details.id = "browser-history-clear-description";
     const apply = button("Confirm clear history", async () => {
       if (!dialog.open || confirm.hidden || apply.parentNode !== confirm) return;
-      await request({ kind: "clear", throughId });
-      await load(page.query);
-      message.textContent = t("Browsing history cleared");
+      await mutateHistory({ kind: "clear", throughId });
     }, "danger");
     apply.setAttribute("aria-describedby", details.id);
     cancelClear.setAttribute("aria-describedby", details.id);
@@ -99,7 +120,7 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
       const url = el("span", "browser-history-meta", visit.url); url.title = visit.url;
       const time = el("time", "browser-history-meta", new Date(visit.visitedAt).toLocaleString()); time.dateTime = visit.visitedAt;
       details.append(title, url, time);
-      const remove = button("Remove visit", async () => { await request({ kind: "remove", id: visit.id }); await load(page.query); });
+      const remove = button("Remove visit", () => mutateHistory({ kind: "remove", id: visit.id }));
       remove.setAttribute("aria-label", `${t("Remove visit")}: ${visit.title || visit.url}`);
       const actions = el("div", "ui-toolbar");
       actions.append(createBackgroundOpenButton(visit, { onOpen, run, message }), remove);

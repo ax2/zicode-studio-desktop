@@ -65,6 +65,65 @@ it("removes only the selected visit and preserves the search", async () => {
   getByRole(h.dialog, "button", { name: `${t("Remove visit")}: Page 1` }).click(); await idle(h.dialog);
   expect(h.calls).toContainEqual({ kind: "remove", id: 1 });expect(h.calls.at(-1)).toEqual({ kind: "list", query: "Page", before: null });
 });
+it("uses the unfiltered page returned by a successful visit deletion", async () => {
+  const h = await open({ handle: request => request.kind === "remove"
+    ? { entries: [visit(1)], nextBefore: null, latestId: 1 }
+    : { entries: [visit(2), visit(1)], nextBefore: null, latestId: 2 } });
+  getByRole(h.dialog, "button", { name: `${t("Remove visit")}: Page 2` }).click();
+  await idle(h.dialog);
+  expect(h.calls.map(request => request.kind)).toEqual(["list", "remove"]);
+  expect(h.dialog.querySelector('[data-visit-id="2"]')).toBeNull();
+  expect(h.dialog.querySelector('[data-visit-id="1"]')).not.toBeNull();
+  expect(getByRole(h.dialog, "status").textContent).toBe(t("History visit removed"));
+});
+
+it.each(["remove", "clear"])("remembers a successful %s while filtered history refresh fails", async kind => {
+  let applied = false;
+  let rejectRefresh = false;
+  const refreshed = kind === "clear" ? [visit(3)] : [visit(1)];
+  const h = await open({ handle: request => {
+    if (request.kind === kind) {
+      applied = true;
+      rejectRefresh = true;
+      return { entries: [visit(3)], nextBefore: null, latestId: 3 };
+    }
+    if (rejectRefresh) {
+      rejectRefresh = false;
+      throw Error("History refresh unavailable");
+    }
+    return { entries: applied ? refreshed : [visit(2), visit(1)],
+      nextBefore: null, latestId: applied ? 3 : 2 };
+  } });
+  const { dialog } = h;
+  const search = getByRole(dialog, "searchbox");
+  fireEvent.input(search, { target: { value: "Page" } });
+  fireEvent.submit(dialog.querySelector("form"));
+  await idle(dialog);
+  const clear = getByRole(dialog, "button", { name: t("Clear browsing history") });
+  if (kind === "clear") {
+    clear.click();
+    await idle(dialog);
+    getByRole(dialog, "button", { name: t("Confirm clear history") }).click();
+  } else {
+    getByRole(dialog, "button", { name: `${t("Remove visit")}: Page 2` }).click();
+  }
+  await idle(dialog);
+  expect(dialog.querySelector('[data-visit-id="2"]')).toBeNull();
+  expect(dialog.querySelector('[data-visit-id="3"]')).toBeNull();
+  expect(Boolean(dialog.querySelector('[data-visit-id="1"]'))).toBe(kind === "remove");
+  expect(dialog.querySelector(".browser-history-confirm").hidden).toBe(true);
+  expect(clear.disabled).toBe(kind === "clear");
+  expect(getByRole(dialog, "status").textContent).toContain(t(kind === "clear" ? "Browsing history cleared" : "History visit removed"));
+  expect(getByRole(dialog, "status").textContent).toContain("History refresh unavailable");
+  expect(search.value).toBe("Page");
+  getByRole(dialog, "button", { name: t("Refresh history") }).click();
+  await idle(dialog);
+  expect(h.calls.filter(request => request.kind !== "list")).toEqual([kind === "clear"
+    ? { kind: "clear", throughId: 2 } : { kind: "remove", id: 2 }]);
+  expect(h.calls.at(-1)).toEqual({ kind: "list", query: "Page", before: null });
+  expect(dialog.querySelector('[data-visit-id="3"]') !== null).toBe(kind === "clear");
+});
+
 it("keeps the manager and records on failed navigation, then closes after actual success", async () => {
   const onOpen = vi.fn().mockRejectedValueOnce(Error("Blocked test")).mockResolvedValueOnce(); const h = await open({ onOpen });
   getByRole(h.dialog, "button", { name: `${t("Open visited page")}: Page 2` }).click(); await idle(h.dialog);
