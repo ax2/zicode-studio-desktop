@@ -338,6 +338,62 @@ it.each(["switch scope", "clear the downloaded account"])("ignores a late downlo
   expect(screen.queryByRole("article")).toBeNull();
 });
 
+it.each(["gmail", "alibaba"])("retries a failed offline read through its original %s account", async provider => {
+  setLocale("en");
+  const isGmail = provider === "gmail";
+  const hit = isGmail ? secondHit : { ...secondHit, provider, folder: "Archive", epoch: 7 };
+  const local = vi.fn(async () => ({ items: [firstHit, hit], more: false }));
+  const read = vi.fn().mockRejectedValueOnce(Error("mail_storage")).mockResolvedValueOnce(
+    isGmail ? { plainText: "Recovered offline fixture" } : { text: "Recovered offline fixture" },
+  );
+  const accounts = [
+    { id: "a", address: firstHit.address, provider: "gmail" },
+    { id: "b", address: hit.address, provider },
+  ];
+  const other = vi.fn();
+  render(<CachedMailSearch accounts={accounts} current="a" invoke={local as Invoke}
+    gmail={emptyDirectory((isGmail ? read : other) as Invoke)}
+    alibaba={emptyDirectory((isGmail ? other : read) as Invoke)} />);
+  fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "" } });
+  fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "fixture" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Second fixture/ }));
+  await screen.findByRole("alert");
+  expect(screen.queryByRole("button", { name: "Download message body" })).toBeNull();
+  const retry = screen.getByRole("button", { name: "Try again" });
+  fireEvent.click(retry);
+  fireEvent.click(retry);
+  await screen.findByText("Recovered offline fixture");
+  const source = isGmail ? { id: "42" } : { folder: "Archive", uidValidity: 7, uid: 42 };
+  const request = { kind: "cachedBody", accountId: "b", ...source };
+  expect(read.mock.calls).toEqual([[request], [request]]);
+  expect(other).not.toHaveBeenCalled();
+  expect(local).toHaveBeenCalledExactlyOnceWith({ kind: "search", account: null, query: "fixture", offset: 0 });
+  expect(screen.getByDisplayValue("fixture")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Download message body" })).toBeNull();
+});
+
+it.each(["switch scope", "clear account cache"])("drops an offline retry that finishes after users %s", async change => {
+  const local = vi.fn().mockResolvedValueOnce({ items: [firstHit, secondHit], more: false })
+    .mockResolvedValue({ items: [firstHit], more: false });
+  let finish!: (body: { plainText: string }) => void;
+  const gmail = vi.fn().mockRejectedValueOnce(Error("mail_storage"))
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  beginAllAccountSearch(local as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: /Second fixture/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+  expect(gmail).toHaveBeenLastCalledWith({ kind: "cachedBody", accountId: "b", id: "42" });
+  if (change === "switch scope") {
+    fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "a" } });
+  } else {
+    await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared", { detail: "b" })));
+  }
+  await act(async () => finish({ plainText: "Late local body" }));
+  expect(screen.queryByText("Late local body")).toBeNull();
+  expect(screen.queryByRole("article")).toBeNull();
+  expect(gmail).toHaveBeenCalledTimes(2);
+});
+
 it("shows cached attachments without offering to download an already cached body with no text", async () => {
   const local = vi.fn(async () => ({ items: [firstHit], more: false }));
   const gmail = vi.fn(async () => ({ plainText: null, html: null, attachments: [{ id: 0, name: "data.zip", size: 18 }] }));
