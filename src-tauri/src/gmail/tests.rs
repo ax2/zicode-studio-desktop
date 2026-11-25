@@ -803,3 +803,150 @@ fn disconnect_retries_cache_cleanup_with_the_original_revocation_credential() {
     assert_eq!(store::cached(&path, "one", "gmail", "body", "test").unwrap(), json!(null));
     assert_eq!(store::cached(&path, "two", "gmail", "body", "test").unwrap(), letter);
 }
+
+#[tokio::test]
+async fn gmail_older_page_distinguishes_request_limits_from_permission_denial() {
+    use super::sync;
+    use axum::{
+        extract::{Path, Query},
+        http::{HeaderMap, StatusCode},
+        response::IntoResponse,
+        routing::get,
+        Json, Router,
+    };
+    use std::{
+        collections::HashMap,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
+    };
+
+    let phase = Arc::new(AtomicUsize::new(0));
+    let older_requests = Arc::new(AtomicUsize::new(0));
+    let requests = older_requests.clone();
+    let responses = phase.clone();
+    let app =
+        Router::new()
+            .route(
+                "/profile",
+                get(|| async { Json(json!({"historyId":"10"})) }),
+            )
+            .route(
+                "/messages",
+                get(
+                    move |headers: HeaderMap, Query(q): Query<HashMap<String, String>>| {
+                        let mode = responses.load(Ordering::Relaxed);
+                        let requests = requests.clone();
+                        async move {
+                            assert_eq!(headers["authorization"], "Bearer fixture-access");
+                            assert_eq!(q["labelIds"], "Label_A");
+                            if !q.contains_key("pageToken") {
+                                return Json(json!({
+                                    "messages":[{"id":"recent"}], "nextPageToken":"older"
+                                }))
+                                .into_response();
+                            }
+                            assert_eq!(q["pageToken"], "older");
+                            requests.fetch_add(1, Ordering::Relaxed);
+                            let reason = match mode {
+                                1 => "userRateLimitExceeded",
+                                2 => "rateLimitExceeded",
+                                3 => "domainPolicy",
+                                4 => "dailyLimitExceeded",
+                                5 => {
+                                    return (StatusCode::FORBIDDEN, "rateLimitExceeded")
+                                        .into_response()
+                                }
+                                6 => return (StatusCode::TOO_MANY_REQUESTS, "").into_response(),
+                                7 => return (StatusCode::UNAUTHORIZED, "").into_response(),
+                                8 => "rateLimitExceeded",
+                                _ => {
+                                    return Json(json!({"messages":[{"id":"stored"}]}))
+                                        .into_response()
+                                }
+                            };
+                            let message = if mode == 8 {
+                                "x".repeat(65_536)
+                            } else {
+                                "fixture".to_owned()
+                            };
+                            (StatusCode::FORBIDDEN, Json(json!({
+                        "error":{"code":403,"errors":[{"reason":reason,"message":message}]}
+                    }))).into_response()
+                        }
+                    },
+                ),
+            )
+            .route(
+                "/messages/{id}",
+                get(|Path(id): Path<String>| async move {
+                    Json(json!({
+                        "id":id,"labelIds":["Label_A"],
+                        "internalDate":if id == "recent" { "20" } else { "10" },
+                        "payload":{"headers":[{"name":"Subject","value":id}]}
+                    }))
+                }),
+            );
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("gmail-rate.sqlite");
+    drop(rusqlite::Connection::open(&path).unwrap());
+    let stop = CancellationToken::new();
+    let fetch = |cursor| {
+        sync::fetch(
+            &client,
+            &base,
+            "fixture-access",
+            sync::CachedLabel {
+                path: &path,
+                scope: "w",
+                account: "a",
+                label: "Label_A",
+            },
+            cursor,
+            2,
+            &stop,
+        )
+    };
+    let save = |snapshot| sync::apply(&path, "w", "a", "Label_A", 0, "unused", snapshot);
+    let cached = || sync::offline_page(&path, "w", "a", "Label_A", None, 2, "unused").unwrap();
+
+    let first = fetch(None).await.unwrap();
+    assert_eq!(first.page["nextCursor"], "older");
+    save(&first).unwrap();
+    for (mode, expected) in [
+        (1, "gmail_rate_limited"),
+        (2, "gmail_rate_limited"),
+        (3, "gmail_permission_denied"),
+        (4, "gmail_permission_denied"),
+        (5, "gmail_permission_denied"),
+        (6, "gmail_rate_limited"),
+        (7, "gmail_reauthorize"),
+        (8, "gmail_permission_denied"),
+    ] {
+        phase.store(mode, Ordering::Relaxed);
+        let error = fetch(Some("older")).await.err().expect("failed request");
+        eprintln!("response {mode}: {error}");
+        assert_eq!(error, expected);
+        assert_eq!(older_requests.load(Ordering::Relaxed), mode);
+        assert_eq!(cached()["items"][0]["id"], "recent");
+        assert!(cached()["items"].get(1).is_none());
+    }
+    phase.store(0, Ordering::Relaxed);
+    let next = fetch(Some("older")).await.unwrap();
+    assert_eq!(next.page["items"][0]["id"], "stored");
+    save(&next).unwrap();
+    assert_eq!(older_requests.load(Ordering::Relaxed), 9);
+    assert_eq!(cached()["items"][1]["id"], "stored");
+    assert_eq!(
+        store::cached(&path, "w", "a", "history", "Label_A").unwrap(),
+        "10"
+    );
+    server.abort();
+}

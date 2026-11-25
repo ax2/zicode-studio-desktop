@@ -33,7 +33,7 @@ async fn get(
         return Err(match res.status().as_u16() {
             400 => "gmail_bad_request",
             401 => "gmail_reauthorize",
-            403 => "gmail_permission_denied",
+            403 => forbidden_error(res).await,
             404 => "gmail_not_found",
             429 => "gmail_rate_limited",
             _ => "gmail_api_failed",
@@ -41,6 +41,30 @@ async fn get(
     }
     serde_json::from_slice(&oauth::bytes(res, limit).await?).map_err(|_| "gmail_invalid_response")
 }
+async fn forbidden_error(response: reqwest::Response) -> &'static str {
+    let details = oauth::bytes(response, 8 * 1024)
+        .await
+        .ok()
+        .and_then(|body| serde_json::from_slice::<Value>(&body).ok());
+    let rate_limited = details
+        .as_ref()
+        .and_then(|value| value.pointer("/error/errors"))
+        .and_then(Value::as_array)
+        .is_some_and(|reasons| {
+            reasons.iter().any(|detail| {
+                matches!(
+                    detail["reason"].as_str(),
+                    Some("rateLimitExceeded" | "userRateLimitExceeded")
+                )
+            })
+        });
+    if rate_limited {
+        "gmail_rate_limited"
+    } else {
+        "gmail_permission_denied"
+    }
+}
+
 pub async fn profile(client: &Client, base: &str, token: &str) -> Result<String> {
     get(client, &format!("{base}/profile"), token, &[], 8192).await?["emailAddress"]
         .as_str()
