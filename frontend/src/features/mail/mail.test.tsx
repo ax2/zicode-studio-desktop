@@ -220,7 +220,8 @@ it("reports a stale cached source next to the reply action and permits retry", a
   expect(transport.mock.calls.filter(([r]) => r.kind === "replyDraft")).toHaveLength(2);
 });
 
-function setupSavedGmailReply(legacy = false) {
+function setupSavedGmailReply(legacy = false, beforeRefresh?: (attempt: number) => Promise<void>) {
+  setLocale("en");
   const accounts = [
     { id: "primary", address: "primary@example.test", provider: "gmail" },
     { id: "peer", address: "peer@example.test", provider: "gmail" },
@@ -236,13 +237,17 @@ function setupSavedGmailReply(legacy = false) {
     throw Error("Unexpected local operation");
   });
   let refreshed = !legacy;
+  let refreshAttempt = 0;
   const gmail = vi.fn(async (request: Record<string, unknown>) => {
     switch (request.kind) {
       case "status": return { connected: true, read: true, send: false };
       case "cachedLabels": return [];
       case "cachedPage": return request.accountId === "peer" ? { items: [body], nextCursor: null } : null;
       case "cachedBody": return body;
-      case "read": refreshed = true; return body;
+      case "read":
+        await beforeRefresh?.(++refreshAttempt);
+        refreshed = true;
+        return beforeRefresh ? { ...body, plainText: "Refreshed body" } : body;
       case "replyDraft":
         if (!refreshed) throw Error("gmail_reply_metadata_missing");
         if (request.accountId !== "peer" || request.id !== "same") throw Error("Wrong source");
@@ -300,6 +305,35 @@ it.each(["inbox", "search"] as const)("refreshes a legacy Gmail message from the
   await waitFor(() => expect(gmail.mock.calls.filter(([request]) => request.kind === "read").map(([request]) => request))
     .toEqual([{ kind: "read", accountId: "peer", id: "same" }]));
   await waitFor(() => expect(reading.getByRole("button", { name: "Create reply draft" }).matches(":disabled")).toBe(false));
+  fireEvent.click(reading.getByRole("button", { name: "Create reply draft" }));
+  await waitFor(() => expect(screen.getByLabelText<HTMLInputElement>("Recipient").value).toBe(reply.recipient));
+  expect(gmail.mock.calls.some(([request]) => request.kind === "send")).toBe(false);
+});
+
+it("keeps the cached Gmail inbox body and reply refresh after a failed explicit refresh", async () => {
+  let rejectRefresh!: (error: Error) => void;
+  const first = new Promise<void>((_resolve, reject) => { rejectRefresh = reject; });
+  const { gmail, reply } = setupSavedGmailReply(true, async attempt => { if (attempt === 1) await first; });
+  const reading = await showGmailMail("inbox");
+  await reading.findByText("Cached body");
+  fireEvent.click(reading.getByRole("button", { name: "Create reply draft" }));
+  const refresh = await reading.findByRole("button", { name: "Refresh message to reply" });
+  expect(gmail.mock.calls.some(([request]) => request.kind === "read")).toBe(false);
+
+  fireEvent.click(refresh);
+  expect(reading.queryByText("Cached body")).toBeTruthy();
+  expect(refresh.matches(":disabled")).toBe(true);
+  await act(async () => rejectRefresh(Error("gmail_network")));
+  await screen.findByText("Could not connect to the mail server. Your local data is unchanged.");
+  expect(reading.queryByText("Cached body")).toBeTruthy();
+  expect(refresh.matches(":disabled")).toBe(false);
+  expect(reading.queryByRole("button", { name: "Download message body" })).toBeNull();
+
+  fireEvent.click(refresh);
+  await reading.findByText("Refreshed body");
+  expect(reading.queryByRole("button", { name: "Refresh message to reply" })).toBeNull();
+  const readRequests = gmail.mock.calls.map(([r]) => r).filter(r => r.kind === "read");
+  expect(readRequests).toEqual(Array.from({ length: 2 }, () => ({ kind: "read", accountId: "peer", id: "same" })));
   fireEvent.click(reading.getByRole("button", { name: "Create reply draft" }));
   await waitFor(() => expect(screen.getByLabelText<HTMLInputElement>("Recipient").value).toBe(reply.recipient));
   expect(gmail.mock.calls.some(([request]) => request.kind === "send")).toBe(false);
