@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.jdk-report",
+  "name": "ZiDevTools Offline JDK Environment Report",
+  "displayName": "JDK 环境报告查看",
+  "description": "读取本次确认的 JDK 环境历史报告，比较版本和捕获状态，预览并保存脱敏文本。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.java.environment.report.review"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.java.environment.report.review",
+        "title": "JDK 环境报告查看",
+        "description": "读取本次确认的 JDK 环境历史报告，比较版本和捕获状态，预览并保存脱敏文本。",
+        "resourceInputMimeTypes": [
+          "application/json",
+          "text/plain",
+          "application/octet-stream"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "selectedVersion": {
+                      "type": "string",
+                      "maxLength": 96
+                    },
+                    "comparedVersion": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 96
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "versionMismatch": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "javaHomeMismatch": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pathJavaReported": {
+                      "type": "boolean"
+                    },
+                    "mavenEntryReported": {
+                      "type": "boolean"
+                    },
+                    "gradleEntryReported": {
+                      "type": "boolean"
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 4096
+                    }
+                  },
+                  "required": [
+                    "selectedVersion",
+                    "comparedVersion",
+                    "versionMismatch",
+                    "javaHomeMismatch",
+                    "pathJavaReported",
+                    "mavenEntryReported",
+                    "gradleEntryReported",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "查看 Java 环境快照",
+            "JDK 报告",
+            "Offline JDK Environment Report"
+          ],
+          "description": "读取本次确认的 JDK 环境历史报告，比较版本和捕获状态，预览并保存脱敏文本。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "只读取本次明确确认的 JDK JSON 报告。"
+      }
+    ],
+    "optional": []
+  }
+}

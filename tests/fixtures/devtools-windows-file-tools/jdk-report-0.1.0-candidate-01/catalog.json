@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.jdk-report",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "java-environment",
+      "capabilityId": "devtools.java.environment.report.review",
+      "title": "JDK 环境报告查看",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "读取本次确认的 JDK 环境历史报告，比较版本和捕获状态，预览并保存脱敏文本。"
+    }
+  ]
+}
