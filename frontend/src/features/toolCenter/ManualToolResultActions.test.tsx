@@ -218,6 +218,7 @@ it.each([
   { format: "csv", capabilityId: "devtools.compute.table.query", mimeType: "text/csv", label: "Save CSV as…" },
   { format: "tsv", capabilityId: "devtools.compute.table.query", mimeType: "text/tab-separated-values", label: "Save TSV as…" },
   { format: "text", capabilityId: "devtools.compare.text.diff", mimeType: "text/plain", label: "Save diff report as text…" },
+  { format: "text", capabilityId: "devtools.compare.regex.matches", mimeType: "text/plain", label: "Save matches as text…" },
 ] as const)("saves only a Host-verified $format after choosing and confirming a destination", async ({
   format, capabilityId, mimeType, label,
 }) => {
@@ -238,7 +239,7 @@ it.each([
     verify: vi.fn(),
   };
   const { container, click, render, busy, gateway } = await mount(owner, exports);
-  const result = { ok: true, data: { text: "displayed source" } };
+  const result = { contractVersion: "1.0.0-rc.1", ok: true, data: { text: "displayed source" } };
   await render(resultId, scope.workspaceId, { result, resultRef: { schemaVersion: 1, resultId } });
   expect(container.textContent).not.toContain(label);
   const resultRef = plainText ? { schemaVersion: 1, resultId, ...exportDescriptor }

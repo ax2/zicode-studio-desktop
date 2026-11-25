@@ -163,7 +163,10 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     const jsonSchemaReport = response?.result?.ok === true &&
       response.result.contractVersion === "1.0.0-rc.1" &&
       scope?.pluginId === "com.zicode.devtools.json-schema" && scope.capabilityId === "devtools.json-schema.validate";
-    const reportReference = diffReport || jsonSchemaReport ? exportReference(reference, reference, "text/plain")
+    const regexReport = response?.result?.ok === true &&
+      response.result.contractVersion === "1.0.0-rc.1" &&
+      scope?.pluginId === "com.zicode.devtools.compare" && scope.capabilityId === "devtools.compare.regex.matches";
+    const reportReference = diffReport || jsonSchemaReport || regexReport ? exportReference(reference, reference, "text/plain")
       : httpResult && reference?.schemaVersion === 1 &&
       reference.mimeType === "text/plain" && uuidPattern.test(reference.resultId ?? "") &&
       /^[0-9a-f]{64}$/.test(reference.contentVersion ?? "") &&
@@ -196,7 +199,8 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           resultId: response.resultRef.resultId,
           reportReference,
           reportExportLabel: diffReport ? "Save diff report as text…" :
-            jsonSchemaReport ? "Save validation report as text…" : "Save diagnostic JSON as…",
+            jsonSchemaReport ? "Save validation report as text…" :
+              regexReport ? "Save matches as text…" : "Save diagnostic JSON as…",
           pngReference,
           csvReference,
           tsvReference,

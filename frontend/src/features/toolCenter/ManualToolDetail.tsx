@@ -247,6 +247,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const enabledWasi = tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version;
   const textField = fields?.find(field => field.key === "text" && field.kind === "string");
   const boundedTextTool = enabledWasi && textField?.maxLength === 8192;
+  const regexMatches = boundedTextTool && comparePlugin && tool.version === "0.1.0" &&
+    tool.capabilityId === "devtools.compare.regex.matches";
   const computeQrFile = boundedTextTool && computePlugin && (tool.version === "0.1.0" || tool.version === "0.2.0") &&
     tool.capabilityId === "devtools.compute.qr.png";
   const independentQrFile = enabledWasi && tool.pluginId === "com.zicode.devtools.qr" && tool.version === "0.1.0" &&
@@ -312,7 +314,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
         (base64Encode || hexEncode || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
           stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets : traceReport ? traceFileTargets : springConfig ? springConfigFileTargets :
-          (textLines || textStatistics || stringEscape || htmlText || urlDecode) ? utf8FileTargets : [];
+          (textLines || textStatistics || stringEscape || htmlText || urlDecode || regexMatches) ? utf8FileTargets : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
     : yamlToJson ? { label: "Download JSON", stem: "converted", extension: "json", mime: "application/json" }
@@ -537,7 +539,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
               const editsOtherDiffSide = textDiff && previousUndo?.textDiffField &&
                 (field.key === "left" || field.key === "right") && field.key !== previousUndo.textDiffField;
               if (previousUndo?.kind === "import" && previousUndo.identity === transformIdentity &&
-                  (editsOtherDiffSide || (jsonPath && field.key === "query"))) {
+                  (editsOtherDiffSide || (jsonPath && field.key === "query") || (regexMatches && field.key === "pattern"))) {
                 return { values: next, undo: { ...previousUndo, values: { ...previousUndo.values, [field.key]: value } } };
               }
               return { values: next };

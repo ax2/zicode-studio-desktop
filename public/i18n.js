@@ -1602,6 +1602,7 @@ const zhCN = {
   "Save JSON as…": "将 JSON 另存为…",
   "Save diff report as text…": "将差异报告另存为文本…",
   "Save validation report as text…": "将校验报告另存为文本…",
+  "Save matches as text…": "将匹配结果另存为文本…",
   "Save diagnostic JSON as…": "将诊断结果另存为 JSON…",
   "Generating manifest…": "正在生成清单…",
   "Manifest generated. Choose a destination to save a new copy.":
