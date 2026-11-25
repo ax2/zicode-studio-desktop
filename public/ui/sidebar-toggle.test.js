@@ -5,6 +5,7 @@ function render(width = 390) {
   Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: width });
   document.body.innerHTML = `
     <aside id="sidebar">
+      <input id="session-search-input" type="search" />
       <button class="plugin-sidebar-view-header">Disclosure</button>
       <button class="content-action">Open item</button>
       <button class="session-more-btn">More</button>
@@ -58,6 +59,30 @@ describe("mobile function area", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(document.getElementById("sidebar").classList.contains("collapsed")).toBe(true);
     expect(document.activeElement).toBe(document.getElementById("sidebar-toggle"));
+  });
+
+  it.each([
+    ["composing", { isComposing: true }],
+    ["IME tail", { keyCode: 229 }],
+  ])("leaves Escape to session search while %s", (_phase, flags) => {
+    controller = render();
+    const drawer = document.getElementById("sidebar");
+    const toggle = document.getElementById("sidebar-toggle");
+    const overlay = document.getElementById("sidebar-overlay");
+    const search = document.getElementById("session-search-input");
+    toggle.click();
+    search.focus();
+    search.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape", bubbles: true, cancelable: true, ...flags,
+    }));
+    expect(drawer.classList.contains("collapsed")).toBe(false);
+    expect(overlay.classList.contains("visible")).toBe(true);
+    expect(document.activeElement).toBe(search);
+
+    search.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(drawer.classList.contains("collapsed")).toBe(true);
+    expect(overlay.classList.contains("visible")).toBe(false);
+    expect(document.activeElement).toBe(toggle);
   });
 
   it("keeps the drawer open for session menus and the workspace switcher", () => {
