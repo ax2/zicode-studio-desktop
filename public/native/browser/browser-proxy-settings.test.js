@@ -40,6 +40,38 @@ it("shows the active route separately and marks saved changes as pending a full 
   expect(panel.textContent).toContain(active);
 });
 
+it("leaves candidate Enter with the input method before saving or clearing a proxy", async () => {
+  const active = "http://127.0.0.1:8781";
+  const draft = "http://draft.example.test:8080";
+  const control = vi.fn(async request => ({ active, saved: request.kind === "getHttpProxy" ? active : request.value }));
+  const { panel, input, submitted } = mount(control);
+  await waitFor(() => expect(input.value).toBe(active));
+  const press = (options = {}) => input.dispatchEvent(new KeyboardEvent("keydown", {
+    key: "Enter", bubbles: true, cancelable: true, ...options,
+  }));
+  input.focus();
+  input.dispatchEvent(new CompositionEvent("compositionstart"));
+  fireEvent.input(input, { target: { value: "" } });
+  expect(press()).toBe(true);
+  expect(control.mock.calls).toEqual([[{ kind: "getHttpProxy" }]]);
+
+  input.dispatchEvent(new CompositionEvent("compositionend"));
+  fireEvent.input(input, { target: { value: draft } });
+  expect(press({ keyCode: 229 })).toBe(true);
+  expect(press({ isComposing: true })).toBe(true);
+  expect(control.mock.calls).toEqual([[{ kind: "getHttpProxy" }]]);
+  expect(document.activeElement).toBe(input);
+
+  input.dispatchEvent(new CompositionEvent("compositionstart"));
+  panel.querySelector("summary").focus();
+  input.focus();
+  expect(press()).toBe(false);
+  await waitFor(() => expect(control).toHaveBeenLastCalledWith({ kind: "setHttpProxy", value: draft }));
+  expect(control).toHaveBeenCalledTimes(2);
+  expect(input.value).toBe(draft);
+  expect(submitted).not.toHaveBeenCalled();
+});
+
 it("keeps the active setting and typed address after the Host rejects a proxy", async () => {
   const control = vi.fn(async request => {
     if (request.kind === "setHttpProxy") throw Error("Rejected");
