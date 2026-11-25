@@ -7,7 +7,9 @@
 //   2. each migrated feature (frontend/src/features/<name>/index.ts) bundles to
 //      public/native/react/<name>.js with React externalized to the vendor copy.
 const { build } = require("esbuild");
+const { mkdirSync } = require("node:fs");
 const path = require("node:path");
+const { writeBuildOutput } = require("./write-build-output.cjs");
 
 const root = path.resolve(__dirname, "..");
 const outdir = path.join(root, "public", "native", "react");
@@ -20,8 +22,14 @@ const sharedExternal = [
   "themes",
 ];
 
+async function bundle(options) {
+  const { outputFiles } = await build({ ...options, write: false });
+  for (const file of outputFiles) writeBuildOutput(file.path, file.contents);
+}
+
 async function run() {
-  await build({
+  mkdirSync(outdir, { recursive: true });
+  await bundle({
     entryPoints: { vendor: path.join(root, "frontend/src/vendor.ts") },
     outdir,
     bundle: true,
@@ -31,7 +39,7 @@ async function run() {
     minify: true,
     logLevel: "info",
   });
-  await build({
+  await bundle({
     entryPoints: {
       blog: path.join(root, "frontend/src/features/blog/index.tsx"),
       mail: path.join(root, "frontend/src/features/mail/index.tsx"),
