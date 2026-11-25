@@ -614,6 +614,71 @@ it.each(["draft", "submit", "switch", "failure", "repeat", "newer-edit"])(
     }
   },
 );
+it("reserves the shortcut tab while an earlier navigation is still queued", async () => {
+  const h = await mount();
+  const address = h.root.querySelector(".browser-address");
+  const edit = value => {
+    address.focus(); address.value = value;
+    address.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  const submit = () => address.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  const before = "https://example.org/earlier";
+  const goal = "https://example.org/new-tab-only";
+  let finish;
+  h.hooks.navigate = () => new Promise(resolve => { finish = resolve; });
+  edit(before); submit();
+  await waitFor(() => expect(finish).toBeTypeOf("function"));
+  h.hooks.navigate = async () => {};
+  h.hooks.create = async () => { throw Error("Create failed"); };
+  h.requests.length = 0;
+  try {
+    address.dispatchEvent(new KeyboardEvent("keydown", { key: "t", ctrlKey: true, bubbles: true, cancelable: true }));
+    edit(goal); submit();
+  } finally { finish(); }
+  await app.finishWindowWrites();
+  expect(h.selected()).toBe("a");
+  expect(h.root.querySelectorAll('[role="tab"]')).toHaveLength(2);
+  expect(h.saved().tabs[0].url).toBe(before);
+  expect(address.value).toBe(goal);
+  expect(h.requests.filter(request => request.kind === "navigate")).toEqual([]);
+});
+it.each(["same", "escape", "composition"])(
+  "handles literal address input during a new tab transition: %s", async (outcome) => {
+    const h = await mount();
+    const address = h.root.querySelector(".browser-address");
+    const url = address.value;
+    const submit = () => address.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    let release;
+    h.hooks.create = () => new Promise(resolve => { release = resolve; });
+    h.requests.length = 0;
+    h.add();
+    await waitFor(() => expect(release).toBeTypeOf("function"));
+    try {
+      address.focus();
+      if (outcome === "composition") address.dispatchEvent(new CompositionEvent("compositionstart"));
+      address.value = url;
+      address.dispatchEvent(new Event("input", { bubbles: true }));
+      if (outcome === "escape") address.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      submit();
+    } finally { release(); }
+    await app.finishWindowWrites();
+    const target = h.requests.find(request => request.kind === "create").tabId;
+    const navigation = { kind: "navigate", tab: target, url };
+    const navigations = () => h.requests.filter(request => request.kind === "navigate");
+    expect(h.selected()).toBe(target);
+    expect(address.value).toBe(outcome === "escape" ? "" : url);
+    expect(navigations()).toEqual(outcome === "same" ? [navigation] : []);
+    if (outcome === "composition") {
+      submit();
+      await app.finishWindowWrites();
+      expect(navigations()).toEqual([]);
+      address.dispatchEvent(new CompositionEvent("compositionend"));
+      submit();
+      await app.finishWindowWrites();
+      expect(navigations()).toEqual([navigation]);
+    }
+  },
+);
 it("does not persist or expose a tab whose native creation failed", async () => {
   const h = await mount(), before = h.saved();
   h.hooks.create = async () => { throw Error("Native creation unavailable"); }; h.add();
