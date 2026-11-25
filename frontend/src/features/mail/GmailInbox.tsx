@@ -49,6 +49,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
   const [localBodyFailed, setLocalBodyFailed] = useState(false);
   const [replyRefresh,setReplyRefresh]=useState(false);
   const [serverPage,setServerPage]=useState(false),[busy,setBusy]=useState("init"),[notice,setNotice]=useState("");
+  const [expiredCursor, setExpiredCursor] = useState<string | null>(null);
   const epoch=useRef(0),operation=useRef("init"),grantCallback=useRef(onGrant);
   grantCallback.current=onGrant;
   const primaryAuthorization = useRef<HTMLButtonElement>(null);
@@ -77,6 +78,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     authorizationFocus.current = undefined;
     operation.current="init"; setBusy("init");setGrant(none);grantCallback.current(false);
     setPage(null);setMessage(null);setBody(null);setServerPage(false);setNotice("");
+    setExpiredCursor(null);
     setLabels([]);setCachedLabelsFailed(false);setLabel("INBOX");
     void Promise.allSettled([
       invoke<Grant>({kind:"status",accountId:id}),
@@ -123,7 +125,12 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       kind: server ? "list" : "cachedPage", accountId: id, label: selected, cursor: position, limit: 20,
     });
     void run("list", async isCurrent => {
-      let result = await readPage(resumeFromCache ? null : cursor);
+      let result = await readPage(resumeFromCache ? null : cursor).catch((error: unknown) => {
+        if (isCurrent() && server && cursor && String(error).replace(/^Error:\s*/, "") === "gmail_page_expired") {
+          setExpiredCursor(cursor);
+        }
+        throw error;
+      });
       if (!resumeFromCache) return result;
       // Server tokens cannot advance a cached label. Skip local pages already on screen.
       const visible = new Set(page?.items.map(item => item.id));
@@ -137,6 +144,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       return result;
     }, p => {
       if (!append) {
+        setExpiredCursor(null);
         if (selected !== label) setLabel(selected);
         setPage(p); setBody(null); setMessage(null);
       }
@@ -197,6 +205,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
   }
   const disconnected=!grant.connected;
   const readFromServer = serverPage && !disconnected && grant.read === true;
+  const needsLabelRefresh = readFromServer && expiredCursor !== null && page?.nextCursor === expiredCursor;
   return <section aria-label={t("Gmail inbox")}>
     <fieldset disabled={Boolean(busy)}><legend>{t("Mail connection")}</legend>
       <p translate="no">{address}</p>
@@ -227,7 +236,10 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       {page?<><p>{t(readFromServer?"Showing messages retrieved from the server.":"Showing messages saved on this device.")}</p>
         {!page.items.length&&<p>{t("No messages on this page.")}</p>}
         <ul className="mail-inbox-list">{page.items.map(m=><li key={m.id}><button className="ui-button" type="button" aria-pressed={message?.id===m.id} onClick={()=>select(m)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.from}</small></button></li>)}</ul>
-        {page.nextCursor&&<button className="ui-button" type="button" onClick={()=>load(readFromServer, page.nextCursor, label, true)}>{t("Load older messages")}</button>}
+        {page.nextCursor && <button className="ui-button" type="button" onClick={() => {
+          if (needsLabelRefresh) load(true);
+          else load(readFromServer, page.nextCursor, label, true);
+        }}>{t(needsLabelRefresh ? "Refresh this Gmail label" : "Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {message&&<article aria-label={t("Selected message")}><h3 translate="no">{message.subject||t("No subject")}</h3><p translate="no">{message.from}</p>
         {body?<><MailBody text={body.plainText} html={body.html}/><MailAttachments key={message.id} items={body.attachments} invoke={invoke} message={{accountId:id,id:message.id}}/></>:localBodyFailed ? <>
