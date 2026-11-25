@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.recording-chapters",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "recorder-tutorial",
+      "capabilityId": "devtools.recording.chapters.export",
+      "title": "录屏章节元数据",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "从这次确认的本机 JSON 章节计划生成完整 FFmpeg 章节元数据，预览并确认保存。"
+    }
+  ]
+}
