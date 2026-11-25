@@ -21,6 +21,16 @@ pub struct Mailbox<'a> {
 fn db_err(_: rusqlite::Error) -> &'static str {
     "mail_storage"
 }
+fn advance_cache_generation(db: &Connection, scope: &str, account: &str) -> Result<()> {
+    db.execute(
+        "INSERT INTO alibaba_cache_generation VALUES(?,?,1)
+         ON CONFLICT(scope,account) DO UPDATE SET generation=generation+1",
+        params![scope, account],
+    )
+    .map_err(db_err)?;
+    Ok(())
+}
+
 pub fn initialize_cache(db: &mut Connection) -> Result<()> {
     let migrated: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('alibaba_inbox') WHERE name='folder')", [], |r| r.get(0)).map_err(db_err)?;
     if migrated { return Ok(()); }
@@ -108,10 +118,13 @@ impl<'a> Mailbox<'a> {
         self.attachment_is_current(epoch)?;
         adapter.attachment(self.address(), password, self.folder(), epoch, uid, expected)
     }
+    /// Invalidate pending operations while retaining offline messages.
+    pub fn invalidate_pending_operations(&self) -> Result<()> {
+        advance_cache_generation(self.db, &self.scope, &self.account.id)
+    }
     pub fn clear_cache(&mut self) -> Result<()> {
         let tx = self.db.transaction().map_err(db_err)?;
-        tx.execute("INSERT INTO alibaba_cache_generation VALUES(?,?,1) ON CONFLICT(scope,account) DO UPDATE SET generation=generation+1",
-            params![self.scope,self.account.id]).map_err(db_err)?;
+        advance_cache_generation(&tx, &self.scope, &self.account.id)?;
         for table in ["alibaba_inbox", "alibaba_epoch", "alibaba_folders", "alibaba_sync_revision", "alibaba_sync_gap"] {
             tx.execute(
                 &format!("DELETE FROM {table} WHERE scope=? AND account=?"),

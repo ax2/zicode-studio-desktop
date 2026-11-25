@@ -229,6 +229,84 @@ fn serve_imap(
     }
 }
 #[test]
+fn imap_attachment_confirmation_expires_when_credentials_change_without_clearing_cache() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    let mut db = Connection::open(&path).unwrap();
+    seed(&db);
+    let mut original = Mailbox::open(&mut db, "one", "a").unwrap();
+    let inbox = fixture(false, false);
+    let page = original
+        .sync(&inbox.adapter, "synthetic-original", None, 3)
+        .unwrap();
+    inbox.thread.join().unwrap();
+    let epoch = page.uid_validity;
+    let body = fixture(false, false);
+    let selected = original
+        .read(&body.adapter, "synthetic-original", epoch, 30)
+        .unwrap();
+    body.thread.join().unwrap();
+
+    let mut controls = Connection::open(&path).unwrap();
+    let other_view = Mailbox::open(&mut controls, "one", "a").unwrap();
+    // The Host advances the generation before forgetting the credential.
+    other_view.invalidate_pending_operations().unwrap();
+    assert!(matches!(
+        original.attachment_is_current(epoch),
+        Err("mail_attachment_changed")
+    ));
+    let disconnected = Mailbox::open(&mut controls, "one", "a").unwrap();
+    let offline = disconnected.cached_body(epoch, 30).unwrap();
+    assert_eq!(offline.text, "你好");
+    assert_eq!(offline.attachments[0].name, "proof.bin");
+    // Publishing a replacement credential advances it again, without deleting the cache.
+    disconnected.invalidate_pending_operations().unwrap();
+    assert!(matches!(
+        disconnected.attachment_is_current(epoch),
+        Err("mail_attachment_changed")
+    ));
+
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let blocked_server = Alibaba {
+        imap_host: "localhost".into(),
+        imap_port: listener.local_addr().unwrap().port(),
+        ..Alibaba::default()
+    };
+    assert!(matches!(
+        original.read_attachment(
+            &blocked_server,
+            "synthetic-reconnected",
+            epoch,
+            30,
+            &selected.attachments[0],
+        ),
+        Err("mail_attachment_changed")
+    ));
+    assert!(matches!(listener.accept(), Err(e) if e.kind() == std::io::ErrorKind::WouldBlock));
+
+    let reconnected = Mailbox::open(&mut controls, "one", "a").unwrap();
+    assert_eq!(reconnected.cached_page(None, 3).unwrap().messages.len(), 3);
+    let retained = reconnected.cached_body(epoch, 30).unwrap();
+    assert_eq!(retained.text, "你好");
+    let new_download = fixture(false, false);
+    assert_eq!(
+        reconnected
+            .read_attachment(
+                &new_download.adapter,
+                "synthetic-reconnected",
+                epoch,
+                30,
+                &retained.attachments[0],
+            )
+            .unwrap(),
+        [0, 255, 1, 2]
+    );
+    new_download.thread.join().unwrap();
+    assert_eq!(new_download.rx.try_iter().count(), 2);
+}
+
+#[test]
 fn imap_attachment_confirmation_is_scoped_to_its_original_cache_generation() {
     let temporary = tempfile::tempdir().unwrap();
     let path = temporary.path().join("mail.sqlite3");
