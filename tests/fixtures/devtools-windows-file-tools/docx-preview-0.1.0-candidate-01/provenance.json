@@ -1,0 +1,172 @@
+{
+  "sourceRevision": "8c588d6c3c028c404b696f4c7ae2488a366798f0",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T07:23:08.797525+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "8a07d592dd62c25eccd7fe865af1e20d86e3469e94051a3d26af3fdec68fc836",
+  "workerVerification": {
+    "passed": 17,
+    "wasmSha256": "8a07d592dd62c25eccd7fe865af1e20d86e3469e94051a3d26af3fdec68fc836",
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "workerProfile": "resource.wasi.input.draft2",
+    "cases": [
+      {
+        "case": "paragraphs-literal-and-ignored-parts",
+        "inputSha256": "0fe0e6cc9e9387a66b06e9faa00b316a86fb009a89aad1729066497618981337",
+        "inputBytes": 1184,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "4fc52a619e45af115c2d0ca2508520bcb663179189ac5d6dd29bcc34c91afb55"
+      },
+      {
+        "case": "deterministic-800-and-100",
+        "inputSha256": "00bd9e22df01799e870f7b2e22c0769fa5d5fbc7658e3062cd5b07002880426b",
+        "inputBytes": 852,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "b2d8e373db772a79373ea3d798503e729d2e670d3068edf6e40fc374dc8e62ab"
+      },
+      {
+        "case": "preview-row-limit",
+        "inputSha256": "49247e7a44088797e8859f26d7f7ebf799c9a2e66731cd875b3841437ce24fa4",
+        "inputBytes": 870,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "746643ba1d085ece43eb619bfb2115ea44b3cea4c17b1a223e8f9fae6e56318b"
+      },
+      {
+        "case": "preview-byte-limit",
+        "inputSha256": "dd0a8726195751e6958bb2328ac485d3039df3793bad7aeb1ccbfce1cb0c0198",
+        "inputBytes": 873,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "a67c1613c3da1ca8c0cf36ba1491aeddf0d1d06daeedbad68cbfa903635dcbc4"
+      },
+      {
+        "case": "valid-empty-document",
+        "inputSha256": "89c6585cae907dd5bb77c7ca2f9a693d5e31eb66db75a4575ea2f35df2410f70",
+        "inputBytes": 803,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "c44d60bb0e297b644ae19e2923c5634a3af07c92584d1fcd28861e36432c3b4d"
+      },
+      {
+        "case": "exact-file-boundary",
+        "inputSha256": "3da77af98b6e3da15caa1438dd00f15064f0b4f64dd1e5d96046de7c99cc5d37",
+        "inputBytes": 131072,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "132b240151a7a68c481b7e46fe5ad0641de6336f27cd3af8a0f91d2828915f40"
+      },
+      {
+        "case": "file-oversized",
+        "inputSha256": "c824c25f8bbb2cf0089d9a144349afea27890f22046a11f137f0dcce1f15e9db",
+        "inputBytes": 131073,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "0ea9657f8e43f8f0e2c2fa6c40b08c2111b7f203282d88f7ae78a884cf448830"
+      },
+      {
+        "case": "exact-expanded-body-boundary",
+        "inputSha256": "3d9fd244a5b20488ebd22aaa7002bd23b8f53aabff394d997eef84bf02454199",
+        "inputBytes": 997,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "26befcc3540ef89bdb59df1be14f9e9be6efb18372399d9f04cff4fba19b352c"
+      },
+      {
+        "case": "expanded-body-oversized",
+        "inputSha256": "2e9e63a00bb211c7e062fc78d9eb98ecc55f86efd18168a54de144256dedf4e2",
+        "inputBytes": 998,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "999e9ae6cbe3881e3f3c4a7cdb02699156c77369146a79bb5e5dcd86e7436151"
+      },
+      {
+        "case": "entry-count-oversized",
+        "inputSha256": "924092b60afa25c64a98b1501ee9f6e595bbcdce9deaafd70a8aac20f20bd51c",
+        "inputBytes": 22453,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "9ea8c170f931bd1309e0cab4162c59c3523d1b9c5e040e2c9eb4425d2cf0e887"
+      },
+      {
+        "case": "ordinary-invalid-zip",
+        "inputSha256": "3bf211b24693b5a7ca4a799c28bd9f679b1c409e7d95232def627ed8858859f7",
+        "inputBytes": 17,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "052614f7705953979a8d0a4f83e179d8a06e43a65aeb730cbdb9a74a7ef6f6fa"
+      },
+      {
+        "case": "missing-word-body",
+        "inputSha256": "0a575e4ce1463e463f4f178b44bfd206248c3e99439700b1286f9ed161f11844",
+        "inputBytes": 565,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "a7be6952b1ed0fc93cafebc16c6c809d47e0eeb432de03551ce42bf945993421"
+      },
+      {
+        "case": "truncated-word-xml",
+        "inputSha256": "48b283fa24d0fc6276569c06b0d0137a022bdc2e475188eae8cbbb8cd5233717",
+        "inputBytes": 826,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "2105b5194e4c245d7f21e5b7d0ab069ec343e1d847186ffc6a0196d40dfa6432"
+      },
+      {
+        "case": "wrong-xml-root",
+        "inputSha256": "d19346769a4773cec5cb9333192b8448dbc2aa8754c6da11d53ec41863a2b20d",
+        "inputBytes": 691,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "2105b5194e4c245d7f21e5b7d0ab069ec343e1d847186ffc6a0196d40dfa6432"
+      },
+      {
+        "case": "doctype-is-unsupported",
+        "inputSha256": "5e0be90c389c775a7acc65d4f40b2287415ce0cc447f7657636088543664f610",
+        "inputBytes": 813,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "2105b5194e4c245d7f21e5b7d0ab069ec343e1d847186ffc6a0196d40dfa6432"
+      },
+      {
+        "case": "wrong-mime",
+        "inputSha256": "3da77af98b6e3da15caa1438dd00f15064f0b4f64dd1e5d96046de7c99cc5d37",
+        "inputBytes": 131072,
+        "input": {},
+        "mime": "text/plain",
+        "ok": false,
+        "resultSha256": "865f4c132d7346b03b5645624075b1030b181f18d44eb07928c8e0f39467f245"
+      },
+      {
+        "case": "unexpected-input",
+        "inputSha256": "3da77af98b6e3da15caa1438dd00f15064f0b4f64dd1e5d96046de7c99cc5d37",
+        "inputBytes": 131072,
+        "input": {
+          "shape": true
+        },
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "68a93c1664adad20eb158384b4fafb2cdeae13a0d0c8d9a5a2804920f0d74401"
+      }
+    ]
+  }
+}
