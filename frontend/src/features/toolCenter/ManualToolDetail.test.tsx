@@ -85,6 +85,34 @@ it("downloads an empty successful URL decode only after the imported text is run
   } finally { download.mockRestore(); }
 });
 
+it("preserves UTF-8 file bytes and downloads only a valid SHA-256 digest", async () => {
+  const download = vi.spyOn(downloads, "downloadFile").mockImplementation(() => {});
+  try {
+    const { container, api, submit } = await mount({ ...tool, pluginId: "com.zicode.devtools.text",
+      capabilityId: "devtools.text.sha256", version: "0.4.4" }, undefined,
+    { type: "object", required: ["text"], properties: { text: { type: "string", maxLength: 8192 } }, additionalProperties: false });
+    const view = within(container);
+    const source = "\uFEFF合成  \r\n尾  ";
+    const digest = "fa2a2bdc754dd9e9b6b32762c39161a1b59b0e9cf6be4cb088fc5da8fa6c77c9";
+    const button = () => view.queryByRole("button", { name: "下载 SHA-256 摘要" });
+    vi.mocked(api.invoke).mockResolvedValue({ result: envelope(digest) });
+    await act(async () => fireEvent.change(view.getByLabelText("UTF-8 文本文件"), {
+      target: { files: [new NodeFile([source], "source.txt")] },
+    }));
+    expect(api.invoke).not.toHaveBeenCalled();
+    expect(button()).toBeNull();
+    await submit();
+    expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text: source });
+    expect(download).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "下载 SHA-256 摘要" }));
+    expect(download).toHaveBeenCalledWith(expect.stringMatching(/^sha256-\d+\.txt$/), digest, "text/plain");
+    vi.mocked(api.invoke).mockResolvedValue({ result: envelope(digest + "\n") });
+    await submit();
+    expect(button()).toBeNull();
+    expect(download).toHaveBeenCalledTimes(1);
+  } finally { download.mockRestore(); }
+});
+
 it("replaces prior success with an escaped business error and does not record failed use", async () => {
   const { container, api, store, submit } = await mount(); await submit(); store.mutate.mockClear();
   vi.mocked(api.invoke).mockResolvedValue({ result: { contractVersion: "1.0.0-rc.1", ok: false, data: null,
