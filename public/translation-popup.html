@@ -9,23 +9,25 @@
 </head>
 <body>
   <main>
-    <header>
-      <h1 data-message="Clipboard translation"></h1>
-      <p id="destination"></p>
-    </header>
-    <label id="original" hidden>
-      <span data-message="Source text"></span>
-      <textarea id="source-text" readonly rows="4"></textarea>
-    </label>
-    <div id="languages" class="languages" hidden>
-      <label><span data-message="Source language"></span><select id="source-language"></select></label>
-      <label><span data-message="Target language"></span><select id="target-language"></select></label>
-    </div>
-    <p id="status" role="status" aria-live="polite"></p>
-    <label id="translation" hidden>
-      <span data-message="Result"></span>
-      <textarea id="result" readonly rows="5"></textarea>
-    </label>
+    <section class="translation-popup-content" aria-labelledby="translation-popup-title">
+      <header>
+        <h1 id="translation-popup-title" data-message="Clipboard translation"></h1>
+        <p id="destination"></p>
+      </header>
+      <label id="original" hidden>
+        <span data-message="Source text"></span>
+        <textarea id="source-text" readonly rows="4"></textarea>
+      </label>
+      <div id="languages" class="languages" hidden>
+        <label><span data-message="Source language"></span><select id="source-language"></select></label>
+        <label><span data-message="Target language"></span><select id="target-language"></select></label>
+      </div>
+      <p id="status" role="status" aria-live="polite"></p>
+      <label id="translation" hidden>
+        <span data-message="Result"></span>
+        <textarea id="result" readonly rows="5"></textarea>
+      </label>
+    </section>
     <div class="actions">
       <button type="button" id="retry" data-message="Translate" hidden></button>
       <button type="button" id="copy" data-message="Copy" hidden></button>
