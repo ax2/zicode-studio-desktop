@@ -575,14 +575,15 @@ fn execute(
         "sceneId":scene,"input":request.input
     });
     let metadata_profile=crate::plugin_resource_execution::metadata::selected(output_contract.execution_profile.as_deref());
-    if image_processing_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
-        // The existing Worker profile selects shared image budgets, not an operation.
-        // The Host negotiates each image operation and validates its own output contract.
-        worker_request["executionProfile"] = if image_processing_profile {
-            json!(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE)
+    if let Some(execution_profile) = output_contract.execution_profile.as_deref() {
+        // Forward the admitted capability profile. Image operations share one Worker profile;
+        // the Host still enforces each operation's separate output contract.
+        let worker_profile = if image_processing_profile {
+            crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE
         } else {
-            json!(output_contract.execution_profile)
+            execution_profile
         };
+        worker_request["executionProfile"] = json!(worker_profile);
     }
     if binary {
         worker_request["resourceOutputProfile"] =
