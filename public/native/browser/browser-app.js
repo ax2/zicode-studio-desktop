@@ -117,9 +117,10 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   const browserWindow = observeBrowserWindow(nativeWindow, () => void run(syncSurface));
   const selected = () => tabs.find(tab => tab.id === active);
-  const listWebsiteShortcuts = async () => (await invoke("browser_bookmarks", { request: { kind: "list" } })).bookmarks.filter(item => item.shortcut);
+  const listBookmarks = () => invoke("browser_bookmarks", { request: { kind: "list" } });
+  const listWebsiteShortcuts = async () => (await listBookmarks()).bookmarks.filter(item => item.shortcut);
   const newTabShortcuts = createBrowserNewTabShortcuts({
-    list: listWebsiteShortcuts,
+    list: listBookmarks,
     open: (item, source) => void act(async () => {
       if (shortcutTab() !== source || blocked()) return;
       const submission = addressEditor.submission(item.url);
@@ -1356,9 +1357,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     };
     const current = needsCurrent && canReadCurrent ? await readCurrent() : null;
     const currentSource = !needsCurrent && canReadCurrent ? { read: readCurrent, isCurrent: ownsPage } : null;
-    await openLibrary(ownsPage, onClose => showBrowserBookmarks({ invoke, current, currentSource, editCurrent, editShortcut: shortcut, onClose: () => {
+    await openLibrary(ownsPage, onClose => showBrowserBookmarks({ invoke, current, currentSource, editCurrent, editShortcut: shortcut, onClose: confirmed => {
       if (ownsPage()) {
-        newTabShortcuts.refresh();
+        newTabShortcuts.refresh(confirmed);
         if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
       }
       onClose();

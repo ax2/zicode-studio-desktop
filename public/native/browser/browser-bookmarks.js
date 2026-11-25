@@ -7,7 +7,7 @@ import { createBookmarkFolderIndex, folderOptions, removeBookmarkFolder } from "
 
 export function showBrowserBookmarks({ invoke, current, currentSource, editCurrent = false, editShortcut = false, onOpen, onClose }) {
   let library = { revision: 0, folders: [], bookmarks: [] }, editing = null, filter = "*", query = "", busy = false;
-  let currentPage = current, addCurrent;
+  let currentPage = current, addCurrent, hasConfirmedWrite = false;
   const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
   const dialog = el("dialog", "browser-bookmarks-dialog ui-panel"); dialog.setAttribute("aria-label", t("Bookmarks"));
   const guard = createBookmarkDraftGuard(dialog);
@@ -40,7 +40,10 @@ export function showBrowserBookmarks({ invoke, current, currentSource, editCurre
   const close = el("button", "ui-button ui-button--secondary", t("Close")); close.type = "button"; close.addEventListener("click", () => void requestClose());
   const request = request => invoke("browser_bookmarks", { request });
   const save = async (folders, bookmarks) => {
-    library = await request({ kind: "save", expectedRevision: library.revision, folders, bookmarks });
+    const committed = await request({ kind: "save", expectedRevision: library.revision, folders, bookmarks });
+    if (!dialog.open) return;
+    library = committed;
+    hasConfirmedWrite = true;
     editing = null; render(); message.textContent = t("Bookmarks saved");
   };
   const transfer = createBookmarkTransfer({ invoke, getLibrary: () => library, save, isOpen: () => dialog.isConnected, run, report: text => { message.textContent = text; } });
@@ -237,7 +240,7 @@ export function showBrowserBookmarks({ invoke, current, currentSource, editCurre
     }
   }
   dialog.append(header, content, message);
-  dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
+  dialog.addEventListener("close", () => { dialog.remove(); onClose(hasConfirmedWrite ? library : null); }, { once: true });
   document.body.append(dialog); dialog.showModal(); close.focus();
   void loadInitial();
   // Read the optional page details outside the saved-library loading state.

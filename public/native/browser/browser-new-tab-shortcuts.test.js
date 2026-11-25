@@ -155,6 +155,41 @@ it("keeps private blank tabs free of library lookups", async () => {
   expect(host.querySelector(".browser-new-tab-shortcuts")).toBeNull();
 });
 
+it.each(["rename", "remove"])("keeps confirmed shortcut changes when the refresh fails after %s", async action => {
+  const other = { ...marked, id: "other", title: "Other site", url: "https://backup.invalid/" };
+  const library = { revision: 7, folders: [], bookmarks: [marked, other, ordinary] };
+  let committed = false;
+  const failedRead = vi.fn(async () => { throw new Error("Library read unavailable"); });
+  const list = async () => committed ? failedRead() : library;
+  const save = vi.fn(async request => {
+    committed = true;
+    return { ...library, revision: 8, bookmarks: request.bookmarks };
+  });
+  const { host, calls } = setup({ tabs: [blank], list, save });
+  const panel = await waitFor(() => getByRole(host, "region", { name: "Website shortcuts" }));
+  const menu = host.querySelector(".browser-options");
+  menu.open = true;
+  fireEvent(menu, new Event("toggle"));
+  (await within(menu).findByRole("button", { name: "Bookmarks" })).click();
+  const dialog = await within(document.body).findByRole("dialog", { name: "Bookmarks" });
+  (await within(dialog).findByRole("button", { name: "Edit bookmark: Research notes" })).click();
+  const form = await within(dialog).findByRole("form", { name: "Bookmark editor" });
+  if (action === "rename") {
+    fireEvent.input(within(form).getByLabelText("Bookmark name"), { target: { value: "Updated site" } });
+    fireEvent.submit(form);
+  } else within(form).getByRole("button", { name: "Delete bookmark" }).click();
+  await waitFor(() => expect(form.isConnected).toBe(false));
+  within(dialog).getByRole("button", { name: "Close" }).click();
+  await waitFor(() => expect(failedRead).toHaveBeenCalled());
+  expect(save).toHaveBeenCalledOnce();
+  expect(panel.isConnected).toBe(true);
+  expect(queryByRole(panel, "button", { name: /Research notes/ })).toBeNull();
+  expect(queryByRole(panel, "button", { name: /Regular bookmark/ })).toBeNull();
+  expect(Boolean(queryByRole(panel, "button", { name: /Updated site/ }))).toBe(action === "rename");
+  within(panel).getByRole("button", { name: /Other site/ }).click();
+  await waitFor(() => expect(calls("navigate")).toContainEqual({ kind: "navigate", tab: blank.id, url: other.url }));
+});
+
 it("returns to a normal blank page when there are no marked sites or the library fails", async () => {
   const list = vi.fn()
     .mockResolvedValueOnce({ bookmarks: [ordinary], folders: [] })
