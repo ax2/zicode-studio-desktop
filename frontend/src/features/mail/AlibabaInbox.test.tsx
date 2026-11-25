@@ -175,3 +175,52 @@ it.each([false, true])("refreshes IMAP directories with the current folder prese
     expect(cached).toEqual([{ kind: "cachedPage", accountId: "a", cursor: null, limit: 20 }]);
   }
 });
+
+it("retries an unreadable cached Alibaba message with its original folder and UID validity", async () => {
+  const a = setup();
+  const initial = a.remote.getMockImplementation();
+  if (!initial) throw Error('Expected original transport fixture');
+  let reads = 0;
+  a.remote.mockImplementation(async request => {
+    if (request.kind !== "cachedBody") return initial(request);
+    if (reads++ === 0) throw Error("mail_storage");
+    return { summary, text: "Recovered local IMAP body" };
+  });
+  await screen.findByText("Inbox fixture");
+  fireEvent.change(screen.getByLabelText("IMAP folder"), { target: { value: "Archive" } });
+  fireEvent.click(await screen.findByRole("button", { name: /Archive fixture/ }));
+  const pane = () => within(screen.getByRole("article", { name: "Selected message" }));
+  expect(await pane().findByRole("alert")).toHaveProperty("textContent", "Could not access local mail data.");
+  expect(pane().queryByRole("button", { name: "Download message body" })).toBeNull();
+  fireEvent.click(pane().getByRole("button", { name: "Try again" }));
+  await pane().findByText("Recovered local IMAP body");
+  const request = { kind: "cachedBody", accountId: "a", folder: "Archive", uidValidity: 7, uid: 30 };
+  expect(a.remote.mock.calls.map(([r]) => r).filter(r => r.kind === "cachedBody" || r.kind === "read")).toEqual([request, request]);
+  expect(screen.getByLabelText("IMAP folder")).toHaveProperty("value", "Archive");
+});
+
+it("drops the old Alibaba selection when the same UID appears in a new mailbox generation", async () => {
+  const a = setup();
+  const initial = a.remote.getMockImplementation();
+  if (!initial) throw Error("Expected original transport fixture");
+  a.remote.mockImplementation(async request => {
+    if (request.kind === "cachedBody") throw Error("mail_storage");
+    if (request.kind === "sync" && request.cursor) {
+      return { uidValidity: 8, messages: [{ ...summary, subject: "New generation fixture" }], next: null };
+    }
+    return initial(request);
+  });
+  await screen.findByText("Inbox fixture");
+  fireEvent.click(button("Refresh from server"));
+  await screen.findByText("Showing messages retrieved from the server.");
+  fireEvent.click(screen.getByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByRole("button", { name: "Try again" });
+  fireEvent.click(button("Load older messages"));
+  const replacement = await screen.findByRole("button", { name: /New generation fixture/ });
+  expect(replacement).toHaveProperty("ariaPressed", "false");
+  expect(screen.queryByRole("article", { name: "Selected message" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  expect(a.remote.mock.calls.map(([r]) => r).filter(r => r.kind === "cachedBody")).toEqual([
+    { kind: "cachedBody", accountId: "a", uidValidity: 7, uid: summary.uid },
+  ]);
+});

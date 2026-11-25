@@ -44,6 +44,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
   const [grant,setGrant]=useState<Grant>(none),[page,setPage]=useState<Page|null>(null);
   const [labels,setLabels]=useState<Label[]>([]);
   const [message,setMessage]=useState<Message|null>(null),[body,setBody]=useState<Body|null>(null);
+  const [localBodyFailed, setLocalBodyFailed] = useState(false);
   const [replyRefresh,setReplyRefresh]=useState(false);
   const [serverPage,setServerPage]=useState(false),[busy,setBusy]=useState("init"),[notice,setNotice]=useState("");
   const epoch=useRef(0),operation=useRef("init"),grantCallback=useRef(onGrant);
@@ -164,13 +165,19 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       if (isCurrent()) setPage(inbox);
     }, () => {});
   }
-  function select(m: Message, download = false) {
-    if(operation.current)return;setMessage(m);setBody(null);setReplyRefresh(false);
+  function select(m: Message, mode: "open" | "cache" | "download" = "open") {
+    if (operation.current) return;
+    setMessage(m);setBody(null);setReplyRefresh(false);setLocalBodyFailed(false);
     const message = { accountId: id, id: m.id };
     void run("read", async isCurrent => {
-      if (!download) {
-        const cached = await invoke<Body | null>({ kind: "cachedBody", ...message });
-        if (cached || !readFromServer || !isCurrent()) return cached;
+      if (mode !== "download") {
+        let cached: Body | null;
+        try { cached = await invoke<Body | null>({ kind: "cachedBody", ...message }); }
+        catch {
+          if (isCurrent()) setLocalBodyFailed(true);
+          return null;
+        }
+        if (cached || mode === "cache" || !readFromServer || !isCurrent()) return cached;
       }
       return invoke<Body>({ kind: "read", ...message });
     }, setBody);
@@ -208,13 +215,16 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
         {page.nextCursor&&<button className="ui-button" type="button" onClick={()=>load(readFromServer, page.nextCursor, label, true)}>{t("Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {message&&<article aria-label={t("Selected message")}><h3 translate="no">{message.subject||t("No subject")}</h3><p translate="no">{message.from}</p>
-        {body?<><MailBody text={body.plainText} html={body.html}/><MailAttachments key={message.id} items={body.attachments} invoke={invoke} message={{accountId:id,id:message.id}}/></>:!busy&&<p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
-        {!body&&!replyRefresh&&<button className="ui-button" type="button" disabled={!grant.read} onClick={()=>select(message,true)}>{t("Download message body")}</button>}
+        {body?<><MailBody text={body.plainText} html={body.html}/><MailAttachments key={message.id} items={body.attachments} invoke={invoke} message={{accountId:id,id:message.id}}/></>:localBodyFailed ? <>
+          <p role="alert">{t("Could not access local mail data.")}</p>
+          <button className="ui-button" type="button" onClick={()=>select(message,"cache")}>{t("Try again")}</button>
+        </>:!busy&&<p>{t("This message is not available offline. Download it explicitly to read it.")}</p>}
+        {!body&&!replyRefresh&&!localBodyFailed&&<button className="ui-button" type="button" disabled={!grant.read} onClick={()=>select(message,"download")}>{t("Download message body")}</button>}
         {onReply&&<button className="ui-button" type="button" disabled={draftBusy} onClick={()=>{
           setReplyRefresh(false);
           void run("reply",active=>onReply(id,()=>invoke<Draft>({kind:"replyDraft",accountId:id,id:message.id}),active),()=>{});
         }}>{t("Create reply draft")}</button>}
-        {replyRefresh&&<button className="ui-button" type="button" disabled={!grant.read} onClick={()=>select(message,true)}>{t("Refresh message to reply")}</button>}
+        {replyRefresh&&<button className="ui-button" type="button" disabled={!grant.read} onClick={()=>select(message,"download")}>{t("Refresh message to reply")}</button>}
       </article>}
     </fieldset>
     {notice&&<p role="status">{notice}</p>}
