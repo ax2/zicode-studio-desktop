@@ -136,6 +136,8 @@ Unicode 码点、NFC 和 NFKC 支持导入 8 KiB 内 UTF-8 文件。保留 BOM �
 
 「Java 异常链」和「Django / Python 堆栈」可导入 8 KiB 内 UTF-8 日志并撤销，手动执行成功后下载本次完整 JSON。已用冻结 Trace 0.1.1 与生产 Windows Worker 验证异常链、完整报告和 48 KiB 输出保护。见[范围与验收](../iterations/2026-11-25-trace-log-files.md)。
 
+「Spring 配置对比」可在两侧分别导入 8 KiB 内 UTF-8 JSON 或 YAML，撤销选取并手动执行，成功后可下载完整 JSON 或确认保存到 Studio。见[范围与验收](../iterations/2026-11-25-spring-config-files.md)。
+
 ## 2026-11-25 开发补充：HTML 实体文件转义与还原
 
 HTML 转义和还原均可导入 8 KiB 内 UTF-8 文件，手动执行成功后下载当前完整 TXT。两种窗口已用生产 Windows Worker 验证五种实体、原文件保留和完整扩展输出。见[范围与验收](../iterations/2026-11-25-html-entity-files.md)。
