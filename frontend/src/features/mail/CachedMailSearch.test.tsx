@@ -553,6 +553,38 @@ it("keeps the last valid search page and its opened mail when navigation fails",
   expect(gmail.mock.calls).toEqual([[{ kind: "cachedBody", accountId: "a", id: "first-0" }]]);
 });
 
+it.each(["Next", "Previous"] as const)("keeps the %s pagination control focused through a failed read", async control => {
+  let fail!: (reason: Error) => void;
+  const pending = new Promise<never>((_resolve, reject) => { fail = reject; });
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage);
+  const forward = control === "Next";
+  if (!forward) invoke.mockResolvedValueOnce(secondPage);
+  invoke.mockReturnValueOnce(pending).mockResolvedValueOnce(forward ? secondPage : firstPage);
+  const gmail = vi.fn(async () => ({ plainText: "Current search mail remains open" }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  if (!forward) fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  fireEvent.click(await screen.findByRole("button", { name: forward ? /^First page hit 0/ : /^Second fixture/ }));
+  await screen.findByText("Current search mail remains open");
+  const button = screen.getByRole("button", { name: control });
+  button.focus();
+  fireEvent.click(button);
+  await screen.findByText("Searching messages…");
+  expect(button.getAttribute("aria-disabled")).toBe("true");
+  expect(button.matches(":disabled")).toBe(false);
+  expect(document.activeElement).toBe(button);
+  fireEvent.click(button);
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual(forward ? [0, 40] : [0, 40, 0]);
+  await act(async () => fail(Error("mail_storage")));
+  await screen.findByRole("alert");
+  expect(button.hasAttribute("aria-disabled")).toBe(false);
+  expect(document.activeElement).toBe(button);
+  expect(screen.getByText("Current search mail remains open")).toBeTruthy();
+  fireEvent.click(button);
+  await screen.findByRole("button", { name: forward ? /^Second fixture/ : /^First page hit 0/ });
+  expect(screen.queryByText("Current search mail remains open")).toBeNull();
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual(forward ? [0, 40, 40] : [0, 40, 0, 0]);
+});
+
 it.each(["query", "account", "label"])("ignores a pending search page after changing the %s", async change => {
   setLocale("en");
   const accounts = [

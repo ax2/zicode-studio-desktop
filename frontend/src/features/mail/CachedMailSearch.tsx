@@ -47,6 +47,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const readingRequest = useRef<{ hit: Hit; pending: boolean; canDownload: boolean } | null>(null);
   const readingAccess = reading && searchBodyAccess(reading.hit, gmail, alibaba);
   const loadingBody = reading?.status === "loading" || reading?.refreshing === true;
+  const paginationBlocked = busy || loadingBody;
   const updatedAccounts = useRef(new Set<string>());
   const requestedOffset = useRef<number | null>(null);
   const displayedOffset = useRef<number | null>(null);
@@ -154,6 +155,10 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       }
     } finally { if (version === searchGeneration.current) setBusy(false); }
   }, [invoke, scope, query, folder, closeReading]);
+  function navigatePage(start: number) {
+    if (paginationBlocked || requestedOffset.current !== displayedOffset.current) return;
+    void search(start);
+  }
   useEffect(()=>{
     function cacheChanged(event:Event) {
       const account=(event as CustomEvent<string>).detail;
@@ -258,6 +263,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       <label>{t("Search cached mail")}<input className="ui-input" type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
       <button className="ui-button" type="submit" disabled={busy || loadingBody || !query.trim()}>{t("Search")}</button>
     </form>
+    {busy && <p role="status">{t("Searching messages…")}</p>}
     {error && <p role="alert">{t("Could not access local mail data.")}</p>}
     {page && <>
       {!page.items.length && <p role="status">{t("No matching cached messages.")}</p>}
@@ -266,8 +272,8 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
           onClick={()=>void open(hit)}><strong translate="no">{hit.subject || t("No subject")}</strong>
           <small translate="no">{hit.sender} · {hit.address}{hit.folder && <> · {hit.folder === "INBOX" ? t("Inbox") : hit.folder}</>}</small>
         </button></li>)}</ul>
-      {offset>0 && <button className="ui-button" type="button" disabled={busy || loadingBody} onClick={()=>void search(offset-40)}>{t("Previous")}</button>}
-      {page.more && <button className="ui-button" type="button" disabled={busy || loadingBody} onClick={()=>void search(offset+40)}>{t("Next")}</button>}
+      {offset>0 && <button className="ui-button" type="button" aria-disabled={paginationBlocked || undefined} onClick={() => navigatePage(offset - 40)}>{t("Previous")}</button>}
+      {page.more && <button className="ui-button" type="button" aria-disabled={paginationBlocked || undefined} onClick={() => navigatePage(offset + 40)}>{t("Next")}</button>}
     </>}
     {reading && <article aria-label={t("Cached message")} aria-busy={loadingBody || replying}><h3 translate="no">{reading.hit.subject||t("No subject")}</h3>
       <p translate="no">{reading.hit.sender} · {reading.hit.address}</p>
