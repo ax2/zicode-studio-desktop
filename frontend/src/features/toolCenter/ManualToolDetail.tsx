@@ -58,11 +58,14 @@ const yamlFromJsonFiles = [
   { target: "yaml-from-json", field: "text", label: "Import JSON file…", inputLabel: "JSON input file", fieldLabel: "JSON text" },
 ] as const;
 
-const base64EncodeFiles = [
-  { target: "base64-encode", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
+const byteTextFileTargets = [
+  { target: "utf8-bytes", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
 ] as const;
 const utf8FileTargets = [
   { target: "utf8-text", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
+] as const;
+const hexFiles = [
+  { target: "utf8-text", field: "text", label: "Import Hex text file…", inputLabel: "Hex text file", fieldLabel: "Hex text" },
 ] as const;
 const jsonStringFiles = [
   { target: "utf8-text", field: "text", label: "Import JSON string file…", inputLabel: "JSON string file", fieldLabel: "JSON string" },
@@ -218,6 +221,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const textStatistics = transformsTool && tool.capabilityId === "devtools.transforms.stats.inspect";
   const stringEscape = transformsTool && tool.capabilityId === "devtools.transforms.string.escape";
   const stringUnescape = transformsTool && tool.capabilityId === "devtools.transforms.string.unescape";
+  const hexEncode = transformsTool && tool.capabilityId === "devtools.transforms.hex.encode";
+  const hexDecode = transformsTool && tool.capabilityId === "devtools.transforms.hex.decode";
   const sqlFormat = textPlugin && tool.capabilityId === "devtools.text.sql.format";
   const base64Encode = textPlugin && tool.capabilityId === "devtools.text.base64.encode";
   const base64Decode = textPlugin && tool.capabilityId === "devtools.text.base64.decode";
@@ -225,7 +230,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
     jsonSchema ? jsonSchemaFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
-        base64Encode ? base64EncodeFiles : base64Decode ? base64DecodeFiles : stringUnescape ? jsonStringFiles :
+        (base64Encode || hexEncode) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
+          stringUnescape ? jsonStringFiles : hexDecode ? hexFiles :
           (textLines || textStatistics || stringEscape) ? utf8FileTargets : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
@@ -236,7 +242,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     : textLines ? { label: "Download processed text", stem: "processed", extension: "txt", mime: "text/plain;charset=utf-8" }
     : textStatistics ? { label: "Download text statistics", stem: "text-statistics", extension: "txt", mime: "text/plain;charset=utf-8" }
     : stringEscape ? { label: "Download JSON", stem: "escaped-string", extension: "json", mime: "application/json" }
-    : stringUnescape ? { label: "Download restored text", stem: "restored-string", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
+    : stringUnescape ? { label: "Download restored text", stem: "restored-string", extension: "txt", mime: "text/plain;charset=utf-8" }
+    : hexEncode ? { label: "Download Hex text", stem: "hex-bytes", extension: "txt", mime: "text/plain" }
+    : hexDecode ? { label: "Download decoded text", stem: "hex-decoded", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
@@ -352,7 +360,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const wire = response.result;
       const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
         wire.contractVersion === "1.0.0-rc.1";
-      if (textDownload && ownsExecution() && outcome.successful && declared && (base64Tool || textLines || stringUnescape || outcome.text.trim().length > 0)) {
+      if (textDownload && ownsExecution() && outcome.successful && declared && (base64Tool || textLines || stringUnescape || hexEncode || hexDecode || outcome.text.trim().length > 0)) {
         setDownloadExecution({ identity: transformIdentity, sequence, api, source: values, text: outcome.text });
       }
       if (independentMerge && outcome.successful) {
@@ -394,7 +402,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const documentFileButtons = documentFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
     label={t(side.label)} inputLabel={t(side.inputLabel)}
     accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : yamlToJson ? ".yaml,.yml" :
-      base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : ""}
+      base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : hexDecode ? ".txt,.hex" : ""}
     loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" :
       yamlToJson ? "Reading YAML file…" : "Reading text file…"}
     disabled={editingLocked || !detail?.enabled} loading={fileLoading === side.target}
