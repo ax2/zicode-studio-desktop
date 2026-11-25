@@ -2318,6 +2318,32 @@ describe("notes store", () => {
     expect(store.getState().loading).toBe(false);
   });
 
+  it("keeps a later notebook title edit when a previous save settles", async () => {
+    let finish!: () => void;
+    const updateNotebook = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }))
+      .mockResolvedValue(undefined);
+    const store = storeWithGateway({ updateNotebook });
+    await store.getState().load();
+    const { getByRole, container } = render(<NotesNav store={store} />);
+    const action = container.querySelector<HTMLButtonElement>('[data-notebook-id="book-1"] .notes-notebook-edit');
+    if (!action) throw new Error("Expected the notebook edit button");
+    fireEvent.click(action);
+    const title = getByRole("textbox", { name: t("Notebook name") }) as HTMLInputElement;
+    expect(document.activeElement).toBe(title);
+    fireEvent.change(title, { target: { value: "First title" } });
+    fireEvent.click(getByRole("button", { name: t("Save notebook") }));
+    expect(updateNotebook).toHaveBeenCalledTimes(1);
+    fireEvent.change(title, { target: { value: "Title still being edited" } });
+    await act(async () => { finish(); });
+    expect(store.getState().editingNotebookId).toBe("book-1");
+    expect(title.value).toBe("Title still being edited");
+    expect(document.activeElement).toBe(title);
+    fireEvent.click(getByRole("button", { name: t("Save notebook") }));
+    await waitFor(() => expect(store.getState().editingNotebookId).toBeNull());
+    expect(updateNotebook.mock.calls.map(([, , request]) => request.title)).toEqual(["First title", "Title still being edited"]);
+  });
+
   it("passes the parent id when re-parenting a notebook", async () => {
     const updateNotebook = vi.fn(async () => ({}));
     const store = storeWithGateway({ updateNotebook });
