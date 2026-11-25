@@ -311,7 +311,8 @@ fn summary(bytes: &[u8], uid: u32, size: u32) -> Result<Summary> {
     };
     match MessageParser::new().parse_headers(header) {
         Some(message) => Ok(metadata(&message, uid, size, clipped)),
-        None if clipped => Ok(Summary {
+        // An empty header literal still identifies a message through its FETCH metadata.
+        None if clipped || matches!(bounded, b"" | b"\r\n" | b"\n") => Ok(Summary {
             uid,
             size,
             subject: String::new(),
@@ -319,7 +320,7 @@ fn summary(bytes: &[u8], uid: u32, size: u32) -> Result<Summary> {
             sender_name: None,
             reply_to: String::new(),
             message_id: None,
-            header_limited: true,
+            header_limited: clipped,
         }),
         None => Err("mail_mime_invalid"),
     }

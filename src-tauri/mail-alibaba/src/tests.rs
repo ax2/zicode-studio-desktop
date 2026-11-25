@@ -228,6 +228,89 @@ fn serve_imap(
         }
     }
 }
+
+#[test]
+fn imap_empty_headers_keep_their_page_and_do_not_supply_reply_recipients() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("inbox.sqlite3");
+    let epoch;
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+        mailbox.select_folder("Archive").unwrap();
+        let server = fixture_with_headers(
+            false,
+            false,
+            4,
+            10,
+            false,
+            vec![(40, String::new()), (30, "\r\n".into())],
+        );
+        let first = mailbox.sync(&server.adapter, "synthetic", None, 3);
+        server.thread.join().unwrap();
+        let trace: Vec<_> = server.rx.try_iter().collect();
+        assert_eq!(trace.len(), 1, "{trace:?}");
+        assert!(trace[0].starts_with("FETCH 2:4 "), "{trace:?}");
+        let first = first.expect("an empty header must not hide the other messages");
+        epoch = first.uid_validity;
+        assert_eq!(
+            first.messages.iter().map(|row| row.uid).collect::<Vec<_>>(),
+            [40, 30, 20]
+        );
+        for message in &first.messages[..2] {
+            assert!(message.subject.is_empty() && message.sender.is_empty());
+            assert!(message.reply_to.is_empty());
+            assert!(message.sender_name.is_none() && message.message_id.is_none());
+            assert!(!message.header_limited);
+            assert!(matches!(
+                mailbox.reply_draft("reply", epoch, message.uid),
+                Err("mail_invalid_reply")
+            ));
+        }
+        assert_eq!(first.messages[2].reply_to, "reply@example.test");
+        let reader = fixture_with_headers(false, false, 4, 10, false, vec![(30, "\r\n".into())]);
+        let read = mailbox
+            .read(&reader.adapter, "synthetic", epoch, 30)
+            .unwrap();
+        reader.thread.join().unwrap();
+        assert_eq!(read.text, "Other");
+        assert!(read.summary.reply_to.is_empty());
+        assert_eq!(read.attachments[0].name, "proof.bin");
+        let older = fixture_with_headers(false, false, 4, 10, false, Vec::new());
+        let next = mailbox
+            .sync(&older.adapter, "synthetic", first.next, 3)
+            .unwrap();
+        older.thread.join().unwrap();
+        assert_eq!(
+            next.messages.iter().map(|row| row.uid).collect::<Vec<_>>(),
+            [10]
+        );
+        assert!(next.next.is_none());
+    }
+    let mut db = Connection::open(&path).unwrap();
+    let mut mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+    mailbox.select_folder("Archive").unwrap();
+    let cached = mailbox.cached_page(None, 4).unwrap();
+    assert_eq!(cached.uid_validity, epoch);
+    assert_eq!(
+        cached
+            .messages
+            .iter()
+            .map(|row| row.uid)
+            .collect::<Vec<_>>(),
+        [40, 30, 20, 10]
+    );
+    assert_eq!(cached.messages[0].reply_to, "");
+    assert_eq!(cached.messages[2].reply_to, "reply@example.test");
+    assert_eq!(mailbox.cached_body(epoch, 30).unwrap().text, "Other");
+    mailbox.select_folder("INBOX").unwrap();
+    assert!(matches!(
+        mailbox.cached_page(None, 4),
+        Err("mail_cache_empty")
+    ));
+}
+
 #[test]
 fn imap_sender_display_name_survives_cache_reopen_without_changing_reply_address() {
     use base64::{engine::general_purpose::STANDARD, Engine};
