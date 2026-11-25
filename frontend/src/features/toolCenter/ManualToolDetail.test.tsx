@@ -6,6 +6,7 @@ import { fireEvent, within } from "@testing-library/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
+import * as downloads from "../../shared/download-file";
 import { setLocale } from "../../shared/i18n";
 import { emptyAccess } from "../commandPalette/tool-access";
 import { ManualToolDetail } from "./ManualToolDetail";
@@ -21,7 +22,7 @@ async function mount(activeTool: ManualTool = tool, resourceInputProfile?: strin
   setLocale("zh-CN");
   const api: ManualToolApi = {
     searchTools: vi.fn(),
-    loadTool: vi.fn(async () => ({ pluginId: activeTool.pluginId, version: "0.1.0", revision: "revision", enabled: activeTool.enabled,
+    loadTool: vi.fn(async () => ({ pluginId: activeTool.pluginId, version: activeTool.version, revision: "revision", enabled: activeTool.enabled,
       resourceInputProfile, capability: { id: activeTool.capabilityId, inputSchema },
       permissions: resourceInputProfile ? [{ name: "resource.read", granted: true, required: false, reason: "" }] : [] })),
     invoke: vi.fn(async () => ({ result: envelope("中\nnext\n") })),
@@ -63,6 +64,25 @@ it("shows exact readable text, collapsed original response and records successfu
   expect(container.textContent).toContain("工具执行成功");
   expect(container.querySelector("details")?.open).toBe(false);
   expect(store.mutate).toHaveBeenCalledWith({ sceneId: "programming", workspaceId: "workspace" }, { kind: "recentRecord", id: "access" });
+});
+
+it("downloads an empty successful URL decode only after the imported text is run", async () => {
+  const download = vi.spyOn(downloads, "downloadFile").mockImplementation(() => {});
+  try {
+    const { container, api, submit } = await mount({ ...tool, pluginId: "com.zicode.devtools.transforms",
+      capabilityId: "devtools.transforms.url.decode", version: "0.1.1" }, undefined,
+    { type: "object", required: ["text"], properties: { text: { type: "string", maxLength: 8192 } }, additionalProperties: false });
+    const view = within(container);
+    vi.mocked(api.invoke).mockResolvedValue({ result: envelope("") });
+    await act(async () => fireEvent.change(view.getByLabelText("UTF-8 文本文件"), { target: { files: [new NodeFile([], "empty.txt")] } }));
+    expect(api.invoke).not.toHaveBeenCalled();
+    expect(view.queryByRole("button", { name: "下载解码文本" })).toBeNull();
+    await submit();
+    expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text: "" });
+    expect(download).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "下载解码文本" }));
+    expect(download).toHaveBeenCalledWith(expect.stringMatching(/^url-decoded-\d+\.txt$/), "", "text/plain;charset=utf-8");
+  } finally { download.mockRestore(); }
 });
 
 it("replaces prior success with an escaped business error and does not record failed use", async () => {
