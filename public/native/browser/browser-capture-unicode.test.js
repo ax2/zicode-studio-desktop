@@ -108,17 +108,17 @@ function captureFrames({ text = "Main body", selection = "Main selection", withI
   if (withLinks) {
     const anchor = (href, innerText, hidden = false) => ({
       nodeType: 1, localName: "a", href, innerText, closest: () => null,
-      getClientRects: () => hidden ? [] : [{}], querySelector: () => null,
+      matches: () => false, childNodes: [], getClientRects: () => hidden ? [] : [{}], querySelector: () => null,
     });
     const refs = (name, count) => Array.from({ length: count }, (_, i) =>
       anchor(`${origin}/${name}/${i}`, `${name} ${i}`));
-    document.links.push(anchor(`${origin}/main`, "Main"));
-    sameOrigin.links.push(...refs("embedded", 7), anchor(`${origin}/not-visible`, "Hidden", true));
-    nested.links.push(anchor("mailto:hello@example.org", "Email"), ...refs("nested", 6),
+    document.body.childNodes.push(anchor(`${origin}/main`, "Main"));
+    sameOrigin.body.childNodes.push(...refs("embedded", 7), anchor(`${origin}/not-visible`, "Hidden", true));
+    nested.body.childNodes.push(anchor("mailto:hello@example.org", "Email"), ...refs("nested", 6),
       anchor(`${origin}/nested/0`, "Duplicate"));
-    foreign.links.push(anchor("https://example.com/foreign-link", "Foreign"));
+    foreign.body.childNodes.push(anchor("https://example.com/foreign-link", "Foreign"));
     const last = doc("Last", `${origin}/last`, "", "");
-    last.links.push(anchor(`${origin}/last-link`, "Last"));
+    last.body.childNodes.push(anchor(`${origin}/last-link`, "Last"));
     document.querySelectorAll("iframe,frame").push(iframe(last));
   }
   return runInNewContext(script, {
@@ -277,6 +277,38 @@ test("captures rendered open components in order and keeps private and unslotted
     text: "Before\nComponent start\nSlotted heading\nVisible fallback\nNested component\nAfter\n",
     textTruncated: false,
   });
+});
+
+test("captures composed links in order and excludes links absent from the rendered tree", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  document.body.innerHTML = '<a href="https://example.org/plain">Plain</a><div id="host">' +
+    '<a slot="visible" href="https://example.org/assigned">Assigned</a>' +
+    '<a href="https://example.org/unslotted">Unassigned</a></div><div id="closed"></div>';
+  const root = document.getElementById("host").attachShadow({ mode: "open" });
+  root.innerHTML = '<a href="https://example.org/component">Component</a>' +
+    '<slot name="visible"><a href="https://example.org/fallback">Fallback</a></slot>' +
+    '<section aria-hidden="true"><a href="https://example.org/hidden">Hidden</a></section>' +
+    '<a href="https://example.org/plain">Duplicate</a><a href="javascript:void(0)">Non-web</a>';
+  document.getElementById("closed").attachShadow({ mode: "closed" }).innerHTML =
+    '<a href="https://example.org/closed">Closed</a>';
+  for (const link of [...document.querySelectorAll("a"), ...root.querySelectorAll("a")]) {
+    Object.defineProperty(link, "innerText", { value: link.textContent });
+  }
+  const page = captureSelection();
+  expect(page).toMatchObject({
+    links: [
+      { label: "Plain", url: "https://example.org/plain" },
+      { label: "Component", url: "https://example.org/component" },
+      { label: "Assigned", url: "https://example.org/assigned" },
+    ],
+    linksTruncated: false,
+  });
+  const capture = { page, capturedAt: "2026-11-25T00:00:00Z" };
+  const options = { includeLinks: true, linkIndexes: [1] };
+  for (const text of [browserNoteContent(capture, false, options), browserDraftPrompt(capture, options)]) {
+    expect(text).toContain("https://example.org/component");
+    expect(text).not.toContain("https://example.org/assigned");
+  }
 });
 
 test("keeps a paragraph selection on a page with many unrelated controls", () => {

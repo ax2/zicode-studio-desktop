@@ -140,15 +140,24 @@
   }
   const mainText = readText(document, textRemaining);
   const mainSelection = readSelection(document, getSelection());
+  let linkStructureRemaining = 24000;
   function readLinks(doc, limit, scan) {
     const links = [];
     const seen = new Set();
-    const anchors = doc.links;
-    let linksTruncated = anchors.length > scan;
-    for (let i = 0; i < Math.min(anchors.length, scan); i++) {
-      const anchor = anchors[i];
-      if (anchor.localName !== "a" || !visible(anchor) ||
-          anchor.querySelector('input,textarea,select,[contenteditable]')) continue;
+    const pending = [[doc.body || doc.documentElement].values()];
+    let linksTruncated = false;
+    while (pending.length) {
+      const next = pending.at(-1).next();
+      if (next.done) { pending.pop(); continue; }
+      if (linkStructureRemaining === 0) { linksTruncated = true; break; }
+      linkStructureRemaining--;
+      const anchor = next.value;
+      if (anchor.nodeType !== Node.ELEMENT_NODE || anchor.matches(excluded)) continue;
+      pending.push(renderedChildren(anchor).values());
+      if (anchor.localName !== "a" || typeof anchor.href !== "string" || !anchor.href) continue;
+      if (scan.remaining === 0) { linksTruncated = true; break; }
+      scan.remaining--;
+      if (!visible(anchor) || anchor.querySelector('input,textarea,select,[contenteditable]')) continue;
       const url = webUrl(anchor.href);
       if (!url || seen.has(url)) continue;
       if (links.length === limit) { linksTruncated = true; break; }
@@ -157,7 +166,7 @@
     }
     return { links, linksTruncated };
   }
-  const mainLinks = readLinks(document, 20, 1000);
+  const mainLinks = readLinks(document, 20, { remaining: 1000 });
   let tablesRemaining = 4;
   let tablesToScan = 100;
   let tableTextRemaining = 3600;
@@ -261,7 +270,7 @@
   let framesToScan = 24;
   const origin = location.origin;
   let frameLinksRemaining = 12;
-  let frameLinksToScan = 400;
+  const frameLinksToScan = { remaining: 400 };
   let frameImagesRemaining = 12;
   let frameImagesToScan = 400;
   function readFrames(doc, path) {
@@ -286,9 +295,7 @@
       const body = readText(child, 8000);
       const selection = readSelection(child, child.getSelection());
       const tables = readTables(child);
-      const linkScan = Math.min(child.links.length, frameLinksToScan);
-      frameLinksToScan -= linkScan;
-      const references = readLinks(child, Math.min(6, frameLinksRemaining), linkScan);
+      const references = readLinks(child, Math.min(6, frameLinksRemaining), frameLinksToScan);
       frameLinksRemaining -= references.links.length;
       const imageScan = Math.min(child.images?.length ?? 0, frameImagesToScan);
       frameImagesToScan -= imageScan;
