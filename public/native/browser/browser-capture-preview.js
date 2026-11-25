@@ -263,7 +263,7 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   }
   if (clip && compare) {
     compare.button.addEventListener("click", () => { if (!compare.panel.hidden) clip.panel.hidden = true; });
-    clip.button.addEventListener("click", () => { compare.panel.hidden = true; });
+    clip.button.addEventListener("click", compare.collapse);
   }
   actions.append(close);
   dialog.append(title, source);
