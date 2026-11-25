@@ -176,6 +176,7 @@ const zhCN = {
   "transfer size": "传输大小",
   "Attachments": "附件",
   "Download attachment": "下载附件",
+  "Saving attachment…": "正在保存附件…",
   "Attachment saved.": "附件已保存。",
   "Download canceled.": "已取消下载。",
   "A file with that name already exists. Choose another name.": "已存在同名文件，请选择其他名称。",
