@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.matrix-calculator",
+  "packageVersion": "0.1.0",
+  "signatureVerified": false,
+  "directoryIndexSha256": "49bc56066e4e5b78dd8249129792f33a13fa8626af0f6dadbfb7f4c68d58cafe",
+  "files": [
+    {
+      "path": "catalog.json",
+      "size": 1831,
+      "sha256": "9c4a67e90282584ddede07264b0edb94809e5749947c56829a586b9d728019e3"
+    },
+    {
+      "path": "fixtures.json",
+      "size": 12502,
+      "sha256": "a3eb1b850d9bc59b3d34d0ef6c8009e0282c95c7b1406fab6ff7726bbba6ffd6"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 70,
+      "sha256": "e9dff3445cf4b56cd7e0a4a4c38adb5d1e9338aa87b70ae45c8b55589aa40546"
+    },
+    {
+      "path": "plugin.json",
+      "size": 48180,
+      "sha256": "5ebd0d243c81218a6ed311b4f77f6552a63e9347c3be0a471b5b896d90227895"
+    },
+    {
+      "path": "provenance.json",
+      "size": 20946,
+      "sha256": "698bf4b967c91388077ba79d6c64a4077bfbf475ba75d5b0e9ea8dbb6b5b7f38"
+    },
+    {
+      "path": "README.md",
+      "size": 1111,
+      "sha256": "1c5f2bff328012dba7f7cde7529f71ccadfe57aac3877da8a4ff98b4500aea84"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 275967,
+      "sha256": "7ca95b1f25207e221206b1db623c6520df25f859fbe8fc1f403b2c8fdf46d71a"
+    }
+  ],
+  "fileCount": 8,
+  "totalBytes": 361704,
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}

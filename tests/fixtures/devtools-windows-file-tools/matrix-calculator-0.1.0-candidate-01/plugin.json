@@ -1,0 +1,1441 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.matrix-calculator",
+  "name": "ZiDevTools Matrix Calculator",
+  "displayName": "矩阵计算",
+  "description": "离线计算实数矩阵加减、乘法、转置、行列式、逆矩阵和矩阵方程 AX=B。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "compute.wasi.v1": "=1.0.0-rc.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.matrix.add",
+    "onCapability:devtools.matrix.subtract",
+    "onCapability:devtools.matrix.multiply",
+    "onCapability:devtools.matrix.transpose",
+    "onCapability:devtools.matrix.determinant",
+    "onCapability:devtools.matrix.inverse",
+    "onCapability:devtools.matrix.solve"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.matrix.add",
+        "title": "矩阵加法",
+        "description": "对同样尺寸的矩阵 A 和 B 逐项相加。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 A",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "b": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 B",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "precision": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "approximate"
+              ],
+              "default": "exact",
+              "title": "计算精度",
+              "description": "exact 使用精确有理数，支持分数如 1/3。approximate 使用有限小数或科学计数法。"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "error": {
+                  "type": "null"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "rowCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "columnCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "approximate": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "exact"
+                                },
+                                "numerator": {
+                                  "type": "string",
+                                  "maxLength": 40
+                                },
+                                "denominator": {
+                                  "type": "string",
+                                  "maxLength": 39
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "numerator",
+                                "denominator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "approx"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 64
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 8
+                      },
+                      "minItems": 1,
+                      "maxItems": 8
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 12288
+                    }
+                  },
+                  "required": [
+                    "rowCount",
+                    "columnCount",
+                    "approximate",
+                    "values",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "error",
+                "data"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 12288,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "矩阵相加",
+            "Matrix addition"
+          ],
+          "description": "对同样尺寸的矩阵 A 和 B 逐项相加。"
+        }
+      },
+      {
+        "id": "devtools.matrix.subtract",
+        "title": "矩阵减法",
+        "description": "从矩阵 A 中逐项减去同样尺寸的矩阵 B。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 A",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "b": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 B",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "precision": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "approximate"
+              ],
+              "default": "exact",
+              "title": "计算精度",
+              "description": "exact 使用精确有理数，支持分数如 1/3。approximate 使用有限小数或科学计数法。"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "error": {
+                  "type": "null"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "rowCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "columnCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "approximate": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "exact"
+                                },
+                                "numerator": {
+                                  "type": "string",
+                                  "maxLength": 40
+                                },
+                                "denominator": {
+                                  "type": "string",
+                                  "maxLength": 39
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "numerator",
+                                "denominator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "approx"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 64
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 8
+                      },
+                      "minItems": 1,
+                      "maxItems": 8
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 12288
+                    }
+                  },
+                  "required": [
+                    "rowCount",
+                    "columnCount",
+                    "approximate",
+                    "values",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "error",
+                "data"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 12288,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "矩阵相减",
+            "Matrix subtraction"
+          ],
+          "description": "从矩阵 A 中逐项减去同样尺寸的矩阵 B。"
+        }
+      },
+      {
+        "id": "devtools.matrix.multiply",
+        "title": "矩阵乘法",
+        "description": "计算 A × B。A 的列数须与 B 的行数相同。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 A",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "b": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 B",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "precision": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "approximate"
+              ],
+              "default": "exact",
+              "title": "计算精度",
+              "description": "exact 使用精确有理数，支持分数如 1/3。approximate 使用有限小数或科学计数法。"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "error": {
+                  "type": "null"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "rowCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "columnCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "approximate": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "exact"
+                                },
+                                "numerator": {
+                                  "type": "string",
+                                  "maxLength": 40
+                                },
+                                "denominator": {
+                                  "type": "string",
+                                  "maxLength": 39
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "numerator",
+                                "denominator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "approx"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 64
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 8
+                      },
+                      "minItems": 1,
+                      "maxItems": 8
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 12288
+                    }
+                  },
+                  "required": [
+                    "rowCount",
+                    "columnCount",
+                    "approximate",
+                    "values",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "error",
+                "data"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 12288,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "矩阵乘积",
+            "Matrix multiplication"
+          ],
+          "description": "计算 A × B。A 的列数须与 B 的行数相同。"
+        }
+      },
+      {
+        "id": "devtools.matrix.transpose",
+        "title": "矩阵转置",
+        "description": "将 A 的行与列互换。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 A",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "precision": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "approximate"
+              ],
+              "default": "exact",
+              "title": "计算精度",
+              "description": "exact 使用精确有理数，支持分数如 1/3。approximate 使用有限小数或科学计数法。"
+            }
+          },
+          "required": [
+            "a"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "error": {
+                  "type": "null"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "rowCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "columnCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "approximate": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "exact"
+                                },
+                                "numerator": {
+                                  "type": "string",
+                                  "maxLength": 40
+                                },
+                                "denominator": {
+                                  "type": "string",
+                                  "maxLength": 39
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "numerator",
+                                "denominator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "approx"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 64
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 8
+                      },
+                      "minItems": 1,
+                      "maxItems": 8
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 12288
+                    }
+                  },
+                  "required": [
+                    "rowCount",
+                    "columnCount",
+                    "approximate",
+                    "values",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "error",
+                "data"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 12288,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "转置矩阵",
+            "Matrix transpose"
+          ],
+          "description": "将 A 的行与列互换。"
+        }
+      },
+      {
+        "id": "devtools.matrix.determinant",
+        "title": "矩阵行列式",
+        "description": "计算方阵 A 的 det(A)。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 A",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "precision": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "approximate"
+              ],
+              "default": "exact",
+              "title": "计算精度",
+              "description": "exact 使用精确有理数，支持分数如 1/3。approximate 使用有限小数或科学计数法。"
+            }
+          },
+          "required": [
+            "a"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "error": {
+                  "type": "null"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "rowCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "columnCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "approximate": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "exact"
+                                },
+                                "numerator": {
+                                  "type": "string",
+                                  "maxLength": 40
+                                },
+                                "denominator": {
+                                  "type": "string",
+                                  "maxLength": 39
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "numerator",
+                                "denominator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "approx"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 64
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 8
+                      },
+                      "minItems": 1,
+                      "maxItems": 8
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 12288
+                    }
+                  },
+                  "required": [
+                    "rowCount",
+                    "columnCount",
+                    "approximate",
+                    "values",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "error",
+                "data"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 12288,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "行列式",
+            "Matrix determinant"
+          ],
+          "description": "计算方阵 A 的 det(A)。"
+        }
+      },
+      {
+        "id": "devtools.matrix.inverse",
+        "title": "逆矩阵",
+        "description": "计算可逆方阵 A 的逆。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 A",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "precision": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "approximate"
+              ],
+              "default": "exact",
+              "title": "计算精度",
+              "description": "exact 使用精确有理数，支持分数如 1/3。approximate 使用有限小数或科学计数法。"
+            }
+          },
+          "required": [
+            "a"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "error": {
+                  "type": "null"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "rowCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "columnCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "approximate": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "exact"
+                                },
+                                "numerator": {
+                                  "type": "string",
+                                  "maxLength": 40
+                                },
+                                "denominator": {
+                                  "type": "string",
+                                  "maxLength": 39
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "numerator",
+                                "denominator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "approx"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 64
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 8
+                      },
+                      "minItems": 1,
+                      "maxItems": 8
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 12288
+                    }
+                  },
+                  "required": [
+                    "rowCount",
+                    "columnCount",
+                    "approximate",
+                    "values",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "error",
+                "data"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 12288,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "矩阵求逆",
+            "Matrix inverse"
+          ],
+          "description": "计算可逆方阵 A 的逆。"
+        }
+      },
+      {
+        "id": "devtools.matrix.solve",
+        "title": "矩阵方程求解",
+        "description": "求解 AX=B。A 须为可逆方阵，B 可有多列右端项。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 A",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "b": {
+              "type": "string",
+              "maxLength": 4096,
+              "minLength": 1,
+              "title": "矩阵 B",
+              "description": "粘贴 1–8 行、每行 1–8 列。列用 Tab 分隔，行用换行分隔，可从电子表格直接复制。每个矩阵最多 4096 UTF-8 字节。"
+            },
+            "precision": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "approximate"
+              ],
+              "default": "exact",
+              "title": "计算精度",
+              "description": "exact 使用精确有理数，支持分数如 1/3。approximate 使用有限小数或科学计数法。"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "error": {
+                  "type": "null"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "rowCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "columnCount": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "approximate": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "exact"
+                                },
+                                "numerator": {
+                                  "type": "string",
+                                  "maxLength": 40
+                                },
+                                "denominator": {
+                                  "type": "string",
+                                  "maxLength": 39
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "numerator",
+                                "denominator"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "approx"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 64
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 8
+                      },
+                      "minItems": 1,
+                      "maxItems": 8
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 12288
+                    }
+                  },
+                  "required": [
+                    "rowCount",
+                    "columnCount",
+                    "approximate",
+                    "values",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "error",
+                "data"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 12288,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "解线性方程组",
+            "Solve AX=B",
+            "Matrix equation solver"
+          ],
+          "description": "求解 AX=B。A 须为可逆方阵，B 可有多列右端项。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [],
+    "optional": []
+  }
+}
