@@ -61,14 +61,21 @@ fn fixture_with_uid_validity(
         count,
         stride,
         reject_search,
-        ImapContent { headers, uid_validity, legacy_text: false },
+        ImapContent { headers, uid_validity, legacy_text: false, unsolicited_flags: None },
     )
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FetchStage {
+    Structure,
+    Part,
 }
 
 struct ImapContent {
     headers: Vec<(u32, String)>,
     uid_validity: u32,
     legacy_text: bool,
+    unsolicited_flags: Option<(FetchStage, u32)>,
 }
 
 fn fixture_with_content(
@@ -161,7 +168,7 @@ fn serve_imap(
     content: ImapContent,
     trace: std::sync::mpsc::Sender<String>,
 ) {
-    let ImapContent { headers, uid_validity, legacy_text } = content;
+    let ImapContent { headers, uid_validity, legacy_text, unsolicited_flags } = content;
     let default_header = &MSG[..MSG.find("\r\n\r\n").unwrap() + 4];
     let header_for = |uid| {
         headers
@@ -224,15 +231,27 @@ fn serve_imap(
                 ("UTF-8", plain, "UTF-8", "8BIT", "<p>HTML fixture</p>")
             };
             if upper.contains("BODYSTRUCTURE") {
-                let header = header_for(a);
+                let mut response_uid = a;
+                if let Some((FetchStage::Structure, payload_uid)) = unsolicited_flags {
+                    emit(s, &format!("* 3 FETCH (UID {a} FLAGS (\\Seen))\r\n"));
+                    response_uid = payload_uid;
+                }
+                let header = header_for(response_uid);
                 let tree=format!(r#"((("TEXT" "PLAIN" ("CHARSET" "{plain_charset}") NIL NIL "BASE64" {} 1)("TEXT" "HTML" ("CHARSET" "{html_charset}") NIL NIL "{html_transfer}" {} 1) "ALTERNATIVE")("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BASE64" 8 NIL ("ATTACHMENT" ("FILENAME" "proof.bin")))("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BINARY" {} NIL ("ATTACHMENT" ("FILENAME" "large.bin"))) "MIXED")"#,plain.len(),html.len(),LARGE_ATTACHMENT);
-                emit(s,&format!("* 3 FETCH (UID {a} RFC822.SIZE {} BODYSTRUCTURE {tree} BODY[HEADER]<0> {{{}}}\r\n{header})\r\n{tag} OK fetched\r\n",MSG.len()+LARGE_ATTACHMENT,header.len()));
+                let sequence = response_uid / stride;
+                emit(s,&format!("* {sequence} FETCH (UID {response_uid} RFC822.SIZE {} BODYSTRUCTURE {tree} BODY[HEADER]<0> {{{}}}\r\n{header})\r\n{tag} OK fetched\r\n",MSG.len()+LARGE_ATTACHMENT,header.len()));
                 continue;
             }
             if upper.starts_with("UID FETCH") && upper.contains("BODY.PEEK[") && !upper.contains("[HEADER]") {
+                let mut response_uid = a;
+                if let Some((FetchStage::Part, payload_uid)) = unsolicited_flags {
+                    emit(s, &format!("* 3 FETCH (UID {a} FLAGS (\\Seen))\r\n"));
+                    response_uid = payload_uid;
+                }
                 let section=upper.split("BODY.PEEK[").nth(1).unwrap().split(']').next().unwrap();
                 let data=match section {"1.1"=>plain.to_owned(),"1.2"=>html.to_owned(),"2"=>if archive {"QkJCQg=="} else {"AP8BAg=="}.to_owned(),"3"=>"Z".repeat(LARGE_ATTACHMENT),other=>panic!("Unexpected payload fetch {other}")};
-                emit(s,&format!("* 3 FETCH (UID {a} BODY[{section}]<0> {{{}}}\r\n{data})\r\n{tag} OK fetched\r\n",data.len()));
+                let sequence = response_uid / stride;
+                emit(s,&format!("* {sequence} FETCH (UID {response_uid} BODY[{section}]<0> {{{}}}\r\n{data})\r\n{tag} OK fetched\r\n",data.len()));
                 continue;
             }
             let header = upper.contains("[HEADER]");
@@ -260,6 +279,90 @@ fn serve_imap(
     }
 }
 
+fn fixture_with_unsolicited_flags(stage: FetchStage, payload_uid: u32) -> Fixture {
+    fixture_with_content(
+        false,
+        false,
+        3,
+        10,
+        false,
+        ImapContent {
+            headers: vec![],
+            uid_validity: 7,
+            legacy_text: false,
+            unsolicited_flags: Some((stage, payload_uid)),
+        },
+    )
+}
+
+#[test]
+fn imap_unsolicited_fetch_flags_allow_read_and_offline_body() {
+    let results = [FetchStage::Structure, FetchStage::Part].map(|stage| {
+        let mut db = database();
+        let mut mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+        let list = fixture(false, false);
+        mailbox.sync(&list.adapter, "synthetic", None, 3).unwrap();
+        list.thread.join().unwrap();
+        let f = fixture_with_unsolicited_flags(stage, 30);
+        let letter = mailbox.read(&f.adapter, "synthetic", 7, 30);
+        f.thread.join().unwrap();
+        let commands = f.rx.try_iter().collect::<Vec<_>>();
+        let offline = mailbox.cached_body(7, 30);
+        (stage, letter, commands, offline)
+    });
+    let errors: Vec<_> = results.iter().filter_map(|(stage, letter, commands, _)| {
+        letter.as_ref().err().map(|error| (stage, error, commands))
+    }).collect();
+    assert!(errors.is_empty(), "Expected both body reads to succeed: {errors:?}");
+    for (stage, letter, commands, offline) in results {
+        let letter = letter.unwrap_or_else(|e| panic!("{stage:?} intercepted the requested data: {e}; {commands:?}"));
+        assert_eq!(letter.text.trim(), "你好");
+        assert_eq!(letter.html.as_deref().map(str::trim), Some("<p>HTML fixture</p>"));
+        assert_eq!(letter.summary.reply_to, "reply@example.test");
+        assert_eq!(letter.attachments[0].name, "proof.bin");
+        assert_eq!(commands.len(), 3);
+        assert!(commands[0].contains("BODYSTRUCTURE"));
+        assert!(commands[1].contains("BODY.PEEK[1.1]"));
+        assert!(commands[2].contains("BODY.PEEK[1.2]"));
+        assert_eq!(offline.unwrap().text.trim(), "你好");
+    }
+}
+
+#[test]
+fn imap_unsolicited_fetch_flags_allow_explicit_attachment_read() {
+    let attachment = Attachment { id: 0, name: "proof.bin".into(), size: 8 };
+    let results = [FetchStage::Structure, FetchStage::Part].map(|stage| {
+        let f = fixture_with_unsolicited_flags(stage, 30);
+        let bytes = f.adapter.attachment("user@example.test", "synthetic", "INBOX", 7, 30, &attachment);
+        f.thread.join().unwrap();
+        (stage, bytes, f.rx.try_iter().collect::<Vec<_>>())
+    });
+    let errors: Vec<_> = results.iter().filter_map(|(stage, bytes, commands)| {
+        bytes.as_ref().err().map(|error| (stage, error, commands))
+    }).collect();
+    assert!(errors.is_empty(), "Expected both attachment reads to succeed: {errors:?}");
+    for (stage, bytes, commands) in results {
+        assert_eq!(bytes.unwrap_or_else(|e| panic!("{stage:?} intercepted the requested data: {e}; {commands:?}")), [0, 255, 1, 2]);
+        assert_eq!(commands.len(), 2);
+        assert!(commands[0].contains("BODYSTRUCTURE"));
+        assert!(commands[1].contains("BODY.PEEK[2]"));
+    }
+}
+
+#[test]
+fn imap_unsolicited_fetch_flags_reject_another_uids_data() {
+    let attachment = Attachment { id: 0, name: "proof.bin".into(), size: 8 };
+    for stage in [FetchStage::Structure, FetchStage::Part] {
+        let f = fixture_with_unsolicited_flags(stage, 20);
+        let bytes = f.adapter.attachment("user@example.test", "synthetic", "INBOX", 7, 30, &attachment);
+        f.thread.join().unwrap();
+        assert!(matches!(bytes, Err("mail_protocol")), "{stage:?}: {bytes:?}");
+        let commands: Vec<_> = f.rx.try_iter().collect();
+        assert!(commands.iter().all(|command| command.starts_with("UID FETCH 30 ")));
+        assert_eq!(commands.len(), if stage == FetchStage::Structure { 1 } else { 2 });
+    }
+}
+
 #[test]
 fn imap_legacy_chinese_text_survives_cache_reopen_without_changing_attachments() {
     let temp = tempfile::tempdir().unwrap();
@@ -284,6 +387,7 @@ fn imap_legacy_chinese_text_survives_cache_reopen_without_changing_attachments()
                 )],
                 uid_validity: 7,
                 legacy_text: true,
+                unsolicited_flags: None,
             },
         )
     };
