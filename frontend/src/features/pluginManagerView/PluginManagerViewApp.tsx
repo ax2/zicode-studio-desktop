@@ -9,6 +9,7 @@ import {
   friendlyPluginError,
   helpPageForPlugin,
   isStalePluginActivationReview,
+  isStalePluginPackagePreview,
   MANAGER_FILTERS,
   type ManagedPlugin,
   type PluginActivationReview,
@@ -124,6 +125,7 @@ export function PluginManagerViewApp({
   const [query, setQuery] = useState("");
   const [developerPreview, setDeveloperPreview] = useState<DeveloperPluginPreview | null>(null);
   const [signedPreview, setSignedPreview] = useState<SignedPluginPreview | null>(null);
+  const [stalePreview, setStalePreview] = useState<DeveloperPluginPreview | SignedPluginPreview | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [activation, setActivation] = useState<ActivationSetup | null>(null);
   const [deferred, setDeferred] = useState(false);
@@ -225,6 +227,45 @@ export function PluginManagerViewApp({
       setBusyKey(key, false);
     }
   };
+
+  function selectPackage(kind: "local" | "signed", keepPreview = false) {
+    if (installBusy || busy.activation) return;
+    if (!keepPreview) {
+      setDeveloperPreview(null);
+      setSignedPreview(null);
+      setStalePreview(null);
+    }
+    const scope = scopeKey();
+    void runAction(`preview-${kind}`, async () => {
+      const current = () => scopeKey() === scope && pageHeading.current?.isConnected;
+      if (kind === "local") {
+        const preview = await selectDeveloperPlugin?.();
+        if (!preview || !current()) return;
+        setDeveloperPreview(preview);
+      } else {
+        const preview = await selectSignedPlugin?.();
+        if (!preview || !current()) return;
+        setSignedPreview(preview);
+      }
+      setStalePreview(null);
+    });
+  }
+
+  async function installReviewedPackage(
+    preview: DeveloperPluginPreview | SignedPluginPreview, scope: string,
+    install: () => Promise<PluginInstallReceipt | null | undefined>,
+    close: () => void,
+  ) {
+    let receipt: PluginInstallReceipt | null | undefined;
+    try {
+      receipt = await install();
+    } catch (error) {
+      if (!isStalePluginPackagePreview(error)) throw error;
+      if (scopeKey() === scope && pageHeading.current?.isConnected) setStalePreview(preview);
+      return;
+    }
+    if (receipt) await completeInstall(receipt, scope, close);
+  }
 
   const renderCard = (plugin: ManagedPlugin) => {
     const isDeveloperOrSigned = plugin.origin === "developer" || plugin.origin === "signed";
@@ -431,14 +472,7 @@ export function PluginManagerViewApp({
               : undefined
           }
           busy={Boolean(busy["preview-local"])}
-          onClick={() => {
-            setDeveloperPreview(null);
-            setSignedPreview(null);
-            void runAction("preview-local", async () => {
-              const preview = await selectDeveloperPlugin?.();
-              if (preview) setDeveloperPreview(preview);
-            });
-          }}
+          onClick={() => selectPackage("local")}
         />
         <ActionButton
           label={t("Install signed package")}
@@ -449,14 +483,7 @@ export function PluginManagerViewApp({
             typeof installSignedPlugin !== "function"
           }
           busy={Boolean(busy["preview-signed"])}
-          onClick={() => {
-            setDeveloperPreview(null);
-            setSignedPreview(null);
-            void runAction("preview-signed", async () => {
-              const preview = await selectSignedPlugin?.();
-              if (preview) setSignedPreview(preview);
-            });
-          }}
+          onClick={() => selectPackage("signed")}
         />
         <ActionButton
           label={t("Refresh")}
@@ -479,28 +506,31 @@ export function PluginManagerViewApp({
           <p>{`${t("Declared tools")}: ${developerPreview.capabilityCount}`}</p>
           <p>{`${t("Permissions")}: ${developerPreview.permissions.length ? developerPreview.permissions.join(", ") : t("No permissions requested")}`}</p>
           <p>{t("Unsigned development package. Review its permissions after installing.")}</p>
+          {stalePreview === developerPreview ? <p role="alert">{t("The plugin package changed after preview. Select it again.")}</p> : null}
           <div className="plugin-manager-preview-actions">
             <ActionButton
-              label={t("Install reviewed plugin")}
+              label={t(stalePreview === developerPreview ? "Select plugin package again" : "Install reviewed plugin")}
               variant="ui-button--primary"
-              busy={Boolean(busy["install-local"])}
+              aria-disabled={installBusy || undefined}
+              aria-busy={installBusy || undefined}
               onClick={() => {
-                void runAction("install-local", async () => {
-                  const scope = scopeKey();
-                  const receipt = await installDeveloperPlugin?.(developerPreview.sourcePath, developerPreview.contentSha256);
-                  if (receipt) await completeInstall(receipt, scope, () => setDeveloperPreview(null));
-                });
+                if (installBusy) return;
+                if (stalePreview === developerPreview) return selectPackage("local", true);
+                void runAction("install-local", () => installReviewedPackage(developerPreview, scopeKey(),
+                  async () => installDeveloperPlugin?.(developerPreview.sourcePath, developerPreview.contentSha256),
+                  () => setDeveloperPreview(null)));
               }}
             />
-            <ActionButton label={t("Cancel")} disabled={Boolean(busy["install-local"])} onClick={() => setDeveloperPreview(null)} />
+            <ActionButton label={t("Cancel")} disabled={installBusy} onClick={() => setDeveloperPreview(null)} />
           </div>
         </section>
       ) : null}
       {signedPreview ? (
         <SignedPluginPreviewCard
           preview={signedPreview}
-          busy={Boolean(busy["install-signed"])}
+          busy={installBusy}
           onCancel={() => setSignedPreview(null)}
+          onReselect={stalePreview === signedPreview ? () => selectPackage("signed", true) : undefined}
           onInstall={() => {
             void runAction("install-signed", async () => {
               const scope = scopeKey();
@@ -518,8 +548,9 @@ export function PluginManagerViewApp({
                 return;
               }
               if (scopeKey() !== scope) return;
-              const receipt = await installSignedPlugin?.(signedPreview.packagePath, signedPreview.manifestSha256, !signedPreview.trusted);
-              if (receipt) await completeInstall(receipt, scope, () => setSignedPreview(null));
+              await installReviewedPackage(signedPreview, scope,
+                async () => installSignedPlugin?.(signedPreview.packagePath, signedPreview.manifestSha256, !signedPreview.trusted),
+                () => setSignedPreview(null));
             });
           }}
         />

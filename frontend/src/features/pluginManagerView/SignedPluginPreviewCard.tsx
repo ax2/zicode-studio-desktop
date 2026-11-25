@@ -20,11 +20,13 @@ export function SignedPluginPreviewCard({
   preview,
   busy,
   onInstall,
+  onReselect,
   onCancel,
 }: {
   preview: SignedPluginPreview;
   busy: boolean;
   onInstall(): void;
+  onReselect?(): void;
   onCancel(): void;
 }) {
   const [query, setQuery] = useState("");
@@ -67,9 +69,11 @@ export function SignedPluginPreviewCard({
       <p>{`${t("Permissions")}: ${preview.permissions.length ? preview.permissions.join(", ") : t("No permissions requested")}`}</p>
       <p>{`${t("Key fingerprint")}: ${preview.publisherKeyId}`}</p>
       <p>{t(preview.trusted ? "Publisher already trusted" : "Publisher approval required")}</p>
+      {onReselect ? <p role="alert">{t("The plugin package changed after preview. Select it again.")}</p> : null}
       <div className="plugin-manager-preview-actions">
-        <button type="button" className="ui-button ui-button--sm ui-button--primary" disabled={busy} aria-busy={busy} onClick={onInstall}>
-          {t("Install reviewed signed package")}
+        <button type="button" className="ui-button ui-button--sm ui-button--primary" aria-disabled={busy || undefined} aria-busy={busy}
+          onClick={() => { if (!busy) (onReselect ?? onInstall)(); }}>
+          {t(onReselect ? "Select plugin package again" : "Install reviewed signed package")}
         </button>
         <button type="button" className="ui-button ui-button--sm ui-button--ghost" disabled={busy} onClick={onCancel}>
           {t("Cancel")}
