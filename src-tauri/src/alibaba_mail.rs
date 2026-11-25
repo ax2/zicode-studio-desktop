@@ -193,7 +193,8 @@ pub(crate) async fn mail_alibaba(
               let attachment=body.attachments.get(part).filter(|a| a.id==part).ok_or("mail_attachment_missing")?;
               let Some(target)=crate::mail_attachment::choose(&window,&attachment.name)? else { return Ok(json!({"saved":false})); };
               crate::resource_export_picker::context(&window,&workspace_id)?;
-              let bytes=adapter.attachment(mailbox.address(),pwd()?.as_str(),mailbox.folder(),uid_validity,uid,attachment)?;
+              mailbox.attachment_is_current(uid_validity)?;
+              let bytes=mailbox.read_attachment(&adapter,pwd()?.as_str(),uid_validity,uid,attachment)?;
               crate::resource_export_picker::context(&window,&workspace_id)?;
               mailbox.attachment_is_current(uid_validity)?;
               crate::mail_attachment::save(&target,&bytes)?;
