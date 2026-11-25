@@ -38,18 +38,49 @@ export function showBrowserReader(page, onClose, position = {}) {
     const anchor = scroll.scrollTop ? readingAnchor() : undefined;
     size = next;
     paintSize();
-    if (!anchor) return;
-
-    const { top, height } = anchor.block.getBoundingClientRect();
-    const offset = anchor.offset > 0 ? anchor.offset * height / anchor.height : anchor.offset;
-    scroll.scrollTop += top + offset - anchor.viewportTop;
+    restoreReadingAnchor(anchor);
+    rememberReflowPosition();
   }
   function readingAnchor() {
     const viewportTop = scroll.getBoundingClientRect().top;
-    for (const block of article.querySelectorAll(":scope > :not(ol, ul), :scope > :is(ol, ul) > li")) {
-      const { top, bottom, height } = block.getBoundingClientRect();
-      if (bottom > viewportTop) return { block, viewportTop, offset: viewportTop - top, height };
+    for (const block of readingBlocks) {
+      const { left, top, bottom, height } = block.getBoundingClientRect();
+      if (bottom > viewportTop) return { block, viewportTop, offset: viewportTop - top, left, top, height };
     }
+  }
+  function reflowReadingAnchor() {
+    const anchor = readingAnchor();
+    if (!anchor) return;
+    const { left, top, height } = anchor;
+    // The text position survives line wrapping, including in long paragraphs and code blocks.
+    const style = getComputedStyle(anchor.block);
+    const x = left + parseFloat(style.borderLeftWidth || "0") + parseFloat(style.paddingLeft || "0") + 1;
+    const y = Math.max(anchor.viewportTop + 1, top + Math.min(8, height / 2));
+    let range;
+    if (typeof document.caretPositionFromPoint === "function") {
+      const caret = document.caretPositionFromPoint(x, y);
+      if (caret) {
+        range = document.createRange();
+        range.setStart(caret.offsetNode, caret.offset);
+      }
+    } else {
+      range = document.caretRangeFromPoint?.(x, y);
+    }
+    if (!range || range.startContainer.nodeType !== Node.TEXT_NODE || !anchor.block.contains(range.startContainer)) return anchor;
+    const line = range.getBoundingClientRect();
+    return line.height ? { ...anchor, range, lineOffset: line.top - anchor.viewportTop } : anchor;
+  }
+  function restoreReadingAnchor(anchor) {
+    if (!anchor) return;
+    const viewportTop = scroll.getBoundingClientRect().top;
+    const line = anchor.range?.getBoundingClientRect();
+    if (line?.height) {
+      scroll.scrollTop += line.top - viewportTop - anchor.lineOffset;
+      return;
+    }
+    const { top, height } = anchor.block.getBoundingClientRect();
+    const offset = anchor.offset > 0 && anchor.height ? anchor.offset * height / anchor.height : anchor.offset;
+    scroll.scrollTop += top + offset - viewportTop;
   }
   paintSize();
   controls.append(smaller, larger, close);
@@ -76,16 +107,39 @@ export function showBrowserReader(page, onClose, position = {}) {
     article.append(textElement(tag, text));
   }
   if (page.truncated) article.append(textElement("p", t("Page content was shortened")));
+  const readingBlocks = article.querySelectorAll(":scope > :not(ol, ul), :scope > :is(ol, ul) > li");
   scroll.append(article);
   dialog.append(header, scroll);
   const rememberPosition = () => { scrollTop = scroll.scrollTop; };
-  scroll.addEventListener("scroll", rememberPosition);
+  let observedWidth, reflowAnchor;
+  function rememberReflowPosition() {
+    rememberPosition();
+    observedWidth = scroll.clientWidth;
+    reflowAnchor = scrollTop ? reflowReadingAnchor() : undefined;
+  }
+  scroll.addEventListener("scroll", () => {
+    // Keep the pre-reflow anchor even if the width change itself fires a scroll event.
+    if (scroll.scrollTop !== scrollTop && scroll.clientWidth === observedWidth) rememberReflowPosition();
+  });
+  const observer = typeof ResizeObserver === "function" ? new ResizeObserver(() => {
+    const width = scroll.clientWidth;
+    if (!width || width === observedWidth) return;
+    observedWidth = width;
+    restoreReadingAnchor(reflowAnchor);
+    rememberPosition();
+  }) : undefined;
   // Capture before native Escape closes the dialog and the scroll box no longer has layout.
   dialog.addEventListener("cancel", rememberPosition);
-  dialog.addEventListener("close", () => { dialog.remove(); onClose({ scrollTop, size }); }, { once: true });
+  dialog.addEventListener("close", () => {
+    observer?.disconnect();
+    dialog.remove();
+    onClose({ scrollTop, size });
+  }, { once: true });
   document.body.append(dialog);
   try { dialog.showModal(); }
   catch (error) { dialog.remove(); throw error; }
   scroll.focus({ preventScroll: true });
   scroll.scrollTop = scrollTop;
+  rememberReflowPosition();
+  observer?.observe(scroll);
 }
