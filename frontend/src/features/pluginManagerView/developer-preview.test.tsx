@@ -20,7 +20,7 @@ const tool = {
 };
 const button = (name: string) => screen.getByRole<HTMLButtonElement>("button", { name });
 
-function setup({ required = true, existing = false, failed = false, activationFails = false } = {}) {
+function setup({ required = true, existing = false, failed = false, activationFails = false, activationDelay = Promise.resolve() } = {}) {
   const permissionDetails = {
     required: required ? [{ name: "resource.read", reason: "Read the chosen JSON file" }] : [],
     optional: required ? [{ name: "pi.tools.register", reason: "Pi integration" }] : [],
@@ -32,9 +32,11 @@ function setup({ required = true, existing = false, failed = false, activationFa
   };
   let installed = existing;
   const activateReviewed = vi.fn(async (_id: string, _review: typeof activationReview, grants: string[]) => {
+    await activationDelay;
     if (activationFails) throw new Error("Cannot save permissions");
     plugin.permissions = Object.fromEntries(grants.map((grant) => [grant, true]));
     plugin.enabled = true;
+    plugin.activationReview = { ...activationReview, sceneRevision: "programming:enabled-revision" };
   });
   const setScene = vi.fn(async () => {});
   const installDeveloperPlugin = vi.fn(async () => {
@@ -144,4 +146,57 @@ it("shows failure without reporting availability or implicitly opening anything"
   expect(setupCard().getByRole("status").textContent).toBe("Permission required");
   expect(flow.plugin.permissions).toEqual({});
   expect(flow.installedTools.list).not.toHaveBeenCalled();
+});
+
+
+function clickFocused(control: HTMLElement) {
+  control.focus();
+  fireEvent.click(control);
+}
+
+it("hands keyboard focus from deferral to review, then the required permission", async () => {
+  setup();
+  await installPackage();
+  clickFocused(button("Keep disabled"));
+  const review = setupCard().getByRole("button", { name: "Review and enable" });
+  expect(document.activeElement).toBe(review);
+  clickFocused(review);
+  expect(document.activeElement).toBe(setupCard().getByRole("checkbox", { name: /Read selected resources/ }));
+});
+
+it("places focus on the available next action after the reviewed revision changes", async () => {
+  const flow = setup({ required: false });
+  await installPackage();
+  clickFocused(button("Keep disabled"));
+  clickFocused(setupCard().getByRole("button", { name: "Review and enable" }));
+  const enable = button("Enable plugin");
+  expect(document.activeElement).toBe(enable);
+  clickFocused(enable);
+  await screen.findByRole("button", { name: "Open Format JSON" });
+  expect(document.activeElement).toBe(button("Open Tool Center"));
+  expect(flow.installedTools.open).not.toHaveBeenCalled();
+});
+
+it("returns focus to retry after a permission write fails", async () => {
+  const flow = setup({ activationFails: true });
+  await installPackage();
+  fireEvent.click(setupCard().getByRole("checkbox", { name: /Read selected resources/ }));
+  const authorize = button("Authorize and enable");
+  clickFocused(authorize);
+  await waitFor(() => expect(flow.notify).toHaveBeenCalledWith("Cannot save permissions"));
+  expect(document.activeElement).toBe(authorize);
+  expect(authorize.disabled).toBe(false);
+});
+
+it("keeps focus where the user moved it while activation was running", async () => {
+  let resolveActivation!: () => void;
+  const activationDelay = new Promise<void>(resolve => { resolveActivation = resolve; });
+  setup({ required: false, activationDelay });
+  await installPackage();
+  clickFocused(button("Enable plugin"));
+  const search = screen.getByRole("searchbox", { name: "Search plugins and tools" });
+  search.focus();
+  resolveActivation();
+  await screen.findByRole("button", { name: "Open Format JSON" });
+  expect(document.activeElement).toBe(search);
 });

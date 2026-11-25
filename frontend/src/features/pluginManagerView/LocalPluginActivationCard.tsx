@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { DirectoryItem, ToolPage } from "../toolCenter/manual-tools";
 import type { ManagedPlugin } from "./pluginManagerLogic";
@@ -33,9 +33,18 @@ export function LocalPluginActivationCard({
 }) {
   const card = useRef<HTMLElement>(null);
   useEffect(() => { card.current?.focus(); }, []);
-  const [chosen, setChosen] = useState<string[]>([]);
-  const [tools, setTools] = useState<ToolPage | null>(null);
-  const [toolListFailed, setToolListFailed] = useState(false);
+  const focusAfterAction = useRef<"defer" | "resume" | "activate" | null>(null);
+  const reviewAction = useRef<HTMLButtonElement>(null);
+  const requiredPermission = useRef<HTMLInputElement>(null);
+  const activateAction = useRef<HTMLButtonElement>(null);
+  const availableAction = useRef<HTMLButtonElement>(null);
+  const [selection, setSelection] = useState<{ revision?: string; grants: string[] }>();
+  const reviewRevision = plugin.activationReview?.sceneRevision;
+  const chosen = selection?.revision === reviewRevision ? selection?.grants ?? [] : [];
+  const [toolList, setToolList] = useState<{ revision?: string; page: ToolPage | null }>();
+  const reviewedTools = toolList?.revision === reviewRevision ? toolList : undefined;
+  const tools = reviewedTools?.page;
+  const toolListFailed = tools === null;
   const [opening, setOpening] = useState(false);
   const packageRevision = plugin.activationReview?.packageRevision;
   const required = plugin.permissionDetails?.required ?? [];
@@ -44,15 +53,38 @@ export function LocalPluginActivationCard({
   const missingRequired = required.filter(({ name }) => !granted(name));
   const pending = missingRequired.length > 0;
 
+  function keepFocusInCard(origin: HTMLButtonElement, action: NonNullable<typeof focusAfterAction.current>) {
+    const root = card.current;
+    if (root?.ownerDocument.activeElement !== origin) return;
+    focusAfterAction.current = action;
+    // Keep a stable focus target while React replaces or disables the action button.
+    root.focus({ preventScroll: true });
+  }
+
+  useLayoutEffect(() => {
+    const action = focusAfterAction.current;
+    if (!action) return;
+    const root = card.current;
+    if (!root || root.ownerDocument.activeElement !== root) {
+      focusAfterAction.current = null;
+      return;
+    }
+    if (busy || (action === "defer" && !deferred) || (action === "resume" && deferred)) return;
+    const permissionAction = activateAction.current?.disabled ? requiredPermission.current : activateAction.current;
+    const next = action === "defer" ? reviewAction.current : plugin.enabled ? availableAction.current : permissionAction;
+    focusAfterAction.current = null;
+    next?.focus({ preventScroll: true });
+  });
+
   useEffect(() => {
     if (!plugin.enabled || !packageRevision || !installedTools) return;
     let active = true;
     void installedTools.list(plugin.id, packageRevision).then(
-      (page) => { if (active) setTools(page); },
-      () => { if (active) setToolListFailed(true); },
+      (page) => { if (active) setToolList({ revision: reviewRevision, page }); },
+      () => { if (active) setToolList({ revision: reviewRevision, page: null }); },
     );
     return () => { active = false; };
-  }, [installedTools, plugin.enabled, plugin.id, packageRevision]);
+  }, [installedTools, plugin.enabled, plugin.id, packageRevision, reviewRevision]);
 
   const open = async (action: () => Promise<unknown>) => {
     setOpening(true);
@@ -102,11 +134,15 @@ export function LocalPluginActivationCard({
             {[...required.map((permission) => ({ ...permission, required: true })),
               ...optional.map((permission) => ({ ...permission, required: false }))].map((permission) => (
                 <label key={permission.name}>
-                  <input type="checkbox" checked={granted(permission.name) || chosen.includes(permission.name)}
+                  <input type="checkbox" ref={permission.name === missingRequired[0]?.name ? requiredPermission : undefined}
+                    checked={granted(permission.name) || chosen.includes(permission.name)}
                     disabled={granted(permission.name)}
                     onChange={(event) => {
                       const checked = event.target.checked;
-                      setChosen((current) => checked ? [...current, permission.name] : current.filter((name) => name !== permission.name));
+                      setSelection({
+                        revision: reviewRevision,
+                        grants: checked ? [...chosen, permission.name] : chosen.filter((name) => name !== permission.name),
+                      });
                     }}
                   />
                   <span>
@@ -124,21 +160,31 @@ export function LocalPluginActivationCard({
       <div className="plugin-manager-preview-actions">
         {plugin.enabled ? (
           <>
-            {installedTools ? <button type="button" className="ui-button ui-button--secondary ui-button--sm" disabled={opening}
+            {installedTools ? <button ref={availableAction} type="button" className="ui-button ui-button--secondary ui-button--sm" disabled={opening}
               onClick={() => void open(installedTools.openDirectory)}>{t("Open Tool Center")}</button> : null}
-            <button type="button" className="ui-button ui-button--ghost ui-button--sm" onClick={onClose}>{t("Close")}</button>
+            <button ref={!installedTools ? availableAction : undefined} type="button" className="ui-button ui-button--ghost ui-button--sm" onClick={onClose}>{t("Close")}</button>
           </>
         ) : deferred ? (
-          <button type="button" className="ui-button ui-button--secondary ui-button--sm" onClick={onResume}>{t("Review and enable")}</button>
+          <button ref={reviewAction} type="button" className="ui-button ui-button--secondary ui-button--sm" onClick={(event) => {
+            keepFocusInCard(event.currentTarget, "resume");
+            onResume();
+          }}>{t("Review and enable")}</button>
         ) : (
           <>
-            <button type="button" className="ui-button ui-button--primary ui-button--sm" aria-busy={busy}
+            <button ref={activateAction} type="button" className="ui-button ui-button--primary ui-button--sm" aria-busy={busy}
               disabled={busy || !onActivate || missingRequired.some(({ name }) => !chosen.includes(name))}
-              onClick={() => onActivate?.(chosen)}>
+              onClick={(event) => {
+                keepFocusInCard(event.currentTarget, "activate");
+                onActivate?.(chosen);
+              }}>
               {t(chosen.length ? "Authorize and enable" : "Enable plugin")}
             </button>
             <button type="button" className="ui-button ui-button--ghost ui-button--sm" disabled={busy}
-              onClick={() => { setChosen([]); onDefer(); }}>{t("Keep disabled")}</button>
+              onClick={(event) => {
+                keepFocusInCard(event.currentTarget, "defer");
+                setSelection(undefined);
+                onDefer();
+              }}>{t("Keep disabled")}</button>
           </>
         )}
       </div>
