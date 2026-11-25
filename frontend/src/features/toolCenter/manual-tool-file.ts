@@ -1,6 +1,6 @@
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 export type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "utf8-bytes" | "base64-decode" | "utf8-text" | "url-inspect" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "utf8-bytes" | "base64-decode" | "utf8-text" | "url-inspect" | "qr-source" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // The frozen tool document input limit.
@@ -47,6 +47,10 @@ export async function readManualToolFile(
     if (file.size > maxFileBytes) throw Error(sizeError);
     const text = await readUtf8ToolFile(file, sizeError, "Could not read the text file.");
     return target === "diff-left" ? { left: text } : { right: text };
+  }
+
+  if (target === "qr-source") {
+    return { text: await readUtf8ToolFile(file, "QR input files must be 2 KiB or smaller.", "Could not read the text file.", 2048, true) };
   }
 
   if (target === "utf8-bytes" || target === "base64-decode" || target === "utf8-text" || target === "url-inspect") {
