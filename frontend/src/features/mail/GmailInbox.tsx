@@ -34,6 +34,7 @@ export function gmailError(e: unknown): string {
     case "gmail_page_expired":return t("This mail page expired. Refresh from the server to continue.");
     case "gmail_rate_limited":return t("Google has limited requests. Try again later.");
     case "gmail_network":return t("Could not connect to the mail server. Your local data is unchanged.");
+    case "gmail_storage":return t("Could not access local mail data.");
     default:return t("Mail operation failed. Check the account and try again.");
   }
 }
@@ -133,7 +134,10 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       }
       return result;
     }, p => {
-      if (!append) { setPage(p); setBody(null); setMessage(null); }
+      if (!append) {
+        if (selected !== label) setLabel(selected);
+        setPage(p); setBody(null); setMessage(null);
+      }
       else if (p) {
         setPage(old => {
           const items = old?.items ?? [];
@@ -200,9 +204,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     </fieldset>
     {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button className="ui-button" type="button" ref={cancelAuthorization} onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
     <fieldset disabled={Boolean(busy)}><legend>{t("Inbox")}</legend>
-      <label>{t("Gmail label")} <select className="ui-select" value={label} onChange={e=>{
-        const next=e.target.value;setLabel(next);setPage(null);setMessage(null);setBody(null);setServerPage(false);load(false,null,next);
-      }}>
+      <label>{t("Gmail label")} <select className="ui-select" value={label} onChange={e=>load(false,null,e.target.value)}>
         <option value="INBOX">{t("Inbox")}</option>
         {labels.filter(item=>item.id!=="INBOX").map(item=><option key={item.id} value={item.id} translate="no">{item.name}</option>)}
       </select></label>
