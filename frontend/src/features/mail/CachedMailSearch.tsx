@@ -47,7 +47,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const readingRequest = useRef<{ hit: Hit; pending: boolean; canDownload: boolean } | null>(null);
   const readingAccess = reading && searchBodyAccess(reading.hit, gmail, alibaba);
   const loadingBody = reading?.status === "loading" || reading?.refreshing === true;
-  const paginationBlocked = busy || loadingBody;
+  const searchBlocked = busy || loadingBody;
   const updatedAccounts = useRef(new Set<string>());
   const requestedOffset = useRef<number | null>(null);
   const displayedOffset = useRef<number | null>(null);
@@ -178,7 +178,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     } finally { if (version === searchGeneration.current) setBusy(false); }
   }, [invoke, scope, query, folder, closeReading]);
   function navigatePage(start: number, button: HTMLButtonElement) {
-    if (paginationBlocked || requestedOffset.current !== displayedOffset.current) return;
+    if (searchBlocked || requestedOffset.current !== displayedOffset.current) return;
     void search(start, false, button);
   }
   useEffect(()=>{
@@ -273,7 +273,10 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     }
   }
   return <fieldset><legend>{t("Search cached inboxes")}</legend>
-    <form onSubmit={e=>{e.preventDefault(); if(query.trim()) void search(0)}}>
+    <form onSubmit={event => {
+      event.preventDefault();
+      if (!searchBlocked && query.trim()) void search(0);
+    }}>
       <label>{t("Search scope")}<select className="ui-select" value={scope} onChange={e => changeScope(e.target.value)}>
         {accounts.map(a=><option key={a.id} value={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}
         <option value="">{t("All local mail accounts")}</option>
@@ -293,7 +296,9 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
         </button>
       </>}
       <label>{t("Search cached mail")}<input ref={queryInput} className="ui-input" type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
-      <button className="ui-button" type="submit" disabled={busy || loadingBody || !query.trim()}>{t("Search")}</button>
+      <button className="ui-button" type="submit" disabled={!query.trim()} aria-disabled={searchBlocked || undefined}>
+        {t("Search")}
+      </button>
     </form>
     {busy && <p role="status">{t("Searching messages…")}</p>}
     {error && <p role="alert">{t("Could not access local mail data.")}</p>}
@@ -304,8 +309,8 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
           onClick={event => void open(hit, "cache", event.currentTarget)}><strong translate="no">{hit.subject || t("No subject")}</strong>
           <small translate="no">{hit.sender} · {hit.address}{hit.folder && <> · {hit.folder === "INBOX" ? t("Inbox") : hit.folder}</>}</small>
         </button></li>)}</ul>
-      {offset>0 && <button className="ui-button" type="button" aria-disabled={paginationBlocked || undefined} onClick={event => navigatePage(offset - 40, event.currentTarget)}>{t("Previous")}</button>}
-      {page.more && <button className="ui-button" type="button" aria-disabled={paginationBlocked || undefined} onClick={event => navigatePage(offset + 40, event.currentTarget)}>{t("Next")}</button>}
+      {offset>0 && <button className="ui-button" type="button" aria-disabled={searchBlocked || undefined} onClick={event => navigatePage(offset - 40, event.currentTarget)}>{t("Previous")}</button>}
+      {page.more && <button className="ui-button" type="button" aria-disabled={searchBlocked || undefined} onClick={event => navigatePage(offset + 40, event.currentTarget)}>{t("Next")}</button>}
     </>}
     {reading && <article aria-label={t("Cached message")} aria-busy={loadingBody || replying}>
       <h3 ref={readingHeading} tabIndex={-1} translate="no">{reading.hit.subject||t("No subject")}</h3>
