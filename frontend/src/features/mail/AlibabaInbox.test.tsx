@@ -110,3 +110,32 @@ it("reads a cached body from the same IMAP folder and epoch after an inbox refre
   });
   expect(a.kinds()).not.toContain("read");
 });
+
+it.each([false, true])("refreshes IMAP directories with the current folder present: %s", async present => {
+  const a = setup("alibaba", true, 0, "Archive cached body");
+  const backend = a.remote.getMockImplementation();
+  a.remote.mockImplementation(request => request.kind === "folders"
+    ? Promise.resolve(present ? [{ id: "Archive", name: "Archive" }] : [])
+    : backend?.(request) ?? Promise.reject(Error("Missing fixture")));
+  const folder = await screen.findByLabelText<HTMLSelectElement>("IMAP folder");
+  await screen.findByRole("button", { name: /Inbox fixture/ });
+  fireEvent.change(folder, { target: { value: "Archive" } });
+  fireEvent.click(await screen.findByRole("button", { name: /Archive fixture/ }));
+  await screen.findByText("Archive cached body");
+  const before = a.remote.mock.calls.length;
+  fireEvent.click(button("Refresh folder list"));
+  await waitFor(() => expect(folder.matches(":disabled")).toBe(false));
+  const cached = a.remote.mock.calls.slice(before).map(([r]) => r).filter(r => r.kind === "cachedPage");
+  expect(a.kinds()).not.toContain("sync");
+  expect(a.kinds()).not.toContain("read");
+  if (present) {
+    expect(folder.value).toBe("Archive");
+    expect(screen.getByText("Archive cached body")).toBeTruthy();
+    expect(cached).toEqual([]);
+  } else {
+    expect(folder.value).toBe("INBOX");
+    expect(screen.queryByRole("article", { name: "Selected message" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Inbox fixture/ })).toBeTruthy();
+    expect(cached).toEqual([{ kind: "cachedPage", accountId: "a", cursor: null, limit: 20 }]);
+  }
+});

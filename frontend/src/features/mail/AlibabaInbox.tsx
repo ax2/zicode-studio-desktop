@@ -83,6 +83,26 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       setOnline(network);if(!cursor){setSelected(null);setBody(null)}
     })
   }
+  function refreshFolders() {
+    void run(async isCurrent => {
+      const items = await req<{ id: string; name: string }[]>("folders");
+      if (!isCurrent()) return;
+      setFolders(items);
+      window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: id }));
+      if (folder === "INBOX" || items.some(item => item.id === folder)) return;
+      setFolder("INBOX");
+      setPage(null);
+      setSelected(null);
+      setBody(null);
+      setOnline(false);
+      try {
+        const inbox = await req<Page>("cachedPage", { cursor: null, limit: 20 });
+        if (isCurrent()) setPage(inbox);
+      } catch (error) {
+        if (String(error).replace(/^Error:\s*/, "") !== "mail_cache_empty") throw error;
+      }
+    }, () => {});
+  }
   function pick(m: Summary) {
     if (lock.current || !page) return;
     const ref = { ...(folder === "INBOX" ? {} : { folder }), uidValidity: page.uidValidity, uid: m.uid };
@@ -115,11 +135,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
       <label>{t("IMAP folder")}<select className="ui-select" value={folder} onChange={e=>{
         const next=e.target.value;setFolder(next);setPage(null);setBody(null);setSelected(null);setOnline(false);load(false,null,next);
       }}><option value="INBOX">{t("Inbox")}</option>{folders.filter(f=>f.id!=="INBOX").map(f=><option key={f.id} value={f.id} translate="no">{f.name}</option>)}</select></label>
-      <button className="ui-button" type="button" disabled={!configured} onClick={()=>void run(()=>req<{id:string;name:string}[]>("folders"),items=>{
-        setFolders(items);
-        window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: id }));
-        if(folder!=="INBOX"&&!items.some(f=>f.id===folder)){setFolder("INBOX");setPage(null);setSelected(null);setBody(null);setOnline(false)}
-      })}>{t("Refresh folder list")}</button>
+      <button className="ui-button" type="button" disabled={!configured} onClick={refreshFolders}>{t("Refresh folder list")}</button>
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(folder==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
       <button className="ui-button" type="button" disabled={!configured} onClick={()=>load(true)}>{t("Refresh from server")}</button>
       {page?<><p>{online?t("Showing messages retrieved from the server."):t("Showing messages saved on this device.")}</p>

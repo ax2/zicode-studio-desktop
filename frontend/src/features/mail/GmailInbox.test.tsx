@@ -263,3 +263,36 @@ it("does not download a Gmail cache miss after moving to another account", async
   expect(v.calls.mock.calls.some(([r]) => r.kind === "read")).toBe(false);
   expect(screen.queryByText("Unexpected fetched body")).toBeNull();
 });
+
+it.each([false, true])("refreshes Gmail directories with the current label present: %s", async present => {
+  const folder = { id: "Label_42", name: "Archived invoices" };
+  const archived = { ...entry, id: "archive", subject: "Archived message" };
+  const v = fixture(async request => {
+    if (request.kind === "status") return { connected: true, read: true };
+    if (request.kind === "cachedLabels") return [folder];
+    if (request.kind === "labels") return present ? [folder] : [];
+    if (request.kind === "cachedPage") return { items: [request.label === folder.id ? archived : entry], nextCursor: null };
+    if (request.kind === "cachedBody") return { ...archived, plainText: "Archive cached body" };
+    throw Error("Unexpected operation");
+  });
+  const label = await screen.findByLabelText<HTMLSelectElement>("Gmail label");
+  await screen.findByRole("button", { name: /Inbox fixture/ });
+  fireEvent.change(label, { target: { value: folder.id } });
+  fireEvent.click(await screen.findByRole("button", { name: /Archived message/ }));
+  await screen.findByText("Archive cached body");
+  const before = v.calls.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Refresh Gmail labels" }));
+  await waitFor(() => expect(label.matches(":disabled")).toBe(false));
+  const cached = v.calls.mock.calls.slice(before).map(([r]) => r).filter(r => r.kind === "cachedPage");
+  expect(v.calls.mock.calls.some(([r]) => r.kind === "list" || r.kind === "read")).toBe(false);
+  if (present) {
+    expect(label.value).toBe(folder.id);
+    expect(screen.getByText("Archive cached body")).toBeTruthy();
+    expect(cached).toEqual([]);
+  } else {
+    expect(label.value).toBe("INBOX");
+    expect(screen.queryByRole("article", { name: "Selected message" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Inbox fixture/ })).toBeTruthy();
+    expect(cached).toEqual([{ kind: "cachedPage", accountId: "one", label: "INBOX", cursor: null, limit: 20 }]);
+  }
+});
