@@ -7,7 +7,7 @@ import type {Draft,Invoke} from "./index";
 
 export type MessageRef={folder?:string;uidValidity:number,uid:number};
 type Cursor={folder?:string;uidValidity:number,before:number};
-type Summary={uid:number,subject:string,sender:string,replyTo:string};
+type Summary={uid:number,subject:string,sender:string,replyTo:string,headerLimited?:boolean};
 type Page={pending?:boolean;uidValidity:number,messages:Summary[],next:Cursor|null};
 type Body={summary:Summary,text:string,html?:string|null;bodyLimited?:boolean;attachments?:Attachment[]};
 type Folder = { id: string; name: string };
@@ -180,6 +180,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
   }
   const chosen=selected && (selected.folder ?? "INBOX") === folder && selected.uidValidity === page?.uidValidity
     ? page.messages.find(m=>m.uid===selected.uid) : undefined;
+  const headerLimited = chosen?.headerLimited || body?.summary?.headerLimited;
   return <section aria-label={t("Alibaba Mail inbox")}>
     <fieldset disabled={busy}><legend>{t("Mail connection")}</legend>
       {credentialError ? <>
@@ -213,12 +214,13 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
         {page.next&&<button className="ui-button" type="button" disabled={online&&!configured} onClick={()=>load(online,page.next)}>{t("Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {selected&&chosen&&<article aria-label={t("Selected message")}><h3 translate="no">{chosen.subject||t("No subject")}</h3><p translate="no">{chosen.sender}</p>
+        {headerLimited && <p role="status">{t("Only part of the message header could be read. Reply is unavailable.")}</p>}
         {body?<>{body.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}<MailBody text={body.text} html={body.html}/><MailAttachments key={selected.uidValidity+"-"+selected.uid} items={body.attachments} invoke={invoke} message={{accountId:id,...selected}}/></>:localBodyFailed ? <>
           <p role="alert">{t("Could not access local mail data.")}</p>
           <button className="ui-button" type="button" onClick={()=>readCached(selected,false)}>{t("Try again")}</button>
         </>:!busy&&<p role="status">{t("This message is not available offline. Download it explicitly to read it.")}</p>}
         {!body&&!localBodyFailed&&<button className="ui-button" type="button" disabled={!configured} onClick={()=>void run(()=>req<Body>("read",selected),setBody)}>{t("Download message body")}</button>}
-        <button className="ui-button" type="button" disabled={!chosen.replyTo||draftBusy} onClick={()=>{void run(async()=>await discard()?await req<Draft>("replyDraft",selected):null,d=>{if(d)onReply(d)})}}>{t("Create reply draft")}</button>
+        <button className="ui-button" type="button" disabled={headerLimited||!chosen.replyTo||draftBusy} onClick={()=>{void run(async()=>await discard()?await req<Draft>("replyDraft",selected):null,d=>{if(d)onReply(d)})}}>{t("Create reply draft")}</button>
       </article>}
     </fieldset>{error&&<p role="alert">{error}</p>}
   </section>;

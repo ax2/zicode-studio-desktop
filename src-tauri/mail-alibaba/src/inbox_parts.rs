@@ -62,8 +62,11 @@ fn collect(tree: &BodyStructure<'_>, path: &mut Vec<u32>, parts: &mut Vec<Part>)
 fn structure(session:&mut imap::Session<Bounded>, uid:u32)->Result<(Summary,Vec<Part>)>{
     let rows=session.uid_fetch(uid.to_string(),format!("(UID RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER]<0.{MAX_HEADER}>)")).map_err(|_|"mail_read_failed")?;
     let row=rows.iter().find(|r|r.uid==Some(uid)).ok_or("mail_message_missing")?;
-    let header=MessageParser::new().parse_headers(row.header().ok_or("mail_protocol")?).ok_or("mail_mime_invalid")?;
-    let summary=metadata(&header,uid,row.size.ok_or("mail_protocol")?);
+    let summary = summary(
+        row.header().ok_or("mail_protocol")?,
+        uid,
+        row.size.ok_or("mail_protocol")?,
+    )?;
     let mut parts=Vec::new();
     collect(row.bodystructure().ok_or("mail_protocol")?,&mut Vec::new(),&mut parts)?;
     Ok((summary,parts))

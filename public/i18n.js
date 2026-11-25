@@ -139,6 +139,7 @@ const zhCN = {
   "This message is not available offline. Download it explicitly to read it.": "此邮件尚无离线正文。点击下载后即可阅读。",
   "This message exceeds the 4 MiB reading limit.": "这封邮件超过 4 MiB 阅读上限。",
   "This message header is too large to display.": "此邮件的头部过大，无法显示。",
+  "Only part of the message header could be read. Reply is unavailable.": "只读取了部分邮件头，暂无法回复。",
   "The inbox changed. Refresh it before continuing.": "收件箱已变化，请刷新后继续。",
   "The saved draft changed. Reload it before sending.": "已保存的草稿已变化，请重新加载后再发送。",
   "Enter one valid recipient, then save the draft.": "请输入一个有效收件地址，然后保存草稿。",
