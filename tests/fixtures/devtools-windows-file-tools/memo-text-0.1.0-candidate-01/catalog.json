@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.memo-text",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "memo-library",
+      "capabilityId": "devtools.memo.file.preview",
+      "title": "备忘导入预览",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "确认一份 Markdown 或 UTF-8 文本，检查备忘标题和最多 6 KiB 的原样正文。正文上限 128 KiB，另容许 UTF-8 BOM。"
+    }
+  ]
+}

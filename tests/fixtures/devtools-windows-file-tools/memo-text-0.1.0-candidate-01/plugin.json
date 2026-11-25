@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.memo-text",
+  "name": "ZiDevTools Memo Import Preview",
+  "displayName": "备忘导入预览",
+  "description": "确认一份 Markdown 或 UTF-8 文本，检查备忘标题和最多 6 KiB 的原样正文。正文上限 128 KiB，另容许 UTF-8 BOM。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.memo.file.preview"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.memo.file.preview",
+        "title": "备忘导入预览",
+        "description": "确认一份 Markdown 或 UTF-8 文本，检查备忘标题和最多 6 KiB 的原样正文。正文上限 128 KiB，另容许 UTF-8 BOM。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "text/plain",
+          "text/markdown"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "title": "备忘标题",
+              "description": "留空时使用「导入的备忘」。",
+              "maxLength": 120
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "maxLength": 120
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 131075
+                    },
+                    "bodyByteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 131072
+                    },
+                    "previewByteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6144
+                    },
+                    "hadBom": {
+                      "type": "boolean"
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 7000
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "byteLength",
+                    "bodyByteLength",
+                    "previewByteLength",
+                    "hadBom",
+                    "truncated",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "备忘正文预览",
+            "文本导入预检",
+            "Markdown 备忘",
+            "Memo import preview"
+          ],
+          "description": "确认一份 Markdown 或 UTF-8 文本，检查备忘标题和最多 6 KiB 的原样正文。正文上限 128 KiB，另容许 UTF-8 BOM。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的一份本机 Markdown 或 UTF-8 文本快照。"
+      }
+    ],
+    "optional": []
+  }
+}
