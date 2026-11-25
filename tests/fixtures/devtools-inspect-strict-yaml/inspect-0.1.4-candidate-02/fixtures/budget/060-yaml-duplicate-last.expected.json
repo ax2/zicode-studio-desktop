@@ -1,0 +1,1 @@
+{"contractVersion":"1.0.0-rc.1","ok":false,"data":null,"error":{"code":"INVALID_INPUT","message":"Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"}}

@@ -6,6 +6,12 @@ export function isTextWorkerOutputLimit(code?: string, message?: string): boolea
 }
 
 const maxMessageLength = 48 * 1024;
+const inspectConversionPolicy = "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。";
+
+export function isInspectConversionPolicy(code?: string, message?: string): boolean {
+  return code === "INVALID_INPUT" && message === inspectConversionPolicy;
+}
+
 const maxDataRows = 10_000;
 const rowFailure = /^第 ([1-9][0-9]{0,4}) 行，列 ([\s\S]+) 转换失败；原数据未修改$/u;
 
