@@ -312,6 +312,7 @@ fn validate(tabs: &[SavedTab], active: Option<&str>) -> Result<(), String> {
         let url = reqwest::Url::parse(&tab.url).map_err(|_| "Invalid saved browser URL")?;
         if !matches!(url.scheme(), "https" | "http")
             || url.host_str().is_none()
+            || url.host_str() == Some("studio-local-pdf.invalid")
             || !url.username().is_empty()
             || url.password().is_some()
         {

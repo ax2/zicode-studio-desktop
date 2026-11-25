@@ -94,6 +94,7 @@ pub(super) struct NativeView {
     pub favicon: std::sync::Arc<super::native_favicon::Icon>,
     pub events: EventLifetime,
     pub opener: Option<String>,
+    pub local_pdf_bytes: usize,
     pub closing: Rc<Cell<bool>>,
     pub navigation: super::super::windows_policy::NavigationState,
     pub suspension: Suspension,

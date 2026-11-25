@@ -305,6 +305,17 @@ pub(super) fn install(
 }
 
 pub fn install_resources(view: &wry::WebView, policy: BrowserPolicy) -> windows::core::Result<()> {
+    install_resource_filter(view, move |_, uri, _| Ok(!policy.permits_resource(uri)))
+}
+
+pub(super) fn install_local_pdf(view: &wry::WebView, document: Arc<super::engine::local_pdf::Document>) -> windows::core::Result<()> {
+    install_resource_filter(view, move |environment, uri, args| document.respond(environment, args, uri).map(|served| !served))
+}
+
+fn install_resource_filter(
+    view: &wry::WebView,
+    should_block: impl Fn(&ICoreWebView2Environment, &str, &ICoreWebView2WebResourceRequestedEventArgs) -> windows::core::Result<bool> + 'static,
+) -> windows::core::Result<()> {
     unsafe {
         let native = view.webview();
         let environment = view.environment();
@@ -328,7 +339,7 @@ pub fn install_resources(view: &wry::WebView, policy: BrowserPolicy) -> windows:
                 let mut uri = PWSTR::null();
                 request.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
-                if !policy.permits_resource(&uri) {
+                if should_block(&environment, &uri, &args).unwrap_or(true) {
                     let response = environment.CreateWebResourceResponse(
                         None,
                         403,
