@@ -319,6 +319,46 @@ it("retries listing the same installed package and opens a tool only after the u
   await waitFor(() => expect(flow.installedTools.open).toHaveBeenCalledWith(preview.pluginId, packageRevision, tool, "directory"));
 });
 
+it.each(["tool", "directory"] as const)("keeps the opening %s action focused and suppresses duplicate navigation", async target => {
+  const flow = setup({ required: false });
+  let finishOpening!: () => void;
+  const delay = new Promise<void>(resolve => { finishOpening = resolve; });
+  if (target === "tool") {
+    flow.installedTools.open.mockImplementationOnce(async () => {
+      await delay;
+      return false;
+    });
+  } else {
+    flow.installedTools.openDirectory.mockImplementationOnce(async () => {
+      await delay;
+      throw Error("Could not open the directory");
+    });
+  }
+  await installPackage();
+  fireEvent.click(button("Enable plugin"));
+  const toolButton = await setupCard().findByRole("button", { name: "Open Format JSON" });
+  const directoryButton = setupCard().getByRole("button", { name: "Open Tool Center" });
+  const pressed = target === "tool" ? toolButton : directoryButton;
+  const open = target === "tool" ? flow.installedTools.open : flow.installedTools.openDirectory;
+
+  clickFocused(pressed);
+  expect(pressed.hasAttribute("disabled")).toBe(false);
+  expect(toolButton.getAttribute("aria-disabled")).toBe("true");
+  expect(directoryButton.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(toolButton);
+  fireEvent.click(directoryButton);
+  expect(flow.installedTools.open).toHaveBeenCalledTimes(target === "tool" ? 1 : 0);
+  expect(flow.installedTools.openDirectory).toHaveBeenCalledTimes(target === "directory" ? 1 : 0);
+  await act(async () => finishOpening());
+
+  expect(flow.notify).toHaveBeenCalledWith(target === "tool" ? "Could not open this tool. Try again." : "Could not open the directory");
+  expect(document.activeElement).toBe(pressed);
+  expect(pressed.hasAttribute("aria-disabled")).toBe(false);
+  fireEvent.click(pressed);
+  await waitFor(() => expect(open).toHaveBeenCalledTimes(2));
+  expect(flow.activateReviewed).toHaveBeenCalledTimes(1);
+});
+
 it.each(["packageRevision", "sceneRevision"] as const)("ignores a late retry after the installed %s changes", async field => {
   let resolveOld!: (value: ToolPage) => void;
   let resolveCurrent!: (value: ToolPage) => void;

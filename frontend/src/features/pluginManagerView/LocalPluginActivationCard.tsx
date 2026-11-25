@@ -108,6 +108,8 @@ export function LocalPluginActivationCard({
   }, [installedTools, plugin.id, packageRevision, toolAttempt, toolScope]);
 
   const open = async (action: () => Promise<unknown>) => {
+    // Keep the opening buttons focusable while preventing duplicate navigation.
+    if (opening) return;
     setOpening(true);
     try {
       await action();
@@ -141,7 +143,7 @@ export function LocalPluginActivationCard({
             <ul className="plugin-onboarding-tools">
               {tools.items.map((tool, index) => (
                 <li key={tool.toolId}>
-                  <button ref={index === 0 ? firstToolAction : undefined} type="button" className="ui-button ui-button--secondary ui-button--sm" disabled={opening}
+                  <button ref={index === 0 ? firstToolAction : undefined} type="button" className="ui-button ui-button--secondary ui-button--sm" aria-disabled={opening || undefined}
                     onClick={() => void open(async () => {
                       if (!(await installedTools.open(plugin.id, packageRevision, tool, tools.revision))) {
                         throw new Error(t("Could not open this tool. Try again."));
@@ -190,7 +192,7 @@ export function LocalPluginActivationCard({
       <div className="plugin-manager-preview-actions">
         {plugin.enabled ? (
           <>
-            {installedTools ? <button ref={availableAction} type="button" className="ui-button ui-button--secondary ui-button--sm" disabled={opening}
+            {installedTools ? <button ref={availableAction} type="button" className="ui-button ui-button--secondary ui-button--sm" aria-disabled={opening || undefined}
               onClick={() => void open(installedTools.openDirectory)}>{t("Open Tool Center")}</button> : null}
             <button ref={!installedTools ? availableAction : undefined} type="button" className="ui-button ui-button--ghost ui-button--sm" onClick={onClose}>{t("Close")}</button>
           </>
