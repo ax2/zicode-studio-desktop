@@ -10,7 +10,7 @@ type Account = { id: string; address: string; provider: string };
 type Folder = { id: string; name: string };
 type Hit = { folder?: string | null; account: string; address: string; provider: string; id: string; epoch: number | null; subject: string; sender: string };
 type Page = { items: Hit[]; more: boolean };
-type Reading = { hit: Hit } & (
+type Reading = { hit: Hit; refreshing?: boolean } & (
   { status: "loading" } | { status: "missing"; error?: string } |
   { status: "failed"; error: string } | { status: "ready"; body: SearchMailBody }
 );
@@ -43,7 +43,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const searchGeneration = useRef(0);
   const readingRequest = useRef<{ hit: Hit; pending: boolean; canDownload: boolean } | null>(null);
   const readingAccess = reading && searchBodyAccess(reading.hit, gmail, alibaba);
-  const loadingBody = reading?.status === "loading";
+  const loadingBody = reading?.status === "loading" || reading?.refreshing === true;
   const updatedAccounts = useRef(new Set<string>());
   const requestedOffset = useRef<number | null>(null);
   const displayedOffset = useRef<number | null>(null);
@@ -158,30 +158,41 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       window.removeEventListener("studio-mail-cache-updated",cacheChanged);
     };
   },[scope,search,closeReading]);
-  async function open(hit: Hit, download = false) {
+  async function open(hit: Hit, action: "cache" | "download" | "reply-refresh" = "cache") {
     const previous = readingRequest.current;
-    if (download && (previous?.hit !== hit || (!previous.canDownload && !replyError?.refresh))) return;
+    const download = action !== "cache";
+    const replyRefresh = action === "reply-refresh";
+    const original = replyRefresh && reading?.hit === hit ? reading : null;
+    if (download && (previous?.hit !== hit || (replyRefresh ? !original || !replyError?.refresh : !previous.canDownload))) return;
     if (previous?.pending && isSameMessage(previous.hit, hit)) return;
     const request = { hit, pending: true, canDownload: false };
     readingRequest.current = request;
-    setReplyError(null);
+    if (!original) setReplyError(null);
     const access = searchBodyAccess(hit, gmail, alibaba);
     if (!access) {
       request.pending = false;
       setReading({ hit, status: "missing" });
       return;
     }
-    setReading({ hit, status: "loading" });
+    setReading(original ? { ...original, refreshing: true } : { hit, status: "loading" });
     try {
       const body = await access.read(download);
       if (readingRequest.current !== request) return;
+      if (original && !body) throw Error("gmail_reply_metadata_missing");
       request.canDownload = !body;
+      if (original) setReplyError(null);
       setReading(body ? { hit, status: "ready", body } : { hit, status: "missing" });
     } catch (reason) {
       if (readingRequest.current !== request) return;
-      request.canDownload = download;
       const message = download ? access.error(reason) : t("Could not access local mail data.");
-      setReading({ hit, status: download ? "missing" : "failed", error: message });
+      if (original) {
+        request.canDownload = previous?.canDownload ?? false;
+        setReading(original);
+        setReplyError({ message, refresh: true });
+      } else {
+        request.canDownload = download;
+        setReading({ hit, status: download ? "missing" : "failed", error: message });
+      }
     } finally {
       request.pending = false;
     }
@@ -245,7 +256,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       }}>{t("Try again")}</button>}
       {reading.status === "missing" && <>
         <p>{t(readingAccess ? "This message is not available offline. Download it explicitly to read it." : "No message body is saved on this device.")}</p>
-        {readingAccess && <button className="ui-button" type="button" onClick={() => void open(reading.hit, true)}>
+        {readingAccess && !replyError?.refresh && <button className="ui-button" type="button" onClick={() => void open(reading.hit, "download")}>
           {t("Download message body")}
         </button>}
       </>}
@@ -256,12 +267,12 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
           invoke={readingAccess.invoke} message={readingAccess.message}/>}
       </>}
       {onReply && readingAccess?.replyDraft && (reading.status === "ready" || reading.status === "missing") &&
-        <button className="ui-button" type="button" disabled={replying || replyBlocked} onClick={() => void replyToReading()}>
+        <button className="ui-button" type="button" disabled={loadingBody || replying || replyBlocked} onClick={() => void replyToReading()}>
           {t("Create reply draft")}
         </button>}
       {replying && <p role="status">{t("Saving…")}</p>}
       {replyError && <p role="alert">{replyError.message}</p>}
-      {replyError?.refresh && <button className="ui-button" type="button" disabled={replying || replyBlocked} onClick={() => void open(reading.hit, true)}>
+      {replyError?.refresh && readingAccess && <button className="ui-button" type="button" disabled={loadingBody || replying || replyBlocked} onClick={() => void open(reading.hit, "reply-refresh")}>
         {t("Refresh message to reply")}
       </button>}
     </article>}
