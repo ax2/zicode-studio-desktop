@@ -26,6 +26,7 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     open.type = "button";
     open.className = "ui-button ui-button--secondary browser-open-local-pdf";
     open.dataset.i18nText = "Open local PDF…";
+    open.setAttribute("aria-keyshortcuts", "Control+o");
     open.textContent = t("Open local PDF…");
     open.addEventListener("click", () => { menu.open = false; void openLocalPdf(trigger); });
     tabs.append(open);
