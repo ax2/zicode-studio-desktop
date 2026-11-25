@@ -1473,3 +1473,73 @@ fn disconnect_cache_rejects_stale_sync_and_preserves_drafts_and_journal() {
         );
     }
 }
+
+
+#[test]
+fn reply_draft_rechecks_cache_after_a_concurrent_clear() {
+    use std::{cell::RefCell, sync::mpsc, time::Duration};
+
+    type LockGate = (mpsc::Sender<()>, mpsc::Receiver<()>);
+    thread_local! {
+        static REPLY_LOCK: RefCell<Option<LockGate>> = const { RefCell::new(None) };
+    }
+    const LOCK_TIMEOUT: Duration = Duration::from_secs(5);
+    let temp = tempfile::tempdir().unwrap();
+    let file = temp.path().join("mail.sqlite3");
+    let mut controls = Connection::open(&file).unwrap();
+    controls.execute_batch("PRAGMA journal_mode=WAL").unwrap();
+    seed(&controls);
+
+    for (scope, account) in [("one", "a"), ("two", "b")] {
+        let remote = fixture(false, false);
+        let mut mailbox = Mailbox::open(&mut controls, scope, account).unwrap();
+        let first_page = mailbox.sync(&remote.adapter, "synthetic", None, 2).unwrap();
+        remote.thread.join().unwrap();
+        assert_eq!(first_page.uid_validity, 7);
+        assert_eq!(first_page.messages[0].uid, 30);
+        let draft = mailbox.reply_draft("kept", 7, 30).unwrap();
+        assert_eq!(draft["recipient"], "reply@example.test");
+    }
+
+    let (ready, opened) = mpsc::channel();
+    let (begin, start) = mpsc::channel();
+    let (locked, waiting) = mpsc::channel();
+    let (resume, released) = mpsc::channel();
+    let worker = thread::spawn(move || {
+        let mut db = Connection::open(file).unwrap();
+        REPLY_LOCK.with(|gate| *gate.borrow_mut() = Some((locked, released)));
+        db.busy_handler(Some(|_| {
+            REPLY_LOCK.with(|gate| {
+                gate.borrow_mut().take().is_some_and(|(locked, released)| {
+                    locked.send(()).is_ok() && released.recv_timeout(LOCK_TIMEOUT).is_ok()
+                })
+            })
+        })).unwrap();
+        let mut mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+        ready.send(()).unwrap();
+        start.recv_timeout(LOCK_TIMEOUT).unwrap();
+        mailbox.reply_draft("after-clear", 7, 30)
+    });
+
+    opened.recv_timeout(LOCK_TIMEOUT).unwrap();
+    controls.execute_batch("BEGIN IMMEDIATE").unwrap();
+    begin.send(()).unwrap();
+    waiting.recv_timeout(LOCK_TIMEOUT).unwrap();
+    // Keep the reply blocked while a different connection clears the account.
+    controls.execute_batch("ROLLBACK").unwrap();
+    Mailbox::open(&mut controls, "one", "a").unwrap().clear_cache().unwrap();
+    resume.send(()).unwrap();
+
+    assert_eq!(worker.join().unwrap(), Err("mail_cache_empty"));
+    for (sql, expected) in [
+        ("SELECT count(*) FROM drafts WHERE id='after-clear'", 0),
+        ("SELECT count(*) FROM alibaba_reply WHERE draft='after-clear'", 0),
+        ("SELECT count(*) FROM drafts WHERE id='kept'", 2),
+        ("SELECT count(*) FROM alibaba_reply WHERE draft='kept'", 2),
+        ("SELECT count(*) FROM drafts WHERE scope='one' AND id='d'", 1),
+    ] {
+        assert_eq!(controls.query_row(sql, [], |row| row.get::<_, i64>(0)).unwrap(), expected);
+    }
+    let mut other = Mailbox::open(&mut controls, "two", "b").unwrap();
+    assert_eq!(other.reply_draft("after-clear", 7, 30).unwrap()["recipient"], "reply@example.test");
+}
