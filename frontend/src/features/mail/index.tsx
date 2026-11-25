@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { t } from "../../shared/i18n";
 
 
-import {AlibabaInbox} from "./AlibabaInbox";
+import {AlibabaInbox, type AlibabaActivity} from "./AlibabaInbox";
 import {GmailInbox} from "./GmailInbox";
 import {CachedMailSearch} from './CachedMailSearch';
 import {MailDelivery} from "./MailDelivery";
@@ -36,14 +36,16 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   const composeBody=useRef<HTMLTextAreaElement>(null);
   const focusReply=useRef<string | undefined>(undefined);
   const [passwordOwner,setPasswordOwner]=useState("");
-  const [mailActivity,setMailActivity]=useState<{account:string;busy:boolean}|null>(null);
+  const [mailActivity,setMailActivity]=useState<{account:string;activity:AlibabaActivity}|null>(null);
   const owner=accounts.find(a=>a.id===account);
   const [label,setLabel]=useState("INBOX");
   const [gmailSendOwner,setGmailSendOwner]=useState("");
   const gmail=owner?.provider==="gmail"&&gmailTransport;
   const alibaba=owner?.provider==="alibaba"&&transport;
-  const mailBusy=Boolean(alibaba&&(!mailActivity||mailActivity.account!==account||mailActivity.busy));
-  const reportAlibabaBusy=useCallback((busy:boolean)=>setMailActivity({account,busy}),[account]);
+  const activity=alibaba ? mailActivity?.account===account ? mailActivity.activity : "blocking" : null;
+  const mailBusy=activity!==null;
+  const accountSwitchBlocked=busy||activity==="blocking";
+  const reportAlibabaBusy=useCallback((activity:AlibabaActivity)=>setMailActivity({account,activity}),[account]);
   async function run(fn:(isCurrent:()=>boolean)=>Promise<void>, onError?:(error:unknown)=>void) {
     if(lock.current)return;
     const requestSource = source.current;
@@ -168,14 +170,14 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   const savedDraftReady = Boolean(edit.id) && !recoveringAttachments;
   return <section className="mail-local"><h2>{t("Mail")}</h2>
     {!alibaba&&!gmail&&<p>{t("Local drafts only. No mailbox is connected.")}</p>}
-    <fieldset disabled={busy||mailBusy}><legend>{t("Mail accounts")}</legend>
-    {accounts.length>0&&<label>{t("Mail account")}<select className="ui-select" value={account} onChange={e=>{const id=e.target.value;void run(async()=>{if(await discard())await load(id)})}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}</select></label>}
+    <fieldset disabled={busy}><legend>{t("Mail accounts")}</legend>
+    {accounts.length>0&&<label>{t("Mail account")}<select className="ui-select" value={account} disabled={accountSwitchBlocked} onChange={e=>{const id=e.target.value;void run(async()=>{if(await discard())await load(id)})}}>{accounts.map(a=><option value={a.id} key={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}</select></label>}
     <form onSubmit={e=>{e.preventDefault();void run(async()=>{if(!await discard())return;
       const added=await invoke<{id:string}>({kind:"add",provider,address});
       setAccounts(await invoke<Account[]>({kind:"accounts"}));setAddress("");await load(added.id);
-    })}}><label>{t("Mail provider")}<select className="ui-select" value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
-    <label>{t("Email address")}<input className="ui-input" required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
-    <button className="ui-button ui-button--primary" type="submit">{t("Add local account")}</button></form></fieldset>
+    })}}><label>{t("Mail provider")}<select className="ui-select" value={provider} disabled={mailBusy} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
+    <label>{t("Email address")}<input className="ui-input" disabled={mailBusy} required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
+    <button className="ui-button ui-button--primary" type="submit" disabled={mailBusy}>{t("Add local account")}</button></form></fieldset>
     {account&&<CachedMailSearch key={`search-${searchVersion}`} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport} onReply={replyFromCache} replyBlocked={draftBlocked||mailBusy}/>}
     {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}
       onReply={replyFromCache} draftBusy={draftBlocked}/>}
