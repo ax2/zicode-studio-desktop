@@ -19,9 +19,10 @@ function PermissionName({ name }: { name: string }) {
 }
 
 export function LocalPluginActivationCard({
-  plugin, deferred, busy, installedTools, onClose, onDefer, onResume, onActivate, onError,
+  plugin, focusOnMount = true, deferred, busy, installedTools, onClose, onDefer, onResume, onActivate, onError,
 }: {
   plugin: ManagedPlugin;
+  focusOnMount?: boolean;
   deferred: boolean;
   busy: boolean;
   installedTools?: InstalledToolActions;
@@ -32,7 +33,7 @@ export function LocalPluginActivationCard({
   onError(error: unknown): void;
 }) {
   const card = useRef<HTMLElement>(null);
-  useEffect(() => { card.current?.focus(); }, []);
+  useEffect(() => { if (focusOnMount) card.current?.focus(); }, [focusOnMount]);
   const focusAfterAction = useRef<"defer" | "resume" | "activate" | { retryScope: string } | null>(null);
   const reviewAction = useRef<HTMLButtonElement>(null);
   const requiredPermission = useRef<HTMLInputElement>(null);
