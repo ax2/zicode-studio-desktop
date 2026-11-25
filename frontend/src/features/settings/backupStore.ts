@@ -183,19 +183,21 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
         const epoch = scopeEpoch;
         const request = ++loadRequest;
         set({ loading: true, error: "" });
-        try {
+        const ownsRead = () => isCurrent(workspaceId, epoch) && request === loadRequest;
+        const readBackups = async () => {
           const result = await invoke("list_workspace_backups", { workspaceId });
+          if (!ownsRead()) return;
           if (
             !Array.isArray(result) ||
             !result.every((backup) => isBackupRecord(backup, workspaceId))
           ) {
             throw new Error(t("Could not load workspace backups."));
           }
-          if (isCurrent(workspaceId, epoch) && request === loadRequest) {
-            set({ backups: result });
-          }
+          set({ backups: result });
+        };
+        const readRestore = async () => {
           const outcome = await invoke("workspace_restore_outcome", { workspaceId });
-          if (!isCurrent(workspaceId, epoch) || request !== loadRequest) return;
+          if (!ownsRead()) return;
           if (outcome && typeof outcome === "object" && "pending" in outcome) {
             if (!isRestoreRequest(outcome.pending, workspaceId)) {
               throw new Error(t("Could not load workspace backups."));
@@ -219,12 +221,11 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
           ) {
             set({ status: t("Workspace restored from backup.") });
           }
-        } catch (error) {
-          if (isCurrent(workspaceId, epoch) && request === loadRequest)
-            set({ error: friendlyBackupError(error) });
-        } finally {
-          if (isCurrent(workspaceId, epoch) && request === loadRequest) set({ loading: false });
-        }
+        };
+        const reads = await Promise.allSettled([readBackups(), readRestore()]);
+        if (!ownsRead()) return;
+        const failure = reads.find(result => result.status === "rejected");
+        set({ loading: false, error: failure ? friendlyBackupError(failure.reason) : "" });
       },
 
       async createBackup() {
