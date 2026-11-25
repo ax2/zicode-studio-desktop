@@ -47,6 +47,7 @@ fn headers(stream: &mut impl Read) -> io::Result<String> {
 }
 
 fn bounded(stream: &TcpStream) -> io::Result<()> {
+    stream.set_nonblocking(false)?;
     stream.set_read_timeout(Some(IO_TIMEOUT))?;
     stream.set_write_timeout(Some(IO_TIMEOUT))
 }
@@ -72,19 +73,19 @@ fn local_origin() -> (SocketAddr, CertificateDer<'static>, mpsc::Receiver<String
     let rcgen::CertifiedKey { cert, signing_key } =
         rcgen::generate_simple_self_signed(vec![HOST.to_owned()]).unwrap();
     let der = cert.der().clone();
-    let config = Arc::new(
-        ServerConfig::builder_with_provider(
-            Arc::new(rustls::crypto::aws_lc_rs::default_provider()),
-        )
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_no_client_auth()
-        .with_single_cert(
-            vec![der.clone()],
-            PrivatePkcs8KeyDer::from(signing_key.serialize_der()).into(),
-        )
-        .unwrap(),
-    );
+    let mut config = ServerConfig::builder_with_provider(Arc::new(
+        rustls::crypto::aws_lc_rs::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .unwrap()
+    .with_no_client_auth()
+    .with_single_cert(
+        vec![der.clone()],
+        PrivatePkcs8KeyDer::from(signing_key.serialize_der()).into(),
+    )
+    .unwrap();
+    config.alpn_protocols = vec![b"http/1.1".to_vec()];
+    let config = Arc::new(config);
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let endpoint = listener.local_addr().unwrap();
     let (observed, requests) = mpsc::channel();
@@ -95,8 +96,18 @@ fn local_origin() -> (SocketAddr, CertificateDer<'static>, mpsc::Receiver<String
             }
             let connection = ServerConnection::new(config.clone()).unwrap();
             let mut tls = StreamOwned::new(connection, stream);
-            if headers(&mut tls).as_deref().ok() != Some(REQUEST) {
-                return true;
+            match headers(&mut tls) {
+                Ok(request) if request == REQUEST => {
+                    let _ = observed.send(request);
+                }
+                Ok(request) => {
+                    eprintln!("Local TLS origin received an unexpected request: {request}");
+                    return true;
+                }
+                Err(error) => {
+                    eprintln!("Local TLS origin closed before the HTTP request: {error}");
+                    return true;
+                }
             }
             assert_eq!(tls.conn.server_name(), Some(HOST));
             let page =
@@ -108,7 +119,6 @@ fn local_origin() -> (SocketAddr, CertificateDer<'static>, mpsc::Receiver<String
             tls.write_all(reply.as_bytes()).unwrap();
             tls.conn.send_close_notify();
             tls.flush().unwrap();
-            let _ = observed.send(REQUEST.to_owned());
             false
         });
     });
@@ -208,7 +218,9 @@ fn native_browser_loads_https_document_through_established_proxy_tunnel() {
     engine.navigate(TAB, HTTPS).unwrap();
     let connect = wait(|| proxy_requests.try_recv().ok());
     assert!(connect.starts_with(HTTPS_REQUEST));
+    println!("WebView2 opened the CONNECT tunnel");
     wait(|| trusted.try_recv().ok());
+    println!("WebView2 saw the exact disposable TLS leaf");
     assert_eq!(wait(|| origin_requests.try_recv().ok()), REQUEST);
     wait(|| engine.export_ready(TAB).then_some(()));
     let (result, page) = mpsc::channel();
