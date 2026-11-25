@@ -1,0 +1,1 @@
+{"contractVersion":"1.0.0-rc.1","ok":true,"data":{"text":"SELECT\n    $body$中文 select; from$body$ AS body,\n    $1\nFROM records"},"error":null}
