@@ -479,6 +479,34 @@ it.each(["tool", "directory"] as const)("keeps the opening %s action focused and
   expect(flow.activateReviewed).toHaveBeenCalledTimes(1);
 });
 
+it("reloads an expired installed-tool listing after an explicit action without replaying enablement", async () => {
+  const flow = setup({ required: false });
+  flow.installedTools.open.mockRejectedValueOnce(Object.assign(new Error("Refresh directory"), { code: "catalog_changed" }));
+  flow.installedTools.list.mockResolvedValueOnce({ items: [tool], revision: "old-directory", total: 1, nextOffset: null });
+  flow.installedTools.list.mockResolvedValueOnce({ items: [tool], revision: "new-directory", total: 1, nextOffset: null });
+  await installPackage();
+  fireEvent.click(button("Enable plugin"));
+  fireEvent.click(await setupCard().findByRole("button", { name: "Open Format JSON" }));
+
+  const retry = await setupCard().findByRole("button", { name: "Try again" });
+  expect(setupCard().getByText("Tool changed. Reload its details before retrying.")).toBeTruthy();
+  expect(setupCard().queryByRole("button", { name: "Open Format JSON" })).toBeNull();
+  expect(flow.installedTools.list).toHaveBeenCalledTimes(1);
+  fireEvent.click(retry);
+  const refreshed = await setupCard().findByRole("button", { name: "Open Format JSON" });
+  expect(flow.installedTools.list.mock.calls).toEqual([
+    [preview.pluginId, packageRevision], [preview.pluginId, packageRevision],
+  ]);
+  expect(flow.installedTools.open).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(refreshed);
+  await waitFor(() => expect(flow.installedTools.open).toHaveBeenLastCalledWith(preview.pluginId, packageRevision, tool, "new-directory"));
+  expect(flow.installedTools.open).toHaveBeenCalledTimes(2);
+  expect(flow.installDeveloperPlugin).toHaveBeenCalledTimes(1);
+  expect(flow.activateReviewed).toHaveBeenCalledTimes(1);
+  expect(flow.notify).not.toHaveBeenCalled();
+});
+
 it.each(["packageRevision", "sceneRevision"] as const)("ignores a late retry after the installed %s changes", async field => {
   let resolveOld!: (value: ToolPage) => void;
   let resolveCurrent!: (value: ToolPage) => void;
