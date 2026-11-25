@@ -40,6 +40,7 @@ function setup({ required = true, existing = false, failed = false, activationFa
     plugin.permissions = Object.fromEntries(grants.map((grant) => [grant, true]));
     plugin.enabled = true;
     plugin.activationReview = { ...activationReview, sceneRevision: "programming:enabled-revision" };
+    return { settingsLoaded: true };
   });
   const setScene = vi.fn(async () => {});
   const installDeveloperPlugin = vi.fn(async () => {
@@ -251,6 +252,35 @@ it("returns focus to retry after a permission write fails", async () => {
   await waitFor(() => expect(flow.notify).toHaveBeenCalledWith("Cannot save permissions"));
   expect(document.activeElement).toBe(authorize);
   expect(authorize.disabled).toBe(false);
+});
+
+it("recovers the settings of a confirmed activation without applying its grants again", async () => {
+  const flow = setup();
+  await installPackage();
+  flow.activateReviewed.mockResolvedValueOnce({ settingsLoaded: false });
+  flow.setScene.mockRejectedValueOnce(Error("Still unavailable")).mockImplementationOnce(async () => {
+    flow.plugin.enabled = true;
+    flow.plugin.permissions = { "resource.read": true };
+    flow.plugin.activationReview = { ...activationReview, sceneRevision: "programming:enabled-revision" };
+  });
+  fireEvent.click(setupCard().getByRole("checkbox", { name: /Read selected resources/ }));
+  clickFocused(button("Authorize and enable"));
+  expect((await screen.findByRole("alert")).textContent).toBe("Plugin enabled. Its settings could not be loaded.");
+  expect(screen.queryByRole("button", { name: "Authorize and enable" })).toBeNull();
+  expect(button("Review and enable").disabled).toBe(true);
+  const retry = button("Reload plugin settings");
+  expect(document.activeElement).toBe(retry);
+  clickFocused(retry);
+  await screen.findByRole("alert");
+  expect(button("Review and enable").disabled).toBe(true);
+  expect(document.activeElement).toBe(retry);
+  clickFocused(retry);
+  const enabledCard = await screen.findByRole("region", { name: "Installed plugin setup" });
+  await within(enabledCard).findByRole("button", { name: "Open Format JSON" });
+  expect(flow.setScene.mock.calls).toEqual([["programming"], ["programming"], ["programming"]]);
+  expect(flow.activateReviewed.mock.calls).toEqual([[preview.pluginId, activationReview, ["resource.read"]]]);
+  expect(flow.plugin.permissions?.["pi.tools.register"]).toBeUndefined();
+  expect(flow.installedTools.open).not.toHaveBeenCalled();
 });
 
 it("keeps focus where the user moved it while activation was running", async () => {

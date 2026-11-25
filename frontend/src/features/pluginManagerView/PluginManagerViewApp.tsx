@@ -21,7 +21,7 @@ export interface PluginManagerRegistry {
   diagnostics?(): Array<{ package: string; message: string }>;
   setEnabled?(id: string, enabled: boolean): Promise<unknown>;
   setPermission?(id: string, name: string, granted: boolean): Promise<unknown>;
-  activateReviewed?(id: string, review: PluginActivationReview, grants: string[]): Promise<unknown>;
+  activateReviewed?(id: string, review: PluginActivationReview, grants: string[]): Promise<{ settingsLoaded: boolean }>;
   setScene?(sceneId: string): Promise<unknown>;
   reload?(): Promise<unknown>;
   uninstall?(id: string): Promise<unknown>;
@@ -32,6 +32,7 @@ type ActivationSetup = {
   scope: string;
   phase: "loading" | "failed" | "ready";
   focusOnMount: boolean;
+  afterEnable?: boolean;
 };
 
 export interface DeveloperPluginPreview {
@@ -167,7 +168,7 @@ export function PluginManagerViewApp({
     setActivation(reading);
     let phase: "ready" | "failed" = "ready";
     try {
-      await registry.setScene?.(sceneId);
+      if (await registry.setScene?.(sceneId) === false) phase = "failed";
     } catch {
       phase = "failed";
     }
@@ -228,6 +229,8 @@ export function PluginManagerViewApp({
     const isDeveloperOrSigned = plugin.origin === "developer" || plugin.origin === "signed";
     const helpPage = helpPageForPlugin(plugin.id);
     const activationReview = plugin.activationReview;
+    const awaitingSettings = activeSetup?.afterEnable && activeSetup.phase !== "ready" &&
+      activeSetup.receipt.pluginId === plugin.id && activeSetup.receipt.packageRevision === activationReview?.packageRevision;
     const permissions = [
       ...(plugin.permissionDetails?.required ?? []),
       ...(plugin.permissionDetails?.optional ?? []),
@@ -259,7 +262,7 @@ export function PluginManagerViewApp({
               v{plugin.version}
             </span>
           )}
-          {activationReview && !plugin.enabled ? (
+          {activationReview && !plugin.enabled && !awaitingSettings ? (
             <span className="ui-badge">{t(plugin.permissionDetails?.required?.some(({ name }) => !plugin.permissions?.[name])
               ? "Permission required" : "Disabled")}</span>
           ) : null}
@@ -277,14 +280,14 @@ export function PluginManagerViewApp({
           {!plugin.enabled && activationReview && registry.activateReviewed ? (
             <ActionButton
               label={t("Review and enable")}
-              disabled={!canManagePlugins || installBusy || Boolean(busy.activation)}
+              disabled={!canManagePlugins || installBusy || awaitingSettings || Boolean(busy.activation)}
               onClick={() => showActivation({ pluginId: plugin.id, packageRevision: activationReview.packageRevision })}
             />
           ) : (
           <ActionButton
             label={t(plugin.core ? "Required" : plugin.enabled ? "Enabled" : "Disabled")}
             variant={plugin.enabled ? "ui-button--secondary" : "ui-button--ghost"}
-            disabled={plugin.core || !canManagePlugins || Boolean(busy.activation)}
+            disabled={plugin.core || !canManagePlugins || awaitingSettings || Boolean(busy.activation)}
             busy={Boolean(busy[`toggle-${plugin.id}`])}
             ariaPressed={Boolean(plugin.enabled)}
             onClick={() => {
@@ -382,7 +385,7 @@ export function PluginManagerViewApp({
                   <ActionButton
                     label={t(granted ? "Allowed" : "Denied")}
                     variant="ui-button--ghost"
-                    disabled={!canManagePlugins || Boolean(busy.activation)}
+                    disabled={!canManagePlugins || awaitingSettings || Boolean(busy.activation)}
                     busy={Boolean(busy[`permission-${plugin.id}-${permission.name}`])}
                     ariaPressed={granted}
                     onClick={() => {
@@ -526,7 +529,9 @@ export function PluginManagerViewApp({
           {activeSetup.phase === "loading" ? (
             <p role="status">{t("Loading plugin settings…")}</p>
           ) : (
-            <p role="alert">{t("Plugin installed. Its settings could not be loaded.")}</p>
+            <p role="alert">{t(activeSetup.afterEnable
+              ? "Plugin enabled. Its settings could not be loaded."
+              : "Plugin installed. Its settings could not be loaded.")}</p>
           )}
           <div className="plugin-manager-preview-actions">
             <button ref={retryAction} type="button" className="ui-button ui-button--secondary ui-button--sm"
@@ -534,7 +539,7 @@ export function PluginManagerViewApp({
               onClick={() => { if (activeSetup.phase === "failed") void readInstalledSetup(activeSetup); }}>
               {t("Reload plugin settings")}
             </button>
-            <ActionButton label={t("Close")} onClick={() => setActivation(null)} />
+            {!activeSetup.afterEnable && <ActionButton label={t("Close")} onClick={() => setActivation(null)} />}
           </div>
         </section>
       ) : activeSetup && selectedPlugin?.activationReview ? (
@@ -549,11 +554,16 @@ export function PluginManagerViewApp({
           onClose={() => setActivation(null)}
           onDefer={() => setDeferred(true)}
           onResume={() => setDeferred(false)}
-          onActivate={canManagePlugins && registry.activateReviewed ? (grants) => {
+          onActivate={canManagePlugins && registry.activateReviewed ? (grants, setupCard) => {
             const review = selectedPlugin.activationReview;
             if (!review) return;
             void runAction("activation", async () => {
-              await registry.activateReviewed?.(selectedPlugin.id, review, grants);
+              const result = await registry.activateReviewed?.(selectedPlugin.id, review, grants);
+              if (result?.settingsLoaded !== false || scopeKey() !== activeSetup.scope || !pageHeading.current?.isConnected) return;
+              const focusOnMount = setupCard?.contains(setupCard.ownerDocument.activeElement) === true;
+              setActivation(current => current === activeSetup ? {
+                ...current, phase: "failed", afterEnable: true, focusOnMount,
+              } : current);
             });
           } : undefined}
         />
