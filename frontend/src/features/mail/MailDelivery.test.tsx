@@ -69,14 +69,14 @@ it.each(["gmail", "alibaba"] as const)("keeps the %s local receipt retry focused
   expect(invoke.mock.calls).toEqual([[receipt], [receipt], [receipt]]);
 });
 
-it("keeps an ambiguous Gmail send locked when the journal is empty and only rereads it on request", async () => {
+it.each(["gmail", "alibaba"] as const)("keeps an ambiguous %s send locked when the journal is empty", async provider => {
   const replies = [null, null, null, { status: "accepted" }];
   const invoke = vi.fn(async (request: Record<string, unknown>) => {
     if (request.kind === "delivery") return replies.shift();
     if (request.kind === "send") throw new Error("the desktop reply was interrupted");
     throw new Error("Unexpected operation");
   });
-  show(invoke as Invoke, "gmail");
+  show(invoke as Invoke, provider);
   const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
   await waitFor(() => expect(review.disabled).toBe(false));
   fireEvent.click(review);
@@ -93,6 +93,40 @@ it("keeps an ambiguous Gmail send locked when the journal is empty and only rere
   expect(invoke.mock.calls).toEqual([[receipt], [
     { kind: "send", accountId: "sample", draftId: draft.id, revision: draft.revision, confirmed: true },
   ], [receipt], [receipt], [receipt]]);
+});
+
+it.each([true, false])("requires a new explicit review and confirmation after no submission (reopened=%s)", async reopened => {
+  const send = { ...receipt, kind: "send", confirmed: true };
+  const invoke = vi.fn().mockResolvedValueOnce(reopened ? { status: "not_submitted" } : null);
+  if (!reopened) invoke.mockResolvedValueOnce({ status: "not_submitted" });
+  invoke.mockResolvedValueOnce({ status: "accepted" });
+  show(invoke as Invoke, "alibaba");
+  const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
+  await waitFor(() => expect(review.disabled).toBe(false));
+  if (!reopened) {
+    fireEvent.click(review);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and send email" }));
+  }
+  await screen.findByText(/The message was not submitted/);
+  const callsBeforeRetry = reopened ? [[receipt]] : [[receipt], [send]];
+  expect(invoke.mock.calls).toEqual(callsBeforeRetry);
+  expect(screen.queryByRole("button", { name: "Confirm and send email" })).toBeNull();
+  fireEvent.click(review);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(invoke.mock.calls).toEqual(callsBeforeRetry);
+  fireEvent.click(review);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm and send email" }));
+  await screen.findByText("The mail server accepted this message.");
+  expect(invoke.mock.calls).toEqual([...callsBeforeRetry, [send]]);
+  expect(screen.queryByRole("button", { name: "Review before sending" })).toBeNull();
+});
+
+it("treats the new Alibaba receipt as unknown if returned for Gmail", async () => {
+  const invoke = vi.fn().mockResolvedValueOnce({ status: "not_submitted" });
+  show(invoke as Invoke, "gmail");
+  await screen.findByText(/Delivery is unknown/);
+  expect(screen.queryByRole("button", { name: "Review before sending" })).toBeNull();
+  expect(invoke.mock.calls).toEqual([[receipt]]);
 });
 
 it("retains permission to review after a known preflight rejection with no local record", async () => {
