@@ -1,6 +1,7 @@
 import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {afterEach,expect,it,vi} from "vitest";
 import {Mail,type Invoke} from "./index";
+import { AlibabaInbox } from "./AlibabaInbox";
 import {setLocale} from "../../shared/i18n";
 afterEach(()=>{cleanup();vi.restoreAllMocks()});
 const summary={uid:30,subject:"Inbox fixture",sender:"from@example.test",replyTo:"reply@example.test"};
@@ -11,7 +12,7 @@ function setup(provider="alibaba",initiallyConfigured=true,backlog=0,archiveBody
     if(r.kind==="accounts")return [{id:"a",address:"me@example.test",provider}];
     if(r.kind==="drafts")return [draft];throw Error("unexpected local write");
   });
-  const remote=vi.fn(async (r:Record<string,unknown>)=>{
+  const remote=vi.fn(async (r:Record<string,unknown>): Promise<unknown> =>{
     expect(r.accountId).toBe("a");
     switch(r.kind){
     case "credentialStatus":return {enabled:true,configured};
@@ -282,4 +283,151 @@ it("keeps the active IMAP message when another cached folder fails to open", asy
   await screen.findByText("No inbox has been saved on this device yet.");
   expect(select.value).toBe("Uncached");
   expect(remote.mock.calls.some(([r]) => ["read", "sync", "send", "replyDraft"].includes(String(r.kind)))).toBe(false);
+});
+
+const archivedCursor = { folder: "Archive", uidValidity: 7, before: summary.uid };
+const replacementCursor = { folder: "Archive", uidValidity: 8, before: summary.uid };
+const activeArchive = { ...summary, subject: "Archived generation seven" };
+const replacementArchive = { ...summary, subject: "Archived generation eight" };
+
+function offlineCursorFixture() {
+  const a = setup();
+  const initial = a.remote.getMockImplementation();
+  if (!initial) throw Error("Missing transport fixture");
+  let stale = false, report = "mail_inbox_changed", arrival = "ready";
+  a.remote.mockImplementation(async request => {
+    if (request.kind === "cachedPage" && request.folder === "Archive") {
+      if (request.cursor && (request.cursor as typeof archivedCursor).uidValidity === 7) throw Error(report);
+      if (request.cursor) {
+        return { uidValidity: 8, messages: [{ ...summary, uid: 10, subject: "Older generation eight" }], next: null };
+      }
+      if (!stale) return { uidValidity: 7, messages: [activeArchive], next: archivedCursor };
+      if (arrival !== "ready") throw Error(arrival);
+      return { uidValidity: 8, messages: [replacementArchive], next: replacementCursor };
+    }
+    if (request.kind === "cachedBody" && request.folder === "Archive") {
+      if (request.uidValidity === 7) {
+        return { summary: activeArchive, text: "Old archive body", attachments: [{ id: 0, name: "old.bin", size: 8 }] };
+      }
+      return { summary: replacementArchive, text: "Current archive body" };
+    }
+    if (request.kind === "sync" && request.cursor) throw Error("mail_inbox_changed");
+    return initial(request);
+  });
+  return {
+    ...a,
+    expire(error = "mail_inbox_changed", firstPage = "ready") { stale = true; report = error; arrival = firstPage; },
+    pagesSince(start: number) {
+      return a.remote.mock.calls.slice(start).map(([r]) => r).filter(r => r.kind === "cachedPage");
+    },
+  };
+}
+
+async function openOfflineArchive() {
+  const a = offlineCursorFixture();
+  await screen.findByText("Inbox fixture");
+  fireEvent.change(screen.getByLabelText("IMAP folder"), { target: { value: "Archive" } });
+  fireEvent.click(await screen.findByRole("button", { name: /Archived generation seven/ }));
+  await screen.findByText("Old archive body");
+  await screen.findByRole("button", { name: "Download attachment old.bin" });
+  return a;
+}
+
+it("recovers an expired offline cursor from the same folder and discards the old message", async () => {
+  const a = await openOfflineArchive();
+  const start = a.remote.mock.calls.length;
+  a.expire();
+  fireEvent.click(button("Load older messages"));
+  const replacement = await screen.findByRole("button", { name: /Archived generation eight/ });
+  expect(screen.getByLabelText("IMAP folder")).toHaveProperty("value", "Archive");
+  expect(replacement).toHaveProperty("ariaPressed", "false");
+  expect(screen.queryByRole("article", { name: "Selected message" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Download attachment old.bin" })).toBeNull();
+  expect(a.pagesSince(start)).toEqual([
+    { kind: "cachedPage", accountId: "a", folder: "Archive", cursor: archivedCursor, limit: 20 },
+    { kind: "cachedPage", accountId: "a", folder: "Archive", cursor: null, limit: 20 },
+  ]);
+
+  fireEvent.click(button("Load older messages"));
+  await screen.findByRole("button", { name: /Older generation eight/ });
+  expect(a.pagesSince(start).at(-1)).toMatchObject({ cursor: replacementCursor });
+  fireEvent.click(replacement);
+  await screen.findByText("Current archive body");
+  expect(a.remote).toHaveBeenLastCalledWith({ kind: "cachedBody", accountId: "a", folder: "Archive", uid: summary.uid, uidValidity: 8 });
+  expect(a.kinds()).not.toContain("sync");
+  expect(a.kinds()).not.toContain("read");
+});
+
+it("shows the uncached state when the expired folder no longer has a local first page", async () => {
+  const a = await openOfflineArchive();
+  a.expire("mail_inbox_changed", "mail_cache_empty");
+  fireEvent.click(button("Load older messages"));
+  await screen.findByText("No inbox has been saved on this device yet.");
+  expect(screen.getByLabelText("IMAP folder")).toHaveProperty("value", "Archive");
+  expect(screen.queryByRole("article", { name: "Selected message" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Load older messages" })).toBeNull();
+  expect(a.kinds()).not.toContain("sync");
+});
+
+it("preserves the cached reading and cursor after an ordinary offline pagination error", async () => {
+  const a = await openOfflineArchive();
+  const start = a.remote.mock.calls.length;
+  a.expire("mail_storage");
+  fireEvent.click(button("Load older messages"));
+  await screen.findByText("Could not access local mail data.");
+  expect(screen.getByText("Old archive body")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Download attachment old.bin" })).toBeTruthy();
+  expect(a.pagesSince(start)).toEqual([
+    { kind: "cachedPage", accountId: "a", folder: "Archive", cursor: archivedCursor, limit: 20 },
+  ]);
+});
+
+it("keeps an expired online cursor on the existing explicit refresh path", async () => {
+  const a = offlineCursorFixture();
+  await screen.findByText("Inbox fixture");
+  fireEvent.click(button("Refresh from server"));
+  await screen.findByText("Showing messages retrieved from the server.");
+  const start = a.remote.mock.calls.length;
+  fireEvent.click(button("Load older messages"));
+  await screen.findByText("The inbox changed. Refresh it before continuing.");
+  expect(screen.getByText("Showing messages retrieved from the server.")).toBeTruthy();
+  expect(a.pagesSince(start)).toEqual([]);
+});
+
+it.each(["account", "folder"])("drops an expired-cursor recovery after changing the %s", async change => {
+  setLocale("en");
+  let stale = false, finish!: (value: unknown) => void;
+  const recovering = new Promise<unknown>(resolve => { finish = resolve; });
+  const remote = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === "credentialStatus") return { enabled: true, configured: false };
+    if (request.kind === "cachedFolders") return [{ id: "Archive", name: "Archive" }];
+    if (request.kind === "cachedPage") {
+      if (request.accountId === "b") return { uidValidity: 3, messages: [{ ...summary, subject: "Other account mail" }], next: null };
+      if (request.cursor) throw Error("mail_inbox_changed");
+      if (stale) return recovering;
+      return { uidValidity: 7, messages: [activeArchive], next: archivedCursor };
+    }
+    throw Error("Unexpected provider request");
+  });
+  const props = {
+    folder: "Archive", setFolder: vi.fn(), invoke: remote as Invoke, discard: () => true,
+    onBusy: vi.fn(), onConfigured: vi.fn(), onReply: vi.fn(),
+  };
+  const view = render(<AlibabaInbox id="a" {...props}/>);
+  await screen.findByText("Archived generation seven");
+  stale = true;
+  fireEvent.click(button("Load older messages"));
+  await waitFor(() => expect(remote).toHaveBeenLastCalledWith({
+    kind: "cachedPage", accountId: "a", folder: "Archive", cursor: null, limit: 20,
+  }));
+  if (change === "account") {
+    view.rerender(<AlibabaInbox id="b" {...props}/>);
+    await screen.findByText("Other account mail");
+  } else {
+    view.rerender(<AlibabaInbox id="a" {...props} folder="INBOX"/>);
+  }
+  await act(async () => finish({ uidValidity: 8, messages: [replacementArchive], next: null }));
+  expect(screen.queryByText("Archived generation eight")).toBeNull();
+  expect(props.setFolder).not.toHaveBeenCalled();
+  if (change === "account") expect(screen.getByText("Other account mail")).toBeTruthy();
 });
