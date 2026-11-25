@@ -64,7 +64,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     const url = el("span", "browser-downloads-meta");
     const status = el("span", "browser-downloads-meta");
     const path = el("span", "browser-downloads-path");
-    const error = el("span", "browser-downloads-error");
+    const feedback = el("span");
     const progress = el("progress"); progress.setAttribute("aria-label", t("Download progress"));
     const tools = el("div", "browser-downloads-actions");
     const save = button("Save to Downloads", () => action("downloadSave", id));
@@ -77,9 +77,9 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
     const reveal = button("Show in File Explorer", () => action("downloadReveal", id));
     const remove = button("Remove from list", () => action("downloadRemove", id));
     remove.title = t("Remove this record; keep the downloaded file");
-    tools.append(save, choose, pause, cancel, reveal, remove); element.append(title, url, status, progress, path, error, tools);
+    tools.append(save, choose, pause, cancel, reveal, remove); element.append(title, url, status, progress, path, feedback, tools);
     list.append(element);
-    const row = { element, title, url, status, progress, path, error, tools, save, choose, pause, cancel, reveal, remove }; rows.set(id, row); return row;
+    const row = { element, title, url, status, progress, path, feedback, tools, save, choose, pause, cancel, reveal, remove }; rows.set(id, row); return row;
   }
   function render() {
     empty.hidden = records.size > 0 || Boolean(loadError);
@@ -101,7 +101,15 @@ export function showBrowserDownloads({ invoke, onClose, subscribe }) {
       else row.progress.removeAttribute("value");
       row.path.textContent = record.partialPath && !transferring ? `${t("Partial file")}: ${record.partialPath}` : record.path ?? "";
       row.path.hidden = !row.path.textContent; row.path.title = row.path.textContent;
-      row.error.textContent = record.error ? t(record.error) : ""; row.error.hidden = !record.error;
+      const guidance = record.state === "waiting" && record.received > 0
+        ? t("Confirm where to save this download, or cancel it.")
+        : record.state === "downloading" && record.stalled
+        ? t("No recent progress. Cancel to try again.")
+        : "";
+      const feedback = record.error ? t(record.error) : guidance;
+      row.feedback.textContent = feedback;
+      row.feedback.className = record.error ? "browser-downloads-error" : "browser-downloads-meta";
+      row.feedback.hidden = !feedback;
       row.save.hidden = row.choose.hidden = record.state !== "waiting";
       row.pause.hidden = !transferring || (paused && !record.canResume);
       row.pause.textContent = t(paused ? "Continue download" : "Pause download");

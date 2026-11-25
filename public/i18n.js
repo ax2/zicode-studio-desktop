@@ -1057,6 +1057,9 @@ const zhCN = {
 
   Downloads: "下载",
   "Waiting to save": "等待保存",
+  "Confirm where to save this download, or cancel it.": "确认下载保存位置，或取消本次下载。",
+  "No recent progress. Cancel to try again.":
+    "下载暂无进展。可取消后重试。",
   Downloading: "正在下载",
   "Download complete": "下载完成",
   "Download cancelled": "已取消下载",

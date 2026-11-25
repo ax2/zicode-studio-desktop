@@ -1,12 +1,14 @@
 //! UI-thread-only native downloads. No webpage IPC, HTTP proxy or file execution.
 use super::{EngineEvent, BrowserPolicy};
-use std::{cell::RefCell, collections::HashMap, path::{Path, PathBuf}, rc::Rc, sync::Arc};
+use std::{cell::RefCell, collections::HashMap, path::{Path, PathBuf}, rc::Rc, sync::Arc, time::{Duration, Instant}};
 use serde::Serialize;
 use webview2_com::{take_pwstr, DownloadStartingEventHandler, StateChangedEventHandler, Microsoft::Web::WebView2::Win32::*};
 use windows::core::{BOOL, Interface, HSTRING, PWSTR};
 use wry::WebViewExtWindows;
 #[path = "download_files.rs"]
 pub(crate) mod files;
+
+const PROGRESS_NOTICE_DELAY: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,6 +19,8 @@ pub struct Record {
     pub name: String,
     pub state: String,
     pub can_resume: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub stalled: bool,
     pub received: i64,
     pub total: Option<i64>,
     pub path: Option<String>,
@@ -30,6 +34,7 @@ struct Entry {
     pending: Option<(ICoreWebView2DownloadStartingEventArgs, ICoreWebView2Deferral)>,
     staging: Option<PathBuf>,
     cancelling: bool,
+    last_progress: Instant,
 }
 pub struct Downloads {
     entries: RefCell<HashMap<String, Entry>>,
@@ -69,9 +74,11 @@ impl Downloads {
                 }
                 let mut suggested = PWSTR::null(); args.ResultFilePath(&mut suggested)?;
                 let mut total = 0; operation.TotalBytesToReceive(&mut total)?;
+                let mut received = 0;
+                let _ = operation.BytesReceived(&mut received);
                 let id = uuid::Uuid::new_v4().to_string();
                 let record = Record { id: id.clone(), tab: tab.clone(), url,
-                    name: files::filename(&take_pwstr(suggested)), state: "waiting".into(), can_resume: false, received: 0,
+                    name: files::filename(&take_pwstr(suggested)), state: "waiting".into(), can_resume: false, stalled: false, received: received.max(0),
                     total: (total > 0).then_some(total), path: None, partial_path: None, error: None, created_at: chrono::Utc::now().to_rfc3339() };
                 let pending = (args.clone(), args.GetDeferral()?);
                 let callback_id = id.clone(); let changed = Rc::downgrade(&downloads);
@@ -80,7 +87,7 @@ impl Downloads {
                     if let Some(downloads) = changed.upgrade() { downloads.update(&callback_id); }
                     Ok(())
                 })), &mut token) { pending.1.Complete()?; return Err(error); }
-                downloads.entries.borrow_mut().insert(id, Entry { record: record.clone(), operation, pending: Some(pending), staging: None, cancelling: false });
+                downloads.entries.borrow_mut().insert(id, Entry { record: record.clone(), operation, pending: Some(pending), staging: None, cancelling: false, last_progress: Instant::now() });
                 downloads.emit(record);
                 Ok(())
                 })();
@@ -107,6 +114,7 @@ pub fn save(&self, id: &str, target: &Path) -> Result<(), String> {
             entry.record.name = target.file_name().unwrap_or_default().to_string_lossy().into_owned();
             entry.record.partial_path = Some(staging.to_string_lossy().into_owned());
             entry.staging = Some(staging.clone());
+            entry.last_progress = Instant::now();
             (args, deferral, entry.record.clone())
         };
         self.emit(record);
@@ -144,12 +152,25 @@ pub fn save(&self, id: &str, target: &Path) -> Result<(), String> {
     }
     fn update(&self, id: &str) {
         let operation = self.entries.borrow().get(id)
-            .filter(|entry| entry.pending.is_none() && !entry.cancelling && active(&entry.record.state))
-            .map(|entry| entry.operation.clone());
-        let Some(operation) = operation else { return; };
-        let mut state = COREWEBVIEW2_DOWNLOAD_STATE::default(); let mut received = 0;
+            .filter(|entry| !entry.cancelling && active(&entry.record.state))
+            .map(|entry| (entry.operation.clone(), entry.pending.is_some()));
+        let Some((operation, waiting)) = operation else { return; };
+        let mut received = 0;
+        if unsafe { operation.BytesReceived(&mut received) }.is_err() { return; }
+        let received = received.max(0);
+        if waiting {
+            // The engine may receive data before approval. Update only the count
+            // for this operation, keeping the pending decision and file access intact.
+            if let Some(entry) = self.entries.borrow_mut().get_mut(id) {
+                if entry.pending.is_some() && !entry.cancelling {
+                    entry.record.received = received;
+                }
+            }
+            return;
+        }
+        let mut state = COREWEBVIEW2_DOWNLOAD_STATE::default();
         let mut reason = COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON::default();
-        if unsafe { operation.State(&mut state).and_then(|_| operation.BytesReceived(&mut received)) }.is_err() { return; }
+        if unsafe { operation.State(&mut state) }.is_err() { return; }
         if state == COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED && unsafe { operation.InterruptReason(&mut reason) }.is_err() { return; }
         let user_paused = state == COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED
             && reason == COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON_USER_PAUSED;
@@ -160,7 +181,10 @@ pub fn save(&self, id: &str, target: &Path) -> Result<(), String> {
         let notification = {
             let mut entries = self.entries.borrow_mut(); let Some(entry) = entries.get_mut(id) else { return; };
             if entry.pending.is_some() || entry.cancelling || !active(&entry.record.state) { return; }
-            entry.record.received = received.max(0);
+            if entry.record.received != received {
+                entry.record.received = received;
+                entry.last_progress = Instant::now();
+            }
             let can_resume = resumable.as_bool();
             if user_paused {
                 if entry.record.state == "paused" && entry.record.can_resume == can_resume { return; }
@@ -177,6 +201,7 @@ pub fn save(&self, id: &str, target: &Path) -> Result<(), String> {
             } else if state == COREWEBVIEW2_DOWNLOAD_STATE_IN_PROGRESS && entry.record.state == "paused" {
                 entry.record.state = "downloading".into();
                 entry.record.error = None;
+                entry.last_progress = Instant::now();
             } else { return; }
             entry.record.can_resume = can_resume;
             Some(entry.record.clone())
@@ -233,7 +258,13 @@ pub fn save(&self, id: &str, target: &Path) -> Result<(), String> {
 pub fn list(&self) -> Vec<Record> {
         let ids: Vec<_> = self.entries.borrow().keys().cloned().collect();
         for id in ids { self.update(&id); }
-        self.entries.borrow().values().map(|e| e.record.clone()).collect()
+        self.entries.borrow().values().map(|entry| {
+            let mut record = entry.record.clone();
+            record.stalled = record.state == "downloading" && record.received > 0
+                && record.total.is_none_or(|total| record.received < total)
+                && entry.last_progress.elapsed() >= PROGRESS_NOTICE_DELAY;
+            record
+        }).collect()
     }
     pub fn cancel_all(&self) {
         let ids: Vec<_> = self.entries.borrow().keys().cloned().collect();
