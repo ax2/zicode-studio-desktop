@@ -209,6 +209,79 @@ it("opens text generation from the business home without reading images and neve
   expect(h.libraryActions).toEqual([]);
 });
 
+it("opens a game asset template, reviews the edited brief, and saves only after approval", async () => {
+  const h = host(basicCapabilities, true);
+  render(<VisualAssetsApp invoke={h.invoke} workspaceId="workspace" sceneId="creative" />);
+  fireEvent.click(screen.getByRole("button", { name: "Open workflow · Game asset creation" }));
+  const template = screen.getByLabelText<HTMLSelectElement>("Game asset template");
+  const brief = screen.getByLabelText<HTMLTextAreaElement>("Game asset brief");
+  const prepare = await screen.findByRole<HTMLButtonElement>("button", {
+    name: "Review image generation",
+  });
+  expect(brief.disabled).toBe(true);
+  expect(prepare.disabled).toBe(true);
+  for (const [id, title, text] of [
+    ["character", "Game character", "neutral full-body pose"],
+    ["prop", "Game prop", "three-quarter view"],
+    ["scene", "Game scene", "clear focal point"],
+    ["icon", "Game UI icon", "simple silhouette"],
+  ]) {
+    fireEvent.change(template, { target: { value: id } });
+    expect(template.selectedOptions[0].textContent).toBe(title);
+    expect(brief.value).toContain(text);
+  }
+  expect(screen.queryByLabelText("Image background")).toBeNull();
+  expect(h.actions.some(({ kind }) => kind === "prepare" || kind === "submit")).toBe(false);
+  const edited = "A gold shield icon with a single blue gem";
+  fireEvent.change(brief, { target: { value: edited } });
+  const textReview = await review();
+  expect(within(textReview).getByText(edited)).toBeTruthy();
+  expect(within(textReview).getByText(/No reference image will be uploaded/)).toBeTruthy();
+  expect(h.actions.filter(({ kind }) => kind === "prepare")[0]?.input).toEqual({
+    person: null,
+    clothing: null,
+    description: edited,
+    generation: { mode: "text", options: {} },
+  });
+  fireEvent.change(template, { target: { value: "prop" } });
+  expect(screen.queryByRole("region", { name: "Confirm image generation" })).toBeNull();
+  fireEvent.change(template, { target: { value: "icon" } });
+  expect(brief.value).toBe(edited);
+  expect(h.actions.some(({ kind }) => kind === "submit")).toBe(false);
+
+  fireEvent.change(screen.getByLabelText("Generation mode"), { target: { value: "image" } });
+  expect(prepare.disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Choose from library · Source image" }));
+  fireEvent.click(await screen.findByRole("button", { name: "reference.png" }));
+  const imageReview = await review();
+  expect(within(imageReview).getByText(/reference\.png/)).toBeTruthy();
+  expect(h.actions.some(({ kind }) => kind === "submit")).toBe(false);
+  fireEvent.click(within(imageReview).getByRole("button", { name: "Confirm upload and generate image" }));
+  const approve = await screen.findByRole<HTMLButtonElement>("button", {
+    name: "Approve and save generated image",
+  });
+  const [submission] = h.actions.filter(({ kind }) => kind === "submit");
+  expect(submission).toMatchObject({
+    confirmed: true,
+    digest: "digest",
+    input: {
+      person: 7,
+      clothing: null,
+      description: edited,
+      generation: { mode: "image", options: {} },
+    },
+  });
+  expect(h.actions.filter(({ kind }) => kind === "submit")).toHaveLength(1);
+  expect(approve.disabled).toBe(true);
+  expect(h.actions.some(({ kind }) => kind === "approve")).toBe(false);
+  fireEvent.load(screen.getByRole("img", { name: "Generated image" }));
+  fireEvent.click(approve);
+  await screen.findByText("Generated image saved to the library.");
+  expect(h.actions.filter(({ kind }) => kind === "approve")).toEqual([
+    { kind: "approve", id: submission.id, sha256: "result" },
+  ]);
+});
+
 it("requires a selected image in edit mode and clears that selection when modes change", async () => {
   const h = host();
   render(<OutfitWorkspace invoke={h.invoke} workspaceId="workspace" workflow="generate" />);

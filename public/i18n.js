@@ -488,6 +488,23 @@ const zhCN = {
   "Prompt and optional reference images": "提示词与可选参考图片",
   "Generated images": "生成的图片",
   "Game asset creation": "游戏资产生成",
+  "Game asset template": "游戏资产模板",
+  "Choose an asset type": "选择资产类型",
+  "Game asset brief": "游戏资产简报",
+  "Choose a template and edit its brief. Image options depend on the selected model.":
+    "选择模板并编辑简报。可用的图像选项由所选模型决定。",
+  "Game character": "游戏角色",
+  "Create a single game character in a neutral full-body pose. Give the character a clear silhouette and leave space around the figure.":
+    "创作一个采用自然全身姿势的游戏角色。确保角色轮廓清晰，并在四周留出适当空间。",
+  "Game prop": "游戏道具",
+  "Create a single game prop, centered in a three-quarter view. Make its shape and material easy to recognize at small sizes.":
+    "创作一件居中摆放的游戏道具，以四分之三视角呈现。即使缩小显示，也能清楚辨别形状和材质。",
+  "Game scene": "游戏场景",
+  "Create a game environment with a clear focal point and readable foreground, middle ground, and background.":
+    "创作一个有明确视觉焦点的游戏场景，并清楚区分前景、中景与背景。",
+  "Game UI icon": "游戏界面图标",
+  "Create a single game UI icon with a simple silhouette. Keep it recognizable at small sizes and avoid lettering.":
+    "创作一个轮廓简洁的游戏界面图标。缩小后仍能辨认，图标中不要包含文字。",
   "Create characters, props, scenes and game icons.": "创作角色、道具、场景与游戏图标。",
   "Asset brief, references and engine requirements": "资产需求、参考图与引擎要求",
   "Reviewed game assets and exports": "经审核的游戏资产与导出文件",
