@@ -1,0 +1,172 @@
+{
+  "sourceRevision": "afe6b2058a6bd9df8501cfc156bf976eba088115",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T07:39:27.126648+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "da4242bd7f0116ccc54d080d3147c914ca90bd43cc9c079a9cde29b4527dbd20",
+  "workerVerification": {
+    "passed": 17,
+    "wasmSha256": "da4242bd7f0116ccc54d080d3147c914ca90bd43cc9c079a9cde29b4527dbd20",
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "workerProfile": "resource.wasi.input.draft2",
+    "cases": [
+      {
+        "case": "four-time-kinds-folded-bom",
+        "inputSha256": "85cb26299b42a7f2556b8cc0c1028d742661d26710d45be7be5d92fd5267a224",
+        "inputBytes": 637,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "4b7d6e7292fd633e860338cf727538fed213071a62b48f869bf1d1ce238d6a49"
+      },
+      {
+        "case": "summary-clips-at-character-boundary",
+        "inputSha256": "990d315e1794f1e6ff88823f327e09008f2a22f9572ae2514fed3d67571c6136",
+        "inputBytes": 663,
+        "input": {},
+        "mime": "text/plain",
+        "ok": true,
+        "resultSha256": "a8ee3336b452b19d51680c4d8a387fcfa69ef3c885b7d94bcf9cd236cf84eb31"
+      },
+      {
+        "case": "count-beyond-eight-displayed",
+        "inputSha256": "73fe05a5fe1293e51900b1df06b04a6202838128309213391a1480e9daaf0ada",
+        "inputBytes": 832,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "5b3d20d627dd84241dea08ae230902eeecda97afafc8fa7578a8eb81452f1bb7"
+      },
+      {
+        "case": "displayed-text-budget",
+        "inputSha256": "c52aedec767a34917b15961dedab0df542105a8002a5ec4c1053718d2dfa4345",
+        "inputBytes": 11150,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "35657d1c0b39c89836bd7a1905370a8c128e8908c0490c2786b537e511b14763"
+      },
+      {
+        "case": "valid-empty-calendar",
+        "inputSha256": "a2955cb7a9a361981d603785cabf9e3ab2db73ee6ca2da811edf5c6b7cc7cc83",
+        "inputBytes": 132,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "0bb6c2c3d8c5c64f57b8643735becada30024540457e749e814b424bcde6215d"
+      },
+      {
+        "case": "exact-file-boundary",
+        "inputSha256": "467d84aa90456797186585c23ec396955efc2fd436cebb430466406d5582b418",
+        "inputBytes": 16384,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "917974c65bcc2749258e02b68c842fb44f1a1b0a52e1c1be891b0c180c6dcafd"
+      },
+      {
+        "case": "above-file-boundary",
+        "inputSha256": "ffdb1c8f587c615e9f35970761931ee27a3389b154987a522546cfe558790811",
+        "inputBytes": 16385,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "ce6fcb8bbe7641ec0993d319dedf80403f15655d470362552d1c9efb6bb2b321"
+      },
+      {
+        "case": "dense-event-file",
+        "inputSha256": "82119b2c0b2076908683217f328949d84ed5317c134d8ad18e6ccb877676df74",
+        "inputBytes": 16355,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "resultSha256": "da31806eccf3b108db51be6d741c24a9c48aac8d8a2e647e9a2a172c3001ea89"
+      },
+      {
+        "case": "invalid-utf8",
+        "inputSha256": "a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89",
+        "inputBytes": 1,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "60c47ac30dc0d8d606e824ae6bb3da2d748788fcf52cccba93ab5ef4918a7624"
+      },
+      {
+        "case": "missing-start",
+        "inputSha256": "5f2639828afe4f42e0f223617ebfb17eca27ad3681d9ced9dfca8fa5baaaeeb8",
+        "inputBytes": 129,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "5b1095f5cbe643e17678e571409a62452ffdf9e45371c7d41564f6e60267e490"
+      },
+      {
+        "case": "impossible-date",
+        "inputSha256": "cfa90660d967054b2e2eaf59ef48ed4242714f4cc854b929f54053b020038f09",
+        "inputBytes": 141,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "1809cf814213243ae03e398f4836aab72bbb5188779f73c39ca6d21a2722a82a"
+      },
+      {
+        "case": "utc-and-tzid-are-ambiguous",
+        "inputSha256": "a7a46a2e09a9bc8e9d34d66fb3c9404b2614d6413dc98e361ce946cdd534da88",
+        "inputBytes": 157,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "1809cf814213243ae03e398f4836aab72bbb5188779f73c39ca6d21a2722a82a"
+      },
+      {
+        "case": "duplicate-start",
+        "inputSha256": "cacd3fb35dfa91da6ba11a8821567a4b2d1bd58d4b2763bfba776892f7b024e8",
+        "inputBytes": 162,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "e4e374ed8488eef2e86e447c23b55a6ced189606b34a4d52d9039e44f2bfddaf"
+      },
+      {
+        "case": "unterminated-event",
+        "inputSha256": "81eec2d733a2a3630957207d20750a1aa28c264b0185dd11762951a76eeee564",
+        "inputBytes": 125,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "e4e374ed8488eef2e86e447c23b55a6ced189606b34a4d52d9039e44f2bfddaf"
+      },
+      {
+        "case": "oversized-rrule",
+        "inputSha256": "b5357cb2a488c56614350b6f7c149c175a75afea40fccf6012d34538f39ff553",
+        "inputBytes": 658,
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "9c3c85e28840c7e44b58e11c4d08313a92dc021a359c00e41904508632704b14"
+      },
+      {
+        "case": "wrong-mime",
+        "inputSha256": "85cb26299b42a7f2556b8cc0c1028d742661d26710d45be7be5d92fd5267a224",
+        "inputBytes": 637,
+        "input": {},
+        "mime": "image/png",
+        "ok": false,
+        "resultSha256": "4b04bb0d1d694be2ac632e6c853b17835cfd71a6b5ad1dddcfe06834b96968c7"
+      },
+      {
+        "case": "unexpected-arguments",
+        "inputSha256": "85cb26299b42a7f2556b8cc0c1028d742661d26710d45be7be5d92fd5267a224",
+        "inputBytes": 637,
+        "input": {
+          "import": true
+        },
+        "mime": "application/octet-stream",
+        "ok": false,
+        "resultSha256": "dddd3e7e795764d7321e33a9d4cfc6d9102a6def6976bc3360b6a7a4f9569016"
+      }
+    ]
+  }
+}

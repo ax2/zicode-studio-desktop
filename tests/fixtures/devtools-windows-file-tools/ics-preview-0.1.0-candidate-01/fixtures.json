@@ -1,0 +1,143 @@
+{
+  "generator": "scripts/verify_ics_preview_plugin.py",
+  "cases": [
+    {
+      "id": "four-time-kinds-folded-bom",
+      "inputSha256": "85cb26299b42a7f2556b8cc0c1028d742661d26710d45be7be5d92fd5267a224",
+      "inputBytes": 637,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "summary-clips-at-character-boundary",
+      "inputSha256": "990d315e1794f1e6ff88823f327e09008f2a22f9572ae2514fed3d67571c6136",
+      "inputBytes": 663,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "count-beyond-eight-displayed",
+      "inputSha256": "73fe05a5fe1293e51900b1df06b04a6202838128309213391a1480e9daaf0ada",
+      "inputBytes": 832,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "displayed-text-budget",
+      "inputSha256": "c52aedec767a34917b15961dedab0df542105a8002a5ec4c1053718d2dfa4345",
+      "inputBytes": 11150,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "valid-empty-calendar",
+      "inputSha256": "a2955cb7a9a361981d603785cabf9e3ab2db73ee6ca2da811edf5c6b7cc7cc83",
+      "inputBytes": 132,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "exact-file-boundary",
+      "inputSha256": "467d84aa90456797186585c23ec396955efc2fd436cebb430466406d5582b418",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "above-file-boundary",
+      "inputSha256": "ffdb1c8f587c615e9f35970761931ee27a3389b154987a522546cfe558790811",
+      "inputBytes": 16385,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "dense-event-file",
+      "inputSha256": "82119b2c0b2076908683217f328949d84ed5317c134d8ad18e6ccb877676df74",
+      "inputBytes": 16355,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "invalid-utf8",
+      "inputSha256": "a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89",
+      "inputBytes": 1,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "missing-start",
+      "inputSha256": "5f2639828afe4f42e0f223617ebfb17eca27ad3681d9ced9dfca8fa5baaaeeb8",
+      "inputBytes": 129,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "impossible-date",
+      "inputSha256": "cfa90660d967054b2e2eaf59ef48ed4242714f4cc854b929f54053b020038f09",
+      "inputBytes": 141,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "utc-and-tzid-are-ambiguous",
+      "inputSha256": "a7a46a2e09a9bc8e9d34d66fb3c9404b2614d6413dc98e361ce946cdd534da88",
+      "inputBytes": 157,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "duplicate-start",
+      "inputSha256": "cacd3fb35dfa91da6ba11a8821567a4b2d1bd58d4b2763bfba776892f7b024e8",
+      "inputBytes": 162,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "unterminated-event",
+      "inputSha256": "81eec2d733a2a3630957207d20750a1aa28c264b0185dd11762951a76eeee564",
+      "inputBytes": 125,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "oversized-rrule",
+      "inputSha256": "b5357cb2a488c56614350b6f7c149c175a75afea40fccf6012d34538f39ff553",
+      "inputBytes": 658,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "wrong-mime",
+      "inputSha256": "85cb26299b42a7f2556b8cc0c1028d742661d26710d45be7be5d92fd5267a224",
+      "inputBytes": 637,
+      "input": {},
+      "mime": "image/png",
+      "ok": false
+    },
+    {
+      "id": "unexpected-arguments",
+      "inputSha256": "85cb26299b42a7f2556b8cc0c1028d742661d26710d45be7be5d92fd5267a224",
+      "inputBytes": 637,
+      "input": {
+        "import": true
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    }
+  ]
+}
