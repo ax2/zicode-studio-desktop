@@ -793,6 +793,53 @@ async fn text_diff_frozen_host_exports_original_reports() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires frozen JSON Schema candidate, receipt and a production Windows Worker"]
+async fn json_schema_frozen_host_exports_exact_validation_reports() {
+    let plugin = "com.zicode.devtools.json-schema";
+    let (root, host) =
+        start_frozen_export_host("json-schema-export", "ZICODE_TEST_JSON_SCHEMA_PACKAGE", plugin, 8)
+            .await;
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let scope = json!({
+        "workspaceId": WORKSPACE, "sceneId": "programming", "pluginId": plugin,
+        "capabilityId": "devtools.json-schema.validate",
+    });
+
+    for (name, instance, expected) in [
+        ("pass", r#"{"资料/条目~":18446744073709551615}"#, Some("校验通过")),
+        ("violation", r#"{"资料/条目~":"FIXTURE_PRIVATE_变量"}"#, Some("/资料~1条目~0")),
+        ("malformed", r#"{"资料/条目~":"#, None),
+    ] {
+        let mut body = scope.clone();
+        body["captureResult"] = json!(true);
+        body["input"] = json!({
+            "instance": instance,
+            "schema": r#"{"type":"object","properties":{"资料/条目~":{"type":"integer"}}}"#,
+        });
+        let response = client
+            .post(format!("{}/v2/plugin-capabilities/invoke", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&body)
+            .send().await.unwrap().error_for_status().unwrap().json::<Value>().await.unwrap();
+        let result = &response["result"];
+        assert_eq!(result["contractVersion"], "1.0.0-rc.1");
+        assert_eq!(result["ok"], expected.is_some());
+        if let Some(expected) = expected {
+            let report = result["data"]["text"].as_str().unwrap();
+            assert!(report.contains(expected));
+            assert!(!report.contains("FIXTURE_PRIVATE_"));
+            verify_result_export(&host, &root, WORKSPACE, &scope, &response, ExportCase {
+                format: "text", mime_type: "text/plain", operation: name,
+                stem: "json-schema-validation", expected: report, revoke: name == "violation",
+            });
+        } else {
+            assert!(response["resultRef"].is_null());
+        }
+    }
+    host.stop_and_wait().await.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires frozen Compare 0.1.0 candidate 02, its receipt and a production Windows Worker"]
 async fn structured_json_diff_frozen_host_exports_original_reports() {
     use super::plugin_resources::export::Context;
