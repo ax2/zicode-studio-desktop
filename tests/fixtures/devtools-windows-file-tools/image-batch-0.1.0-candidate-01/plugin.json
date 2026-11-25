@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.image-batch",
+  "name": "ZiDevTools Small PNG Batch",
+  "displayName": "图片批处理（小型 PNG）",
+  "description": "将逐次确认的一至两张本机小型静态 PNG 等比限宽，生成各自可确认保存的独立 PNG。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.image.batch.resize"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.image.batch.resize",
+        "title": "图片批处理（小型 PNG）",
+        "description": "将逐次确认的一至两张本机小型静态 PNG 等比限宽，生成各自可确认保存的独立 PNG。",
+        "resourceInputMax": 2,
+        "resourceInputMimeTypes": [
+          "image/png"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "maxWidth": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 48,
+              "title": "最大宽度（可选）",
+              "description": "1–48 像素，按原比例缩小。留空保留原尺寸。"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "mimeType": {
+                      "type": "string",
+                      "const": "image/png"
+                    },
+                    "items": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 2,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "inputIndex": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "outputIndex": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "sourceWidth": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 64
+                          },
+                          "sourceHeight": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 64
+                          },
+                          "width": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 64
+                          },
+                          "height": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 64
+                          },
+                          "byteLength": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 32768
+                          }
+                        },
+                        "required": [
+                          "inputIndex",
+                          "outputIndex",
+                          "sourceWidth",
+                          "sourceHeight",
+                          "width",
+                          "height",
+                          "byteLength"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 1024
+                    }
+                  },
+                  "required": [
+                    "mimeType",
+                    "items",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "PNG 批量缩放",
+            "图标批量缩放",
+            "Small PNG Batch Resize"
+          ],
+          "description": "将逐次确认的一至两张本机小型静态 PNG 等比限宽，生成各自可确认保存的独立 PNG。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "只读取本次确认的一至两张本机静态 PNG。"
+      }
+    ],
+    "optional": []
+  }
+}
