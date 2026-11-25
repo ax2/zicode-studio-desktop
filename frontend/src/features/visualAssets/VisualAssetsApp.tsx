@@ -56,10 +56,10 @@ export function VisualAssetsApp(props: { invoke: Invoke; workspaceId: string; sc
         </>
       )}
       {view === "library" && <AssetLibrary {...props} />}
-      {(view === "outfit" || view === "style" || view === "generate") && (
+      {(view === "outfit" || view === "style" || view === "generate" || view === "game") && (
         <OutfitWorkspace {...props} workflow={view} />
       )}
-      {selected && view !== "outfit" && view !== "style" && view !== "generate" && (
+      {selected?.id === "animation" && (
         <CreationWorkspace
           key={selected.id}
           workflow={selected}
