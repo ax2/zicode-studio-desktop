@@ -31,7 +31,7 @@ export function setupAppKeyboardShortcuts({
 }) {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      if (overlayOwnsEscape()) return;
+      if (event.defaultPrevented || overlayOwnsEscape()) return;
       if (isWorking()) {
         event.preventDefault();
         abort();
