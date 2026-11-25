@@ -13,8 +13,14 @@ export function createImageCropSelection({ container, read, isCurrent, onApply }
   apply.hidden = true;
   const status = document.createElement("p");
   status.setAttribute("role", "status");
+  status.id = `crop-area-status-${crypto.randomUUID()}`;
   const stage = document.createElement("div");
   stage.className = "image-crop-stage";
+  stage.setAttribute("role", "group");
+  stage.setAttribute("aria-label", t("Crop area"));
+  stage.setAttribute("data-i18n-aria-label", "Crop area");
+  stage.setAttribute("aria-describedby", status.id);
+  stage.tabIndex = -1;
   stage.hidden = true;
   const image = document.createElement("img");
   image.alt = t("Crop source image");
@@ -36,7 +42,11 @@ export function createImageCropSelection({ container, read, isCurrent, onApply }
     button.onclick = action;
     return button;
   }
+  function canMoveSelection() {
+    return selected && !drag && !disabled && !busy && !stage.hidden && isCurrent(source);
+  }
   function controls() {
+    stage.tabIndex = canMoveSelection() ? 0 : -1;
     preview.textContent = t(dimensions ? "Close preview" : "Preview crop source");
     preview.disabled = disabled || busy || !source || metadata.byteLength > resourceImagePreviewLimit;
     apply.disabled = disabled || busy || Boolean(drag) || !selected;
@@ -86,7 +96,6 @@ export function createImageCropSelection({ container, read, isCurrent, onApply }
       image.height = dimensions.height;
       stage.style.setProperty("--crop-ratio", String(dimensions.width / dimensions.height));
       stage.hidden = apply.hidden = false;
-      status.textContent = t("Drag across the PNG to select the crop area.");
       renderArea();
       async function verify() {
         if (!current()) { if (token === revision) clear(); return; }
@@ -114,7 +123,16 @@ export function createImageCropSelection({ container, read, isCurrent, onApply }
       y: pixel(event.clientY - bounds.top, bounds.height, dimensions.height),
     };
   }
+  function describeArea() {
+    if (!selected) {
+      status.textContent = t("Drag across the PNG to select the crop area.");
+      return;
+    }
+    const text = t("Left {x}, top {y}, width {width}, height {height} pixels. Arrow keys move 1 pixel. Hold Shift to move 10 pixels.");
+    status.textContent = text.replace(/\{(x|y|width|height)\}/g, (_, key) => String(selected[key]));
+  }
   function renderArea() {
+    if (!drag) describeArea();
     outline.hidden = !selected;
     if (selected) {
       outline.style.left = `${selected.x / dimensions.width * 100}%`;
@@ -149,6 +167,32 @@ export function createImageCropSelection({ container, read, isCurrent, onApply }
   image.addEventListener("lostpointercapture", event => {
     if (drag?.id !== event.pointerId) return;
     drag = selected = undefined;
+    renderArea();
+  });
+  stage.addEventListener("focus", () => {
+    if (canMoveSelection()) describeArea();
+  });
+  stage.addEventListener("keydown", event => {
+    const owner = stage.ownerDocument;
+    if (event.defaultPrevented || event.target !== stage || owner.activeElement !== stage || !canMoveSelection() ||
+        event.isComposing || event.keyCode === 229 || event.ctrlKey || event.altKey || event.metaKey) return;
+    const step = event.shiftKey ? 10 : 1;
+    let { x, y } = selected;
+    switch (event.key) {
+      case "ArrowLeft": x -= step; break;
+      case "ArrowRight": x += step; break;
+      case "ArrowUp": y -= step; break;
+      case "ArrowDown": y += step; break;
+      default: return;
+    }
+    if (owner.querySelector("dialog[open]") || [...owner.querySelectorAll("[aria-modal='true']")]
+      .some(element => element.getClientRects().length && getComputedStyle(element).visibility !== "hidden")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    x = Math.max(0, Math.min(x, dimensions.width - selected.width));
+    y = Math.max(0, Math.min(y, dimensions.height - selected.height));
+    if (x === selected.x && y === selected.y) return;
+    selected = { ...selected, x, y };
     renderArea();
   });
   async function applyArea() {
