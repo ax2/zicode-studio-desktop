@@ -2522,6 +2522,8 @@ const zhCN = {
     "无法准备保存。请检查当前工作区后重试。",
   "Send to tool": "发送到工具",
   "Send original file": "发送原文件",
+  "Preparing original file: {name}": "正在准备原文件：{name}",
+  "Original file: {name}": "原文件：{name}",
   "Browse local files": "浏览本机文件",
   "Choose up to 64 local files. Confirm sharing, then run to read them.": "最多选择 64 个本机文件。确认共享后，点击执行才会读取。",
   "Could not prepare local files. Choose up to 64 local files.": "无法准备本机文件。请重新选择，最多 64 个文件。",

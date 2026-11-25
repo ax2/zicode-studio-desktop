@@ -120,6 +120,7 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
     const heading = node("div", null, "plugin-resource-transfer-heading");
     heading.append(node("strong", t("Send output to a tool")), close);
     panel.append(heading,
+      ...(originalFile ? [node("p", t("Original file: {name}").replace("{name}", () => resource.fileName))] : []),
       node("p", t("Share only this output with one tool in this session. Nothing is saved or run automatically.")),
       views, filters, search, searchButton, list, pager, status, details, confirmation, controls, result, outputs);
     if (typeof panel.showModal === "function") panel.showModal();

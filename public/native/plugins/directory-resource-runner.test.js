@@ -462,6 +462,47 @@ describe("directory-owned resource execution", () => {
     expect(f.button("Preview save")).toBeUndefined();
   });
 
+  it.each(["move focus", "clear report"])("ignores a prepared original reference after users %s", async action => {
+    const { f, files, api, owner, reply } = streamingFixture();
+    const source = await api.original.getMockImplementation()();
+    let finish;
+    api.original.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    f.button("Browse local files").click();
+    await vi.waitFor(() => expect(f.button("Confirm file sharing").disabled).toBe(false));
+    f.button("Confirm file sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    const [first, second] = [...document.querySelectorAll(".file-digest-result button")]
+      .filter(button => button.textContent === "Send original file");
+    first.focus();
+    first.click();
+    expect(api.original).toHaveBeenCalledExactlyOnceWith("workspace", reply.reportAccess, 1);
+    expect(first.getAttribute("aria-disabled")).toBe("true");
+    expect(second.disabled).toBe(true);
+    expect(first.nextElementSibling.textContent).toBe(`Preparing original file: ${files[1].name}`);
+    second.click();
+    expect(api.original).toHaveBeenCalledOnce();
+
+    const cancel = f.button("Cancel file sharing");
+    cancel.focus();
+    if (action === "clear report") cancel.click();
+    finish(source);
+    await vi.waitFor(() => expect(f.gateway.revokeResource).toHaveBeenCalledWith({
+      schemaVersion: 1, owner, resourceId: source.access.resourceId, contentVersion: source.access.contentVersion,
+    }));
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(f.gateway.searchTools).not.toHaveBeenCalled();
+    expect(f.gateway.prepareResourceTransfer).not.toHaveBeenCalled();
+    if (action === "move focus") {
+      expect(document.activeElement).toBe(cancel);
+      expect(second.disabled).toBe(false);
+    } else {
+      expect(f.gateway.revokeResource).toHaveBeenCalledWith(reply.reportAccess);
+      expect(first.isConnected).toBe(false);
+    }
+  });
+
   it("suppresses and revokes a late stream report after cancelling", async () => {
     const { f, api, reply } = streamingFixture();
     let finish;
