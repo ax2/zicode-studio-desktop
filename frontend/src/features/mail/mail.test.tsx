@@ -173,6 +173,16 @@ it("creates an offline reply on the result's account and opens the saved draft",
     { kind: "replyDraft", accountId: "source", folder: "Archive", uidValidity: 9, uid: 42 },
   ]);
   expect(transport.mock.calls.some(([r]) => r.kind === "read" || r.kind === "send")).toBe(false);
+  expect(screen.getByLabelText<HTMLInputElement>("Search cached mail").value).toBe("message");
+  expect(screen.getByLabelText<HTMLSelectElement>("Search scope").value).toBe("");
+  expect(screen.getByRole("button", { name: /Gmail message with the same ID/ })).toBeTruthy();
+  expect(within(screen.getByRole("article", { name: "Cached message" })).getByText("Archived supplier message")).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText("Mail account"), { target: { value: "current" } });
+  await waitFor(() => expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("current"));
+  expect(screen.getByLabelText<HTMLInputElement>("Search cached mail").value).toBe("");
+  expect(screen.getByLabelText<HTMLSelectElement>("Search scope").value).toBe("current");
+  expect(screen.queryByRole("article", { name: "Cached message" })).toBeNull();
 });
 
 it("does not create a reply after the search source changes during confirmation", async () => {
@@ -271,6 +281,11 @@ it.each(["inbox", "search"] as const)("opens a Gmail reply from the %s without s
   await waitFor(() => expect(screen.getByLabelText("Message body")).toBe(document.activeElement));
   const actions = gmail.mock.calls.map(([request]) => request).filter(request => ["read", "send", "replyDraft"].includes(String(request.kind)));
   expect(actions).toEqual([{ kind: "replyDraft", accountId: "peer", id: "same" }]);
+  if (source === "search") {
+    expect(screen.getByLabelText<HTMLInputElement>("Search cached mail").value).toBe("customer");
+    expect(screen.getByLabelText<HTMLSelectElement>("Search scope").value).toBe("");
+    expect(within(screen.getByRole("article", { name: "Cached message" })).getByText("Cached body")).toBeTruthy();
+  }
 });
 
 it.each(["inbox", "search"] as const)("refreshes a legacy Gmail message from the %s only after an explicit click", async source => {
