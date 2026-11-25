@@ -164,7 +164,11 @@ function FilterSection({
           type="button"
           className={`artifacts-filter${option.active ? " active" : ""}`}
           aria-pressed={option.active}
-          onClick={() => onSelect(option.value)}
+          onClick={(event) => {
+            // Filtering updates the current drawer without opening an artifact.
+            event.stopPropagation();
+            onSelect(option.value);
+          }}
         >
           {option.label}
         </button>
