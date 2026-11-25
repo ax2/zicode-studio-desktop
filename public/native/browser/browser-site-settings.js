@@ -33,6 +33,7 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
   dialog.setAttribute("aria-label", t("Site permissions and storage"));
   const list = el("div"), actions = el("fieldset"), confirm = el("section"), status = el("p");
   status.setAttribute("role", "status");
+  status.tabIndex = list.tabIndex = -1;
   let stale = false, cancelReview;
   const blocked = el("p");
   function setBlockedPermissions(permissions) {
@@ -84,8 +85,8 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
     const apply = button("Confirm", async () => {
       if (stale || !dialog.open || cancelReview !== discard) return;
       clearReview();
-      close.focus();
       status.textContent = t("Applying site settings…");
+      status.focus({ preventScroll: true });
       let failed = false;
       try {
         await request({ ...action, confirmed: true });
@@ -99,7 +100,9 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
         status.textContent = errorText(error);
       } finally {
         actions.disabled = stale;
-        if (failed && document.activeElement === close) source.focus({ preventScroll: true });
+        if (dialog.open && !stale && document.activeElement === status) {
+          (failed ? source : close).focus({ preventScroll: true });
+        }
       }
     });
     const details = el("div");
@@ -118,6 +121,7 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
     actions.disabled = true;
     list.setAttribute("aria-busy", "true");
     list.replaceChildren(el("p", t("Loading saved site permissions…")));
+    if (restoreRetryFocus) list.focus({ preventScroll: true });
     try {
       const saved = await request({ type: "list" });
       if (!dialog.open || stale) return;
@@ -139,17 +143,15 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
       const failure = el("p", `${t("Could not read saved site permissions.")} ${errorText(error)}`);
       failure.setAttribute("role", "alert");
       const retry = button("Retry reading permissions", () => {
-        const hadFocus = document.activeElement === retry;
-        if (hadFocus) close.focus();
-        void load(hadFocus);
+        void load(document.activeElement === retry);
       });
       nextRetry = retry;
       list.replaceChildren(failure, retry);
     } finally {
       list.setAttribute("aria-busy", "false");
       actions.disabled = stale;
-      if (restoreRetryFocus && nextRetry && dialog.open && !stale && document.activeElement === close) {
-        nextRetry.focus({ preventScroll: true });
+      if (restoreRetryFocus && dialog.open && !stale && document.activeElement === list) {
+        (nextRetry ?? close).focus({ preventScroll: true });
       }
     }
   }
