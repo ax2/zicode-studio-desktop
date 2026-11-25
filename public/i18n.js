@@ -2378,6 +2378,8 @@ const zhCN = {
   "Reading SQL file…": "正在读取 SQL 文件…",
   "Choose a SQL file.": "请选择 SQL 文件。",
   "SQL files must be 8 KiB or smaller.": "SQL 文件不能超过 8 KiB。",
+  "Formatted SQL exceeds the 48 KiB output limit.": "格式化后的 SQL 超过 48 KiB 的输出上限。",
+  "Formatted SQL exceeds the 48 KiB output limit. Select 2 spaces for indentation and run again.": "格式化后的 SQL 超过 48 KiB 的输出上限。请选择 2 个空格缩进后重新格式化。",
   "Could not read the SQL file.": "无法读取 SQL 文件。",
   "The selected SQL file is empty.": "所选 SQL 文件为空。",
   "Right table file": "右表文件",
