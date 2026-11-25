@@ -80,6 +80,8 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
     if (
       event.defaultPrevented ||
       event.key !== "Escape" ||
+      event.isComposing ||
+      event.keyCode === 229 ||
       !isMobile() ||
       sidebar.classList.contains("collapsed")
     )
