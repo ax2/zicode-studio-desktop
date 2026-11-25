@@ -52,6 +52,7 @@ export function createBrowserProxySettings(control) {
   };
   let busy = false;
   let loaded = false;
+  let composing = false;
   let savedAddress = "";
   const refreshDraftHint = () => { draftHint.hidden = input.value === savedAddress; };
   input.disabled = true;
@@ -89,8 +90,11 @@ export function createBrowserProxySettings(control) {
     if (panel.open) void request({ kind: "getHttpProxy" });
   });
   input.addEventListener("input", refreshDraftHint);
+  input.addEventListener("compositionstart", () => { composing = true; });
+  input.addEventListener("compositionend", () => { composing = false; });
+  input.addEventListener("blur", () => { composing = false; });
   input.addEventListener("keydown", event => {
-    if (event.key !== "Enter" || event.isComposing) return;
+    if (event.key !== "Enter" || composing || event.isComposing || event.keyCode === 229) return;
     event.preventDefault();
     event.stopPropagation();
     if (!save.disabled) save.click();
