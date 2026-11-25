@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：原尺寸图片转换
+
+在工具中心搜索「保持原尺寸转换图片」，确认共享一张静态 PNG、JPEG 或 WebP，转换后保持像素宽高。Windows 隔离 Studio 已验证取消、确认另存和重启，超过内嵌预览限制的大图可以直接另存。[范围与冻结候选](../iterations/2026-11-26-image-original-size-convert.md)
+
 ## 2026-11-26 开发补充：备忘备份提取 Markdown
 
 在工具中心确认一份 ZiDevTools 备份后，可查看普通备忘并按原序号提取单条 Markdown。Windows 隔离 Studio 已通过逐次共享、取消与确认保存、空正文及重启复验。[范围与冻结候选](../iterations/2026-11-26-memo-backup-extract.md)

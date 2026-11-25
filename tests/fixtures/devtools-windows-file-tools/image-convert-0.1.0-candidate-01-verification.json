@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.image-convert",
+  "packageVersion": "0.1.0",
+  "signatureVerified": false,
+  "directoryIndexSha256": "154b6b49a1cf760c063d1796b916e189c65c34b3d22a7953b9e6dfe32626a1f9",
+  "files": [
+    {
+      "path": "catalog.json",
+      "size": 585,
+      "sha256": "f21d5d479715ef7b1a814c464eaef09c1581aad32ef4805c1124d27db35593d4"
+    },
+    {
+      "path": "fixtures.json",
+      "size": 8790,
+      "sha256": "8129900d39f9f8860fbed57addcab1e52179f63c915be64fe42c999e15f3208a"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 72,
+      "sha256": "a7dfe47126544a14bdc705961a0246b73041682a8b5a7aa55df59c1043b1e83f"
+    },
+    {
+      "path": "plugin.json",
+      "size": 4272,
+      "sha256": "c68bc1d6e7a1ff694eef7295d5508d3bad92130d2c4bb3052f9e993c9af0ecde"
+    },
+    {
+      "path": "provenance.json",
+      "size": 19523,
+      "sha256": "1844de59e8d3e0fbbf96d149802cc801c160343710b57ec37780788ef6dde7e8"
+    },
+    {
+      "path": "README.md",
+      "size": 904,
+      "sha256": "b8a561056873c65c6cd471c0a0fcaae60c58d9339d37ad845c92904a9946c087"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 931871,
+      "sha256": "fd8ca2e9e0eaa29cc91846ad2ce4b61c7b0dd197e4d5aa927141e8a9353f2ba5"
+    }
+  ],
+  "fileCount": 8,
+  "totalBytes": 967114,
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}
