@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.prompt-expansion",
+  "name": "ZiDevTools Prompt Template Tools",
+  "displayName": "提示词模板",
+  "description": "填写文本变量并离线展开一次。完整展开最多 128 KiB，工具中心显示最多 16 KiB 的有界预览。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "compute.wasi.v1": "=1.0.0-rc.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.prompt.variables",
+    "onCapability:devtools.prompt.expand"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.prompt.variables",
+        "title": "提示词变量检查",
+        "description": "检查本机模板正文中最多 12 个不同变量，并识别四花括号字面。模板最多 16 KiB。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "template": {
+              "type": "string",
+              "maxLength": 16384,
+              "minLength": 1,
+              "title": "模板正文",
+              "description": "使用 {{project}}。变量名可用英文字母、数字和下划线。{{{{ 与 }}}} 为字面双花括号。"
+            }
+          },
+          "required": [
+            "template"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "variables": {
+                      "type": "array",
+                      "maxItems": 12,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 32
+                      }
+                    },
+                    "templateByteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 16384
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  },
+                  "required": [
+                    "variables",
+                    "templateByteLength",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 240
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "检查提示词",
+            "列出提示词变量",
+            "Prompt variables"
+          ],
+          "description": "检查本机模板正文中最多 12 个不同变量，并识别四花括号字面。模板最多 16 KiB。"
+        }
+      },
+      {
+        "id": "devtools.prompt.expand",
+        "title": "提示词模板展开",
+        "description": "填写文本变量并离线展开一次。完整展开最多 128 KiB，工具中心显示最多 16 KiB 的有界预览。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "template": {
+              "type": "string",
+              "maxLength": 16384,
+              "minLength": 1,
+              "title": "模板正文",
+              "description": "使用 {{project}}。变量名可用英文字母、数字和下划线。{{{{ 与 }}}} 为字面双花括号。"
+            },
+            "values": {
+              "type": "object",
+              "maxProperties": 12,
+              "additionalProperties": true,
+              "title": "变量值（可选）",
+              "description": "填写仅含字符串值的 JSON 对象，例如 {\"project\":\"桌面工具\"}。使用到的变量需要填写。"
+            }
+          },
+          "required": [
+            "template"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "variables": {
+                      "type": "array",
+                      "maxItems": 12,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 32
+                      }
+                    },
+                    "expandedByteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 131072
+                    },
+                    "previewByteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 16384
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 16512
+                    }
+                  },
+                  "required": [
+                    "variables",
+                    "expandedByteLength",
+                    "previewByteLength",
+                    "truncated",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 240
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "展开提示词",
+            "提示词预览",
+            "提示词占位符",
+            "Expand prompt template"
+          ],
+          "description": "填写文本变量并离线展开一次。完整展开最多 128 KiB，工具中心显示最多 16 KiB 的有界预览。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [],
+    "optional": []
+  }
+}
