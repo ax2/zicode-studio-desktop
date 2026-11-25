@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：图片批处理（小型 PNG）
+
+确认一至两张本机小型静态 PNG 后，可等比缩小并分别保存结果。Windows 隔离 Studio 验证了单份取消、分别保存及重启读回。[使用范围与冻结候选](../iterations/2026-11-26-image-batch-png.md)
+
 ## 2026-11-26 开发补充：SQLite 浏览器
 
 确认一份本机静态 SQLite 数据库后，可查看目录、分页阅读普通表并确认保存当前页 CSV。已在隔离 Windows Studio 验证取消、确认保存、重启和撤权。[使用范围与冻结候选](../iterations/2026-11-26-sqlite-browser.md)

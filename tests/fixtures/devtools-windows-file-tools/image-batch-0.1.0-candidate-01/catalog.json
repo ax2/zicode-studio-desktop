@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.image-batch",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "image-batch",
+      "capabilityId": "devtools.image.batch.resize",
+      "title": "图片批处理（小型 PNG）",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "将逐次确认的一至两张本机小型静态 PNG 等比限宽，生成各自可确认保存的独立 PNG。"
+    }
+  ]
+}
