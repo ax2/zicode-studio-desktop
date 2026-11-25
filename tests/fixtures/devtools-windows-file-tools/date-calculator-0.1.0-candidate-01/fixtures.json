@@ -1,0 +1,191 @@
+{
+  "generator": "scripts/verify_date_calculator_plugin.py",
+  "cases": [
+    {
+      "id": "leap-difference",
+      "capabilityId": "devtools.date.difference",
+      "inputSha256": "8c11ebd0bd71a62a519dd6e8be5e0f688e819e5e34977b76e33e7d87a924a763",
+      "ok": true
+    },
+    {
+      "id": "signed-difference",
+      "capabilityId": "devtools.date.difference",
+      "inputSha256": "55447ad527e689865f88ee4671d6bd046aa10c1441963d78187b88c8af309d67",
+      "ok": true
+    },
+    {
+      "id": "positive-entire-range",
+      "capabilityId": "devtools.date.difference",
+      "inputSha256": "3e941877a54f11f2ef02bf089211e478fb18e6278627985a08a20078161dafa6",
+      "ok": true
+    },
+    {
+      "id": "negative-entire-range",
+      "capabilityId": "devtools.date.difference",
+      "inputSha256": "f0130063cc568807a8fc572f8c8123128eb3fc29411963fa29309bf6dff146a5",
+      "ok": true
+    },
+    {
+      "id": "invalid-century-date",
+      "capabilityId": "devtools.date.difference",
+      "inputSha256": "787ddc80cd96da3532e34e440beeeb5d14ed391b8e4a93d1cff31044e6ba509d",
+      "ok": false
+    },
+    {
+      "id": "year-zero-rejected",
+      "capabilityId": "devtools.date.difference",
+      "inputSha256": "0c9816bf907912be0611d8ddec4eed30a6e4ef0247fb5049a78390ca2b3f05a7",
+      "ok": false
+    },
+    {
+      "id": "invalid-unpadded-date",
+      "capabilityId": "devtools.date.difference",
+      "inputSha256": "34f476cdbeec742ef8db22408e070fa5d01b340d875b6932aef824505cd7e001",
+      "ok": false
+    },
+    {
+      "id": "integer-offset-day",
+      "capabilityId": "devtools.date.offset",
+      "inputSha256": "bf886d30c57b9d2f4ee7b1f4cb6c6470704d3b87325802d38e7ea235bfee65ca",
+      "ok": true
+    },
+    {
+      "id": "end-of-month-explicit-error",
+      "capabilityId": "devtools.date.offset",
+      "inputSha256": "c22dc0d102ce1b417957006a883e6c101c49db6c4ff65d65cb40d681cbbb4305",
+      "ok": false
+    },
+    {
+      "id": "month-end-clamp",
+      "capabilityId": "devtools.date.offset",
+      "inputSha256": "a7ca6d5f86c7546619896dc40316acb3f245654cde417457d3922392f4e227d6",
+      "ok": true
+    },
+    {
+      "id": "reverse-month-end-clamp",
+      "capabilityId": "devtools.date.offset",
+      "inputSha256": "35b1d48e55cff51f610d631daa4e279d05768e1dd9b09ff960565641d8271088",
+      "ok": true
+    },
+    {
+      "id": "leap-year-clamp",
+      "capabilityId": "devtools.date.offset",
+      "inputSha256": "0ee360e968001278bc3e7c781ec28eb5f6646b02d28b58bffc5ca66fd63127f6",
+      "ok": true
+    },
+    {
+      "id": "year-rollover",
+      "capabilityId": "devtools.date.offset",
+      "inputSha256": "9973174485ba454af0b44e605d07a1790659520204e9b4863537012ffeceaf5c",
+      "ok": true
+    },
+    {
+      "id": "upper-date-bound",
+      "capabilityId": "devtools.date.offset",
+      "inputSha256": "d390484a6eb630be1adbcbfcc68b27a113f1978d042c6e818ba2893766ad9de7",
+      "ok": false
+    },
+    {
+      "id": "lower-date-bound",
+      "capabilityId": "devtools.date.offset",
+      "inputSha256": "ef423a594a7aa6a829b781b734b597246783bf56c4b8602d0c11bec6c0053de2",
+      "ok": false
+    },
+    {
+      "id": "amount-budget",
+      "capabilityId": "devtools.date.offset",
+      "inputSha256": "5cf35cdd373d58c8ac89795e1749a29775cfd94f9d2e885fbef486c452bb673e",
+      "ok": false
+    },
+    {
+      "id": "noninteger-amount",
+      "capabilityId": "devtools.date.offset",
+      "inputSha256": "cccf7d08e8b105099eeca13aa11cb9e29c0adf07bd16390ea974475e4a2b5696",
+      "ok": false
+    },
+    {
+      "id": "weekday-default-excludes-start",
+      "capabilityId": "devtools.date.workday_count",
+      "inputSha256": "eeea20e6104861896aced5b6043173e3238335d981c06e1e2f61e0363799dca2",
+      "ok": true
+    },
+    {
+      "id": "weekday-include-start",
+      "capabilityId": "devtools.date.workday_count",
+      "inputSha256": "9e9238d2ae25da24796fcd6d0c14177ebecdc9cc7d778cdfcd7ae8235903add2",
+      "ok": true
+    },
+    {
+      "id": "same-weekend-count",
+      "capabilityId": "devtools.date.workday_count",
+      "inputSha256": "5091919cd694b0f2b52032d5285f493bb7bd94776ad4527d32fff39be9bc84ee",
+      "ok": true
+    },
+    {
+      "id": "reversed-weekday-count-rejected",
+      "capabilityId": "devtools.date.workday_count",
+      "inputSha256": "f0130063cc568807a8fc572f8c8123128eb3fc29411963fa29309bf6dff146a5",
+      "ok": false
+    },
+    {
+      "id": "full-span-weekday-count",
+      "capabilityId": "devtools.date.workday_count",
+      "inputSha256": "53cc2f374e602575f147baa53c4f63a19a14890245042d4a1ee093c868fe5296",
+      "ok": true
+    },
+    {
+      "id": "offset-across-weekend",
+      "capabilityId": "devtools.date.workday_offset",
+      "inputSha256": "545416fb34cfa39d034ce5d74de8c5e52edf24763a9d7c7a0e6c9ce8e6109d88",
+      "ok": true
+    },
+    {
+      "id": "offset-back-across-weekend",
+      "capabilityId": "devtools.date.workday_offset",
+      "inputSha256": "162a91343e19a9ac51ddff89f7cdf3b9a5f1d86550e12daee776a43a9a754e4a",
+      "ok": true
+    },
+    {
+      "id": "offset-zero-keeps-weekend",
+      "capabilityId": "devtools.date.workday_offset",
+      "inputSha256": "69c2041b939d183d0ebc7f1bfad1f8d6f8fe029e71fc79d4fbcfacb271c9f8db",
+      "ok": true
+    },
+    {
+      "id": "full-span-forward-weekdays",
+      "capabilityId": "devtools.date.workday_offset",
+      "inputSha256": "0b1043d460c949a1dc68ddd64777a3d8b18f930068cabc36634ccb5d4f1a8440",
+      "ok": true
+    },
+    {
+      "id": "full-span-reverse-weekdays",
+      "capabilityId": "devtools.date.workday_offset",
+      "inputSha256": "df45ad29adb65c247719e9f1c454c6898645e98936b103cd0229137d0456bb45",
+      "ok": true
+    },
+    {
+      "id": "one-weekday-beyond-range",
+      "capabilityId": "devtools.date.workday_offset",
+      "inputSha256": "8511d5a5919a54b5a5bebacde4b1e2d37df126c7188dee9f58fcf7c5fc369a4c",
+      "ok": false
+    },
+    {
+      "id": "extra-argument-rejected",
+      "capabilityId": "devtools.date.difference",
+      "inputSha256": "e40c6ea62ff04cd879429e9de42a4443547be28d4c41f47c359db35402355673",
+      "ok": false
+    },
+    {
+      "id": "request-size-budget",
+      "capabilityId": "devtools.date.difference",
+      "inputSha256": "d826ab9b68d674cac7bd07c6202d111d6f71eda899d86c8ee24aa3e4fa825009",
+      "ok": false
+    },
+    {
+      "id": "unknown-operation",
+      "capabilityId": "devtools.date.undefined",
+      "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "ok": false
+    }
+  ]
+}
