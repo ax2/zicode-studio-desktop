@@ -53,29 +53,31 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
   const epoch=useRef(0),operation=useRef("init"),grantCallback=useRef(onGrant);
   grantCallback.current=onGrant;
   const primaryAuthorization = useRef<HTMLButtonElement>(null);
-  const cancelAuthorization = useRef<HTMLButtonElement>(null);
-  const authorizationFocus = useRef<{ origin: HTMLButtonElement; cancel?: HTMLButtonElement } | undefined>(undefined);
+  const cancelOperation = useRef<HTMLButtonElement>(null);
+  const refreshButton = useRef<HTMLButtonElement>(null);
+  const operationFocus = useRef<{ origin: HTMLButtonElement; kind: string; cancel?: HTMLButtonElement } | undefined>(undefined);
   useLayoutEffect(() => {
-    const request = authorizationFocus.current;
+    const request = operationFocus.current;
     if (!request) return;
     const { activeElement, body } = request.origin.ownerDocument;
     if (activeElement !== request.origin && activeElement !== request.cancel && activeElement !== body) {
-      authorizationFocus.current = undefined;
+      operationFocus.current = undefined;
       return;
     }
-    if (busy === "connect" && cancelAuthorization.current && !request.cancel) {
-      request.cancel = cancelAuthorization.current;
+    if (busy === request.kind && cancelOperation.current && !request.cancel) {
+      request.cancel = cancelOperation.current;
       request.cancel.focus({ preventScroll: true });
     } else if (!busy) {
-      authorizationFocus.current = undefined;
-      const action = request.origin.isConnected ? request.origin : primaryAuthorization.current;
+      operationFocus.current = undefined;
+      const fallback = request.kind === "refresh" ? refreshButton.current : primaryAuthorization.current;
+      const action = request.origin.isConnected ? request.origin : fallback;
       if (action && !action.matches(":disabled")) action.focus({ preventScroll: true });
     }
   });
   const saveGrant=(g:Grant)=>{setGrant(g);grantCallback.current(Boolean(g.connected&&g.send))};
   useEffect(()=>{
     const gen=++epoch.current;
-    authorizationFocus.current = undefined;
+    operationFocus.current = undefined;
     operation.current="init"; setBusy("init");setGrant(none);grantCallback.current(false);
     setPage(null);setMessage(null);setBody(null);setServerPage(false);setNotice("");
     setExpiredCursor(null);
@@ -94,8 +96,20 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     });
     return()=>{epoch.current++;if(operation.current==="connect")void invoke({kind:"cancel",accountId:id}).catch(()=>{})};
   },[id,invoke,setLabel]);
-  async function run<T>(kind:string,task:(isCurrent:()=>boolean)=>Promise<T>,apply:(result:T)=>void){
-    if(operation.current)return false;const gen=++epoch.current;operation.current=kind;setBusy(kind);setNotice("");
+  async function run<T>(
+    kind: string,
+    task: (isCurrent: () => boolean) => Promise<T>,
+    apply: (result: T) => void,
+    origin?: HTMLButtonElement,
+  ) {
+    if (operation.current) return false;
+    if (origin && origin.ownerDocument.activeElement === origin) {
+      operationFocus.current = { origin, kind };
+    }
+    const gen = ++epoch.current;
+    operation.current = kind;
+    setBusy(kind);
+    setNotice("");
     try {
       const value = await task(() => epoch.current === gen);
       if (epoch.current !== gen) return false;
@@ -112,26 +126,45 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     finally {if(epoch.current===gen){operation.current="";setBusy("")}}
   }
   function connect(send: boolean, origin: HTMLButtonElement) {
-    if (operation.current) return;
-    authorizationFocus.current = origin.ownerDocument.activeElement === origin ? { origin } : undefined;
     void run("connect", () => invoke<Grant>({ kind: "connect", send, accountId: id }), g => {
       saveGrant(g);
       if (send && !g.send) setNotice(t("Google did not grant sending permission."));
-    });
+    }, origin);
   }
-  async function cancel(){
-    if(operation.current!=="connect")return;
-    const gen=++epoch.current;operation.current="cancel";setBusy("cancel");
-    try{await invoke({kind:"cancel",accountId:id});const fresh=await invoke<Grant>({kind:"status",accountId:id});if(epoch.current===gen){saveGrant(fresh);setNotice(t("Sign-in canceled."))}}
-    catch(e){if(epoch.current===gen)setNotice(gmailError(e))}
-    finally{if(epoch.current===gen){operation.current="";setBusy("")}}
+  async function cancel() {
+    const kind = operation.current;
+    if (kind !== "connect" && kind !== "refresh") return;
+    const gen = ++epoch.current;
+    operation.current = "cancel";
+    setBusy("cancel");
+    try {
+      await invoke({ kind: "cancel", accountId: id });
+      const fresh = kind === "connect" ? await invoke<Grant>({ kind: "status", accountId: id }) : null;
+      if (epoch.current === gen) {
+        if (fresh) saveGrant(fresh);
+        setNotice(t(kind === "connect" ? "Sign-in canceled." : "Gmail refresh canceled."));
+      }
+    } catch (error) {
+      if (epoch.current === gen) setNotice(gmailError(error));
+    } finally {
+      if (epoch.current === gen) {
+        operation.current = "";
+        setBusy("");
+      }
+    }
   }
-  function load(server: boolean, cursor: string | null = null, selected = label, append = false) {
+  function load(
+    server: boolean,
+    cursor: string | null = null,
+    selected = label,
+    append = false,
+    origin?: HTMLButtonElement,
+  ) {
     const resumeFromCache = append && serverPage && !server;
     const readPage = (position: string | null) => invoke<Page | null>({
       kind: server ? "list" : "cachedPage", accountId: id, label: selected, cursor: position, limit: 20,
     });
-    void run("list", async isCurrent => {
+    void run(server ? "refresh" : "list", async isCurrent => {
       let result = await readPage(resumeFromCache ? null : cursor).catch((error: unknown) => {
         if (isCurrent() && server && cursor && String(error).replace(/^Error:\s*/, "") === "gmail_page_expired") {
           setExpiredCursor(cursor);
@@ -172,7 +205,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       }
       if(server)window.dispatchEvent(new CustomEvent("studio-mail-cache-updated",{detail:id}));
       setServerPage(server);
-    });
+    }, server ? origin : undefined);
   }
   function retryCachedLabels() {
     void run("cachedLabels", () => invoke<Label[] | null>({ kind: "cachedLabels", accountId: id }), items => {
@@ -232,7 +265,10 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
           setNotice(t(r.revoked?"Gmail disconnected.":"Disconnected on this device. Review Google account permissions to confirm revocation."))
         })}/>
     </fieldset>
-    {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button className="ui-button" type="button" ref={cancelAuthorization} onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
+    {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button className="ui-button" type="button" ref={cancelOperation} onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
+    {busy === "refresh" && <div role="status">
+      <button className="ui-button" type="button" ref={cancelOperation} onClick={() => void cancel()}>{t("Cancel Gmail refresh")}</button>
+    </div>}
     <fieldset disabled={Boolean(busy)}><legend>{t("Inbox")}</legend>
       <label>{t("Gmail label")} <select className="ui-select" value={label} onChange={e=>load(false,null,e.target.value)}>
         <option value="INBOX">{t("Inbox")}</option>
@@ -244,13 +280,13 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
         <button className="ui-button" type="button" onClick={retryCachedLabels}>{t("Retry saved Gmail labels")}</button>
       </>}
       <button className="ui-button" type="button" onClick={()=>load(false)}>{t(label==="INBOX"?"Show offline inbox":"Show saved messages")}</button>
-      <button className="ui-button" type="button" disabled={!grant.read} onClick={()=>load(true)}>{t("Refresh from server")}</button>
+      <button className="ui-button" type="button" ref={refreshButton} disabled={!grant.read} onClick={event => load(true, null, label, false, event.currentTarget)}>{t("Refresh from server")}</button>
       {page?<><p>{t(readFromServer?"Showing messages retrieved from the server.":"Showing messages saved on this device.")}</p>
         {!page.items.length&&<p>{t("No messages on this page.")}</p>}
         <ul className="mail-inbox-list">{page.items.map(m=><li key={m.id}><button className="ui-button" type="button" aria-pressed={message?.id===m.id} onClick={()=>select(m)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.from}</small></button></li>)}</ul>
-        {page.nextCursor && <button className="ui-button" type="button" onClick={() => {
-          if (needsLabelRefresh) load(true);
-          else load(readFromServer, page.nextCursor, label, true);
+        {page.nextCursor && <button className="ui-button" type="button" onClick={event => {
+          if (needsLabelRefresh) load(true, null, label, false, event.currentTarget);
+          else load(readFromServer, page.nextCursor, label, true, event.currentTarget);
         }}>{t(needsLabelRefresh ? "Refresh this Gmail label" : "Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {message&&<article aria-label={t("Selected message")}><h3 translate="no">{message.subject||t("No subject")}</h3><p translate="no">{message.from}</p>

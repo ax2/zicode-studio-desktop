@@ -1,4 +1,8 @@
-use super::{api, oauth::Result, store};
+use super::{
+    api,
+    oauth::{self, Result},
+    store,
+};
 use reqwest::Client;
 use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
@@ -6,6 +10,8 @@ use std::{
     collections::{BTreeSet, HashSet},
     path::Path,
 };
+
+use tokio_util::sync::CancellationToken;
 
 // Page-shaped member records keep older versions of the local search index readable.
 const LABEL_PAGES: &str =
@@ -41,6 +47,18 @@ pub struct CachedLabel<'a> {
 }
 
 pub async fn fetch(
+    client: &Client,
+    base: &str,
+    token: &str,
+    folder: CachedLabel<'_>,
+    cursor: Option<&str>,
+    limit: u8,
+    stop: &CancellationToken,
+) -> Result<Snapshot> {
+    oauth::until_cancelled(stop, fetch_snapshot(client, base, token, folder, cursor, limit)).await
+}
+
+async fn fetch_snapshot(
     client: &Client,
     base: &str,
     token: &str,

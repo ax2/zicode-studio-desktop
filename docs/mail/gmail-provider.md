@@ -14,7 +14,7 @@ A person presses Connect to open Google's consent screen in the OS browser. A sh
 | --- | --- | --- |
 | `status` | — | Local credential status and granted `read`/`send` flags; no network. |
 | `connect` | `send: false` for reading, `true` to also request sending | Waits for explicit browser approval. Returns granted capabilities, never sends an email. |
-| `cancel` | — | Invalidates the outstanding authorization. Late completions cannot write credentials or caches. |
+| `cancel` | — | Cancels an outstanding authorization or Gmail list refresh. A cancelled request cannot write credentials or replace the cached page. The previous page remains available while the user retries. |
 | `disconnect` | — | Removes local credentials, requests revocation and reports whether Google confirmed it. Locally cached mail and drafts stay on this device. |
 | `list`, `cachedPage` | `cursor: null` or a previous token, `limit: 1..30` | Inbox metadata, subject/from/date, snippet and next cursor. Only `list` contacts Google; cache miss returns null. |
 | `read`, `cachedBody` | `id` from the list | Returns metadata and plain text if available; does not execute HTML, fetch external images or load attachments. Only `read` contacts Google. |

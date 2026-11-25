@@ -519,6 +519,7 @@ async fn gmail_history_pages_reconcile_label_membership_and_recover_expiry() {
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
     let path = std::env::temp_dir().join(format!("gmail-sync-{}.sqlite", uuid::Uuid::new_v4()));
     drop(rusqlite::Connection::open(&path).unwrap());
+    let stop = tokio_util::sync::CancellationToken::new();
     let fetch = || {
         sync::fetch(
             &client,
@@ -532,6 +533,7 @@ async fn gmail_history_pages_reconcile_label_membership_and_recover_expiry() {
             },
             None,
             1,
+            &stop,
         )
     };
     let save =
@@ -586,5 +588,136 @@ async fn gmail_history_pages_reconcile_label_membership_and_recover_expiry() {
     assert!(save(&stale).is_err());
     assert!(offline(None).is_null());
     server.abort();
+    std::fs::remove_file(path).unwrap();
+}
+
+
+#[tokio::test]
+async fn cancelling_gmail_refresh_releases_account_during_expired_history_recovery() {
+    use super::{sync, AccountGate};
+    use axum::{
+        extract::Query,
+        http::{header::AUTHORIZATION, HeaderMap, StatusCode},
+        routing::get,
+        Json, Router,
+    };
+    use std::{collections::HashMap, sync::Arc, time::Duration};
+    use tokio::sync::Notify;
+
+    let paused = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let pages = {
+        let paused = paused.clone();
+        let release = release.clone();
+        move |headers: HeaderMap, Query(query): Query<HashMap<String, String>>| {
+            let paused = paused.clone();
+            let release = release.clone();
+            async move {
+                if headers[AUTHORIZATION] == "Bearer previous" {
+                    if query.get("pageToken").is_some_and(|token| token == "later") {
+                        paused.notify_one();
+                        release.notified().await;
+                        return Json(json!({}));
+                    }
+                    return Json(json!({"nextPageToken":"later"}));
+                }
+                assert_eq!(headers[AUTHORIZATION], "Bearer fresh");
+                assert!(!query.contains_key("pageToken"));
+                Json(json!({"messages":[{"id":"saved"}]}))
+            }
+        }
+    };
+    let app = Router::new()
+        .route("/history", get(|| async { StatusCode::NOT_FOUND }))
+        .route(
+            "/profile",
+            get(|| async { Json(json!({"historyId":"80"})) }),
+        )
+        .route("/messages", get(pages))
+        .route(
+            "/messages/saved",
+            get(|| async {
+                Json(
+                    json!({"id":"saved","internalDate":"33","labelIds":["INBOX"],
+                "payload":{"headers":[{"name":"Subject","value":"Fresh subject"}]}}),
+                )
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let service = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let path =
+        std::env::temp_dir().join(format!("gmail-cancel-sync-{}.sqlite", uuid::Uuid::new_v4()));
+    drop(rusqlite::Connection::open(&path).unwrap());
+    store::cache(&path, "w", "acct", 0, "history", "INBOX", &json!("10")).unwrap();
+    let cached = json!({"items":[{"id":"saved","internalDate":33,"subject":"Saved subject"}]});
+    store::cache(&path, "w", "acct", 0, "page", "member:saved", &cached).unwrap();
+
+    let gate = AccountGate::default();
+    let previous_stop = gate.state.lock().unwrap().stop.clone();
+    let folder = || sync::CachedLabel {
+        path: &path,
+        scope: "w",
+        account: "acct",
+        label: "INBOX",
+    };
+    let previous = async {
+        let _network = gate.network.lock().await;
+        sync::fetch(
+            &client,
+            &base,
+            "previous",
+            folder(),
+            None,
+            1,
+            &previous_stop,
+        )
+        .await
+    };
+    let cancel_and_retry = async {
+        paused.notified().await;
+        let fresh_stop = {
+            let mut state = gate.state.lock().unwrap();
+            state.invalidate();
+            state.stop.clone()
+        };
+        let _network = gate.network.lock().await;
+        assert_eq!(
+            store::cached(&path, "w", "acct", "history", "INBOX").unwrap(),
+            "10"
+        );
+        assert_eq!(
+            store::cached(&path, "w", "acct", "page", "member:saved").unwrap(),
+            cached
+        );
+        sync::fetch(&client, &base, "fresh", folder(), None, 1, &fresh_stop).await
+    };
+    let result = tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(previous, cancel_and_retry)
+    })
+    .await;
+    release.notify_one();
+    service.abort();
+    let (cancelled, fresh) =
+        result.expect("cancelled Gmail refresh held the account's network lock");
+    assert!(matches!(cancelled, Err("gmail_cancelled")));
+    let fresh = fresh.unwrap();
+    sync::apply(&path, "w", "acct", "INBOX", 0, "1:", &fresh).unwrap();
+    assert_eq!(
+        store::cached(&path, "w", "acct", "history", "INBOX").unwrap(),
+        "80"
+    );
+    assert_eq!(
+        sync::offline_page(&path, "w", "acct", "INBOX", None, 1, "1:").unwrap()["items"][0]
+            ["subject"],
+        "Fresh subject"
+    );
     std::fs::remove_file(path).unwrap();
 }
