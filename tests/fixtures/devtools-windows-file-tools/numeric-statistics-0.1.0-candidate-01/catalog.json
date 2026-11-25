@@ -1,0 +1,57 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.numeric-statistics",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.statistics.sum",
+      "title": "数值总和",
+      "status": "candidate",
+      "scope": "把输入的实数相加。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.statistics.mean",
+      "title": "算术均值",
+      "status": "candidate",
+      "scope": "计算输入实数的算术平均值。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.statistics.median",
+      "title": "中位数",
+      "status": "candidate",
+      "scope": "排序后取中间值。数据有偶数个时取中间两项的均值。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.statistics.population_variance",
+      "title": "总体方差",
+      "status": "candidate",
+      "scope": "将离均差平方和除以总体数据个数 n，最少一个数。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.statistics.sample_variance",
+      "title": "样本方差",
+      "status": "candidate",
+      "scope": "将离均差平方和除以 n−1，最少两个数。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.statistics.population_standard_deviation",
+      "title": "总体标准差",
+      "status": "candidate",
+      "scope": "总体方差的近似平方根，最少一个数。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.statistics.sample_standard_deviation",
+      "title": "样本标准差",
+      "status": "candidate",
+      "scope": "样本方差的近似平方根，最少两个数。"
+    }
+  ]
+}
