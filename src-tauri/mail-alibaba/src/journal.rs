@@ -178,7 +178,14 @@ impl<'a> Mailbox<'a> {
             let ids = rows.query_map(params![self.scope,self.account.id,self.folder,observed], |r| r.get(0)).map_err(db_err)?;
             ids.collect::<std::result::Result<Vec<u32>,_>>().map_err(db_err)?
         } else { Vec::new() };
-        let (mut page, removed) = adapter.list(self.address(), password, &self.folder, cursor, limit, &cached)?;
+        let (mut page, removed) = adapter.list(
+            self.address(),
+            password,
+            &self.folder,
+            cursor,
+            limit,
+            observed.map(|epoch| (epoch, cached.as_slice())),
+        )?;
         let tx = self.db.transaction_with_behavior(TransactionBehavior::Immediate).map_err(db_err)?;
         let current_generation:i64=tx.query_row("SELECT COALESCE((SELECT generation FROM alibaba_cache_generation WHERE scope=? AND account=?),0)",params![self.scope,self.account.id],|r|r.get(0)).map_err(db_err)?;
         if current_generation != generation {

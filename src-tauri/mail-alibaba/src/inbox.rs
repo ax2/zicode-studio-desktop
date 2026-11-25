@@ -178,7 +178,7 @@ impl Alibaba {
         folder: &str,
         cursor: Option<Cursor>,
         limit: u8,
-        cached: &[u32],
+        cached: Option<(u32, &[u32])>,
     ) -> Result<(Page, Vec<u32>)> {
         if !(1..=40).contains(&limit) || cursor.as_ref().is_some_and(|c| c.before == 0) {
             return Err("mail_invalid_page");
@@ -228,7 +228,10 @@ impl Alibaba {
             None
         };
         let mut removed = Vec::new();
-        if cursor.is_none() && !cached.is_empty() {
+        // Cached UIDs are meaningful only under the selected mailbox's UIDVALIDITY.
+        if let Some((_, cached)) = cached.filter(|(epoch, uids)| {
+            cursor.is_none() && *epoch == validity && !uids.is_empty()
+        }) {
             let page_ids: std::collections::HashSet<_> = messages.iter().map(|m| m.uid).collect();
             let mut older = Vec::new();
             for &uid in cached {

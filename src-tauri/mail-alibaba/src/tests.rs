@@ -43,6 +43,18 @@ fn fixture_with_headers(
     reject_search: bool,
     headers: Vec<(u32, String)>,
 ) -> Fixture {
+    fixture_with_uid_validity(smtp, drop_final, count, stride, reject_search, headers, 7)
+}
+
+fn fixture_with_uid_validity(
+    smtp: bool,
+    drop_final: bool,
+    count: u32,
+    stride: u32,
+    reject_search: bool,
+    headers: Vec<(u32, String)>,
+    uid_validity: u32,
+) -> Fixture {
     let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
     ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
@@ -95,7 +107,7 @@ fn fixture_with_headers(
         if smtp {
             serve_smtp(&mut s, drop_final, tx, &recorded_smtp)
         } else {
-            serve_imap(&mut s, count, stride, reject_search, headers, tx)
+            serve_imap(&mut s, count, stride, reject_search, headers, uid_validity, tx)
         }
     });
     Fixture {
@@ -123,6 +135,7 @@ fn serve_imap(
     stride: u32,
     reject_search: bool,
     headers: Vec<(u32, String)>,
+    uid_validity: u32,
     trace: std::sync::mpsc::Sender<String>,
 ) {
     let default_header = &MSG[..MSG.find("\r\n\r\n").unwrap() + 4];
@@ -154,7 +167,7 @@ fn serve_imap(
             break;
         } else if upper.starts_with("EXAMINE ") {
             archive = upper.contains("ARCHIVE");
-            emit(s,&format!("* {count} EXISTS\r\n* OK [UIDVALIDITY 7] stable\r\n{tag} OK [READ-ONLY] examined\r\n"));
+            emit(s,&format!("* {count} EXISTS\r\n* OK [UIDVALIDITY {uid_validity}] stable\r\n{tag} OK [READ-ONLY] examined\r\n"));
         } else if let Some(probe) = upper.strip_prefix("UID SEARCH UID ") {
             trace.send(upper.clone()).unwrap();
             if reject_search {
@@ -499,6 +512,49 @@ fn refresh_reconciles_removed_old_uids_without_fetching_old_headers() {
         assert!(matches!(mail.cached_body(7,30), Err("mail_cache_empty")));
     }
 }
+#[test]
+fn refresh_after_uidvalidity_change_does_not_search_retired_uids() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+        let original = fixture(false, false);
+        let original_page = mail.sync(&original.adapter, "synthetic", None, 3).unwrap();
+        original.thread.join().unwrap();
+        assert_eq!(original_page.uid_validity, 7);
+        let body = fixture(false, false);
+        assert_eq!(mail.read(&body.adapter, "synthetic", 7, 30).unwrap().text, "你好");
+        body.thread.join().unwrap();
+
+        // The server replaced the mailbox. A SEARCH error does not affect fetching its new headers.
+        let replaced = fixture_with_uid_validity(false, false, 3, 30, true, Vec::new(), 8);
+        let result = mail.sync(&replaced.adapter, "synthetic", None, 2);
+        replaced.thread.join().unwrap();
+        let commands: Vec<_> = replaced.rx.try_iter().collect();
+        let page = result.unwrap_or_else(|error| panic!("{error}: {commands:?}"));
+        assert_eq!(page.uid_validity, 8);
+        assert!(!page.pending);
+        assert_eq!(page.messages.iter().map(|entry| entry.uid).collect::<Vec<_>>(), [90, 60]);
+        assert_eq!(commands, ["FETCH 2:3 (UID RFC822.SIZE BODY.PEEK[HEADER]<0.65536>)"]);
+
+        let older = fixture_with_uid_validity(false, false, 3, 30, true, Vec::new(), 8);
+        let older_page = mail.sync(&older.adapter, "synthetic", page.next, 2).unwrap();
+        older.thread.join().unwrap();
+        assert_eq!(older_page.messages[0].uid, 30);
+        assert!(older_page.next.is_none());
+    }
+    let mut db = Connection::open(&path).unwrap();
+    let mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let cached = mail.cached_page(None, 3).unwrap();
+    assert_eq!(cached.uid_validity, 8);
+    assert_eq!(cached.messages.iter().map(|entry| entry.uid).collect::<Vec<_>>(), [90, 60, 30]);
+    // UID 30 was reused, but its old cached body did not migrate to either generation.
+    assert!(matches!(mail.cached_body(7, 30), Err("mail_cache_empty")));
+    assert!(matches!(mail.cached_body(8, 30), Err("mail_cache_empty")));
+}
+
 #[test]
 fn million_sparse_uids_use_one_header_window_and_bounded_cursor_probes() {
     let mut db = database();
