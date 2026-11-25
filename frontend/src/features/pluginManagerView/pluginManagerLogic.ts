@@ -76,6 +76,11 @@ export function helpPageForPlugin(pluginId: string): string | null {
   return pages[pluginId] ?? null;
 }
 
+export function isStalePluginActivationReview(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message === "Plugin or permissions changed after review; review them again";
+}
+
 /**
  * Map raw Rust errors from plugin package commands to friendly localized
  * messages so users see understandable feedback instead of internal strings.

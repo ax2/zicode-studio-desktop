@@ -215,6 +215,38 @@ it("shows failure without reporting availability or implicitly opening anything"
 });
 
 
+it("reloads a stale rejected review without reusing its permission draft", async () => {
+  const flow = setup();
+  await installPackage();
+  fireEvent.click(setupCard().getByRole("checkbox", { name: /Read selected resources/ }));
+  fireEvent.click(setupCard().getByRole("checkbox", { name: /Make tools available to Pi/ }));
+  const latestReview = { ...activationReview, sceneRevision: "programming:changed" };
+  flow.activateReviewed.mockRejectedValueOnce(new Error("Plugin or permissions changed after review; review them again"));
+  clickFocused(button("Authorize and enable"));
+
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).toBe("Plugin or permissions changed. Review them again.");
+  const retry = button("Reload plugin settings");
+  expect(document.activeElement).toBe(retry);
+  expect(screen.queryByRole("button", { name: "Authorize and enable" })).toBeNull();
+  expect(flow.setScene).toHaveBeenCalledTimes(1);
+  expect(flow.installedTools.list).not.toHaveBeenCalled();
+
+  flow.setScene.mockImplementationOnce(async () => { flow.plugin.activationReview = latestReview; });
+  clickFocused(retry);
+  await screen.findByRole("region", { name: "Installed plugin setup" });
+  expect(flow.setScene).toHaveBeenCalledTimes(2);
+  expect(flow.activateReviewed).toHaveBeenCalledTimes(1);
+  expect(flow.installDeveloperPlugin).toHaveBeenCalledTimes(1);
+  expect(setupCard().getByRole<HTMLInputElement>("checkbox", { name: /Make tools available to Pi/ }).checked).toBe(false);
+  expect(button("Enable plugin").disabled).toBe(true);
+  fireEvent.click(setupCard().getByRole("checkbox", { name: /Read selected resources/ }));
+  clickFocused(button("Authorize and enable"));
+  await screen.findByRole("button", { name: "Open Format JSON" });
+  expect(flow.activateReviewed).toHaveBeenLastCalledWith(preview.pluginId, latestReview, ["resource.read"]);
+  expect(flow.plugin.permissions?.["pi.tools.register"]).toBeUndefined();
+});
+
 function clickFocused(control: HTMLElement) {
   control.focus();
   fireEvent.click(control);

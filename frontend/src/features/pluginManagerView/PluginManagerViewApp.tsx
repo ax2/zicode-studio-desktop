@@ -8,6 +8,7 @@ import { SignedPluginPreviewCard, type SignedPluginPreview } from "./SignedPlugi
 import {
   friendlyPluginError,
   helpPageForPlugin,
+  isStalePluginActivationReview,
   MANAGER_FILTERS,
   type ManagedPlugin,
   type PluginActivationReview,
@@ -32,7 +33,7 @@ type ActivationSetup = {
   scope: string;
   phase: "loading" | "failed" | "ready";
   focusOnMount: boolean;
-  afterEnable?: boolean;
+  recoveryReason?: "enabled" | "stale-review";
 };
 
 export interface DeveloperPluginPreview {
@@ -229,7 +230,7 @@ export function PluginManagerViewApp({
     const isDeveloperOrSigned = plugin.origin === "developer" || plugin.origin === "signed";
     const helpPage = helpPageForPlugin(plugin.id);
     const activationReview = plugin.activationReview;
-    const awaitingSettings = activeSetup?.afterEnable && activeSetup.phase !== "ready" &&
+    const awaitingSettings = activeSetup?.recoveryReason && activeSetup.phase !== "ready" &&
       activeSetup.receipt.pluginId === plugin.id && activeSetup.receipt.packageRevision === activationReview?.packageRevision;
     const permissions = [
       ...(plugin.permissionDetails?.required ?? []),
@@ -529,9 +530,11 @@ export function PluginManagerViewApp({
           {activeSetup.phase === "loading" ? (
             <p role="status">{t("Loading plugin settings…")}</p>
           ) : (
-            <p role="alert">{t(activeSetup.afterEnable
-              ? "Plugin enabled. Its settings could not be loaded."
-              : "Plugin installed. Its settings could not be loaded.")}</p>
+            <p role="alert">{t(activeSetup.recoveryReason === "stale-review"
+              ? "Plugin or permissions changed. Review them again."
+              : activeSetup.recoveryReason === "enabled"
+                ? "Plugin enabled. Its settings could not be loaded."
+                : "Plugin installed. Its settings could not be loaded.")}</p>
           )}
           <div className="plugin-manager-preview-actions">
             <button ref={retryAction} type="button" className="ui-button ui-button--secondary ui-button--sm"
@@ -539,7 +542,7 @@ export function PluginManagerViewApp({
               onClick={() => { if (activeSetup.phase === "failed") void readInstalledSetup(activeSetup); }}>
               {t("Reload plugin settings")}
             </button>
-            {!activeSetup.afterEnable && <ActionButton label={t("Close")} onClick={() => setActivation(null)} />}
+            {activeSetup.recoveryReason !== "enabled" && <ActionButton label={t("Close")} onClick={() => setActivation(null)} />}
           </div>
         </section>
       ) : activeSetup && selectedPlugin?.activationReview ? (
@@ -558,11 +561,18 @@ export function PluginManagerViewApp({
             const review = selectedPlugin.activationReview;
             if (!review) return;
             void runAction("activation", async () => {
-              const result = await registry.activateReviewed?.(selectedPlugin.id, review, grants);
-              if (result?.settingsLoaded !== false || scopeKey() !== activeSetup.scope || !pageHeading.current?.isConnected) return;
+              let recoveryReason: ActivationSetup["recoveryReason"];
+              try {
+                const result = await registry.activateReviewed?.(selectedPlugin.id, review, grants);
+                if (result?.settingsLoaded === false) recoveryReason = "enabled";
+              } catch (error) {
+                if (!isStalePluginActivationReview(error)) throw error;
+                recoveryReason = "stale-review";
+              }
+              if (!recoveryReason || scopeKey() !== activeSetup.scope || !pageHeading.current?.isConnected) return;
               const focusOnMount = setupCard?.contains(setupCard.ownerDocument.activeElement) === true;
               setActivation(current => current === activeSetup ? {
-                ...current, phase: "failed", afterEnable: true, focusOnMount,
+                ...current, phase: "failed", recoveryReason, focusOnMount,
               } : current);
             });
           } : undefined}
