@@ -344,6 +344,56 @@ const firstPage = { items: Array.from({ length: 40 }, (_, index) => ({
 })), more: true };
 const secondPage = { items: [secondHit], more: false };
 
+it("retries the same search page after clearing another account without closing the open body", async () => {
+  let finishRetry!: (value: unknown) => void;
+  const cached = { items: [firstHit], more: false };
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage).mockResolvedValueOnce({ items: [firstHit, secondHit], more: false })
+    .mockRejectedValueOnce(new Error("local read failed"))
+    .mockImplementationOnce(() => new Promise(resolve => { finishRetry = resolve; }));
+  const gmail = vi.fn(async () => ({ plainText: "Unrelated cached body on page two" }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  const result = await screen.findByRole("button", { name: /First fixture/ });
+  fireEvent.click(result);
+  await screen.findByText("Unrelated cached body on page two");
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared", { detail: "b" })));
+  expect(screen.queryByRole("button", { name: /Second fixture/ })).toBeNull();
+  const retry = await screen.findByRole("button", { name: "Retry cached search" });
+  retry.focus();
+  fireEvent.click(retry);
+  fireEvent.click(retry);
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual([0, 40, 40, 40]);
+  expect(document.activeElement).toBe(retry);
+  await act(async () => finishRetry(cached));
+  expect(screen.queryByRole("button", { name: "Retry cached search" })).toBeNull();
+  expect(screen.getByText("Unrelated cached body on page two")).toBeTruthy();
+  expect(document.activeElement).toBe(result);
+  expect(gmail).toHaveBeenCalledExactlyOnceWith({ kind: "cachedBody", accountId: "a", id: "42" });
+});
+
+it.each(["query", "account", "application"])("drops a pending cache refresh retry after changing the %s", async (change) => {
+  let finishRetry!: (value: unknown) => void;
+  const invoke = vi.fn().mockResolvedValueOnce({ items: [firstHit], more: false })
+    .mockRejectedValueOnce(new Error("local read failed"))
+    .mockImplementationOnce(() => new Promise(resolve => { finishRetry = resolve; }));
+  beginAllAccountSearch(invoke as Invoke, vi.fn(async () => null) as Invoke);
+  await screen.findByRole("button", { name: /First fixture/ });
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" })));
+  fireEvent.click(await screen.findByRole("button", { name: "Retry cached search" }));
+  if (change === "query") {
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "different" } });
+  } else if (change === "account") {
+    fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "b" } });
+  } else {
+    await act(async () => document.dispatchEvent(new CustomEvent("zicode:active-plugin-changed", { detail: { pluginId: "core.chat" } })));
+  }
+  await act(async () => finishRetry({ items: [{ ...firstHit, subject: "Obsolete read" }], more: false }));
+  expect(screen.queryByRole("button", { name: /Obsolete read/ })).toBeNull();
+  expect(Boolean(screen.queryByRole("button", { name: /First fixture/ }))).toBe(change === "application");
+  expect(Boolean(screen.queryByRole("button", { name: "Retry cached search" }))).toBe(change === "application");
+  expect(invoke).toHaveBeenCalledTimes(3);
+});
+
 it("refreshes the current search page and keeps its opened message", async () => {
   const invoke = vi.fn().mockResolvedValueOnce(firstPage)
     .mockResolvedValueOnce(secondPage).mockResolvedValueOnce(secondPage);
