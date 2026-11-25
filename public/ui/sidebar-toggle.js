@@ -18,6 +18,13 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
   const sidebarAvailable = () => !sidebar.hidden && window.getComputedStyle(sidebar).display !== "none";
   let drawerHistory = null;
   let drawerUrl;
+  let ownsDrawerEntry = false;
+  let pendingBackUrl;
+  const leaveDrawer = (replace) => {
+    if (!pendingBackUrl && drawerHistory?.leave({ replace }) && !replace) {
+      pendingBackUrl = drawerUrl;
+    }
+  };
   const setCollapsed = (collapsed, { fromHistory = false, discardHistory = false } = {}) => {
     // A hidden function area must never leave a standalone backdrop over the main view.
     collapsed = collapsed || (isMobile() && !sidebarAvailable());
@@ -29,16 +36,19 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
     if (!isMobile()) return;
     if (!collapsed && changed) {
       drawerUrl = window.location.href;
-      drawerHistory?.enter();
-    } else if (collapsed && !fromHistory && (changed || discardHistory)) {
-      // A selected destination can replace the drawer entry before it closes.
-      drawerHistory?.leave({ replace: discardHistory || window.location.href !== drawerUrl });
+      ownsDrawerEntry = !pendingBackUrl && drawerHistory?.enter() === true;
+    } else if (collapsed && (changed || discardHistory)) {
+      ownsDrawerEntry = false;
+      if (!fromHistory) {
+        // A selected destination can replace the drawer entry before it closes.
+        leaveDrawer(discardHistory || window.location.href !== drawerUrl);
+      }
     }
   };
 
   drawerHistory = setupMobileHistoryLayer({
     id: "function-area",
-    isActive: () => isMobile() && !sidebar.classList.contains("collapsed"),
+    isActive: () => !pendingBackUrl && isMobile() && !sidebar.classList.contains("collapsed"),
     onBack: () => setCollapsed(true, { fromHistory: true }),
   });
 
@@ -92,10 +102,30 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
   const handleResize = () => {
     const nextMobile = isMobile();
     if (nextMobile && !mobile) setCollapsed(true, { discardHistory: true });
-    if (!nextMobile && mobile) setCollapsed(false, { discardHistory: true });
+    if (!nextMobile && mobile) {
+      if (ownsDrawerEntry && !sidebar.classList.contains("collapsed")) {
+        // Only consume our own top entry. A new route or a nested layer owns its history.
+        leaveDrawer(window.location.href !== drawerUrl);
+        ownsDrawerEntry = false;
+      }
+      setCollapsed(false, { discardHistory: true });
+    }
     if (!nextMobile) overlay?.classList.remove("visible");
     mobile = nextMobile;
     syncAvailability();
+  };
+
+  const handlePendingBack = () => {
+    if (!pendingBackUrl) return;
+    const previousUrl = pendingBackUrl;
+    pendingBackUrl = undefined;
+    if (!isMobile() || sidebar.classList.contains("collapsed")) return;
+    // The drawer may have been opened again while its history entry was closing.
+    if (drawerUrl === previousUrl && window.location.href === previousUrl) {
+      ownsDrawerEntry = drawerHistory?.enter() === true;
+    } else {
+      setCollapsed(true, { fromHistory: true });
+    }
   };
 
   toggle.addEventListener("click", handleToggle);
@@ -104,6 +134,7 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
   document.addEventListener("zicode:function-area-request", handleRequest);
   document.addEventListener("zicode:active-plugin-changed", syncAvailability);
   document.addEventListener("keydown", handleKeydown);
+  window.addEventListener("popstate", handlePendingBack);
   window.addEventListener("resize", handleResize);
   mobileMedia?.addEventListener?.("change", handleResize);
   // Catalog refreshes and view lifecycle updates can hide the sidebar without navigation.
@@ -120,6 +151,7 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
       document.removeEventListener("zicode:function-area-request", handleRequest);
       document.removeEventListener("zicode:active-plugin-changed", syncAvailability);
       document.removeEventListener("keydown", handleKeydown);
+      window.removeEventListener("popstate", handlePendingBack);
       window.removeEventListener("resize", handleResize);
       mobileMedia?.removeEventListener?.("change", handleResize);
       drawerHistory?.dispose();
