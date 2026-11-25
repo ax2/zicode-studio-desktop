@@ -45,6 +45,36 @@ it("starts from cache, requests separate read and send grants, and never sends w
   fireEvent.click(screen.getByRole("button",{name:"New draft"}));fireEvent.click(screen.getByRole("button",{name:"Saved subject"}));
   await screen.findByText(/Delivery is unknown. Check Gmail Sent/);expect(view.calls.mock.calls.filter(([r])=>r.kind==="send")).toHaveLength(1);
 });
+
+it("keeps an old stored Gmail connection available for disconnect but requires current authorization for server access", async () => {
+  const { calls } = fixture(async request => {
+    if (request.kind === "status") return { connected: true, read: false, send: false, needsReconnect: true };
+    if (request.kind === "cachedLabels") return [];
+    if (request.kind === "cachedPage") return { items: [entry], nextCursor: null };
+    if (request.kind === "cachedBody") return { ...entry, plainText: "Cached message with old authorization" };
+    if (request.kind === "delivery") return null;
+    if (request.kind === "connect") return { connected: true, read: true, send: request.send === true };
+    throw Error("Unexpected Gmail request");
+  });
+  await screen.findByText("Reconnect Gmail with the permission needed for this action.");
+  expect(screen.getByRole("button", { name: "Refresh from server" }).matches(":disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Disconnect Gmail" }).matches(":disabled")).toBe(false);
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Cached message with old authorization");
+  fireEvent.click(screen.getByRole("button", { name: "Saved subject" }));
+  const review = await screen.findByRole("button", { name: "Review before sending" });
+  expect(review.matches(":disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Reconnect Gmail" }));
+  await screen.findByText("Gmail is connected for reading.");
+  expect(review.matches(":disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Authorize sending with Gmail" }));
+  await screen.findByText("Gmail is connected for reading and sending.");
+  expect(review.matches(":disabled")).toBe(false);
+  expect(screen.getByText("Cached message with old authorization")).toBeTruthy();
+  expect(calls.mock.calls.filter(([request]) => request.kind === "connect").map(([request]) => request.send)).toEqual([false, true]);
+  expect(calls.mock.calls.some(([request]) => request.kind === "send" || request.kind === "disconnect")).toBe(false);
+});
+
 it("opens a saved label offline and refreshes only that label on request",async()=>{
   const v=fixture(async r=>{
     if(r.kind==="status")return {connected:true,read:true};

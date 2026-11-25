@@ -12,7 +12,7 @@ export function gmailReplyNeedsRefresh(reason: unknown): boolean {
   return String(reason).replace(/^Error:\s*/, "") === "gmail_reply_metadata_missing";
 }
 
-type Grant = { connected: boolean; read?: boolean; send?: boolean };
+type Grant = { connected: boolean; read?: boolean; send?: boolean; needsReconnect?: boolean };
 type Message = { id: string; from: string; subject: string; date: string; snippet: string };
 type Page = { items: Message[]; nextCursor: string | null };
 type Label = {id:string; name:string};
@@ -252,12 +252,15 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     }, setBody);
   }
   const disconnected=!grant.connected;
+  const connectionStatus = grant.needsReconnect ? "Reconnect Gmail with the permission needed for this action."
+    : disconnected ? "Gmail is not connected. Local drafts are still available."
+    : grant.send ? "Gmail is connected for reading and sending." : "Gmail is connected for reading.";
   const readFromServer = serverPage && !disconnected && grant.read === true;
   const needsLabelRefresh = readFromServer && expiredCursor !== null && page?.nextCursor === expiredCursor;
   return <section aria-label={t("Gmail inbox")}>
     <fieldset disabled={Boolean(busy)}><legend>{t("Mail connection")}</legend>
       <p translate="no">{address}</p>
-      <p>{t(disconnected?"Gmail is not connected. Local drafts are still available.":grant.send?"Gmail is connected for reading and sending.":"Gmail is connected for reading.")}</p>
+      <p>{t(connectionStatus)}</p>
       {disconnected&&<button className="ui-button" type="button" ref={primaryAuthorization} onClick={event => connect(false, event.currentTarget)}>{t("Sign in to read Gmail")}</button>}
       {!disconnected&&<button className="ui-button" type="button" ref={primaryAuthorization} onClick={event => connect(grant.send === true, event.currentTarget)}>{t("Reconnect Gmail")}</button>}
       {!disconnected&&!grant.send&&<button className="ui-button" type="button" onClick={event => connect(true, event.currentTarget)}>{t("Authorize sending with Gmail")}</button>}

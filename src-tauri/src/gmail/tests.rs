@@ -429,6 +429,47 @@ fn narrower_refresh_grant_is_persisted_even_without_token_rotation() {
 }
 
 #[test]
+fn saved_connection_status_only_reports_grants_for_the_configured_client() {
+    let active_client = "active.apps.googleusercontent.com";
+    let old_connection = super::Saved {
+        refresh: "old-fixture-token".into(),
+        scope: format!("{} {}", oauth::READ, oauth::SEND),
+        client_id: "previous.apps.googleusercontent.com".into(),
+    };
+    let other_account = super::Saved {
+        refresh: "different-fixture-token".into(),
+        scope: old_connection.scope.clone(),
+        client_id: active_client.into(),
+    };
+    let stale = json!({"connected":true, "read":false, "send":false, "needsReconnect":true});
+    assert_eq!(
+        super::saved_grant_status(Some(&old_connection), Some(active_client)),
+        stale,
+    );
+    assert_eq!(
+        super::saved_grant_status(Some(&other_account), Some(active_client)),
+        json!({"connected":true, "read":true, "send":true}),
+    );
+    let reopened: super::Saved =
+        serde_json::from_value(serde_json::to_value(&old_connection).unwrap()).unwrap();
+    assert_eq!(
+        super::saved_grant_status(Some(&reopened), Some(active_client)),
+        stale,
+    );
+    assert_eq!(super::saved_grant_status(Some(&old_connection), None), stale);
+    assert_eq!(
+        super::saved_grant_status(Some(&old_connection), Some(&old_connection.client_id)),
+        json!({"connected":true, "read":true, "send":true}),
+    );
+    let read_only = super::updated_grant(&other_account, None, oauth::READ).unwrap();
+    assert_eq!(
+        super::saved_grant_status(Some(&read_only), Some(active_client)),
+        json!({"connected":true, "read":true, "send":false}),
+    );
+    assert_eq!(super::saved_grant_status(None, Some(active_client)), json!({"connected":false}));
+}
+
+#[test]
 fn disconnect_cache_keeps_scopes_and_rejects_late_gmail_writes() {
     let file = std::env::temp_dir().join(format!("mail-clear-{}.sqlite", uuid::Uuid::new_v4()));
     rusqlite::Connection::open(&file).unwrap();

@@ -101,6 +101,20 @@ fn consent_scope(requested: &str, granted: &str) -> String {
 fn perms(scopes: &str) -> Value {
     json!({"connected":true,"read":allowed(scopes,READ),"send":allowed(scopes,SEND)})
 }
+fn grant_matches_client(saved: &Saved, client_id: &str) -> bool {
+    saved.client_id == client_id
+}
+fn saved_grant_status(saved: Option<&Saved>, client_id: Option<&str>) -> Value {
+    let Some(saved) = saved else {
+        return json!({"connected":false});
+    };
+    if client_id.is_some_and(|id| grant_matches_client(saved, id)) {
+        return perms(&saved.scope);
+    }
+    // Keep the stored connection visible for explicit disconnect or cache cleanup.
+    json!({"connected":true,"read":false,"send":false,"needsReconnect":true})
+}
+
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Request {
@@ -294,9 +308,12 @@ pub(crate) async fn mail_gmail(
         Ok(g)
     };
     if matches!(request, Request::Status) {
-        return Ok(read_secret(&key)?
-            .map(|s| perms(&s.scope))
-            .unwrap_or(json!({"connected":false})));
+        let saved = read_secret(&key)?;
+        let config = Config::load().ok();
+        return Ok(saved_grant_status(
+            saved.as_ref(),
+            config.as_ref().map(|config| config.id.as_str()),
+        ));
     }
     // Token rotation and revocation are serialized per account. Cancel can still
     // invalidate an authorization while the browser or network is pending.
@@ -404,7 +421,7 @@ pub(crate) async fn mail_gmail(
     } else {
         READ
     };
-    if saved.client_id != cfg.id {
+    if !grant_matches_client(&saved, &cfg.id) {
         return Err("gmail_reauthorize".into());
     }
     if !allowed(&saved.scope, need) {
