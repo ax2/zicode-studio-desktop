@@ -1620,6 +1620,7 @@
     },
     {
       "sourceToolId": "text-escape",
+      "currentWindowsAcceptance": "../iterations/2026-11-25-json-string-files.md",
       "title": "文本转义",
       "sourceToolVersion": "1.0.2",
       "sourceStatus": "implemented",
