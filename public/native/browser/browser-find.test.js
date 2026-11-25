@@ -153,16 +153,40 @@ it("restores native page focus only after manual dismissal completes", async () 
   const restoreFocus = vi.fn(async () => {}), control = vi.fn(async () => {});
   vi.useFakeTimers(); find = createBrowserFind({ control, getTab: () => ({ id: "a" }), available: () => true, restoreFocus }); document.body.append(find.element); find.open();
   getByRole(find.element, "searchbox").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  await vi.advanceTimersByTimeAsync(0); expect(restoreFocus).toHaveBeenCalledWith("a");
+  await vi.advanceTimersByTimeAsync(0); expect(restoreFocus).toHaveBeenCalledWith("a", expect.objectContaining({ toAddress: false }));
   expect(control.mock.invocationCallOrder.at(-1)).toBeLessThan(restoreFocus.mock.invocationCallOrder[0]);
   restoreFocus.mockClear(); find.open(); await find.close(); expect(restoreFocus).not.toHaveBeenCalled();
 });
-it.each(["reopened", "tab changed", "blocked"])("never steals focus after a delayed dismiss when %s", async state => {
+it.each([false, true])("keeps address origin across repeated find unless explicitly reopening from a native page (%s)", async fromPage => {
+  vi.useFakeTimers();
+  const control = vi.fn(async () => {}), restoreFocus = vi.fn(async () => {});
+  const address = document.createElement("input");
+  find = createBrowserFind({ control, getTab: () => ({ id: "a" }), available: () => true, address, restoreFocus });
+  document.body.append(address, find.element);
+  address.value = "Unsent browser draft";
+  address.focus();
+  address.setSelectionRange(3, 10);
+  find.open();
+  find.open({ fromPage });
+  getByRole(find.element, "searchbox").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(restoreFocus).toHaveBeenCalledExactlyOnceWith("a", expect.objectContaining({ toAddress: !fromPage }));
+  expect(address.value).toBe("Unsent browser draft");
+  expect([address.selectionStart, address.selectionEnd]).toEqual([3, 10]);
+});
+
+it.each(["reopened", "tab changed", "blocked", "focus moved"])("never steals focus after a delayed dismiss when %s", async state => {
   let finish, id = "a", available = true;
   const restoreFocus = vi.fn(async () => {}), control = vi.fn(() => new Promise(done => { finish = done; }));
   vi.useFakeTimers(); find = createBrowserFind({ control, getTab: () => ({ id }), available: () => available, restoreFocus }); document.body.append(find.element); find.open();
   getByRole(find.element, "button", { name: t("Close page search") }).click(); await vi.advanceTimersByTimeAsync(0);
-  if (state === "reopened") find.open(); else if (state === "tab changed") id = "b"; else available = false;
+  if (state === "reopened") find.open();
+  else if (state === "tab changed") id = "b";
+  else if (state === "focus moved") {
+    const elsewhere = document.createElement("button");
+    document.body.append(elsewhere);
+    elsewhere.focus();
+  } else available = false;
   finish(); await vi.advanceTimersByTimeAsync(0); expect(restoreFocus).not.toHaveBeenCalled();
   control.mockResolvedValue(undefined);
 });
