@@ -1036,6 +1036,7 @@ const zhCN = {
   Baidu: "百度",
   "Search or enter a web address": "搜索或输入网址",
   "Enter a valid web address or search query.": "请输入有效的网址或搜索词。",
+  "Startup mode could not be saved. Your previous choice was kept.": "无法保存启动方式，已保留上一次的选择。",
   "Search engine could not be saved. Your previous choice was kept.":
     "无法保存搜索引擎，已保留原来的选择。",
   "Window controls": "窗口控制",
