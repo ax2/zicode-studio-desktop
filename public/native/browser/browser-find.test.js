@@ -17,6 +17,30 @@ it("finds through the native boundary, reports counts, advances and stops withou
   ui.button("Match case").click(); await vi.advanceTimersByTimeAsync(150); expect(control).toHaveBeenCalledWith({ kind: "findStart", tab: "a", text: "domain", caseSensitive: true });
   await find.close(); const calls = control.mock.calls.length; await vi.advanceTimersByTimeAsync(2000); expect(control.mock.calls.length).toBe(calls); expect(find.element.hidden).toBe(true); expect(control).toHaveBeenLastCalledWith({ kind: "findStop", tab: "a" });
 });
+it("keeps native Enter activation on find toolbar buttons and steps only from the search input", async () => {
+  const control = vi.fn(async request => request.kind === "findStatus" ? { count: 3, active: 2 } : undefined);
+  const ui = setup(control);
+  await type(ui.input, "match");
+  const press = (element, shiftKey = false) => {
+    element.focus();
+    return element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", shiftKey, bubbles: true, cancelable: true }));
+  };
+
+  for (const name of ["Match case", "Previous match", "Next match", "Close page search"]) {
+    expect(press(ui.button(name))).toBe(true);
+  }
+  await vi.advanceTimersByTimeAsync(0);
+  expect(control.mock.calls.some(([request]) => request.kind === "findStep")).toBe(false);
+
+  expect(press(ui.input)).toBe(false);
+  expect(press(ui.input, true)).toBe(false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(control.mock.calls.map(([request]) => request).filter(request => request.kind === "findStep")).toEqual([
+    { kind: "findStep", tab: "a", backward: false },
+    { kind: "findStep", tab: "a", backward: true },
+  ]);
+});
+
 it("clears search and disables unmatched navigation, with readable native errors and retry", async () => {
   const control = vi.fn(async request => request.kind === "findStatus" ? { active: 0, count: 0 } : undefined); const ui = setup(control);
   await type(ui.input, "missing"); expect(ui.counter.textContent).toBe(t("No matches")); expect(ui.button("Next match").disabled).toBe(true);

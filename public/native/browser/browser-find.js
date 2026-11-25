@@ -85,7 +85,7 @@ export function createBrowserFind({ control, getTab, available, isPdf = () => fa
   }
   input.addEventListener("input", event => { if (!event.isComposing) search(); }); input.addEventListener("compositionend", search);
   element.addEventListener("submit", event => { event.preventDefault(); step(false); });
-  element.addEventListener("keydown", event => { if (event.isComposing) return; if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); void dismiss(); } else if (event.key === "Enter") { event.preventDefault(); step(event.shiftKey); } });
+  element.addEventListener("keydown", event => { if (event.isComposing) return; if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); void dismiss(); } else if (event.key === "Enter" && event.target === input) { event.preventDefault(); step(event.shiftKey); } });
   const keydown = event => { if (!available() || event.isComposing || event.altKey || event.shiftKey || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "f") return; event.preventDefault(); event.stopPropagation(); open(); };
   document.addEventListener("keydown", keydown, true);
   return { element, open, close, refreshMatchControls,
