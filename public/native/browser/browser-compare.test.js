@@ -90,13 +90,18 @@ it("keeps the normal assistant toggle usable while its comparison read is busy",
   const toggle = getByRole(panel, "button", { name: "Compare open tabs" });
   toggle.click();
   const comparison = getByRole(panel, "group", { name: "Compare open tabs" });
-  getByRole(comparison, "checkbox").click();
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(toggle.getAttribute("aria-controls")).toBe(comparison.id);
+  const peer = getByRole(comparison, "checkbox");
+  expect(document.activeElement).toBe(peer);
+  peer.click();
   getByRole(comparison, "button", { name: "Read selected tabs" }).click();
   expect(panel.getAttribute("aria-busy")).toBe("true");
   expect(getByRole(panel, "button", { name: "Prepare chat draft" }).disabled).toBe(true);
   expect(toggle.disabled).toBe(false);
   toggle.click();
   expect(comparison.hidden).toBe(true);
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
   expect(panel.getAttribute("aria-busy")).toBe("false");
   expect(document.activeElement).toBe(toggle);
   expect(getByRole(panel, "button", { name: "Prepare chat draft" }).disabled).toBe(false);
@@ -107,4 +112,36 @@ it("keeps the normal assistant toggle usable while its comparison read is busy",
   expect(getByRole(comparison, "checkbox").checked).toBe(true);
   expect(comparison.querySelector(".browser-compare-preview details")).toBeNull();
   expect(prepare).not.toHaveBeenCalled();
+});
+
+it("describes the current disclosure state and keeps the empty hint reachable in the assistant", () => {
+  setLocale("en");
+  const host = document.createElement("aside");
+  const trigger = document.createElement("button");
+  document.body.append(host, trigger);
+  const draft = vi.fn(async () => {});
+  const readSource = vi.fn();
+  const preview = showBrowserCapture(source("current"), vi.fn(), draft, undefined, {
+    peers: [], readSource, prepare: draft,
+  }, false, { host, trigger });
+  const toggle = getByRole(preview, "button", { name: "Compare open tabs" });
+  const comparison = preview.querySelector(".browser-compare");
+  expect(comparison.id).not.toBe("");
+  expect(toggle.getAttribute("aria-controls")).toBe(comparison.id);
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(comparison.hidden).toBe(true);
+
+  toggle.click();
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(getByRole(preview, "group", { name: "Compare open tabs" })).toBe(comparison);
+  expect(document.activeElement?.textContent).toBe("Open another web page before comparing tabs.");
+  expect(comparison.contains(document.activeElement)).toBe(true);
+  expect(document.activeElement?.tabIndex).toBe(-1);
+
+  toggle.click();
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(comparison.hidden).toBe(true);
+  expect(document.activeElement).toBe(toggle);
+  expect(readSource).not.toHaveBeenCalled();
+  expect(draft).not.toHaveBeenCalled();
 });

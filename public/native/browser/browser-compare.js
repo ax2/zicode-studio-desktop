@@ -1,4 +1,5 @@
 import { t } from "../../i18n.js";
+import { randomId } from "../utils/random-id.js";
 import { showBrowserComparisonEvidence } from "./browser-comparison-evidence.js";
 
 const maxPeers = 2;
@@ -26,25 +27,31 @@ export function comparisonSource(capture) {
 
 export function createBrowserCompare({ capture, peers, readSource, prepare, setBusy, isOpen, onPrepared, opensChat, direct, canStart = () => true }) {
   const panel = document.createElement("fieldset"); panel.className = "browser-compare"; panel.hidden = true;
+  panel.id = `browser-compare-${randomId()}`;
   const legend = document.createElement("legend"); legend.textContent = t("Compare open tabs"); panel.append(legend);
   const button = document.createElement("button"); button.type = "button"; button.className = "ui-button ui-button--secondary";
   button.textContent = t("Compare open tabs");
+  button.setAttribute("aria-controls", panel.id);
+  button.setAttribute("aria-expanded", "false");
+  const hint = document.createElement("p");
+  hint.textContent = t(peers.length ? (direct ? "Choose one or two loaded tabs and review their excerpts." :
+    "Choose one or two loaded tabs. Review the sources before preparing a draft.") : "Open another web page before comparing tabs.");
+  if (!peers.length) hint.tabIndex = -1;
+  panel.append(hint);
+
   let pending = null;
   button.addEventListener("click", () => {
     const expanded = panel.hidden;
     const restoreFocus = !expanded && panel.contains(document.activeElement);
     panel.hidden = !expanded;
+    button.setAttribute("aria-expanded", String(expanded));
     if (expanded) {
-      panel.querySelector("input")?.focus();
+      (panel.querySelector("input") ?? hint).focus();
     } else {
       if (restoreFocus) button.focus({ preventScroll: true });
       if (pending && pending.trigger === read) cancelWork();
     }
   });
-  const hint = document.createElement("p");
-  hint.textContent = t(peers.length ? (direct ? "Choose one or two loaded tabs and review their excerpts." :
-    "Choose one or two loaded tabs. Review the sources before preparing a draft.") : "Open another web page before comparing tabs.");
-  panel.append(hint);
   if (!peers.length) return { button, panel };
 
   const choices = document.createElement("div"); choices.className = "browser-compare-choices";
