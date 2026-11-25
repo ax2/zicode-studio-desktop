@@ -46,6 +46,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const loadingBody = reading?.status === "loading";
   const updatedAccounts = useRef(new Set<string>());
   const requestedOffset = useRef<number | null>(null);
+  const displayedOffset = useRef<number | null>(null);
   useEffect(() => () => {
     ++searchGeneration.current;
     readingRequest.current = null;
@@ -59,6 +60,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   }, []);
   const clear=useCallback(()=>{
     requestedOffset.current = null;
+    displayedOffset.current = null;
     ++searchGeneration.current;
     updatedAccounts.current.clear();
     setBusy(false);
@@ -104,10 +106,7 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     const version = ++searchGeneration.current;
     setBusy(true);
     setError(false);
-    if (!background) {
-      updatedAccounts.current.clear();
-      closeReading();
-    }
+    if (!background) updatedAccounts.current.clear();
     try {
       const readPage = (position: number) => invoke<Page>({
         kind: "search", account: scope || null, ...(folder ? { label: folder } : {}),
@@ -123,17 +122,19 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
         if (version !== searchGeneration.current) return;
       }
       const selected = readingRequest.current?.hit;
-      if (selected && updatedAccounts.current.has(selected.account) && !results.items.some(hit => isSameMessage(hit, selected))) {
-        closeReading();
-      }
+      const changedPage = start !== displayedOffset.current;
+      const selectedWasRemoved = selected && updatedAccounts.current.has(selected.account) &&
+        !results.items.some(hit => isSameMessage(hit, selected));
+      if (!background || changedPage || selectedWasRemoved) closeReading();
       updatedAccounts.current.clear();
+      displayedOffset.current = nextOffset;
       requestedOffset.current = nextOffset;
       setPage(results);
       setOffset(nextOffset);
     } catch {
       if (version === searchGeneration.current) {
+        requestedOffset.current = displayedOffset.current;
         setError(true);
-        if (!background) setPage(null);
       }
     } finally { if (version === searchGeneration.current) setBusy(false); }
   }, [invoke, scope, query, folder, closeReading]);
