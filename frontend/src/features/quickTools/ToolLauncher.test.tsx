@@ -22,6 +22,7 @@ function fixture(overrides: Partial<ToolLauncherApi> = {}) {
       keywords: ["剪贴板"], action: () => undefined }],
     search: vi.fn<ToolLauncherApi["search"]>(async () => page()),
     open: vi.fn(async () => true),
+    openFavorite: vi.fn(async () => true),
     openApplication: vi.fn(async () => true),
     setFavorite: vi.fn(async () => undefined),
     ...overrides,
@@ -52,6 +53,23 @@ it("defaults to translation, opens it without searching or invoking a tool, and 
   expect(api.search).not.toHaveBeenCalled();
   expect(api.open).not.toHaveBeenCalled();
   expect(details.open).toBe(false);
+  expect(document.activeElement).toBe(summary);
+});
+
+it("keeps favorites open after one destination fails and closes on successful navigation", async () => {
+  const api = fixture();
+  const { details, summary } = await launcher(api);
+  const second = { id: "provider:other", title: "Other tool" };
+  act(() => { window.dispatchEvent(new CustomEvent("zicode:quick-tools-changed", { detail: {
+    items: [{ id: encoder.accessId, title: encoder.title }, second],
+  } })); });
+  vi.mocked(api.openFavorite).mockRejectedValueOnce(Error("destination unavailable"));
+  fireEvent.click(screen.getByRole("button", { name: encoder.title }));
+  await screen.findByRole("alert");
+  expect(details.open).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: second.title }));
+  expect(vi.mocked(api.openFavorite).mock.calls).toEqual([[encoder.accessId], [second.id]]);
+  await waitFor(() => expect(details.open).toBe(false));
   expect(document.activeElement).toBe(summary);
 });
 

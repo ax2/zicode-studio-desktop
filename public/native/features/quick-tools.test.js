@@ -61,6 +61,23 @@ it("keeps valid shortcuts usable when native menu projection fails", async () =>
   expect(onError).toHaveBeenCalledTimes(1);
 });
 
+it("reports a rejected tray destination without clearing other verified shortcuts", async () => {
+  const { tool, api, invoke, handle, openTool, onError } = setup();
+  const other = { ...tool, accessId: "tool:two", title: "Other tool" };
+  api.searchTools.mockResolvedValue({ items: [tool, other], revision: "r2" });
+  await handle.refresh();
+  invoke.mockClear();
+  const error = Error("destination unavailable");
+  openTool.mockRejectedValueOnce(error);
+  window.dispatchEvent(new CustomEvent("zicode:open-quick-tool", { detail: tool.accessId }));
+  await settle();
+  expect(onError).toHaveBeenCalledWith(error);
+  expect(invoke).not.toHaveBeenCalled();
+  await expect(handle.launcher.openFavorite(other.accessId)).resolves.toBe(true);
+  expect(openTool).toHaveBeenLastCalledWith(other, "r2", expect.any(Object));
+  expect(api.searchTools).toHaveBeenCalledTimes(4);
+});
+
 it("clears native shortcuts when the directory cannot be read and recovers without changing favorites", async () => {
   const { api, invoke, handle, onError } = setup(); await settle();
   api.searchTools.mockRejectedValueOnce(Error("temporary directory failure"));

@@ -1350,6 +1350,7 @@ const quickTools = setupQuickTools({
   },
   invoke: globalThis.__TAURI__?.core?.invoke,
   onError: error => console.warn("[quick-tools]", error?.message ?? error),
+  onOpenError: error => notifications.notify({ title: t(manualToolError(error)), type: "error" }),
 });
 if (quickToolsAnchor) mountQuickTools(quickToolsAnchor, quickTools.launcher);
 // The automation scheduler must run for the whole page lifetime, not only
