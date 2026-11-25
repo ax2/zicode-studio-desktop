@@ -81,6 +81,29 @@ it("keeps local builds beside the debug DLL and skips installer-only preparation
   expect(build).not.toContain("src-tauri/tauri.shell.windows.conf.json");
 });
 
+it.each([
+  ["release", []],
+  ["debug", ["--local"]],
+])("opts in to application Cargo timings without altering the %s build", async (_profile, mode) => {
+  const baseline = await invoke(mode);
+  const timed = await invoke([...mode, "--rust-timings"]);
+  expect(timed.exit).toBe(0);
+  expect(timed.spawn).toHaveBeenCalledTimes(2);
+  expect(timed.spawn.mock.calls[0]).toEqual(baseline.spawn.mock.calls[0]);
+  const [command, args, options] = timed.spawn.mock.calls[1];
+  const [normalCommand, normalArgs, normalOptions] = baseline.spawn.mock.calls[1];
+  expect(command).toBe(normalCommand);
+  expect(args).toEqual([...normalArgs, "--", "--timings"]);
+  expect(options).toEqual(normalOptions);
+  expect(timed.stageLocalResources.mock.calls).toEqual(baseline.stageLocalResources.mock.calls);
+});
+
+it("rejects application timings in the bridge-only entry point before spawning a build", async () => {
+  const result = await invoke(["--shell-only", "--rust-timings"]);
+  expect(result.exit).toBe(1);
+  expect(result.spawn).not.toHaveBeenCalled();
+});
+
 it("does not stage or package after a failed bridge build and requires Windows for shell-only", async () => {
   const failed = await invoke(["--shell-only"], { shellStatus: 1 });
   expect(failed.exit).toBe(1);
