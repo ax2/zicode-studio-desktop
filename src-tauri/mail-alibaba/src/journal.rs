@@ -21,6 +21,18 @@ pub struct Mailbox<'a> {
 fn db_err(_: rusqlite::Error) -> &'static str {
     "mail_storage"
 }
+fn load_summary(db: &Connection, scope: &str, account: &str, folder: &str, epoch: u32, uid: u32) -> Result<Summary> {
+    let meta: String = db
+        .query_row(
+            "SELECT meta FROM alibaba_inbox WHERE scope=? AND account=? AND folder=? AND epoch=? AND uid=?",
+            params![scope, account, folder, epoch, uid],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(db_err)?
+        .ok_or("mail_cache_empty")?;
+    serde_json::from_str(&meta).map_err(|_| "mail_storage")
+}
 fn advance_cache_generation(db: &Connection, scope: &str, account: &str) -> Result<()> {
     db.execute(
         "INSERT INTO alibaba_cache_generation VALUES(?,?,1)
@@ -353,20 +365,15 @@ impl<'a> Mailbox<'a> {
         Ok(letter)
     }
     fn meta(&self, epoch: u32, uid: u32) -> Result<Summary> {
-        let meta: String = self
-            .db
-            .query_row(
-                "SELECT meta FROM alibaba_inbox WHERE scope=? AND account=? AND folder=? AND epoch=? AND uid=?",
-                params![self.scope, self.account.id, self.folder, epoch, uid],
-                |r| r.get(0),
-            )
-            .optional()
-            .map_err(db_err)?
-            .ok_or("mail_cache_empty")?;
-        serde_json::from_str(&meta).map_err(|_| "mail_storage")
+        load_summary(self.db, &self.scope, &self.account.id, &self.folder, epoch, uid)
     }
     pub fn reply_draft(&mut self, id: &str, epoch: u32, uid: u32) -> Result<serde_json::Value> {
-        let original = self.meta(epoch, uid)?;
+        // Read the source after acquiring the write lock, alongside draft creation.
+        let tx = self
+            .db
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_err)?;
+        let original = load_summary(&tx, &self.scope, &self.account.id, &self.folder, epoch, uid)?;
         let recipient = original.reply_to;
         if recipient.contains(['\r', '\n', '\0'])
             || recipient.parse::<lettre::message::Mailbox>().is_err()
@@ -380,10 +387,6 @@ impl<'a> Mailbox<'a> {
         while subject.len() > 998 {
             subject.pop();
         }
-        let tx = self
-            .db
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(db_err)?;
         tx.execute("INSERT INTO drafts(scope,account,id,revision,recipient,subject,body) VALUES(?,?,?,1,?,?,'')",params![self.scope,self.account.id,id,recipient,subject]).map_err(db_err)?;
         tx.execute(
             "INSERT INTO alibaba_reply VALUES(?,?,?,?)",
