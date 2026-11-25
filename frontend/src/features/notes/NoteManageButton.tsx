@@ -4,7 +4,7 @@ import { t } from "../../shared/i18n";
 import type { NoteSummary } from "./notesLogic";
 import type { NotesStore } from "./notesStore";
 
-export function NoteManageButton({ store, note, onMove }: { store: NotesStore; note: NoteSummary; onMove(rect: DOMRect): void }) {
+export function NoteManageButton({ store, note, onMove }: { store: NotesStore; note: NoteSummary; onMove(anchor: HTMLButtonElement): void }) {
   const [open, setOpen] = useState(false), [armed, setArmed] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const button = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null);
@@ -38,7 +38,7 @@ export function NoteManageButton({ store, note, onMove }: { store: NotesStore; n
         const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowUp" ? -1 : 1) + buttons.length) % buttons.length;
         buttons[next]?.focus();
       }}>
-      <button type="button" role="menuitem" className="ui-button ui-button--ghost" onClick={() => { const rect = button.current?.getBoundingClientRect(); close(); if (rect) onMove(rect); }}>{t("Move to notebook")}</button>
+      <button type="button" role="menuitem" className="ui-button ui-button--ghost" onClick={() => { const anchor = button.current; close(); if (anchor) onMove(anchor); }}>{t("Move to notebook")}</button>
       <button type="button" role="menuitem" className="ui-button ui-button--danger" onClick={() => { if (!armed) { setArmed(true); return; } close(); void store.getState().deleteNoteFromList(note); }}>{armed ? t("Confirm delete") : t("Delete note")}</button>
     </div>, document.body)}
   </>;
