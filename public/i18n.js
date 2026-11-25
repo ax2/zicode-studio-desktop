@@ -1109,6 +1109,7 @@ const zhCN = {
   "A download is waiting. Open Downloads to choose where to save it.":
     "有文件等待下载，请打开下载列表选择保存位置。",
   "Studio closed before this download finished": "Studio 关闭时下载尚未完成",
+  "This download can’t be resumed after Studio closes. Return to the page that started it, download again, and choose where to save when prompted.": "关闭 Studio 后无法继续这次下载。请回到发起下载的网页重新下载，并在提示时选择保存位置。",
   "Download stopped; its partial file remains at the displayed location":
     "下载已停止，未完成的文件保留在显示的位置",
   "A file already exists at this location": "该位置已有同名文件，请选择其他名称",

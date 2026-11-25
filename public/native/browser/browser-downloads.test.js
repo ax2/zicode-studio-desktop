@@ -87,6 +87,32 @@ it("shows each operation's own progress and keeps retry approval separate", asyn
   expect(row("resumed").textContent).not.toContain(t(needsSave));
   expect(getByRole(row("deliberate"), "button", { name: t("Save to Downloads") })).toBeTruthy();
 });
+it("explains how to start a new download after restart while keeping approval on the new request", async () => {
+  const guidance = "This download can’t be resumed after Studio closes. Return to the page that started it, download again, and choose where to save when prompted.";
+  const previous = { ...item("lost", "interrupted", null), error: "Studio closed before this download finished" };
+  const anotherInterruption = { ...item("failed-before-restart", "interrupted"), error: "Interrupted" };
+  const cancelled = item("cancelled", "cancelled");
+  const completed = { ...item("completed", "completed"), path: "C:/fixture/complete.txt" };
+  let entries = [previous, anotherInterruption, cancelled, completed];
+  const invoke = vi.fn(async () => ({ ...page(entries) }));
+  const dialog = showBrowserDownloads({ invoke }); await tick();
+  const row = id => dialog.querySelector('[data-download-id="' + id + '"]');
+  expect(row("lost").textContent).toContain(t(guidance));
+  expect(row("lost").querySelector("a")).toBeNull();
+  expect(getByRole(row("lost"), "button", { name: t("Remove from list") })).toBeTruthy();
+  expect(row("lost").querySelectorAll("button:not([hidden])")).toHaveLength(1);
+  for (const id of ["failed-before-restart", "cancelled", "completed"]) {
+    expect(row(id).textContent).not.toContain(t(guidance));
+  }
+  expect(invoke.mock.calls.map(([, options]) => options.request)).toEqual([{ kind: "downloads", before: null }]);
+
+  entries = [item("new"), ...entries];
+  await vi.advanceTimersByTimeAsync(500);
+  expect(row("new").textContent).not.toContain(t(guidance));
+  getByRole(row("new"), "button", { name: t("Save to Downloads") }).click(); await tick();
+  expect(invoke.mock.calls.map(([, options]) => options.request).filter(request => request.kind !== "downloads"))
+    .toEqual([{ kind: "downloadSave", id: "new" }]);
+});
 it("retains errors and permits retry/cancel after a rejected save", async () => {
   const calls = []; const invoke = async (_, { request }) => {
     calls.push(request);
