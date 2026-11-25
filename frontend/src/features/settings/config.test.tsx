@@ -1,5 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { t } from "../../shared/i18n";
 import { ConfigTab } from "./ConfigTab";
 import { type ConfigGatewayLike, type ConfigGatewayResult, createConfigStore } from "./configStore";
 import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
@@ -320,5 +321,70 @@ describe("settings config React tab", () => {
     expect(document.getElementById("inline-config-textarea")).toBeTruthy();
     expect(document.getElementById("inline-models-textarea")).toBeTruthy();
     expect(document.querySelector(".api-model-row")?.getAttribute("data-model-id")).toBe("gpt-5.2");
+  });
+});
+
+describe("settings provider filter", () => {
+  afterEach(cleanup);
+
+  function renderProviders() {
+    const { gateway, calls } = makeGateway();
+    const store = createConfigStore({ configGateway: gateway });
+    store.setState({
+      apiStatus: "ready",
+      providers: [
+        { provider: "unconfigured", displayName: "Gamma 网络", configured: false },
+        { provider: "alpha", displayName: "Alpha", configured: true },
+        { provider: "beta", displayName: "Beta", configured: true },
+      ],
+    });
+    const view = render(<ConfigTab store={store} widgets={createSettingsWidgetsStore()} />);
+    return { view, calls };
+  }
+
+  it("uses one list for configured, all, matching, and empty states", () => {
+    const { view, calls } = renderProviders();
+    const search = view.getByRole("searchbox");
+    const toggle = view.container.querySelector("#provider-auth-show-all");
+    if (!(toggle instanceof HTMLButtonElement)) throw new Error("Provider filter toggle missing");
+    const names = () => Array.from(view.container.querySelectorAll(".api-key-row-name"), (row) => row.textContent);
+
+    expect(names()).toEqual(["Alpha", "Beta"]);
+    fireEvent.click(toggle);
+    expect(names()).toEqual(["Alpha", "Beta", "Gamma 网络"]);
+    fireEvent.click(toggle);
+    expect(names()).toEqual(["Alpha", "Beta"]);
+
+    fireEvent.change(search, { target: { value: "  网络  " } });
+    expect(names()).toEqual(["Gamma 网络"]);
+    fireEvent.change(search, { target: { value: "  UNCONFIGURED  " } });
+    expect(names()).toEqual(["Gamma 网络"]);
+    fireEvent.change(search, { target: { value: "no-match" } });
+    expect(names()).toEqual([]);
+    expect(view.getByText(t("No matches"))).toBeTruthy();
+    fireEvent.change(search, { target: { value: "" } });
+    expect(names()).toEqual(["Alpha", "Beta"]);
+    expect(calls).toEqual([]);
+  });
+
+  it("keeps edited input when the provider is filtered out and back in", () => {
+    const { view, calls } = renderProviders();
+    const search = view.getByRole("searchbox");
+    fireEvent.change(search, { target: { value: "gamma" } });
+    const setKey = view.container.querySelector('[data-provider="unconfigured"] .api-key-row-actions button');
+    if (!setKey) throw new Error("Synthetic provider is missing its action");
+    fireEvent.click(setKey);
+    const password = view.container.querySelector(".api-key-editor input");
+    if (!(password instanceof HTMLInputElement)) throw new Error("Credential editor missing");
+    fireEvent.change(password, { target: { value: "local-fixture-input" } });
+    fireEvent.change(search, { target: { value: "beta" } });
+    expect(view.container.querySelector(".api-key-editor input")).toBeNull();
+    fireEvent.change(search, { target: { value: "gamma" } });
+    const reopened = view.container.querySelector(".api-key-editor input");
+    if (!(reopened instanceof HTMLInputElement)) throw new Error("Credential editor was discarded");
+    expect(reopened.value).toBe("local-fixture-input");
+    fireEvent.keyDown(reopened, { key: "Escape" });
+    expect(view.container.querySelector(".api-key-editor input")).toBeNull();
+    expect(calls).toEqual([]);
   });
 });
