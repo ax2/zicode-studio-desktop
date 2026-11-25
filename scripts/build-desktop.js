@@ -84,11 +84,17 @@ if (result.error) {
   console.error(`[build-desktop] Failed to start Tauri: ${result.error.message}`);
   process.exit(1);
 }
-if (result.status === 0 && local && process.platform === "win32") {
-  const configDir = path.join(root, "src-tauri");
-  const config = JSON.parse(fs.readFileSync(path.join(configDir, "tauri.conf.json"), "utf8"));
-  const { stageLocalResources } = require("./stage-local-resources");
-  const updated = stageLocalResources(configDir, path.join(env.CARGO_TARGET_DIR, "debug"), config.bundle.resources);
-  console.log("[build-desktop] Local runtime resources updated:", updated);
+if (result.status !== 0 || !local || process.platform !== "win32") {
+  process.exit(result.status ?? 1);
 }
-process.exit(result.status ?? 1);
+
+const configDir = path.join(root, "src-tauri");
+const config = JSON.parse(fs.readFileSync(path.join(configDir, "tauri.conf.json"), "utf8"));
+const { stageLocalResources } = require("./stage-local-resources");
+const stagingStarted = Date.now();
+stageLocalResources(configDir, path.join(env.CARGO_TARGET_DIR, "debug"), config.bundle.resources)
+  .then(updated => console.log("[build-desktop] Local runtime resources updated:", updated, `(${Date.now() - stagingStarted} ms)`))
+  .catch(error => {
+    console.error("[build-desktop] Local runtime resources failed:", error.message);
+    process.exitCode = 1;
+  });

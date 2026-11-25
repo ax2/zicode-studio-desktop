@@ -4,6 +4,7 @@ const { execFileSync } = require("node:child_process");
 const { createHash, randomUUID } = require("node:crypto");
 
 const runtimeDirectories = new Set(["pi", "portable-git", "webview2", "bun"]);
+const comparisonBatchSize = 16;
 
 function primaryCheckout(configDir) {
   const records = execFileSync("git", ["worktree", "list", "--porcelain", "-z"], {
@@ -30,25 +31,25 @@ function primaryCheckout(configDir) {
   return fs.realpathSync.native(checkouts[0]);
 }
 
-function digest(file) {
+async function digest(file, size) {
   const hash = createHash("sha256");
-  const fd = fs.openSync(file, "r");
-  const chunk = Buffer.allocUnsafe(256 * 1024);
+  const chunk = Buffer.allocUnsafe(Math.min(1024 * 1024, Math.max(4096, size + 1)));
+  const fd = await fs.promises.open(file, "r");
   try {
     for (;;) {
-      const length = fs.readSync(fd, chunk);
-      if (length === 0) break;
-      hash.update(chunk.subarray(0, length));
+      const { bytesRead } = await fd.read(chunk, 0, chunk.length, null);
+      if (bytesRead === 0) break;
+      hash.update(chunk.subarray(0, bytesRead));
     }
     return hash.digest("hex");
   } finally {
-    fs.closeSync(fd);
+    await fd.close();
   }
 }
 
 // Some Cargo layouts put Tauri's prepared resources under debug/build,
 // while the Windows application resolves resources beside its executable.
-function stageLocalResources(configDir, debugDir, resources) {
+async function stageLocalResources(configDir, debugDir, resources) {
   let updated = 0;
   let primary;
 
@@ -71,24 +72,37 @@ function stageLocalResources(configDir, debugDir, resources) {
     return resolved;
   }
 
-  function stage(source, target, prepared) {
+  function* files(source, target, prepared) {
     const input = fs.lstatSync(source);
-    const existing = fs.lstatSync(target, { throwIfNoEntry: false });
     if (input.isDirectory()) {
+      const existing = fs.lstatSync(target, { throwIfNoEntry: false });
       if (existing && !existing.isDirectory()) throw Error("Expected a resource directory: " + target);
-      fs.mkdirSync(target, { recursive: true });
+      if (!existing) fs.mkdirSync(target, { recursive: true });
       for (const name of fs.readdirSync(source)) {
-        stage(path.join(source, name), path.join(target, name), path.join(prepared, name));
+        yield* files(path.join(source, name), path.join(target, name), path.join(prepared, name));
       }
       return;
     }
-    if (!input.isFile() || (existing && !existing.isFile())) throw Error("Expected a regular resource file: " + target);
-    const expected = digest(source);
-    if (existing && existing.size === input.size && digest(target) === expected) return;
+    if (!input.isFile()) throw Error("Expected a regular resource file: " + target);
+    yield { source, target, prepared, size: input.size };
+  }
+
+  async function compare(file) {
+    const existing = await fs.promises.lstat(file.target).catch(error => {
+      if (error.code !== "ENOENT") throw error;
+    });
+    if (existing && !existing.isFile()) throw Error("Expected a regular resource file: " + file.target);
+    if (existing?.size !== file.size) return { file };
+    const expected = await digest(file.source, file.size);
+    return (await digest(file.target, file.size)) === expected ? null : { file, expected };
+  }
+
+  async function repair({ file: { source, target, prepared, size }, expected }) {
     const intermediate = fs.lstatSync(prepared, { throwIfNoEntry: false });
     const temporary = target + "." + randomUUID() + ".tmp";
     try {
-      if (intermediate?.isFile() && intermediate.size === input.size && digest(prepared) === expected) {
+      if (intermediate?.isFile() && intermediate.size === size &&
+          (await digest(prepared, size)) === (expected ?? await digest(source, size))) {
         // Reuse the build artifact without linking the runnable copy to editable source.
         try { fs.linkSync(prepared, temporary); }
         catch (error) {
@@ -104,13 +118,35 @@ function stageLocalResources(configDir, debugDir, resources) {
       fs.rmSync(temporary, { force: true });
     }
   }
+
+  async function stageBatch(batch) {
+    // Finish the bounded set of reads before reporting failure or repairing files in order.
+    const checks = await Promise.allSettled(batch.map(compare));
+    for (const check of checks) {
+      if (check.status === "rejected") throw check.reason;
+      if (check.value) await repair(check.value);
+    }
+  }
+
   for (const [source, destination] of Object.entries(resources)) {
     const target = path.resolve(debugDir, destination);
     const relative = path.relative(debugDir, target);
     if (!relative || relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
       throw Error("Resource destination outside the debug directory: " + destination);
     }
-    stage(resourceSource(source, destination), target, path.join(debugDir, "build", relative));
+    const batch = [];
+    const destinations = new Set();
+    for (const file of files(resourceSource(source, destination), target, path.join(debugDir, "build", relative))) {
+      const key = process.platform === "win32" ? file.target.toLowerCase() : file.target;
+      if (batch.length === comparisonBatchSize || destinations.has(key)) {
+        await stageBatch(batch);
+        batch.length = 0;
+        destinations.clear();
+      }
+      batch.push(file);
+      destinations.add(key);
+    }
+    if (batch.length) await stageBatch(batch);
   }
   return updated;
 }
