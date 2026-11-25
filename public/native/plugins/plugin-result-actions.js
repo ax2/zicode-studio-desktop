@@ -123,7 +123,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           })
         : null;
     const report = exportButton(reportExport, current.reportReference,
-      t(current.diffReport ? "Save diff report as text…" : "Save diagnostic JSON as…"), token);
+      t(current.reportExportLabel), token);
     const png = exportButton(pngExport, current.pngReference, t("Save PNG as…"), token);
     const csv = exportButton(csvExport, current.csvReference, t("Save CSV as…"), token);
     const tsv = exportButton(tsvExport, current.tsvReference, t("Save TSV as…"), token);
@@ -160,7 +160,10 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     const reference = response?.resultRef;
     const diffReport = response?.result?.ok === true && scope?.pluginId === "com.zicode.devtools.compare" &&
       scope.capabilityId === "devtools.compare.text.diff";
-    const reportReference = diffReport ? exportReference(reference, reference, "text/plain")
+    const jsonSchemaReport = response?.result?.ok === true &&
+      response.result.contractVersion === "1.0.0-rc.1" &&
+      scope?.pluginId === "com.zicode.devtools.json-schema" && scope.capabilityId === "devtools.json-schema.validate";
+    const reportReference = diffReport || jsonSchemaReport ? exportReference(reference, reference, "text/plain")
       : httpResult && reference?.schemaVersion === 1 &&
       reference.mimeType === "text/plain" && uuidPattern.test(reference.resultId ?? "") &&
       /^[0-9a-f]{64}$/.test(reference.contentVersion ?? "") &&
@@ -192,7 +195,8 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
           scope,
           resultId: response.resultRef.resultId,
           reportReference,
-          diffReport,
+          reportExportLabel: diffReport ? "Save diff report as text…" :
+            jsonSchemaReport ? "Save validation report as text…" : "Save diagnostic JSON as…",
           pngReference,
           csvReference,
           tsvReference,
