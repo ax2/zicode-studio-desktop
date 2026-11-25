@@ -43,23 +43,34 @@
   function readText(doc, limit) {
     const charLimit = Math.min(limit, textRemaining);
     const root = doc.body || doc.documentElement;
-    const pending = [[root].values()];
+    const pending = [{ nodes: [root].values(), flow: root }];
     let text = '', textTruncated = false, textRange;
+    let previousFlow, spacePending = false, lineBreaks = 0;
     while (pending.length) {
-      const next = pending.at(-1).next();
+      const { nodes, flow } = pending.at(-1);
+      const next = nodes.next();
       if (next.done) { pending.pop(); continue; }
       if (structureRemaining === 0) { textTruncated = true; break; }
       structureRemaining--;
       const node = next.value;
       if (node.nodeType === Node.ELEMENT_NODE) {
-        if (!node.matches(excluded)) pending.push(renderedChildren(node).values());
+        if (node.matches(excluded)) continue;
+        if (node.localName === 'br') {
+          if (text && allowed(node)) lineBreaks++;
+          continue;
+        }
+        const display = styleOf(node).display;
+        // Keep composed slot sources distinct while joining inline content within each flow.
+        const inline = !display || /^(inline(?:-| |$)|contents$|ruby(?:-|$))/.test(display);
+        const childFlow = inline && node.localName !== 'slot' ? flow : node;
+        pending.push({ nodes: renderedChildren(node).values(), flow: childFlow });
         continue;
       }
       if (node.nodeType !== Node.TEXT_NODE) continue;
       if (nodesRemaining === 0) { textTruncated = true; break; }
       nodesRemaining--;
-      const part = (node.nodeValue || '').trim();
-      if (!part) continue;
+      const raw = node.nodeValue || '';
+      if (!raw) continue;
       const parent = composedParent(node);
       if (!parent) continue;
       if (node.parentElement === parent && parent.getClientRects().length > 0) {
@@ -83,11 +94,29 @@
         textRange.selectNodeContents(node);
         if (!textRange.getClientRects().length) continue;
       }
+      const whitespace = styleOf(parent).whiteSpace;
+      const preserveSpace = /^(pre|pre-wrap|break-spaces)$/.test(whitespace);
+      const normalized = preserveSpace ? raw : raw.replace(whitespace === 'pre-line' ? /[ \t\f]+/g : /[ \t\r\n\f]+/g, ' ');
+      const part = preserveSpace ? normalized : normalized.replace(/^ | $/g, '');
+      if (!part) {
+        if (text && previousFlow === flow) spacePending = true;
+        continue;
+      }
+      let separator = '';
+      if (text && lineBreaks) separator = '\n'.repeat(lineBreaks);
+      else if (text && previousFlow !== flow && !text.endsWith('\n')) separator = '\n';
+      else if (text && previousFlow === flow && !text.endsWith('\n') &&
+               (spacePending || (!preserveSpace && normalized.startsWith(' ')))) separator = ' ';
+
+      const value = separator + part;
       const remaining = charLimit - text.length;
-      if (part.length > remaining) { text += clip(part, remaining); textTruncated = true; break; }
-      text += part;
-      if (part.length < remaining) text += '\n';
+      if (value.length > remaining) { text += clip(value, remaining); textTruncated = true; break; }
+      text += value;
+      previousFlow = flow;
+      spacePending = !preserveSpace && normalized.endsWith(' ');
+      lineBreaks = 0;
     }
+    if (!textTruncated && text && !text.endsWith('\n') && text.length < charLimit) text += '\n';
     textRemaining -= text.length;
     return { text, textTruncated };
   }
