@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：YAML 与 JSON 无损转换
+
+Inspect 0.1.4 双向转换拒绝重复键和无法精确写出的数字。已在隔离 Windows Studio 验证安装、重启和两个文件入口，宽窄窗口下载结果与 Worker 输出一致。[范围与冻结候选](../iterations/2026-11-26-inspect-strict-yaml.md)
+
 ## 2026-11-26 开发补充：MCP 客户端配置预览
 
 填写已知的本机 ZiDevTools MCP 服务程序路径，可预览 Codex TOML 或通用 JSON，并确认保存到 Studio 产物。隔离 Windows Studio 已验证预览、保存与重启后读取。[范围与冻结候选](../iterations/2026-11-26-mcp-client-export.md)

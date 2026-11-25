@@ -1,0 +1,2017 @@
+{
+  "workerSha256": "1bf0adf0d8e3e8874eca61258ef133de9875dac87c0cbd76a83a45a2d7f2f1a3",
+  "beforeSha256": "1db3fc37df01cd3a8371320d4f897a7fdf750c87e6202b736ed6870f046b8f29",
+  "wasmSha256": "87eac509ffefdd8f4ba45a226afff3ecc24934618fc12b59bf2b03574448087f",
+  "wasmBytes": 748306,
+  "rows": [
+    {
+      "id": "to_json-dense-sequence-8192",
+      "kind": "boundary",
+      "passed": false,
+      "existingBudgetLimit": true,
+      "old": {
+        "status": 1,
+        "code": null,
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 814,
+        "diagnostic": "{\"ok\":false,\"result\":null,\"error\":\"WASI fuel exhausted\"}"
+      },
+      "fixed": {
+        "status": 1,
+        "code": null,
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1016,
+        "diagnostic": "{\"ok\":false,\"result\":null,\"error\":\"WASI fuel exhausted\"}"
+      }
+    },
+    {
+      "id": "to_json-mid-density-float-sequence-8192",
+      "kind": "boundary",
+      "passed": true,
+      "existingBudgetLimit": false,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 3242,
+        "hash": "13df3b0019d8e39535d9d5f69b2e516c2b464807a793e72c9922fb2ca5dbf79f",
+        "elapsed": 805,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 3242,
+        "hash": "13df3b0019d8e39535d9d5f69b2e516c2b464807a793e72c9922fb2ca5dbf79f",
+        "elapsed": 1025,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "to_json-mid-density-integer-sequence-8192",
+      "kind": "boundary",
+      "passed": true,
+      "existingBudgetLimit": false,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 7922,
+        "hash": "641aeb8a45aa3d280c8601da5442c5582ed4c3e6221ede766e538a4bbc8ef8ee",
+        "elapsed": 834,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 7922,
+        "hash": "641aeb8a45aa3d280c8601da5442c5582ed4c3e6221ede766e538a4bbc8ef8ee",
+        "elapsed": 1038,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "to_json-dense-mapping-8192",
+      "kind": "boundary",
+      "passed": false,
+      "existingBudgetLimit": true,
+      "old": {
+        "status": 1,
+        "code": null,
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 884,
+        "diagnostic": "{\"ok\":false,\"result\":null,\"error\":\"WASI fuel exhausted\"}"
+      },
+      "fixed": {
+        "status": 1,
+        "code": null,
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1097,
+        "diagnostic": "{\"ok\":false,\"result\":null,\"error\":\"WASI fuel exhausted\"}"
+      }
+    },
+    {
+      "id": "to_json-minified-integers-8192",
+      "kind": "boundary",
+      "passed": false,
+      "existingBudgetLimit": true,
+      "old": {
+        "status": 1,
+        "code": null,
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 848,
+        "diagnostic": "{\"ok\":false,\"result\":null,\"error\":\"WASI fuel exhausted\"}"
+      },
+      "fixed": {
+        "status": 1,
+        "code": null,
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1041,
+        "diagnostic": "{\"ok\":false,\"result\":null,\"error\":\"WASI fuel exhausted\"}"
+      }
+    },
+    {
+      "id": "to_json-unicode-8192",
+      "kind": "boundary",
+      "passed": true,
+      "existingBudgetLimit": false,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 8113,
+        "hash": "554dbf6fcbaeb32019b576ac6e67c51423f40d3ccb266c34620e02c7e8292861",
+        "elapsed": 835,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8113,
+        "hash": "554dbf6fcbaeb32019b576ac6e67c51423f40d3ccb266c34620e02c7e8292861",
+        "elapsed": 1064,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "from_json-dense-numbers-8192",
+      "kind": "boundary",
+      "passed": true,
+      "existingBudgetLimit": false,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 9600,
+        "hash": "1bd86c8d4565babc23bb723ee649911d3327ad762dd933dcf817a88b5fb337ed",
+        "elapsed": 907,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 9600,
+        "hash": "1bd86c8d4565babc23bb723ee649911d3327ad762dd933dcf817a88b5fb337ed",
+        "elapsed": 1172,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "from_json-distinct-decimals-8192",
+      "kind": "boundary",
+      "passed": true,
+      "existingBudgetLimit": false,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 8100,
+        "hash": "9e4eba2b1515bbcccfbb99870fdc65cc5e4d69b19d227523ea690094ceafbd52",
+        "elapsed": 876,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8100,
+        "hash": "9e4eba2b1515bbcccfbb99870fdc65cc5e4d69b19d227523ea690094ceafbd52",
+        "elapsed": 1047,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "from_json-minified-integers-8192",
+      "kind": "boundary",
+      "passed": true,
+      "existingBudgetLimit": false,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 16380,
+        "hash": "ecb732348eebeaf4b12f9d1f8cd0f8af6e4e73f03a80f873813b41752e82e026",
+        "elapsed": 843,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 16380,
+        "hash": "ecb732348eebeaf4b12f9d1f8cd0f8af6e4e73f03a80f873813b41752e82e026",
+        "elapsed": 1045,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "from_json-unicode-8192",
+      "kind": "boundary",
+      "passed": true,
+      "existingBudgetLimit": false,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 8104,
+        "hash": "a0422c61d13fe16894efb7d0352ed9f66cb3d987e6b80046d79d6a93438b2375",
+        "elapsed": 810,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8104,
+        "hash": "a0422c61d13fe16894efb7d0352ed9f66cb3d987e6b80046d79d6a93438b2375",
+        "elapsed": 982,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "to_json-strict-0",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1002,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-1",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1048,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-2",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1033,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-3",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1007,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-4",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 994,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-5",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 973,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-6",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1004,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-7",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 997,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-8",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1021,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-9",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1038,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-10",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1048,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-11",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 995,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-strict-12",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1009,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "from_json-strict-0",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1070,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "from_json-strict-1",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1119,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "from_json-strict-2",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1295,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "from_json-strict-3",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1412,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "from_json-strict-4",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1341,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "from_json-strict-5",
+      "kind": "policy",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1192,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "to_json-compatible-0",
+      "kind": "compat",
+      "passed": true,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 174,
+        "hash": "0299d6d1174c32f798743d85ce6e6dcdc40d94b4f1a9083a7ccb16d45c46b896",
+        "elapsed": 965,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 174,
+        "hash": "0299d6d1174c32f798743d85ce6e6dcdc40d94b4f1a9083a7ccb16d45c46b896",
+        "elapsed": 1094,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "to_json-compatible-1",
+      "kind": "compat",
+      "passed": true,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 115,
+        "hash": "52d902f037ce4da139fe719c9a1cfdae539ecffbd1d29435fe4ba760ce20f468",
+        "elapsed": 870,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 115,
+        "hash": "52d902f037ce4da139fe719c9a1cfdae539ecffbd1d29435fe4ba760ce20f468",
+        "elapsed": 1094,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "to_json-compatible-2",
+      "kind": "compat",
+      "passed": true,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 118,
+        "hash": "ff6b80ef655f8356f3f8ce12ec36ae65cd87e03faaa0aa2b76e26c5e2fe50860",
+        "elapsed": 875,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 118,
+        "hash": "ff6b80ef655f8356f3f8ce12ec36ae65cd87e03faaa0aa2b76e26c5e2fe50860",
+        "elapsed": 1165,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "to_json-compatible-3",
+      "kind": "compat",
+      "passed": true,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 39,
+        "hash": "6910d50c1932c7d06c5bf5e5cb9c157d21b2adf65bc907201fec4df41126b1b8",
+        "elapsed": 909,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 39,
+        "hash": "6910d50c1932c7d06c5bf5e5cb9c157d21b2adf65bc907201fec4df41126b1b8",
+        "elapsed": 1332,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "to_json-compatible-4",
+      "kind": "compat",
+      "passed": true,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 19,
+        "hash": "98325894db9e1e35b0181e5a40ce71128dd92546e7ada569aa3fae3c8f592096",
+        "elapsed": 881,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 19,
+        "hash": "98325894db9e1e35b0181e5a40ce71128dd92546e7ada569aa3fae3c8f592096",
+        "elapsed": 1119,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "to_json-compatible-5",
+      "kind": "compat",
+      "passed": true,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 72,
+        "hash": "a84fb86fad75fa1f0561e4eb6958a7b30bc1321ef5739a1bf1efce6dd0774edf",
+        "elapsed": 901,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 72,
+        "hash": "a84fb86fad75fa1f0561e4eb6958a7b30bc1321ef5739a1bf1efce6dd0774edf",
+        "elapsed": 1248,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "to_json-compatible-6",
+      "kind": "compat",
+      "passed": true,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 50,
+        "hash": "b944f44820cc766a167f5062cf6b459dae403fae3b4cae2fe60acd59b28f5bc5",
+        "elapsed": 1083,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 50,
+        "hash": "b944f44820cc766a167f5062cf6b459dae403fae3b4cae2fe60acd59b28f5bc5",
+        "elapsed": 1166,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "from_json-compatible-0",
+      "kind": "compat",
+      "passed": true,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 105,
+        "hash": "2e69a3ffdb4054a4dfa353c379c820185d7804081150f9e14a0e68d9a74d380e",
+        "elapsed": 908,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 105,
+        "hash": "2e69a3ffdb4054a4dfa353c379c820185d7804081150f9e14a0e68d9a74d380e",
+        "elapsed": 1155,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "from_json-compatible-1",
+      "kind": "compat",
+      "passed": true,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 31,
+        "hash": "9af4df4c122b08ba7e3f593dfd0ac58dba04456e4a6b8ea248737e521d6b4bd1",
+        "elapsed": 921,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 31,
+        "hash": "9af4df4c122b08ba7e3f593dfd0ac58dba04456e4a6b8ea248737e521d6b4bd1",
+        "elapsed": 1119,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "from_json-compatible-2",
+      "kind": "compat",
+      "passed": true,
+      "old": {
+        "code": null,
+        "ok": true,
+        "bytes": 55,
+        "hash": "92b32640ce94b5f0e3825d2beffadbd0938d62b5418250b67d53eabd3afe4847",
+        "elapsed": 979,
+        "diagnostic": null
+      },
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 55,
+        "hash": "92b32640ce94b5f0e3825d2beffadbd0938d62b5418250b67d53eabd3afe4847",
+        "elapsed": 1130,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "yaml.to_json-sample",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 94,
+        "hash": "98bac4636fee0fe7dffebe2855689775376b61167882f095608d222bd9c5a955",
+        "elapsed": 1140,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "yaml.to_json-empty",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 4,
+        "hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "elapsed": 1127,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "yaml.to_json-wrong-type",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1185,
+        "diagnostic": "请求结构无效"
+      }
+    },
+    {
+      "id": "yaml.to_json-ascii-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1142,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "yaml.to_json-utf8-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1157,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "yaml.from_json-sample",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 59,
+        "hash": "0d86cf06a048de245b04412e4483a5ee5b5ffede1729ac82e865a02d786caed8",
+        "elapsed": 1173,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "yaml.from_json-empty",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1206,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "yaml.from_json-wrong-type",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1144,
+        "diagnostic": "请求结构无效"
+      }
+    },
+    {
+      "id": "yaml.from_json-ascii-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1109,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "yaml.from_json-utf8-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1113,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "cidr.inspect-sample",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 236,
+        "hash": "5249d3433961277d3ca217ee4fa04db74f03aaabcab49aa691e8da80a5ca8c1d",
+        "elapsed": 1072,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "cidr.inspect-empty",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1123,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "cidr.inspect-wrong-type",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1046,
+        "diagnostic": "请求结构无效"
+      }
+    },
+    {
+      "id": "cidr.inspect-ascii-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1003,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "cidr.inspect-utf8-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1035,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "jwt.inspect-sample",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 129,
+        "hash": "6f34358cf91b33374d6150ef1a44cb367c7a48ca8581a80d026e6303c61c1b4c",
+        "elapsed": 1043,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "jwt.inspect-empty",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 992,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "jwt.inspect-wrong-type",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1005,
+        "diagnostic": "请求结构无效"
+      }
+    },
+    {
+      "id": "jwt.inspect-ascii-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1000,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "jwt.inspect-utf8-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 981,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "unicode.inspect-sample",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 1232,
+        "hash": "c1c3be0df6224b7d35f0fbc60572f192107878965d212f43c1d555bd364543d4",
+        "elapsed": 1016,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.inspect-empty",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 223,
+        "hash": "6f76e432d429c4fc9699ef10f9ea8a0cc0cd72c7b0768a5f65ddd89b10175377",
+        "elapsed": 1048,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.inspect-wrong-type",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1016,
+        "diagnostic": "请求结构无效"
+      }
+    },
+    {
+      "id": "unicode.inspect-ascii-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1014,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "unicode.inspect-utf8-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 996,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "unicode.nfc-sample",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 16,
+        "hash": "c2c0842f31a2e26dd6601df94b1c6178cf8d8227fb5dcc1a07a15a3d146505be",
+        "elapsed": 995,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.nfc-empty",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "elapsed": 996,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.nfc-wrong-type",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 990,
+        "diagnostic": "请求结构无效"
+      }
+    },
+    {
+      "id": "unicode.nfc-ascii-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 998,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "unicode.nfc-utf8-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 982,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "unicode.nfkc-sample",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 12,
+        "hash": "5ab9fb114737f59878f5fadfbed1729a49ced682ae7abb3d61729f632a18784b",
+        "elapsed": 999,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.nfkc-empty",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "elapsed": 1049,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.nfkc-wrong-type",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 990,
+        "diagnostic": "请求结构无效"
+      }
+    },
+    {
+      "id": "unicode.nfkc-ascii-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 985,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "unicode.nfkc-utf8-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1005,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "unicode.nfc-ascii-exact",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8192,
+        "hash": "dd4e6730520932767ec0a9e33fe19c4ce24399d6eba4ff62f13013c9ed30ef87",
+        "elapsed": 1002,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.nfc-utf8-exact",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8192,
+        "hash": "582e5a22643e0972a03f344e29479c2de9048de2f63a4b77d4a8149155c4d740",
+        "elapsed": 997,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.nfc-normalization",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 13,
+        "hash": "11b170f38b922d6508b8a916d3db8bdf74a5d3c85653bb3bc4599818227ea097",
+        "elapsed": 1051,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.nfkc-ascii-exact",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8192,
+        "hash": "dd4e6730520932767ec0a9e33fe19c4ce24399d6eba4ff62f13013c9ed30ef87",
+        "elapsed": 1270,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.nfkc-utf8-exact",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8192,
+        "hash": "582e5a22643e0972a03f344e29479c2de9048de2f63a4b77d4a8149155c4d740",
+        "elapsed": 1355,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode.nfkc-normalization",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8,
+        "hash": "792db7b2af6196f7e273da7158b820f5d93ba03980d4d777cd0adbc2cc9c84aa",
+        "elapsed": 1211,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode-inspect-64",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8983,
+        "hash": "ee6307e99efebbaf699161bdb765a6b9bf49c68fdec43c0a60c1c11d5ce57525",
+        "elapsed": 1184,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode-inspect-output-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1118,
+        "diagnostic": "结果超过 48 KiB"
+      }
+    },
+    {
+      "id": "unicode-controls",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 784,
+        "hash": "17f98e2e51926345b397c6d8a361f96747f559f6656641bbe5ef858a9bc2b9db",
+        "elapsed": 1009,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "cidr-0",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 235,
+        "hash": "0b9b90a6c1d1c147fc52f0be9a3d285c0639028e46afff24e96fef8a3e3d781d",
+        "elapsed": 1037,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "cidr-31",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 226,
+        "hash": "e9855a6ed13aea072628da4befb6b5ec3291470cb6a2e4e670c35833e6361874",
+        "elapsed": 1004,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "cidr-32",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 218,
+        "hash": "379b321c3b3625dfdeb3b5659cdf4024bba7feee194af8265b711a1a6ed470ce",
+        "elapsed": 1024,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "cidr-invalid-0",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 994,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "cidr-invalid-1",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1013,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "cidr-invalid-2",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1069,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "cidr-invalid-3",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1031,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "cidr-invalid-4",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1036,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "cidr-invalid-5",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1081,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "jwt-invalid-0",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 972,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "jwt-invalid-1",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 981,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "jwt-invalid-2",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 989,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "jwt-invalid-3",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 977,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "jwt-invalid-4",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 976,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "jwt-invalid-5",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 991,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "jwt-wide-number",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 145,
+        "hash": "8568f87a54c473e0e902cac79a548feb621a5d04e68299b800a93c0cfb993b6d",
+        "elapsed": 968,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "yaml-duplicate-last",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1048,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "json-duplicate-last",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1021,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "yaml-alias",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 63,
+        "hash": "bac9552ed78c6fab723600b15c83ca5cc054edf7953f94f7699f124557cb446e",
+        "elapsed": 982,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "yaml-deep",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8449,
+        "hash": "a57f9259f45cfd6bd606250268a2f1e9eaaa2d4f5ac2c6ac8e44dbd0bbc90f55",
+        "elapsed": 999,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "yaml-multiple",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1016,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "yaml-invalid",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 977,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "yaml-recursive",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 988,
+        "diagnostic": "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。"
+      }
+    },
+    {
+      "id": "yaml-ascii-exact",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8194,
+        "hash": "524a26ab407d237bb5cf84a40a9edf4fa1f0d51acc9482e952354cc43e95cf6d",
+        "elapsed": 1001,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "json-ascii-exact",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 8191,
+        "hash": "45e78b2ec24749b7e6a0e4c5c1400c262d1fae87308063e5aaa92f6728639f71",
+        "elapsed": 986,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "json-invalid",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 992,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "json-object-array",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 24,
+        "hash": "4079abf9925de1f807a830f0fbe229b9c01c0ef2c1d5488b0448d0a088c8bf30",
+        "elapsed": 1007,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "unicode-inspect-guard-614",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1082,
+        "diagnostic": "结果超过 48 KiB"
+      }
+    },
+    {
+      "id": "unicode-inspect-guard-615",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1027,
+        "diagnostic": "结果超过 48 KiB"
+      }
+    },
+    {
+      "id": "unicode-inspect-guard-327",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1063,
+        "diagnostic": "结果超过 48 KiB"
+      }
+    },
+    {
+      "id": "unicode-inspect-guard-328",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1017,
+        "diagnostic": "结果超过 48 KiB"
+      }
+    },
+    {
+      "id": "color-known-0",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 58,
+        "hash": "b2e4480ce92b84bbcfa783b59265ddae8fe82e831f45cf7c53a0a666aa9f8370",
+        "elapsed": 1059,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-known-1",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 50,
+        "hash": "8b9a46a746e922f4f5daafe0c489ce9e907bf031d1183207eaad6f6020bc4db1",
+        "elapsed": 1012,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-known-2",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 58,
+        "hash": "1f25f43c5a5cec4a4ddd198872be71c23583103b28a7284da1b487e4e51a8be9",
+        "elapsed": 1018,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-known-3",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 55,
+        "hash": "4c6b4ee5623ea036bf6c86998d96f136a36d9103d4c16cf18537dad3a28fe067",
+        "elapsed": 1087,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-known-4",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 57,
+        "hash": "b904650af712f295a740d43385299e4c143d2055e6dc02b4145091162b689a02",
+        "elapsed": 1028,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-known-5",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 57,
+        "hash": "b79916a4e0739f664ef180ecc71d1da0d308b343e059b1540962ea2563b96f4e",
+        "elapsed": 994,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-known-6",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 57,
+        "hash": "90d17795c5c759ff349e18bdb9b9d486618b1b642b7b5bec05c2c349f98d2f08",
+        "elapsed": 1063,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-plain",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 58,
+        "hash": "b2e4480ce92b84bbcfa783b59265ddae8fe82e831f45cf7c53a0a666aa9f8370",
+        "elapsed": 1040,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-whitespace",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 58,
+        "hash": "b2e4480ce92b84bbcfa783b59265ddae8fe82e831f45cf7c53a0a666aa9f8370",
+        "elapsed": 996,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-hashes",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 58,
+        "hash": "b2e4480ce92b84bbcfa783b59265ddae8fe82e831f45cf7c53a0a666aa9f8370",
+        "elapsed": 998,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-mixedcase",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 58,
+        "hash": "b2e4480ce92b84bbcfa783b59265ddae8fe82e831f45cf7c53a0a666aa9f8370",
+        "elapsed": 1000,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-exact-input",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": null,
+        "ok": true,
+        "bytes": 58,
+        "hash": "b2e4480ce92b84bbcfa783b59265ddae8fe82e831f45cf7c53a0a666aa9f8370",
+        "elapsed": 1011,
+        "diagnostic": null
+      }
+    },
+    {
+      "id": "color-invalid-0",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1018,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-1",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1100,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-2",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1039,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-3",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1015,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-4",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1030,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-5",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1001,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-6",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1046,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-7",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1051,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-8",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1017,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-9",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 997,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-10",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 990,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-invalid-11",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 984,
+        "diagnostic": "输入无法按该操作处理"
+      }
+    },
+    {
+      "id": "color-wrong-type",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INVALID_INPUT",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 977,
+        "diagnostic": "请求结构无效"
+      }
+    },
+    {
+      "id": "color-ascii-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1011,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    },
+    {
+      "id": "color-utf8-over",
+      "kind": "frozen",
+      "passed": true,
+      "fixed": {
+        "code": "INPUT_TOO_LARGE",
+        "ok": false,
+        "bytes": 0,
+        "hash": null,
+        "elapsed": 1020,
+        "diagnostic": "文本超过 8192 UTF-8 字节"
+      }
+    }
+  ]
+}

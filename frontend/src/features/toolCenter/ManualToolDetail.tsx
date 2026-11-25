@@ -11,7 +11,7 @@ import { ManualToolInformation } from "./ManualToolInformation";
 import type { CapturedToolResponse } from "../../../../public/native/plugins/plugin-result-actions.js";
 import { ManualToolResultActions } from "./ManualToolResultActions";
 import { ManualToolResultView } from "./ManualToolResultView";
-import { isTextWorkerOutputLimit } from "./worker-error-protocol";
+import { isInspectConversionPolicy, isTextWorkerOutputLimit } from "./worker-error-protocol";
 import { downloadFile } from "../../shared/download-file";
 import { type ManualToolResult, manualToolResult } from "./manual-tool-result";
 import { useManualToolCall } from "./use-manual-tool-call";
@@ -264,7 +264,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const independentQrFile = enabledWasi && tool.pluginId === "com.zicode.devtools.qr" && tool.version === "0.1.0" &&
     tool.capabilityId === "devtools.qr.png" && fields?.length === 1 && textField?.maxLength === 2048;
   const qrFileTool = computeQrFile || independentQrFile;
-  const inspectTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.inspect" && tool.version === "0.1.2";
+  const inspectTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.inspect" &&
+    (tool.version === "0.1.2" || tool.version === "0.1.4") &&
+    detail?.pluginId === tool.pluginId && detail.capability.id === tool.capabilityId;
   const yamlToJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.to_json";
   const yamlFromJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.from_json";
   const unicodeInspect = inspectTool && tool.capabilityId === "devtools.inspect.unicode.inspect";
@@ -307,7 +309,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const sqlFormat = tool.capabilityId === "devtools.text.sql.format" &&
     (sqlWithOptions || (textOnlyContract && textProfile === "text-only"));
   let failureNotice: string | undefined;
-  if (sqlFormat && isTextWorkerOutputLimit(result?.errorCode, result?.errorMessage)) {
+  if ((yamlToJson || yamlFromJson) && tool.version === "0.1.4" &&
+      isInspectConversionPolicy(result?.errorCode, result?.errorMessage)) {
+    failureNotice = t("Could not convert without changing the data. Check for duplicate keys, unsupported values, or numbers that cannot be represented exactly.");
+  } else if (sqlFormat && isTextWorkerOutputLimit(result?.errorCode, result?.errorMessage)) {
     const indentChoices = fields?.find(field => field.key === "indent")?.choices;
     const indent = values.indent ? indentChoices?.[Number(values.indent)] : "fourSpaces";
     const canReduceIndent = sqlWithOptions && indent === "fourSpaces";
