@@ -145,3 +145,40 @@ it("describes the current disclosure state and keeps the empty hint reachable in
   expect(readSource).not.toHaveBeenCalled();
   expect(draft).not.toHaveBeenCalled();
 });
+
+
+it("collapses the comparison disclosure when the user opens the page note form", async () => {
+  setLocale("en");
+  const host = document.createElement("aside");
+  const trigger = document.createElement("button");
+  document.body.append(host, trigger);
+  const prepare = vi.fn();
+  const readSource = vi.fn();
+  const notebooks = deferred();
+  const writer = () => ({ notebooks: () => notebooks.promise });
+  const preview = showBrowserCapture(source("current"), vi.fn(), prepare, writer, {
+    peers: [{ title: "Peer", tab: "peer", url: "https://example.test/peer" }],
+    readSource, prepare,
+  }, false, { host, trigger });
+  const compare = getByRole(preview, "button", { name: "Compare open tabs" });
+  const notes = getByRole(preview, "button", { name: "Save to Notes" });
+  compare.click();
+  const comparison = getByRole(preview, "group", { name: "Compare open tabs" });
+  getByRole(comparison, "checkbox").click();
+  expect(compare.getAttribute("aria-expanded")).toBe("true");
+  notes.focus();
+  notes.click();
+  expect(comparison.hidden).toBe(true);
+  expect(compare.getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).not.toBe(compare);
+
+  notebooks.resolve([{ id: "book", title: "Research" }]);
+  const note = getByRole(preview, "group", { name: "Save to Notes" });
+  await waitFor(() => expect(getByRole(note, "combobox", { name: "Notebook" })).toBe(document.activeElement));
+  compare.click();
+  expect(note.hidden).toBe(true);
+  expect(compare.getAttribute("aria-expanded")).toBe("true");
+  expect(getByRole(comparison, "checkbox").checked).toBe(true);
+  expect(readSource).not.toHaveBeenCalled();
+  expect(prepare).not.toHaveBeenCalled();
+});
