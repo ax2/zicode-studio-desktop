@@ -9,13 +9,13 @@ import type { ResourceTargetProvider, ReceiveNoteDraft } from "./ResourceToolRun
 import { toolCategoryTitle } from "./tool-categories";
 import { useDirectoryToolFilter } from "./use-directory-tool-filter";
 import { useFileToolFilter } from "./use-file-tool-filter";
-import { type ManualTool, type ManualToolApi, type ToolPage, type ToolDirectoryView, type ToolOpenRequest, type ViewOperation, manualToolError } from "./manual-tools";
+import { type ManualTool, type ManualToolApi, type ToolPage, type ToolDirectoryView, type ToolOpenRequest, type ViewOperation, manualToolError, toolDraftContract } from "./manual-tools";
 import { initialTrayToolView, subscribeTrayToolView } from "./tray-tool-view";
 import { resolveWorkbenchDraftReceiver, type OpenWorkbenchDraft } from "./workbench-draft-handoff";
 import { findWorkbenchDraft, isWorkbenchDraftTool, type KeptWorkbenchDrafts, type WorkbenchDraftReader } from "./workbench-session-draft";
 
 type DraftScope = ToolAccessScope & { api: ManualToolApi };
-type OpenedTool = ToolOpenRequest & { reloadCount?: number; draft?: { scope: DraftScope; values: Record<string, string> } };
+type OpenedTool = ToolOpenRequest & { reloadCount?: number; draft?: { scope: DraftScope; values: Record<string, string>; focus?: boolean } };
 
 export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, openApplication, openViewOperation, requestedTool, getResourceTarget, receiveNoteDraft }: {
   api: ManualToolApi; scope: ToolAccessScope; accessStore?: ToolAccessStore;
@@ -82,8 +82,6 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   const [runningTools, setRunningTools] = useState<string[]>([]);
   const [closeTarget, setCloseTarget] = useState<{ toolId: string; title: string; trigger: HTMLButtonElement; sceneId: string; workspaceId: string; keepOwner?: typeof kept } | null>(null);
   const runningToolsRef = useRef<string[]>([]);
-  const scopeRef = useRef(scope);
-  scopeRef.current = scope;
   const access = useToolAccess(accessStore, scope);
   const historyReady = Boolean(accessStore && !access.loading && !access.error);
   const effectiveView: ToolDirectoryView = historyReady ? view : "all";
@@ -306,27 +304,32 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
       return <div key={item.tool.toolId} hidden={activeTool !== item.tool.toolId}>
       <ManualToolSession key={JSON.stringify([scope.sceneId, scope.workspaceId, item.tool.toolId, item.revision, reloadCount])}
         onDirectory={() => setActiveTool(null)} api={api} scope={scope} tool={item.tool} revision={item.revision} accessStore={accessStore}
-        initialDraft={seededDraft?.values} onOpenWorkbenchDraft={receiverFrom(item)}
+        initialDraft={seededDraft?.values} focusInitialDraft={seededDraft?.focus} onOpenWorkbenchDraft={receiverFrom(item)}
         workbenchDraftActive={activeTool === item.tool.toolId}
         draftReaderRef={isWorkbenchDraftTool(item.tool) ? reader => {
           if (reader) readers.current.set(item.tool.toolId, reader); else readers.current.delete(item.tool.toolId);
         } : undefined}
-        onReload={async () => {
+        onReload={async (seed) => {
           if (runningToolsRef.current.includes(item.tool.toolId)) throw Object.assign(new Error("Tool is still running"), { code: "manual_call_busy" });
-          const requestedScene = scope.sceneId, requestedWorkspace = scope.workspaceId;
           const fresh = await api.searchTools(scope.sceneId, { query: item.tool.capabilityId,
             pluginId: item.tool.pluginId, offset: 0, revision: null });
           const replacement = fresh.items.find((candidate): candidate is ManualTool => candidate.kind !== "view-operation" && candidate.toolId === item.tool.toolId &&
             candidate.pluginId === item.tool.pluginId && candidate.capabilityId === item.tool.capabilityId);
           if (!replacement) throw Object.assign(new Error("Tool no longer available"), { code: "capability_unavailable" });
-          await api.loadTool(scope.sceneId, { pluginId: replacement.pluginId,
+          const detail = await api.loadTool(scope.sceneId, { pluginId: replacement.pluginId,
             capabilityId: replacement.capabilityId, revision: fresh.revision });
-          if (scopeRef.current.sceneId !== requestedScene || scopeRef.current.workspaceId !== requestedWorkspace) {
+          if (currentDraftAction.current?.draftScope !== draftScope || currentDraftAction.current.catalogRevision !== catalogRevision) {
             throw Object.assign(new Error("Tool context changed"), { code: "catalog_changed" });
           }
           if (runningToolsRef.current.includes(item.tool.toolId)) throw Object.assign(new Error("Tool is still running"), { code: "manual_call_busy" });
-          setOpened(previous => previous.map(entry => entry.tool.toolId === item.tool.toolId
-            ? { tool: replacement, revision: fresh.revision, reloadCount: (entry.reloadCount ?? 0) + 1 } : entry));
+          const values = seed && seed.contract === toolDraftContract(replacement, detail, fresh.revision)
+            ? seed.read() : undefined;
+          setOpened(previous => previous.map(entry => entry === item ? {
+            tool: replacement,
+            revision: fresh.revision,
+            reloadCount: (entry.reloadCount ?? 0) + 1,
+            ...(values ? { draft: { scope: draftScope, values: { ...values }, focus: false } } : {}),
+          } : entry));
         }}
         onRecentChange={access.retry} getResourceTarget={getResourceTarget} receiveNoteDraft={receiveNoteDraft}
         onBusy={busy => {

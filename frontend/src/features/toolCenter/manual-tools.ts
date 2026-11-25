@@ -40,6 +40,16 @@ export interface ManualToolApi extends Partial<ResultActionsGateway>, Partial<Ma
   invoke(sceneId: string, workspaceId: string, pluginId: string, capabilityId: string,
     input: Record<string, ToolInputValue>, options: { catalogRevision: string; captureResult?: boolean; callId?: string }): Promise<CapturedToolResponse>;
 }
+// A revision refresh may reuse editable strings only under the same complete input schema and permissions.
+export function toolDraftContract(tool: ManualTool, detail: ToolDetail, revision: string): string | null {
+  if (!tool.enabled || !detail.enabled || tool.runtime === "builtin" || detail.resourceInputProfile ||
+      detail.pluginId !== tool.pluginId || detail.capability.id !== tool.capabilityId ||
+      detail.version !== tool.version || detail.revision !== revision ||
+      detail.permissions.some(permission => permission.required && permission.name !== "pi.tools.register")) return null;
+  return JSON.stringify([tool.toolId, tool.pluginId, tool.capabilityId, tool.version, tool.runtime,
+    detail.capability.inputSchema, detail.permissions.map(({ name, required, granted }) => [name, required, granted])]);
+}
+
 export function supportsResultActions(api: ManualToolApi): api is ManualToolApi & ResultActionsGateway {
   return [api.prepareSave, api.commitSave, api.searchTargets, api.prepareTransfer, api.commitTransfer].every(method => typeof method === "function");
 }

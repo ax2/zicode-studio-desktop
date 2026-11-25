@@ -3,7 +3,7 @@ import { t } from "../../shared/i18n";
 import { FileImportButton } from "./FileImportButton";
 import { WorkbenchDraftFileActions } from "./WorkbenchDraftFileActions";
 import type { ToolAccessScope, ToolAccessStore } from "../commandPalette/tool-access";
-import { type ManualTool, type ManualToolApi, type ToolDetail, manualToolError, supportsResultActions } from "./manual-tools";
+import { type ManualTool, type ManualToolApi, type ToolDetail, manualToolError, supportsResultActions, toolDraftContract } from "./manual-tools";
 import { toolFields, prepareToolInput } from "./manual-tool-fields";
 import { ManualToolInput } from "./ManualToolInput";
 import { ManualToolInformation } from "./ManualToolInformation";
@@ -97,8 +97,9 @@ export interface ManualToolDetailProps {
   getResourceTarget?: ResourceTargetProvider;
   receiveNoteDraft?: ReceiveNoteDraft;
   resourceSession?: ResourceSessionOwner;
-  onReload?(): Promise<void>;
+  onReload?(draft?: { contract: string; read(): Record<string, string> | undefined }): Promise<void>;
   initialDraft?: Record<string, string>;
+  focusInitialDraft?: boolean;
   workbenchDraftActive?: boolean;
   draftReaderRef?(reader: WorkbenchDraftReader | null): void;
   onOpenWorkbenchDraft?: OpenWorkbenchDraft;
@@ -127,7 +128,7 @@ export function ManualToolDetail(props: ManualToolDetailProps) {
   return <ManualToolDetailView {...props} call={call} />;
 }
 
-export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, initialDraft, draftReaderRef, onOpenWorkbenchDraft, workbenchDraftActive = true, call }: ManualToolDetailProps & {
+export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, initialDraft, focusInitialDraft = true, draftReaderRef, onOpenWorkbenchDraft, workbenchDraftActive = true, call }: ManualToolDetailProps & {
   call: ReturnType<typeof useManualToolCall>;
 }) {
   const detailOwner = useMemo(() => ({ api, sceneId: scope.sceneId, pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision }),
@@ -136,6 +137,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const detail = loadedDetail?.owner === detailOwner ? loadedDetail.value : null;
   const detailId = useId();
   const [{ values, undo }, setDraft] = useState<ToolDraft>(() => ({ values: initialDraft ?? {} }));
+  const latestValues = useRef(values);
+  useLayoutEffect(() => { latestValues.current = values; }, [values]);
   const [error, setError] = useState("");
   const [stale, setStale] = useState(false);
   const [reloading, setReloading] = useState(false);
@@ -184,7 +187,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const fields = detail ? toolFields(detail.capability.inputSchema) : null;
   const permissionNeeded = detail?.permissions.some(permission => permission.required && permission.name !== "pi.tools.register");
   const supported = detail && fields && tool.runtime !== "builtin" && !permissionNeeded;
-  useEffect(() => { if (initialDraft && supported) formRef.current?.focus({ preventScroll: true }); }, [initialDraft, supported]);
+  useEffect(() => { if (focusInitialDraft && initialDraft && supported) formRef.current?.focus({ preventScroll: true }); }, [focusInitialDraft, initialDraft, supported]);
   const hostResourceProfile = hostResourceReceivers.get(`${tool.pluginId}/${tool.capabilityId}`);
   const resourceTool = (detail?.resourceInputProfile === "resource.wasi.input.draft2" && tool.runtime === "wasi") ||
     (tool.runtime === "builtin" && hostResourceProfile !== undefined && detail?.resourceInputProfile === hostResourceProfile);
@@ -449,7 +452,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     {stale && onReload && <button type="button" className="ui-button ui-button--secondary"
       disabled={editingLocked || resourceBusy || reloading} onClick={() => {
         setReloading(true);
-        void onReload().catch(reason => { if (alive.current) setError(manualToolError(reason)); })
+        const contract = detail && supported ? toolDraftContract(tool, detail, revision) : null;
+        const seed = contract ? { contract, read: () => alive.current ? latestValues.current : undefined } : undefined;
+        void onReload(seed).catch(reason => { if (alive.current) setError(manualToolError(reason)); })
           .finally(() => { if (alive.current) setReloading(false); });
       }}>{t(reloading ? "Reloading tool details…" : "Reload tool details")}</button>}
     {call.phase === "cancelled" && <p role="status">{t("Tool cancelled. No result was kept.")}</p>}
