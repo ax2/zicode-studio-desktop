@@ -29,7 +29,18 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
   const legend = document.createElement("legend"); legend.textContent = t("Compare open tabs"); panel.append(legend);
   const button = document.createElement("button"); button.type = "button"; button.className = "ui-button ui-button--secondary";
   button.textContent = t("Compare open tabs");
-  button.addEventListener("click", () => { panel.hidden = !panel.hidden; if (!panel.hidden) panel.querySelector("input")?.focus(); });
+  let pending = null;
+  button.addEventListener("click", () => {
+    const expanded = panel.hidden;
+    const restoreFocus = !expanded && panel.contains(document.activeElement);
+    panel.hidden = !expanded;
+    if (expanded) {
+      panel.querySelector("input")?.focus();
+    } else {
+      if (restoreFocus) button.focus({ preventScroll: true });
+      if (pending && pending.trigger === read) cancelWork();
+    }
+  });
   const hint = document.createElement("p");
   hint.textContent = t(peers.length ? (direct ? "Choose one or two loaded tabs and review their excerpts." :
     "Choose one or two loaded tabs. Review the sources before preparing a draft.") : "Open another web page before comparing tabs.");
@@ -63,11 +74,13 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
   if (direct) panel.append(direct.notice);
   panel.append(status, preview);
   const selectionOnlyTabs = new Set();
-  let review, reviewed = null, pending = null;
+  let review, reviewed = null;
   const selected = () => inputs.filter(({ input }) => input.checked);
   function update() {
     const count = selected().length;
     const blocked = Boolean(pending) || !canStart();
+    // Keep the disclosure usable while this panel owns the read, so it can cancel the read.
+    if (pending?.trigger === read) button.disabled = false;
     read.disabled = blocked || count < 1;
     draft.disabled = blocked || !reviewed;
     review?.setDisabled(blocked);
