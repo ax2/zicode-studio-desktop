@@ -357,6 +357,51 @@ describe("automation React app", () => {
     });
   });
 
+
+  it("keeps the current automation editor when an earlier save completes", async () => {
+    setLocale("en");
+    const next = { ...WORKFLOW, id: "workflow-2", title: "Weekly review" };
+    const notify = vi.fn();
+    const store = createAutomationStore({ call: mockCall(), notify });
+    await store.getState().load();
+    let complete: (workflow: AutomationWorkflow) => void = (workflow) => {
+      throw new Error(`No pending save for ${workflow.id}`);
+    };
+    const save = vi.fn((workflow: AutomationWorkflow) =>
+      workflow.id === WORKFLOW.id
+        ? new Promise<AutomationWorkflow>((resolve) => { complete = resolve; })
+        : Promise.resolve(workflow),
+    );
+    store.setState({ workflows: [WORKFLOW, next], saveWorkflow: save });
+    render(<AutomationMain store={store} />);
+
+    const edit = screen.getAllByRole("button", { name: "Edit" });
+    fireEvent.click(edit[0]);
+    fireEvent.click(screen.getByText("Save changes"));
+    expect(save).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(edit[1]);
+    fireEvent.input(screen.getByLabelText("Name"), { target: { value: "Weekly review draft" } });
+    fireEvent.input(screen.getByLabelText("Task instructions"), { target: { value: "Current draft" } });
+    complete(WORKFLOW);
+
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith({ title: "Automation updated", type: "success" }),
+    );
+    expect(screen.getByDisplayValue("Weekly review draft")).toBeTruthy();
+    expect(screen.getByDisplayValue("Current draft")).toBeTruthy();
+    expect(save).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText("Save changes"));
+    expect(save).toHaveBeenLastCalledWith(expect.objectContaining({
+      id: next.id,
+      title: "Weekly review draft",
+      prompt: "Current draft",
+    }));
+    await screen.findByText("New automation");
+    store.getState().destroy();
+  });
+
   it("explains the approval mode with a contextual form hint", async () => {
     setLocale("en");
     const call = mockCall();
