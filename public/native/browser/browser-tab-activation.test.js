@@ -220,8 +220,15 @@ it("opens one local PDF picker from browser chrome or the active native tab", as
   expect(press()).toBe(false);
   await waitFor(() => expect(pick).toHaveBeenCalledOnce());
   try {
-    press({ repeat: true });
-    press();
+    expect(press({ repeat: true })).toBe(false);
+    expect(press()).toBe(false);
+    expect(press({ key: "t" })).toBe(true);
+    document.body.append(modal);
+    expect(press()).toBe(true);
+    modal.remove();
+    h.root.setAttribute("inert", "");
+    expect(press()).toBe(true);
+    h.root.removeAttribute("inert");
     nativeOpen("a");
     menu.open = true;
     menuAction.click();
