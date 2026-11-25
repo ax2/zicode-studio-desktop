@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.table-pipeline",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "pipeline",
+      "capabilityId": "devtools.table.pipeline.replay",
+      "title": "运行表格管线并保存 CSV",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "选择 JSON 管线配方和 CSV、TSV 或 JSON 表格，按文件列表的顺序指定配方位置。确认共享并运行，再确认保存带公式保护的新 CSV。"
+    }
+  ]
+}
