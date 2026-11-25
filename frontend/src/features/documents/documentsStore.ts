@@ -74,7 +74,8 @@ export interface DocumentsState {
   notebooks: NotebookRef[];
   selectedNotebookId: string;
   setFile(name: string, document: string): void;
-  importFile(name: string, document: string): Promise<void>;
+  importFile(name: string, document: string | Promise<string>): Promise<void>;
+  syncTarget(): Promise<void>;
   clear(): void;
   setPreview(mode: PreviewMode): void;
   loadNotebooks(): Promise<void>;
@@ -98,6 +99,12 @@ export interface DocumentsOptions {
 
 const MAX_CHAT_MARKDOWN_CHARS = 24_000;
 
+type DocumentTarget = ReturnType<DocumentsOptions["getTarget"]>;
+
+function sameTarget(left: DocumentTarget, right: DocumentTarget) {
+  return left.sceneId === right.sceneId && left.workspaceId === right.workspaceId;
+}
+
 export function createDocumentsStore(options: DocumentsOptions) {
   const {
     gateway = new DocumentsHttpGateway(),
@@ -107,6 +114,12 @@ export function createDocumentsStore(options: DocumentsOptions) {
     saveToNotes,
     onUseInChat,
   } = options;
+  let selectedFile = 0;
+  let activeTarget = { ...getTarget() };
+  let conversion: Promise<void> | undefined;
+  const isCurrent = (selection: number, target: DocumentTarget) =>
+    selection === selectedFile && sameTarget(target, getTarget());
+
   return create<DocumentsState>()((set, get) => ({
     fileName: "",
     document: "",
@@ -119,16 +132,40 @@ export function createDocumentsStore(options: DocumentsOptions) {
     selectedNotebookId: "",
 
     setFile(name, document) {
+      selectedFile += 1;
       set({ fileName: name, document, result: null, error: "" });
     },
 
     async importFile(name, document) {
-      set({ fileName: name, document, result: null, error: "" });
-      await get().run();
+      get().setFile(name, "");
+      const selection = selectedFile;
+      const target = { ...getTarget() };
+      try {
+        const data = await document;
+        if (!isCurrent(selection, target)) return;
+        set({ document: data });
+        // The last selected file can proceed when the current conversion settles.
+        await conversion;
+        if (isCurrent(selection, target)) await get().run();
+      } catch (error) {
+        if (isCurrent(selection, target)) {
+          set({ error: error instanceof Error ? error.message : String(error) });
+        }
+      }
+    },
+
+    syncTarget() {
+      const target = getTarget();
+      if (!sameTarget(activeTarget, target)) {
+        activeTarget = { ...target };
+        get().clear();
+        set({ notebooks: [], selectedNotebookId: "" });
+      }
+      return get().loadNotebooks();
     },
 
     clear() {
-      set({ fileName: "", document: "", result: null, error: "" });
+      get().setFile("", "");
     },
 
     setPreview(mode) {
@@ -137,14 +174,19 @@ export function createDocumentsStore(options: DocumentsOptions) {
 
     async loadNotebooks() {
       if (!listNotebooks) return;
+      const target = activeTarget;
+      const isActive = () => target === activeTarget && sameTarget(target, getTarget());
       try {
         const notebooks = await listNotebooks();
+        if (!isActive()) return;
         set((state) => ({
           notebooks,
-          selectedNotebookId: state.selectedNotebookId || notebooks[0]?.id || "",
+          selectedNotebookId: notebooks.some((notebook) => notebook.id === state.selectedNotebookId)
+            ? state.selectedNotebookId
+            : notebooks[0]?.id || "",
         }));
       } catch (error) {
-        set({ error: friendlyPluginError(error) });
+        if (isActive()) set({ error: friendlyPluginError(error) });
       }
     },
 
@@ -153,23 +195,31 @@ export function createDocumentsStore(options: DocumentsOptions) {
     },
 
     async run() {
-      const { document, fileName, busy } = get();
-      if (!document || busy) return;
-      const target = getTarget();
+      const { document, fileName } = get();
+      if (!document || conversion) return;
+      const selection = selectedFile;
+      const target = { ...getTarget() };
+      conversion = Promise.resolve().then(async () => {
+        try {
+          const result = await gateway.import({
+            sceneId: target.sceneId,
+            workspaceId: target.workspaceId,
+            document,
+            ...(fileName ? { fileName } : {}),
+          });
+          if (!isCurrent(selection, target)) return;
+          set({ result });
+          notify(t("Document imported"));
+        } catch (error) {
+          if (isCurrent(selection, target)) set({ error: friendlyPluginError(error) });
+        } finally {
+          conversion = undefined;
+          set({ busy: false });
+        }
+      });
       set({ busy: true, error: "", result: null });
-      try {
-        const result = await gateway.import({
-          sceneId: target.sceneId,
-          workspaceId: target.workspaceId,
-          document,
-          ...(fileName ? { fileName } : {}),
-        });
-        set({ result, busy: false });
-        notify(t("Document imported"));
-        await get().loadNotebooks();
-      } catch (error) {
-        set({ busy: false, error: friendlyPluginError(error) });
-      }
+      await conversion;
+      if (isCurrent(selection, target) && get().result) await get().loadNotebooks();
     },
 
     async save() {
