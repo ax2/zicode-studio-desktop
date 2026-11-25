@@ -114,8 +114,8 @@ describe("Chinese translation coverage", () => {
       join(process.cwd(), "frontend", "src", "features", "chat", "chatLogic.ts"),
       join(process.cwd(), "frontend", "src", "features", "help", "logic.ts"),
       join(process.cwd(), "frontend", "src", "features", "help", "HelpCenterApp.tsx"),
-      // Fixed provider error message parsed into row/column before localized display.
-      join(process.cwd(), "frontend", "src", "features", "toolCenter", "data-transform-error-protocol.ts"),
+      // Fixed Worker protocol messages are decoded before localized display.
+      join(process.cwd(), "frontend", "src", "features", "toolCenter", "worker-error-protocol.ts"),
     ]);
     const offenders = [];
     const roots = [

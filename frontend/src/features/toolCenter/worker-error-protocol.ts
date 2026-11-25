@@ -1,5 +1,10 @@
-// Decode the frozen Compute Worker's error message as wire data.
-// The result view formats the extracted row and column in the user's locale.
+// Read fixed diagnostic strings from frozen Workers as protocol data.
+// The views format user-facing recovery guidance in the selected locale.
+export function isTextWorkerOutputLimit(code?: string, message?: string): boolean {
+  // The frozen Text Worker also uses INPUT_TOO_LARGE for request and input budgets.
+  return code === "INPUT_TOO_LARGE" && message === "结果超过 48 KiB";
+}
+
 const maxMessageLength = 48 * 1024;
 const maxDataRows = 10_000;
 const rowFailure = /^第 ([1-9][0-9]{0,4}) 行，列 ([\s\S]+) 转换失败；原数据未修改$/u;
