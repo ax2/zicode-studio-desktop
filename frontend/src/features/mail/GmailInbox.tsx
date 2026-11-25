@@ -1,7 +1,7 @@
 import { MailAttachments, type Attachment } from "./MailAttachments";
 import { MailBody } from "./MailBody";
 import {MailDisconnect} from "./MailDisconnect";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { Draft, Invoke } from "./index";
 
@@ -48,9 +48,30 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
   const [serverPage,setServerPage]=useState(false),[busy,setBusy]=useState("init"),[notice,setNotice]=useState("");
   const epoch=useRef(0),operation=useRef("init"),grantCallback=useRef(onGrant);
   grantCallback.current=onGrant;
+  const primaryAuthorization = useRef<HTMLButtonElement>(null);
+  const cancelAuthorization = useRef<HTMLButtonElement>(null);
+  const authorizationFocus = useRef<{ origin: HTMLButtonElement; cancel?: HTMLButtonElement } | undefined>(undefined);
+  useLayoutEffect(() => {
+    const request = authorizationFocus.current;
+    if (!request) return;
+    const { activeElement, body } = request.origin.ownerDocument;
+    if (activeElement !== request.origin && activeElement !== request.cancel && activeElement !== body) {
+      authorizationFocus.current = undefined;
+      return;
+    }
+    if (busy === "connect" && cancelAuthorization.current && !request.cancel) {
+      request.cancel = cancelAuthorization.current;
+      request.cancel.focus({ preventScroll: true });
+    } else if (!busy) {
+      authorizationFocus.current = undefined;
+      const action = request.origin.isConnected ? request.origin : primaryAuthorization.current;
+      if (action && !action.matches(":disabled")) action.focus({ preventScroll: true });
+    }
+  });
   const saveGrant=(g:Grant)=>{setGrant(g);grantCallback.current(Boolean(g.connected&&g.send))};
   useEffect(()=>{
     const gen=++epoch.current;
+    authorizationFocus.current = undefined;
     operation.current="init"; setBusy("init");setGrant(none);grantCallback.current(false);
     setPage(null);setMessage(null);setBody(null);setServerPage(false);setNotice("");
     setLabels([]);setLabel("INBOX");
@@ -77,7 +98,14 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     }}
     finally {if(epoch.current===gen){operation.current="";setBusy("")}}
   }
-  function connect(send:boolean){void run("connect",()=>invoke<Grant>({kind:"connect",send,accountId:id}),g=>{saveGrant(g);if(send&&!g.send)setNotice(t("Google did not grant sending permission."))})}
+  function connect(send: boolean, origin: HTMLButtonElement) {
+    if (operation.current) return;
+    authorizationFocus.current = origin.ownerDocument.activeElement === origin ? { origin } : undefined;
+    void run("connect", () => invoke<Grant>({ kind: "connect", send, accountId: id }), g => {
+      saveGrant(g);
+      if (send && !g.send) setNotice(t("Google did not grant sending permission."));
+    });
+  }
   async function cancel(){
     if(operation.current!=="connect")return;
     const gen=++epoch.current;operation.current="cancel";setBusy("cancel");
@@ -153,9 +181,9 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     <fieldset disabled={Boolean(busy)}><legend>{t("Mail connection")}</legend>
       <p translate="no">{address}</p>
       <p>{t(disconnected?"Gmail is not connected. Local drafts are still available.":grant.send?"Gmail is connected for reading and sending.":"Gmail is connected for reading.")}</p>
-      {disconnected&&<button className="ui-button" type="button" onClick={()=>connect(false)}>{t("Sign in to read Gmail")}</button>}
-      {!disconnected&&<button className="ui-button" type="button" onClick={()=>connect(grant.send===true)}>{t("Reconnect Gmail")}</button>}
-      {!disconnected&&!grant.send&&<button className="ui-button" type="button" onClick={()=>connect(true)}>{t("Authorize sending with Gmail")}</button>}
+      {disconnected&&<button className="ui-button" type="button" ref={primaryAuthorization} onClick={event => connect(false, event.currentTarget)}>{t("Sign in to read Gmail")}</button>}
+      {!disconnected&&<button className="ui-button" type="button" ref={primaryAuthorization} onClick={event => connect(grant.send === true, event.currentTarget)}>{t("Reconnect Gmail")}</button>}
+      {!disconnected&&!grant.send&&<button className="ui-button" type="button" onClick={event => connect(true, event.currentTarget)}>{t("Authorize sending with Gmail")}</button>}
       <MailDisconnect connected={!disconnected} label={t("Disconnect Gmail")} prompt={t("Disconnect Gmail on this device? Saved drafts will remain.")}
         disconnect={clear=>run("disconnect",()=>invoke<{revoked:boolean}>({kind:"disconnect",accountId:id,clearCache:clear}),r=>{
           saveGrant(none);
@@ -163,7 +191,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
           setNotice(t(r.revoked?"Gmail disconnected.":"Disconnected on this device. Review Google account permissions to confirm revocation."))
         })}/>
     </fieldset>
-    {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button className="ui-button" type="button" onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
+    {busy==="connect"&&<div role="status"><p>{t("Complete authorization in your browser. No email will be sent.")}</p><button className="ui-button" type="button" ref={cancelAuthorization} onClick={()=>void cancel()}>{t("Cancel sign-in")}</button></div>}
     <fieldset disabled={Boolean(busy)}><legend>{t("Inbox")}</legend>
       <label>{t("Gmail label")} <select className="ui-select" value={label} onChange={e=>{
         const next=e.target.value;setLabel(next);setPage(null);setMessage(null);setBody(null);setServerPage(false);load(false,null,next);
