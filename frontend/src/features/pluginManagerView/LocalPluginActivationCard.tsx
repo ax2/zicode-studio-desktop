@@ -26,7 +26,7 @@ export function LocalPluginActivationCard({
   deferred: boolean;
   busy: boolean;
   installedTools?: InstalledToolActions;
-  onClose(): void;
+  onClose(origin?: HTMLButtonElement): void;
   onDefer(): void;
   onResume(): void;
   onActivate?(grants: string[], setupCard: HTMLElement | null): void;
@@ -194,13 +194,17 @@ export function LocalPluginActivationCard({
           <>
             {installedTools ? <button ref={availableAction} type="button" className="ui-button ui-button--secondary ui-button--sm" aria-disabled={opening || undefined}
               onClick={() => void open(installedTools.openDirectory)}>{t("Open Tool Center")}</button> : null}
-            <button ref={!installedTools ? availableAction : undefined} type="button" className="ui-button ui-button--ghost ui-button--sm" onClick={onClose}>{t("Close")}</button>
+            <button ref={!installedTools ? availableAction : undefined} type="button" className="ui-button ui-button--ghost ui-button--sm" onClick={() => onClose()}>{t("Close")}</button>
           </>
         ) : deferred ? (
-          <button ref={reviewAction} type="button" className="ui-button ui-button--secondary ui-button--sm" onClick={(event) => {
-            keepFocusInCard(event.currentTarget, "resume");
-            onResume();
-          }}>{t("Review and enable")}</button>
+          <>
+            <button ref={reviewAction} type="button" className="ui-button ui-button--secondary ui-button--sm" onClick={(event) => {
+              keepFocusInCard(event.currentTarget, "resume");
+              onResume();
+            }}>{t("Review and enable")}</button>
+            <button type="button" className="ui-button ui-button--ghost ui-button--sm"
+              onClick={(event) => onClose(event.currentTarget)}>{t("Close")}</button>
+          </>
         ) : (
           <>
             <button ref={activateAction} type="button" className="ui-button ui-button--primary ui-button--sm" aria-busy={busy}

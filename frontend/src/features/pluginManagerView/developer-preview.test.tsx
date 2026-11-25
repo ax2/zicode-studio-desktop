@@ -176,6 +176,32 @@ it("lets a user cancel installation and defer permission without persisting chec
   expect(button("Enable plugin").disabled).toBe(true);
 });
 
+it.each([false, true])("dismisses deferred setup and returns to the current catalog (%s filtered)", async filtered => {
+  const flow = setup();
+  await installPackage();
+  fireEvent.click(setupCard().getByRole("checkbox", { name: /Read selected resources/ }));
+  clickFocused(button("Keep disabled"));
+  const search = screen.getByRole<HTMLInputElement>("searchbox");
+  if (filtered) fireEvent.change(search, { target: { value: "No matching fixture" } });
+  clickFocused(setupCard().getByRole("button", { name: "Close" }));
+  expect(screen.queryByRole("region", { name: "Installed plugin setup" })).toBeNull();
+  expect(flow.plugin.enabled).toBe(false);
+  expect(flow.activateReviewed).not.toHaveBeenCalled();
+  expect(flow.setScene).toHaveBeenCalledTimes(1);
+  if (filtered) {
+    expect(document.activeElement).toBe(search);
+    expect(search.value).toBe("No matching fixture");
+    fireEvent.change(search, { target: { value: "" } });
+  } else {
+    expect(document.activeElement).toBe(button("Review and enable"));
+  }
+  clickFocused(button("Review and enable"));
+  await screen.findByRole("region", { name: "Installed plugin setup" });
+  expect(setupCard().getByRole<HTMLInputElement>("checkbox", { name: /Read selected resources/ }).checked).toBe(false);
+  expect(flow.installDeveloperPlugin).toHaveBeenCalledTimes(1);
+  expect(flow.activateReviewed).not.toHaveBeenCalled();
+});
+
 it("explicitly enables a permission-free package and keeps existing enablement on repeat install", async () => {
   const flow = setup({ required: false });
   await installPackage();
