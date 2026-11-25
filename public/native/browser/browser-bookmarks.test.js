@@ -101,3 +101,27 @@ it("can close during a slow read and does not reopen when it resolves", async ()
   getByRole(dialog, "button", { name: t("Close") }).click();expect(onClose).toHaveBeenCalledOnce();expect(dialog.isConnected).toBe(false);
   resolve(library());await Promise.resolve();expect(document.querySelector(".browser-bookmarks-dialog")).toBeNull();
 });
+
+it("retries a failed initial load without offering edits against an unknown library", async () => {
+  const requests = [];
+  const invoke = vi.fn(async (_command, { request }) => {
+    requests.push(request);
+    if (requests.length < 3) throw Error("Bookmarks temporarily unavailable");
+    return library();
+  });
+  const current = { title: "Current page", url: "https://example.com/" };
+  const dialog = showBrowserBookmarks({ invoke, current, editCurrent: true, onOpen: vi.fn(), onClose: vi.fn() });
+  const retryButton = () => getByRole(dialog, "button", { name: t("Reload bookmarks") });
+  await waitFor(() => expect(document.activeElement).toBe(retryButton()));
+  expect(getByRole(dialog, "status").textContent).toBe("Bookmarks temporarily unavailable");
+  expect(dialog.querySelector("form")).toBeNull();
+  retryButton().click();
+  await waitFor(() => expect(retryButton().matches(":disabled")).toBe(false));
+  expect(document.activeElement).toBe(retryButton());
+  retryButton().click();
+  const currentTitle = () => getByRole(dialog, "textbox", { name: t("Bookmark name") });
+  await waitFor(() => expect(document.activeElement).toBe(currentTitle()));
+  expect(currentTitle().value).toBe(current.title);
+  expect(getByRole(dialog, "button", { name: `${t("Open bookmark")}: Read me` })).toBeTruthy();
+  expect(requests).toEqual([{ kind: "list" }, { kind: "list" }, { kind: "list" }]);
+});
