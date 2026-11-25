@@ -46,6 +46,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   let root, viewport, assistant, read, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
   let initialized = false, initPromise, lastSurface = "", surfaceError = "", saveTail = Promise.resolve();
+  let savedStartupMode, startupWrites = Promise.resolve(), startupChoice = 0, startupModeError = "";
   let shortcutSurface, openingLocalPdf = false;
   let developerToolsPending = false, developerToolsError = "", refreshDeveloperTools;
   let actionTail = Promise.resolve(), restoreError = "", statusMessage = "";
@@ -93,6 +94,27 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const setStatus = message => { statusMessage = message; paintStatus(); };
   const report = error => setStatus(String(error?.message ?? error));
   const run = work => Promise.resolve().then(work).catch(report);
+  function chooseStartupMode(mode) {
+    if (!savedStartupMode || (mode !== "browser" && mode !== "workspace")) return;
+    const choice = ++startupChoice;
+    startupWrites = startupWrites.then(async () => {
+      if (choice !== startupChoice) return;
+      try {
+        if (mode !== savedStartupMode) {
+          await invoke("browser_set_startup_mode", { mode });
+          savedStartupMode = mode;
+        }
+        if (choice !== startupChoice) return;
+        if (startupModeError && statusMessage === startupModeError) setStatus("");
+        startupModeError = "";
+      } catch {
+        if (choice !== startupChoice) return;
+        startup.value = savedStartupMode;
+        startupModeError = t("Startup mode could not be saved. Your previous choice was kept.");
+        report(startupModeError);
+      }
+    });
+  }
   const browserWindow = observeBrowserWindow(nativeWindow, () => void run(syncSurface));
   const selected = () => tabs.find(tab => tab.id === active);
   const listWebsiteShortcuts = async () => (await invoke("browser_bookmarks", { request: { kind: "list" } })).bookmarks.filter(item => item.shortcut);
@@ -784,7 +806,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const visiblePopup = live.tabs.find(tab => tab.popupOpener && tab.visible);
     if (visiblePopup && tabs.some(tab => tab.id === visiblePopup.id)) active = visiblePopup.id;
     active ??= tabs[0]?.id ?? null;
-    startup.value = stored.startupMode;
+    savedStartupMode = stored.startupMode === "workspace" ? "workspace" : "browser";
+    startup.value = savedStartupMode;
+    startup.disabled = false;
     const identity=root.querySelector(".browser-profile-identity");
     identity.textContent=stored.private?t("Private browsing"):stored.profileName??"";
     identity.hidden=!identity.textContent;
@@ -1041,7 +1065,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     status = document.createElement("span"); status.setAttribute("role", "status");
     startup = document.createElement("select"); startup.className = "ui-select"; startup.setAttribute("aria-label", t("Start Studio in")); startup.title = t("Start Studio in");
     for (const [value, label] of [["browser", "Browser"], ["workspace", "Workspace"]]) { const option = document.createElement("option"); option.value = value; option.textContent = t(label); startup.append(option); }
-    startup.addEventListener("change", () => run(() => invoke("browser_set_startup_mode", { mode: startup.value })));
+    startup.disabled = true;
+    startup.addEventListener("change", () => chooseStartupMode(startup.value));
     find = createBrowserFind({ control, getTab: selected, address, available: () => visible && initialized && !blocked() && pageAvailable(active),
       isPdf: tab => Boolean(pdfRevision(tab)), restoreFocus: async (tab, { toAddress, current }) => {
         await syncSurface();
@@ -1670,7 +1695,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   return {
     handlesLocaleChange: true,
-    async finishWindowWrites() { await actionTail; await saveTail; },
+    async finishWindowWrites() { await actionTail; await saveTail; await startupWrites; },
     async openSource(url, current) {
       await initPromise;
       if (!current()) return;
