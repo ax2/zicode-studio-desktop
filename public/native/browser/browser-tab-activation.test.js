@@ -570,6 +570,50 @@ it("discards only the unsaved new view and retries without phantom tabs or close
   expect(h.saved().activeTab).not.toBe(candidate); expect(h.saved().closedTabs).toEqual([]);
   expect(document.activeElement).toBe(h.root.querySelector(".browser-address")); expect(h.status()).toBe("");
 });
+it.each(["draft", "submit", "switch", "failure", "repeat", "newer-edit"])(
+  "keeps address input attached to the requested new tab: %s", async (outcome) => {
+    const h = await mount();
+    let settle;
+    h.hooks.create = () => new Promise((resolve, reject) => { settle = [resolve, reject]; });
+    h.requests.length = 0;
+    h.add();
+    await waitFor(() => expect(settle).toBeDefined());
+    h.hooks.create = async () => {};
+    const address = h.root.querySelector(".browser-address");
+    const url = "https://example.org/new-destination";
+    try {
+      if (outcome === "repeat") h.add();
+      address.focus();
+      address.value = url;
+      address.dispatchEvent(new Event("input", { bubbles: true }));
+      address.setSelectionRange(url.length, url.length);
+      if (outcome === "switch") h.select("b");
+      if (outcome !== "draft") address.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      if (outcome === "newer-edit") {
+        address.value = "newer unsubmitted draft";
+        address.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    } finally {
+      if (outcome === "failure") settle[1](Error("Could not create blank tab"));
+      else settle[0]();
+    }
+    await app.finishWindowWrites();
+    const navigations = h.requests.filter(request => request.kind === "navigate");
+    if (outcome === "switch" || outcome === "failure") {
+      expect(h.selected()).toBe(outcome === "switch" ? "b" : "a");
+      expect(navigations).toEqual([]);
+      if (outcome === "failure") expect(address.value).toBe(url);
+    } else {
+      const candidates = h.requests.filter(request => request.kind === "create");
+      expect(candidates).toHaveLength(outcome === "repeat" ? 2 : 1);
+      const candidate = candidates.at(-1).tabId;
+      expect(h.selected()).toBe(candidate);
+      expect(address.value).toBe(outcome === "newer-edit" ? "newer unsubmitted draft" : url);
+      expect(navigations).toEqual(outcome === "draft" ? [] : [{ kind: "navigate", tab: candidate, url }]);
+      if (outcome === "draft") expect(address.selectionStart).toBe(url.length);
+    }
+  },
+);
 it("does not persist or expose a tab whose native creation failed", async () => {
   const h = await mount(), before = h.saved();
   h.hooks.create = async () => { throw Error("Native creation unavailable"); }; h.add();

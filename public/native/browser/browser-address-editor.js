@@ -9,7 +9,7 @@ export function createBrowserAddressEditor(input) {
     draft = input.value !== currentUrl;
     editVersion++;
   });
-  input.addEventListener("compositionstart", () => { composing = true; });
+  input.addEventListener("compositionstart", () => { composing = true; editVersion++; });
   input.addEventListener("compositionend", () => {
     composing = false;
     draft = input.value !== currentUrl;
@@ -25,12 +25,20 @@ export function createBrowserAddressEditor(input) {
     input.select();
   });
 
+  function hasEditedSince(version) {
+    return version !== undefined && editVersion !== version && (draft || composing);
+  }
+
   return {
-    sync(tab) {
+    get editVersion() { return editVersion; },
+    hasEditedSince,
+    sync(tab, keepEditsAfter) {
       if (activeId !== tab?.id) {
         activeId = tab?.id;
-        draft = false;
-        composing = false;
+        if (!hasEditedSince(keepEditsAfter)) {
+          draft = false;
+          composing = false;
+        }
       }
       currentUrl = tab?.url === "about:blank" ? "" : tab?.url ?? "";
       update();
