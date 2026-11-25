@@ -28,7 +28,8 @@ export function ManualToolInput({ field, id, value, disabled, invalid, compact =
       aria-describedby={describedBy}
       onChange={event => onChange(event.target.value)}>
       <option value="">{t(field.required ? "Choose a value" : "Not provided")}</option>
-      {field.choices.map((choice, index) => <option key={JSON.stringify(choice)} value={String(index)}>{choiceLabel(choice)}</option>)}
+      {field.choices.map((choice, index) => <option key={JSON.stringify(choice)} value={String(index)}
+        translate={typeof choice === "string" && choice !== "" ? "no" : undefined}>{choiceLabel(choice)}</option>)}
     </select> : field.kind === "string" ? <textarea id={id} className={shortText ? "ui-textarea tool-input-short-text" : "ui-textarea tool-input-long-text"} rows={shortText ? 1 : 6} value={value ?? ""} disabled={disabled} aria-invalid={invalid || lengthInvalid}
       aria-describedby={describedBy}
       onChange={event => changeText(event.currentTarget.value)} /> : structured ? <>
