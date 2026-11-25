@@ -33,7 +33,15 @@ async function fixture(openRoots = false) {
   handles.push(store);
   await store.getState().load();
   store.setState({ expandedNotebookIds: new Set(openRoots ? ["a", "b", "c", "z", "zz"] : ["b", "c", "zz"]) });
-  const view = render(<NotesNav store={store} />);
+  const view = render(
+    <>
+      <button id="sidebar-toggle" type="button">Toggle sidebar</button>
+      <div id="sidebar-overlay" />
+      <aside id="sidebar" tabIndex={-1}>
+        <NotesNav store={store} />
+      </aside>
+    </>,
+  );
   const summary = (id: string) => view.container.querySelector<HTMLElement>(`[data-notebook-id="${id}"] > summary`)!;
   return { store, view, summary };
 }
@@ -59,4 +67,22 @@ it("restores nested keyboard traversal when a collapsed ancestor opens again", a
   expect(document.activeElement?.classList.contains("notes-tree-note")).toBe(true);
   expect(document.activeElement?.textContent).toContain("Note b");
   expect(view.container.querySelector<HTMLDetailsElement>('[data-notebook-id="c"]')?.open).toBe(true);
+});
+
+it.each([
+  ["open drawer", true, true, true],
+  ["closed ancestor", false, true, false],
+  ["wide layout", true, false, false],
+])("resumes current note focus only when visible in the %s", async (_label, openRoots, drawerVisible, resumesNote) => {
+  const { store, view } = await fixture(openRoots);
+  await act(async () => store.getState().selectNote({ notebookId: "b", id: "note-b", title: "Note b" }));
+  const sidebar = view.getByRole("complementary");
+  const toggle = view.getByRole("button", { name: "Toggle sidebar" });
+  const activeNote = view.container.querySelector<HTMLElement>(".notes-tree-note.active");
+  expect(activeNote?.textContent).toContain("Note b");
+  view.container.querySelector("#sidebar-overlay")?.classList.toggle("visible", drawerVisible);
+  toggle.focus();
+  sidebar.focus();
+
+  expect(document.activeElement).toBe(resumesNote ? activeNote : sidebar);
 });
