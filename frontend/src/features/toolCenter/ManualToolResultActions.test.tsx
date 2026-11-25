@@ -25,8 +25,9 @@ async function mount(owner = scope, textExports?: ResultActionsGateway["textExpo
       items: [{ title: "Encode", pluginId: "target", capabilityId: "encode", field: "text" }] })),
     prepareTransfer: vi.fn(async () => ({ grantId: "transfer-grant", preview: { text: "a+b 中", field: "text", inputs: {}, byteLength: 7,
       workspaceId: "workspace", target: { pluginId: "target", packageVersion: "1" } } })),
-    commitTransfer: vi.fn(async (): Promise<CapturedToolResponse> => ({ result: { ok: true, data: { text: "encoded" } }, resultRef: { resultId: "receiver-result" }, replayed: false })),
-    cancelTransfer: vi.fn(async () => ({ schemaVersion: 1, status: "cancellation_requested" as const })),
+    commitTransfer: vi.fn(async (..._args: Parameters<ResultActionsGateway["commitTransfer"]>): Promise<CapturedToolResponse> =>
+      ({ result: { ok: true, data: { text: "encoded" } }, resultRef: { resultId: "receiver-result" }, replayed: false })),
+    cancelTransfer: vi.fn(async (): ReturnType<ResultActionsGateway["cancelTransfer"]> => ({ schemaVersion: 1, status: "cancellation_requested" })),
     transferStatus: vi.fn(async () => ({ schemaVersion: 1, status: "ready" as const })),
   };
   const busy = vi.fn();
@@ -75,7 +76,7 @@ it("searches compatible receivers and executes only after confirming the field m
   expect(gateway.commitTransfer).not.toHaveBeenCalled();
   expect(store.mutate).not.toHaveBeenCalled();
   await click("Confirm transfer and run");
-  expect(gateway.commitTransfer).toHaveBeenCalledWith(scope, "transfer-grant");
+  expect(gateway.commitTransfer).toHaveBeenCalledWith(scope, "transfer-grant", { signal: expect.any(AbortSignal) });
   expect(container.querySelector('[aria-label="Transferred result"]')?.textContent).toBe("encoded");
   expect(busy.mock.calls).toEqual([[true], [false]]);
   await vi.waitFor(() => expect(store.mutate).toHaveBeenCalledWith({ sceneId: "programming", workspaceId: "workspace" },
@@ -97,6 +98,39 @@ it("does not record cancellation, business failure or replayed grant responses",
   gateway.commitTransfer.mockResolvedValueOnce({ result: { ok: true, data: { text: "cached" } }, resultRef: { resultId: "cached" }, replayed: true });
   await click("Confirm transfer and run");
   expect(store.mutate).not.toHaveBeenCalled();
+});
+
+it("releases the tool-center busy lock after a terminal cancellation without waiting for the old transport", async () => {
+  const { container, gateway, busy, click, store } = await mount();
+  let rejectOld!: (reason: Error) => void;
+  gateway.commitTransfer.mockImplementationOnce(() => new Promise((_, reject) => { rejectOld = reject; }));
+  gateway.cancelTransfer.mockResolvedValueOnce({ schemaVersion: 1, status: "cancelled" });
+  await click("Send to tool"); await click("Encode · target · field text"); await click("Confirm transfer and run");
+  expect(busy.mock.calls).toEqual([[true]]);
+  await click("Cancel transfer");
+  expect(busy.mock.calls).toEqual([[true], [false]]);
+  expect(container.textContent).toContain("Receiver tool cancelled");
+  expect(gateway.commitTransfer.mock.calls[0][2]?.signal?.aborted).toBe(true);
+  await click("Cancel transfer");
+  const preview = await gateway.prepareTransfer.getMockImplementation()?.();
+  if (!preview) throw Error("Expected the fixture transfer preview");
+  gateway.prepareTransfer.mockResolvedValueOnce({ ...preview, grantId: "new-transfer-grant" });
+  let finishNew!: (value: CapturedToolResponse) => void;
+  gateway.commitTransfer.mockImplementationOnce(() => new Promise(resolve => { finishNew = resolve; }));
+  await click("Send to tool"); await click("Encode · target · field text"); await click("Confirm transfer and run");
+  expect(busy.mock.calls).toEqual([[true], [false], [true]]);
+  const [, newGrant, newOptions] = gateway.commitTransfer.mock.calls[1];
+  expect(newGrant).toBe("new-transfer-grant");
+  expect(newOptions?.signal?.aborted).toBe(false);
+  await act(async () => rejectOld(Error("result_transfer_cancelled")));
+  expect(busy.mock.calls).toEqual([[true], [false], [true]]);
+  expect(container.textContent).toContain("Running receiver tool");
+  expect(store.mutate).not.toHaveBeenCalled();
+  await act(async () => finishNew({ result: { ok: true, data: { text: "second result" } }, resultRef: { resultId: "second-result" } }));
+  expect(busy.mock.calls).toEqual([[true], [false], [true], [false]]);
+  expect(container.querySelector('[aria-label="Transferred result"]')?.textContent).toBe("second result");
+  expect(gateway.cancelTransfer).toHaveBeenCalledExactlyOnceWith(scope, "transfer-grant");
+  expect(gateway.transferStatus).not.toHaveBeenCalled();
 });
 
 it("keeps a successful receiver result when history fails and never offers a computation retry", async () => {
