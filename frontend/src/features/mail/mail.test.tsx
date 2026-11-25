@@ -95,6 +95,131 @@ it("keeps attachments on picker cancellation and removes only the selected saved
   expect(screen.getByText(/first\.bin/)).toBeTruthy();
 });
 
+it.each([["gmail", "pickAttachment"], ["alibaba", "removeAttachment"]])(
+  "reloads the saved %s draft after a successful attachment change and failed read",
+  async (provider, operation) => {
+    setLocale("en");
+    const original = { id: "d", revision: 4, subject: "Saved fixture", recipient: "to@example.test", body: "Saved content",
+      attachments: [{ id: "a", name: "initial.bin", size: 3 }] };
+    const updated = { ...original, revision: 5, attachments: operation === "pickAttachment"
+      ? [...original.attachments, { id: "b", name: "added.bin", size: 7 }] : [] };
+    let changed = false;
+    let readAfterChange = 0;
+    const invoke = vi.fn(async (request: Record<string, unknown>) => {
+      if (request.kind === "accounts") return [{ id: "one", provider, address: "one@example.test" }];
+      if (request.kind === operation) { changed = true; return { changed: true, revision: 5 }; }
+      if (request.kind === "drafts" && request.account === "one") {
+        if (!changed) return [original];
+        if (++readAfterChange === 1) throw Error("mail_storage");
+        return [readAfterChange === 2 ? original : updated];
+      }
+      throw Error("unexpected request");
+    });
+    const adapter = vi.fn(async (request: Record<string, unknown>) => {
+      switch (request.kind) {
+        case "status": return { connected: true, send: true };
+        case "credentialStatus": return { configured: true, enabled: true };
+        case "cachedPage": return provider === "gmail" ? null : { messages: [], next: null };
+        case "cachedLabels":
+        case "cachedFolders": return [];
+        case "delivery": return provider === "gmail" ? null : { status: null };
+        default: throw Error("unexpected provider operation");
+      }
+    });
+    render(<Mail invoke={invoke as Invoke} gmailTransport={provider === "gmail" ? adapter as Invoke : undefined}
+      transport={provider === "alibaba" ? adapter as Invoke : undefined}/>);
+    const selected = await screen.findByRole("button", { name: "Saved fixture" });
+    await act(async () => fireEvent.click(selected));
+    await screen.findByRole("region", { name: "Send saved draft" });
+    const control = operation === "pickAttachment" ? "Add attachment" : "Remove attachment";
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: control })));
+    expect((await screen.findByRole("alert")).textContent).toContain("Attachment change saved");
+    expect(screen.queryByRole("region", { name: "Send saved draft" })).toBeNull();
+    expect(screen.queryByRole("button", { name: control })).toBeNull();
+    const retry = screen.getByRole("button", { name: "Reload draft attachments" });
+    await act(async () => fireEvent.click(retry));
+    expect(screen.queryByRole("region", { name: "Send saved draft" })).toBeNull();
+    await act(async () => fireEvent.click(retry));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Saved fixture" }).getAttribute("aria-pressed")).toBe("true");
+    expect((screen.getByLabelText("Message body") as HTMLTextAreaElement).value).toBe("Saved content");
+    expect(screen.queryByText(operation === "pickAttachment" ? /added\.bin/ : /initial\.bin/) !== null)
+      .toBe(operation === "pickAttachment");
+    expect(invoke.mock.calls.map(([request]) => request)).toEqual([
+      { kind: "accounts" }, { kind: "drafts", account: "one" },
+      { kind: operation, account: "one", id: "d", revision: 4, ...(operation === "removeAttachment" && { attachment: "a" }) },
+      ...Array.from({ length: 3 }, () => ({ kind: "drafts", account: "one" })),
+    ]);
+    const delivery = adapter.mock.calls.map(([request]) => request).filter(request => request.kind === "delivery");
+    expect(delivery.map(request => request.revision)).toEqual([4, 5]);
+    expect(adapter.mock.calls.some(([request]) => request.kind === "send")).toBe(false);
+  },
+);
+
+it("does not restore a draft from a late attachment reread after the mail source changes", async () => {
+  setLocale("en");
+  const original = { id: "same-id", revision: 4, subject: "Previous source", recipient: "", body: "Previous source text" };
+  const replacement = { ...original, subject: "Current source", body: "Current source text" };
+  const account = [{ id: "same-account", provider: "gmail", address: "owner@example.test" }];
+  let finish: (rows: unknown) => void = () => {};
+  let read = 0;
+  const previous = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === "accounts") return account;
+    if (request.kind === "pickAttachment") return { changed: true, revision: 5 };
+    if (request.kind === "drafts") {
+      if (++read === 1) return [original];
+      if (read === 2) throw Error("mail_storage");
+      return new Promise(resolve => { finish = resolve; });
+    }
+    throw Error("unexpected request");
+  });
+  const current = vi.fn(async (request: Record<string, unknown>) => request.kind === "accounts" ? account : [replacement]);
+  const view = render(<Mail invoke={previous as Invoke}/>);
+  const previousDraft = await screen.findByRole("button", { name: "Previous source" });
+  await act(async () => fireEvent.click(previousDraft));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Add attachment" })));
+  fireEvent.click(await screen.findByRole("button", { name: "Reload draft attachments" }));
+  await waitFor(() => expect(read).toBe(3));
+  view.rerender(<Mail invoke={current as Invoke}/>);
+  const currentDraft = await screen.findByRole("button", { name: "Current source" });
+  await act(async () => fireEvent.click(currentDraft));
+  await act(async () => finish([{ ...original, revision: 5, attachments: [{ id: "a", name: "old.bin", size: 3 }] }]));
+  expect((screen.getByLabelText("Message body") as HTMLTextAreaElement).value).toBe("Current source text");
+  expect(screen.queryByText(/old\.bin/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Reload draft attachments" })).toBeNull();
+});
+
+it.each(["accounts", "drafts"])("hides a stale draft when the replacement source fails to read %s", async failedRead => {
+  setLocale("en");
+  const account = [{ id: "same-account", provider: "gmail", address: "owner@example.test" }];
+  const draft = { id: "same-draft", revision: 4, subject: "Previous scope draft", recipient: "", body: "Previous scope only" };
+  let changed = false;
+  const previous = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === "accounts") return account;
+    if (request.kind === "pickAttachment") { changed = true; return { changed: true, revision: 5 }; }
+    if (request.kind === "drafts" && !changed) return [draft];
+    throw Error("mail_storage");
+  });
+  const replacement = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === failedRead) throw Error("mail_storage");
+    if (request.kind === "accounts") return account;
+    throw Error("unexpected request");
+  });
+  const view = render(<Mail invoke={previous as Invoke}/>);
+  const old = await screen.findByRole("button", { name: draft.subject });
+  await act(async () => fireEvent.click(old));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Add attachment" })));
+  await screen.findByRole("button", { name: "Reload draft attachments" });
+  view.rerender(<Mail invoke={replacement as Invoke}/>);
+  await screen.findByText("Could not access local mail data.");
+  expect(screen.queryByRole("button", { name: draft.subject })).toBeNull();
+  expect(screen.queryByLabelText("Message body")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Add attachment" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Delete draft" })).toBeNull();
+  expect(replacement.mock.calls.map(([request]) => request.kind))
+    .toEqual(failedRead === "accounts" ? ["accounts"] : ["accounts", "drafts"]);
+});
+
 
 function setupCachedReply() {
   setLocale("en");
