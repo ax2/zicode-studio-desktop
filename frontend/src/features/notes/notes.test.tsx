@@ -1,5 +1,5 @@
 import { referenceKey } from "./shortcut-repository";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
 import { setupNotesApp } from "./index";
@@ -685,6 +685,44 @@ describe("notes store", () => {
     document.body.dataset.activePlugin = "";
     nav.remove();
     content.remove();
+  });
+
+  it("keeps the editing position when preview closes, only for the same note and text", async () => {
+    const other = { ...NOTE, id: "note-2", title: "Second note" };
+    const store = storeWithGateway({
+      get: vi.fn(async (_sceneId, _workspaceId, _notebookId, id) => ({ note: id === other.id ? other : NOTE })),
+    });
+    await store.getState().selectNote(NOTE);
+    const view = render(<NotesContent store={store} />);
+    const text = () => {
+      const textarea = view.getByRole("textbox", { name: t("Note content") });
+      if (!(textarea instanceof HTMLTextAreaElement)) throw new Error("Expected note textarea");
+      return textarea;
+    };
+    const edit = () => fireEvent.click(view.getByRole("button", { name: t("Edit") + " (Ctrl+E)" }));
+    const preview = () => fireEvent.click(view.getByRole("button", { name: t("Preview") + " (Ctrl+E)" }));
+    edit();
+    text().setSelectionRange(3, 9, "backward");
+    text().scrollTop = 240;
+    preview();
+    expect(view.queryByRole("textbox", { name: t("Note content") })).toBeNull();
+    edit();
+    expect([text().selectionStart, text().selectionEnd, text().selectionDirection, text().scrollTop])
+      .toEqual([3, 9, "backward", 240]);
+
+    preview();
+    await act(async () => store.getState().selectNote(other));
+    await act(async () => store.getState().selectNote(NOTE));
+    edit();
+    expect(text().selectionStart).toBe(text().selectionEnd);
+    expect(text().scrollTop).toBe(0);
+
+    text().setSelectionRange(3, 9, "backward");
+    preview();
+    act(() => store.getState().setDraft({ content: "Changed while in preview" }));
+    edit();
+    expect(text().value).toBe("Changed while in preview");
+    expect(text().selectionStart).toBe(text().selectionEnd);
   });
 
   it("closes the mobile function-area drawer when a note is selected", async () => {

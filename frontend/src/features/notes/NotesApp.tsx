@@ -1754,6 +1754,35 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const setPreview = store((state) => state.setPreview);
   const openNote = store((state) => state.openNote);
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
+  const noteKey = referenceKey(note);
+  const editorPosition = useRef<{
+    noteKey: string;
+    value: string;
+    start: number;
+    end: number;
+    direction: HTMLTextAreaElement["selectionDirection"];
+    top: number;
+    left: number;
+  } | null>(null);
+  const attachContent = useCallback((textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+    contentRef.current = textarea;
+    const position = editorPosition.current;
+    editorPosition.current = null;
+    if (position?.noteKey === noteKey && position.value === textarea.value) {
+      textarea.setSelectionRange(position.start, position.end, position.direction);
+      textarea.scrollTop = position.top;
+      textarea.scrollLeft = position.left;
+    }
+    return () => {
+      const { value, selectionStart: start, selectionEnd: end, selectionDirection: direction, scrollTop: top, scrollLeft: left } = textarea;
+      editorPosition.current = { noteKey, value, start, end, direction, top, left };
+      contentRef.current = null;
+    };
+  }, [noteKey]);
+  useLayoutEffect(() => {
+    if (editorPosition.current?.noteKey !== noteKey) editorPosition.current = null;
+  }, [noteKey]);
   const titleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   const outlineListRef = useRef<HTMLOListElement | null>(null);
@@ -2671,7 +2700,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           </button>
         </div>
         <textarea
-          ref={contentRef}
+          ref={attachContent}
           className="notes-content-input"
           value={draftContent}
           placeholder={t("Write Markdown…")}
