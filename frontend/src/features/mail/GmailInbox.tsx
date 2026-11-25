@@ -1,12 +1,13 @@
 import { MailAttachments, type Attachment } from "./MailAttachments";
 import { MailBody } from "./MailBody";
 import {MailDisconnect} from "./MailDisconnect";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type { Draft, Invoke } from "./index";
 
 export type CreateMailReply = (account: string, create: () => Promise<Draft>, isCurrent: () => boolean) => Promise<void>;
 export type GmailGrantLoss = "connection" | "sending";
+export type GmailAccess = { read: boolean; send: boolean };
 
 export function gmailReplyNeedsRefresh(reason: unknown): boolean {
   return String(reason).replace(/^Error:\s*/, "") === "gmail_reply_metadata_missing";
@@ -40,7 +41,7 @@ export function gmailError(e: unknown): string {
   }
 }
 export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,draftBusy=false,grantLoss}:{
-  id:string;address:string;label:string;setLabel:(label:string)=>void;invoke:Invoke;onGrant:(send:boolean,authorized?:boolean)=>void;
+  id:string;address:string;label:string;setLabel:(label:string)=>void;invoke:Invoke;onGrant:(access: GmailAccess, authorized?: boolean) => void;
   onReply?:CreateMailReply;draftBusy?:boolean;grantLoss?:GmailGrantLoss;
 }) {
   const [savedGrant,setGrant]=useState<Grant>(none),[page,setPage]=useState<Page|null>(null);
@@ -77,11 +78,14 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       if (action && !action.matches(":disabled")) action.focus({ preventScroll: true });
     }
   });
-  const saveGrant=(g:Grant,authorized?:boolean)=>{setGrant(g);grantCallback.current(Boolean(g.connected&&g.send),authorized)};
+  const saveGrant = useCallback((grant: Grant, authorized?: boolean) => {
+    setGrant(grant);
+    grantCallback.current({ read: Boolean(grant.connected && grant.read), send: Boolean(grant.connected && grant.send) }, authorized);
+  }, []);
   useEffect(()=>{
     const gen=++epoch.current;
     operationFocus.current = undefined;
-    operation.current="init"; setBusy("init");setGrant(none);grantCallback.current(false);
+    operation.current="init"; setBusy("init");saveGrant(none);
     setPage(null);setMessage(null);setBody(null);setServerPage(false);setNotice("");
     setExpiredCursor(null);
     setLabels([]);setCachedLabelsFailed(false);setLabel("INBOX");
@@ -93,12 +97,12 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       if(epoch.current!==gen)return;
       if(l.status==="fulfilled"&&Array.isArray(l.value))setLabels(l.value);
       setCachedLabelsFailed(l.status === "rejected");
-      if(s.status==="fulfilled"){setGrant(s.value);grantCallback.current(s.value.connected&&s.value.send===true)}else setNotice(gmailError(s.reason));
+      if(s.status==="fulfilled")saveGrant(s.value);else setNotice(gmailError(s.reason));
       if(p.status==="fulfilled")setPage(p.value);else if(s.status==="fulfilled")setNotice(gmailError(p.reason));
       operation.current="";setBusy("");
     });
     return()=>{epoch.current++;if(operation.current==="connect")void invoke({kind:"cancel",accountId:id}).catch(()=>{})};
-  },[id,invoke,setLabel]);
+  },[id,invoke,saveGrant,setLabel]);
   async function run<T>(
     kind: string,
     task: (isCurrent: () => boolean) => Promise<T>,
