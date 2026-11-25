@@ -1010,10 +1010,11 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (visible && initialized && !blocked() && selected()?.id === tab && find.element.hidden && pageAvailable(tab)) await control({ kind: "focusPage", tab });
     }, report });
     fullscreen = createBrowserFullscreen({ control, report, beforeChange: () => { const menu = root.querySelector(".browser-options"); if (menu) menu.open = false; }, afterChange: () => run(syncSurface) });
-    shortcuts = setupBrowserShortcuts({ available: () => visible && initialized && !blocked() && !openingLocalPdf, getTab: selected, focusChrome: tab => control({ kind: "focusChrome", tab }), find: () => find.open(), address, tabAction: (action, source) => enqueue(() => tabShortcut(action, source)),
+    shortcuts = setupBrowserShortcuts({ available: () => visible && initialized && !blocked(), getTab: selected, focusChrome: tab => control({ kind: "focusChrome", tab }), find: () => find.open(), address, tabAction: (action, source) => enqueue(() => tabShortcut(action, source)),
       pageAction: (action, source) => action === "print" ? queuePrint(source) : enqueue(() => runPageAction(action, source)),
       fullscreen: () => fullscreen.toggle(),
       openLocalPdf: (fromPage, source) => openLocalPdf(document.activeElement, source, fromPage),
+      localPdfPending: () => openingLocalPdf,
       translateSelection: tab => act(() => translatePageSelection(tab, true)),
       searchTabs: (fromPage, source) => act(() => {
         if (!blocked() && selected()?.id === source) return openTabSearch(options, fromPage);
