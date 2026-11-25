@@ -62,6 +62,23 @@ pub struct Folder {
     pub name: String,
 }
 
+fn unescape_mailbox_name(quoted: &str) -> Option<String> {
+    let mut chars = quoted.chars();
+    let mut decoded = String::with_capacity(quoted.len());
+    while let Some(c) = chars.next() {
+        let character = if c == '\\' {
+            match chars.next()? {
+                c @ ('\\' | '"') => c,
+                _ => return None,
+            }
+        } else {
+            c
+        };
+        decoded.push(character);
+    }
+    Some(decoded)
+}
+
 // IMAP modified UTF-7 uses UTF-16BE runs after '&', with ',' in place of '/'.
 fn folder_name(mut wire: &str) -> Option<String> {
     use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine};
@@ -155,19 +172,44 @@ impl Alibaba {
             })
     }
     pub(crate) fn folders(&self, address: &str, password: &str) -> Result<Vec<Folder>> {
-        use imap::types::NameAttribute;
+        use imap_proto::types::{MailboxDatum, Response};
+        use std::borrow::Cow;
+
         let mut session = self.login(address, password, 2 * 1024 * 1024)?;
-        let names = session.list(Some(""), Some("*")).map_err(|_| "mail_protocol")?;
+        let response = session
+            .run_command_and_read_response("LIST \"\" \"*\"")
+            .map_err(|_| "mail_protocol")?;
         let mut folders = std::collections::BTreeMap::new();
-        for entry in names.iter() {
-            if entry.attributes().iter().any(|attr| match attr {
-                NameAttribute::NoSelect => true,
-                NameAttribute::Custom(s) => s.eq_ignore_ascii_case("\\noselect") || s.eq_ignore_ascii_case("\\nonexistent"),
-                _ => false,
-            }) { continue; }
-            let name = entry.name();
-            if name.is_empty() || name.chars().any(char::is_control) { continue; }
-            let id = if name.eq_ignore_ascii_case("INBOX") { "INBOX" } else { name };
+        let mut remaining = response.as_slice();
+        while !remaining.is_empty() {
+            let (rest, item) = imap_proto::parse_response(remaining).map_err(|_| "mail_protocol")?;
+            let frame = &remaining[..remaining.len() - rest.len()];
+            remaining = rest;
+            let Response::MailboxData(MailboxDatum::List { flags, name, .. }) = item else {
+                continue;
+            };
+            if flags.iter().any(|flag| {
+                flag.eq_ignore_ascii_case("\\noselect") || flag.eq_ignore_ascii_case("\\nonexistent")
+            }) {
+                continue;
+            }
+            // The parser preserves escapes and drops the string form. The borrowed
+            // mailbox ends before the closing quote only for quoted names.
+            let quoted = frame.strip_suffix(b"\"\r\n").is_some_and(|prefix| {
+                prefix.as_ptr_range().end == name.as_bytes().as_ptr_range().end
+            });
+            let name = if quoted && name.contains('\\') {
+                let Some(name) = unescape_mailbox_name(name) else {
+                    continue;
+                };
+                Cow::Owned(name)
+            } else {
+                Cow::Borrowed(name)
+            };
+            if name.is_empty() || name.chars().any(char::is_control) {
+                continue;
+            }
+            let id = if name.eq_ignore_ascii_case("INBOX") { "INBOX" } else { &name };
             folders.entry(id.to_owned()).or_insert_with(|| folder_name(id).unwrap_or_else(|| id.to_owned()));
         }
         let _ = session.logout();

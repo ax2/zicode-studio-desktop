@@ -12,6 +12,8 @@ use std::{
 };
 const MSG:&str="From: Fixture <sender@example.test>\r\nReply-To: reply@example.test\r\nSubject: =?UTF-8?B?5rWL6K+V?=\r\nMessage-ID: <original@example.test>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=fixture\r\n\r\n--fixture\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n5L2g5aW9\r\n--fixture\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>HTML fixture</p>\r\n--fixture\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=proof.bin\r\nContent-Transfer-Encoding: base64\r\n\r\nAP8BAg==\r\n--fixture--\r\n";
 const LARGE_ATTACHMENT: usize = 5*1024*1024 + 13;
+const QUOTED_FOLDER: &str = r#"Work "Notes"\Copies"#;
+const LITERAL_FOLDER: &str = r#"Work \"Notes\"\\Copies"#;
 type Server = BufReader<rustls::StreamOwned<rustls::ServerConnection, TcpStream>>;
 struct Fixture {
     adapter: Alibaba,
@@ -200,12 +202,27 @@ fn serve_imap(
             emit(s, &format!("{tag} OK authenticated\r\n"));
         } else if upper.starts_with("LIST ") {
             trace.send(upper.clone()).unwrap();
-            emit(s, &format!("* LIST () \"/\" inbox\r\n* LIST (\\Noselect) \"/\" Parent\r\n* LIST () \"/\" \"Parent/&bUuL1Q- &- Notes\"\r\n{tag} OK folders\r\n"));
+            emit(s, "* LIST () \"/\" inbox\r\n* LIST (\\Noselect) \"/\" Parent\r\n* LIST () \"/\" \"Parent/&bUuL1Q- &- Notes\"\r\n");
+            emit(s, &format!("* LIST () \"/\" \"{LITERAL_FOLDER}\"\r\n"));
+            emit(s, &format!("* LIST () \"/\" {{{}}}\r\n{LITERAL_FOLDER}\r\n", LITERAL_FOLDER.len()));
+            emit(s, &format!("{tag} OK folders\r\n"));
         } else if upper == "LOGOUT" {
             emit(s, &format!("* BYE\r\n{tag} OK logout\r\n"));
             break;
         } else if upper.starts_with("EXAMINE ") {
             archive = upper.contains("ARCHIVE");
+            if cmd.starts_with("EXAMINE \"Work ") {
+                let quoted = format!("EXAMINE \"{LITERAL_FOLDER}\"");
+                let literal = format!("EXAMINE \"{}\"", LITERAL_FOLDER.replace('\\', "\\\\").replace('"', "\\\""));
+                match cmd {
+                    command if command == quoted => archive = true,
+                    command if command == literal => {}
+                    _ => {
+                        emit(s, &format!("{tag} NO folder missing\r\n"));
+                        continue;
+                    }
+                }
+            }
             emit(s,&format!("* {count} EXISTS\r\n* OK [UIDVALIDITY {uid_validity}] stable\r\n{tag} OK [READ-ONLY] examined\r\n"));
         } else if let Some(probe) = upper.strip_prefix("UID SEARCH UID ") {
             trace.send(upper.clone()).unwrap();
@@ -867,14 +884,33 @@ fn folders_survive_restart_decode_names_and_clear_with_the_account() {
         let list = mail.folders(&f.adapter, "synthetic").unwrap();
         f.thread.join().unwrap();
         assert_eq!(f.rx.try_iter().count(), 1);
-        assert_eq!(list.len(), 2);
+        assert_eq!(list.len(), 4);
         assert_eq!(list[0].id, "INBOX");
         assert_eq!(list[1].id, "Parent/&bUuL1Q- &- Notes");
         assert_eq!(list[1].name, "Parent/测试 & Notes");
+        assert_eq!(list[2].id, QUOTED_FOLDER);
+        assert_eq!(list[2].name, QUOTED_FOLDER);
+        assert_eq!(list[3].id, LITERAL_FOLDER);
+        assert_eq!(list[3].name, LITERAL_FOLDER);
+
+        let mut mail = mail;
+        for (name, body) in [(QUOTED_FOLDER, "Other"), (LITERAL_FOLDER, "你好")] {
+            mail.select_folder(name).unwrap();
+            let f = fixture(false, false);
+            mail.sync(&f.adapter, "synthetic", None, 2).unwrap();
+            f.thread.join().unwrap();
+            let f = fixture(false, false);
+            assert_eq!(mail.read(&f.adapter, "synthetic", 7, 30).unwrap().text, body);
+            f.thread.join().unwrap();
+        }
     }
     let mut db = Connection::open(path).unwrap();
-    let mail = Mailbox::open(&mut db, "one", "a").unwrap();
-    assert_eq!(mail.cached_folders().unwrap().len(), 2);
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    assert_eq!(mail.cached_folders().unwrap().len(), 4);
+    for (name, body) in [(QUOTED_FOLDER, "Other"), (LITERAL_FOLDER, "你好")] {
+        mail.select_folder(name).unwrap();
+        assert_eq!(mail.cached_body(7, 30).unwrap().text, body);
+    }
     let mut second = Connection::open(temp.path().join("mail.sqlite3")).unwrap();
     Mailbox::open(&mut second, "one", "a").unwrap().clear_cache().unwrap();
     let f = fixture(false, false);
