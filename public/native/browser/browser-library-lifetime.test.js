@@ -89,12 +89,12 @@ async function mount({
 
 const panel = name => getByRole(document.body, "dialog", { name: t(name) });
 
-it("does not open an old Bookmarks request after leaving and reopening Browser", async () => {
+it("does not open an old current-page bookmark edit after leaving and reopening Browser", async () => {
   let reply;
   const readUrl = vi.fn().mockImplementationOnce(() => new Promise(resolve => { reply = resolve; })).mockResolvedValue({ url: tab.url });
   const readPanel = vi.fn(async (_name, value) => value);
   const h = await mount({ readUrl, readPanel });
-  h.open("Bookmarks");
+  document.querySelector(".browser-bookmark-toggle").click();
   await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
   await h.leave();
   await h.returnToBrowser();
@@ -134,6 +134,29 @@ it("opens saved bookmarks even if the current page URL is temporarily unavailabl
   const editor = await waitFor(() => panel("Bookmarks"));
   await waitFor(() => expect(getByLabelText(editor, t("Bookmark URL")).value).toBe("http://127.0.0.1/live-url"));
   expect(readUrl).toHaveBeenCalledTimes(3);
+});
+
+it("keeps the saved bookmark list usable while the optional page URL is pending", async () => {
+  let reply;
+  const readUrl = vi.fn(() => new Promise(resolve => { reply = resolve; }));
+  const h = await mount({ readUrl });
+  h.open("Bookmarks");
+  const dialog = await waitFor(() => panel("Bookmarks"));
+  const open = await waitFor(() => getByRole(dialog, "button", { name: t("Open bookmark") + ": Saved" }));
+  expect(open.matches(":disabled")).toBe(false);
+  const addCurrent = getByRole(dialog, "button", { name: t("Bookmark this page") });
+  expect(addCurrent.disabled).toBe(true);
+
+  const search = getByRole(dialog, "searchbox");
+  search.focus();
+  fireEvent.input(search, { target: { value: "Sav" } });
+  reply({ url: "http://127.0.0.1/live-url" });
+  await waitFor(() => expect(addCurrent.disabled).toBe(false));
+  expect(document.activeElement).toBe(search);
+  expect(search.value).toBe("Sav");
+  addCurrent.click();
+  const editor = await waitFor(() => getByLabelText(dialog, t("Bookmark URL")));
+  expect(editor.value).toBe("http://127.0.0.1/live-url");
 });
 
 it.each(["Bookmarks", "Browsing history", "Downloads"])("closes %s on switching applications even if its list is still loading", async name => {
@@ -249,7 +272,7 @@ it.each(["menu", "page shortcut"])("drops the %s tab search queued before leavin
   const readUrl = vi.fn().mockImplementationOnce(() => new Promise(resolve => { reply = resolve; }))
     .mockResolvedValue({ url: tab.url });
   const h = await mount({ readUrl });
-  h.open("Bookmarks");
+  document.querySelector(".browser-bookmark-toggle").click();
   await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
   if (trigger === "menu") h.open("Search tabs");
   else h.fromPage("searchTabs");
@@ -279,7 +302,7 @@ it.each(["menu", "page shortcut"])("drops the %s print queued before leaving Bro
   const requests = () => h.invoke.mock.calls.filter(([command, args]) =>
     command === "browser_control" && args?.request?.kind === "printPage"
   );
-  h.open("Bookmarks");
+  document.querySelector(".browser-bookmark-toggle").click();
   await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
   print();
 
