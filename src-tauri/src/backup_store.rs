@@ -578,7 +578,14 @@ pub(crate) fn workspace_restore_outcome(
     let root = crate::app_paths::system_root()?;
     let _lock = lock_system_restore(&root)?;
     let pending = restore_request::read(&root)?.filter(|request| request.workspace_id == workspace_id);
-    let outcome = restore_request::outcome(&root)?.filter(|outcome| outcome.workspace_id == workspace_id);
+    let outcome = match restore_request::outcome(&root) {
+        Ok(outcome) => outcome.filter(|outcome| outcome.workspace_id == workspace_id),
+        Err(error) if pending.is_some() => {
+            log::warn!("Cannot read the earlier workspace restore result: {error}");
+            None
+        }
+        Err(error) => return Err(error),
+    };
     Ok((pending.is_some() || outcome.is_some()).then_some(WorkspaceRestoreStatus { outcome, pending }))
 }
 
@@ -1066,6 +1073,46 @@ mod tests {
         assert_eq!(status["pending"]["backupId"], backup.id);
         assert!(workspace_restore_outcome("other-workspace").unwrap().is_none());
         cancel_startup_restore(&next.request_id, &registered).unwrap();
+    }
+
+    #[test]
+    fn queued_restore_status_survives_unreadable_old_receipt() {
+        if !super::test_support::isolated() {
+            return;
+        }
+        let system = crate::app_paths::system_root().unwrap();
+        let workspace_id = "queued-with-old-receipt";
+        let workspace = system.join(workspace_id);
+        let note = workspace.join(".zicode/notes/probe.txt");
+        fs::create_dir_all(note.parent().unwrap()).unwrap();
+        fs::write(&note, b"snapshot").unwrap();
+        let backup = create_workspace_backup(workspace_id, &workspace).unwrap();
+        let registered = [(
+            workspace_id.to_owned(),
+            workspace.to_string_lossy().into_owned(),
+        )];
+        let completed = enqueue_workspace_restore(workspace_id, &backup.id).unwrap();
+        apply_startup_restore(&registered).unwrap();
+        let result = workspace_restore_outcome(workspace_id).unwrap().unwrap();
+        assert_eq!(result.outcome.unwrap().request_id, completed.request_id);
+
+        fs::write(&note, b"current").unwrap();
+        let receipt = system.join("workspace-restore-result.json");
+        let damaged_receipt = b"{\"requestId\":";
+        fs::write(&receipt, damaged_receipt).unwrap();
+        assert!(workspace_restore_outcome(workspace_id).is_err());
+        let queued = enqueue_workspace_restore(workspace_id, &backup.id).unwrap();
+
+        let status =
+            serde_json::to_value(workspace_restore_outcome(workspace_id).unwrap().unwrap())
+                .unwrap();
+        assert_eq!(status["pending"]["requestId"], queued.request_id);
+        assert_eq!(status["pending"]["backupId"], backup.id);
+        assert!(status.get("report").is_none());
+        assert!(workspace_restore_outcome("unrelated-workspace").is_err());
+        assert!(delete_workspace_backup(workspace_id, &backup.id).is_err());
+        assert_eq!(fs::read(&receipt).unwrap(), damaged_receipt);
+        assert_eq!(fs::read(&note).unwrap(), b"current");
     }
 
     #[test]
