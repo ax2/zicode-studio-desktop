@@ -74,6 +74,7 @@ async function setup() {
       emit({ kind: "contextAction", action: "reader", tab: tab.id });
       return findReader();
     },
+    replaceArticleText(text) { page.blocks[0].text = text; },
     reloadSameUrl() {
       emit({ kind: "navigationStarted", tab: tab.id });
       documentRevision = "2";
@@ -205,6 +206,59 @@ it("anchors width changes to the visible line and follows subsequent user scroll
   expect(region.scrollTop).toBe(359);
   closeFromButton(dialog);
   expect(observer.disconnect).toHaveBeenCalledOnce();
+});
+
+it("restores the same document after resizing while reading mode is closed", async () => {
+  let width = 890;
+  vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(() => width);
+  vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(function () {
+    if (this.matches(".browser-reader-scroll, .browser-reader-scroll article > p:last-child")) {
+      return { top: 80, left: 0, height: 500, bottom: 580 };
+    }
+    return { x: 0, y: 0, width: 900, height: 580 };
+  });
+  Object.defineProperty(document, "caretPositionFromPoint", {
+    configurable: true,
+    value: () => ({
+      offsetNode: document.querySelector(".browser-reader-scroll article > p:last-child").firstChild,
+      offset: 7,
+    }),
+  });
+  const createRange = document.createRange.bind(document);
+  vi.spyOn(document, "createRange").mockImplementation(() => {
+    const range = createRange();
+    range.getBoundingClientRect = () => {
+      const region = range.startContainer.parentElement.closest(".browser-reader-scroll");
+      return { height: 28, top: 80 + (width === 890 ? 159 : 318) + range.startOffset * 18 - region.scrollTop };
+    };
+    return range;
+  });
+  const h = await setup();
+  const original = await h.openFromMenu();
+  getByRole(original, "button", { name: "Larger reading text" }).click();
+  getByRole(original, "region").scrollTop = 150;
+  closeViaEscape(original); // The preceding scroll has not delivered its event yet.
+
+  width = 398;
+  const narrow = await h.openFromMenu();
+  expect(getByRole(narrow, "region").scrollTop).toBe(309);
+  expect(narrow.dataset.readerSize).toBe("2");
+  closeFromButton(narrow);
+
+  width = 890;
+  const wide = await h.openFromMenu();
+  expect(getByRole(wide, "region").scrollTop).toBe(150);
+  closeFromButton(wide);
+
+  h.replaceArticleText("The same document updated this paragraph.");
+  width = 398;
+  const updated = await h.openFromMenu();
+  expect(getByRole(updated, "region").scrollTop).toBe(150);
+  closeFromButton(updated);
+  h.reloadSameUrl();
+  const replacement = await h.openFromMenu();
+  expect(getByRole(replacement, "region").scrollTop).toBe(0);
+  expect(replacement.dataset.readerSize).toBe("1");
 });
 
 it("restores the native page after Escape and resets position when the same address reloads", async () => {
