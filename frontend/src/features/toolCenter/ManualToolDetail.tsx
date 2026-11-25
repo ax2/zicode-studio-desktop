@@ -64,6 +64,9 @@ const byteTextFileTargets = [
 const utf8FileTargets = [
   { target: "utf8-text", field: "text", label: "Import UTF-8 text file…", inputLabel: "UTF-8 text file", fieldLabel: "Source text" },
 ] as const;
+const urlTextFileTargets = [
+  { target: "url-inspect", field: "text", label: "Import URL text file…", inputLabel: "URL text file", fieldLabel: "URL text" },
+] as const;
 const hexFiles = [
   { target: "utf8-text", field: "text", label: "Import Hex text file…", inputLabel: "Hex text file", fieldLabel: "Hex text" },
 ] as const;
@@ -219,6 +222,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const transformsTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.transforms" && tool.version === "0.1.1";
   const textLines = transformsTool && /^devtools\.transforms\.lines\.(deduplicate|ascending|descending|nonempty|trim)$/.test(tool.capabilityId);
   const textStatistics = transformsTool && tool.capabilityId === "devtools.transforms.stats.inspect";
+  const urlInspect = transformsTool && tool.capabilityId === "devtools.transforms.url.inspect";
   const stringEscape = transformsTool && tool.capabilityId === "devtools.transforms.string.escape";
   const stringUnescape = transformsTool && tool.capabilityId === "devtools.transforms.string.unescape";
   const hexEncode = transformsTool && tool.capabilityId === "devtools.transforms.hex.encode";
@@ -231,7 +235,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     jsonSchema ? jsonSchemaFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
         (base64Encode || hexEncode) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
-          stringUnescape ? jsonStringFiles : hexDecode ? hexFiles :
+          stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets :
           (textLines || textStatistics || stringEscape) ? utf8FileTargets : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
@@ -244,7 +248,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     : stringEscape ? { label: "Download JSON", stem: "escaped-string", extension: "json", mime: "application/json" }
     : stringUnescape ? { label: "Download restored text", stem: "restored-string", extension: "txt", mime: "text/plain;charset=utf-8" }
     : hexEncode ? { label: "Download Hex text", stem: "hex-bytes", extension: "txt", mime: "text/plain" }
-    : hexDecode ? { label: "Download decoded text", stem: "hex-decoded", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
+    : hexDecode ? { label: "Download decoded text", stem: "hex-decoded", extension: "txt", mime: "text/plain;charset=utf-8" }
+    : urlInspect ? { label: "Download JSON", stem: "url-details", extension: "json", mime: "application/json" } : null;
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
@@ -402,7 +407,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const documentFileButtons = documentFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
     label={t(side.label)} inputLabel={t(side.inputLabel)}
     accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : yamlToJson ? ".yaml,.yml" :
-      base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : hexDecode ? ".txt,.hex" : ""}
+      base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : hexDecode ? ".txt,.hex" : urlInspect ? ".txt" : ""}
     loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" :
       yamlToJson ? "Reading YAML file…" : "Reading text file…"}
     disabled={editingLocked || !detail?.enabled} loading={fileLoading === side.target}
