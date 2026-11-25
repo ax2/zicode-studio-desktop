@@ -72,6 +72,7 @@ it("opens the same review on Enter release and ignores an IME confirmation", asy
   down(); fireEvent.blur(input); up();
   expect(invoke).toHaveBeenCalledTimes(1);
 
+  input.focus();
   down(); down({ repeat: true });
   expect(invoke).toHaveBeenCalledTimes(1);
   up();
@@ -80,8 +81,18 @@ it("opens the same review on Enter release and ignores an IME confirmation", asy
     workspaceId: "w",
     request: { kind: "queryModel", sceneId: "s", action: { kind: "expand", query: "开销", provider: "fixture", model: "mock" } },
   });
-  expect(review.matches(":disabled")).toBe(true);
-  await act(async () => cancelReview?.());
+  expect(document.activeElement).toBe(input);
+  expect((input as HTMLInputElement).readOnly).toBe(true);
   expect(review.matches(":disabled")).toBe(false);
+  expect(review.getAttribute("aria-disabled")).toBe("true");
+  down(); up();
+  fireEvent.click(review);
+  fireEvent.click(screen.getByRole("button", { name: "Load search models" }));
+  expect(invoke).toHaveBeenCalledTimes(2);
+
+  await act(async () => cancelReview?.());
+  expect(document.activeElement).toBe(input);
+  expect((input as HTMLInputElement).readOnly).toBe(false);
+  expect(review.getAttribute("aria-disabled")).toBeNull();
   expect(invoke).toHaveBeenCalledTimes(2);
 });
