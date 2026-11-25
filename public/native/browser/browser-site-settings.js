@@ -112,8 +112,9 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
     confirm.replaceChildren(details, cancel, apply);
     cancel.focus();
   }
-  async function load() {
+  async function load(restoreRetryFocus = false) {
     if (stale || !dialog.open) return;
+    let nextRetry;
     actions.disabled = true;
     list.setAttribute("aria-busy", "true");
     list.replaceChildren(el("p", t("Loading saved site permissions…")));
@@ -137,11 +138,19 @@ export function showSiteSettings({ origin, blockedPermissions, request, onClose 
       if (!dialog.open || invalidatedBy(error)) return;
       const failure = el("p", `${t("Could not read saved site permissions.")} ${errorText(error)}`);
       failure.setAttribute("role", "alert");
-      const retry = button("Retry reading permissions", () => { close.focus(); void load(); });
+      const retry = button("Retry reading permissions", () => {
+        const hadFocus = document.activeElement === retry;
+        if (hadFocus) close.focus();
+        void load(hadFocus);
+      });
+      nextRetry = retry;
       list.replaceChildren(failure, retry);
     } finally {
       list.setAttribute("aria-busy", "false");
       actions.disabled = stale;
+      if (restoreRetryFocus && nextRetry && dialog.open && !stale && document.activeElement === close) {
+        nextRetry.focus({ preventScroll: true });
+      }
     }
   }
   dialog.addEventListener("keydown", event => {
