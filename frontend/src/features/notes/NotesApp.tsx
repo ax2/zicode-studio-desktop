@@ -534,6 +534,11 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
   const snapshot = store((state) => state.snapshot);
   const loading = store((state) => state.loading);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const draftRevision = useRef(0);
+  const edit = (setValue: (value: string) => void, value: string) => {
+    draftRevision.current += 1;
+    setValue(value);
+  };
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -558,12 +563,15 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
       onSubmit={async (event) => {
         event.preventDefault();
         setError(null);
+        const form = event.currentTarget;
+        const revision = draftRevision.current;
         try {
           await store.getState().updateNotebook(
             notebook.id,
             title,
             icon,
             parentId || null,
+            () => form.isConnected && draftRevision.current === revision,
           );
         } catch (updateError) {
           setError(updateError instanceof Error ? updateError.message : String(updateError));
@@ -574,17 +582,16 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
         <span>{t("Icon")}</span>
         <div className="notes-icon-box">
           <EmojiPicker
-            onPick={setIcon}
+            onPick={(value) => edit(setIcon, value)}
             label={t("Choose an icon")}
             trigger={
               <input
                 id="notes-edit-icon"
-                ref={inputRef}
                 className="notes-field-input"
                 maxLength={8}
                 title={t("Choose an icon")}
                 value={icon}
-                onChange={(event) => setIcon(event.target.value)}
+                onChange={(event) => edit(setIcon, event.target.value)}
               />
             }
           />
@@ -594,9 +601,10 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
         <span>{t("Notebook name")}</span>
         <input
           className="notes-field-input"
+          ref={inputRef}
           required
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => edit(setTitle, event.target.value)}
         />
       </label>
       <div className="notes-field">
@@ -606,7 +614,7 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
           value={parentId}
           label={t("Parent notebook")}
           options={parentOptions}
-          onChange={setParentId}
+          onChange={(value) => edit(setParentId, value)}
         />
       </div>
       {error ? <p className="notes-form-error">{error}</p> : null}
