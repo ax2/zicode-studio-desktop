@@ -341,6 +341,27 @@ test("captures loaded composed image metadata without exposing unsupported pixel
   });
 });
 
+test("captures rendered component tables in order while keeping nested table data separate", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  const table = (caption, value) => `<table><caption>${caption}</caption><tr><td>${value}</td></tr></table>`;
+  document.body.innerHTML = table("Plain", "First") + '<div id="table-host">' +
+    table("Assigned", "Second").replace("<table>", '<table slot="shown">') +
+    table("Projected nested", "Inner slot").replace("<table>", '<table slot="nested">') +
+    table("Unassigned", "Hidden") + '</div>';
+  const root = document.getElementById("table-host").attachShadow({ mode: "open" });
+  root.innerHTML = table("Component", `Before ${table("Nested component table", "Inner")}<slot name="nested"></slot> after`) +
+    `<slot name="shown">${table("Fallback", "Hidden")}</slot>` +
+    `<div aria-hidden="true">${table("Hidden", "Hidden")}</div>`;
+  expect(captureSelection()).toMatchObject({
+    tables: [
+      { caption: "Plain", firstRowHeader: false, rows: [["First"]] },
+      { caption: "Component", firstRowHeader: false, rows: [["Before after"]] },
+      { caption: "Assigned", firstRowHeader: false, rows: [["Second"]] },
+    ],
+    tablesTruncated: false,
+  });
+});
+
 test("keeps a paragraph selection on a page with many unrelated controls", () => {
   vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
   document.body.innerHTML = "<p>Selected paragraph</p><div>" + "<button>Action</button>".repeat(260) + "</div>";
