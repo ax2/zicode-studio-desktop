@@ -4,7 +4,44 @@ use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use tauri::WebviewWindow;
 #[cfg(windows)]
-pub(super) const SCRIPT: &str = include_str!("capture.js");
+const SCRIPT: &str = include_str!("capture.js");
+#[cfg(windows)]
+pub(super) const IMAGE_IDENTITY: &str = include_str!("image_identity.js");
+
+#[cfg(windows)]
+pub(super) enum Script<T> {
+    Page(&'static str),
+    Isolated {
+        source: String,
+        fallback: Option<MetadataFallback<T>>,
+    },
+}
+
+#[cfg(windows)]
+pub(super) struct MetadataFallback<T> {
+    pub source: String,
+    pub decode: fn(&str, &str) -> Result<T, String>,
+}
+#[cfg(windows)]
+impl<T> From<&'static str> for Script<T> {
+    fn from(source: &'static str) -> Self {
+        Self::Page(source)
+    }
+}
+
+#[cfg(windows)]
+pub(super) fn valid_image_locator(locator: &str) -> bool {
+    locator.split_once(':').is_some_and(|(capture, index)| {
+        capture.len() == 32
+            && uuid::Uuid::parse_str(capture).is_ok()
+            && index.len() <= 2
+            && !index.starts_with('0')
+            && index.bytes().all(|value| value.is_ascii_digit())
+            && index
+                .parse::<u8>()
+                .is_ok_and(|value| (1..=24).contains(&value))
+    })
+}
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PageText {
@@ -83,6 +120,8 @@ pub struct PageImage {
     pub width: u32,
     pub height: u32,
     pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) locator: Option<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -221,9 +260,28 @@ pub(super) fn decode(raw: &str, native_url: &str) -> Result<PageText, String> {
                     || !(1..=100_000).contains(&image.width)
                     || !(1..=100_000).contains(&image.height)
                     || image.url.as_deref().is_some_and(|url| !is_web_url(url))
+                    || image
+                        .locator
+                        .as_deref()
+                        .is_some_and(|locator| image.url.is_none() || !valid_image_locator(locator))
             })
     {
         return Err("Invalid browser image or page metadata response".into());
+    }
+    Ok(page)
+}
+#[cfg(windows)]
+fn decode_metadata(raw: &str, native_url: &str) -> Result<PageText, String> {
+    let mut page = decode(raw, native_url)?;
+    for image in page
+        .images
+        .iter_mut()
+        .chain(page.frames.iter_mut().flat_map(|frame| &mut frame.images))
+    {
+        image.locator = None;
+    }
+    for frame in &mut page.frames {
+        frame.image_locator = None;
     }
     Ok(page)
 }
@@ -236,7 +294,15 @@ pub(crate) async fn browser_capture_page(
     crate::require_workspace_window(&window)?;
     #[cfg(windows)]
     {
-        run(window, tab, expected_url, None, SCRIPT, decode).await
+        let capture = uuid::Uuid::new_v4().simple();
+        let script = Script::Isolated {
+            source: format!("(() => {{ const registerStudioImage = ({IMAGE_IDENTITY})().begin('{capture}'); return {SCRIPT}; }})()"),
+            fallback: Some(MetadataFallback {
+                source: format!("(() => {{ const registerStudioImage = null; return {SCRIPT}; }})()"),
+                decode: decode_metadata,
+            }),
+        };
+        run(window, tab, expected_url, None, script, decode).await
     }
     #[cfg(not(windows))]
     {
@@ -250,7 +316,7 @@ pub(super) async fn run<T: Send + 'static>(
     tab: String,
     expected_url: String,
     expected_revision: Option<String>,
-    script: impl Into<std::borrow::Cow<'static, str>>,
+    script: impl Into<Script<T>>,
     decode: fn(&str, &str) -> Result<T, String>,
 ) -> Result<Capture<T>, String> {
     let script = script.into();
@@ -368,6 +434,32 @@ mod tests {
         media["frames"][0]["imageLocator"] =
             serde_json::json!({"path":[0,2],"timeOrigin":"1700000000000.123"});
         assert!(valid(&media));
+        let locator = "b0f021473af34f6da1412710c2f30010:24";
+        let mut located = media.clone();
+        located["images"] = serde_json::json!([image.clone()]);
+        located["images"][0]["locator"] = serde_json::json!(locator);
+        located["frames"][0]["images"][0]["locator"] = serde_json::json!(locator);
+        assert!(valid(&located));
+        let fallback = decode_metadata(&located.to_string(), url)
+            .expect("valid fallback text and media metadata");
+        assert_eq!(fallback.text, "Body");
+        assert_eq!(fallback.tables[0].caption, "Inventory");
+        assert_eq!(
+            fallback.images[0].url.as_deref(),
+            Some("https://example.com/image.png")
+        );
+        assert!(fallback.images[0].locator.is_none());
+        assert!(fallback.frames[0].images[0].locator.is_none());
+        assert!(fallback.frames[0].image_locator.is_none());
+        for rejected in [
+            "b0f021473af34f6da1412710c2f30010:25",
+            "b0f021473af34f6da1412710c2f30010:01",
+            "b0f021473af34f6da1412710c2f30010:+1",
+            "untrusted:1",
+        ] {
+            located["images"][0]["locator"] = serde_json::json!(rejected);
+            assert!(!valid(&located), "{rejected}");
+        }
         let mut stale = media.clone();
         stale["frames"][0]["imageLocator"]["path"] = serde_json::json!([0, 24]);
         assert!(!valid(&stale));

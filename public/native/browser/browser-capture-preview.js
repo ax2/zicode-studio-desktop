@@ -1,5 +1,5 @@
 import { createBrowserCompare } from "./browser-compare.js";
-import { createBrowserCaptureMedia } from "./browser-capture-media.js";
+import { createBrowserCaptureMedia, hasImageLocator } from "./browser-capture-media.js";
 import { createBrowserCaptureFrames } from "./browser-capture-frames.js";
 import { createBrowserCaptureLinks } from "./browser-capture-links.js";
 import { createBrowserCaptureTables } from "./browser-capture-tables.js";
@@ -248,8 +248,8 @@ export function showBrowserCapture(capture, onClose, prepareDraft, createNoteWri
   let clip;
   if (createNoteWriter) {
     const canSaveImageText = recognizeImage && (
-      capture.page.images?.some(image => image.url) ||
-      capture.page.frames?.some(frame => frame.imageLocator && frame.images?.some(image => image.url))
+      capture.page.images?.some(hasImageLocator) ||
+      capture.page.frames?.some(frame => frame.imageLocator && frame.images?.some(hasImageLocator))
     );
     clip = createBrowserNoteClip({ capture, writer: createNoteWriter(isOpen),
       isOpen,

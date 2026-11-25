@@ -116,7 +116,9 @@ pub(crate) async fn browser_preview_image(
 #[cfg(windows)]
 mod windows {
     use super::*;
-    use crate::browser::capture::{is_web_url, run, Capture};
+    use crate::browser::capture::{
+        is_web_url, run, valid_image_locator, Capture, Script, IMAGE_IDENTITY,
+    };
     use base64::{engine::general_purpose::STANDARD, Engine};
     use image::{codecs::png::PngDecoder, DynamicImage, ImageDecoder, Limits};
     use std::io::Cursor;
@@ -198,6 +200,7 @@ mod windows {
             || !(1..=100_000).contains(&image.width)
             || !(1..=100_000).contains(&image.height)
             || !image.url.as_deref().is_some_and(is_web_url)
+            || !image.locator.as_deref().is_some_and(valid_image_locator)
         {
             return Err("Invalid browser image source.".into());
         }
@@ -217,7 +220,7 @@ mod windows {
         let descriptor = serde_json::to_string(image).map_err(|e| e.to_string())?;
         let location = serde_json::to_string(frame).map_err(|e| e.to_string())?;
         let script = format!(
-            "({})({descriptor}, {location}, {max_side})",
+            "({})({descriptor}, {location}, {max_side}, ({IMAGE_IDENTITY})().resolve)",
             include_str!("image_ocr.js")
         );
         run(
@@ -225,13 +228,17 @@ mod windows {
             tab.clone(),
             expected_url.clone(),
             Some(expected_revision.clone()),
-            script,
+            Script::Isolated {
+                source: script,
+                fallback: None,
+            },
             parse_pixels,
         )
         .await
     }
 
-    fn provenance(target: ImageTarget, captured: Capture<String>) -> ImageProvenance {
+    fn provenance(mut target: ImageTarget, captured: Capture<String>) -> ImageProvenance {
+        target.image.locator = None;
         ImageProvenance {
             source: target.image,
             page_url: target.expected_url,
