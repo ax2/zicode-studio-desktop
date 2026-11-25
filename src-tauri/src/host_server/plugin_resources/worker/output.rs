@@ -195,6 +195,7 @@ fn normalize_image_failure(result: &Value) -> Result<Option<Value>, ApiError> {
         "INPUT_LIMIT" => "输入图片为空或超过 32 MiB",
         "IMAGE_DIMENSION_LIMIT" => "图片尺寸超过当前能力上限",
         "IMAGE_MEMORY_LIMIT" => "图片解码内存超过当前能力上限",
+        "IMAGE_ANIMATED" => "请选择一张静态 PNG、JPEG 或 WebP 图片",
         "INVALID_IMAGE" => "输入内容不是受支持的 PNG、JPEG 或 WebP 图片",
         "OUTPUT_LIMIT" => "编码结果超过 32 MiB 输出限制",
         "IMAGE_OPERATION_FAILED" => "图片处理失败或超出运行资源限制",
