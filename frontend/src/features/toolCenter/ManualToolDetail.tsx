@@ -223,6 +223,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const textLines = transformsTool && /^devtools\.transforms\.lines\.(deduplicate|ascending|descending|nonempty|trim)$/.test(tool.capabilityId);
   const textStatistics = transformsTool && tool.capabilityId === "devtools.transforms.stats.inspect";
   const urlInspect = transformsTool && tool.capabilityId === "devtools.transforms.url.inspect";
+  const htmlEscape = transformsTool && tool.capabilityId === "devtools.transforms.html.escape";
+  const htmlUnescape = transformsTool && tool.capabilityId === "devtools.transforms.html.unescape";
+  const htmlText = htmlEscape || htmlUnescape;
   const stringEscape = transformsTool && tool.capabilityId === "devtools.transforms.string.escape";
   const stringUnescape = transformsTool && tool.capabilityId === "devtools.transforms.string.unescape";
   const hexEncode = transformsTool && tool.capabilityId === "devtools.transforms.hex.encode";
@@ -236,7 +239,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
         (base64Encode || hexEncode) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
           stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets :
-          (textLines || textStatistics || stringEscape) ? utf8FileTargets : [];
+          (textLines || textStatistics || stringEscape || htmlText) ? utf8FileTargets : [];
   const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
     : yamlToJson ? { label: "Download JSON", stem: "converted", extension: "json", mime: "application/json" }
@@ -249,7 +252,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     : stringUnescape ? { label: "Download restored text", stem: "restored-string", extension: "txt", mime: "text/plain;charset=utf-8" }
     : hexEncode ? { label: "Download Hex text", stem: "hex-bytes", extension: "txt", mime: "text/plain" }
     : hexDecode ? { label: "Download decoded text", stem: "hex-decoded", extension: "txt", mime: "text/plain;charset=utf-8" }
-    : urlInspect ? { label: "Download JSON", stem: "url-details", extension: "json", mime: "application/json" } : null;
+    : urlInspect ? { label: "Download JSON", stem: "url-details", extension: "json", mime: "application/json" }
+    : htmlEscape ? { label: "Download escaped text", stem: "html-escaped", extension: "txt", mime: "text/plain;charset=utf-8" }
+    : htmlUnescape ? { label: "Download restored text", stem: "html-restored", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
   const singleTableTarget = dataTransform ? "transform" : tableWorkbench ? "workbench" : qualityFormat;
   const singleFileTarget = jsonPath ? "json-path" : singleTableTarget;
   const transformIdentity = JSON.stringify([scope.sceneId, scope.workspaceId, tool.pluginId, tool.capabilityId, revision]);
@@ -365,7 +370,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const wire = response.result;
       const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
         wire.contractVersion === "1.0.0-rc.1";
-      if (textDownload && ownsExecution() && outcome.successful && declared && (base64Tool || textLines || stringUnescape || hexEncode || hexDecode || outcome.text.trim().length > 0)) {
+      if (textDownload && ownsExecution() && outcome.successful && declared && (base64Tool || textLines || stringUnescape || hexEncode || hexDecode || htmlText || outcome.text.trim().length > 0)) {
         setDownloadExecution({ identity: transformIdentity, sequence, api, source: values, text: outcome.text });
       }
       if (independentMerge && outcome.successful) {
@@ -407,7 +412,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const documentFileButtons = documentFileTargets.map(side => <FileImportButton key={side.target + ":" + transformIdentity}
     label={t(side.label)} inputLabel={t(side.inputLabel)}
     accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : yamlToJson ? ".yaml,.yml" :
-      base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : hexDecode ? ".txt,.hex" : urlInspect ? ".txt" : ""}
+      base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : hexDecode ? ".txt,.hex" : urlInspect ? ".txt" :
+        htmlText ? ".html,.htm,.txt" : ""}
     loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" :
       yamlToJson ? "Reading YAML file…" : "Reading text file…"}
     disabled={editingLocked || !detail?.enabled} loading={fileLoading === side.target}
