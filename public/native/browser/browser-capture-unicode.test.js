@@ -1,6 +1,8 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
+import { browserDraftPrompt } from "./browser-chat-draft.js";
+import { browserNoteContent } from "./browser-note-snapshot.js";
 
 const script = readFileSync("src-tauri/src/browser/capture.js", "utf8");
 
@@ -183,6 +185,42 @@ function selectRange(start, end = start) {
   selection.removeAllRanges();
   selection.addRange(range);
 }
+
+
+test("preserves text flow across inline elements and real line or paragraph breaks", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  document.body.innerHTML = [
+    '<p>Read the <a href="/reference">linked <strong>reference</strong></a> with <em>context</em>; run <code>git status</code>.</p>',
+    '<p><span>版本</span><em>更新</em>，就绪。<span hidden>Hidden</span> <span contenteditable>Private</span>完成。</p>',
+    '<p>First<br>Second <em>line</em>.</p>',
+    '<pre>line A\n  indented B</pre>',
+    '<div>Tail <span style="display: contents"><em>inline</em></span><span style="display: block">Next line</span></div>',
+  ].join("");
+  const link = document.querySelector("a");
+  Object.defineProperty(link, "innerText", { value: link.textContent });
+  const page = captureSelection();
+  expect(page.text).toBe([
+    "Read the linked reference with context; run git status.", "版本更新，就绪。 完成。", "First", "Second line.",
+    "line A", "  indented B", "Tail inline", "Next line", "",
+  ].join("\n"));
+  expect(page.textTruncated).toBe(false);
+  const capture = { page, capturedAt: "2026-11-25T00:00:00Z" };
+  const paragraph = "Read the linked reference with context; run git status.";
+  expect(browserNoteContent(capture)).toContain(paragraph);
+  expect(browserDraftPrompt(capture)).toContain(paragraph);
+});
+
+test("keeps the UTF-16 body limit across adjacent inline nodes", () => {
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+  const paragraph = document.createElement("p");
+  paragraph.textContent = "字".repeat(47999);
+  const emphasis = paragraph.appendChild(document.createElement("em"));
+  emphasis.textContent = "😀";
+  document.body.append(paragraph);
+  expect(captureSelection()).toMatchObject({ text: "字".repeat(47999), textTruncated: true });
+  paragraph.firstChild.nodeValue = "字".repeat(47998);
+  expect(captureSelection()).toMatchObject({ text: "字".repeat(47998).concat("😀"), textTruncated: false });
+});
 
 test("retains normal text selection but omits a protected form or a range crossing it", () => {
   vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
