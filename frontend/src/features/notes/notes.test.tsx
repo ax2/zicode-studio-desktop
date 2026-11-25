@@ -3687,10 +3687,17 @@ describe("notes React components", () => {
     await waitFor(() => expect(document.querySelector(".notes-manage-popover")).toBeTruthy());
     const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
     moveAction?.click();
-    await waitFor(() => expect(container.querySelector(".notes-move-popover")).toBeTruthy());
+    await waitFor(() => expect(document.querySelector(".notes-move-popover")).toBeTruthy());
 
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    await waitFor(() => expect(container.querySelector(".notes-move-popover")).toBeNull());
+    const shellKey = vi.fn();
+    document.addEventListener("keydown", shellKey);
+    try {
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+      await waitFor(() => expect(document.querySelector(".notes-move-popover")).toBeNull());
+      expect(shellKey).not.toHaveBeenCalled();
+    } finally {
+      document.removeEventListener("keydown", shellKey);
+    }
   });
 
   it("moves focus into the move popover and restores it on close", async () => {
@@ -3707,7 +3714,7 @@ describe("notes React components", () => {
     const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
     moveAction?.click();
     await waitFor(() =>
-      expect(container.querySelector(".notes-move-popover")).toBeTruthy(),
+      expect(document.querySelector(".notes-move-popover")).toBeTruthy(),
     );
     await waitFor(() =>
       expect(document.activeElement?.matches(".notes-move-popover-item")).toBe(
@@ -3715,11 +3722,9 @@ describe("notes React components", () => {
       ),
     );
 
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     await waitFor(() =>
-      expect(container.querySelector(".notes-move-popover")).toBeNull(),
+      expect(document.querySelector(".notes-move-popover")).toBeNull(),
     );
     expect(document.activeElement).toBe(moveBtn);
   });
@@ -3749,10 +3754,10 @@ describe("notes React components", () => {
     const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
     moveAction?.click();
     await waitFor(() =>
-      expect(container.querySelector(".notes-move-popover")).toBeTruthy(),
+      expect(document.querySelector(".notes-move-popover")).toBeTruthy(),
     );
     const buttons = Array.from(
-      container.querySelectorAll<HTMLElement>(
+      document.querySelectorAll<HTMLElement>(
         ".notes-move-popover-item:not([disabled])",
       ),
     );
@@ -3761,20 +3766,11 @@ describe("notes React components", () => {
     const last = buttons[1];
 
     last.focus();
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
-    );
+    fireEvent.keyDown(last, { key: "Tab" });
     await waitFor(() => expect(document.activeElement).toBe(first));
 
     first.focus();
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Tab",
-        shiftKey: true,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+    fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
     await waitFor(() => expect(document.activeElement).toBe(last));
   });
 

@@ -13,7 +13,8 @@ import { TrashView } from "./TrashView";
 
 export { markUnresolvedWikilinks, wikilinkMarkdown } from "./note-links";
 
-import { cloneElement, useEffect, useId, useRef, useState } from "react";
+import { cloneElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 // @ts-expect-error plain JS module without type declarations (public/ui/attachment-viewer.js)
 import { attachmentIconFor, initAttachmentViewer } from "../../../../public/ui/attachment-viewer.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/image-lightbox.js)
@@ -919,7 +920,11 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
   const selectMode = store((state) => state.selectMode);
   const selectedNoteIds = store((state) => state.selectedNoteIds);
   const isSelected = selectedNoteIds.includes(referenceKey(note));
-  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
+  const [moveAnchor, setMoveAnchor] = useState<HTMLButtonElement | null>(null);
+  const closeMove = useCallback(() => {
+    setMoveAnchor(null);
+    store.getState().closeMovePopover();
+  }, [store]);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -984,7 +989,8 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         isSelected ? " notes-selected" : ""
       }`}
       draggable={false}
-      onClick={() => {
+      onClick={(event) => {
+        if (!event.currentTarget.contains(event.target as Node)) return;
         if (selectMode) {
           store.getState().toggleNoteSelected(note);
           return;
@@ -992,14 +998,14 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         void selectNote(note);
       }}
       onPointerDown={(event) => {
-        if ((event.target as HTMLElement).closest?.("button"))
-          return;
+        const target = event.target as HTMLElement;
+        if (!event.currentTarget.contains(target) || target.closest?.("button")) return;
         beginPointerDrag(event);
       }}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         const target = event.target as HTMLElement;
-        if (target.closest?.("button")) return;
+        if (!event.currentTarget.contains(target) || target.closest?.("button")) return;
         event.preventDefault();
         if (selectMode) {
           store.getState().toggleNoteSelected(note);
@@ -1024,14 +1030,13 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         </span>
       </span>
       <span className="notes-row-actions">
-      <PinButton store={store} note={note} />
-      <NoteManageButton store={store} note={note} onMove={rect => {
-        const width = Math.min(280, window.innerWidth - 16);
-        setPopoverPos({ top: Math.round(rect.bottom + 4), left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) });
-        openMovePopover(note);
-      }} />
+        <PinButton store={store} note={note} />
+        <NoteManageButton store={store} note={note} onMove={anchor => {
+          setMoveAnchor(anchor);
+          openMovePopover(note);
+        }} />
       </span>
-      {popoverPos ? <MovePopover store={store} note={note} pos={popoverPos} onClose={() => setPopoverPos(null)} /> : null}
+      {moveAnchor ? <MovePopover store={store} note={note} anchor={moveAnchor} onClose={closeMove} /> : null}
     </div>
   );
 }
@@ -1064,90 +1069,116 @@ export function dropTargetIdAt(x: number, y: number): string | null {
 function MovePopover({
   store,
   note,
-  pos,
+  anchor,
   onClose,
 }: {
   store: NotesStore;
   note: NoteSummary;
-  pos: { top: number; left: number };
+  anchor: HTMLButtonElement;
   onClose(): void;
 }) {
-  const snapshot = store((state) => state.snapshot);
+  const notebooks = store((state) => state.snapshot.notebooks);
+  const destinations = notebooks.filter((notebook) => notebook.id !== note.notebookId);
   const ref = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  useLayoutEffect(() => {
+    const panel = ref.current;
+    if (!panel) return;
+    const place = () => {
+      const origin = anchor.getBoundingClientRect();
+      const { width, height } = panel.getBoundingClientRect();
+      const margin = 8;
+      const gap = 4;
+      const below = origin.bottom + gap;
+      const above = origin.top - gap - height;
+      const lowerEdge = window.innerHeight - margin - height;
+      const top = below <= lowerEdge || above < margin ? Math.min(below, lowerEdge) : above;
+      const left = Math.min(origin.left, window.innerWidth - margin - width);
+      const next = { top: Math.max(margin, top), left: Math.max(margin, left) };
+      setPosition(current => current.top === next.top && current.left === next.left ? current : next);
+    };
+    place();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(place) : null;
+    observer?.observe(panel);
+    window.addEventListener("resize", place);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", place);
+    };
+  }, [anchor]);
   useEffect(() => {
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    ref.current
-      ?.querySelector<HTMLButtonElement>(".notes-move-popover-item")
-      ?.focus();
+    const panel = ref.current;
+    if (!panel) return;
+    (panel.querySelector<HTMLButtonElement>(".notes-move-popover-item") ?? panel).focus({ preventScroll: true });
     const onPointerDown = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) {
-        onClose();
-        store.getState().closeMovePopover();
-      }
+      if (event.target instanceof Node && !panel.contains(event.target)) onClose();
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
         onClose();
-        store.getState().closeMovePopover();
+        anchor.focus({ preventScroll: true });
         return;
       }
       if (event.key !== "Tab") return;
       const focusables = Array.from(
         ref.current?.querySelectorAll<HTMLElement>("button:not([disabled])") ?? [],
       );
-      if (focusables.length === 0) return;
+      if (focusables.length === 0) {
+        onClose();
+        anchor.focus({ preventScroll: true });
+        return;
+      }
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
       const active = document.activeElement;
+      const outsideList = !focusables.some(button => button === active);
       if (event.shiftKey) {
-        if (active === first || !ref.current?.contains(active)) {
+        if (active === first || outsideList) {
           event.preventDefault();
           last.focus();
         }
-      } else if (active === last || !ref.current?.contains(active)) {
+      } else if (active === last || outsideList) {
         event.preventDefault();
         first.focus();
       }
     };
     document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
+    panel.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus();
+      panel.removeEventListener("keydown", onKeyDown);
     };
-  }, [onClose, store]);
-  return (
-    <div ref={ref} className="notes-move-popover" role="dialog" aria-label={t("Move to notebook")} style={{ top: pos.top, left: pos.left }}>
+  }, [anchor, onClose]);
+  return createPortal(
+    <div ref={ref} className="notes-move-popover" role="dialog" aria-label={t("Move to notebook")} tabIndex={-1}
+      style={position}>
       <strong className="notes-move-popover-title">
         {t("Move to notebook")} · <span translate="no">{note.title}</span>
       </strong>
       <div className="notes-move-popover-list">
-        {snapshot.notebooks
-          .filter((notebook) => notebook.id !== note.notebookId)
-          .map((notebook) => (
-            <button
-              key={notebook.id}
-              type="button"
-              className="notes-move-popover-item"
-              onClick={() => {
-                onClose();
-                store.getState().closeMovePopover();
-                void store.getState().moveNoteTo(note.notebookId, note.id, notebook.id);
-              }}
-            >
-              <span className="notes-nav-item-icon">{notebook.icon || DEFAULT_NOTEBOOK_ICON}</span>
-              <span className="notes-nav-item-label" translate="no">{notebook.title}</span>
-            </button>
-          ))}
-        {snapshot.notebooks.filter((notebook) => notebook.id !== note.notebookId).length === 0 ? (
+        {destinations.map((notebook) => (
+          <button
+            key={notebook.id}
+            type="button"
+            className="notes-move-popover-item"
+            onClick={() => {
+              onClose();
+              anchor.focus({ preventScroll: true });
+              void store.getState().moveNoteTo(note.notebookId, note.id, notebook.id);
+            }}
+          >
+            <span className="notes-nav-item-icon">{notebook.icon || DEFAULT_NOTEBOOK_ICON}</span>
+            <span className="notes-nav-item-label" translate="no">{notebook.title}</span>
+          </button>
+        ))}
+        {!destinations.length ? (
           <p className="notes-nav-message">{t("No other notebooks")}</p>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
