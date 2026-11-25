@@ -24,6 +24,8 @@ const localMailErrors: Record<string,string> = {
 
 export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?:Invoke,gmailTransport?:Invoke}) {
   const [accounts,setAccounts]=useState<Account[]>([]), [account,setAccount]=useState("");
+  // Opening a reply can switch the draft account while the same search stays open.
+  const [searchVersion, setSearchVersion] = useState(0);
   const [provider,setProvider]=useState("gmail"), [address,setAddress]=useState("");
   const [drafts,setDrafts]=useState<Draft[]>([]), [edit,setEdit]=useState<Draft>(blank);
   const [dirty,setDirty]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState("");
@@ -54,7 +56,9 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     setAccount(id);setDrafts(rows);setEdit(blank());setDirty(false);
   }
   async function load(id:string){
-    applyAccount(id, id ? await invoke<Draft[]>({kind:"drafts",account:id}) : []);
+    const rows = id ? await invoke<Draft[]>({kind:"drafts",account:id}) : [];
+    if (id !== account) setSearchVersion(version => version + 1);
+    applyAccount(id,rows);
   }
   function openReply(draft:Draft){
     setDrafts(old=>[draft,...old.filter(item=>item.id!==draft.id)]);
@@ -77,7 +81,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   useEffect(()=>{let live=true;lock.current=true;setBusy(true);void (async()=>{
     try{const rows=await invoke<Account[]>({kind:"accounts"});const id=rows[0]?.id??"";
       const list=id?await invoke<Draft[]>({kind:"drafts",account:id}):[];
-      if(live){setAccounts(rows);setAccount(id);setDrafts(list)}
+      if(live){setAccounts(rows);setAccount(id);setDrafts(list);setSearchVersion(version => version + 1)}
     }catch{if(live)setError(t("Could not access local mail data."))}finally{if(live){lock.current=false;setBusy(false)}}
   })();return()=>{live=false}},[invoke]);
   useEffect(()=>{
@@ -118,7 +122,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     })}}><label>{t("Mail provider")}<select className="ui-select" value={provider} onChange={e=>setProvider(e.target.value)}><option value="gmail">{t("Gmail")}</option><option value="alibaba">{t("Alibaba Mail")}</option></select></label>
     <label>{t("Email address")}<input className="ui-input" required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button className="ui-button ui-button--primary" type="submit">{t("Add local account")}</button></form></fieldset>
-    {account&&<CachedMailSearch key={"search-"+account} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport} onReply={replyFromCache} replyBlocked={busy||mailBusy}/>}
+    {account&&<CachedMailSearch key={"search-"+searchVersion} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport} onReply={replyFromCache} replyBlocked={busy||mailBusy}/>}
     {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}
       onReply={replyFromCache} draftBusy={busy}/>}
     {alibaba&&<AlibabaInbox key={account} id={account} folder={label} setFolder={setLabel} invoke={alibaba} discard={discard} onBusy={reportAlibabaBusy}
