@@ -40,8 +40,8 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
   panel.append(hint);
 
   let pending = null;
-  button.addEventListener("click", () => {
-    const expanded = panel.hidden;
+  function setExpanded(expanded) {
+    if (expanded === !panel.hidden) return;
     const restoreFocus = !expanded && panel.contains(document.activeElement);
     panel.hidden = !expanded;
     button.setAttribute("aria-expanded", String(expanded));
@@ -51,8 +51,10 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
       if (restoreFocus) button.focus({ preventScroll: true });
       if (pending && pending.trigger === read) cancelWork();
     }
-  });
-  if (!peers.length) return { button, panel };
+  }
+  const collapse = () => setExpanded(false);
+  button.addEventListener("click", () => setExpanded(panel.hidden));
+  if (!peers.length) return { button, panel, collapse };
 
   const choices = document.createElement("div"); choices.className = "browser-compare-choices";
   choices.setAttribute("role", "group"); choices.setAttribute("aria-label", t("Other loaded tabs"));
@@ -167,5 +169,5 @@ export function createBrowserCompare({ capture, peers, readSource, prepare, setB
     });
   });
   update();
-  return { button, panel, update };
+  return { button, panel, collapse, update };
 }
