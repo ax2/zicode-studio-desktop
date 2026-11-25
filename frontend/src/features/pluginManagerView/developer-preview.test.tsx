@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
 import type { ToolPage } from "../toolCenter/manual-tools";
+import { LocalPluginActivationCard, type InstalledToolActions } from "./LocalPluginActivationCard";
 import { PluginManagerViewApp } from "./PluginManagerViewApp";
 import type { ManagedPlugin } from "./pluginManagerLogic";
 
@@ -199,4 +200,65 @@ it("keeps focus where the user moved it while activation was running", async () 
   resolveActivation();
   await screen.findByRole("button", { name: "Open Format JSON" });
   expect(document.activeElement).toBe(search);
+});
+
+it("retries listing the same installed package and opens a tool only after the user chooses it", async () => {
+  const flow = setup({ required: false });
+  flow.installedTools.list.mockRejectedValueOnce(Error("Unavailable")).mockRejectedValueOnce(Error("Still unavailable"));
+  await installPackage();
+  clickFocused(button("Enable plugin"));
+  const retry = () => setupCard().getByRole("button", { name: "Try again" });
+  await setupCard().findByRole("button", { name: "Try again" });
+  clickFocused(retry());
+  await setupCard().findByRole("button", { name: "Try again" });
+  expect(document.activeElement).toBe(retry());
+  clickFocused(retry());
+  const direct = await setupCard().findByRole("button", { name: "Open Format JSON" });
+  expect(document.activeElement).toBe(direct);
+  expect(flow.installedTools.list.mock.calls).toEqual([
+    [preview.pluginId, packageRevision], [preview.pluginId, packageRevision], [preview.pluginId, packageRevision],
+  ]);
+  expect(flow.installedTools.open).not.toHaveBeenCalled();
+  expect(flow.installedTools.openDirectory).not.toHaveBeenCalled();
+  expect(flow.activateReviewed).toHaveBeenCalledTimes(1);
+  fireEvent.click(direct);
+  await waitFor(() => expect(flow.installedTools.open).toHaveBeenCalledWith(preview.pluginId, packageRevision, tool, "directory"));
+});
+
+it.each(["packageRevision", "sceneRevision"] as const)("ignores a late retry after the installed %s changes", async field => {
+  let resolveOld!: (value: ToolPage) => void;
+  let resolveCurrent!: (value: ToolPage) => void;
+  const pending = new Promise<ToolPage>(resolve => { resolveOld = resolve; });
+  const current = new Promise<ToolPage>(resolve => { resolveCurrent = resolve; });
+  const oldPage = { items: [{ ...tool, title: "Old tool response" }], revision: "old-list", total: 1, nextOffset: null };
+  const currentPage = { items: [tool], revision: "new-list", total: 1, nextOffset: null };
+  const installedTools = {
+    list: vi.fn<InstalledToolActions["list"]>()
+      .mockRejectedValueOnce(Error("Unavailable")).mockReturnValueOnce(pending).mockReturnValueOnce(current),
+    open: vi.fn(async () => true),
+    openDirectory: vi.fn(async () => {}),
+  };
+  const plugin: ManagedPlugin = {
+    id: preview.pluginId, name: preview.name, description: "Synthetic plugin", version: preview.version,
+    enabled: true, activationReview,
+  };
+  const props = {
+    busy: false, deferred: false, installedTools,
+    onClose: vi.fn(), onDefer: vi.fn(), onResume: vi.fn(), onError: vi.fn(),
+  };
+  const card = (p: ManagedPlugin) => <><input aria-label="Outside search" /><LocalPluginActivationCard plugin={p} {...props}/></>;
+  const view = render(card(plugin));
+  clickFocused(await setupCard().findByRole("button", { name: "Try again" }));
+  const outside = screen.getByRole("textbox", { name: "Outside search" });
+  outside.focus();
+  const review = { ...activationReview, [field]: "replacement" };
+  view.rerender(card({ ...plugin, activationReview: review }));
+  await waitFor(() => expect(installedTools.list).toHaveBeenLastCalledWith(plugin.id, review.packageRevision));
+  await act(async () => resolveOld(oldPage));
+  expect(setupCard().queryByRole("button", { name: "Open Old tool response" })).toBeNull();
+  expect(setupCard().getByText("Finding available tools…")).toBeTruthy();
+  await act(async () => resolveCurrent(currentPage));
+  expect(setupCard().getByRole("button", { name: "Open Format JSON" })).toBeTruthy();
+  expect(document.activeElement).toBe(outside);
+  expect(installedTools.open).not.toHaveBeenCalled();
 });
