@@ -5,7 +5,7 @@ import { t } from "../../shared/i18n";
 
 
 import {AlibabaInbox, type AlibabaActivity} from "./AlibabaInbox";
-import {GmailInbox} from "./GmailInbox";
+import {GmailInbox, type GmailGrantLoss} from "./GmailInbox";
 import {CachedMailSearch} from './CachedMailSearch';
 import {MailDelivery} from "./MailDelivery";
 
@@ -44,7 +44,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   const [mailActivity,setMailActivity]=useState<{account:string;activity:AlibabaActivity}|null>(null);
   const owner=accounts.find(a=>a.id===account);
   const [label,setLabel]=useState("INBOX");
-  const [gmailSendOwner,setGmailSendOwner]=useState("");
+  const [gmailAuthorization,setGmailAuthorization]=useState<{account:string;send:boolean;revision:number;loss?:GmailGrantLoss}|null>(null);
   const gmail=owner?.provider==="gmail"&&gmailTransport;
   const alibaba=owner?.provider==="alibaba"&&transport;
   const activity=alibaba ? mailActivity?.account===account ? mailActivity.activity : "blocking" : null;
@@ -65,7 +65,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     }finally{if(isCurrent()){lock.current=false;setBusy(false)}}
   }
   function applyAccount(id:string, rows:Draft[]){
-    if(id!==account){setLabel("INBOX");setPasswordOwner("");setGmailSendOwner("");setMailActivity(null)}
+    if(id!==account){setLabel("INBOX");setPasswordOwner("");setGmailAuthorization(null);setMailActivity(null)}
     setAccount(id);setDrafts(rows);setEdit(blank());setDirty(false);setAttachmentRefresh(null);
   }
   async function load(id:string){
@@ -105,7 +105,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     setAttachmentRefresh(null);
     setLabel("INBOX");
     setPasswordOwner("");
-    setGmailSendOwner("");
+    setGmailAuthorization(null);
     setMailActivity(null);
     focusReply.current = undefined;
     attachmentFocus.current = null;
@@ -201,6 +201,22 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
       return changeAttachment(isCurrent, attachment);
     });
   }
+  function reportGmailGrant(send: boolean, authorized = false) {
+    setGmailAuthorization(current => {
+      const previous = current?.account === account ? current : null;
+      // A local status response after a canceled sign-in can still contain the old scope.
+      if (previous?.loss && !authorized) return previous;
+      const revision = previous?.revision ?? 0;
+      return { account, send, revision: authorized ? revision + 1 : revision };
+    });
+  }
+  function gmailGrantLost(loss: GmailGrantLoss) {
+    // A prior send can finish after the user has already reauthorized this account.
+    setGmailAuthorization(current =>
+      current && current.account === account && current.revision === gmailAuthorization?.revision
+        ? { ...current, send: false, loss: current.loss === "connection" ? "connection" : loss }
+        : current);
+  }
   const recoveringAttachments = attachmentRefresh !== null;
   const draftBlocked = busy || recoveringAttachments;
   const savedDraftReady = Boolean(edit.id) && !recoveringAttachments;
@@ -215,8 +231,8 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     <label>{t("Email address")}<input className="ui-input" disabled={mailBusy} required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button className="ui-button ui-button--primary" type="submit" disabled={mailBusy}>{t("Add local account")}</button></form></fieldset>
     {account&&<CachedMailSearch key={`search-${searchVersion}`} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport} onReply={replyFromCache} replyBlocked={draftBlocked||mailBusy}/>}
-    {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={ok=>setGmailSendOwner(ok?account:"")}
-      onReply={replyFromCache} draftBusy={draftBlocked}/>}
+    {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={reportGmailGrant}
+      grantLoss={gmailAuthorization?.account===account ? gmailAuthorization.loss : undefined} onReply={replyFromCache} draftBusy={draftBlocked}/>}
     {alibaba&&<AlibabaInbox key={account} id={account} folder={label} setFolder={setLabel} invoke={alibaba} discard={discard} onBusy={reportAlibabaBusy}
       onConfigured={v=>setPasswordOwner(v?account:"")} onReply={openReply} draftBusy={draftBlocked}/>}
     {account&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
@@ -238,7 +254,8 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
       <button className="ui-button" type="button" ref={addAttachmentButton} disabled={dirty} onClick={event=>startAttachment(event.currentTarget)}>{t("Add attachment")}</button>
       {edit.attachments?.map(file=><div key={file.id}>{file.name} ({file.size} B) <button className="ui-button" type="button" disabled={dirty} onClick={event=>startAttachment(event.currentTarget,file.id)}>{t("Remove attachment")}</button></div>)}
     </div>}
-    {gmail&&owner&&savedDraftReady&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} provider="gmail" invoke={gmail} id={account} address={owner.address} draft={edit} configured={gmailSendOwner===account}/>}
+    {gmail&&owner&&savedDraftReady&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} provider="gmail" invoke={gmail} id={account} address={owner.address} draft={edit}
+      configured={gmailAuthorization?.account===account && gmailAuthorization.send} onGmailGrantLost={gmailGrantLost}/>}
     {alibaba&&owner&&savedDraftReady&&!dirty&&<MailDelivery key={JSON.stringify([account,edit.id,edit.revision])} invoke={alibaba} id={account} address={owner.address} draft={edit} configured={passwordOwner===account}/>}
     {savedDraftReady&&<button className="ui-button" type="button" onClick={()=>{void run(async()=>{if(!await window.confirm(t("Delete this local draft?")))return;
       await invoke({kind:"delete",account,id:edit.id,revision:edit.revision});setDrafts(old=>old.filter(item=>item.id!==edit.id));setEdit(blank());setDirty(false);

@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useId,useRef,useState} from "react";
 import {t} from "../../shared/i18n";
-import {gmailError} from "./GmailInbox";
+import {gmailError, type GmailGrantLoss} from "./GmailInbox";
 import {mailError} from "./AlibabaInbox";
 import type {Draft,Invoke} from "./index";
 type Provider = "gmail" | "alibaba";
@@ -34,13 +34,16 @@ function DraftPreview({text}:{text:string}){
   </section>;
 }
 
-export function MailDelivery({invoke,id,address,draft,configured,provider="alibaba"}:{provider?:Provider,invoke:Invoke,id:string,address:string,draft:Draft,configured:boolean}){
+export function MailDelivery({invoke,id,address,draft,configured,provider="alibaba",onGmailGrantLost}:{
+  provider?:Provider; invoke:Invoke; id:string; address:string; draft:Draft; configured:boolean;
+  onGmailGrantLost?:(loss:GmailGrantLoss)=>void;
+}){
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [check, setCheck] = useState<"pending" | "retrying" | "ready" | "failed">("pending");
   const [attempt, setAttempt] = useState(0);
   const [review, setReview] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ text: string; grantLoss?: GmailGrantLoss } | null>(null);
   const deliveryLocked = outcome !== null && outcome !== "not_submitted";
   const explain = provider === "gmail" ? gmailError : mailError;
   const reviewButton = useRef<HTMLButtonElement>(null);
@@ -55,7 +58,7 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
     active.current = owner;
     setCheck(attempt === 0 ? "pending" : "retrying");
     setReview(false);
-    setError("");
+    setError(null);
     void readReceipt().then(record => {
       if (active.current !== owner) return;
       // An empty local read cannot prove that an uncertain send did not happen.
@@ -64,7 +67,7 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
     }).catch(() => {
       if (active.current !== owner) return;
       setCheck("failed");
-      setError(t("Could not check local delivery status."));
+      setError({ text: t("Could not check local delivery status.") });
     });
     return () => { if (active.current === owner) active.current = null; };
   }, [readReceipt, attempt, provider]);
@@ -75,7 +78,7 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
     const current = () => active.current === owner;
     locked.current = true;
     setBusy(true);
-    setError("");
+    setError(null);
     setReview(false);
     try {
       const reply = await invoke<{ status: unknown }>({
@@ -89,8 +92,15 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
         const stored = receiptOutcome(await readReceipt(), provider);
         if (!current()) return;
         if (stored) setOutcome(stored);
-        else if (unsentErrors.has(String(error).replace(/^Error:\s*/, ""))) setError(explain(error));
-        else setOutcome("unknown");
+        else {
+          const code = String(error).replace(/^Error:\s*/, "");
+          if (unsentErrors.has(code)) {
+            const grantLoss = provider === "gmail" && code === "gmail_reauthorize" ? "connection" :
+              provider === "gmail" && code === "gmail_permission_denied" ? "sending" : undefined;
+            if (grantLoss) onGmailGrantLost?.(grantLoss);
+            setError({ text: explain(error), grantLoss });
+          } else setOutcome("unknown");
+        }
       } catch { if (current()) setOutcome("unknown"); }
     } finally {
       if (current()) setBusy(false);
@@ -100,8 +110,10 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
 
   const checking = check === "pending" || check === "retrying";
   const showRetry = outcome === "unknown" || check === "failed" || check === "retrying";
+  const errorText = error?.grantLoss && configured && onGmailGrantLost
+    ? t("This draft was not sent. Review it again before sending.") : error?.text;
   return <section aria-label={t("Send saved draft")}>
-    {!deliveryLocked&&<button className="ui-button" ref={reviewButton} type="button" disabled={!configured || check !== "ready" || busy || !draft.recipient.trim()} onClick={()=>setReview(true)}>{t("Review before sending")}</button>}
+    {!deliveryLocked&&<button className="ui-button" ref={reviewButton} type="button" disabled={!configured || check !== "ready" || busy || !draft.recipient.trim()} onClick={()=>{setError(null);setReview(true)}}>{t("Review before sending")}</button>}
     {review&&!deliveryLocked&&<section className="mail-send-review" aria-label={t("Confirm sending email")}>
       <p>{t("Send this saved draft now?")}</p><dl>
         <dt>{t("Mail account")}</dt><dd translate="no">{address}</dd><dt>{t("Recipient")}</dt><dd translate="no">{draft.recipient}</dd>
@@ -127,6 +139,6 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
     {deliveryLocked&&<p role="status">{t(outcome==="accepted"?"The mail server accepted this message.":outcome==="rejected"
       ?"The server rejected this send. Check the account and recipient before saving a revised draft."
       :provider==="gmail"?"Delivery is unknown. Check Gmail Sent before composing another copy. Studio will not resend this revision.":"Delivery is unknown. The server may have accepted the message. It will not be sent again automatically; check the recipient’s inbox before composing another copy.")}</p>}
-    {error&&<p role="alert">{error}</p>}
+    {errorText&&<p role="alert">{errorText}</p>}
   </section>;
 }

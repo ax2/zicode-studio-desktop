@@ -6,6 +6,7 @@ import { t } from "../../shared/i18n";
 import type { Draft, Invoke } from "./index";
 
 export type CreateMailReply = (account: string, create: () => Promise<Draft>, isCurrent: () => boolean) => Promise<void>;
+export type GmailGrantLoss = "connection" | "sending";
 
 export function gmailReplyNeedsRefresh(reason: unknown): boolean {
   return String(reason).replace(/^Error:\s*/, "") === "gmail_reply_metadata_missing";
@@ -38,11 +39,13 @@ export function gmailError(e: unknown): string {
     default:return t("Mail operation failed. Check the account and try again.");
   }
 }
-export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,draftBusy=false}:{
-  id:string;address:string;label:string;setLabel:(label:string)=>void;invoke:Invoke;onGrant:(send:boolean)=>void;
-  onReply?:CreateMailReply;draftBusy?:boolean;
+export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,draftBusy=false,grantLoss}:{
+  id:string;address:string;label:string;setLabel:(label:string)=>void;invoke:Invoke;onGrant:(send:boolean,authorized?:boolean)=>void;
+  onReply?:CreateMailReply;draftBusy?:boolean;grantLoss?:GmailGrantLoss;
 }) {
-  const [grant,setGrant]=useState<Grant>(none),[page,setPage]=useState<Page|null>(null);
+  const [savedGrant,setGrant]=useState<Grant>(none),[page,setPage]=useState<Page|null>(null);
+  const grant = grantLoss === "connection" ? none :
+    grantLoss === "sending" ? { ...savedGrant, send: false } : savedGrant;
   const [labels,setLabels]=useState<Label[]>([]);
   const [cachedLabelsFailed, setCachedLabelsFailed] = useState(false);
   const [message,setMessage]=useState<Message|null>(null),[body,setBody]=useState<Body|null>(null);
@@ -74,7 +77,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       if (action && !action.matches(":disabled")) action.focus({ preventScroll: true });
     }
   });
-  const saveGrant=(g:Grant)=>{setGrant(g);grantCallback.current(Boolean(g.connected&&g.send))};
+  const saveGrant=(g:Grant,authorized?:boolean)=>{setGrant(g);grantCallback.current(Boolean(g.connected&&g.send),authorized)};
   useEffect(()=>{
     const gen=++epoch.current;
     operationFocus.current = undefined;
@@ -127,7 +130,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
   }
   function connect(send: boolean, origin: HTMLButtonElement) {
     void run("connect", () => invoke<Grant>({ kind: "connect", send, accountId: id }), g => {
-      saveGrant(g);
+      saveGrant(g,g.connected);
       if (send && !g.send) setNotice(t("Google did not grant sending permission."));
     }, origin);
   }
