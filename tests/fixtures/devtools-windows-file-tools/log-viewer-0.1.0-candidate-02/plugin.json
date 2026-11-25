@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.log-viewer",
+  "name": "ZiDevTools Local Log Filter",
+  "displayName": "本机日志筛选",
+  "description": "查看一份已确认的 UTF-8 日志。按级别和区分大小写的字面搜索词筛选多行事件。文件限 16 KiB，显示前 12 条匹配。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.log-viewer.filter"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.log-viewer.filter",
+        "title": "本机日志筛选",
+        "description": "查看一份已确认的 UTF-8 日志。按级别和区分大小写的字面搜索词筛选多行事件。文件限 16 KiB，显示前 12 条匹配。",
+        "resourceInputMimeTypes": [
+          "text/plain",
+          "application/octet-stream"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string",
+              "enum": [
+                "fatal",
+                "error",
+                "warning",
+                "info",
+                "debug",
+                "trace",
+                "unknown"
+              ],
+              "title": "日志级别 / Log level"
+            },
+            "query": {
+              "type": "string",
+              "maxLength": 256,
+              "title": "搜索词 / Search phrase"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "sourceByteCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16384
+                },
+                "eventCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16384
+                },
+                "matchCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16384
+                },
+                "truncated": {
+                  "type": "boolean"
+                },
+                "matches": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "eventNumber": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 16384
+                      },
+                      "level": {
+                        "type": "string",
+                        "enum": [
+                          "fatal",
+                          "error",
+                          "warning",
+                          "info",
+                          "debug",
+                          "trace",
+                          "unknown"
+                        ]
+                      },
+                      "lineCount": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 16384
+                      },
+                      "text": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "previewTruncated": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "eventNumber",
+                      "level",
+                      "lineCount",
+                      "text",
+                      "previewTruncated"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 12
+                }
+              },
+              "required": [
+                "ok",
+                "sourceByteCount",
+                "eventCount",
+                "matchCount",
+                "truncated",
+                "matches"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "日志工作台",
+            "日志查看",
+            "log viewer",
+            "filter log"
+          ],
+          "description": "查看一份已确认的 UTF-8 日志。按级别和区分大小写的字面搜索词筛选多行事件。文件限 16 KiB，显示前 12 条匹配。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "只读取本次明确确认的临时日志文件快照。"
+      }
+    ],
+    "optional": []
+  }
+}

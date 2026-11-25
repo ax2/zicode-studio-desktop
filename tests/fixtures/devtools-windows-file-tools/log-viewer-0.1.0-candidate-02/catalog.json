@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.log-viewer",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "log-viewer",
+      "capabilityId": "devtools.log-viewer.filter",
+      "title": "本机日志筛选",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "查看一份已确认的 UTF-8 日志。按级别和区分大小写的字面搜索词筛选多行事件。文件限 16 KiB，显示前 12 条匹配。"
+    }
+  ]
+}

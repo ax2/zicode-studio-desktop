@@ -1,0 +1,152 @@
+{
+  "generator": "scripts/verify_log_viewer_plugin.py",
+  "cases": [
+    {
+      "id": "multiline-bom-crlf",
+      "inputSha256": "fd72707c487432ed8b0fc5b257a760ec5b54cc07b1b382a0cbd7263a4750366e",
+      "inputBytes": 179,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "filter-continuation",
+      "inputSha256": "fd72707c487432ed8b0fc5b257a760ec5b54cc07b1b382a0cbd7263a4750366e",
+      "inputBytes": 179,
+      "input": {
+        "level": "error",
+        "query": "连接超时"
+      },
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "case-sensitive-no-hit",
+      "inputSha256": "fd72707c487432ed8b0fc5b257a760ec5b54cc07b1b382a0cbd7263a4750366e",
+      "inputBytes": 179,
+      "input": {
+        "query": "Started"
+      },
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "empty-file",
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputBytes": 0,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "largest-dense-file",
+      "inputSha256": "705fde65cd0c81b123da1b6889138e457241cc1a820381efd8b94db6a4ec4c18",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "dense-level-tokens",
+      "inputSha256": "515bb15f4e52ee9c506af937e3657ce36ddf74954c7f52328dee8c77bae05745",
+      "inputBytes": 16380,
+      "input": {
+        "level": "warning"
+      },
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "dense-timestamps",
+      "inputSha256": "19b47539c1464afcccce9915c420f7caa80acc8e3f5c8892f2705bcc8a13bc25",
+      "inputBytes": 16380,
+      "input": {
+        "level": "error"
+      },
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "search-beyond-utf8-preview",
+      "inputSha256": "30b55c22f9870fe84fa6a6168048e03d96fc254fc17140062549345f44280581",
+      "inputBytes": 911,
+      "input": {
+        "query": "last"
+      },
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "escaped-report-limit",
+      "inputSha256": "9abee1c92c244dc8a06a605702713c53e92dbe018434ce33d7b06dd400922557",
+      "inputBytes": 6144,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "strict-level-tokens",
+      "inputSha256": "fe1edde8b63b4d0e901dfc4383b1000c04b4462c4ea54d507ea023954071e6eb",
+      "inputBytes": 36,
+      "input": {
+        "level": "fatal"
+      },
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "too-big",
+      "inputSha256": "39061532d423f2d385027b9d40fc07e2bedf7bf3151e8f8bdd5ff005cd5136d1",
+      "inputBytes": 16385,
+      "input": {},
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "invalid-utf8",
+      "inputSha256": "ea0eb6354aadf0be78f9212784025da3324a2d0443457be52b6a9bf8636b4e4a",
+      "inputBytes": 2,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "wrong-mime",
+      "inputSha256": "cc735169056b2fd1125b7495dbbc1620ccc0cc1d5102cb2e98d7616050a3fc8b",
+      "inputBytes": 6,
+      "input": {},
+      "mime": "image/png",
+      "ok": false
+    },
+    {
+      "id": "unknown-argument",
+      "inputSha256": "cc735169056b2fd1125b7495dbbc1620ccc0cc1d5102cb2e98d7616050a3fc8b",
+      "inputBytes": 6,
+      "input": {
+        "extra": ""
+      },
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "invalid-level",
+      "inputSha256": "cc735169056b2fd1125b7495dbbc1620ccc0cc1d5102cb2e98d7616050a3fc8b",
+      "inputBytes": 6,
+      "input": {
+        "level": "TRACE"
+      },
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "oversized-utf8-query",
+      "inputSha256": "cc735169056b2fd1125b7495dbbc1620ccc0cc1d5102cb2e98d7616050a3fc8b",
+      "inputBytes": 6,
+      "input": {
+        "query": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界"
+      },
+      "mime": "text/plain",
+      "ok": false
+    }
+  ]
+}
