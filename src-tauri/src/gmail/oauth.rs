@@ -2,6 +2,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use reqwest::{Client, Url};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
+use std::future::Future;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -13,6 +14,17 @@ use zeroize::Zeroizing;
 pub const READ: &str = "https://www.googleapis.com/auth/gmail.readonly";
 pub const SEND: &str = "https://www.googleapis.com/auth/gmail.send";
 pub type Result<T> = std::result::Result<T, &'static str>;
+
+pub(super) async fn until_cancelled<T>(
+    stop: &CancellationToken,
+    request: impl Future<Output = Result<T>>,
+) -> Result<T> {
+    tokio::select! {
+        biased;
+        _ = stop.cancelled() => Err("gmail_cancelled"),
+        result = request => result,
+    }
+}
 
 pub struct Config {
     pub id: String,
