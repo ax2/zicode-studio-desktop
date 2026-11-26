@@ -41,6 +41,7 @@ async function mount({
   readPanel = async (_name, value) => value,
   takePreview = async () => "data:image/jpeg;base64,AA==",
   documentRevision,
+  openDeveloperTools = async () => ({}),
   printPage = async () => ({}),
 } = {}) {
   const invoke = vi.fn(async (command, args) => {
@@ -54,6 +55,7 @@ async function mount({
     if (control?.kind === "url") return readUrl();
     if (control?.kind === "snapshot") return takePreview();
     if (control?.kind === "printPage") return printPage();
+    if (control?.kind === "openDeveloperTools") return openDeveloperTools();
     if (control?.kind === "downloads") return readPanel("Downloads", downloads);
     return {};
   });
@@ -333,4 +335,48 @@ it("does not show an old print failure after leaving and returning to Browser", 
 
   expect(document.querySelector('.browser-footer > [role="status"]').textContent)
     .not.toContain("Old print request failed");
+});
+
+it("requires a fresh DevTools action after leaving and returning to the same document", async () => {
+  let reply;
+  const readUrl = vi.fn().mockImplementationOnce(() => new Promise(resolve => { reply = resolve; }))
+    .mockResolvedValue({ url: tab.url });
+  const openDeveloperTools = vi.fn(async () => ({}));
+  const h = await mount({ documentRevision: "owned:1", readUrl, openDeveloperTools });
+  document.querySelector(".browser-bookmark-toggle").click();
+  await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
+  h.open("Developer tools");
+  expect(openDeveloperTools).not.toHaveBeenCalled();
+
+  await h.leave();
+  await h.returnToBrowser();
+  reply({ url: tab.url });
+  await app.finishWindowWrites();
+  expect(openDeveloperTools).not.toHaveBeenCalled();
+
+  h.open("Developer tools");
+  await app.finishWindowWrites();
+  expect(openDeveloperTools).toHaveBeenCalledOnce();
+  expect(h.invoke).toHaveBeenCalledWith("browser_control", {
+    request: { kind: "openDeveloperTools", tab: tab.id, expectedUrl: tab.url, expectedDocumentRevision: "owned:1" },
+  });
+});
+
+it("does not show a DevTools failure from a previous Browser activation", async () => {
+  let fail;
+  const openDeveloperTools = vi.fn(async () => ({}))
+    .mockImplementationOnce(() => new Promise((_, reject) => { fail = reject; }));
+  const h = await mount({ documentRevision: "owned:1", openDeveloperTools });
+  h.open("Developer tools");
+  await waitFor(() => expect(openDeveloperTools).toHaveBeenCalledOnce());
+
+  await h.leave();
+  await h.returnToBrowser();
+  fail(Error("Old DevTools request failed"));
+  await app.finishWindowWrites();
+  expect(document.querySelector('.browser-footer > [role="status"]').textContent)
+    .not.toContain(t("Could not open developer tools for this page."));
+  h.open("Developer tools");
+  await app.finishWindowWrites();
+  expect(openDeveloperTools).toHaveBeenCalledTimes(2);
 });
