@@ -2,7 +2,11 @@
   "milestones": [
     "v0.7.7"
   ],
-  "extraCompleted": [],
+  "extraCompleted": [
+    554,
+    583,
+    591
+  ],
   "exclude": {},
   "known": [
     42,
