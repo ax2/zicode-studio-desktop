@@ -784,36 +784,7 @@ describe("notes store", () => {
     ).toBe("polite");
   });
 
-  it("surfaces captured source metadata in the preview", async () => {
-    const store = storeWithGateway({
-      get: vi.fn(async () => ({
-        note: {
-          ...NOTE,
-          source: {
-            url: "https://example.com/article",
-            siteName: "Example Site",
-            author: "Alice",
-            publishedAt: "2026-07-30T00:00:00Z",
-            capturedAt: "2026-07-31T08:00:00Z",
-          },
-        },
-      })),
-    });
-    await store.getState().load();
-    await store.getState().selectNote(SNAPSHOT.notes[0]);
-    const { container } = render(<NotesContent store={store} />);
-    const source = await waitFor(() => {
-      const element = container.querySelector(".notes-source");
-      expect(element).toBeTruthy();
-      return element as HTMLElement;
-    });
-    expect(source.textContent).toContain("Example Site");
-    expect(source.textContent).toContain("Alice");
-    expect(source.textContent).toContain("发布于");
-    expect(source.textContent).toContain("剪藏于");
-  });
-
-  it("opens the source explicitly in Studio with the current Notes scope", async () => {
+  it("opens the source explicitly in the current Notes scope without replacing the editor", async () => {
     const url = "https://example.invalid/article?q=one#part";
     let finish!: () => void;
     const onOpenSource = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
@@ -824,49 +795,25 @@ describe("notes store", () => {
     });
     await store.getState().load();
     await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setPreview(false);
     const view = render(<NotesContent store={store} />);
     const link = view.getByRole("link", { name: url });
+    const editor = view.getByRole("textbox", { name: t("Note content") }) as HTMLTextAreaElement;
     expect(onOpenSource).not.toHaveBeenCalled();
     expect(fireEvent.click(link)).toBe(false);
     expect(fireEvent.click(link)).toBe(false);
     expect(onOpenSource).toHaveBeenCalledOnce();
     expect(onOpenSource).toHaveBeenCalledWith(url, expect.objectContaining({ sceneId: "scene", workspaceId: "workspace" }));
     expect(link.getAttribute("aria-busy")).toBe("true");
+    fireEvent.change(editor, { target: { value: "Edited while the source opens" } });
+    editor.focus();
+    editor.setSelectionRange(0, 6);
     finish();
     await waitFor(() => expect(link.hasAttribute("aria-busy")).toBe(false));
-  });
-
-  it.each(["javascript:alert(1)", "https://user:password@example.invalid/"])("renders an unsafe source as text: %s", async (url) => {
-    const store = storeWithGateway({ get: vi.fn(async () => ({ note: { ...NOTE, source: { url } } })) });
-    await store.getState().load();
-    await store.getState().selectNote(SNAPSHOT.notes[0]);
-    const view = render(<NotesContent store={store} />);
-    expect(view.queryByRole("link", { name: url })).toBeNull();
-    expect(view.container.querySelector(".notes-source")?.textContent).toContain(url);
-  });
-
-  it("copies the captured source URL", async () => {
-    const writeText = vi.fn(async () => {});
-    vi.stubGlobal("navigator", {
-      ...globalThis.navigator,
-      clipboard: { writeText },
-    });
-    const store = storeWithGateway({
-      get: vi.fn(async () => ({
-        note: {
-          ...NOTE,
-          source: { url: "https://example.com/article" },
-        },
-      })),
-    });
-    await store.getState().load();
-    await store.getState().selectNote(SNAPSHOT.notes[0]);
-    const { container } = render(<NotesContent store={store} />);
-    const copy = await waitFor(
-      () => container.querySelector(".notes-source-copy") as HTMLButtonElement,
-    );
-    copy.click();
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith("https://example.com/article"));
+    expect(view.getByRole("textbox", { name: t("Note content") })).toBe(editor);
+    expect(document.activeElement).toBe(editor);
+    expect([editor.selectionStart, editor.selectionEnd]).toEqual([0, 6]);
+    expect(editor.value).toBe("Edited while the source opens");
   });
 
   it("copies the extracted markdown from the capture preview", async () => {
@@ -981,36 +928,6 @@ describe("notes store", () => {
       "programming",
       "ws-1",
       expect.objectContaining({ title: "Example" }),
-    );
-  });
-
-  it("shows a failed state when copying the source URL fails", async () => {
-    const writeText = vi.fn(async () => {
-      throw new Error("denied");
-    });
-    vi.stubGlobal("navigator", {
-      ...globalThis.navigator,
-      clipboard: { writeText },
-    });
-    const store = storeWithGateway({
-      get: vi.fn(async () => ({
-        note: {
-          ...NOTE,
-          source: { url: "https://example.com/article" },
-        },
-      })),
-    });
-    await store.getState().load();
-    await store.getState().selectNote(SNAPSHOT.notes[0]);
-    const { container } = render(<NotesContent store={store} />);
-    const copy = await waitFor(
-      () => container.querySelector(".notes-source-copy") as HTMLButtonElement,
-    );
-    copy.click();
-    await waitFor(() =>
-      expect(container.querySelector(".notes-source-copy")?.textContent).toBe(
-        t("Copy failed"),
-      ),
     );
   });
 

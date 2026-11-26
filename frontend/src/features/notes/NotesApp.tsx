@@ -5,6 +5,7 @@ import { NoteDraftRecovery } from "./NoteDraftRecovery";
 import { NoteReferenceButton } from "./NoteReferenceButton";
 import { NoteRelationshipStatus } from "./NoteRelationshipStatus";
 import { NoteShortcutStatus } from "./NoteShortcutStatus";
+import { NoteSourceDetails } from "./NoteSourceDetails";
 import { NoteTreeItem } from "./NoteTreeItem";
 import { HighlightedText, Icon, PinButton } from "./NotesControls";
 import { NoteWorkflowActions } from "./NoteWorkflowActions";
@@ -1413,20 +1414,12 @@ function backlinkKindLabel(kind: string): string {
   return kind;
 }
 
-function noteSourceUrl(value?: string): URL | null {
-  if (!value || !URL.canParse(value)) return null;
-  const url = new URL(value);
-  return (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password ? url : null;
-}
-
 function NoteEditor({ store }: { store: NotesStore }) {
   const workflowBusy = store((state) => state.workflowBusy);
   const attachmentBusy = store((state) => state.attachmentBusy);
   const editorLocked = store((state) => state.editorLocked);
   const note = store((state) => state.selectedNote) as Note;
   const openSource = store((state) => state.openSource);
-  const sourceUrl = noteSourceUrl(note.source?.url);
-  const [openingSource, setOpeningSource] = useState(false);
   const draftTitle = store((state) => state.draftTitle);
   const draftIcon = store((state) => state.draftIcon);
   const draftContent = store((state) => state.draftContent);
@@ -1481,8 +1474,6 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
   const [outlineCollapsed, setOutlineCollapsed] = useState(false);
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
-  const [copiedSource, setCopiedSource] = useState(false);
-  const [copySourceError, setCopySourceError] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [linkQuery, setLinkQuery] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
@@ -2101,61 +2092,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
         tags={draftTags}
         onChange={(tags) => setDraft({ tags })}
       />
-      {note.source?.url ? (
-        <div className="notes-source">
-          <p>
-            {t("Source")}:{" "}
-            {sourceUrl ? (
-              <a href={sourceUrl.href} target="_blank" rel="noreferrer"
-                title={openSource ? t("Open source in Studio Browser") : undefined}
-                aria-busy={openingSource || undefined}
-                onClick={openSource ? (event) => {
-                  event.preventDefault();
-                  if (openingSource) return;
-                  setOpeningSource(true);
-                  void openSource(sourceUrl.href).finally(() => setOpeningSource(false));
-                } : undefined}>
-                {note.source.url}
-              </a>
-            ) : note.source.url}
-            <button
-              type="button"
-              className="notes-source-copy"
-              aria-label={t("Copy source URL")}
-              onClick={() => {
-                void navigator.clipboard
-                  ?.writeText(note.source?.url ?? "")
-                  .then(() => {
-                    setCopiedSource(true);
-                    setCopySourceError(false);
-                    window.setTimeout(() => setCopiedSource(false), 1600);
-                  })
-                  .catch(() => {
-                    setCopySourceError(true);
-                    window.setTimeout(() => setCopySourceError(false), 1600);
-                  });
-              }}
-            >
-              {copiedSource ? t("Copied") : copySourceError ? t("Copy failed") : t("Copy")}
-            </button>
-          </p>
-          {[note.source.siteName, note.source.author].filter(Boolean).length > 0 ? (
-            <p className="notes-source-meta">
-              {[note.source.siteName, note.source.author].filter(Boolean).join(" · ")}
-            </p>
-          ) : null}
-          {note.source.publishedAt ? (
-            <p className="notes-source-meta">
-              {t("Published")}: {formatDate(note.source.publishedAt)}
-            </p>
-          ) : null}
-          {note.source.capturedAt ? (
-            <p className="notes-source-meta">
-              {t("Captured")}: {formatDate(note.source.capturedAt)}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      <NoteSourceDetails source={note.source} openSource={openSource} />
       {preview ? (
         <div className="notes-preview-wrap">
           {!draftContent.trim() ? (
