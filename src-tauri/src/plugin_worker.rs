@@ -280,13 +280,14 @@ fn execute_wasi_bundle_with_reads(
     let markdown_profile = crate::plugin_resource_execution::markdown::selected(request.execution_profile.as_deref());
     let digest_profile = crate::plugin_resource_execution::file_digest::selected(request.execution_profile.as_deref());
     let encoding_profile = crate::plugin_resource_execution::encoding::operation(request.execution_profile.as_deref());
-    use crate::plugin_resource_execution::json_compare;
+    use crate::plugin_resource_execution::{json_compare, shortcut_profile};
+    let shortcut_profile_selected = shortcut_profile::selected(request.execution_profile.as_deref());
     let json_compare_profile = crate::plugin_resource_execution::json_file_selected(request.execution_profile.as_deref());
     let output_profile = resource_output::Profile::negotiate(
         binary.then_some(if metadata_profile { resource_output::Profile::METADATA_NAME } else { resource_output::PROFILE }),
         request.execution_profile.as_deref(),
     )?.unwrap_or(resource_output::Profile::Draft1);
-    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !digest_stream && !json_compare_profile && encoding_profile.is_none() {
+    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !digest_stream && !json_compare_profile && !shortcut_profile_selected && encoding_profile.is_none() {
         return Err("Unsupported resource execution profile".into());
     }
     if image_resize_profile && (!resource_mode || !binary) {
@@ -312,6 +313,14 @@ fn execute_wasi_bundle_with_reads(
         }
         encoding.validate_input(&request.plugin_id, request.capability_id.as_deref(),
             &descriptors.iter().map(|(_, length)| *length).collect::<Vec<_>>())?;
+    }
+    if shortcut_profile_selected {
+        if !binary || module_snapshot.is_none() || request.command_id.is_some() {
+            return Err("Shortcut profile requires authorized resources".into());
+        }
+        shortcut_profile::validate_inputs(&request.plugin_id, request.capability_id.as_deref(),
+            descriptors.iter().map(|(resource, length)| (resource.mime_type.as_str(), *length)))?;
+        shortcut_profile::validate_parameters(&request.input)?;
     }
     if json_compare_profile {
         let count = crate::plugin_resource_execution::json_file_input_count(request.execution_profile.as_deref(), &request.plugin_id, request.capability_id.as_deref());
@@ -396,7 +405,7 @@ fn execute_wasi_bundle_with_reads(
         resource_reads::link(&mut linker, |state| &mut state.reads)?;
     }
     if binary && !digest_stream {
-        if metadata_profile || json_compare_profile {
+        if metadata_profile || json_compare_profile || shortcut_profile_selected {
             resource_writes::link_with_profile(&mut linker, |state| &mut state.writes, output_profile)?;
         } else {
             resource_writes::link(&mut linker, |state| &mut state.writes)?;
@@ -418,7 +427,7 @@ fn execute_wasi_bundle_with_reads(
                 crate::plugin_resource_execution::IMAGE_RESIZE_MEMORY_MIB
             } else if encoding_profile.is_some() {
                 crate::plugin_resource_execution::encoding::MEMORY_MIB
-            } else if digest_stream || json_compare_profile {
+            } else if digest_stream || json_compare_profile || shortcut_profile_selected {
                 64
             } else if resource_mode {
                 256
@@ -428,7 +437,7 @@ fn execute_wasi_bundle_with_reads(
                 * 1024,
         )
         .instances(1)
-        .memories(if image_resize_profile || metadata_profile || markdown_profile || json_compare_profile { 1 } else { 2 })
+        .memories(if image_resize_profile || metadata_profile || markdown_profile || json_compare_profile || shortcut_profile_selected { 1 } else { 2 })
         .tables(4)
         .build();
     let mut store = Store::new(

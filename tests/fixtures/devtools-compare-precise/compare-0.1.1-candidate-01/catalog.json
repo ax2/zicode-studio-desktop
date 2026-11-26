@@ -1,0 +1,42 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.compare",
+  "packageVersion": "0.1.1",
+  "tools": [
+    {
+      "sourceToolId": "json-path",
+      "sourceVersion": "1.0.3",
+      "capabilityId": "devtools.compare.json.path",
+      "title": "JSON 路径查询",
+      "scope": "Standalone shared core within plugin text-field byte limits; does not include file input, saving, or full native input sizes."
+    },
+    {
+      "sourceToolId": "json-diff",
+      "sourceVersion": "1.0.4",
+      "capabilityId": "devtools.compare.json.diff.ordered",
+      "title": "JSON 对比（数组按顺序）",
+      "scope": "Standalone shared core within plugin text-field byte limits; does not include file input, saving, or full native input sizes. JSON 对比精确保留并比较十进制数字。"
+    },
+    {
+      "sourceToolId": "json-diff",
+      "sourceVersion": "1.0.4",
+      "capabilityId": "devtools.compare.json.diff.unordered",
+      "title": "JSON 对比（数组忽略顺序）",
+      "scope": "Standalone shared core within plugin text-field byte limits; does not include file input, saving, or full native input sizes. JSON 对比精确保留并比较十进制数字。"
+    },
+    {
+      "sourceToolId": "regex",
+      "sourceVersion": "1.0.9",
+      "capabilityId": "devtools.compare.regex.matches",
+      "title": "正则表达式匹配",
+      "scope": "Standalone shared core within plugin text-field byte limits; does not include file input, saving, or full native input sizes."
+    },
+    {
+      "sourceToolId": "diff",
+      "sourceVersion": "1.0.3",
+      "capabilityId": "devtools.compare.text.diff",
+      "title": "文本差异对比",
+      "scope": "Standalone shared core within plugin text-field byte limits; does not include file input, saving, or full native input sizes."
+    }
+  ]
+}

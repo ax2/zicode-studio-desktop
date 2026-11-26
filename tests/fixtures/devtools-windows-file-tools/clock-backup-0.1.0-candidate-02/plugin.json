@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.clock-backup",
+  "name": "ZiDevTools Clock Backup Inspector",
+  "displayName": "时钟备份检查",
+  "description": "确认共享本机时钟 JSON v1–v3，核验格式并报告保存时间、计时器、闹钟等摘要。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.clock.backup.inspect"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.clock.backup.inspect",
+        "title": "时钟备份检查",
+        "description": "确认共享本机时钟 JSON v1–v3，核验格式并报告保存时间、计时器、闹钟等摘要。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "schemaVersion": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 3
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 524288
+                    },
+                    "savedAtUtc": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "timerCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 32
+                    },
+                    "alarmCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "lapCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1024
+                    },
+                    "noticeCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 97
+                    },
+                    "zoneCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 12
+                    },
+                    "windowSizeCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 48
+                    },
+                    "audioSettingsPresent": {
+                      "type": "boolean"
+                    },
+                    "storedTimerPolicy": {
+                      "type": "string",
+                      "enum": [
+                        "pause",
+                        "continue"
+                      ]
+                    },
+                    "legacyV1": {
+                      "type": "boolean"
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 1024
+                    }
+                  },
+                  "required": [
+                    "schemaVersion",
+                    "byteLength",
+                    "savedAtUtc",
+                    "timerCount",
+                    "alarmCount",
+                    "lapCount",
+                    "noticeCount",
+                    "zoneCount",
+                    "windowSizeCount",
+                    "audioSettingsPresent",
+                    "storedTimerPolicy",
+                    "legacyV1",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 2048,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "时钟会话检查",
+            "闹钟备份",
+            "计时器备份",
+            "Clock backup validation"
+          ],
+          "description": "确认共享本机时钟 JSON v1–v3，核验格式并报告保存时间、计时器、闹钟等摘要。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的单份时钟备份。"
+      }
+    ],
+    "optional": []
+  }
+}

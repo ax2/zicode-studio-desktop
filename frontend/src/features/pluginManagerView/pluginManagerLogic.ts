@@ -76,6 +76,17 @@ export function helpPageForPlugin(pluginId: string): string | null {
   return pages[pluginId] ?? null;
 }
 
+export function isStalePluginActivationReview(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message === "Plugin or permissions changed after review; review them again";
+}
+
+export function isStalePluginPackagePreview(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message === "Developer plugin changed after preview; select it again" ||
+    message === "Signed plugin package changed after preview; select it again";
+}
+
 /**
  * Map raw Rust errors from plugin package commands to friendly localized
  * messages so users see understandable feedback instead of internal strings.
@@ -111,7 +122,8 @@ export function friendlyPluginError(error: unknown): string {
       /cannot (select|resolve) plugin directory|not a directory/i,
       t("Please choose a plugin directory."),
     ],
-    [/cannot create plugin registry directory/i, t("Could not access the plugin folder.")],
+    [/cannot create plugin registry directory|cannot prepare (?:plugin upgrade|signed plugin update):.*os error 5/i,
+      t("Could not access the plugin folder.")],
   ];
   for (const [pattern, friendly] of fallbacks) {
     if (pattern.test(message)) return friendly;

@@ -63,6 +63,7 @@ export function createResourceExport({ api, getTarget, isCurrent, notify = () =>
     } };
     container.append(panel); if (typeof panel.showModal === "function") panel.showModal(); else panel.setAttribute("open", "");
     const showSaved = receipt => { saved = true; status.textContent = t("Saved copy: {path}").replace("{path}", receipt.destination); onSaved(structuredClone(receipt)); notify(status.textContent); };
+    const check = button("Check saved file", () => void verify());
     async function commit() {
       if (!valid() || disposed || committing || saved) return;
       committing = true; close.disabled = true; controls.replaceChildren(); status.textContent = t("Saving output…");
@@ -73,19 +74,33 @@ export function createResourceExport({ api, getTarget, isCurrent, notify = () =>
         if (valid() && !disposed) showSaved(result.receipt);
         else notify(t("A confirmed export finished after switching views. The saved file remains at the chosen destination."));
       } catch (error) {
-        if (valid() && !disposed) { status.textContent = failure(error); controls.append(button("Check saved file", () => void verify())); }
+        if (valid() && !disposed) { status.textContent = failure(error); controls.append(check); }
         else notify(t("Export could not be confirmed. Check the chosen destination before trying again; no write was retried."));
       } finally { committing = false; if (valid() && !disposed) { close.disabled = false; close.textContent = t("Close"); } }
     }
     async function verify() {
-      if (!valid() || disposed || committing) return;
-      committing = true; close.disabled = true; controls.replaceChildren(); status.textContent = t("Checking saved file…");
+      if (!valid() || disposed || committing || saved) return;
+      committing = true; close.disabled = true;
+      check.setAttribute("aria-disabled", "true");
+      status.textContent = t("Checking saved file…");
+      let focusClose = false;
       try {
         const result = await api.verify(workspaceId, source, grant.grantId);
         if (result?.schemaVersion !== 1 || result.profile !== profile || result.status !== "verified" || result.saved !== true || !validate(result.receipt, grant, source, resource)) throw new Error();
-        if (valid() && !disposed) showSaved(result.receipt);
+        if (valid() && !disposed) {
+          focusClose = check.ownerDocument.activeElement === check;
+          check.remove();
+          showSaved(result.receipt);
+        }
       } catch { if (valid() && !disposed) status.textContent = t("The chosen file could not be verified. No write was retried."); }
-      finally { committing = false; if (valid() && !disposed) close.disabled = false; }
+      finally {
+        committing = false;
+        if (valid() && !disposed) {
+          check.removeAttribute("aria-disabled");
+          close.disabled = false;
+          if (focusClose) close.focus({ preventScroll: true });
+        }
+      }
     }
     controls.append(button("Confirm save file", () => void commit()));
   }

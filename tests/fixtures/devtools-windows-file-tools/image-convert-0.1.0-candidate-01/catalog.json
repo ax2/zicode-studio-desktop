@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.image-convert",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "image-tools",
+      "capabilityId": "devtools.image.convert.original-size",
+      "title": "保持原尺寸转换图片",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "明确选择一张静态 PNG、JPEG 或 WebP，保留原宽高并转换成所选格式，可确认另存。"
+    }
+  ]
+}

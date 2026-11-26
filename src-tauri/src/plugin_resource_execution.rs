@@ -1,4 +1,6 @@
 //! Fixed execution budgets for explicitly negotiated resource capabilities.
+#[path = "plugin_resource_ascii_art.rs"]
+pub(crate) mod ascii_art;
 #[path = "plugin_resource_encoding.rs"]
 pub(crate) mod encoding;
 #[path = "plugin_resource_file_digest.rs"]
@@ -7,6 +9,8 @@ pub(crate) mod file_digest;
 pub(crate) mod json_compare;
 #[path = "plugin_resource_json_transform.rs"]
 pub(crate) mod json_transform;
+#[path = "plugin_resource_shortcut_profile.rs"]
+pub(crate) mod shortcut_profile;
 #[path = "plugin_resource_markdown.rs"]
 pub(crate) mod markdown;
 #[path = "plugin_resource_image_metadata.rs"]
@@ -131,7 +135,7 @@ pub(crate) fn is_image_resize_profile(profile: Option<&str>) -> bool {
 }
 
 pub(crate) fn is_image_processing_profile(profile: Option<&str>) -> bool {
-    matches!(profile, Some(IMAGE_RESIZE_PROFILE | IMAGE_CROP_PROFILE))
+    matches!(profile, Some(IMAGE_RESIZE_PROFILE | IMAGE_CROP_PROFILE | ascii_art::PROFILE))
 }
 
 #[cfg(test)]

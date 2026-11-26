@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.flow-recipe",
+  "packageVersion": "0.1.0",
+  "signatureVerified": false,
+  "directoryIndexSha256": "a9f740fcd4669b5342a82ad576d002145cdacebc25d25a4ecd4b914e84e97dd3",
+  "files": [
+    {
+      "path": "catalog.json",
+      "size": 607,
+      "sha256": "28845bdbcf8860a1a2a8d0bcd06ba5c780811f65c21d746c0a8899904129461b"
+    },
+    {
+      "path": "fixtures.json",
+      "size": 4717,
+      "sha256": "838e07c15faef8939d9ecc19bbc4f8467f2b4ef861368f2ad3c0d14d392249dd"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 72,
+      "sha256": "a7dfe47126544a14bdc705961a0246b73041682a8b5a7aa55df59c1043b1e83f"
+    },
+    {
+      "path": "plugin.json",
+      "size": 7366,
+      "sha256": "3554ff843e7e37c8f73d91bfcb34ba389eed62cc89d0e363ced888e29deaa91f"
+    },
+    {
+      "path": "provenance.json",
+      "size": 7447,
+      "sha256": "f7751ced6d800f56e75659df125b3180f9bc8887058585f95819d8266ef7dbaf"
+    },
+    {
+      "path": "README.md",
+      "size": 953,
+      "sha256": "a5e123d065b94081e02b4c588a586ba6a9deb9c4d839611f9d5641f2cdac3c00"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 211439,
+      "sha256": "8bc48e2b3e207b90168cce7c49310fd3c204a96e41c149e641caaa371ee8be9c"
+    }
+  ],
+  "fileCount": 8,
+  "totalBytes": 233698,
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}

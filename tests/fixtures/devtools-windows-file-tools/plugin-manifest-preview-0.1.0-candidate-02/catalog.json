@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.plugin-manifest-preview",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "plugins",
+      "capabilityId": "devtools.plugin-manifest.preview",
+      "title": "ZiDevTools 插件清单预览",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "逐次确认后核对一份本机 ZiDevTools 声明式 JSON 清单，查看包身份、原字节 SHA-256 和按序工具声明。"
+    }
+  ]
+}

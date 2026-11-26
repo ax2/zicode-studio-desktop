@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.time-zone",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "time-zone",
+      "capabilityId": "devtools.time-zone.convert",
+      "title": "时区工作台",
+      "status": "candidate",
+      "scope": "用相同 IANA 时区规则离线将一个本地时间换算到最多 8 个时区，明确列出重复或缺失时间。",
+      "tzdbVersion": "2025b"
+    }
+  ]
+}

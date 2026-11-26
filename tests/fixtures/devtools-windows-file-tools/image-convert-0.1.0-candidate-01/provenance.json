@@ -1,0 +1,648 @@
+{
+  "sourceRevision": "59acfe8c416963dd7a757951e2967f8344148bfd",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T16:43:22.460094+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "fd8ca2e9e0eaa29cc91846ad2ce4b61c7b0dd197e4d5aa927141e8a9353f2ba5",
+  "workerVerification": {
+    "passed": 32,
+    "wasmSha256": "fd8ca2e9e0eaa29cc91846ad2ce4b61c7b0dd197e4d5aa927141e8a9353f2ba5",
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "nativeSha256": "4ae544f7ccda41acce12173efc9ee06135038b6ba140da06d98518c2c59cea41",
+    "workerProfile": "resource.wasi.input.draft2",
+    "outputProfile": "resource.wasi.output.draft1",
+    "executionProfile": "resource.wasi.image.resize.v1",
+    "cases": [
+      {
+        "case": "png-to-png",
+        "inputSha256": "92b06026ef5a564065cd931e3bbcc8077493e13144d1bb11d54b8f9056fcbe58",
+        "mime": "image/png",
+        "input": {
+          "format": "png"
+        },
+        "error": null,
+        "outputBytes": 498,
+        "outputSha256": "689c0ce09b7d746db9924b126b06d421bc12ebf44c2f45a58341875e688e5e14",
+        "result": {
+          "byteLength": 498,
+          "height": 32,
+          "mimeType": "image/png",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 128,
+          "width": 128
+        }
+      },
+      {
+        "case": "png-to-jpeg",
+        "inputSha256": "92b06026ef5a564065cd931e3bbcc8077493e13144d1bb11d54b8f9056fcbe58",
+        "mime": "image/png",
+        "input": {
+          "format": "jpeg"
+        },
+        "error": null,
+        "outputBytes": 1625,
+        "outputSha256": "f47845b412947267dd7ccb9da3764e05b703e854b819c4c06bc8ba02159a198a",
+        "result": {
+          "byteLength": 1625,
+          "height": 32,
+          "mimeType": "image/jpeg",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 128,
+          "width": 128
+        }
+      },
+      {
+        "case": "png-to-webp",
+        "inputSha256": "92b06026ef5a564065cd931e3bbcc8077493e13144d1bb11d54b8f9056fcbe58",
+        "mime": "image/png",
+        "input": {
+          "format": "webp"
+        },
+        "error": null,
+        "outputBytes": 204,
+        "outputSha256": "bb58ea32d74ba70e30e02451a250d8c43d7f0d19eb182c96fd537b875384424b",
+        "result": {
+          "byteLength": 204,
+          "height": 32,
+          "mimeType": "image/webp",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 128,
+          "width": 128
+        }
+      },
+      {
+        "case": "jpeg-to-png",
+        "inputSha256": "113fae4197c5add49e9e83ba5a9dd235abf398b9b9eb85349161a8ab8ad781ef",
+        "mime": "image/jpeg",
+        "input": {
+          "format": "png"
+        },
+        "error": null,
+        "outputBytes": 422,
+        "outputSha256": "6299e1b267fae79eaa605469ac7452cb2e9abc0ebf0ec559e400c8d304e30cf3",
+        "result": {
+          "byteLength": 422,
+          "height": 32,
+          "mimeType": "image/png",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 96,
+          "width": 96
+        }
+      },
+      {
+        "case": "jpeg-to-jpeg",
+        "inputSha256": "113fae4197c5add49e9e83ba5a9dd235abf398b9b9eb85349161a8ab8ad781ef",
+        "mime": "image/jpeg",
+        "input": {
+          "format": "jpeg"
+        },
+        "error": null,
+        "outputBytes": 1309,
+        "outputSha256": "ac1ceefd015cea31ff4b2a9bbab693fb353d41613931b6075892e7ece1b32f7b",
+        "result": {
+          "byteLength": 1309,
+          "height": 32,
+          "mimeType": "image/jpeg",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 96,
+          "width": 96
+        }
+      },
+      {
+        "case": "jpeg-to-webp",
+        "inputSha256": "113fae4197c5add49e9e83ba5a9dd235abf398b9b9eb85349161a8ab8ad781ef",
+        "mime": "image/jpeg",
+        "input": {
+          "format": "webp"
+        },
+        "error": null,
+        "outputBytes": 308,
+        "outputSha256": "caf62005b5583739a9ea19d01570c2b80816beca78f11c728ef260da4a13bbf7",
+        "result": {
+          "byteLength": 308,
+          "height": 32,
+          "mimeType": "image/webp",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 96,
+          "width": 96
+        }
+      },
+      {
+        "case": "webp-to-png",
+        "inputSha256": "cf18cb1b0d79ed44234ec680464d8d76b13fbabe650241ce3e6cd4973367992a",
+        "mime": "image/webp",
+        "input": {
+          "format": "png"
+        },
+        "error": null,
+        "outputBytes": 434,
+        "outputSha256": "ea93773955f4a295e08a92747a05944c6ec08770d2c6cac99c61176a14cc2230",
+        "result": {
+          "byteLength": 434,
+          "height": 32,
+          "mimeType": "image/png",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 96,
+          "width": 96
+        }
+      },
+      {
+        "case": "webp-to-jpeg",
+        "inputSha256": "cf18cb1b0d79ed44234ec680464d8d76b13fbabe650241ce3e6cd4973367992a",
+        "mime": "image/webp",
+        "input": {
+          "format": "jpeg"
+        },
+        "error": null,
+        "outputBytes": 1350,
+        "outputSha256": "e296a872287d9013aecd6c911d559ac9efff4dc5df38808b0cd68d39a1894237",
+        "result": {
+          "byteLength": 1350,
+          "height": 32,
+          "mimeType": "image/jpeg",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 96,
+          "width": 96
+        }
+      },
+      {
+        "case": "webp-to-webp",
+        "inputSha256": "cf18cb1b0d79ed44234ec680464d8d76b13fbabe650241ce3e6cd4973367992a",
+        "mime": "image/webp",
+        "input": {
+          "format": "webp"
+        },
+        "error": null,
+        "outputBytes": 204,
+        "outputSha256": "fdaefbbda608c2e340c3dd38f562cfcbd83d69f85ffabb29867537acfb971d85",
+        "result": {
+          "byteLength": 204,
+          "height": 32,
+          "mimeType": "image/webp",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 96,
+          "width": 96
+        }
+      },
+      {
+        "case": "same-extent-5000-to-png",
+        "inputSha256": "87aba1c37003b04ae4e18ebe13ea4730fd62bae540180a873184e282fca1df37",
+        "mime": "image/png",
+        "input": {
+          "format": "png"
+        },
+        "error": null,
+        "outputBytes": 12619,
+        "outputSha256": "76e21287582e6d388ada9ea4d60479eac330e68bad79e6a2dba9a32e03960f4e",
+        "result": {
+          "byteLength": 12619,
+          "height": 32,
+          "mimeType": "image/png",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 5000,
+          "width": 5000
+        }
+      },
+      {
+        "case": "same-extent-5000-to-jpeg",
+        "inputSha256": "87aba1c37003b04ae4e18ebe13ea4730fd62bae540180a873184e282fca1df37",
+        "mime": "image/png",
+        "input": {
+          "format": "jpeg"
+        },
+        "error": null,
+        "outputBytes": 39822,
+        "outputSha256": "64d764ac19960daa58fac2b3654a74839eaba604d8de4343115cad4b6e24f8db",
+        "result": {
+          "byteLength": 39822,
+          "height": 32,
+          "mimeType": "image/jpeg",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 5000,
+          "width": 5000
+        }
+      },
+      {
+        "case": "same-extent-5000-to-webp",
+        "inputSha256": "87aba1c37003b04ae4e18ebe13ea4730fd62bae540180a873184e282fca1df37",
+        "mime": "image/png",
+        "input": {
+          "format": "webp"
+        },
+        "error": null,
+        "outputBytes": 382,
+        "outputSha256": "78c531eca656fc3451e83cdc3e1c9815a3cb7d619e080ae54d453f953fe3b7b1",
+        "result": {
+          "byteLength": 382,
+          "height": 32,
+          "mimeType": "image/webp",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 5000,
+          "width": 5000
+        }
+      },
+      {
+        "case": "prior-resize-rejection-now-converts",
+        "inputSha256": "40d62e561510cf3051b64b4b71d67918105c989a0978f1914f2edf2098454b63",
+        "mime": "image/png",
+        "input": {
+          "format": "webp"
+        },
+        "error": null,
+        "outputBytes": 3202,
+        "outputSha256": "15902e6de98ec5246a857b74b5421cde5110283cb3390938949125037d9d635f",
+        "result": {
+          "byteLength": 3202,
+          "height": 32,
+          "mimeType": "image/webp",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 5000,
+          "width": 5000
+        }
+      },
+      {
+        "case": "native-wide-edge-12000",
+        "inputSha256": "4e127de5ec59d70366b2ec04e35a4c2660841a3d97a40e990df16287d61de41a",
+        "mime": "image/png",
+        "input": {
+          "format": "webp"
+        },
+        "error": null,
+        "outputBytes": 414,
+        "outputSha256": "fdf93b89a1c0e6b6975d7a89c873ce2ee36531a97739e6d91091600eea70affa",
+        "result": {
+          "byteLength": 414,
+          "height": 4,
+          "mimeType": "image/webp",
+          "ok": true,
+          "sourceHeight": 4,
+          "sourceWidth": 12000,
+          "width": 12000
+        }
+      },
+      {
+        "case": "native-tall-edge-12000",
+        "inputSha256": "2008daffd1944959bdfb27397606d835cf79d150966de4ef9c06709be28e1eb4",
+        "mime": "image/png",
+        "input": {
+          "format": "png"
+        },
+        "error": null,
+        "outputBytes": 31624,
+        "outputSha256": "8da7da85f4d6e178e119cc6af17f46948485afc3a1bc722e7ee5c4867019b62f",
+        "result": {
+          "byteLength": 31624,
+          "height": 12000,
+          "mimeType": "image/png",
+          "ok": true,
+          "sourceHeight": 12000,
+          "sourceWidth": 4,
+          "width": 4
+        }
+      },
+      {
+        "case": "native-wide-edge-12001",
+        "inputSha256": "bc3d1cca09fa6e4d6d8e0169590e5f61f4aebce4df6072fc5c8c3aaa5a309367",
+        "mime": "image/png",
+        "input": {
+          "format": "png"
+        },
+        "error": "IMAGE_DIMENSION_LIMIT",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "图片尺寸超过当前能力上限"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "native-tall-edge-12001",
+        "inputSha256": "365d4b6949ec10d2eb11f6efda6081e4287255228e5a332fa9c66b74ff67b24f",
+        "mime": "image/png",
+        "input": {
+          "format": "png"
+        },
+        "error": "IMAGE_DIMENSION_LIMIT",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "图片尺寸超过当前能力上限"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "16m-pixel-solid-to-png",
+        "inputSha256": "da085c3c1c284bd29a21502d1712be8039f86ce624a4eaa04c0339ac511fbf36",
+        "mime": "image/png",
+        "input": {
+          "format": "png",
+          "quality": 85
+        },
+        "error": null,
+        "outputBytes": 316123,
+        "outputSha256": "25e29bd08c9c899af9f7b410c5ddd1d50e8df14587918d390ec8eb6cfa1a4169",
+        "result": {
+          "byteLength": 316123,
+          "height": 4000,
+          "mimeType": "image/png",
+          "ok": true,
+          "sourceHeight": 4000,
+          "sourceWidth": 4000,
+          "width": 4000
+        }
+      },
+      {
+        "case": "16m-pixel-solid-to-jpeg",
+        "inputSha256": "da085c3c1c284bd29a21502d1712be8039f86ce624a4eaa04c0339ac511fbf36",
+        "mime": "image/png",
+        "input": {
+          "format": "jpeg",
+          "quality": 85
+        },
+        "error": null,
+        "outputBytes": 438129,
+        "outputSha256": "aab7363c84e939a99d75f15d839deffca6f620b21e8a6a092f352033c8e74edf",
+        "result": {
+          "byteLength": 438129,
+          "height": 4000,
+          "mimeType": "image/jpeg",
+          "ok": true,
+          "sourceHeight": 4000,
+          "sourceWidth": 4000,
+          "width": 4000
+        }
+      },
+      {
+        "case": "16m-pixel-solid-to-webp",
+        "inputSha256": "da085c3c1c284bd29a21502d1712be8039f86ce624a4eaa04c0339ac511fbf36",
+        "mime": "image/png",
+        "input": {
+          "format": "webp",
+          "quality": 85
+        },
+        "error": null,
+        "outputBytes": 8012,
+        "outputSha256": "c066bcdcf6647217ee8b41080ba074d98fd55f2e022bd8f777be513c4a5bf309",
+        "result": {
+          "byteLength": 8012,
+          "height": 4000,
+          "mimeType": "image/webp",
+          "ok": true,
+          "sourceHeight": 4000,
+          "sourceWidth": 4000,
+          "width": 4000
+        }
+      },
+      {
+        "case": "16m-pixel-limit-exceeded",
+        "inputSha256": "f2805affb4af2b2011b8b2ee75ec6bcf9b0a66c1ea7feb39aab5873dcfcae0a6",
+        "mime": "image/png",
+        "input": {
+          "format": "png"
+        },
+        "error": "IMAGE_DIMENSION_LIMIT",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "IMAGE_DIMENSION_LIMIT",
+            "message": "图片尺寸超过当前能力上限"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "jpeg-minimum-quality",
+        "inputSha256": "92b06026ef5a564065cd931e3bbcc8077493e13144d1bb11d54b8f9056fcbe58",
+        "mime": "image/png",
+        "input": {
+          "format": "jpeg",
+          "quality": 35
+        },
+        "error": null,
+        "outputBytes": 1174,
+        "outputSha256": "73c80affd81ebb8bc8d9a7626addb64e7fe9711a1033f50105ec09302ebc2bca",
+        "result": {
+          "byteLength": 1174,
+          "height": 32,
+          "mimeType": "image/jpeg",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 128,
+          "width": 128
+        }
+      },
+      {
+        "case": "jpeg-maximum-quality",
+        "inputSha256": "92b06026ef5a564065cd931e3bbcc8077493e13144d1bb11d54b8f9056fcbe58",
+        "mime": "image/png",
+        "input": {
+          "format": "jpeg",
+          "quality": 95
+        },
+        "error": null,
+        "outputBytes": 2053,
+        "outputSha256": "bc69ad3e20a00f7ed845d80f920165862dd364c3f5922e707156049501d1b1c0",
+        "result": {
+          "byteLength": 2053,
+          "height": 32,
+          "mimeType": "image/jpeg",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 128,
+          "width": 128
+        }
+      },
+      {
+        "case": "jpeg-ui-numeric-string",
+        "inputSha256": "92b06026ef5a564065cd931e3bbcc8077493e13144d1bb11d54b8f9056fcbe58",
+        "mime": "image/png",
+        "input": {
+          "format": "jpeg",
+          "quality": "85"
+        },
+        "error": null,
+        "outputBytes": 1625,
+        "outputSha256": "f47845b412947267dd7ccb9da3764e05b703e854b819c4c06bc8ba02159a198a",
+        "result": {
+          "byteLength": 1625,
+          "height": 32,
+          "mimeType": "image/jpeg",
+          "ok": true,
+          "sourceHeight": 32,
+          "sourceWidth": 128,
+          "width": 128
+        }
+      },
+      {
+        "case": "jpeg-quality-out-of-range",
+        "inputSha256": "92b06026ef5a564065cd931e3bbcc8077493e13144d1bb11d54b8f9056fcbe58",
+        "mime": "image/png",
+        "input": {
+          "format": "jpeg",
+          "quality": 96
+        },
+        "error": "INVALID_PARAMETERS",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "INVALID_PARAMETERS",
+            "message": "输出格式或 JPEG 质量参数无效"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "bad-quality",
+        "inputSha256": "92b06026ef5a564065cd931e3bbcc8077493e13144d1bb11d54b8f9056fcbe58",
+        "mime": "image/png",
+        "input": {
+          "format": "jpeg",
+          "quality": "x"
+        },
+        "error": "INVALID_PARAMETERS",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "INVALID_PARAMETERS",
+            "message": "输出格式或 JPEG 质量参数无效"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "does-not-accept-resize-parameter",
+        "inputSha256": "92b06026ef5a564065cd931e3bbcc8077493e13144d1bb11d54b8f9056fcbe58",
+        "mime": "image/png",
+        "input": {
+          "format": "png",
+          "maxWidth": 32
+        },
+        "error": "IMAGE_OPERATION_FAILED",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "IMAGE_OPERATION_FAILED",
+            "message": "图片处理失败或超出运行资源限制"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "unsupported-output",
+        "inputSha256": "92b06026ef5a564065cd931e3bbcc8077493e13144d1bb11d54b8f9056fcbe58",
+        "mime": "image/png",
+        "input": {
+          "format": "gif"
+        },
+        "error": "INVALID_PARAMETERS",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "INVALID_PARAMETERS",
+            "message": "输出格式或 JPEG 质量参数无效"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "wrong-input-media-type",
+        "inputSha256": "113fae4197c5add49e9e83ba5a9dd235abf398b9b9eb85349161a8ab8ad781ef",
+        "mime": "image/png",
+        "input": {
+          "format": "png"
+        },
+        "error": "IMAGE_OPERATION_FAILED",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "IMAGE_OPERATION_FAILED",
+            "message": "图片处理失败或超出运行资源限制"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-image",
+        "inputSha256": "f905923d6dec117507cb7bcabfa94e046b57c37aa023cfb612166477d76912e7",
+        "mime": "image/png",
+        "input": {
+          "format": "png"
+        },
+        "error": "INVALID_IMAGE",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "INVALID_IMAGE",
+            "message": "输入内容不是受支持的 PNG、JPEG 或 WebP 图片"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "reject-animated-png",
+        "inputSha256": "bf64245641a1c08de5be9d4b6764731b8b2cbee59845bf59ee1a4c505b477e92",
+        "mime": "image/png",
+        "input": {
+          "format": "png"
+        },
+        "error": "IMAGE_ANIMATED",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "IMAGE_ANIMATED",
+            "message": "此工具接受静态图片。请选择一张静态 PNG、JPEG 或 WebP。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "reject-animated-webp",
+        "inputSha256": "19a3c45621191bab4a1fa6208b09920873a8f9dfcd9d0929837644cb2cbd4c48",
+        "mime": "image/webp",
+        "input": {
+          "format": "png"
+        },
+        "error": "IMAGE_ANIMATED",
+        "outputBytes": 0,
+        "outputSha256": null,
+        "result": {
+          "error": {
+            "code": "IMAGE_ANIMATED",
+            "message": "此工具接受静态图片。请选择一张静态 PNG、JPEG 或 WebP。"
+          },
+          "ok": false
+        }
+      }
+    ],
+    "failures": []
+  }
+}

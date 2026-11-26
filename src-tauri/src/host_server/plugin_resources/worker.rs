@@ -424,8 +424,10 @@ fn execute(
         let markdown_profile = crate::plugin_resource_execution::markdown::selected(capability.execution_profile.as_deref());
         let digest_profile = crate::plugin_resource_execution::file_digest::selected(capability.execution_profile.as_deref());
         let encoding_profile = crate::plugin_resource_execution::encoding::operation(capability.execution_profile.as_deref());
+        use crate::plugin_resource_execution::shortcut_profile;
+        let shortcut_profile_selected = shortcut_profile::selected(capability.execution_profile.as_deref());
         let json_compare_profile = crate::plugin_resource_execution::json_file_selected(capability.execution_profile.as_deref());
-        if capability.execution_profile.is_some() && !image_processing_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !json_compare_profile && encoding_profile.is_none()
+        if capability.execution_profile.is_some() && !image_processing_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile && !json_compare_profile && !shortcut_profile_selected && encoding_profile.is_none()
         {
             return Err(rejected("resource_execution_profile_unsupported"));
         }
@@ -434,6 +436,12 @@ fn execute(
         }
         if json_compare_profile && crate::plugin_resource_execution::json_file_input_count(capability.execution_profile.as_deref(), &owner.plugin_id, Some(&owner.capability_id)) != Some(request.accesses().count()) {
             return Err(rejected("resource_profile_unsupported"));
+        }
+        if shortcut_profile_selected {
+            if !shortcut_profile::matches_capability(&owner.plugin_id, Some(&owner.capability_id)) || request.accesses().count() != 2 {
+                return Err(rejected("resource_profile_unsupported"));
+            }
+            shortcut_profile::validate_parameters(&request.input).map_err(rejected)?;
         }
         // Negotiated heavy profiles share the same global memory reservation pool.
         let profile_lease = if image_processing_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
@@ -514,6 +522,11 @@ fn execute(
     if json_compare_profile && resources.iter().any(|resource| resource.bytes.len() > crate::plugin_resource_execution::json_compare::MAX_FILE) {
         return Err(rejected("resource_input_too_large"));
     }
+    use crate::plugin_resource_execution::shortcut_profile;
+    if shortcut_profile::selected(output_contract.execution_profile.as_deref()) {
+        shortcut_profile::validate_inputs(&owner.plugin_id, Some(&owner.capability_id),
+            resources.iter().map(|resource| (resource.descriptor.mime_type.as_str(), resource.bytes.len()))).map_err(rejected)?;
+    }
     if let Some(encoding) = encoding_profile {
         encoding.validate_input(&owner.plugin_id, Some(&owner.capability_id),
             &resources.iter().map(|resource| resource.bytes.len()).collect::<Vec<_>>()).map_err(rejected)?;
@@ -537,8 +550,13 @@ fn execute(
             return Err(rejected("resource_profile_unsupported"));
         }
         let resource = &resources[0];
-        if resource.descriptor.byte_length
-            > crate::plugin_resource_execution::IMAGE_RESIZE_MAX_RESOURCE_BYTES
+        use crate::plugin_resource_execution::{IMAGE_RESIZE_MAX_RESOURCE_BYTES, ascii_art};
+        let max_bytes = if ascii_art::selected(output_contract.execution_profile.as_deref()) {
+            ascii_art::MAX_RESOURCE_BYTES
+        } else {
+            IMAGE_RESIZE_MAX_RESOURCE_BYTES
+        };
+        if resource.descriptor.byte_length > max_bytes
             || resource.bytes.len() != resource.descriptor.byte_length
         {
             return Err(rejected("resource_input_too_large"));
@@ -557,14 +575,15 @@ fn execute(
         "sceneId":scene,"input":request.input
     });
     let metadata_profile=crate::plugin_resource_execution::metadata::selected(output_contract.execution_profile.as_deref());
-    if image_processing_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile || json_compare_profile || encoding_profile.is_some() {
-        // The existing Worker profile selects shared image budgets, not an operation.
-        // The Host separately negotiates the precise crop contract and validates its output.
-        worker_request["executionProfile"] = if image_processing_profile {
-            json!(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE)
+    if let Some(execution_profile) = output_contract.execution_profile.as_deref() {
+        // Forward the admitted capability profile. Image operations share one Worker profile;
+        // the Host still enforces each operation's separate output contract.
+        let worker_profile = if image_processing_profile {
+            crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE
         } else {
-            json!(output_contract.execution_profile)
+            execution_profile
         };
+        worker_request["executionProfile"] = json!(worker_profile);
     }
     if binary {
         worker_request["resourceOutputProfile"] =

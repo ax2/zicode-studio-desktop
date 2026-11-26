@@ -12,6 +12,8 @@ export function SavedOutputs({ gateway, getTarget, expanded = false }: {
 }) {
   const [open, setOpen] = useState(expanded), [page, setPage] = useState<SavedOutputPage | null>(null);
   const [query, setQuery] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [changedFiles, setChangedFiles] = useState(() => new Set<string>());
+  const loadedQuery = useRef("");
   const [selected, setSelected] = useState<SavedOutput | null>(null);
   const [preview, setPreview] = useState<{ image?: string; text?: string; notice?: string } | null>(null);
   const life = useRef({ active: true, sequence: 0, controller: null as AbortController | null, url: "" });
@@ -32,12 +34,14 @@ export function SavedOutputs({ gateway, getTarget, expanded = false }: {
     return { scene, workspace, signal: controller.signal,
       valid: () => life.current.active && sequence === life.current.sequence && signature === JSON.stringify(getTarget?.()) };
   }
-  async function load(offset = 0) {
+  async function load(offset = 0, filter = query) {
     if (!gateway) return; const scope = request(); setBusy(true); setError("");
     try {
-      const result = await gateway.list(scope.scene, scope.workspace, { query, offset, signal: scope.signal });
+      const result = await gateway.list(scope.scene, scope.workspace, { query: filter, offset, signal: scope.signal });
       if (!scope.valid()) return;
       if (result.schemaVersion !== 1 || result.profile !== "resource.library.draft1" || result.workspaceId !== scope.workspace || result.pageSize !== 40 || result.payloadsRead !== false || !Array.isArray(result.items) || result.items.length > 40 || !result.items.every(item => validSavedOutput(item, scope.workspace))) throw new Error();
+      loadedQuery.current = filter;
+      setChangedFiles(new Set());
       setPage(result);
     } catch { if (scope.valid()) { setPage(null); setError(t("Saved files could not be loaded. Check project access and refresh.")); } }
     finally { if (scope.valid()) setBusy(false); }
@@ -45,9 +49,12 @@ export function SavedOutputs({ gateway, getTarget, expanded = false }: {
   // biome-ignore lint/correctness/useExhaustiveDependencies: expanded libraries mount only on explicit opening, keyed by workspace. Search remains a submitted action.
   useEffect(() => { if (expanded) void load(); }, [expanded]);
   async function read(item: SavedOutput, download: boolean) {
-    if (!gateway) return; const scope = request(); setBusy(true); setError("");
+    const { receipt } = item;
+    if (!gateway || changedFiles.has(receipt.saveId)) return;
+    const scope = request();
+    setBusy(true);
+    setError("");
     try {
-      const receipt = item.receipt;
       if (!validSavedOutput(item, scope.workspace)) throw new Error();
       const limit = download ? savedResourceLimit(receipt) : isTextSavedOutput(receipt.mimeType) ? 128 * 1024 : 8 * 1024 * 1024;
       if (receipt.byteLength > limit) throw new Error();
@@ -69,8 +76,17 @@ export function SavedOutputs({ gateway, getTarget, expanded = false }: {
         if (!scope.valid()) return;
         life.current.url = URL.createObjectURL(result.blob); setSelected(item); setPreview({ image: life.current.url });
       }
-    } catch { if (scope.valid()) { clear(); setBusy(false); setPage(null); setError(t("The saved file changed, is unavailable, or access was revoked. Refresh before trying again.")); } }
-    finally { if (scope.valid()) setBusy(false); }
+    } catch (reason) {
+      if (!scope.valid()) return;
+      clear();
+      setBusy(false);
+      if (reason instanceof Error && "code" in reason && reason.code === "saved_output_changed") {
+        setChangedFiles(previous => new Set(previous).add(receipt.saveId));
+      } else {
+        setPage(null);
+        setError(t("The saved file changed, is unavailable, or access was revoked. Refresh before trying again."));
+      }
+    } finally { if (scope.valid()) setBusy(false); }
   }
   useEffect(() => {
     if (!selected || !gateway) return;
@@ -97,6 +113,8 @@ export function SavedOutputs({ gateway, getTarget, expanded = false }: {
       <form className="saved-outputs-search" onSubmit={event => { event.preventDefault(); void load(); }}>
         <label>{t(expanded ? "Search saved files" : "Search saved plugin files")}<input className="ui-input" type="search" maxLength={120} value={query} onChange={event => setQuery(event.target.value)} /></label>
         <button type="submit" disabled={busy} className="ui-button ui-button--secondary">{t("Search")}</button>
+        {page && changedFiles.size > 0 && <button type="button" className="ui-button ui-button--secondary"
+          disabled={busy} onClick={() => void load(page.offset, loadedQuery.current)}>{t("Refresh")}</button>}
       </form>
       <p role="status">{busy ? t("Loading…") : error || (page ? `${page.total} ${t("Files")} · ${t("File contents are verified only when opened.")}` : "")}</p>
       {page?.skippedEntries ? <p>{t("Some incomplete or changed records were skipped. Existing files were kept.")}</p> : null}
@@ -106,20 +124,24 @@ export function SavedOutputs({ gateway, getTarget, expanded = false }: {
         {preview.notice ? <p>{preview.notice}</p> : preview.image ? <img src={preview.image} alt={t("Saved plugin file preview")} /> : <textarea className="ui-textarea" readOnly rows={8} aria-label={t("Saved plugin file preview")} value={preview.text ?? ""} />}
       </div> : null}
       {page?.total === 0 && <p>{t("No saved files in this workspace yet.")}</p>}
-      <ul>{page?.items.map(item => <li key={item.receipt.saveId}>
-        <strong>{`result.${savedOutputExtension(item.receipt.mimeType)}`} · {formatBytes(item.receipt.byteLength)}</strong>
-        {Number.isFinite(Date.parse(item.receipt.preparedAt)) && <time dateTime={item.receipt.preparedAt}>{t("Saved at {time}")
-          .replace("{time}", new Date(item.receipt.preparedAt).toLocaleString(getLocale() === "zh-CN" ? "zh-CN" : "en-US"))}</time>}
-        <details><summary>{t("File details")}</summary>
-          <p>{item.receipt.relativePath}</p><p>{item.receipt.mimeType}</p>
-          <p>{item.receipt.source.pluginId} · {item.receipt.source.capabilityId}</p>
-          <p>{t("Recorded package version")}: {item.receipt.source.packageVersion}</p>
-        </details>
-        <div className="saved-outputs-actions">
-          <button type="button" disabled={busy || item.receipt.byteLength > (isTextSavedOutput(item.receipt.mimeType) ? 128 * 1024 : 8 * 1024 * 1024)} className="ui-button ui-button--secondary" onClick={() => void read(item, false)}>{t("Preview saved file")}</button>
-          <button type="button" disabled={busy} className="ui-button ui-button--secondary" onClick={() => void read(item, true)}>{t("Download saved file")}</button>
-        </div>
-      </li>)}</ul>
+      <ul>{page?.items.map(item => {
+        const changed = changedFiles.has(item.receipt.saveId);
+        return <li key={item.receipt.saveId}>
+          <strong>{`result.${savedOutputExtension(item.receipt.mimeType)}`} · {formatBytes(item.receipt.byteLength)}</strong>
+          {Number.isFinite(Date.parse(item.receipt.preparedAt)) && <time dateTime={item.receipt.preparedAt}>{t("Saved at {time}")
+            .replace("{time}", new Date(item.receipt.preparedAt).toLocaleString(getLocale() === "zh-CN" ? "zh-CN" : "en-US"))}</time>}
+          <details><summary>{t("File details")}</summary>
+            <p>{item.receipt.relativePath}</p><p>{item.receipt.mimeType}</p>
+            <p>{item.receipt.source.pluginId} · {item.receipt.source.capabilityId}</p>
+            <p>{t("Recorded package version")}: {item.receipt.source.packageVersion}</p>
+          </details>
+          {changed && <p role="status">{t("This saved file changed. Refresh the list before opening it again.")}</p>}
+          <div className="saved-outputs-actions">
+            <button type="button" disabled={changed || busy || item.receipt.byteLength > (isTextSavedOutput(item.receipt.mimeType) ? 128 * 1024 : 8 * 1024 * 1024)} className="ui-button ui-button--secondary" onClick={() => void read(item, false)}>{t("Preview saved file")}</button>
+            <button type="button" disabled={changed || busy} className="ui-button ui-button--secondary" onClick={() => void read(item, true)}>{t("Download saved file")}</button>
+          </div>
+        </li>;
+      })}</ul>
       <div className="saved-outputs-actions">
         <button type="button" className="ui-button ui-button--secondary" disabled={busy || !page || page.offset === 0} onClick={() => void load(Math.max(0, (page?.offset ?? 0) - 40))}>{t("Previous page")}</button>
         <button type="button" className="ui-button ui-button--secondary" disabled={busy || !page?.hasMore} onClick={() => void load((page?.offset ?? 0) + 40)}>{t("Next page")}</button>

@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.rename-preview",
+  "name": "ZiDevTools Batch Rename Preview",
+  "displayName": "批量改名预览",
+  "description": "切到「文件夹」并确认共享一层名称，预览查找替换、前后缀及目标冲突。最多 64 个目录项。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.files.rename.preview"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.files.rename.preview",
+        "title": "批量改名预览",
+        "description": "切到「文件夹」并确认共享一层名称，预览查找替换、前后缀及目标冲突。最多 64 个目录项。",
+        "resourceInputMimeTypes": [
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "find": {
+              "type": "string",
+              "maxLength": 128,
+              "title": "查找"
+            },
+            "replacement": {
+              "type": "string",
+              "maxLength": 128,
+              "title": "替换为"
+            },
+            "prefix": {
+              "type": "string",
+              "maxLength": 128,
+              "title": "前缀"
+            },
+            "suffix": {
+              "type": "string",
+              "maxLength": 128,
+              "title": "后缀"
+            },
+            "caseSensitive": {
+              "type": "boolean",
+              "title": "区分大小写"
+            }
+          }
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "previewOnly": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "entryCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "fileCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "proposedCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "unchangedCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "blockedCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "rows": {
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "maxLength": 255
+                      },
+                      "target": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 255
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "proposed",
+                          "unchanged",
+                          "case-only",
+                          "duplicate",
+                          "occupied",
+                          "invalid"
+                        ]
+                      },
+                      "issue": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "target",
+                      "status",
+                      "issue"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "ok",
+                "previewOnly",
+                "entryCount",
+                "fileCount",
+                "proposedCount",
+                "unchangedCount",
+                "blockedCount",
+                "rows"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "批量重命名",
+            "改名预览",
+            "文件改名",
+            "Batch rename preview"
+          ],
+          "description": "切到「文件夹」并确认共享一层名称，预览查找替换、前后缀及目标冲突。最多 64 个目录项。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的目录名称快照。"
+      },
+      {
+        "name": "resource.directory.read",
+        "reason": "经逐次确认读取一层相对名称和类型。"
+      }
+    ],
+    "optional": []
+  }
+}

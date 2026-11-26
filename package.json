@@ -1,6 +1,6 @@
 {
   "name": "zicode-studio-desktop",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "Local-first cross-platform personal developer platform for projects, AI collaboration, knowledge, and automation",
   "keywords": [
     "zicode-studio-desktop",
@@ -91,8 +91,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
-    "@earendil-works/pi-coding-agent": "1.6.0",
-    "@earendil-works/pi-tui": "1.6.0",
+    "@earendil-works/pi-coding-agent": "1.6.1",
+    "@earendil-works/pi-tui": "1.6.1",
     "@sinclair/typebox": "^0.34.52",
     "@tauri-apps/cli": "^2.11.2",
     "@testing-library/dom": "^10.4.1",

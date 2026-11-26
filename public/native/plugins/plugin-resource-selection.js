@@ -12,6 +12,7 @@ export function createPluginResourceSelection({
   isCurrent,
   onResource,
   catalogRevision,
+  includePreviewSource,
   maxBytes = 32 * 1024 * 1024,
 }) {
   const panel = document.createElement("section");
@@ -151,14 +152,14 @@ export function createPluginResourceSelection({
     release();
     return cancellation;
   }
-  input.addEventListener("change", () => {
+  function selectLocalFile(file) {
     if (uploading || !active || !isCurrent()) return;
     fileStatus.clear();
     cancelProjectGrant();
     revision += 1;
     saved?.clear();
     release();
-    selected = input.files?.[0] ?? null;
+    selected = file;
     const allowed = allowedSize(selected) && capability.value;
     confirm.disabled = !allowed;
     status.textContent = !selected
@@ -169,7 +170,15 @@ export function createPluginResourceSelection({
             .replace("{bytes}", selected.size)
             .replace("{plugin}", `${plugin.name} ${plugin.version}`)
         : limitText();
-  });
+    const token = revision;
+    return () => {
+      if (active && token === revision) {
+        clear();
+        status.textContent = "";
+      }
+    };
+  }
+  input.addEventListener("change", () => selectLocalFile(input.files?.[0] ?? null));
   capability.addEventListener("change", () => {
     fileStatus.clear();
     if (selected?.projectPreview) selected = null;
@@ -230,7 +239,8 @@ export function createPluginResourceSelection({
         return;
       }
       granted = result.access;
-      onResource(result.reference);
+      if (includePreviewSource && !preview) onResource(result.reference, { mimeType: selected.type, byteLength: selected.size });
+      else onResource(result.reference);
       status.textContent = t("Confirmed file shared. You can revoke it with Cancel.");
     } catch {
       if (valid()) {
@@ -258,6 +268,7 @@ export function createPluginResourceSelection({
   panel.append(fileStatus.element);
   container.prepend(panel);
   return {
+    offerLocalFile: selectLocalFile,
     destroy() {
       active = false;
       window.removeEventListener("zicode:entry-changed", refreshOpenedFile);

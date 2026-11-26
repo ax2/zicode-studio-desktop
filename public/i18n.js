@@ -2531,6 +2531,12 @@ const zhCN = {
   "Receiving tool": "接收工具",
   "Only this plugin and tool can read the confirmed snapshot. Nothing is saved or sent to AI.":
     "仅此插件和接收工具可读取已确认的文件快照。不会保存或发送给 AI。",
+  "Choose or drop one file": "选择文件或拖到这里",
+  "Choose one file up to 32 MiB.": "请选择一个不超过 32 MiB 的文件。",
+  "Selected: {name} · {bytes} bytes": "已选择：{name} · {bytes} 字节",
+  "Clear selected file": "清除所选文件",
+  "Close this tool before opening it with a selected file.": "请先关闭这个工具，再用所选文件打开。",
+  "This tool needs more than one file. Choose another tool.": "这个工具需要多个文件，请选择其他工具。",
   "Confirm file sharing": "确认提供文件",
   "Cancel file sharing": "取消提供文件",
   "Release was not confirmed. The resource will expire automatically.":

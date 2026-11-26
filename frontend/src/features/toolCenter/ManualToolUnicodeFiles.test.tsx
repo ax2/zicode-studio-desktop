@@ -11,19 +11,22 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const mixed = "\uFEFFe\u0301Ａ\r\n";
 const report = JSON.stringify({ codePoints: [{ byteOffset: 0, codePoint: "U+FEFF", utf8: "EF BB BF" }] }, null, 2);
 
-it.each([
+const unicodeFiles = [
   { mode: "inspect", text: mixed, result: report, label: "Download JSON", file: /^unicode-code-points-\d+\.json$/, mime: "application/json" },
   { mode: "nfc", text: mixed, result: "\uFEFFéＡ\r\n", label: "Download normalized text",
     file: /^unicode-nfc-\d+\.txt$/, mime: "text/plain;charset=utf-8" },
   { mode: "nfkc", text: "", result: "", label: "Download normalized text",
     file: /^unicode-nfkc-\d+\.txt$/, mime: "text/plain;charset=utf-8" },
-])("preserves the input file and downloads a complete $mode result only on request", async example => {
+];
+
+it.each(["0.1.2", "0.1.4"].flatMap(version => unicodeFiles.map(example => ({ ...example, version }))))(
+"preserves the input file and downloads a complete $mode result for $version", async example => {
   setLocale("en");
   const download = vi.spyOn(downloads, "downloadFile").mockImplementation(() => {});
   const tool: ManualTool = {
     toolId: example.mode, accessId: example.mode, pluginId: "com.zicode.devtools.inspect",
     capabilityId: "devtools.inspect.unicode." + example.mode, title: "Unicode",
-    applicationName: "ZiDevTools Inspect", publisher: "ZiDevTools", version: "0.1.2", enabled: true, runtime: "wasi",
+    applicationName: "ZiDevTools Inspect", publisher: "ZiDevTools", version: example.version, enabled: true, runtime: "wasi",
   };
   const api: ManualToolApi = {
     searchTools: vi.fn(),

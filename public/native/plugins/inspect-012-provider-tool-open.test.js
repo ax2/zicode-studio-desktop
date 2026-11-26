@@ -6,14 +6,21 @@ import { expect, it, vi } from "vitest";
 import { verifyDevtoolsPackage } from "../../../scripts/verify-devtools-package.mjs";
 import { sandboxBridge } from "./plugin-view-host.js";
 
-const candidate = process.env.ZICODE_TEST_INSPECT_012_DIR;
-const receipt = process.env.ZICODE_TEST_INSPECT_012_RECEIPT;
+const legacy = {
+  version: "0.1.2", candidate: process.env.ZICODE_TEST_INSPECT_012_DIR,
+  receipt: process.env.ZICODE_TEST_INSPECT_012_RECEIPT, fileCount: 616,
+};
+const strictDirectory = join("tests", "fixtures", "devtools-inspect-strict-yaml", "inspect-0.1.4-candidate-02");
+const strict = { version: "0.1.4", candidate: strictDirectory, receipt: strictDirectory + "-verification.json", fileCount: 619 };
 
-it.skipIf(!candidate || !receipt)("routes all eight real Inspect 0.1.2 View tool locations without invoking a capability", async () => {
+it.each(legacy.candidate && legacy.receipt ? [legacy, strict] : [strict])(
+  "routes all eight real Inspect $version View tool locations without invoking a capability",
+  async ({ version, candidate, receipt, fileCount }) => {
   const verified = await verifyDevtoolsPackage(candidate, receipt);
-  expect(verified.fileCount).toBe(616);
+  expect(verified.fileCount).toBe(fileCount);
   expect(verified.directoryIndex.status).toBe("matched");
   const manifest = JSON.parse(await readFile(join(candidate, "plugin.json"), "utf8"));
+  expect(manifest.version).toBe(version);
   const vectors = JSON.parse(await readFile(join(candidate, "verification/tool-open-vectors.json"), "utf8"));
   const html = await readFile(join(candidate, "views/main.html"), "utf8");
   const dom = new JSDOM(html, { runScripts: "outside-only", url: "http://localhost/" });

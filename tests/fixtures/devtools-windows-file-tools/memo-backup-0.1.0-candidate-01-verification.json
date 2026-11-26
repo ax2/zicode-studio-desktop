@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.memo-backup",
+  "packageVersion": "0.1.0",
+  "signatureVerified": false,
+  "directoryIndexSha256": "9adb37b0d83bd396d3020bf2a71c0d60378fa1571ed732626630ff093df9baac",
+  "files": [
+    {
+      "path": "catalog.json",
+      "size": 553,
+      "sha256": "29e87ab6202c22208219c795ab7707ea0c25d72689c5b81f1fd7f4e83f9ae703"
+    },
+    {
+      "path": "fixtures.json",
+      "size": 10682,
+      "sha256": "32f39350cc15afa5428d5db32a5d3ef233560f208964b4adecf063c2e9cd824d"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 72,
+      "sha256": "a7dfe47126544a14bdc705961a0246b73041682a8b5a7aa55df59c1043b1e83f"
+    },
+    {
+      "path": "plugin.json",
+      "size": 5972,
+      "sha256": "b0aaf62b0ba4a52d80f4880aa06113f4fb07ec2be6f0f8ab5975e05cc2225cc4"
+    },
+    {
+      "path": "provenance.json",
+      "size": 17663,
+      "sha256": "febd380f16f9a8793ef2788906da3cddc9db64e9d1f18c5649bd6050efffa886"
+    },
+    {
+      "path": "README.md",
+      "size": 1020,
+      "sha256": "bc9a33816f74d6054bd996b7bc2bc521c94cbcd8bd1f439d76d59bc0e9d3957e"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 242740,
+      "sha256": "e03a6c8ec32d55cfba99bbba451366ceda4c8410d5d38b8c0babf8b005f39fd5"
+    }
+  ],
+  "fileCount": 8,
+  "totalBytes": 279799,
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}

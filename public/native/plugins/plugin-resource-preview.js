@@ -120,6 +120,7 @@ export function createResourcePreview({ container, read, isCurrent, plugin, exec
         status.textContent = t("Text preview");
       } else {
         const text = node("pre", result.text); text.tabIndex = 0;
+        if (executionProfile === "resource.wasi.image.ascii.v1") text.classList.add("plugin-ascii-art");
         text.setAttribute("aria-label", t("Tool output preview")); content.replaceChildren(text);
         status.textContent = t(result.kind === "binary" ? "Binary preview · first 256 bytes" : "Text preview");
       }

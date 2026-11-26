@@ -24,6 +24,17 @@ describe("trusted parent output preview",()=>{
     [...document.querySelectorAll("button")].find(b=>b.textContent==="Close preview").click();
     expect(document.querySelector("article,textarea")).toBeNull();setLocale("zh-CN");expect(document.querySelector("article")).toBeNull();c.controller.destroy();
   });
+  it("preserves every character and blank in a keyboard-focusable ASCII art preview",async()=>{
+    const c=fixture({executionProfile:"resource.wasi.image.ascii.v1"});
+    c.resource.mimeType="text/plain";
+    const art="@%#*+=-:\n...     \n";
+    loadResourcePreview.mockResolvedValue({kind:"text",text:art});c.show();
+    document.querySelector("button").click();await flush();
+    const preview=document.querySelector("pre.plugin-ascii-art");
+    expect(preview.textContent).toBe(art);
+    expect(preview.tabIndex).toBe(0);
+    c.controller.destroy();
+  });
   it("keeps the complete metadata copy separate from the thumbnail during language changes",async()=>{
     vi.stubGlobal("URL",class extends URL { static createObjectURL=()=>"blob:metadata"; static revokeObjectURL=vi.fn(); });
     const save=vi.fn(),c=fixture({executionProfile:"resource.wasi.image.metadata.v1",onSave:save});

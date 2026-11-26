@@ -37,7 +37,7 @@ impl Format {
 
     fn required_extension(self, scope: &Scope) -> Option<&'static str> {
         match self {
-            Self::Text if scope.is_text_diff() => Some("txt"),
+            Self::Text if scope.is_text_diff() || scope.is_json_schema_report() => Some("txt"),
             Self::Text => None,
             Self::Png => Some("png"),
             Self::Csv => Some("csv"),
@@ -193,6 +193,8 @@ impl HostServer {
             } else if let Some(extension) = source.format.required_extension(&source.scope) {
                 let stem = if source.scope.is_text_diff() {
                     "text-diff-report"
+                } else if source.scope.is_json_schema_report() {
+                    "json-schema-validation"
                 } else if source.scope.is_quality_report() {
                     "data-quality-report"
                 } else if source.scope.is_json_path() {

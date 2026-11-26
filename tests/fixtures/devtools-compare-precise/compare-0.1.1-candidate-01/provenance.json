@@ -1,0 +1,12 @@
+{
+  "sourceRevision": "650c31106a2bbadfb8cafa6393e44e94b0eddd21",
+  "dirty": false,
+  "signature": "unsigned",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "9a9580787e6bb37fec29ba889622d08e41bc032be8b599d43f11e24174ffe886",
+  "binary": "zi-studio-compare-wasi",
+  "baseCandidate": "compare-0.1.0-candidate-02",
+  "baseRuntimeSha256": "5b15da8793af1910a697693b25d2d3d5b7ddf0c409a2192ec085abf6c400c5be",
+  "windowsProofSha256": "8c8982a4c45a62058a63e86c171ffeae8fd416d08ad11523c6d6ccdd98abbda4"
+}

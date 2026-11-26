@@ -222,3 +222,19 @@ it("keeps the post-activation snapshot when an older registry refresh arrives la
   expect(registry.isEnabled(pluginId)).toBe(true);
   expect(activateReviewed).toHaveBeenCalledWith("programming", pluginId, review, ["resource.read"]);
 });
+
+it("distinguishes a committed activation with unavailable settings from a rejected review", async () => {
+  const pluginId = "com.example.reviewed";
+  const review = { packageRevision: "package", sceneRevision: "scene" };
+  const enabled = { id: pluginId, name: "Reviewed tool", origin: "developer", enabled: true };
+  const list = vi.fn().mockRejectedValueOnce(Error("read unavailable")).mockResolvedValue({ plugins: [enabled] });
+  const activateReviewed = vi.fn().mockResolvedValueOnce({ enabled: true }).mockRejectedValue(Error("review rejected"));
+  const registry = new BuiltinPluginRegistry({ hostGateway: { list, activateReviewed } });
+  await expect(registry.activateReviewed(pluginId, review, ["resource.read"])).resolves.toEqual({ settingsLoaded: false });
+  await expect(registry.setScene("programming")).resolves.toBe(true);
+  expect(registry.isEnabled(pluginId)).toBe(true);
+  expect(activateReviewed).toHaveBeenCalledTimes(1);
+  expect(list).toHaveBeenCalledTimes(2);
+  await expect(registry.activateReviewed(pluginId, review, [])).rejects.toThrow("review rejected");
+  expect(list).toHaveBeenCalledTimes(2);
+});

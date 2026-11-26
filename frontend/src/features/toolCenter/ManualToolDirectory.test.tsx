@@ -36,11 +36,12 @@ function api() {
 }
 async function mount(gateway: ManualToolApi, accessStore?: ToolAccessStore,
   openApplication: (pluginId: string, capabilityId: string) => (() => void) | undefined = () => undefined,
-  openViewOperation?: (operation: ViewOperation, revision: string) => unknown) {
+  openViewOperation?: (operation: ViewOperation, revision: string) => unknown,
+  getResourceTarget?: () => { sceneId: string; workspaceId: string; instanceId: string; sessionId: string }) {
   setLocale("en"); vi.useFakeTimers();
   const container = document.createElement("div"); document.body.append(container);
   const root = createRoot(container); roots.push(root);
-  await act(async () => root.render(<ManualToolDirectory api={gateway} scope={scope} accessStore={accessStore} openApplication={openApplication} openViewOperation={openViewOperation} />));
+  await act(async () => root.render(<ManualToolDirectory api={gateway} scope={scope} accessStore={accessStore} openApplication={openApplication} openViewOperation={openViewOperation} getResourceTarget={getResourceTarget} />));
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
   return container;
 }
@@ -101,6 +102,67 @@ it("keeps the full tool directory available when a tray view arrives without his
   expect(gateway.searchTools.mock.lastCall?.[1]).toEqual({ query: "", offset: 0, revision: null });
   expect(container.textContent).toContain("Text 0");
   expect(container.textContent).not.toContain("This list belongs to the current workspace");
+});
+
+async function dropFile(container: HTMLElement, file: File, isDirectory = false) {
+  const dropzone = [...container.querySelectorAll("button")].find(button => button.textContent === "Choose or drop one file");
+  expect(dropzone).toBeTruthy();
+  const event = new Event("drop", { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "dataTransfer", {
+    value: { types: ["Files"], files: [file], items: [{ webkitGetAsEntry: () => ({ isDirectory }) }] },
+  });
+  await act(async () => dropzone?.dispatchEvent(event));
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
+  expect(event.defaultPrevented).toBe(true);
+}
+
+it("uses only name and size to discover receivers, then discards unconfirmed files when leaving a tool", async () => {
+  const receiver = { ...tool(0), runtime: "wasi", fileInputMatch: "declared" as const };
+  const gateway = { ...api(), prepareResource: vi.fn(), appendResource: vi.fn(), commitResource: vi.fn(),
+    revokeResource: vi.fn(), invokeResource: vi.fn(), readResource: vi.fn(), cancelResource: vi.fn() };
+  gateway.searchTools.mockResolvedValue({ items: [receiver], total: 1, revision: "revision", nextOffset: null });
+  gateway.loadTool.mockImplementation(async (_scene, selected) => ({ pluginId: "fixture", version: receiver.version,
+    revision: selected.revision, enabled: true, resourceInputProfile: "resource.wasi.input.draft2",
+    capability: { id: receiver.capabilityId, inputSchema: { type: "object", properties: {} } },
+    permissions: [{ name: "resource.read", granted: true, required: true, reason: "Fixture" }] }));
+  const container = await mount(gateway, undefined, undefined, undefined, () => ({ ...scope, instanceId: "instance", sessionId: "session" }));
+  const file = new File(["abc"], "文件.txt", { type: "text/plain" });
+  const read = vi.fn();
+  Object.defineProperty(file, "arrayBuffer", { value: read });
+  await dropFile(container, file);
+  expect(container.textContent).toContain("Selected: 文件.txt · 3 bytes");
+  expect(gateway.searchTools.mock.lastCall?.[1]).toEqual({ query: "", offset: 0, revision: null, resourceOnly: true, fileName: file.name });
+  expect(gateway.loadTool).not.toHaveBeenCalled();
+  await click(container, "Open tool");
+  expect(container.textContent).toContain("Selected: 文件.txt · 3 bytes · plugin Fixture 0.1.0");
+  const confirm = [...container.querySelectorAll("button")].find(button => button.textContent === "Confirm file sharing");
+  expect(confirm?.disabled).toBe(false);
+  await click(container, "Tool directory");
+  expect(confirm?.disabled).toBe(true);
+  expect(container.textContent).not.toContain("Selected: 文件.txt");
+  expect(read).not.toHaveBeenCalled();
+  expect(gateway.prepareResource).not.toHaveBeenCalled();
+  expect(gateway.invokeResource).not.toHaveBeenCalled();
+});
+
+it("rejects dropped directories, preserves an unmatched source until cleared, and never prepares it", async () => {
+  const gateway = api();
+  gateway.searchTools.mockImplementation(async (_scene, options) => options.fileName
+    ? { items: [], total: 0, revision: "revision", nextOffset: null }
+    : { items: [tool(0)], total: 1, revision: "revision", nextOffset: null });
+  const container = await mount(gateway);
+  await dropFile(container, new File([], "fake-folder"), true);
+  expect(container.textContent).toContain("Choose one file up to 32 MiB.");
+  expect(gateway.searchTools.mock.lastCall?.[1].fileName).toBeUndefined();
+  await dropFile(container, new File(["abc"], "unknown.ext"));
+  expect(container.textContent).toContain("No matching tools");
+  expect(container.textContent).toContain("Selected: unknown.ext · 3 bytes");
+  await click(container, "Clear selected file");
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
+  expect(gateway.searchTools.mock.lastCall?.[1].resourceOnly).toBeUndefined();
+  expect(container.textContent).toContain("Text 0");
+  expect(gateway.loadTool).not.toHaveBeenCalled();
+  expect(gateway.invoke).not.toHaveBeenCalled();
 });
 
 it("defaults a file launch to resource tools, with metadata-only reversible filtering", async () => {
@@ -557,6 +619,54 @@ it("reloads an opened tool against the current catalog after a stale detail resp
   expect(container.querySelector("form")).not.toBeNull();
   expect(gateway.invoke).not.toHaveBeenCalled();
 });
+
+it.each(["matching input", "permission change", "replacement tab"] as const)(
+  "handles a delayed details reload with %s", async mode => {
+    const gateway = api();
+    gateway.searchTools.mockResolvedValueOnce({ items: [tool(0)], total: 1, revision: "old", nextOffset: null })
+      .mockResolvedValueOnce({ items: [tool(0)], total: 1, revision: "new", nextOffset: null });
+    const detail = gateway.loadTool.getMockImplementation();
+    if (!detail) throw new Error("Missing test detail implementation");
+    const resolveDetail: ManualToolApi["loadTool"] = async (scene, selected) => {
+      const loaded = await detail(scene, selected);
+      return mode === "permission change" && selected.revision === "new"
+        ? { ...loaded, permissions: [{ name: "pi.tools.register", reason: "Requires review", required: false, granted: true }] }
+        : loaded;
+    };
+    gateway.loadTool.mockImplementation(resolveDetail);
+    gateway.invoke.mockRejectedValueOnce({ code: "catalog_changed" });
+    const container = await mount(gateway);
+    const input = () => container.querySelector<HTMLTextAreaElement>("form textarea");
+    const editDraft = async (value: string) => {
+      const field = input();
+      expect(field).not.toBeNull();
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(field, value);
+        field?.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    };
+
+    await click(container, "Open tool");
+    await editDraft("first attempt");
+    await click(container, "Execute tool");
+    let resume!: () => void;
+    gateway.loadTool.mockImplementationOnce((scene, selected) => new Promise(resolve => {
+      resume = () => { void resolveDetail(scene, selected).then(resolve); };
+    }));
+    await click(container, "Reload tool details");
+    if (mode === "replacement tab") {
+      await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close tool: Text 0"]')?.click());
+      await click(document.body, "Close tool");
+      await click(container, "Open tool");
+    }
+    const nextDraft = "late input 中文\nwith trailing space ";
+    await editDraft(nextDraft);
+    await act(async () => resume());
+    expect(input()?.value).toBe(mode === "permission change" ? "" : nextDraft);
+    expect(gateway.invoke).toHaveBeenCalledTimes(1);
+    expect(gateway.loadTool.mock.lastCall?.[1].revision).toBe(mode === "replacement tab" ? "old" : "new");
+  },
+);
 
 it("does not switch an opened tool to a different capability on reload", async () => {
   const gateway = api(); gateway.loadTool.mockRejectedValueOnce({ code: "capability_changed" });

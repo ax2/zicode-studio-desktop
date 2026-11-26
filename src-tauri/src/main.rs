@@ -1473,6 +1473,21 @@ fn open_native_workspace_window_named(
         .icon(icon)
         .map_err(|error| error.to_string())?;
 
+    // On Windows the native handler otherwise intercepts drops before HTML file inputs.
+    // Keep this on the trusted Studio view and prevent unhandled drops from navigating it.
+    #[cfg(windows)]
+    let builder = if browser_windows::secondary(label) {
+        builder
+    } else {
+        let prevent_file_navigation = format!(
+            "if (window.top === window && window.location.origin === {}) {{ for (const type of ['dragover', 'drop']) window.addEventListener(type, event => {{ if (event.dataTransfer?.types.includes('Files')) event.preventDefault(); }}); }}",
+            serde_json::to_string(host.origin()).map_err(|error| error.to_string())?,
+        );
+        builder
+            .disable_drag_drop_handler()
+            .initialization_script(prevent_file_navigation)
+    };
+
     // Shared workspace chrome owns drag and window controls on every view.
     let builder = builder.decorations(false);
     let window = builder.build().map_err(|error| error.to_string())?;

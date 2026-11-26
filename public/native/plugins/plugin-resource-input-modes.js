@@ -37,7 +37,7 @@ export function createResourceInputModes(options, createFiles, mimeTypes, execut
   }
   const locale = () => render(); window.addEventListener("zicode:locale-changed", locale);
   select(0);
-  return { getInputOptions: () => markdown && options.markdownDraftMode ? { sourceMode: mode === 0 ? "draft" : "file" } : {}, destroy() {
+  return { offerLocalFile(file) { select(1); return current.offerLocalFile?.(file); }, getInputOptions: () => markdown && options.markdownDraftMode ? { sourceMode: mode === 0 ? "draft" : "file" } : {}, destroy() {
     active = false; current.destroy(); importFile?.destroy(); window.removeEventListener("zicode:locale-changed", locale); toolbar.remove(); body.remove();
   } };
 }

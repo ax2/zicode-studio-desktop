@@ -1,0 +1,1 @@
+Independent ZiDevTools package. Shared zi-json-core, zi-regex-core, zi-diff-core and explicit stable-compute adapter. Uses serde/serde_json, regex and similar under their MIT/Apache-2.0 licenses. No Studio sources, credentials, user data or executables are included.

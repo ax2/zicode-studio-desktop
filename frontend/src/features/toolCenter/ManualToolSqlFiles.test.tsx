@@ -13,10 +13,20 @@ const tool: ManualTool = {
 };
 const schema = { type: "object", properties: { text: { type: "string", maxLength: 8192 } },
   required: ["text"], additionalProperties: false };
+const newTool = { ...tool, version: "0.4.2" };
+const optionSchema = {
+  ...schema,
+  properties: {
+    ...schema.properties,
+    dialect: { type: "string", title: "SQL dialect", enum: ["generic", "postgresql", "mysql", "sqlite", "sqlserver"], default: "generic" },
+    indent: { type: "string", title: "Indentation", enum: ["twoSpaces", "fourSpaces", "tabs"], default: "fourSpaces" },
+    keywordCase: { type: "string", title: "Keyword case", enum: ["uppercase", "lowercase", "preserve"], default: "uppercase" },
+  },
+};
 
 afterEach(cleanup);
 
-async function open(selected: ManualTool = tool, inputSchema = schema) {
+async function open(selected: ManualTool = tool, inputSchema: unknown = schema) {
   setLocale("en");
   const api: ManualToolApi = {
     searchTools: vi.fn(),
@@ -84,6 +94,10 @@ it("only exposes SQL file import for the existing enabled compatible formatter",
   for (const [selected, input] of [
     [{ ...tool, capabilityId: "devtools.text.base64.encode" }, schema],
     [{ ...tool, version: "0.4.0" }, schema],
+    [{ ...tool, version: "0.4.5" }, optionSchema],
+    [{ ...tool, version: "0.4.4" }, schema],
+    [{ ...tool, version: "0.4.4" }, { ...optionSchema, required: ["text", "indent"] }],
+    [{ ...tool, version: "0.4.4" }, { ...optionSchema, properties: { ...optionSchema.properties, indent: { ...optionSchema.properties.indent, default: "tabs" } } }],
     [tool, { ...schema, properties: { text: { type: "string", maxLength: 4096 } } }],
   ] as const) {
     const { form, view } = await open(selected, input);
@@ -92,6 +106,42 @@ it("only exposes SQL file import for the existing enabled compatible formatter",
   }
   const { form } = await open({ ...tool, enabled: false });
   expect(form.queryByLabelText("SQL file", { exact: true })).toBeNull();
+});
+
+it.each(["0.4.2", "0.4.3", "0.4.4"])("keeps SQL %s options through import, undo and download", async version => {
+  const { api, form, pick, view } = await open({ ...newTool, version }, optionSchema);
+  const editor = form.getByRole("textbox", { name: /SQL text/ });
+  const submit = async () => { await act(async () => { fireEvent.click(form.getByRole("button", { name: "Execute tool" })); }); };
+  const choose = (label: string, choice: string) => {
+    const input = form.getByRole<HTMLSelectElement>("combobox", { name: label });
+    const option = within(input).getByRole<HTMLOptionElement>("option", { name: choice });
+    fireEvent.change(input, { target: { value: option.value } });
+  };
+  const source = "select $tag$原文;$tag$;";
+  fireEvent.change(editor, { target: { value: "select 0;" } });
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text: "select 0;" });
+
+  choose("SQL dialect", "PostgreSQL");
+  choose("Indentation", "2 spaces");
+  choose("Keyword case", "Lowercase");
+  await pick(file("input.sql", source));
+  fireEvent.click(form.getByRole("button", { name: "Undo last import" }));
+  expect((editor as HTMLTextAreaElement).value).toBe("select 0;");
+  await pick(file("input.sql", source));
+  expect(api.invoke).toHaveBeenCalledTimes(1);
+
+  vi.mocked(api.invoke).mockResolvedValueOnce({
+    result: { contractVersion: "1.0.0-rc.1", ok: true, data: { text: source }, error: null },
+  });
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[1][4]).toEqual({
+    text: source, dialect: "postgresql", indent: "twoSpaces", keywordCase: "lowercase",
+  });
+  expect(view.getByRole("button", { name: "Download formatted SQL" })).toBeTruthy();
+  choose("Keyword case", "Keep original case");
+  expect(view.queryByRole("button", { name: "Download formatted SQL" })).toBeNull();
+  expect(api.invoke).toHaveBeenCalledTimes(2);
 });
 
 it("downloads only a fresh successful SQL response as a separate file", async () => {
@@ -135,4 +185,58 @@ it("downloads only a fresh successful SQL response as a separate file", async ()
     }
     expect(download).toHaveBeenCalledTimes(1);
   } finally { download.mockRestore(); }
+});
+it.each(["0.4.2", "0.4.3", "0.4.4"])("explains the confirmed SQL %s result limit and keeps the source", async version => {
+  const { api, form, pick, view } = await open({ ...newTool, version }, optionSchema);
+  const text = "select " + "(".repeat(136) + "amount" + ")".repeat(136) + " as amount from report_rows;\r\n";
+  const input = file("report.sql", "\uFEFF" + text);
+  const submit = () => act(async () => { fireEvent.click(form.getByRole("button", { name: "Execute tool" })); });
+  const response = { contractVersion: "1.0.0-rc.1", ok: false, data: null, error: { code: "INPUT_TOO_LARGE", message: "结果超过 48 KiB" } };
+  await pick(input);
+  vi.mocked(api.invoke).mockResolvedValueOnce({ result: response });
+  await submit();
+  expect(view.getByRole("alert").textContent).toContain("Formatted SQL exceeds the 48 KiB output limit. Select 2 spaces for indentation and run again.");
+  expect(view.queryByRole("button", { name: "Download formatted SQL" })).toBeNull();
+  expect(JSON.parse((view.getByLabelText("Original response") as HTMLTextAreaElement).value)).toEqual(response);
+
+  const indentation = form.getByRole("combobox", { name: "Indentation" });
+  const twoSpaces = within(indentation).getByRole<HTMLOptionElement>("option", { name: "2 spaces" });
+  fireEvent.change(indentation, { target: { value: twoSpaces.value } });
+  expect(api.invoke).toHaveBeenCalledTimes(1);
+  expect(view.getByRole("alert").textContent).not.toContain("Select 2 spaces");
+  vi.mocked(api.invoke).mockResolvedValueOnce({
+    result: { contractVersion: "1.0.0-rc.1", ok: true, data: { text: "SELECT amount FROM report_rows;" }, error: null },
+  });
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls.map(call => call[4])).toEqual([{ text }, { text, indent: "twoSpaces" }]);
+  expect(view.getByRole("button", { name: "Download formatted SQL" })).toBeTruthy();
+  expect(Buffer.from(await input.arrayBuffer())).toEqual(Buffer.from("\uFEFF" + text));
+});
+
+it.each([
+  [newTool, optionSchema, "输入超过 8192 UTF-8 字节", "Tool could not complete."],
+  [newTool, optionSchema, "请求超过 48 KiB", "Tool could not complete."],
+  [{ ...newTool, pluginId: "com.example.unknown" }, optionSchema, "结果超过 48 KiB", "Tool could not complete."],
+  [tool, schema, "结果超过 48 KiB", "Formatted SQL exceeds the 48 KiB output limit."],
+  [{ ...newTool, version: "0.4.4" }, schema, "结果超过 48 KiB", "Tool could not complete."],
+  [{ ...newTool, version: "0.4.5" }, optionSchema, "结果超过 48 KiB", "Tool could not complete."],
+] as const)("keeps error guidance scoped to the confirmed SQL result limit %#", async (selected, shape, message, expected) => {
+  const { api, form, view } = await open(selected, shape);
+  fireEvent.change(form.getByRole("textbox", { name: /text/i }), { target: { value: "select 1;" } });
+  vi.mocked(api.invoke).mockResolvedValueOnce({
+    result: { contractVersion: "1.0.0-rc.1", ok: false, data: null, error: { code: "INPUT_TOO_LARGE", message } },
+  });
+  await act(async () => { fireEvent.click(form.getByRole("button", { name: "Execute tool" })); });
+  const alert = view.getByRole("alert").textContent;
+  expect(alert).toContain(expected);
+  expect(alert).not.toContain("Select 2 spaces");
+});
+
+it("preserves the normal failure for the Worker computation limit", async () => {
+  const { api, form, view } = await open(newTool, optionSchema);
+  fireEvent.change(form.getByRole("textbox", { name: /SQL text/ }), { target: { value: "select 1;" } });
+  vi.mocked(api.invoke).mockRejectedValueOnce({ code: "worker_fuel_exhausted" });
+  await act(async () => { fireEvent.click(form.getByRole("button", { name: "Execute tool" })); });
+  expect(view.getByRole("alert").textContent).not.toContain("48 KiB");
+  expect(view.queryByRole("button", { name: "Download formatted SQL" })).toBeNull();
 });

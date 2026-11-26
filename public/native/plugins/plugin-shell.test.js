@@ -942,6 +942,7 @@ describe("setupPluginShell", () => {
     };
     globalThis.matchMedia = vi.fn(() => media);
     const shell = setupPluginShell({ registry: registry() });
+    const back = vi.spyOn(history, "back").mockImplementation(() => {});
     const more = document.querySelector("[data-mobile-activity-more]");
     const menu = document.querySelector("[data-mobile-activity-menu]");
     more.click();
@@ -952,6 +953,8 @@ describe("setupPluginShell", () => {
 
     expect(menu.hidden).toBe(true);
     expect(more.getAttribute("aria-expanded")).toBe("false");
+    expect(back).toHaveBeenCalledOnce();
+    back.mockRestore();
     shell.destroy();
     expect(media.removeEventListener).toHaveBeenCalledWith("change", changeListener);
   });

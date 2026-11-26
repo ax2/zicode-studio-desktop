@@ -6,6 +6,7 @@ import { fireEvent, within } from "@testing-library/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
+import * as downloads from "../../shared/download-file";
 import { setLocale } from "../../shared/i18n";
 import { emptyAccess } from "../commandPalette/tool-access";
 import { ManualToolDetail } from "./ManualToolDetail";
@@ -21,7 +22,7 @@ async function mount(activeTool: ManualTool = tool, resourceInputProfile?: strin
   setLocale("zh-CN");
   const api: ManualToolApi = {
     searchTools: vi.fn(),
-    loadTool: vi.fn(async () => ({ pluginId: activeTool.pluginId, version: "0.1.0", revision: "revision", enabled: activeTool.enabled,
+    loadTool: vi.fn(async () => ({ pluginId: activeTool.pluginId, version: activeTool.version, revision: "revision", enabled: activeTool.enabled,
       resourceInputProfile, capability: { id: activeTool.capabilityId, inputSchema },
       permissions: resourceInputProfile ? [{ name: "resource.read", granted: true, required: false, reason: "" }] : [] })),
     invoke: vi.fn(async () => ({ result: envelope("中\nnext\n") })),
@@ -63,6 +64,53 @@ it("shows exact readable text, collapsed original response and records successfu
   expect(container.textContent).toContain("工具执行成功");
   expect(container.querySelector("details")?.open).toBe(false);
   expect(store.mutate).toHaveBeenCalledWith({ sceneId: "programming", workspaceId: "workspace" }, { kind: "recentRecord", id: "access" });
+});
+
+it("downloads an empty successful URL decode only after the imported text is run", async () => {
+  const download = vi.spyOn(downloads, "downloadFile").mockImplementation(() => {});
+  try {
+    const { container, api, submit } = await mount({ ...tool, pluginId: "com.zicode.devtools.transforms",
+      capabilityId: "devtools.transforms.url.decode", version: "0.1.1" }, undefined,
+    { type: "object", required: ["text"], properties: { text: { type: "string", maxLength: 8192 } }, additionalProperties: false });
+    const view = within(container);
+    vi.mocked(api.invoke).mockResolvedValue({ result: envelope("") });
+    await act(async () => fireEvent.change(view.getByLabelText("UTF-8 文本文件"), { target: { files: [new NodeFile([], "empty.txt")] } }));
+    expect(api.invoke).not.toHaveBeenCalled();
+    expect(view.queryByRole("button", { name: "下载解码文本" })).toBeNull();
+    await submit();
+    expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text: "" });
+    expect(download).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "下载解码文本" }));
+    expect(download).toHaveBeenCalledWith(expect.stringMatching(/^url-decoded-\d+\.txt$/), "", "text/plain;charset=utf-8");
+  } finally { download.mockRestore(); }
+});
+
+it("preserves UTF-8 file bytes and downloads only a valid SHA-256 digest", async () => {
+  const download = vi.spyOn(downloads, "downloadFile").mockImplementation(() => {});
+  try {
+    const { container, api, submit } = await mount({ ...tool, pluginId: "com.zicode.devtools.text",
+      capabilityId: "devtools.text.sha256", version: "0.4.4" }, undefined,
+    { type: "object", required: ["text"], properties: { text: { type: "string", maxLength: 8192 } }, additionalProperties: false });
+    const view = within(container);
+    const source = "\uFEFF合成  \r\n尾  ";
+    const digest = "fa2a2bdc754dd9e9b6b32762c39161a1b59b0e9cf6be4cb088fc5da8fa6c77c9";
+    const button = () => view.queryByRole("button", { name: "下载 SHA-256 摘要" });
+    vi.mocked(api.invoke).mockResolvedValue({ result: envelope(digest) });
+    await act(async () => fireEvent.change(view.getByLabelText("UTF-8 文本文件"), {
+      target: { files: [new NodeFile([source], "source.txt")] },
+    }));
+    expect(api.invoke).not.toHaveBeenCalled();
+    expect(button()).toBeNull();
+    await submit();
+    expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text: source });
+    expect(download).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "下载 SHA-256 摘要" }));
+    expect(download).toHaveBeenCalledWith(expect.stringMatching(/^sha256-\d+\.txt$/), digest, "text/plain");
+    vi.mocked(api.invoke).mockResolvedValue({ result: envelope(digest + "\n") });
+    await submit();
+    expect(button()).toBeNull();
+    expect(download).toHaveBeenCalledTimes(1);
+  } finally { download.mockRestore(); }
 });
 
 it("replaces prior success with an escaped business error and does not record failed use", async () => {
@@ -209,6 +257,52 @@ it.each([
   expect(api.invoke).not.toHaveBeenCalled();
 });
 
+it("undoes only the imported JSON when the user has edited its independent query", async () => {
+  const { api, form, document, query, importFile, submit } = await mountJsonPath();
+  const oldDocument = '{"open":9,"closed":15}';
+  const selection = new NodeFile(['\uFEFF{"open":1,"closed":2}'], "selected.json");
+  fireEvent.change(document, { target: { value: oldDocument } });
+  fireEvent.change(query, { target: { value: "$.open" } });
+  await importFile([selection]);
+  fireEvent.change(query, { target: { value: "$.closed" } });
+  await act(async () => { form.getByRole("button", { name: "撤销上次导入" }).click(); });
+  expect(document.value).toBe(oldDocument);
+  expect(query.value).toBe("$.closed");
+  expect(api.invoke).not.toHaveBeenCalled();
+  expect(Buffer.from(await selection.arrayBuffer())).toEqual(Buffer.from('\uFEFF{"open":1,"closed":2}'));
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({ text: oldDocument, query: "$.closed" });
+});
+
+it("preserves only the latest JSON import undo and invalidates it on a JSON edit or catalog reload", async () => {
+  const { api, form, document, query, importFile, renderScope } = await mountJsonPath();
+  const undoLabel = { name: "撤销上次导入" };
+  const first = '{"a":1}';
+  const second = new NodeFile(['{"b":2}'], "second.json");
+  fireEvent.change(document, { target: { value: '{"before":true}' } });
+  await importFile([new NodeFile([first], "first.json")]);
+  fireEvent.change(query, { target: { value: "$.a" } });
+  await importFile([second]);
+  fireEvent.change(query, { target: { value: "$.b" } });
+  await act(async () => { form.getByRole("button", undoLabel).click(); });
+  expect(document.value).toBe(first);
+  expect(query.value).toBe("$.b");
+
+  await importFile([second]);
+  fireEvent.change(document, { target: { value: '{"edited":true}' } });
+  expect(form.queryByRole("button", undoLabel)).toBeNull();
+  await importFile([second]);
+  fireEvent.change(query, { target: { value: "$.reloaded" } });
+  expect(form.getByRole("button", undoLabel)).toBeTruthy();
+
+  await renderScope("workspace", jsonPathTool, "refreshed-revision");
+  expect(form.queryByRole("button", undoLabel)).toBeNull();
+  const refreshedQuery = form.getByRole("textbox", { name: /query/i });
+  fireEvent.change(refreshedQuery, { target: { value: "$.afterReload" } });
+  expect(form.queryByRole("button", undoLabel)).toBeNull();
+  expect(api.invoke).not.toHaveBeenCalled();
+});
+
 it("accepts exactly 8 KiB as the JSON query draft", async () => {
   const { document, importFile } = await mountJsonPath();
   const content = "{}" + " ".repeat(8190);
@@ -296,6 +390,29 @@ it("imports either text file without running and undoes only the last import", a
   expect(right.value).toBe("prior right");
 });
 
+it.each(["left", "right"] as const)("restores only the %s import after editing the other text", async side => {
+  const { api, form, left, right, pick, submit } = await mountTextDiff();
+  const [imported, other] = side === "left" ? [left, right] : [right, left];
+  fireEvent.change(imported, { target: { value: "draft before import" } });
+  fireEvent.change(other, { target: { value: "original other draft" } });
+  const file = new NodeFile(["导入\r\n文本\r\n"], "fixture.txt");
+  await pick(side, [file]);
+  fireEvent.change(other, { target: { value: "keep this edit" } });
+  await act(async () => { form.getByRole("button", { name: "撤销上次导入" }).click(); });
+  expect(imported.value).toBe("draft before import");
+  expect(other.value).toBe("keep this edit");
+  expect(api.invoke).not.toHaveBeenCalled();
+  await submit();
+  expect(vi.mocked(api.invoke).mock.calls[0][4]).toEqual({
+    left: left.value,
+    right: right.value,
+  });
+
+  await pick(side, [file]);
+  fireEvent.change(imported, { target: { value: "edit the imported text itself" } });
+  expect(form.queryByRole("button", { name: "撤销上次导入" })).toBeNull();
+});
+
 it("accepts exactly 8 KiB, retains both drafts on invalid UTF-8 or one extra byte", async () => {
   const { form, left, right, pick, api } = await mountTextDiff();
   const boundary = "中".repeat(2730) + "aa";
@@ -365,6 +482,32 @@ it.each(jsonDiffModes)("imports either JSON file without running the %s comparis
   await act(async () => { form.getByRole("button", { name: "撤销上次导入" }).click(); });
   expect(left.value).toBe(original);
   expect(right.value).toBe('{"revised":true}');
+});
+
+
+it.each(jsonDiffModes)("keeps %s JSON import undo through edits on the other side only", async (mode) => {
+  const { api, form, left, right, pick } = await mountJsonDiff(mode);
+  const undo = () => form.queryByRole("button", { name: "撤销上次导入" });
+  const original = '{"amount":18446744073709551614}';
+  const imported = '{"amount":18446744073709551615}';
+  const edited = '{"manual":true}';
+  for (const [side, input, other] of [["left", left, right], ["right", right, left]] as const) {
+    fireEvent.change(input, { target: { value: original } });
+    await pick(side, [new NodeFile([imported], "source.json")]);
+    fireEvent.change(other, { target: { value: edited } });
+    expect(input.value).toBe(imported);
+    await act(async () => undo()?.click());
+    expect(input.value).toBe(original);
+    expect(other.value).toBe(edited);
+    expect(undo()).toBeNull();
+
+    await pick(side, [new NodeFile([imported], "source.json")]);
+    fireEvent.change(input, { target: { value: edited } });
+    expect(undo()).toBeNull();
+    expect(input.value).toBe(edited);
+    fireEvent.change(other, { target: { value: "{}" } });
+  }
+  expect(api.invoke).not.toHaveBeenCalled();
 });
 
 it("keeps both JSON drafts when the file extension, size or contents cannot be loaded", async () => {

@@ -19,10 +19,21 @@ export function ManualToolResultActions({ response, scope, gateway, onBusy, acce
   useEffect(() => {
     if (!container.current) return;
     let active = true;
-    const commit = async (kind: "commitSave" | "commitTransfer", owner: ResultScope, grantId: string) => {
-      busyCallback.current(true);
-      try { return await gateway[kind](owner, grantId); }
-      finally { if (active) busyCallback.current(false); }
+    let pendingCommits = 0;
+    const commit = async (action: () => Promise<unknown>, signal?: AbortSignal) => {
+      if (++pendingCommits === 1) busyCallback.current(true);
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        if (--pendingCommits === 0 && active) busyCallback.current(false);
+      };
+      signal?.addEventListener("abort", release, { once: true });
+      try { return await action(); }
+      finally {
+        signal?.removeEventListener("abort", release);
+        release();
+      }
     };
     const nativeExports = gateway.textExports;
     const actions = createPluginResultActions({
@@ -30,19 +41,15 @@ export function ManualToolResultActions({ response, scope, gateway, onBusy, acce
       sourceResultDisplayed: true,
       gateway: {
         prepareSave: (...args) => gateway.prepareSave(...args),
-        commitSave: (...args) => commit("commitSave", ...args),
+        commitSave: (...args) => commit(() => gateway.commitSave(...args)),
         ...(nativeExports ? { textExports: {
           ...nativeExports,
-          commit: async (...args) => {
-            busyCallback.current(true);
-            try { return await nativeExports.commit(...args); }
-            finally { if (active) busyCallback.current(false); }
-          },
+          commit: (...args) => commit(() => nativeExports.commit(...args)),
         } } : {}),
         ...(gateway.saveStatus ? { saveStatus: gateway.saveStatus.bind(gateway) } : {}),
         searchTargets: (...args) => gateway.searchTargets(...args),
         prepareTransfer: (...args) => gateway.prepareTransfer(...args),
-        commitTransfer: (...args) => commit("commitTransfer", ...args),
+        commitTransfer: (...args) => commit(() => gateway.commitTransfer(...args), args[2]?.signal),
         cancelTransfer: (...args) => gateway.cancelTransfer(...args),
         transferStatus: (...args) => gateway.transferStatus(...args),
       },
