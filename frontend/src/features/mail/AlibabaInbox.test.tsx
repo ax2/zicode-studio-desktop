@@ -101,6 +101,59 @@ it("keeps the committed first page visible after a catch-up connection failure",
   expect(remote.mock.calls.filter(([request]) => request.kind === "catchUp").map(([request]) => request))
     .toEqual(Array(2).fill({ kind: "catchUp", accountId: "a", limit: 20 }));
 });
+it("keeps the open message through a same-folder refresh and catch-up retry", async () => {
+  setLocale("en");
+  const titles = ["After successful refresh", "After interrupted catch-up", "After reconnecting", "Same UID in a new mailbox", "Another message remains"];
+  const interrupted = "Newer messages were refreshed. Some older messages could not be synced. Refresh from server to try again.";
+  let refreshes = 0;
+  const remote = vi.fn(async (request: Record<string, unknown>) => {
+    switch (request.kind) {
+      case "credentialStatus": return { configured: true, enabled: true };
+      case "cachedFolders": return [];
+      case "cachedPage": return { uidValidity: 7, messages: [summary], next: null };
+      case "cachedBody": return {
+        summary,
+        text: request.uidValidity === 7 ? "Cached invoice body" : "Different message body",
+        attachments: [{ id: 0, name: "invoice.pdf", size: 18 }],
+      };
+      case "sync": {
+        const step = refreshes++;
+        const messages = [{ ...summary, subject: titles[step], uid: step === 4 ? summary.uid + 1 : summary.uid }];
+        return { uidValidity: step >= 3 ? 8 : 7, messages, next: null, pending: step === 1 };
+      }
+      case "catchUp": throw Error("mail_connect");
+      default: throw Error("unexpected operation");
+    }
+  });
+  render(<AlibabaInbox id="a" folder="INBOX" setFolder={vi.fn()} invoke={remote as Invoke}
+    discard={() => true} onReply={vi.fn()} onConfigured={vi.fn()} onBusy={vi.fn()}/>);
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  const reading = within(screen.getByRole("article", { name: "Selected message" }));
+  await reading.findByText("Cached invoice body");
+  const refresh = button("Refresh from server");
+  for (const title of titles.slice(0, 3)) {
+    fireEvent.click(refresh);
+    const row = await screen.findByRole("button", { name: new RegExp(title) });
+    expect(row.getAttribute("aria-pressed")).toBe("true");
+    expect(reading.getByRole("heading", { name: title })).toBeTruthy();
+    expect(reading.getByText("Cached invoice body")).toBeTruthy();
+    expect(reading.getByRole("button", { name: "Download attachment invoice.pdf" })).toBeTruthy();
+    expect(Boolean(screen.queryByText(interrupted))).toBe(title === titles[1]);
+  }
+  const cachedReads = () => remote.mock.calls.filter(([request]) => request.kind === "cachedBody");
+  expect(cachedReads()).toHaveLength(1);
+  fireEvent.click(refresh);
+  const newMailbox = await screen.findByRole("button", { name: /Same UID in a new mailbox/ });
+  expect(screen.queryByRole("article", { name: "Selected message" })).toBeNull();
+  fireEvent.click(newMailbox);
+  await screen.findByText("Different message body");
+  fireEvent.click(refresh);
+  await screen.findByRole("button", { name: /Another message remains/ });
+  expect(screen.queryByRole("article", { name: "Selected message" })).toBeNull();
+  expect(cachedReads().map(([request]) => request.uidValidity)).toEqual([7, 8]);
+  expect(remote.mock.calls.some(([request]) => request.kind === "read")).toBe(false);
+});
+
 it("switches to an offline folder and reads the same UID in that folder",async()=>{
   const a=setup();
   const select=await screen.findByLabelText("IMAP folder");

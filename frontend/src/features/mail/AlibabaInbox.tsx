@@ -142,7 +142,10 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
     }, ({page:p,append,interrupted}) => {
       if (target !== folder) setFolder(target);
       if (!append) setCatchUpInterrupted(interrupted);
-      if (!append || !p) {
+      const keepReading = network && target === folder && body && selected && p &&
+        (selected.folder ?? "INBOX") === target && selected.uidValidity === p.uidValidity &&
+        p.messages.some(message => message.uid === selected.uid);
+      if ((!append || !p) && !keepReading) {
         setSelected(null);
         setBody(null);
         setLocalBodyFailed(false);
