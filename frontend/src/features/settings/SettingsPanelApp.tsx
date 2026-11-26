@@ -254,6 +254,7 @@ function MemorySection({ memory }: { memory: MemoryStore }) {
   const loading = memory((state) => state.loading);
   const error = memory((state) => state.error);
   const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
@@ -270,9 +271,16 @@ function MemorySection({ memory }: { memory: MemoryStore }) {
     }, 4000);
   };
 
-  const submit = () => {
-    void memory.getState().add(draft);
-    setDraft("");
+  const submit = async () => {
+    if (adding || loading || !draft.trim()) return;
+    setAdding(true);
+    try {
+      if (await memory.getState().add(draft)) {
+        setDraft((current) => current === draft ? "" : current);
+      }
+    } finally {
+      setAdding(false);
+    }
   };
 
   const exportMemory = () => {
@@ -360,7 +368,7 @@ function MemorySection({ memory }: { memory: MemoryStore }) {
         <button
           type="button"
           className="ui-button ui-button--primary ui-button--sm"
-          disabled={!draft.trim() || loading}
+          disabled={!draft.trim() || loading || adding}
           onClick={submit}
         >
           {t("Add")}
