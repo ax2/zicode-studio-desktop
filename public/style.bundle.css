@@ -627,6 +627,8 @@
 .browser-bookmark-row:hover, .browser-downloads-row:hover { background: var(--bg-glass-hover); }
 .browser-bookmark-details { gap: var(--space-1); }
 
+.browser-bookmark-transfer-limits { margin: 0; font-size: var(--font-size-sm); color: var(--text-secondary); }
+
 /* Keep the native page wide enough for WebView2 file selection (400 × 300 minimum). */
 body[data-active-plugin="com.zicode.browser"] .main .plugin-main-view { padding-inline: var(--space-0-5); padding-bottom: var(--space-0-5); }
 .browser-file-picker-space { display: none; }
