@@ -42,6 +42,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
   } | null>(null);
   const focusReply=useRef<string | undefined>(undefined);
   const [passwordOwner,setPasswordOwner]=useState("");
+  const [accountsWithoutAttachmentAccess, setAccountsWithoutAttachmentAccess] = useState(() => new Set<string>());
   const [mailActivity,setMailActivity]=useState<{account:string;activity:AlibabaActivity}|null>(null);
   const owner=accounts.find(a=>a.id===account);
   const [label,setLabel]=useState("INBOX");
@@ -113,6 +114,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     setLabel("INBOX");
     setDraftsUnavailable(false);
     setPasswordOwner("");
+    setAccountsWithoutAttachmentAccess(new Set());
     setGmailAuthorization(null);
     setMailActivity(null);
     focusReply.current = undefined;
@@ -210,7 +212,18 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
       return changeAttachment(isCurrent, attachment);
     });
   }
+  function rememberAttachmentAccess(readable?: boolean) {
+    if (readable === undefined) return;
+    setAccountsWithoutAttachmentAccess(previous => {
+      if (previous.has(account) === !readable) return previous;
+      const next = new Set(previous);
+      if (readable) next.delete(account);
+      else next.add(account);
+      return next;
+    });
+  }
   function reportGmailGrant(access: GmailAccess, authorized = false) {
+    rememberAttachmentAccess(access.read);
     setGmailAuthorization(current => {
       const previous = current?.account === account ? current : null;
       // A local status response after a canceled sign-in can still contain the old scope.
@@ -246,11 +259,15 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     <label>{t("Email address")}<input className="ui-input" disabled={mailBusy} required type="email" value={address} onChange={e=>setAddress(e.target.value)} /></label>
     <button className="ui-button ui-button--primary" type="submit" disabled={mailBusy}>{t("Add local account")}</button></form></fieldset>
     {account&&<CachedMailSearch key={`search-${searchVersion}`} accounts={accounts} current={account} invoke={invoke} gmail={gmailTransport} alibaba={transport} canDownloadCurrentAttachments={canDownloadCurrentAttachments}
+      accountsWithoutAttachmentAccess={accountsWithoutAttachmentAccess}
       onReply={replyFromCache} replyBlocked={draftBlocked||mailBusy}/>}
     {gmail&&owner&&<GmailInbox key={account} id={account} address={owner.address} label={label} setLabel={setLabel} invoke={gmail} onGrant={reportGmailGrant}
       grantLoss={gmailAuthorization?.account===account ? gmailAuthorization.loss : undefined} onReply={replyFromCache} draftBusy={draftBlocked}/>}
     {alibaba&&<AlibabaInbox key={account} id={account} folder={label} setFolder={setLabel} invoke={alibaba} discard={discard} onBusy={reportAlibabaBusy}
-      onConfigured={v=>setPasswordOwner(v?account:"")} onReply={openReply} draftBusy={draftBlocked}/>}
+      onConfigured={value => {
+        setPasswordOwner(value ? account : "");
+        rememberAttachmentAccess(value);
+      }} onReply={openReply} draftBusy={draftBlocked}/>}
     {account&&draftsUnavailable&&<fieldset disabled={busy||mailBusy}><legend>{t("Mail drafts")}</legend>
       <p role="alert">{t("Could not load this account’s saved drafts.")}</p>
       <button className="ui-button" type="button" onClick={()=>void run(isCurrent=>load(account,isCurrent))}>{t("Reload drafts")}</button>

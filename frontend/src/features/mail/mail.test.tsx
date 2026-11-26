@@ -623,7 +623,7 @@ it("drops a pending reply refresh when the Gmail search scope changes", async ()
 });
 
 it.each(["gmail", "alibaba"] as const)(
-  "uses the active %s account's read access for its own cached attachments",
+  "keeps observed %s read access for cached attachments when changing accounts",
   async provider => {
     setLocale("en");
     vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -631,31 +631,38 @@ it.each(["gmail", "alibaba"] as const)(
     const accounts = [
       { id: "local", address: "owner@example.test", provider },
       { id: "peer", address: "peer@example.test", provider: isGmail ? "alibaba" : "gmail" },
+      { id: "unknown", address: "unknown@example.test", provider },
     ];
     const items = accounts.map((account, index) => ({
       account: account.id, address: account.address, provider: account.provider,
       id: "42", epoch: account.provider === "alibaba" ? 7 : null,
       folder: account.provider === "alibaba" ? "INBOX" : null,
-      subject: index === 0 ? "Owned search hit" : "Peer search hit", sender: "sender@example.test",
+      subject: ["Owned search hit", "Peer search hit", "Unobserved search hit"][index], sender: "sender@example.test",
     }));
     const attachment = { id: 0, name: "receipt.txt", size: 8 };
+    let connected = true;
     const invoke = vi.fn(async (request: Parameters<Invoke>[0]) => {
+      if (request.accountId === "unknown" && (request.kind === "status" || request.kind === "credentialStatus")) {
+        throw Error("fixture_status_unavailable");
+      }
+      const readable = request.accountId !== "local" || connected;
+      const gmailAccount = accounts.find(account => account.id === request.accountId)?.provider === "gmail";
       switch (request.kind) {
         case "accounts": return accounts;
         case "drafts": return isGmail ? [{ id: "saved", revision: 1, recipient: "recipient@example.test", subject: "Local saved draft", body: "" }] : [];
         case "search": return { items, more: false };
-        case "status": return { connected: true, read: true, send: true };
-        case "credentialStatus": return { enabled: true, configured: true };
-        case "cachedPage": return isGmail ? { items: [], nextCursor: null } : { uidValidity: 7, messages: [], next: null };
+        case "status": return { connected: readable, read: readable, send: readable };
+        case "credentialStatus": return { enabled: true, configured: readable };
+        case "cachedPage": return gmailAccount ? { items: [], nextCursor: null } : { uidValidity: 7, messages: [], next: null };
         case "cachedLabels":
         case "cachedFolders": return [];
         case "cachedBody": return { plainText: "Cached Gmail text", text: "Cached Alibaba text", attachments: [attachment] };
         case "delivery": return { status: null };
         case "send": throw Error("gmail_permission_denied");
-        case "disconnect": return { connected: false, revoked: true };
-        case "forgetPassword": return { configured: false };
-        case "connect": return { connected: true, read: true, send: false };
-        case "setPassword": return { configured: true };
+        case "disconnect": connected = false; return { connected: false, revoked: true };
+        case "forgetPassword": connected = false; return { configured: false };
+        case "connect": connected = true; return { connected: true, read: true, send: false };
+        case "setPassword": connected = true; return { configured: true };
         case "downloadAttachment": return { saved: true };
         default: throw Error("Unexpected invocation");
       }
@@ -663,9 +670,12 @@ it.each(["gmail", "alibaba"] as const)(
     const gateway = invoke as Invoke;
     render(<Mail invoke={gateway} gmailTransport={gateway} transport={gateway}/>);
     const disconnect = await screen.findByRole("button", { name: isGmail ? "Disconnect Gmail" : "Remove client password" });
-    fireEvent.change(screen.getByRole("combobox", { name: "Search scope" }), { target: { value: "" } });
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search cached mail" }), { target: { value: "hit" } });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    function searchAllAccounts() {
+      fireEvent.change(screen.getByRole("combobox", { name: "Search scope" }), { target: { value: "" } });
+      fireEvent.change(screen.getByRole("searchbox", { name: "Search cached mail" }), { target: { value: "hit" } });
+      fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    }
+    searchAllAccounts();
     fireEvent.click(await screen.findByRole("button", { name: /Owned search hit/ }));
     const reading = within(screen.getByRole("article", { name: "Cached message" }));
     const download = await reading.findByRole("button", { name: "Download attachment receipt.txt" });
@@ -686,24 +696,55 @@ it.each(["gmail", "alibaba"] as const)(
     await act(async () => fireEvent.click(download));
     expect(invoke.mock.calls.filter(([request]) => request.kind === "downloadAttachment")).toHaveLength(0);
 
+    const selectedAccount = screen.getByRole<HTMLSelectElement>("combobox", { name: "Mail account" });
+    await act(async () => fireEvent.change(selectedAccount, { target: { value: "peer" } }));
+    expect(selectedAccount.value).toBe("peer");
+    searchAllAccounts();
+    fireEvent.click(await screen.findByRole("button", { name: /Owned search hit/ }));
+    const stillDisconnected = within(screen.getByRole("article", { name: "Cached message" }));
+    const blocked = await stillDisconnected.findByRole("button", { name: "Download attachment receipt.txt" });
+    expect(blocked.getAttribute("aria-disabled")).toBe("true");
+    await act(async () => fireEvent.click(blocked));
+    expect(invoke.mock.calls.filter(([request]) => request.kind === "downloadAttachment")).toHaveLength(0);
+
     fireEvent.click(screen.getByRole("button", { name: /Peer search hit/ }));
-    const peerDownload = await reading.findByRole("button", { name: "Download attachment receipt.txt" });
+    const peerDownload = await stillDisconnected.findByRole("button", { name: "Download attachment receipt.txt" });
     expect(peerDownload.getAttribute("aria-disabled")).toBeNull();
     await act(async () => fireEvent.click(peerDownload));
     const expected = isGmail ? { folder: "INBOX", uid: 42, uidValidity: 7 } : { id: "42" };
     expect(invoke).toHaveBeenCalledWith({ kind: "downloadAttachment", accountId: "peer", part: 0, ...expected });
 
+    fireEvent.click(screen.getByRole("button", { name: /Unobserved search hit/ }));
+    const unobserved = await stillDisconnected.findByRole("button", { name: "Download attachment receipt.txt" });
+    expect(unobserved.getAttribute("aria-disabled")).toBeNull();
+    expect(invoke.mock.calls.some(([request]) => request.accountId === "unknown" &&
+      (request.kind === "status" || request.kind === "credentialStatus"))).toBe(false);
+    await act(async () => fireEvent.click(unobserved));
+    const original = isGmail ? { id: "42" } : { folder: "INBOX", uid: 42, uidValidity: 7 };
+    expect(invoke).toHaveBeenCalledWith({ kind: "downloadAttachment", accountId: "unknown", part: 0, ...original });
+
+    await act(async () => fireEvent.change(selectedAccount, { target: { value: "unknown" } }));
+    expect(selectedAccount.value).toBe("unknown");
+    expect(invoke).toHaveBeenCalledWith({ kind: isGmail ? "status" : "credentialStatus", accountId: "unknown" });
+
+    await act(async () => fireEvent.change(selectedAccount, { target: { value: "local" } }));
+    expect(selectedAccount.value).toBe("local");
     if (isGmail) {
-      await act(async () => fireEvent.click(screen.getByRole("button", { name: "Sign in to read Gmail" })));
+      await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Sign in to read Gmail" })));
     } else {
       fireEvent.change(screen.getByLabelText("Client password"), { target: { value: "fixture-only" } });
       await act(async () => fireEvent.click(screen.getByRole("button", { name: "Save client password" })));
     }
+    searchAllAccounts();
+    fireEvent.click(await screen.findByRole("button", { name: /Unobserved search hit/ }));
+    const unknownAfterFailedStatus = await within(screen.getByRole("article", { name: "Cached message" }))
+      .findByRole("button", { name: "Download attachment receipt.txt" });
+    expect(unknownAfterFailedStatus.getAttribute("aria-disabled")).toBeNull();
+
     fireEvent.click(screen.getByRole("button", { name: /Owned search hit/ }));
-    const reconnected = await reading.findByRole("button", { name: "Download attachment receipt.txt" });
+    const reconnected = await within(screen.getByRole("article", { name: "Cached message" })).findByRole("button", { name: "Download attachment receipt.txt" });
     expect(reconnected.getAttribute("aria-disabled")).toBeNull();
     await act(async () => fireEvent.click(reconnected));
-    const original = isGmail ? { id: "42" } : { folder: "INBOX", uid: 42, uidValidity: 7 };
     expect(invoke).toHaveBeenCalledWith({ kind: "downloadAttachment", accountId: "local", part: 0, ...original });
   },
 );
