@@ -2,7 +2,7 @@ import { loadQuickToolFavorites } from "./quick-tool-favorites.js";
 import { createToolLauncher, launcherInvalidations } from "./tool-launcher.js";
 
 // Projection of Host-owned favorites. Opening never executes a tool or reads a file.
-export function setupQuickTools({ api, accessStore, getTarget, openTool, manage, invoke, applications = () => [], onError = () => {} }) {
+export function setupQuickTools({ api, accessStore, getTarget, openTool, manage, invoke, applications = () => [], onError = () => {}, onOpenError = onError }) {
   let snapshot = { items: [], error: false, loading: true };
   let tools = [], sequence = 0, opening = 0, generation = 0, disposed = false;
   let nativeRevision = 0, nativeWrites = Promise.resolve();
@@ -46,18 +46,33 @@ export function setupQuickTools({ api, accessStore, getTarget, openTool, manage,
       await unavailable(error);
     }
   }
-  async function open(event) {
-    const id = event.detail;
-    if (disposed || typeof id !== "string" || !tools.some(tool => tool.accessId === id)) return;
+  async function openFavorite(id) {
+    if (disposed || typeof id !== "string" || !tools.some(tool => tool.accessId === id)) return false;
     const request = ++opening, owner = scope();
+    const isCurrent = () => request === opening && current(owner);
+    let page;
     try {
-      const page = await loadQuickToolFavorites(api, owner, () => request === opening && current(owner), id);
-      if (!page || request !== opening || !current(owner)) return;
-      const tool = page.items.find(tool => tool.accessId === id && tool.enabled);
-      if (!tool) { await refresh(); return; }
-      await openTool(tool, page.revision, owner);
-    } catch (error) { if (request === opening && current(owner)) await unavailable(error); }
+      page = await loadQuickToolFavorites(api, owner, isCurrent, id);
+    } catch (error) {
+      if (isCurrent()) await unavailable(error);
+      return false;
+    }
+    if (!page || !isCurrent()) return false;
+    const tool = page.items.find(tool => tool.accessId === id && tool.enabled);
+    if (!tool) {
+      await refresh();
+      return false;
+    }
+    // A destination can fail its own validation even with a readable favorites directory.
+    try {
+      const opened = await openTool(tool, page.revision, owner);
+      return isCurrent() && opened !== false;
+    } catch (error) {
+      if (isCurrent()) throw error;
+      return false;
+    }
   }
+  const open = event => { void openFavorite(event.detail).catch(onOpenError); };
   const openManaged = () => { Promise.resolve().then(() => !disposed && manage()).catch(error => { if (!disposed) onError(error); }); };
   const refreshRequested = event => {
     if (launcherInvalidations.includes(event.type)) { generation++; opening++; }
@@ -71,7 +86,7 @@ export function setupQuickTools({ api, accessStore, getTarget, openTool, manage,
   window.addEventListener("zicode:open-quick-tool", open);
   window.addEventListener("zicode:manage-quick-tools", openManaged);
   void refresh();
-  return { refresh, launcher, destroy() {
+  return { refresh, launcher: { ...launcher, openFavorite }, destroy() {
     disposed = true; sequence++; opening++; nativeRevision++;
     for (const name of events) window.removeEventListener(name, refreshRequested);
     window.removeEventListener("focus", refreshRequested);

@@ -35,6 +35,39 @@ it("keeps composing local, saves explicitly, reopens and deletes without sending
   expect(calls).toEqual(["accounts","drafts","save","accounts","drafts","delete"]);
 });
 
+it("reloads the same selected draft at its current revision or clears it if removed", async () => {
+  setLocale("en");
+  const current = { id: "draft", revision: 1, recipient: "me@example.test", subject: "Draft in use", body: "Original text" };
+  const another = { ...current, id: "another", subject: "Another saved draft" };
+  let stored = [current, another];
+  const invoke = vi.fn(async (request: Record<string, unknown>) => {
+    switch (request.kind) {
+      case "accounts": return [{ id: "a", provider: "gmail", address: "me@example.test" }];
+      case "drafts": return stored;
+      case "save": return { id: current.id, revision: 3 };
+      default: throw Error("Unexpected local operation");
+    }
+  });
+  render(<Mail invoke={invoke as Invoke} />);
+  const currentButton = await screen.findByRole("button", { name: current.subject });
+  await act(async () => fireEvent.click(currentButton));
+  const body = screen.getByLabelText<HTMLTextAreaElement>("Message body");
+  expect(body.value).toBe(current.body);
+  stored = [{ ...current, revision: 2, body: "Updated text" }, another];
+  const reload = screen.getByRole("button", { name: "Reload drafts" });
+  await act(async () => fireEvent.click(reload));
+  expect(currentButton.getAttribute("aria-pressed")).toBe("true");
+  expect(body.value).toBe("Updated text");
+  fireEvent.change(body, { target: { value: "New local edit" } });
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Save draft" })));
+  expect(invoke).toHaveBeenCalledWith(expect.objectContaining({ kind: "save", account: "a", id: current.id, revision: 2 }));
+  stored = [another];
+  await act(async () => fireEvent.click(reload));
+  expect(screen.queryByRole("button", { name: current.subject })).toBeNull();
+  expect(screen.getByRole("button", { name: another.subject }).getAttribute("aria-pressed")).toBe("false");
+  expect(body.value).toBe("");
+});
+
 it("locks account creation until the initial mailbox and drafts have both loaded",async()=>{
   setLocale("en");
   let finishAccounts:(v:unknown)=>void=()=>{},finishDrafts:(v:unknown)=>void=()=>{};

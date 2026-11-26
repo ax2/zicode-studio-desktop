@@ -13,7 +13,8 @@ import { TrashView } from "./TrashView";
 
 export { markUnresolvedWikilinks, wikilinkMarkdown } from "./note-links";
 
-import { cloneElement, useEffect, useId, useRef, useState } from "react";
+import { cloneElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 // @ts-expect-error plain JS module without type declarations (public/ui/attachment-viewer.js)
 import { attachmentIconFor, initAttachmentViewer } from "../../../../public/ui/attachment-viewer.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/image-lightbox.js)
@@ -109,6 +110,22 @@ export function NotesNav({ store }: { store: NotesStore }) {
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchDeleteArmed, setBatchDeleteArmed] = useState(false);
   const batchArmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    const sidebar = nav?.closest<HTMLElement>("#sidebar");
+    if (!nav || !sidebar) return;
+    const resumeNoteNavigation = (event: FocusEvent) => {
+      if (!(event.relatedTarget instanceof HTMLElement) || event.relatedTarget.id !== "sidebar-toggle") return;
+      if (!sidebar.ownerDocument.querySelector("#sidebar-overlay.visible")) return;
+      // The drawer is now open. Resume at the active note when its notebook still shows it.
+      const activeNote = nav.querySelector<HTMLElement>(".notes-tree-note.active");
+      if (activeNote && isTreeItemVisible(activeNote)) activeNote.focus();
+    };
+    sidebar.addEventListener("focus", resumeNoteNavigation);
+    return () => sidebar.removeEventListener("focus", resumeNoteNavigation);
+  }, []);
+
   const armBatchDelete = () => {
     if (!batchDeleteArmed) {
       setBatchDeleteArmed(true);
@@ -165,7 +182,7 @@ export function NotesNav({ store }: { store: NotesStore }) {
   };
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: arrow-key navigation container for the tree; items remain individually keyboard-activatable
-    <div className="notes-nav" onKeyDown={handleNavKeydown}>
+    <div className="notes-nav" ref={navRef} onKeyDown={handleNavKeydown}>
       <div className="notes-nav-actions">
         <button
           type="button"
@@ -517,6 +534,11 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
   const snapshot = store((state) => state.snapshot);
   const loading = store((state) => state.loading);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const draftRevision = useRef(0);
+  const edit = (setValue: (value: string) => void, value: string) => {
+    draftRevision.current += 1;
+    setValue(value);
+  };
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -541,12 +563,15 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
       onSubmit={async (event) => {
         event.preventDefault();
         setError(null);
+        const form = event.currentTarget;
+        const revision = draftRevision.current;
         try {
           await store.getState().updateNotebook(
             notebook.id,
             title,
             icon,
             parentId || null,
+            () => form.isConnected && draftRevision.current === revision,
           );
         } catch (updateError) {
           setError(updateError instanceof Error ? updateError.message : String(updateError));
@@ -557,17 +582,16 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
         <span>{t("Icon")}</span>
         <div className="notes-icon-box">
           <EmojiPicker
-            onPick={setIcon}
+            onPick={(value) => edit(setIcon, value)}
             label={t("Choose an icon")}
             trigger={
               <input
                 id="notes-edit-icon"
-                ref={inputRef}
                 className="notes-field-input"
                 maxLength={8}
                 title={t("Choose an icon")}
                 value={icon}
-                onChange={(event) => setIcon(event.target.value)}
+                onChange={(event) => edit(setIcon, event.target.value)}
               />
             }
           />
@@ -577,9 +601,10 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
         <span>{t("Notebook name")}</span>
         <input
           className="notes-field-input"
+          ref={inputRef}
           required
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => edit(setTitle, event.target.value)}
         />
       </label>
       <div className="notes-field">
@@ -589,7 +614,7 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
           value={parentId}
           label={t("Parent notebook")}
           options={parentOptions}
-          onChange={setParentId}
+          onChange={(value) => edit(setParentId, value)}
         />
       </div>
       {error ? <p className="notes-form-error">{error}</p> : null}
@@ -903,7 +928,11 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
   const selectMode = store((state) => state.selectMode);
   const selectedNoteIds = store((state) => state.selectedNoteIds);
   const isSelected = selectedNoteIds.includes(referenceKey(note));
-  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
+  const [moveAnchor, setMoveAnchor] = useState<HTMLButtonElement | null>(null);
+  const closeMove = useCallback(() => {
+    setMoveAnchor(null);
+    store.getState().closeMovePopover();
+  }, [store]);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -968,7 +997,8 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         isSelected ? " notes-selected" : ""
       }`}
       draggable={false}
-      onClick={() => {
+      onClick={(event) => {
+        if (!event.currentTarget.contains(event.target as Node)) return;
         if (selectMode) {
           store.getState().toggleNoteSelected(note);
           return;
@@ -976,14 +1006,14 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         void selectNote(note);
       }}
       onPointerDown={(event) => {
-        if ((event.target as HTMLElement).closest?.("button"))
-          return;
+        const target = event.target as HTMLElement;
+        if (!event.currentTarget.contains(target) || target.closest?.("button")) return;
         beginPointerDrag(event);
       }}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         const target = event.target as HTMLElement;
-        if (target.closest?.("button")) return;
+        if (!event.currentTarget.contains(target) || target.closest?.("button")) return;
         event.preventDefault();
         if (selectMode) {
           store.getState().toggleNoteSelected(note);
@@ -1008,14 +1038,13 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         </span>
       </span>
       <span className="notes-row-actions">
-      <PinButton store={store} note={note} />
-      <NoteManageButton store={store} note={note} onMove={rect => {
-        const width = Math.min(280, window.innerWidth - 16);
-        setPopoverPos({ top: Math.round(rect.bottom + 4), left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) });
-        openMovePopover(note);
-      }} />
+        <PinButton store={store} note={note} />
+        <NoteManageButton store={store} note={note} onMove={anchor => {
+          setMoveAnchor(anchor);
+          openMovePopover(note);
+        }} />
       </span>
-      {popoverPos ? <MovePopover store={store} note={note} pos={popoverPos} onClose={() => setPopoverPos(null)} /> : null}
+      {moveAnchor ? <MovePopover store={store} note={note} anchor={moveAnchor} onClose={closeMove} /> : null}
     </div>
   );
 }
@@ -1048,90 +1077,116 @@ export function dropTargetIdAt(x: number, y: number): string | null {
 function MovePopover({
   store,
   note,
-  pos,
+  anchor,
   onClose,
 }: {
   store: NotesStore;
   note: NoteSummary;
-  pos: { top: number; left: number };
+  anchor: HTMLButtonElement;
   onClose(): void;
 }) {
-  const snapshot = store((state) => state.snapshot);
+  const notebooks = store((state) => state.snapshot.notebooks);
+  const destinations = notebooks.filter((notebook) => notebook.id !== note.notebookId);
   const ref = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  useLayoutEffect(() => {
+    const panel = ref.current;
+    if (!panel) return;
+    const place = () => {
+      const origin = anchor.getBoundingClientRect();
+      const { width, height } = panel.getBoundingClientRect();
+      const margin = 8;
+      const gap = 4;
+      const below = origin.bottom + gap;
+      const above = origin.top - gap - height;
+      const lowerEdge = window.innerHeight - margin - height;
+      const top = below <= lowerEdge || above < margin ? Math.min(below, lowerEdge) : above;
+      const left = Math.min(origin.left, window.innerWidth - margin - width);
+      const next = { top: Math.max(margin, top), left: Math.max(margin, left) };
+      setPosition(current => current.top === next.top && current.left === next.left ? current : next);
+    };
+    place();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(place) : null;
+    observer?.observe(panel);
+    window.addEventListener("resize", place);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", place);
+    };
+  }, [anchor]);
   useEffect(() => {
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    ref.current
-      ?.querySelector<HTMLButtonElement>(".notes-move-popover-item")
-      ?.focus();
+    const panel = ref.current;
+    if (!panel) return;
+    (panel.querySelector<HTMLButtonElement>(".notes-move-popover-item") ?? panel).focus({ preventScroll: true });
     const onPointerDown = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) {
-        onClose();
-        store.getState().closeMovePopover();
-      }
+      if (event.target instanceof Node && !panel.contains(event.target)) onClose();
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
         onClose();
-        store.getState().closeMovePopover();
+        anchor.focus({ preventScroll: true });
         return;
       }
       if (event.key !== "Tab") return;
       const focusables = Array.from(
         ref.current?.querySelectorAll<HTMLElement>("button:not([disabled])") ?? [],
       );
-      if (focusables.length === 0) return;
+      if (focusables.length === 0) {
+        onClose();
+        anchor.focus({ preventScroll: true });
+        return;
+      }
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
       const active = document.activeElement;
+      const outsideList = !focusables.some(button => button === active);
       if (event.shiftKey) {
-        if (active === first || !ref.current?.contains(active)) {
+        if (active === first || outsideList) {
           event.preventDefault();
           last.focus();
         }
-      } else if (active === last || !ref.current?.contains(active)) {
+      } else if (active === last || outsideList) {
         event.preventDefault();
         first.focus();
       }
     };
     document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
+    panel.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus();
+      panel.removeEventListener("keydown", onKeyDown);
     };
-  }, [onClose, store]);
-  return (
-    <div ref={ref} className="notes-move-popover" role="dialog" aria-label={t("Move to notebook")} style={{ top: pos.top, left: pos.left }}>
+  }, [anchor, onClose]);
+  return createPortal(
+    <div ref={ref} className="notes-move-popover" role="dialog" aria-label={t("Move to notebook")} tabIndex={-1}
+      style={position}>
       <strong className="notes-move-popover-title">
         {t("Move to notebook")} · <span translate="no">{note.title}</span>
       </strong>
       <div className="notes-move-popover-list">
-        {snapshot.notebooks
-          .filter((notebook) => notebook.id !== note.notebookId)
-          .map((notebook) => (
-            <button
-              key={notebook.id}
-              type="button"
-              className="notes-move-popover-item"
-              onClick={() => {
-                onClose();
-                store.getState().closeMovePopover();
-                void store.getState().moveNoteTo(note.notebookId, note.id, notebook.id);
-              }}
-            >
-              <span className="notes-nav-item-icon">{notebook.icon || DEFAULT_NOTEBOOK_ICON}</span>
-              <span className="notes-nav-item-label" translate="no">{notebook.title}</span>
-            </button>
-          ))}
-        {snapshot.notebooks.filter((notebook) => notebook.id !== note.notebookId).length === 0 ? (
+        {destinations.map((notebook) => (
+          <button
+            key={notebook.id}
+            type="button"
+            className="notes-move-popover-item"
+            onClick={() => {
+              onClose();
+              anchor.focus({ preventScroll: true });
+              void store.getState().moveNoteTo(note.notebookId, note.id, notebook.id);
+            }}
+          >
+            <span className="notes-nav-item-icon">{notebook.icon || DEFAULT_NOTEBOOK_ICON}</span>
+            <span className="notes-nav-item-label" translate="no">{notebook.title}</span>
+          </button>
+        ))}
+        {!destinations.length ? (
           <p className="notes-nav-message">{t("No other notebooks")}</p>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -1707,6 +1762,35 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const setPreview = store((state) => state.setPreview);
   const openNote = store((state) => state.openNote);
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
+  const noteKey = referenceKey(note);
+  const editorPosition = useRef<{
+    noteKey: string;
+    value: string;
+    start: number;
+    end: number;
+    direction: HTMLTextAreaElement["selectionDirection"];
+    top: number;
+    left: number;
+  } | null>(null);
+  const attachContent = useCallback((textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+    contentRef.current = textarea;
+    const position = editorPosition.current;
+    editorPosition.current = null;
+    if (position?.noteKey === noteKey && position.value === textarea.value) {
+      textarea.setSelectionRange(position.start, position.end, position.direction);
+      textarea.scrollTop = position.top;
+      textarea.scrollLeft = position.left;
+    }
+    return () => {
+      const { value, selectionStart: start, selectionEnd: end, selectionDirection: direction, scrollTop: top, scrollLeft: left } = textarea;
+      editorPosition.current = { noteKey, value, start, end, direction, top, left };
+      contentRef.current = null;
+    };
+  }, [noteKey]);
+  useLayoutEffect(() => {
+    if (editorPosition.current?.noteKey !== noteKey) editorPosition.current = null;
+  }, [noteKey]);
   const titleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   const outlineListRef = useRef<HTMLOListElement | null>(null);
@@ -1720,6 +1804,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [linkQuery, setLinkQuery] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
+  const linkAnchor = useRef<{ noteKey: string; value: string; cursor: number } | null>(null);
   const [activeLinkIndex, setActiveLinkIndex] = useState(0);
   const isNarrow = useIsNarrowViewport();
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1918,31 +2003,44 @@ function NoteEditor({ store }: { store: NotesStore }) {
         .slice(0, 8)
     : [];
 
-  const detectLink = (value: string, cursor: number) => {
-    const match = value.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
-    if (match) {
-      setLinkQuery(match[1]);
-      setLinkOpen(true);
-      setActiveLinkIndex(0);
-    } else {
-      setLinkQuery("");
-      setLinkOpen(false);
-      setActiveLinkIndex(0);
-    }
+  const dismissLink = () => {
+    linkAnchor.current = null;
+    setLinkQuery("");
+    setLinkOpen(false);
+    setActiveLinkIndex(0);
+  };
+
+  const linkAtCaret = (textarea: HTMLTextAreaElement) => {
+    const anchor = linkAnchor.current;
+    return anchor?.noteKey === referenceKey(note) && anchor.value === textarea.value &&
+      anchor.cursor === textarea.selectionStart && anchor.cursor === textarea.selectionEnd;
+  };
+
+  const syncEditorSelection = (textarea: HTMLTextAreaElement) => {
+    currentSelectionRef.current = selection();
+    if (linkAnchor.current && !linkAtCaret(textarea)) dismissLink();
+  };
+
+  const detectLink = (textarea: HTMLTextAreaElement) => {
+    const { value, selectionStart, selectionEnd } = textarea;
+    const match = selectionStart === selectionEnd && value.slice(0, selectionStart).match(/\[\[([^\]\n]*)$/);
+    if (!match) { dismissLink(); return; }
+    linkAnchor.current = { noteKey: referenceKey(note), value, cursor: selectionStart };
+    setLinkQuery(match[1]);
+    setLinkOpen(true);
+    setActiveLinkIndex(0);
   };
 
   const insertLink = (title: string) => {
     const textarea = contentRef.current;
-    if (!textarea) return;
-    const cursor = textarea.selectionStart ?? 0;
-    const match = draftContent.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
+    if (!textarea || !linkAtCaret(textarea)) { dismissLink(); return; }
+    const { value, selectionStart: cursor } = textarea;
+    const match = value.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
     if (!match) return;
     const start = cursor - match[0].length;
-    const next = `${draftContent.slice(0, start)}[[${title}]]${draftContent.slice(cursor)}`;
+    const next = `${value.slice(0, start)}[[${title}]]${value.slice(cursor)}`;
     setDraft({ content: next });
-    setLinkQuery("");
-    setLinkOpen(false);
-    setActiveLinkIndex(0);
+    dismissLink();
     const cursorAfter = start + title.length + 4;
     window.requestAnimationFrame(() => {
       const el = contentRef.current;
@@ -2610,7 +2708,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           </button>
         </div>
         <textarea
-          ref={contentRef}
+          ref={attachContent}
           className="notes-content-input"
           value={draftContent}
           placeholder={t("Write Markdown…")}
@@ -2622,22 +2720,16 @@ function NoteEditor({ store }: { store: NotesStore }) {
           onChange={(event) => {
             const textarea = event.target as HTMLTextAreaElement;
             setDraft({ content: textarea.value });
-            detectLink(textarea.value, textarea.selectionStart ?? 0);
+            detectLink(textarea);
           }}
-          onSelect={() => {
-            currentSelectionRef.current = selection();
-          }}
-          onKeyUp={() => {
-            currentSelectionRef.current = selection();
-          }}
-          onMouseUp={() => {
-            currentSelectionRef.current = selection();
-          }}
+          onSelect={(event) => syncEditorSelection(event.currentTarget)}
+          onKeyUp={(event) => syncEditorSelection(event.currentTarget)}
+          onMouseUp={(event) => syncEditorSelection(event.currentTarget)}
           onBlur={() => {
+            const blurredAnchor = linkAnchor.current;
+            if (!blurredAnchor) return;
             window.setTimeout(() => {
-              setLinkOpen(false);
-              setLinkQuery("");
-              setActiveLinkIndex(0);
+              if (linkAnchor.current === blurredAnchor) dismissLink();
             }, 120);
           }}
           onCompositionStart={() => {
@@ -2648,6 +2740,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
           }}
           onKeyDown={(event) => {
             if (isImeComposing(event, composingRef.current)) return;
+            const suggestionAtCaret = linkOpen && linkAtCaret(event.currentTarget);
+            if (linkOpen && !suggestionAtCaret) dismissLink();
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
               event.preventDefault();
               wrapSelection("**");
@@ -2663,23 +2757,21 @@ function NoteEditor({ store }: { store: NotesStore }) {
               wrapCodeBlock();
             } else if (event.key === "Escape") {
               event.preventDefault();
-              if (linkOpen) {
-                setLinkOpen(false);
-                setLinkQuery("");
-                setActiveLinkIndex(0);
+              if (suggestionAtCaret) {
+                dismissLink();
               } else {
                 (event.target as HTMLTextAreaElement).blur();
               }
-            } else if (linkOpen && linkSuggestions.length > 0 && event.key === "ArrowDown") {
+            } else if (suggestionAtCaret && linkSuggestions.length > 0 && event.key === "ArrowDown") {
               event.preventDefault();
               setActiveLinkIndex((current) => (current + 1) % linkSuggestions.length);
-            } else if (linkOpen && linkSuggestions.length > 0 && event.key === "ArrowUp") {
+            } else if (suggestionAtCaret && linkSuggestions.length > 0 && event.key === "ArrowUp") {
               event.preventDefault();
               setActiveLinkIndex(
                 (current) => (current - 1 + linkSuggestions.length) % linkSuggestions.length,
               );
             } else if (
-              linkOpen &&
+              suggestionAtCaret &&
               linkSuggestions.length > 0 &&
               (event.key === "Tab" || event.key === "Enter")
             ) {

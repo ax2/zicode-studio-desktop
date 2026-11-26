@@ -115,6 +115,52 @@ describe("conversation templates section", () => {
     expect(globalThis.localStorage?.getItem("zicode-chat-templates-custom")).toBeNull();
   });
 
+  it("focuses the template name and returns to its own edit button after saving", () => {
+    globalThis.localStorage.setItem("zicode-chat-templates-custom", JSON.stringify([
+      { id: "custom-one", label: "First fixture", icon: "1", prompt: "Original prompt" },
+      { id: "custom-two", label: "Second fixture", icon: "2", prompt: "Another prompt" },
+    ]));
+    const { store } = renderApp();
+    act(() => store.getState().openSettings("general"));
+    const edit = required<HTMLButtonElement>('[data-template-id="custom-two"] button');
+    edit.focus();
+    fireEvent.click(edit);
+    const name = required<HTMLInputElement>(`input[aria-label="${t("Template name")}"]`);
+    const save = required<HTMLButtonElement>(".settings-template-form .ui-button--primary");
+    expect(document.activeElement).toBe(name);
+    fireEvent.change(name, { target: { value: "Updated second fixture" } });
+    save.focus();
+    fireEvent.click(save);
+    expect(document.activeElement).toBe(edit);
+    expect(edit.getAttribute("aria-label")).toBe(`${t("Edit template")} Updated second fixture`);
+  });
+
+  it("leaves invalid input in the form and respects focus outside it when cancelled", () => {
+    const { store } = renderApp();
+    act(() => store.getState().openSettings("general"));
+    const add = required<HTMLButtonElement>("#add-chat-template");
+    add.focus();
+    fireEvent.click(add);
+    const name = required<HTMLInputElement>(`input[aria-label="${t("Template name")}"]`);
+    expect(document.activeElement).toBe(name);
+    fireEvent.change(name, { target: { value: "Keep this name" } });
+    const save = required<HTMLButtonElement>(".settings-template-form .ui-button--primary");
+    save.focus();
+    fireEvent.click(save);
+    expect(document.activeElement).toBe(save);
+    expect(name.value).toBe("Keep this name");
+    expect(document.querySelector(".settings-template-form [role=alert]")?.textContent).toBe(
+      t("Template name and prompt are required"),
+    );
+
+    const outside = required<HTMLButtonElement>('[data-settings-tab="general"]');
+    outside.focus();
+    fireEvent.click(required<HTMLButtonElement>(".settings-template-form .ui-button--ghost"));
+    expect(document.activeElement).toBe(outside);
+    expect(document.querySelector(".settings-template-form")).toBeNull();
+    expect(globalThis.localStorage.getItem("zicode-chat-templates-custom")).toBeNull();
+  });
+
   it("shows template transfer actions with export enabled once templates exist", async () => {
     renderApp();
     await waitFor(() => expect(document.getElementById("chat-templates-section")).toBeTruthy());
@@ -396,5 +442,108 @@ describe("settings React panel", () => {
     renderApp(store);
     act(() => store.getState().setEmbedded(true));
     expect(document.querySelector(".settings-panel")).toBe(null);
+  });
+});
+
+describe("workspace backup feedback", () => {
+  function renderBackup() {
+    const record = {
+      id: "backup-a",
+      workspaceId: "workspace-a",
+      workspaceRoot: "D:/isolated",
+      createdAt: "2026-11-25T00:00:00Z",
+      sizeBytes: 10,
+      apps: ["notes"],
+    };
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "list_workspace_backups") return [record];
+      if (command === "workspace_restore_outcome") return null;
+      throw new Error("Cannot delete backup: fixture");
+    });
+    const controller = controllerStub();
+    controller.backupStore = createBackupStore({ getWorkspaceId: () => record.workspaceId, invoke });
+    controller.backupStore.setState({
+      workspaceId: record.workspaceId,
+      status: t("Workspace backup created"),
+      backups: [record],
+    });
+    render(<SettingsApp store={createSettingsStore()} controller={controller} />);
+    return {
+      invoke,
+      buttons: document.querySelectorAll<HTMLButtonElement>(".workspace-backup-item button"),
+      status: required("#workspace-backup-status"),
+    };
+  }
+
+  it("identifies the queued backup even when it is older than the seven newest", async () => {
+    const workspaceId = "workspace-a";
+    const backups = Array.from({ length: 8 }, (_, index) => ({
+      id: `backup-${index}`,
+      workspaceId,
+      workspaceRoot: "D:/isolated",
+      createdAt: new Date(Date.UTC(2026, 10, 25 - index)).toISOString(),
+      sizeBytes: index + 1,
+      apps: ["notes"],
+    }));
+    let outcome: object | null = {
+      pending: {
+        requestId: "0123456789abcdef0123456789abcdef",
+        workspaceId,
+        backupId: "backup-7",
+      },
+    };
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "list_workspace_backups") return backups;
+      if (command === "workspace_restore_outcome") return outcome;
+      throw new Error("Unexpected mutation");
+    });
+    const controller = controllerStub();
+    const backupStore = createBackupStore({ getWorkspaceId: () => workspaceId, invoke });
+    controller.backupStore = backupStore;
+    render(<SettingsApp store={createSettingsStore()} controller={controller} />);
+
+    await act(() => backupStore.getState().load());
+    const rows = () => [...document.querySelectorAll(".workspace-backup-item")];
+    const queuedRows = () =>
+      rows().filter((row) => row.textContent?.includes(t("Queued for restore")));
+    expect(rows()).toHaveLength(8);
+    expect(queuedRows()).toEqual([rows()[7]]);
+    const [queuedDelete, queuedRestore] = rows()[7].querySelectorAll("button");
+    expect(queuedDelete.disabled).toBe(true);
+    expect(queuedRestore.disabled).toBe(true);
+    expect(rows()[0].querySelector("button")?.disabled).toBe(false);
+
+    outcome = null;
+    await act(() => backupStore.getState().load());
+    expect(rows()).toHaveLength(7);
+    expect(queuedRows()).toHaveLength(0);
+    expect(invoke.mock.calls.map(([command]) => command)).toEqual([
+      "list_workspace_backups", "workspace_restore_outcome",
+      "list_workspace_backups", "workspace_restore_outcome",
+    ]);
+  });
+  it("announces a later delete error instead of the previous success", async () => {
+    const { buttons, status } = renderBackup();
+    const confirm = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    try {
+      expect(status.textContent).toBe(t("Workspace backup created"));
+      fireEvent.click(buttons[0]);
+      await waitFor(() => expect(status.getAttribute("role")).toBe("alert"));
+      expect(status.textContent).toBe(t("Could not delete the backup."));
+    } finally {
+      confirm.mockRestore();
+    }
+  });
+
+  it("keeps both workspace backup actions idle when confirmation is unavailable", async () => {
+    const { buttons, invoke } = renderBackup();
+    vi.stubGlobal("confirm", undefined);
+    try {
+      await act(async () => { fireEvent.click(buttons[0]); });
+      await act(async () => { fireEvent.click(buttons[1]); });
+      expect(invoke).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

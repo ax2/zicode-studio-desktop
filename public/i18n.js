@@ -6174,6 +6174,7 @@ const zhCN = {
   "Restore workspace from backup": "从备份恢复工作区",
   "Restore overwrites current workspace data; the current state is snapshotted first.":
     "恢复会用备份覆盖当前工作区数据；恢复前会自动备份当前状态。",
+  "Queued for restore": "等待恢复",
   "Restore queued. Restart ZiCode Studio to apply the backup.":
     "恢复请求已排队。请重启 ZiCode Studio 以应用备份。",
   "Workspace restored from backup.": "已从备份恢复工作区。",

@@ -1,5 +1,5 @@
 import { referenceKey } from "./shortcut-repository";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
 import { setupNotesApp } from "./index";
@@ -685,6 +685,44 @@ describe("notes store", () => {
     document.body.dataset.activePlugin = "";
     nav.remove();
     content.remove();
+  });
+
+  it("keeps the editing position when preview closes, only for the same note and text", async () => {
+    const other = { ...NOTE, id: "note-2", title: "Second note" };
+    const store = storeWithGateway({
+      get: vi.fn(async (_sceneId, _workspaceId, _notebookId, id) => ({ note: id === other.id ? other : NOTE })),
+    });
+    await store.getState().selectNote(NOTE);
+    const view = render(<NotesContent store={store} />);
+    const text = () => {
+      const textarea = view.getByRole("textbox", { name: t("Note content") });
+      if (!(textarea instanceof HTMLTextAreaElement)) throw new Error("Expected note textarea");
+      return textarea;
+    };
+    const edit = () => fireEvent.click(view.getByRole("button", { name: t("Edit") + " (Ctrl+E)" }));
+    const preview = () => fireEvent.click(view.getByRole("button", { name: t("Preview") + " (Ctrl+E)" }));
+    edit();
+    text().setSelectionRange(3, 9, "backward");
+    text().scrollTop = 240;
+    preview();
+    expect(view.queryByRole("textbox", { name: t("Note content") })).toBeNull();
+    edit();
+    expect([text().selectionStart, text().selectionEnd, text().selectionDirection, text().scrollTop])
+      .toEqual([3, 9, "backward", 240]);
+
+    preview();
+    await act(async () => store.getState().selectNote(other));
+    await act(async () => store.getState().selectNote(NOTE));
+    edit();
+    expect(text().selectionStart).toBe(text().selectionEnd);
+    expect(text().scrollTop).toBe(0);
+
+    text().setSelectionRange(3, 9, "backward");
+    preview();
+    act(() => store.getState().setDraft({ content: "Changed while in preview" }));
+    edit();
+    expect(text().value).toBe("Changed while in preview");
+    expect(text().selectionStart).toBe(text().selectionEnd);
   });
 
   it("closes the mobile function-area drawer when a note is selected", async () => {
@@ -1434,6 +1472,37 @@ describe("notes store", () => {
     store.getState().setMode("trash");
     const { container } = render(<NotesContent store={store} />);
     await waitFor(() => expect(container.textContent).toContain(t("Trash is empty")));
+  });
+
+  it("does not create a widget note in the workspace opened during its lookup", async () => {
+    let workspace = "original";
+    let releaseOriginal: (() => void) | undefined;
+    const list = vi.fn(async (_scene: string, owner: string) => {
+      if (owner === "original") await new Promise<void>(resolve => { releaseOriginal = resolve; });
+      return { snapshot: SNAPSHOT };
+    });
+    const gateway = gatewayStub({ list });
+    const app = setupNotesApp({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: workspace }),
+    });
+    if (!app) throw Error("Notes app missing");
+    try {
+      const pending = app.openWidgetShortcut("new");
+      expect(list).toHaveBeenCalledWith("programming", "original", expect.any(Object));
+      workspace = "next";
+      await app.setTarget();
+      releaseOriginal?.();
+      await pending;
+      expect(gateway.create).not.toHaveBeenCalled();
+
+      await app.openWidgetShortcut("new");
+      expect(gateway.create).toHaveBeenCalledExactlyOnceWith(
+        "programming", "next", "book-1", expect.any(Object),
+      );
+    } finally {
+      app.destroy();
+    }
   });
 
   it("handles Ctrl+N, Ctrl+Shift+T, and Ctrl+S notes shortcuts", async () => {
@@ -2247,6 +2316,32 @@ describe("notes store", () => {
     ).rejects.toThrow();
     expect(store.getState().error).toBeTruthy();
     expect(store.getState().loading).toBe(false);
+  });
+
+  it("keeps a later notebook title edit when a previous save settles", async () => {
+    let finish!: () => void;
+    const updateNotebook = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }))
+      .mockResolvedValue(undefined);
+    const store = storeWithGateway({ updateNotebook });
+    await store.getState().load();
+    const { getByRole, container } = render(<NotesNav store={store} />);
+    const action = container.querySelector<HTMLButtonElement>('[data-notebook-id="book-1"] .notes-notebook-edit');
+    if (!action) throw new Error("Expected the notebook edit button");
+    fireEvent.click(action);
+    const title = getByRole("textbox", { name: t("Notebook name") }) as HTMLInputElement;
+    expect(document.activeElement).toBe(title);
+    fireEvent.change(title, { target: { value: "First title" } });
+    fireEvent.click(getByRole("button", { name: t("Save notebook") }));
+    expect(updateNotebook).toHaveBeenCalledTimes(1);
+    fireEvent.change(title, { target: { value: "Title still being edited" } });
+    await act(async () => { finish(); });
+    expect(store.getState().editingNotebookId).toBe("book-1");
+    expect(title.value).toBe("Title still being edited");
+    expect(document.activeElement).toBe(title);
+    fireEvent.click(getByRole("button", { name: t("Save notebook") }));
+    await waitFor(() => expect(store.getState().editingNotebookId).toBeNull());
+    expect(updateNotebook.mock.calls.map(([, , request]) => request.title)).toEqual(["First title", "Title still being edited"]);
   });
 
   it("passes the parent id when re-parenting a notebook", async () => {
@@ -3687,10 +3782,17 @@ describe("notes React components", () => {
     await waitFor(() => expect(document.querySelector(".notes-manage-popover")).toBeTruthy());
     const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
     moveAction?.click();
-    await waitFor(() => expect(container.querySelector(".notes-move-popover")).toBeTruthy());
+    await waitFor(() => expect(document.querySelector(".notes-move-popover")).toBeTruthy());
 
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    await waitFor(() => expect(container.querySelector(".notes-move-popover")).toBeNull());
+    const shellKey = vi.fn();
+    document.addEventListener("keydown", shellKey);
+    try {
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+      await waitFor(() => expect(document.querySelector(".notes-move-popover")).toBeNull());
+      expect(shellKey).not.toHaveBeenCalled();
+    } finally {
+      document.removeEventListener("keydown", shellKey);
+    }
   });
 
   it("moves focus into the move popover and restores it on close", async () => {
@@ -3707,7 +3809,7 @@ describe("notes React components", () => {
     const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
     moveAction?.click();
     await waitFor(() =>
-      expect(container.querySelector(".notes-move-popover")).toBeTruthy(),
+      expect(document.querySelector(".notes-move-popover")).toBeTruthy(),
     );
     await waitFor(() =>
       expect(document.activeElement?.matches(".notes-move-popover-item")).toBe(
@@ -3715,11 +3817,9 @@ describe("notes React components", () => {
       ),
     );
 
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     await waitFor(() =>
-      expect(container.querySelector(".notes-move-popover")).toBeNull(),
+      expect(document.querySelector(".notes-move-popover")).toBeNull(),
     );
     expect(document.activeElement).toBe(moveBtn);
   });
@@ -3749,10 +3849,10 @@ describe("notes React components", () => {
     const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
     moveAction?.click();
     await waitFor(() =>
-      expect(container.querySelector(".notes-move-popover")).toBeTruthy(),
+      expect(document.querySelector(".notes-move-popover")).toBeTruthy(),
     );
     const buttons = Array.from(
-      container.querySelectorAll<HTMLElement>(
+      document.querySelectorAll<HTMLElement>(
         ".notes-move-popover-item:not([disabled])",
       ),
     );
@@ -3761,20 +3861,11 @@ describe("notes React components", () => {
     const last = buttons[1];
 
     last.focus();
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
-    );
+    fireEvent.keyDown(last, { key: "Tab" });
     await waitFor(() => expect(document.activeElement).toBe(first));
 
     first.focus();
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Tab",
-        shiftKey: true,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+    fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
     await waitFor(() => expect(document.activeElement).toBe(last));
   });
 

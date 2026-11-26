@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { matchesSearchQuery } from "../../shared/catalog-search";
 import { t } from "../../shared/i18n";
 import { isWorkspaceEntryVisible } from "../../shared/workspaceMode";
@@ -13,6 +13,7 @@ export interface ToolLauncherApi {
   applications(): ApplicationEntry[];
   search(view: "all" | "recent", query: string, cursor: LauncherCursor, signal: AbortSignal): Promise<LauncherResult>;
   open(item: DirectoryItem, result: LauncherResult): Promise<unknown>;
+  openFavorite(id: string): Promise<boolean>;
   openApplication(id: string): Promise<unknown>;
   setFavorite(id: string, enabled: boolean, result: LauncherResult): Promise<unknown>;
 }
@@ -53,6 +54,7 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
   const [actionError, setActionError] = useState(false);
   const [pinning, setPinning] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const lastFocused = useRef<HTMLElement>(null);
   const opening = useRef(false);
   const mounted = useRef(false);
   const search = query.trim();
@@ -69,6 +71,16 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
     input.current?.focus();
     return () => { mounted.current = false; };
   }, []);
+  useLayoutEffect(() => {
+    const searchInput = input.current;
+    const previous = lastFocused.current;
+    // Removing a focused result can drop focus to the document without a focusin.
+    if (!previous || previous.isConnected) return;
+    lastFocused.current = null;
+    if (document.activeElement === document.body && searchInput?.closest("details")?.open) {
+      searchInput.focus();
+    }
+  });
   useEffect(() => {
     const invalidate = (event: Event) => {
       // Pinning changes saved access, not the all-tools catalog or its page cursor.
@@ -129,7 +141,10 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
   const hasApplications = showTranslation || apps.length > 0;
   const changeView = (next: typeof view) => { setView(next); setQuery(""); setCategoryId(""); setCursors([firstPage]); };
   const manage = () => { dismiss(); window.dispatchEvent(new Event("zicode:manage-quick-tools")); };
-  const retryFavorites = () => window.dispatchEvent(new Event("zicode:quick-tools-retry"));
+  const retryFavorites = () => {
+    setActionError(false);
+    window.dispatchEvent(new Event("zicode:quick-tools-retry"));
+  };
   const toggleFavorite = async (id: string, enabled: boolean) => {
     if (!page || pinning) return;
     setPinning(true); setActionError(false);
@@ -138,14 +153,18 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
     finally { if (mounted.current) setPinning(false); }
   };
 
-  return <div className="tool-launcher">
+  return <div className="tool-launcher" onFocusCapture={event => { lastFocused.current = event.target; }}>
     <input ref={input} className="ui-input tool-launcher-search" type="search" aria-label={t("Search applications and tools")}
       placeholder={t("Search applications and tools")} value={query}
       onChange={event => { setQuery(event.target.value); setCursors([firstPage]); setActionError(false); }}
       onKeyDown={event => {
-        if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229 || !search || loading) return;
-        event.currentTarget.closest(".tool-launcher")?.querySelector<HTMLButtonElement>("[data-tool-launcher-open]")?.click();
-        event.preventDefault();
+        if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229 || !search) return;
+        const firstMatch = event.currentTarget.closest(".tool-launcher")
+          ?.querySelector<HTMLButtonElement>("[data-tool-launcher-open]:not(:disabled)");
+        if (firstMatch) {
+          event.preventDefault();
+          firstMatch.click();
+        }
       }} />
     <div className="ui-toolbar tool-launcher-views">
       <button type="button" className="ui-button ui-button--secondary" aria-pressed={list === "favorites"} onClick={() => changeView("favorites")}>{t("Favorite tools")}</button>
@@ -160,7 +179,7 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
     {list === "favorites" ? <>
       <div className="tool-launcher-grid">{translation()}
         {favorites.filter(tool => tool.id !== translatorId).map(tool => <LaunchButton key={tool.id} id={tool.id} title={tool.title} kind="tool"
-          onClick={() => { dismiss(); window.dispatchEvent(new CustomEvent("zicode:open-quick-tool", { detail: tool.id })); }} />)}
+          onClick={() => { void launch(() => api.openFavorite(tool.id)); }} />)}
       </div>
       {loadingFavorites && <p role="status" className="ui-muted">{t("Loading tools…")}</p>}
       {errorFavorites && <button type="button" className="ui-button ui-button--secondary" onClick={retryFavorites}>{t("Retry quick tools")}</button>}
@@ -202,7 +221,7 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
         </nav>}
       </div>
     </>}
-    {actionError && <p role="alert">{t("Tool changed. Reload its details before retrying.")}</p>}
+    {actionError && !(list === "favorites" && errorFavorites) && <p role="alert">{t("Tool changed. Reload its details before retrying.")}</p>}
     <button type="button" className="ui-button ui-button--ghost tool-launcher-manage" onClick={manage}>{t("Choose quick tools")}</button>
   </div>;
 }

@@ -2,6 +2,7 @@ import { restorePaletteFocus } from "./restoreFocus";
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
+import { isImeComposing } from "../../shared/ime";
 import { CommandPaletteRoot } from "./CommandPaletteRoot";
 import { manualToolError, type DirectoryItem, type ManualToolApi } from "../toolCenter/manual-tools";
 import {
@@ -61,8 +62,10 @@ export function setupCommandPalette({
   let previousFocus: HTMLElement | null = null;
   let openGeneration = 0;
   let openedScope: ToolAccessScope | undefined;
+  let composingTarget: EventTarget | null = null;
 
   function close({ restoreFocus = true }: { restoreFocus?: boolean } = {}) {
+    composingTarget = null;
     panel.classList.add("hidden");
     backdrop.classList.add("hidden");
     flushSync(() => {
@@ -81,6 +84,8 @@ export function setupCommandPalette({
   }
 
   function open() {
+    if (!panel.classList.contains("hidden")) return;
+    composingTarget = null;
     const activeToolApi = getToolApi?.() ?? toolApi;
     const scope = getScope?.();
     const fixedScope = scope ? { sceneId: scope.sceneId, workspaceId: scope.workspaceId } : undefined;
@@ -125,9 +130,20 @@ export function setupCommandPalette({
     }
   });
 
+  panel.addEventListener("compositionstart", (event) => {
+    if (!panel.classList.contains("hidden")) composingTarget = event.target;
+  });
+  function clearComposition(event: Event) {
+    if (event.target === composingTarget) composingTarget = null;
+  }
+  panel.addEventListener("compositionend", clearComposition);
+  panel.addEventListener("focusout", clearComposition);
+
   document.addEventListener("keydown", (event) => {
     if (panel.classList.contains("hidden")) return;
     if (event.key === "Escape") {
+      const isComposingTarget = composingTarget !== null && event.target === composingTarget;
+      if (isImeComposing(event, isComposingTarget)) return;
       event.preventDefault();
       close();
       return;

@@ -22,6 +22,7 @@ function fixture(overrides: Partial<ToolLauncherApi> = {}) {
       keywords: ["剪贴板"], action: () => undefined }],
     search: vi.fn<ToolLauncherApi["search"]>(async () => page()),
     open: vi.fn(async () => true),
+    openFavorite: vi.fn(async () => true),
     openApplication: vi.fn(async () => true),
     setFavorite: vi.fn(async () => undefined),
     ...overrides,
@@ -53,6 +54,48 @@ it("defaults to translation, opens it without searching or invoking a tool, and 
   expect(api.open).not.toHaveBeenCalled();
   expect(details.open).toBe(false);
   expect(document.activeElement).toBe(summary);
+});
+
+it("keeps favorites open after one destination fails and closes on successful navigation", async () => {
+  const api = fixture();
+  const { details, summary } = await launcher(api);
+  const second = { id: "provider:other", title: "Other tool" };
+  act(() => { window.dispatchEvent(new CustomEvent("zicode:quick-tools-changed", { detail: {
+    items: [{ id: encoder.accessId, title: encoder.title }, second],
+  } })); });
+  vi.mocked(api.openFavorite).mockRejectedValueOnce(Error("destination unavailable"));
+  fireEvent.click(screen.getByRole("button", { name: encoder.title }));
+  await screen.findByRole("alert");
+  expect(details.open).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: second.title }));
+  expect(vi.mocked(api.openFavorite).mock.calls).toEqual([[encoder.accessId], [second.id]]);
+  await waitFor(() => expect(details.open).toBe(false));
+  expect(document.activeElement).toBe(summary);
+});
+
+it("keeps Escape in the launcher if a refresh removes the focused favorite", async () => {
+  const api = fixture();
+  const { input, details, summary } = await launcher(api);
+  const favorite = { id: encoder.accessId, title: encoder.title };
+  const publishFavorites = (items: typeof favorite[]) => {
+    act(() => {
+      window.dispatchEvent(new CustomEvent("zicode:quick-tools-changed", { detail: { items } }));
+    });
+  };
+  publishFavorites([favorite]);
+  fireEvent.keyDown(input, { key: "ArrowDown" });
+  const favoriteButton = screen.getByRole("button", { name: favorite.title });
+  fireEvent.keyDown(document.activeElement as HTMLElement, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(favoriteButton);
+  publishFavorites([favorite]);
+  expect(document.activeElement).toBe(favoriteButton);
+
+  publishFavorites([]);
+  expect(document.activeElement).toBe(input);
+  expect(fireEvent.keyDown(input, { key: "Escape" })).toBe(false);
+  expect(details.open).toBe(false);
+  expect(document.activeElement).toBe(summary);
+  expect(api.openFavorite).not.toHaveBeenCalled();
 });
 
 it("searches applications by alias and sends Enter directly to the matched application", async () => {
@@ -210,4 +253,27 @@ it("keeps the current all-tools page after saving a favorite while refreshing th
   expect(saved.getAttribute("aria-pressed")).toBe("true");
   expect(api.search).toHaveBeenLastCalledWith("all", "", { offset: 40, revision: "rev", accessRevision: 3 }, expect.any(AbortSignal));
   expect(screen.getByRole<HTMLButtonElement>("button", { name: t("Previous page") }).disabled).toBe(false);
+});
+
+it.each(["剪贴板", "翻译"])("opens the current local match while the tool directory waits: %s", async query => {
+  const api = fixture();
+  vi.mocked(api.search).mockImplementation(() => new Promise(() => {}));
+  const { input, details } = await launcher(api);
+  const translation = vi.fn();
+  window.addEventListener("zicode:open-translation", translation, { once: true });
+  try {
+    fireEvent.change(input, { target: { value: query } });
+    await waitFor(() => expect(api.search).toHaveBeenCalledOnce());
+    expect(details.querySelector('.tool-launcher-results[aria-busy="true"]')).toBeTruthy();
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expect(api.openApplication).not.toHaveBeenCalled();
+    expect(translation).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    if (query === "翻译") expect(translation).toHaveBeenCalledOnce();
+    else expect(api.openApplication).toHaveBeenCalledExactlyOnceWith("local.clipboard:open");
+    expect(api.open).not.toHaveBeenCalled();
+    await waitFor(() => expect(details.open).toBe(false));
+  } finally {
+    window.removeEventListener("zicode:open-translation", translation);
+  }
 });

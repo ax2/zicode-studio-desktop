@@ -116,6 +116,7 @@ export function CommandPaletteApp({
       </p>
       <div
         className="command-palette-results"
+        tabIndex={-1}
         id="command-palette-results"
         ref={resultsRef}
         role="listbox"
@@ -131,6 +132,7 @@ export function CommandPaletteApp({
             key={command.id ?? index}
             id={`command-item-${index}`}
             role="option"
+            tabIndex={-1}
             aria-selected={index === effectiveIndex}
             aria-setsize={filtered.length}
             aria-posinset={index + 1}

@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -20,7 +21,7 @@ bool chinese()
     return PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_CHINESE;
 }
 
-std::filesystem::path installed_studio()
+std::optional<std::filesystem::path> installed_studio()
 {
     constexpr auto key = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ZiCode Studio Desktop";
     for (auto hive : {HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE})
@@ -44,19 +45,16 @@ std::filesystem::path installed_studio()
             if (path.size() > 1 && path.front() == L'"' && path.back() == L'"')
                 path = path.substr(1, path.size() - 2);
             auto exe = std::filesystem::path(path) / L"zicode-studio-desktop.exe";
-            if (exe.is_absolute() && std::filesystem::is_regular_file(exe))
+            std::error_code error;
+            if (exe.is_absolute() && std::filesystem::is_regular_file(exe, error))
                 return exe;
         }
     }
-    throw hresult_error(HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND));
+    return std::nullopt;
 }
 
-void launch(std::wstring const &action)
+void launch(std::filesystem::path const &exe, std::wstring const &action)
 {
-    // Only the three actions declared by the card can reach process creation.
-    if (action != L"new" && action != L"recent" && action != L"pinned")
-        throw hresult_invalid_argument();
-    const auto exe = installed_studio();
     auto command = L"\"" + exe.wstring() + L"\" --notes-widget " + action;
     STARTUPINFOW startup{sizeof(startup)};
     PROCESS_INFORMATION process{};
@@ -66,7 +64,26 @@ void launch(std::wstring const &action)
     CloseHandle(process.hProcess);
 }
 
-hstring card(bool unavailable)
+enum class Status { ready, studio_missing, launch_failed };
+
+std::optional<Status> run_action(std::optional<std::filesystem::path> const &exe, std::wstring const &action)
+{
+    if (action != L"new" && action != L"recent" && action != L"pinned")
+        return std::nullopt;
+    if (!exe)
+        return Status::studio_missing;
+    try
+    {
+        launch(*exe, action);
+        return Status::ready;
+    }
+    catch (hresult_error const &)
+    {
+        return Status::launch_failed;
+    }
+}
+
+hstring card(Status state)
 {
     bool zh = chinese();
     JsonObject result;
@@ -85,14 +102,16 @@ hstring card(bool unavailable)
         actions.Append(button);
     }
     JsonArray body;
-    if (unavailable)
+    if (state != Status::ready)
     {
         JsonObject status;
         status.SetNamedValue(L"type", JsonValue::CreateStringValue(L"TextBlock"));
         status.SetNamedValue(L"wrap", JsonValue::CreateBooleanValue(true));
-        status.SetNamedValue(
-            L"text", JsonValue::CreateStringValue(zh ? L"请先安装支持速记小组件的 Studio。"
-                                                     : L"Install a version of Studio that supports Quick Notes."));
+        const auto text = state == Status::studio_missing
+                              ? (zh ? L"请先安装支持速记小组件的 Studio。"
+                                    : L"Install a version of Studio that supports Quick Notes.")
+                              : (zh ? L"无法打开 Studio，请重试。" : L"Could not open Studio. Try again.");
+        status.SetNamedValue(L"text", JsonValue::CreateStringValue(text));
         body.Append(status);
     }
     for (auto const &action : actions)
@@ -108,11 +127,16 @@ hstring card(bool unavailable)
     return result.Stringify();
 }
 
-void update(WidgetContext const &context, bool unavailable = false)
+void update(WidgetContext const &context, Status state)
 {
     WidgetUpdateRequestOptions update(context.Id());
-    update.Template(card(unavailable));
+    update.Template(card(state));
     WidgetManager::GetDefault().UpdateWidget(update);
+}
+
+void refresh(WidgetContext const &context)
+{
+    update(context, installed_studio() ? Status::ready : Status::studio_missing);
 }
 
 struct Provider : implements<Provider, IWidgetProvider>
@@ -128,31 +152,34 @@ struct Provider : implements<Provider, IWidgetProvider>
     }
     void CreateWidget(WidgetContext const &context)
     {
-        update(context);
+        refresh(context);
     }
     void DeleteWidget(hstring const &, hstring const &)
     {
     }
     void Activate(WidgetContext const &context)
     {
-        update(context);
+        refresh(context);
     }
     void Deactivate(hstring const &)
     {
     }
     void OnWidgetContextChanged(WidgetContextChangedArgs const &args)
     {
-        update(args.WidgetContext());
+        refresh(args.WidgetContext());
     }
     void OnActionInvoked(WidgetActionInvokedArgs const &args)
     {
+        const auto state = run_action(installed_studio(), std::wstring(args.Verb()));
+        if (!state)
+            return;
         try
         {
-            launch(std::wstring(args.Verb()));
+            update(args.WidgetContext(), *state);
         }
-        catch (...)
+        catch (hresult_error const &)
         {
-            update(args.WidgetContext(), true);
+            // The widget may be removed after the action. Do not report a launch failure for an update failure.
         }
     }
 };
@@ -212,10 +239,22 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR command, int)
 }
 
 #ifdef STUDIO_TEST_NOTES_WIDGET
-// Creates the COM provider in-process and reads its actual card. This test
-// installs nothing, starts no Studio and does not require a registered board.
-int wmain()
+// The test creates the real COM provider. Its action probe launches only this
+// test binary, with the same arguments and CreateProcessW path as the provider.
+int wmain(int argc, wchar_t **argv)
 {
+    constexpr auto event_var = L"STUDIO_WIDGET_TEST_EVENT";
+    if (argc != 1)
+    {
+        wchar_t event_name[128]{};
+        const auto length = GetEnvironmentVariableW(event_var, event_name, static_cast<DWORD>(std::size(event_name)));
+        if (argc != 3 || std::wstring_view(argv[1]) != L"--notes-widget" ||
+            length == 0 || length >= std::size(event_name) ||
+            !std::wstring_view(event_name).ends_with(std::wstring(L"-") + argv[2]))
+            return 7;
+        handle signal(OpenEventW(EVENT_MODIFY_STATE, FALSE, event_name));
+        return signal && SetEvent(signal.get()) ? 0 : 8;
+    }
     init_apartment(apartment_type::multi_threaded);
     handle idle(CreateEventW(nullptr, TRUE, FALSE, nullptr));
     idle_event = idle.get();
@@ -223,7 +262,7 @@ int wmain()
     winrt::com_ptr<::IUnknown> provider;
     check_hresult(factory->CreateInstance(nullptr, guid_of<IWidgetProvider>(), provider.put_void()));
     const std::vector<hstring> verbs{L"new", L"recent", L"pinned"};
-    auto body = JsonObject::Parse(card(false)).GetNamedArray(L"body");
+    auto body = JsonObject::Parse(card(Status::ready)).GetNamedArray(L"body");
     if (body.Size() != verbs.size())
         return 1;
     for (uint32_t i = 0; i < body.Size(); ++i)
@@ -232,8 +271,31 @@ int wmain()
         if (action.GetNamedString(L"verb") != verbs[i] || action.GetNamedString(L"type") != L"Action.Execute")
             return 2;
     }
-    if (JsonObject::Parse(card(true)).GetNamedArray(L"body").Size() != 4)
+    auto missing = JsonObject::Parse(card(Status::studio_missing)).GetNamedArray(L"body");
+    auto failed = JsonObject::Parse(card(Status::launch_failed)).GetNamedArray(L"body");
+    if (missing.Size() != 4 || failed.Size() != 4 ||
+        missing.GetObjectAt(0).GetNamedString(L"text") == failed.GetObjectAt(0).GetNamedString(L"text"))
         return 3;
+
+    std::wstring module(32768, L'\0');
+    auto length = GetModuleFileNameW(nullptr, module.data(), static_cast<DWORD>(module.size()));
+    if (length == 0 || length >= module.size())
+        return 4;
+    module.resize(length);
+    const std::filesystem::path exe = module;
+    if (run_action(std::nullopt, L"new") != Status::studio_missing ||
+        run_action(exe / L"missing.exe", L"new") != Status::launch_failed || run_action(exe, L"unknown"))
+        return 5;
+    for (auto const &verb : verbs)
+    {
+        const std::wstring action(verb);
+        const auto event_name = L"Local\\ZiCodeQuickNotesTest-" + std::to_wstring(GetCurrentProcessId()) + L"-" + action;
+        handle signal(CreateEventW(nullptr, TRUE, FALSE, event_name.c_str()));
+        if (!signal || !SetEnvironmentVariableW(event_var, event_name.c_str()) ||
+            run_action(exe, action) != Status::ready || WaitForSingleObject(signal.get(), 5000) != WAIT_OBJECT_0)
+            return 6;
+    }
+    SetEnvironmentVariableW(event_var, nullptr);
     return 0;
 }
 #endif
