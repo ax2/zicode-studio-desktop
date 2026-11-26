@@ -20,9 +20,10 @@ function isSameMessage(left: Hit, right: Hit): boolean {
     left.epoch === right.epoch && left.id === right.id;
 }
 
-export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, canDownloadCurrentAttachments, onReply, replyBlocked = false}: {
+export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, canDownloadCurrentAttachments, accountsWithoutAttachmentAccess, onReply, replyBlocked = false}: {
   accounts: Account[]; current: string; invoke: Invoke; gmail?: Invoke; alibaba?: Invoke;
   canDownloadCurrentAttachments?: boolean;
+  accountsWithoutAttachmentAccess?: ReadonlySet<string>;
   onReply?: CreateMailReply;
   replyBlocked?: boolean;
 }) {
@@ -369,7 +370,9 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, can
         <MailBody text={reading.body.text} html={reading.body.html}/>
         {readingAccess && <MailAttachments key={JSON.stringify(readingAccess.message)} items={reading.body.attachments}
           invoke={readingAccess.invoke} message={readingAccess.message}
-          canDownload={reading.hit.account !== current || canDownloadCurrentAttachments !== false}/>}
+          canDownload={reading.hit.account === current
+            ? canDownloadCurrentAttachments !== false
+            : !accountsWithoutAttachmentAccess?.has(reading.hit.account)}/>}
       </>}
       {onReply && readingAccess?.replyDraft && (reading.status === "ready" || reading.status === "missing") &&
         <button className="ui-button" type="button" disabled={loadingBody || replying || replyBlocked} onClick={() => void replyToReading()}>

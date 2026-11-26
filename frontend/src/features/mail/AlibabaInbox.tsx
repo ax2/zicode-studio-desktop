@@ -38,7 +38,7 @@ export function mailError(error:unknown) {
   return t(messages[code]??"Mail operation failed. Check the account and try again.");
 }
 export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfigured,onBusy,draftBusy = false}:{id:string,folder:string,setFolder:(id:string)=>void,invoke:Invoke,discard:()=>boolean|Promise<boolean>,draftBusy?:boolean,
-  onReply:(draft:Draft)=>void,onConfigured:(value:boolean)=>void,onBusy:(activity:AlibabaActivity)=>void}) {
+  onReply:(draft:Draft)=>void,onConfigured:(value?:boolean)=>void,onBusy:(activity:AlibabaActivity)=>void}) {
   const [folders,setFolders]=useState<Folder[]>([]);
   const [savedFoldersState, setSavedFoldersState] = useState<"failed" | "empty" | null>(null);
   const applySavedFolders = useCallback((items: Folder[]) => {
@@ -66,7 +66,7 @@ export function AlibabaInbox({id,folder,setFolder,invoke,discard,onReply,onConfi
     setConfigured(configured);
     setEnabled(status?.enabled ?? false);
     setCredentialError(error);
-    onConfig.current(configured);
+    onConfig.current(status ? configured : undefined);
   }, []);
   useEffect(()=>{onBusy(activity);return()=>onBusy(null)},[activity,onBusy]);
   const req=<T,>(kind:string,args:Record<string,unknown>={})=>invoke<T>({kind,accountId:id,...args});

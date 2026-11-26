@@ -7,7 +7,7 @@ import type { Draft, Invoke } from "./index";
 
 export type CreateMailReply = (account: string, create: () => Promise<Draft>, isCurrent: () => boolean) => Promise<void>;
 export type GmailGrantLoss = "connection" | "sending";
-export type GmailAccess = { read: boolean; send: boolean };
+export type GmailAccess = { read?: boolean; send: boolean };
 
 export function gmailReplyNeedsRefresh(reason: unknown): boolean {
   return String(reason).replace(/^Error:\s*/, "") === "gmail_reply_metadata_missing";
@@ -85,7 +85,8 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
   useEffect(()=>{
     const gen=++epoch.current;
     operationFocus.current = undefined;
-    operation.current="init"; setBusy("init");saveGrant(none);
+    operation.current="init"; setBusy("init");setGrant(none);
+    grantCallback.current({ send: false });
     setPage(null);setMessage(null);setBody(null);setServerPage(false);setNotice("");
     setExpiredCursor(null);
     setLabels([]);setCachedLabelsFailed(false);setLabel("INBOX");
