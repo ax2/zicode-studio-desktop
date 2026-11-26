@@ -103,6 +103,15 @@
   flex-direction: column;
   gap: 0.6rem;
 }
+.blog-editor fieldset[hidden] {
+  display: none;
+}
+.blog-draft-preview {
+  overflow-wrap: anywhere;
+}
+.blog-draft-preview pre {
+  overflow-x: auto;
+}
 .blog-fields {
   display: grid;
   gap: 0.4rem 0.65rem;

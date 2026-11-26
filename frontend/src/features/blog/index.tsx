@@ -10,6 +10,7 @@ import {
   type Framework,
 } from "./article";
 import { messageForError } from "./messages";
+import { BlogDraftPreview } from "./BlogDraftPreview";
 import { SyncArticles } from "./SyncArticles";
 
 export type Site = {
@@ -74,6 +75,7 @@ function matches(path: string, query: string) {
 export function Blog({ invoke }: { invoke: Invoke }) {
   const [site, setSite] = useState<Site | null>(null);
   const [edit, setEdit] = useState<Edit | null>(null);
+  const [preview, setPreview] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(100);
@@ -135,6 +137,7 @@ export function Blog({ invoke }: { invoke: Invoke }) {
       const text =
         path === null ? null : await invoke<string>({ action: "read", site: root, path });
       setEdit(editor(path ?? "", text, framework));
+      setPreview(false);
       setDirty(false);
     });
   }
@@ -200,6 +203,16 @@ export function Blog({ invoke }: { invoke: Invoke }) {
         >
           {t("Choose blog folder")}
         </button>
+        {root && article && (
+          <button
+            type="button"
+            className="ui-button"
+            aria-pressed={preview}
+            onClick={() => setPreview((current) => !current)}
+          >
+            {t("Markdown preview")}
+          </button>
+        )}
         {root && site?.gitAvailable && (
           <button
             className="ui-button"
@@ -275,10 +288,11 @@ export function Blog({ invoke }: { invoke: Invoke }) {
               className="blog-editor"
               onSubmit={(e) => {
                 e.preventDefault();
-                void run(save);
+                if (!preview) void run(save);
               }}
             >
-              <fieldset disabled={busy}>
+              {preview && <BlogDraftPreview title={article.title} body={article.body} />}
+              <fieldset disabled={busy || preview} hidden={preview}>
                 <div className="blog-fields">
                   <label>
                     {t("Title")}

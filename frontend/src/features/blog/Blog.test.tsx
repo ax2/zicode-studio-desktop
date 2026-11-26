@@ -177,3 +177,54 @@ it("uses Hugo fields for newly saved articles and previews the matching sync pat
   expect(await view.findByText("content/posts/note.md")).toBeTruthy();
   expect(requests.find((r) => r.action === "push")).toBeUndefined();
 });
+
+it.each([
+  "astro",
+  "hugo",
+] as const)("previews an unsaved %s draft locally and preserves the editor", async (framework) => {
+  setLocale("en");
+  const site: Site = {
+    root: "C:/fixture",
+    framework,
+    paths: ["next.md"],
+    changedPaths: [],
+    pendingPush: false,
+    homepagePicks: false,
+  };
+  const invoke = vi.fn(async (request) =>
+    request.action === "read" ? "---\ntitle: Next\n---\nNext body" : site,
+  );
+  const view = render(<Blog invoke={invoke as Invoke} />);
+  fireEvent.click(await view.findByText("New article"));
+  const body = (await view.findByRole("textbox", { name: "Markdown text" })) as HTMLTextAreaElement;
+  const draft =
+    "## Draft heading\n\n**Strong** [source](https://example.com) ![Diagram](https://example.com/image.png)";
+  fireEvent.change(view.getByLabelText("Title"), { target: { value: "Unsaved title" } });
+  fireEvent.change(body, { target: { value: draft } });
+  body.setSelectionRange(3, 8);
+  const toggle = view.getByRole("button", { name: "Markdown preview" });
+  const calls = invoke.mock.calls.length;
+  fireEvent.click(toggle);
+  const preview = view.getByRole("article", { name: "Markdown preview" });
+  expect(preview.querySelector("h1")?.textContent).toBe("Unsaved title");
+  expect(preview.querySelector("h2")?.textContent).toBe("Draft heading");
+  expect(preview.querySelector("strong")?.textContent).toBe("Strong");
+  expect(preview.textContent).toContain("Diagram");
+  expect(preview.querySelector("[src], [href], button, iframe")).toBeNull();
+  expect(view.queryByRole("textbox", { name: "Markdown text" })).toBeNull();
+  expect(invoke).toHaveBeenCalledTimes(calls);
+  fireEvent.click(toggle);
+  expect(view.getByRole("textbox", { name: "Markdown text" })).toBe(body);
+  expect([body.selectionStart, body.selectionEnd, body.value]).toEqual([3, 8, draft]);
+  fireEvent.click(toggle);
+  const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+  try {
+    fireEvent.click(view.getByText("next.md"));
+    expect(view.getByRole("article")).toBeTruthy();
+    fireEvent.click(view.getByText("next.md"));
+    await waitFor(() => expect(view.queryByRole("article")).toBeNull());
+    expect(body.value).toContain("Next body");
+  } finally {
+    confirm.mockRestore();
+  }
+});
