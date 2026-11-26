@@ -4,19 +4,19 @@ ZiCode Studio Desktop 是面向浏览、AI 协作、知识沉淀与发布的个�
 
 ## 当前入口
 
-- 产品范围与整改顺序见 [项目路线图](../ROADMAP.md)。
+- 产品范围与整改顺序见 [项目路线图](https://github.com/ax2/zicode-studio-desktop/blob/main/ROADMAP.md)。
 - 实时需求、版本、责任与验收见 [GitHub Project #4](https://github.com/users/ax2/projects/4)。
 - Windows 正式安装包与已知问题见 [公开发布](https://github.com/ax2/zicode-studio-desktop/releases/latest)。
-- 项目术语见 [CONTEXT.md](../CONTEXT.md)。
+- 项目术语见 [CONTEXT.md](https://github.com/ax2/zicode-studio-desktop/blob/main/CONTEXT.md)。
 
 ## 功能与架构
 
 - 浏览器、Pi 对话、笔记与博客是一级内置应用。邮箱与视觉资产中心为独立内置工作台。
-- [架构方案](architecture.md)与[架构决策](adr/)记录产品、宿主和资源隔离。
+- [架构方案](architecture.md)与[架构决策](https://github.com/ax2/zicode-studio-desktop/tree/main/docs/adr)记录产品、宿主和资源隔离。
 - [插件平台](plugins/overview.md)和[独立工具获取](plugins/devtools-public-delivery.md)记录插件权限、安装和证据。
-- [Windows 打包](windows-packaging.md)和[更新实现](../AUTO_UPDATER.md)记录发布方式。当前公开 Windows 安装包暂未使用 Authenticode。
+- [Windows 打包](windows-packaging.md)和[更新实现](https://github.com/ax2/zicode-studio-desktop/blob/main/AUTO_UPDATER.md)记录发布方式。当前公开 Windows 安装包暂未使用 Authenticode。
 - 应用帮助页由 `public/help/` 提供。
 
 ## 历史证据
 
-[历史实现记录](implementation-status.md)、[开发回执](iterations/)和[发行输入](releases/)保留原版本、范围与验收。新进展写入对应 Issue 和版本回执。
+[历史实现记录](implementation-status.md)、[开发回执](https://github.com/ax2/zicode-studio-desktop/tree/main/docs/iterations)和[发行输入](releases/README.md)保留原版本、范围与验收。新进展写入对应 Issue 和版本回执。
