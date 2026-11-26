@@ -716,3 +716,59 @@ it("cancels a held Gmail refresh, restores keyboard focus, and ignores the late 
   expect(screen.queryByText("Late subject")).toBeNull();
   expect(screen.getByText("Body saved on this device")).toBeTruthy();
 });
+
+it.each([true, false])("uses the saved label after a server pagination connection failure (older mail: %s)", async hasOlder => {
+  const labelId = "Label_Invoices";
+  const pageTwo = { ...entry, id: "page-two", subject: "Previously loaded invoice" };
+  const older = { ...entry, id: "saved-older", subject: "Older saved invoice" };
+  const localTwo = "offline:invoices:2";
+  const localThree = "offline:invoices:3";
+  const serverTwo = "server-two";
+  const serverThree = "server-three";
+  const { calls } = fixture(async request => {
+    switch (request.kind) {
+      case "status": return { connected: true, read: true };
+      case "cachedLabels": return [{ id: labelId, name: "Invoices" }];
+      case "cachedBody": return { ...pageTwo, plainText: "Keep reading this previously loaded invoice" };
+      case "cachedPage":
+        if (request.label !== labelId) return null;
+        if (request.cursor === null) return { items: [entry], nextCursor: localTwo };
+        if (request.cursor === localTwo) return { items: [pageTwo], nextCursor: hasOlder ? localThree : null };
+        if (request.cursor === localThree && hasOlder) return { items: [older], nextCursor: null };
+        throw Error("Unexpected local cursor");
+      case "list":
+        expect(request.label).toBe(labelId);
+        if (request.cursor === null) return { items: [entry], nextCursor: serverTwo };
+        if (request.cursor === serverTwo) return { items: [pageTwo], nextCursor: serverThree };
+        if (request.cursor === serverThree) throw Error("gmail_network");
+        throw Error("Unexpected server cursor");
+      default: throw Error("Unexpected Gmail operation");
+    }
+  });
+  const inbox = within(await screen.findByRole("region", { name: "Gmail inbox" }));
+  await inbox.findByRole("option", { name: "Invoices" });
+  const label = inbox.getByLabelText<HTMLSelectElement>("Gmail label");
+  fireEvent.change(label, { target: { value: labelId } });
+  await waitFor(() => expect(label.value).toBe(labelId));
+  fireEvent.click(inbox.getByRole("button", { name: "Refresh from server" }));
+  fireEvent.click(await inbox.findByRole("button", { name: "Load older messages" }));
+  fireEvent.click(await inbox.findByRole("button", { name: /Previously loaded invoice/ }));
+  await inbox.findByText("Keep reading this previously loaded invoice");
+  const checkpoint = calls.mock.calls.length;
+  fireEvent.click(inbox.getByRole("button", { name: "Load older messages" }));
+  const useCache = await inbox.findByRole("button", { name: "Load older saved messages" });
+  const sinceFailure = () => calls.mock.calls.slice(checkpoint).map(([request]) => request);
+  const requested = (kind: string, cursor: string | null) => ({ kind, accountId: "one", label: labelId, cursor, limit: 20 });
+  expect(sinceFailure()).toEqual([requested("list", serverThree)]);
+  fireEvent.click(useCache);
+  if (hasOlder) await inbox.findByRole("button", { name: /Older saved invoice/ });
+  else await inbox.findByText("No older cached page is available.");
+  expect(inbox.getByRole("button", { name: /Previously loaded invoice/ }).getAttribute("aria-pressed")).toBe("true");
+  expect(inbox.getByText("Keep reading this previously loaded invoice")).toBeTruthy();
+  expect(inbox.queryByRole("button", { name: "Load older saved messages" })).toBeNull();
+  expect(sinceFailure()).toEqual([
+    requested("list", serverThree), requested("cachedPage", null), requested("cachedPage", localTwo),
+    ...(hasOlder ? [requested("cachedPage", localThree)] : []),
+  ]);
+  expect(label.value).toBe(labelId);
+});

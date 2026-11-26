@@ -53,7 +53,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
   const [localBodyFailed, setLocalBodyFailed] = useState(false);
   const [replyRefresh,setReplyRefresh]=useState(false);
   const [serverPage,setServerPage]=useState(false),[busy,setBusy]=useState("init"),[notice,setNotice]=useState("");
-  const [expiredCursor, setExpiredCursor] = useState<string | null>(null);
+  const [pageRecovery, setPageRecovery] = useState<{ cursor: string; next: "refresh" | "cache" } | null>(null);
   const epoch=useRef(0),operation=useRef("init"),grantCallback=useRef(onGrant);
   grantCallback.current=onGrant;
   const primaryAuthorization = useRef<HTMLButtonElement>(null);
@@ -88,7 +88,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     operation.current="init"; setBusy("init");setGrant(none);
     grantCallback.current({ send: false });
     setPage(null);setMessage(null);setBody(null);setServerPage(false);setNotice("");
-    setExpiredCursor(null);
+    setPageRecovery(null);
     setLabels([]);setCachedLabelsFailed(false);setLabel("INBOX");
     void Promise.allSettled([
       invoke<Grant>({kind:"status",accountId:id}),
@@ -174,8 +174,10 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     });
     void run(server ? "refresh" : "list", async isCurrent => {
       let result = await readPage(resumeFromCache ? null : cursor).catch((error: unknown) => {
-        if (isCurrent() && server && cursor && String(error).replace(/^Error:\s*/, "") === "gmail_page_expired") {
-          setExpiredCursor(cursor);
+        if (isCurrent() && server && cursor) {
+          const code = String(error).replace(/^Error:\s*/, "");
+          if (code === "gmail_page_expired") setPageRecovery({ cursor, next: "refresh" });
+          else if (code === "gmail_network") setPageRecovery({ cursor, next: "cache" });
         }
         throw error;
       });
@@ -185,14 +187,14 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
       const visited = new Set<string>();
       while (isCurrent() && result?.nextCursor && result.items.length && result.items.every(item => visible.has(item.id))) {
         const next = result.nextCursor;
-        if (visited.has(next)) return { ...result, nextCursor: null };
+        if (visited.has(next)) return null;
         visited.add(next);
         result = await readPage(next);
       }
-      return result;
+      return result?.items.some(item => !visible.has(item.id)) ? result : null;
     }, p => {
+      setPageRecovery(null);
       if (!append) {
-        setExpiredCursor(null);
         if (selected !== label) setLabel(selected);
         setPage(p);
         const retained = selected === label
@@ -261,7 +263,7 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
     : disconnected ? "Gmail is not connected. Local drafts are still available."
     : grant.send ? "Gmail is connected for reading and sending." : "Gmail is connected for reading.";
   const readFromServer = serverPage && !disconnected && grant.read === true;
-  const needsLabelRefresh = readFromServer && expiredCursor !== null && page?.nextCursor === expiredCursor;
+  const recoverPage = readFromServer && pageRecovery?.cursor === page?.nextCursor ? pageRecovery?.next : undefined;
   return <section aria-label={t("Gmail inbox")}>
     <fieldset disabled={Boolean(busy)}><legend>{t("Mail connection")}</legend>
       <p translate="no">{address}</p>
@@ -296,9 +298,10 @@ export function GmailInbox({id,address,label,setLabel,invoke,onGrant,onReply,dra
         {!page.items.length&&<p>{t("No messages on this page.")}</p>}
         <ul className="mail-inbox-list">{page.items.map(m=><li key={m.id}><button className="ui-button" type="button" aria-pressed={message?.id===m.id} onClick={()=>select(m)}><strong translate="no">{m.subject||t("No subject")}</strong><small translate="no">{m.from}</small></button></li>)}</ul>
         {page.nextCursor && <button className="ui-button" type="button" onClick={event => {
-          if (needsLabelRefresh) load(true, null, label, false, event.currentTarget);
-          else load(readFromServer, page.nextCursor, label, true, event.currentTarget);
-        }}>{t(needsLabelRefresh ? "Refresh this Gmail label" : "Load older messages")}</button>}
+          if (recoverPage === "refresh") load(true, null, label, false, event.currentTarget);
+          else load(readFromServer && recoverPage !== "cache", page.nextCursor, label, true, event.currentTarget);
+        }}>{t(recoverPage === "refresh" ? "Refresh this Gmail label" :
+          recoverPage === "cache" ? "Load older saved messages" : "Load older messages")}</button>}
       </>:<p>{t("No inbox has been saved on this device yet.")}</p>}
       {message&&<article aria-label={t("Selected message")}><h3 translate="no">{message.subject||t("No subject")}</h3><p translate="no">{message.from}</p>
         {body?<><MailBody text={body.plainText} html={body.html}/><MailAttachments key={message.id} items={body.attachments} invoke={invoke} message={{accountId:id,id:message.id}} canDownload={!disconnected && grant.read === true}/></>:localBodyFailed ? <>

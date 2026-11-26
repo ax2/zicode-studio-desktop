@@ -112,6 +112,7 @@ const zhCN = {
   "Back to search results": "返回搜索结果",
   "No subject": "无主题",
   "Load older messages": "加载更早邮件",
+  "Load older saved messages": "加载更早的已缓存邮件",
   "No inbox has been saved on this device yet.": "此设备尚无已缓存的收件箱。",
   "Selected message": "所选邮件",
   "Empty message": "邮件正文为空",
