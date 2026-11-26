@@ -42,7 +42,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   listen = globalThis.__TAURI__?.event?.listen, nativeWindow = globalThis.__TAURI__?.window?.getCurrentWindow?.(), notify = () => {}, getTarget = () => null, onPrepareDraft, canOpenDraftConversation, openDraftConversation, onTranslateSelection, modelGateway } = {}) {
   let startupState, searchSettings, ordering, tabStripControls, tabMenu, tabSearch, pageControls, find, shortcuts, fullscreen;
   let refreshOpenPageControls, siteSettingsPanel, libraryPanel;
-  let libraryGeneration = 0;
+  let panelGeneration = 0;
   let root, viewport, assistant, read, tabsHost, address, addressEditor, status, startup, strip, reloadButton, bookmarkButton;
   let tabs = [], closedTabs = [], active = null, revision = 0, visible = false;
   let initialized = false, initPromise, lastSurface = "", surfaceError = "", saveTail = Promise.resolve();
@@ -1070,8 +1070,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
           if(visible)tabSearch=showBrowserProfiles(profiles,params=>invoke("browser_window_command",params),()=>{tabSearch=null;void run(syncSurface)});
         }) : act(() => invoke("browser_window_command", { action })),
       bookmarks: () => act(() => openBookmarks(false)), downloads: () => act(() => openDownloads()), history: () => act(() => openHistory()), siteSettings: () => {
-        const source = readerSource();
-        return act(() => openSiteSettings(source));
+        const source = readerSource(), generation = panelGeneration;
+        const documentRevision = source && documentRevisions.get(source.id);
+        return act(() => openSiteSettings(source, generation, documentRevision));
       }, searchTabs: () => act(() => openTabSearch(options)), pageControls, find: () => find.open(), fullscreen, searchSettings,
       reader: () => {
         const source = readerSource();
@@ -1236,8 +1237,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     });
   }
   function libraryOwner() {
-    const source = readerSource(), generation = libraryGeneration;
-    return () => !surfaceUnavailable() && libraryGeneration === generation && active === (source?.id ?? null) &&
+    const source = readerSource(), generation = panelGeneration;
+    return () => !surfaceUnavailable() && panelGeneration === generation && active === (source?.id ?? null) &&
       (!source || (selected()?.url === source.url && pageVersions.get(source.id) === source.version));
   }
   async function openLibrary(ownsPage, show, returnToPage) {
@@ -1284,18 +1285,22 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   function openHistory(returnToPage) {
     return openLibrary(libraryOwner(), onClose => showBrowserHistory({ invoke, onOpen: openSavedPage, onClose }), returnToPage);
   }
-  async function openSiteSettings(source) {
-    if (siteSettingsPanel || surfaceUnavailable() || selected()?.localPdf) return;
+  async function openSiteSettings(source, generation, documentRevision) {
+    if (generation !== panelGeneration || siteSettingsPanel || surfaceUnavailable() || selected()?.localPdf) return;
     if (!source || !pageAvailable(source.id) || navigationStates.has(source.id)) {
       setStatus(t("Wait for the current page to finish loading"));
       return;
     }
     const tab = source.id;
-    const current = () => !surfaceUnavailable() && active === tab && selected()?.url === source.url &&
+    const current = () => generation === panelGeneration && !surfaceUnavailable() &&
+      active === tab && selected()?.url === source.url && documentRevisions.get(tab) === documentRevision &&
       pageAvailable(tab) && !navigationStates.has(tab) && pageVersions.get(tab) === source.version;
     if (!current()) return;
-    const origin = new URL((await tabPage(tab)).url).origin;
-    if (!current()) return;
+    const page = await tabPage(tab).catch(error => {
+      if (current()) throw error;
+    });
+    if (!page || !current()) return;
+    const origin = new URL(page.url).origin;
     await hide(true, current);
     if (!current()) { await syncSurface(); return; }
     const panel = showSiteSettings({
@@ -1560,7 +1565,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   }
   function deactivateBrowserPanels() {
     visible = false;
-    libraryGeneration++;
+    panelGeneration++;
     root?.querySelector(".browser-options[open]")?.removeAttribute("open");
     const panel = libraryPanel;
     libraryPanel = undefined;
