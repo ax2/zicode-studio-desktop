@@ -385,19 +385,39 @@ fn sync_reviewed(
         if oid != local {
             return Err("blog_git_unpublished".into());
         }
-        if oid == remote {
+        let mut published = oid == remote;
+        if !published {
+            if !selection.is_empty() {
+                return Err("blog_git_retry_pending".into());
+            }
+            let base = run(root, &["rev-parse", &format!("{oid}^")])?;
+            if base.trim() != remote {
+                // The server may have accepted the push before the client lost its reply.
+                // Check the advertised commit by OID without moving the local branch,
+                // its remote-tracking ref, or the FETCH_HEAD used by a separate pull.
+                run(
+                    root,
+                    &[
+                        "fetch",
+                        "--no-tags",
+                        "--no-prune",
+                        "--no-write-fetch-head",
+                        "--refmap=",
+                        "origin",
+                        &branch_ref,
+                    ],
+                )?;
+                run(root, &["merge-base", "--is-ancestor", &oid, remote])
+                    .map_err(|_| "blog_git_diverged")?;
+                published = true;
+            }
+        }
+        if published {
             run(root, &["update-ref", "-d", &reference, &oid])?;
             if selection.is_empty() {
                 return Ok(());
             }
             return Err("blog_git_refresh".into());
-        }
-        if !selection.is_empty() {
-            return Err("blog_git_retry_pending".into());
-        }
-        let base = run(root, &["rev-parse", &format!("{oid}^")])?;
-        if base.trim() != remote {
-            return Err("blog_git_diverged".into());
         }
         oid
     } else {
@@ -428,6 +448,10 @@ fn sync_reviewed(
     run(root, &["update-ref", "-d", &reference, &oid])?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "git/retry_tests.rs"]
+mod retry_tests;
 
 #[cfg(test)]
 mod tests {

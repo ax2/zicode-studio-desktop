@@ -85,6 +85,57 @@ async fn browser_analysis_artifact_survives_host_restart_with_provenance_and_wor
     let foreign = client.get(format!("{}/v2/artifacts/item?sceneId=programming&workspaceId={other_workspace}&artifactId={artifact_id}", host.origin()))
         .header("x-zicode-desktop-token", host.desktop_token()).send().await.unwrap();
     assert_eq!(foreign.status(), StatusCode::NOT_FOUND);
+
+    let import_url = format!("{}/v2/artifacts/import-all", host.origin());
+    let wrong_method = client.get(&import_url).send().await.unwrap();
+    assert_eq!(wrong_method.status(), StatusCode::METHOD_NOT_ALLOWED);
+
+    let backup = json!({
+        "workspaceId": other_workspace,
+        "sceneId": "programming",
+        "artifacts": [saved["artifact"]]
+    });
+    let forbidden_origin = client
+        .post(&import_url)
+        .header("origin", "https://synthetic-origin.invalid")
+        .json(&backup)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(forbidden_origin.status(), StatusCode::UNAUTHORIZED);
+    let auth_error: Value = forbidden_origin.json().await.unwrap();
+    assert_eq!(auth_error["error"]["code"], "device_auth_required");
+
+    // Exercise the existing bulk-restore limit on the actual production router.
+    let mut backup_body = serde_json::to_string(&backup).unwrap();
+    backup_body.push_str(&" ".repeat(MAX_HTTP_BODY_BYTES));
+    let imported = client
+        .post(&import_url)
+        .header("content-type", "application/json")
+        .header("x-zicode-desktop-token", host.desktop_token())
+        .body(backup_body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(imported.status(), StatusCode::OK);
+    let import_result: Value = imported.json().await.unwrap();
+    assert_eq!(import_result, json!({"imported": 1}));
+
+    let restored_url = format!(
+        "{}/v2/artifacts/item?sceneId=programming&workspaceId={other_workspace}&artifactId={artifact_id}",
+        host.origin()
+    );
+    let restored = client
+        .get(restored_url)
+        .header("x-zicode-desktop-token", host.desktop_token())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(restored.status(), StatusCode::OK);
+    let restored: Value = restored.json().await.unwrap();
+    assert_eq!(restored["artifact"]["workspaceId"], other_workspace);
+    assert_eq!(restored["artifact"]["content"], draft["content"]);
+
     host.state
         .plugins
         .lock()
