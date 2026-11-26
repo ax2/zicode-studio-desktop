@@ -1,6 +1,7 @@
-import { copyFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeBuildOutput } from "./write-build-output.cjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const assets = [
@@ -12,7 +13,7 @@ const assets = [
 
 for (const asset of assets) {
   mkdirSync(dirname(asset.destination), { recursive: true });
-  copyFileSync(asset.source, asset.destination);
+  writeBuildOutput(asset.destination, readFileSync(asset.source));
   console.log(
     `[sync-vendor] ${asset.source.slice(root.length + 1)} -> ${asset.destination.slice(root.length + 1)}`,
   );
