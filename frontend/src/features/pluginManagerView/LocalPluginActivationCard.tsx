@@ -35,7 +35,7 @@ export function LocalPluginActivationCard({
 }) {
   const card = useRef<HTMLElement>(null);
   useEffect(() => { if (focusOnMount) card.current?.focus(); }, [focusOnMount]);
-  const focusAfterAction = useRef<"defer" | "resume" | "activate" | { retryScope: string } | null>(null);
+  const focusAfterAction = useRef<"defer" | "resume" | "activate" | { retryScope: string; accessId?: string } | null>(null);
   const reviewAction = useRef<HTMLButtonElement>(null);
   const requiredPermission = useRef<HTMLInputElement>(null);
   const activateAction = useRef<HTMLButtonElement>(null);
@@ -52,11 +52,13 @@ export function LocalPluginActivationCard({
   const [toolAttempt, setToolAttempt] = useState(0);
   const [toolList, setToolList] = useState<{
     scope: string; attempt: number; actions: InstalledToolActions; page: ToolPage | null;
-    catalogChanged?: true;
+    retryAccessId?: string;
+    catalogChanged?: { restoreFocus: boolean };
   }>();
-  const tools = toolList && toolList.scope === toolScope && toolList.attempt === toolAttempt && toolList.actions === installedTools
-    ? toolList.page
+  const currentToolList = toolList?.scope === toolScope && toolList.attempt === toolAttempt && toolList.actions === installedTools
+    ? toolList
     : undefined;
+  const tools = currentToolList?.page;
   const toolListFailed = tools === null;
   const [opening, setOpening] = useState(false);
   const required = plugin.permissionDetails?.required ?? [];
@@ -87,7 +89,11 @@ export function LocalPluginActivationCard({
         return;
       }
       if (tools === undefined) return;
-      const next = toolListFailed ? retryAction.current : firstToolAction.current ?? availableAction.current;
+      const originalTool = action.accessId
+        ? Array.from(root.querySelectorAll<HTMLButtonElement>("button[data-installed-tool-access]"))
+          .find(button => button.dataset.installedToolAccess === action.accessId)
+        : firstToolAction.current;
+      const next = toolListFailed ? retryAction.current : originalTool ?? availableAction.current;
       focusAfterAction.current = null;
       next?.focus({ preventScroll: true });
       return;
@@ -99,27 +105,41 @@ export function LocalPluginActivationCard({
     next?.focus({ preventScroll: true });
   });
 
+  useLayoutEffect(() => {
+    const retry = retryAction.current;
+    if (currentToolList?.catalogChanged?.restoreFocus && retry && retry.ownerDocument.activeElement === retry.ownerDocument.body) {
+      retry.focus({ preventScroll: true });
+    }
+  }, [currentToolList]);
+
   useEffect(() => {
     if (!toolScope || !packageRevision || !installedTools) return;
     let active = true;
     const settle = (page: ToolPage | null) => {
-      if (active) setToolList({ scope: toolScope, attempt: toolAttempt, actions: installedTools, page });
+      if (active) setToolList(current => ({
+        scope: toolScope, attempt: toolAttempt, actions: installedTools, page,
+        retryAccessId: !page && current?.scope === toolScope && current.actions === installedTools
+          ? current.retryAccessId : undefined,
+      }));
     };
     void installedTools.list(plugin.id, packageRevision).then(settle, () => settle(null));
     return () => { active = false; };
   }, [installedTools, plugin.id, packageRevision, toolAttempt, toolScope]);
 
-  const open = async (action: () => Promise<unknown>, page?: ToolPage) => {
+  const open = async (action: () => Promise<unknown>, selected?: {
+    page: ToolPage; accessId: string; button: HTMLButtonElement;
+  }) => {
     // Keep the opening buttons focusable while preventing duplicate navigation.
     if (opening) return;
     setOpening(true);
     try {
       await action();
     } catch (error) {
-      if (page && error && typeof error === "object" && "code" in error && error.code === "catalog_changed") {
-        setToolList(current => current?.page === page && current.scope === toolScope &&
+      if (selected && error && typeof error === "object" && "code" in error && error.code === "catalog_changed") {
+        const restoreFocus = selected.button.ownerDocument.activeElement === selected.button;
+        setToolList(current => current?.page === selected.page && current.scope === toolScope &&
           current.attempt === toolAttempt && current.actions === installedTools
-          ? { ...current, page: null, catalogChanged: true }
+          ? { ...current, page: null, retryAccessId: selected.accessId, catalogChanged: { restoreFocus } }
           : current);
       } else {
         onError(error);
@@ -140,12 +160,12 @@ export function LocalPluginActivationCard({
           {toolScope && tools === undefined ? <p role="status">{t("Finding available tools…")}</p> : null}
           {toolScope && toolListFailed ? (
             <div className="plugin-manager-preview-actions">
-              <p role="status">{t(toolList?.catalogChanged
+              <p role="status">{t(currentToolList?.catalogChanged
                 ? "Tool changed. Reload its details before retrying."
                 : "Could not load this plugin’s tools.")}</p>
               <button ref={retryAction} type="button" className="ui-button ui-button--secondary ui-button--sm" disabled={opening}
                 onClick={(event) => {
-                  keepFocusInCard(event.currentTarget, { retryScope: toolScope });
+                  keepFocusInCard(event.currentTarget, { retryScope: toolScope, accessId: currentToolList?.retryAccessId });
                   setToolAttempt((attempt) => attempt + 1);
                 }}>{t("Try again")}</button>
             </div>
@@ -155,11 +175,12 @@ export function LocalPluginActivationCard({
               {tools.items.map((tool, index) => (
                 <li key={tool.toolId}>
                   <button ref={index === 0 ? firstToolAction : undefined} type="button" className="ui-button ui-button--secondary ui-button--sm" aria-disabled={opening || undefined}
-                    onClick={() => void open(async () => {
+                    data-installed-tool-access={tool.accessId}
+                    onClick={(event) => void open(async () => {
                       if (!(await installedTools.open(plugin.id, packageRevision, tool, tools.revision))) {
                         throw new Error(t("Could not open this tool. Try again."));
                       }
-                    }, tools)}>{t("Open {tool}").replace("{tool}", t(tool.title))}</button>
+                    }, { page: tools, accessId: tool.accessId, button: event.currentTarget })}>{t("Open {tool}").replace("{tool}", t(tool.title))}</button>
                 </li>
               ))}
             </ul>

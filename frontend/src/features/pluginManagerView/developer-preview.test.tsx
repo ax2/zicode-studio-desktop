@@ -506,33 +506,56 @@ it.each(["tool", "directory"] as const)("keeps the opening %s action focused and
   expect(flow.activateReviewed).toHaveBeenCalledTimes(1);
 });
 
-it("reloads an expired installed-tool listing after an explicit action without replaying enablement", async () => {
-  const flow = setup({ required: false });
-  flow.installedTools.open.mockRejectedValueOnce(Object.assign(new Error("Refresh directory"), { code: "catalog_changed" }));
-  flow.installedTools.list.mockResolvedValueOnce({ items: [tool], revision: "old-directory", total: 1, nextOffset: null });
-  flow.installedTools.list.mockResolvedValueOnce({ items: [tool], revision: "new-directory", total: 1, nextOffset: null });
-  await installPackage();
-  fireEvent.click(button("Enable plugin"));
-  fireEvent.click(await setupCard().findByRole("button", { name: "Open Format JSON" }));
+it.each(["present", "removed", "focus moved", "listing fails once"] as const)(
+  "recovers keyboard access to an expired installed-tool listing when the selected tool is %s",
+  async outcome => {
+    const flow = setup({ required: false });
+    const chosen = { ...tool, toolId: "next-tool", accessId: "capability:next-tool", title: "Compress JSON" };
+    const refreshedItem = { ...chosen, toolId: "new-entry-id" };
+    let rejectOpen!: (error: Error) => void;
+    flow.installedTools.open.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectOpen = reject; }));
+    flow.installedTools.list.mockResolvedValueOnce({ items: [tool, chosen], revision: "old-directory", total: 2, nextOffset: null });
+    if (outcome === "listing fails once") flow.installedTools.list.mockRejectedValueOnce(Error("Temporary failure"));
+    const items = outcome === "removed" ? [tool] : [tool, refreshedItem];
+    flow.installedTools.list.mockResolvedValueOnce({ items, revision: "new-directory", total: items.length, nextOffset: null });
 
-  const retry = await setupCard().findByRole("button", { name: "Try again" });
-  expect(setupCard().getByText("Tool changed. Reload its details before retrying.")).toBeTruthy();
-  expect(setupCard().queryByRole("button", { name: "Open Format JSON" })).toBeNull();
-  expect(flow.installedTools.list).toHaveBeenCalledTimes(1);
-  fireEvent.click(retry);
-  const refreshed = await setupCard().findByRole("button", { name: "Open Format JSON" });
-  expect(flow.installedTools.list.mock.calls).toEqual([
-    [preview.pluginId, packageRevision], [preview.pluginId, packageRevision],
-  ]);
-  expect(flow.installedTools.open).toHaveBeenCalledTimes(1);
+    await installPackage();
+    fireEvent.click(button("Enable plugin"));
+    clickFocused(await setupCard().findByRole("button", { name: "Open Compress JSON" }));
+    const outside = screen.getByRole("searchbox", { name: "Search plugins and tools" });
+    if (outcome === "focus moved") outside.focus();
+    await act(async () => rejectOpen(Object.assign(new Error("Refresh directory"), { code: "catalog_changed" })));
+    const retry = await setupCard().findByRole("button", { name: "Try again" });
+    expect(document.activeElement).toBe(outcome === "focus moved" ? outside : retry);
+    expect(setupCard().getByText("Tool changed. Reload its details before retrying.")).toBeTruthy();
+    expect(setupCard().queryByRole("button", { name: "Open Compress JSON" })).toBeNull();
+    expect(flow.installedTools.list).toHaveBeenCalledTimes(1);
 
-  fireEvent.click(refreshed);
-  await waitFor(() => expect(flow.installedTools.open).toHaveBeenLastCalledWith(preview.pluginId, packageRevision, tool, "new-directory"));
-  expect(flow.installedTools.open).toHaveBeenCalledTimes(2);
-  expect(flow.installDeveloperPlugin).toHaveBeenCalledTimes(1);
-  expect(flow.activateReviewed).toHaveBeenCalledTimes(1);
-  expect(flow.notify).not.toHaveBeenCalled();
-});
+    clickFocused(retry);
+    if (outcome === "listing fails once") {
+      const failedRetry = await setupCard().findByRole("button", { name: "Try again" });
+      expect(document.activeElement).toBe(failedRetry);
+      expect(setupCard().getByText("Could not load this plugin’s tools.")).toBeTruthy();
+      clickFocused(failedRetry);
+    }
+    await setupCard().findByRole("button", { name: "Open Format JSON" });
+    const next = outcome === "removed"
+      ? setupCard().getByRole("button", { name: "Open Tool Center" })
+      : setupCard().getByRole("button", { name: "Open Compress JSON" });
+    expect(document.activeElement).toBe(next);
+    expect(flow.installedTools.list.mock.calls).toEqual(Array.from({ length: outcome === "listing fails once" ? 3 : 2 },
+      () => [preview.pluginId, packageRevision]));
+    expect(flow.installedTools.open).toHaveBeenCalledTimes(1);
+    expect(flow.installedTools.openDirectory).not.toHaveBeenCalled();
+
+    fireEvent.click(next);
+    if (outcome === "removed") expect(flow.installedTools.openDirectory).toHaveBeenCalledOnce();
+    else await waitFor(() => expect(flow.installedTools.open).toHaveBeenLastCalledWith(preview.pluginId, packageRevision, refreshedItem, "new-directory"));
+    expect(flow.installDeveloperPlugin).toHaveBeenCalledTimes(1);
+    expect(flow.activateReviewed).toHaveBeenCalledTimes(1);
+    expect(flow.notify).not.toHaveBeenCalled();
+  },
+);
 
 it.each(["packageRevision", "sceneRevision"] as const)("ignores a late retry after the installed %s changes", async field => {
   let resolveOld!: (value: ToolPage) => void;
