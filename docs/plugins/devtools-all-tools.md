@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：时区工作台搜索与逐行复制
+
+`time-zone` 的 Studio 专用界面支持搜索 IANA 名称和常用中文城市、按顺序添加或移除最多八个目的地，以及逐行复制。隔离 Windows Studio 通过中文窄窗、英文宽窗、取消重试和原有离线换算。[入口与候选](../iterations/2026-11-26-time-zone-view.md)
+
 ## 2026-11-26 开发补充：时钟备份检查
 
 `clock-workbench` 的只读备份校验已接入。确认共享本机 v1–v3 JSON 可查看保存时间和脱敏记录摘要。隔离 Windows Studio 已验证 512 KiB 文件、复杂度边界、撤权和重启。[范围与冻结候选](../iterations/2026-11-26-clock-backup.md)
