@@ -66,11 +66,13 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
       setError(t(code ? localMailErrors[code] : "Could not access local mail data."));
     }finally{if(isCurrent()){lock.current=false;setBusy(false)}}
   }
-  function applyAccount(id:string, rows:Draft[] | null){
+  function applyAccount(id:string, rows:Draft[] | null, draftId?: string){
     if(id!==account){setLabel("INBOX");setPasswordOwner("");setGmailAuthorization(null);setMailActivity(null)}
-    setAccount(id);setDrafts(rows ?? []);setDraftsUnavailable(rows === null);setEdit(blank());setDirty(false);setAttachmentRefresh(null);
+    const refreshedDraft = draftId ? rows?.find(draft => draft.id === draftId) : undefined;
+    setAccount(id);setDrafts(rows ?? []);setDraftsUnavailable(rows === null);setEdit(refreshedDraft ?? blank());
+    setDirty(false);setAttachmentRefresh(null);
   }
-  async function load(id:string, isCurrent:()=>boolean){
+  async function load(id:string, isCurrent:()=>boolean, draftId?: string){
     if (!isCurrent()) return;
     const rows = id ? await invoke<Draft[]>({kind:"drafts",account:id}).catch(() => null) : [];
     if (!isCurrent()) return;
@@ -79,7 +81,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
       return;
     }
     if (id !== account) setSearchVersion(version => version + 1);
-    applyAccount(id,rows);
+    applyAccount(id,rows,id === account ? draftId : undefined);
   }
   function openReply(draft:Draft){
     setDrafts(old=>[draft,...old.filter(item=>item.id!==draft.id)]);
@@ -277,7 +279,7 @@ export function Mail({invoke,transport,gmailTransport}:{invoke:Invoke,transport?
     <div className="mail-list"><button className="ui-button" type="button" disabled={recoveringAttachments} onClick={()=>void run(async()=>{if(await discard()){setEdit(blank());setDirty(false)}})}>{t("New draft")}</button>
     <button className="ui-button" type="button" ref={reloadDraftButton} onClick={()=>void run(async isCurrent=>{
       if (attachmentRefresh) await readDraftAttachments(attachmentRefresh, isCurrent);
-      else if(await discard()) await load(account,isCurrent);
+      else if(await discard()) await load(account,isCurrent,edit.id);
     })}>{t(attachmentRefresh ? "Reload draft attachments" : "Reload drafts")}</button>
     {drafts.map(d=><button className="ui-button" key={d.id} type="button" disabled={recoveringAttachments} aria-pressed={edit.id===d.id} onClick={()=>void run(async()=>{if(await discard()){setEdit(d);setDirty(false)}})}>{d.subject||d.recipient||t("Untitled draft")}</button>)}</div>
     {attachmentRefresh&&<p role="alert">{t("Attachment change saved. Reload the draft attachments to continue.")}</p>}
