@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：离线向量比较
+
+`embedding-playground` 的离线比较已接入。确认两份 JSON 向量或一份已有嵌入响应后，显示维度、范数、余弦相似度及欧氏距离。隔离 Windows Studio 验证反序、明确确认、撤销共享、输入原件不变和重启。[范围与冻结候选](../iterations/2026-11-26-offline-embedding.md)
+
 ## 2026-11-26 开发补充：ZiDevTools 插件清单预览
 
 `plugins` 的离线清单预览已接入。确认共享 ZiDevTools 声明式 JSON 后，可核对身份、原字节 SHA-256 和最多 64 个工具。隔离 Windows Studio 已验证末页、256 KiB、重复键、撤权和重启。只读取当前文件。[范围与冻结候选](../iterations/2026-11-26-plugin-manifest-preview.md)
