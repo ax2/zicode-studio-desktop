@@ -217,6 +217,35 @@ describe("command palette (React)", () => {
     expect(document.activeElement).toBe(input);
   });
 
+  it("keeps the active search and the original return focus when reopened", () => {
+    const elements = mount();
+    const previous = document.createElement("input");
+    document.body.append(previous);
+    previous.focus();
+    const commands = vi.fn(() => [{ label: "Notes" }, { label: "Tasks" }]);
+    const handle = setupCommandPalette({ ...elements, commands });
+    handle.open();
+    const input = elements.list.querySelector("input") as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, "Notes");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(elements.list.querySelectorAll("[role=option]")).toHaveLength(1);
+    input.setSelectionRange(1, 4);
+
+    handle.open();
+    expect(commands).toHaveBeenCalledOnce();
+    expect(elements.list.querySelector("input")).toBe(input);
+    expect(input.value).toBe("Notes");
+    expect([input.selectionStart, input.selectionEnd]).toEqual([1, 4]);
+    expect(document.activeElement).toBe(input);
+    handle.close();
+    expect(document.activeElement).toBe(previous);
+
+    handle.open();
+    expect(commands).toHaveBeenCalledTimes(2);
+    expect(elements.list.querySelector("input")?.value).toBe("");
+  });
+
   it("filters commands as the user types and runs the selected one with Enter", () => {
     const { button, palette, overlay, list } = mount();
     const openNotes = vi.fn();
