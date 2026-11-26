@@ -1,4 +1,4 @@
-import { lstatSync, readFileSync } from "node:fs";
+import { appendFileSync, lstatSync, readFileSync } from "node:fs";
 const tag = process.argv[2];
 if (!/^v\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(tag)) throw Error("Invalid release tag");
 function required(suffix) {
@@ -28,6 +28,23 @@ for (const [field, entries] of [["exclude", plan.exclude], ["knownNotes", plan.k
 }
 
 if (["windows", "all"].includes(process.argv[3])) {
+  const version = tag.slice(1).split("-")[0];
+  const compare = (left, right) => left.localeCompare(right, "en", { numeric: true });
+  const baseline = plan.windowsUpgradeFrom;
+  if (baseline === undefined) {
+    if (process.argv[4] === "true" && compare(version, "0.7.8") >= 0)
+      throw Error(`Windows upgrade baseline is required for ${tag}`);
+  } else {
+    if (typeof baseline?.version !== "string" || !/^\d+\.\d+\.\d+$/.test(baseline.version)
+        || compare(baseline.version, version) >= 0 || typeof baseline.sha256 !== "string"
+        || !/^[a-f0-9]{64}$/.test(baseline.sha256))
+      throw Error(`Invalid Windows upgrade baseline for ${tag}`);
+    if (process.env.GITHUB_OUTPUT) {
+      appendFileSync(process.env.GITHUB_OUTPUT,
+        `windows_baseline_version=${baseline.version}\nwindows_baseline_sha256=${baseline.sha256}\n`);
+    }
+  }
+
   for (const file of ["scripts/export-windows-candidate.ps1", "src-tauri/tauri.shell.windows.conf.json"]) {
     const stat = lstatSync(file, {throwIfNoEntry: false});
     if (!stat?.isFile() || stat.size === 0) throw Error(`Missing Windows candidate input: ${file}`);
