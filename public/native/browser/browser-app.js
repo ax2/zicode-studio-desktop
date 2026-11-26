@@ -298,20 +298,21 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
     const { target } = developerToolsState();
     if (!target || blocked()) return;
     const { id, url, revision, version } = target;
-    const sameDocument = () => active === id && selected()?.url === url &&
+    const generation = panelGeneration;
+    const current = () => generation === panelGeneration && active === id && selected()?.url === url &&
       documentRevisions.get(id) === revision && pageVersions.get(id) === version;
     developerToolsPending = true;
     clearDeveloperToolsError();
     refreshDeveloperTools?.();
     return act(async () => {
       try {
-        if (blocked() || !sameDocument()) return;
+        if (blocked() || !current()) return;
         await syncSurface();
         await surface.settled();
-        if (blocked() || !sameDocument()) return;
+        if (blocked() || !current()) return;
         await control({ kind: "openDeveloperTools", tab: id, expectedUrl: url, expectedDocumentRevision: revision });
       } catch (error) {
-        if (surfaceUnavailable() || !sameDocument()) return;
+        if (surfaceUnavailable() || !current()) return;
         const reason = String(error?.message ?? error);
         const known = reason === "Browser page changed" || reason === "Browser page is not visible";
         developerToolsError = t(known ? reason : "Could not open developer tools for this page.");
