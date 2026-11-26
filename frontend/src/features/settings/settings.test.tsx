@@ -475,6 +475,53 @@ describe("workspace backup feedback", () => {
     };
   }
 
+  it("identifies the queued backup even when it is older than the seven newest", async () => {
+    const workspaceId = "workspace-a";
+    const backups = Array.from({ length: 8 }, (_, index) => ({
+      id: `backup-${index}`,
+      workspaceId,
+      workspaceRoot: "D:/isolated",
+      createdAt: new Date(Date.UTC(2026, 10, 25 - index)).toISOString(),
+      sizeBytes: index + 1,
+      apps: ["notes"],
+    }));
+    let outcome: object | null = {
+      pending: {
+        requestId: "0123456789abcdef0123456789abcdef",
+        workspaceId,
+        backupId: "backup-7",
+      },
+    };
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "list_workspace_backups") return backups;
+      if (command === "workspace_restore_outcome") return outcome;
+      throw new Error("Unexpected mutation");
+    });
+    const controller = controllerStub();
+    const backupStore = createBackupStore({ getWorkspaceId: () => workspaceId, invoke });
+    controller.backupStore = backupStore;
+    render(<SettingsApp store={createSettingsStore()} controller={controller} />);
+
+    await act(() => backupStore.getState().load());
+    const rows = () => [...document.querySelectorAll(".workspace-backup-item")];
+    const queuedRows = () =>
+      rows().filter((row) => row.textContent?.includes(t("Queued for restore")));
+    expect(rows()).toHaveLength(8);
+    expect(queuedRows()).toEqual([rows()[7]]);
+    const [queuedDelete, queuedRestore] = rows()[7].querySelectorAll("button");
+    expect(queuedDelete.disabled).toBe(true);
+    expect(queuedRestore.disabled).toBe(true);
+    expect(rows()[0].querySelector("button")?.disabled).toBe(false);
+
+    outcome = null;
+    await act(() => backupStore.getState().load());
+    expect(rows()).toHaveLength(7);
+    expect(queuedRows()).toHaveLength(0);
+    expect(invoke.mock.calls.map(([command]) => command)).toEqual([
+      "list_workspace_backups", "workspace_restore_outcome",
+      "list_workspace_backups", "workspace_restore_outcome",
+    ]);
+  });
   it("announces a later delete error instead of the previous success", async () => {
     const { buttons, status } = renderBackup();
     const confirm = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
