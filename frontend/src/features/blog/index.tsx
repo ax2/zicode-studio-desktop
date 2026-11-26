@@ -11,6 +11,7 @@ import {
 } from "./article";
 import { messageForError } from "./messages";
 import { BlogDraftPreview } from "./BlogDraftPreview";
+import { type DefaultHomepage, SiteDetails } from "./SiteDetails";
 import { SyncArticles } from "./SyncArticles";
 
 export type Site = {
@@ -19,6 +20,7 @@ export type Site = {
   framework?: Framework;
   collection?: string;
   catalog?: Record<string, { title: string; categories: string[]; tags: string[] }>;
+  defaultHomepage?: DefaultHomepage;
   homepagePicks: boolean;
   changedPaths: string[];
   pendingPush: boolean;
@@ -186,6 +188,11 @@ export function Blog({ invoke }: { invoke: Invoke }) {
         <span className="blog-site" title={root}>
           {root.split(/[\\/]/).pop()}
         </span>
+        {site?.framework && (
+          <span className="blog-framework" translate="no">
+            {site.framework === "hugo" ? "Hugo" : "Astro"}
+          </span>
+        )}
         <button
           className="ui-button"
           disabled={busy}
@@ -238,6 +245,13 @@ export function Blog({ invoke }: { invoke: Invoke }) {
       {root && site && (
         <div className="blog-layout">
           <aside>
+            {site.defaultHomepage && (
+              <SiteDetails
+                key={root}
+                homepage={site.defaultHomepage}
+                recommendations={picks !== null}
+              />
+            )}
             <div className="blog-filter">
               <input
                 type="search"
