@@ -152,14 +152,14 @@ export function createPluginResourceSelection({
     release();
     return cancellation;
   }
-  input.addEventListener("change", () => {
+  function selectLocalFile(file) {
     if (uploading || !active || !isCurrent()) return;
     fileStatus.clear();
     cancelProjectGrant();
     revision += 1;
     saved?.clear();
     release();
-    selected = input.files?.[0] ?? null;
+    selected = file;
     const allowed = allowedSize(selected) && capability.value;
     confirm.disabled = !allowed;
     status.textContent = !selected
@@ -170,7 +170,15 @@ export function createPluginResourceSelection({
             .replace("{bytes}", selected.size)
             .replace("{plugin}", `${plugin.name} ${plugin.version}`)
         : limitText();
-  });
+    const token = revision;
+    return () => {
+      if (active && token === revision) {
+        clear();
+        status.textContent = "";
+      }
+    };
+  }
+  input.addEventListener("change", () => selectLocalFile(input.files?.[0] ?? null));
   capability.addEventListener("change", () => {
     fileStatus.clear();
     if (selected?.projectPreview) selected = null;
@@ -260,6 +268,7 @@ export function createPluginResourceSelection({
   panel.append(fileStatus.element);
   container.prepend(panel);
   return {
+    offerLocalFile: selectLocalFile,
     destroy() {
       active = false;
       window.removeEventListener("zicode:entry-changed", refreshOpenedFile);

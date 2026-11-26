@@ -4,7 +4,7 @@ import { t } from "../../shared/i18n";
 import { FileImportButton } from "./FileImportButton";
 import { WorkbenchDraftFileActions } from "./WorkbenchDraftFileActions";
 import type { ToolAccessScope, ToolAccessStore } from "../commandPalette/tool-access";
-import { type ManualTool, type ManualToolApi, type ToolDetail, manualToolError, supportsResultActions, toolDraftContract } from "./manual-tools";
+import { type ManualTool, type ManualToolApi, type ToolDetail, type ToolFileOffer, manualToolError, supportsResultActions, toolDraftContract } from "./manual-tools";
 import { toolFields, prepareToolInput } from "./manual-tool-fields";
 import { ManualToolInput } from "./ManualToolInput";
 import { ManualToolInformation } from "./ManualToolInformation";
@@ -121,6 +121,7 @@ export interface ManualToolDetailProps {
   getResourceTarget?: ResourceTargetProvider;
   receiveNoteDraft?: ReceiveNoteDraft;
   resourceSession?: ResourceSessionOwner;
+  fileOffer?: ToolFileOffer;
   onReload?(draft?: { contract: string; read(): Record<string, string> | undefined }): Promise<void>;
   initialDraft?: Record<string, string>;
   focusInitialDraft?: boolean;
@@ -155,7 +156,7 @@ export function ManualToolDetail(props: ManualToolDetailProps) {
   return <ManualToolDetailView {...props} call={call} />;
 }
 
-export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, initialDraft, focusInitialDraft = true, draftReaderRef, onOpenWorkbenchDraft, workbenchDraftActive = true, call }: ManualToolDetailProps & {
+export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, fileOffer, onReload, initialDraft, focusInitialDraft = true, draftReaderRef, onOpenWorkbenchDraft, workbenchDraftActive = true, call }: ManualToolDetailProps & {
   call: ReturnType<typeof useManualToolCall>;
 }) {
   const detailOwner = useMemo(() => ({ api, sceneId: scope.sceneId, pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision }),
@@ -539,7 +540,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       {!detail.enabled && <p role="status">{t("Plugin is disabled")}</p>}
       {!detail.enabled && <p>{t("Enable this plugin in Plugin Manager before running its tools.")}</p>}
       {resourceTool ? <ResourceToolRunner tool={tool} detail={detail} api={api} getTarget={getResourceTarget} scope={scope}
-        accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
+        accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} fileOffer={fileOffer} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
         {springConfig && <div className="ui-toolbar">{documentFileButtons}</div>}
         {fields.map(field => {
           const side = documentFileTargets.find(target => target.field === field.key);

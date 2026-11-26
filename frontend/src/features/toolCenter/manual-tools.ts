@@ -19,6 +19,12 @@ export interface ViewOperation {
 export type DirectoryItem = ManualTool | ViewOperation;
 export type ToolDirectoryView = "all" | "favorites" | "recent";
 export interface ToolOpenRequest { tool: ManualTool; revision: string }
+
+// An in-memory browser file can be offered once, before the normal sharing confirmation.
+export interface ToolFileOffer {
+  file: File | null;
+  discard?: () => void;
+}
 export interface ToolSource { pluginId: string; title: string; count: number; enabled: boolean }
 export interface ToolPage { items: DirectoryItem[]; total: number; revision: string; nextOffset: number | null; accessRevision?: number | null; sources?: ToolSource[]; categories?: { id: string; count: number }[] }
 export interface ToolDetail {
