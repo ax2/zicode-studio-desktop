@@ -429,7 +429,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       selection.resumeExplorer?.();
     }
   }
-  return { destroy() {
+  return { offerLocalFile: file => !directoryAnalysis && valid() ? selection.offerLocalFile?.(file) : undefined, destroy() {
     if (!active) return;
     active = false; clearTimeout(timer);
     if (liveStream) void nativeStream.cancel(target.workspaceId, liveStream.owner, liveStream.grantId).catch(() => {});

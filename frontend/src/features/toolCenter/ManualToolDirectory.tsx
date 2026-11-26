@@ -8,14 +8,19 @@ import { ToolCloseConfirmation } from "./ToolCloseConfirmation";
 import type { ResourceTargetProvider, ReceiveNoteDraft } from "./ResourceToolRunner";
 import { toolCategoryTitle } from "./tool-categories";
 import { useDirectoryToolFilter } from "./use-directory-tool-filter";
-import { useFileToolFilter } from "./use-file-tool-filter";
-import { type ManualTool, type ManualToolApi, type ToolPage, type ToolDirectoryView, type ToolOpenRequest, type ViewOperation, manualToolError, toolDraftContract } from "./manual-tools";
+import { useFileToolFilter, validEntryName } from "./use-file-tool-filter";
+import { type ManualTool, type ManualToolApi, type ToolPage, type ToolDirectoryView, type ToolOpenRequest, type ToolFileOffer, type ViewOperation, manualToolError, toolDraftContract } from "./manual-tools";
 import { initialTrayToolView, subscribeTrayToolView } from "./tray-tool-view";
 import { resolveWorkbenchDraftReceiver, type OpenWorkbenchDraft } from "./workbench-draft-handoff";
 import { findWorkbenchDraft, isWorkbenchDraftTool, type KeptWorkbenchDrafts, type WorkbenchDraftReader } from "./workbench-session-draft";
 
 type DraftScope = ToolAccessScope & { api: ManualToolApi };
-type OpenedTool = ToolOpenRequest & { reloadCount?: number; draft?: { scope: DraftScope; values: Record<string, string>; focus?: boolean } };
+type OpenedTool = ToolOpenRequest & {
+  reloadCount?: number;
+  draft?: { scope: DraftScope; values: Record<string, string>; focus?: boolean };
+  fileOffer?: ToolFileOffer & { scope: DraftScope; catalogRevision?: number };
+};
+type PendingFile = { file: File; scope: DraftScope };
 
 export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, openApplication, openViewOperation, requestedTool, getResourceTarget, receiveNoteDraft }: {
   api: ManualToolApi; scope: ToolAccessScope; accessStore?: ToolAccessStore;
@@ -41,6 +46,17 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   const [opened, setOpened] = useState<OpenedTool[]>([]);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const draftScope = useMemo(() => ({ api, sceneId: scope.sceneId, workspaceId: scope.workspaceId }), [api, scope.sceneId, scope.workspaceId]);
+  const [pickedFile, setPickedFile] = useState<PendingFile | null>(null);
+  const pendingFile = useRef<PendingFile | null>(null);
+  const filePicker = useRef<HTMLInputElement>(null);
+  const [checkingFileTool, setCheckingFileTool] = useState<PendingFile | null>(null);
+  const [fileError, setFileError] = useState("");
+  const intake = pickedFile?.scope === draftScope ? pickedFile : null;
+  const fileToolsOnly = intake !== null || fileFilter.enabled;
+  const directoryToolsOnly = intake === null && directoryFilter.enabled;
+  const fileName = intake?.file.name ?? fileFilter.fileName;
+  const fileNames = intake ? null : fileFilter.fileNames;
+  const selectedFileCount = intake ? null : fileFilter.selectedFileCount;
   const draftAction = useMemo(() => ({ draftScope, activeTool, catalogRevision }), [draftScope, activeTool, catalogRevision]);
   const currentDraftAction = useRef<typeof draftAction | null>(null);
   const kept = useMemo(() => ({ draftScope, catalogRevision, drafts: new Map() as KeptWorkbenchDrafts }), [draftScope, catalogRevision]);
@@ -52,6 +68,21 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     kept.drafts.delete(request.tool.capabilityId);
     return { ...request, draft: { scope: kept.draftScope, values: saved.values } };
   }, [kept]);
+  const clearPickedFile = useCallback(() => {
+    pendingFile.current = null;
+    setPickedFile(null);
+    setFileError("");
+  }, []);
+  useLayoutEffect(() => {
+    if (pendingFile.current && (activeTool !== null || pendingFile.current.scope !== draftScope)) clearPickedFile();
+    for (const item of opened) {
+      const offer = item.fileOffer;
+      if (offer && (item.tool.toolId !== activeTool || offer.scope !== draftScope || offer.catalogRevision !== catalogRevision)) {
+        offer.file = null;
+        offer.discard?.();
+      }
+    }
+  }, [opened, activeTool, draftScope, catalogRevision, clearPickedFile]);
   const openedRef = useRef(opened);
   openedRef.current = opened;
   useLayoutEffect(() => {
@@ -95,8 +126,8 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     return () => window.removeEventListener("zicode:entry-changed", refresh);
   }, []);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a changed filter, workspace or plugin catalog invalidates the cursor.
-  useEffect(() => { setCursor({ offset: 0, revision: null }); }, [fileFilter.enabled, fileFilter.fileName,
-    fileFilter.selectedFileCount, fileFilter.fileNames, directoryFilter.enabled, scope.sceneId, scope.workspaceId, catalogRevision]);
+  useEffect(() => { setCursor({ offset: 0, revision: null }); }, [fileToolsOnly, fileName,
+    selectedFileCount, fileNames, directoryToolsOnly, scope.sceneId, scope.workspaceId, catalogRevision]);
   useEffect(() => {
     setCloseTarget(previous => previous && (previous.sceneId !== scope.sceneId || previous.workspaceId !== scope.workspaceId) ? null : previous);
   }, [scope.sceneId, scope.workspaceId]);
@@ -159,6 +190,64 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   useEffect(() => {
     if (effectiveView !== "all") setCursor({ offset: 0, revision: null });
   }, [effectiveView, access.state.revision, scope.sceneId, scope.workspaceId]);
+  function pickFile(files: FileList | null, hasFolder = false) {
+    if (!files?.length && !hasFolder) return;
+    const file = files?.[0];
+    if (hasFolder || files?.length !== 1 || !file || !validEntryName(file.name) ||
+        !Number.isSafeInteger(file.size) || file.size < 0 || file.size > 32 * 1024 * 1024) {
+      setFileError("Choose one file up to 32 MiB.");
+      return;
+    }
+    const picked = { file, scope: draftScope };
+    pendingFile.current = picked;
+    setPickedFile(picked);
+    setFileError("");
+    setPage(null);
+    setQuery(""); setSource(""); setCategory(""); setView("all");
+    setCursor({ offset: 0, revision: null });
+  }
+  async function openWithPickedFile(tool: ManualTool, revision: string, picked: PendingFile) {
+    if (checkingFileTool === picked || pendingFile.current !== picked) return;
+    if (openedRef.current.some(item => item.tool.toolId === tool.toolId)) {
+      setFileError("Close this tool before opening it with a selected file.");
+      return;
+    }
+    if (openedRef.current.length >= 8) {
+      setFileError("Close an opened tool before opening another.");
+      return;
+    }
+    setCheckingFileTool(picked);
+    setFileError("");
+    const current = () => pendingFile.current === picked && currentDraftAction.current === draftAction;
+    try {
+      const detail = await api.loadTool(scope.sceneId, { pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision });
+      if (!current()) return;
+      if (!tool.enabled || tool.runtime !== "wasi" || !detail.enabled || detail.revision !== revision ||
+          detail.pluginId !== tool.pluginId || detail.version !== tool.version || detail.capability.id !== tool.capabilityId ||
+          detail.resourceInputProfile !== "resource.wasi.input.draft2" ||
+          !detail.permissions.some(permission => permission.name === "resource.read" && permission.granted)) {
+        setFileError("Tool is unavailable. Check plugin enablement and permissions.");
+        return;
+      }
+      if ((detail.capability.resourceInputMin ?? 1) > 1) {
+        setFileError("This tool needs more than one file. Choose another tool.");
+        return;
+      }
+      const existing = openedRef.current;
+      if (existing.some(item => item.tool.toolId === tool.toolId) || existing.length >= 8) {
+        setFileError("Close an opened tool before opening another.");
+        return;
+      }
+      const restored = reopen({ tool, revision });
+      setOpened([...existing, { ...restored, fileOffer: { file: picked.file, scope: draftScope, catalogRevision } }]);
+      clearPickedFile();
+      setActiveTool(tool.toolId);
+    } catch (reason) {
+      if (current()) setFileError(manualToolError(reason));
+    } finally {
+      setCheckingFileTool(value => value === picked ? null : value);
+    }
+  }
   useEffect(() => {
     let active = true;
     if (!fileFilter.ready || !directoryFilter.ready) return;
@@ -166,12 +255,12 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     setLoading(true); setError("");
     const timer = setTimeout(() => {
       void api.searchTools(scope.sceneId, { query, ...cursor,
-        ...(openViewOperation && !fileFilter.enabled && !directoryFilter.enabled ? { includeViewOperations: true } : {}),
-        ...(fileFilter.enabled ? { resourceOnly: true } : {}),
-        ...(directoryFilter.enabled ? { directoryOnly: true } : {}),
-        ...(fileFilter.enabled && fileFilter.fileName ? { fileName: fileFilter.fileName } : {}),
-        ...(fileFilter.enabled && fileFilter.selectedFileCount ? { selectedFileCount: fileFilter.selectedFileCount } : {}),
-        ...(fileFilter.enabled && fileFilter.fileNames ? { fileNames: fileFilter.fileNames } : {}),
+        ...(openViewOperation && !fileToolsOnly && !directoryToolsOnly ? { includeViewOperations: true } : {}),
+        ...(fileToolsOnly ? { resourceOnly: true } : {}),
+        ...(directoryToolsOnly ? { directoryOnly: true } : {}),
+        ...(fileToolsOnly && fileName ? { fileName } : {}),
+        ...(fileToolsOnly && selectedFileCount ? { selectedFileCount } : {}),
+        ...(fileToolsOnly && fileNames ? { fileNames } : {}),
         ...(source ? { pluginId: source } : {}),
         ...(category ? { categoryId: category } : {}),
         ...(effectiveView !== "all" ? { view: effectiveView, workspaceId: scope.workspaceId } : {}) }, controller.signal)
@@ -189,13 +278,37 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
         .finally(() => { if (active) setLoading(false); });
     }, 200);
     return () => { active = false; clearTimeout(timer); controller.abort(); };
-  }, [api, scope.sceneId, scope.workspaceId, query, cursor, effectiveView, source, category, openViewOperation, fileFilter.ready, fileFilter.enabled, fileFilter.fileName, fileFilter.selectedFileCount, fileFilter.fileNames, directoryFilter.ready, directoryFilter.enabled]);
+  }, [api, scope.sceneId, scope.workspaceId, query, cursor, effectiveView, source, category, openViewOperation, fileFilter.ready, fileToolsOnly, fileName, selectedFileCount, fileNames, directoryFilter.ready, directoryToolsOnly]);
   return <div className="manual-tool-directory" ref={directory}>
     <OpenToolTabs opened={opened} active={activeTool} running={runningTools} strip={switcher} selected={selectedButton}
       onSelect={setActiveTool} onClose={(tool, trigger) => setCloseTarget({ toolId: tool.toolId, title: tool.title,
         trigger, sceneId: scope.sceneId, workspaceId: scope.workspaceId,
         keepOwner: readers.current.get(tool.toolId)?.() ? kept : undefined })} />
     <div hidden={activeTool !== null} className="manual-tool-directory-list">
+    <div className="ui-toolbar">
+      <input ref={filePicker} type="file" hidden aria-label={t("Choose or drop one file")} onChange={event => {
+        pickFile(event.currentTarget.files);
+        event.currentTarget.value = "";
+      }} />
+      <button type="button" className="ui-button ui-button--secondary" onClick={() => filePicker.current?.click()}
+        onDragOver={event => {
+          if (!event.dataTransfer.types.includes("Files")) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={event => {
+          if (!event.dataTransfer.types.includes("Files")) return;
+          event.preventDefault();
+          pickFile(event.dataTransfer.files, Array.from(event.dataTransfer.items).some(item => item.webkitGetAsEntry?.()?.isDirectory));
+        }}>{t("Choose or drop one file")}</button>
+      {intake && <button type="button" className="ui-button ui-button--ghost" onClick={() => {
+        clearPickedFile(); setPage(null); setCursor({ offset: 0, revision: null });
+      }}>{t("Clear selected file")}</button>}
+    </div>
+    {fileError && <p role="alert">{t(fileError)}</p>}
+    {intake && <p className="tool-center-source" role="status">
+      {t("Selected: {name} · {bytes} bytes").replace("{name}", intake.file.name).replace("{bytes}", String(intake.file.size))}
+    </p>}
     {accessStore && <fieldset className="ui-toolbar" aria-label={t("Tool list")}>
       {(["all", "favorites", "recent"] as const).map(value => <button key={value} type="button"
         className={`ui-button ui-button--${effectiveView === value ? "primary" : "secondary"}`} aria-pressed={effectiveView === value}
@@ -203,11 +316,11 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
         onClick={() => { setView(value); setCursor({ offset: 0, revision: null }); }}>{t(value === "all" ? "All tools" : value === "favorites" ? "Favorite tools" : "Recently used tools")}</button>)}
     </fieldset>}
     <label className="tool-input-field">
-      <span><input type="checkbox" checked={fileFilter.enabled} disabled={!fileFilter.ready || !directoryFilter.ready}
+      <span><input type="checkbox" checked={fileToolsOnly} disabled={Boolean(intake) || !fileFilter.ready || !directoryFilter.ready}
         onChange={event => { fileFilter.setEnabled(event.target.checked); if (event.target.checked) directoryFilter.setEnabled(false); setCursor({ offset: 0, revision: null }); }} /> {t("Only file resource tools")}</span>
     </label>
     {typeof api.projectDirectories?.choose === "function" && <label className="tool-input-field">
-      <span><input type="checkbox" checked={directoryFilter.enabled} disabled={!fileFilter.ready || !directoryFilter.ready}
+      <span><input type="checkbox" checked={directoryToolsOnly} disabled={Boolean(intake) || !fileFilter.ready || !directoryFilter.ready}
         onChange={event => { directoryFilter.setEnabled(event.target.checked); if (event.target.checked) fileFilter.setEnabled(false); setCursor({ offset: 0, revision: null }); }} /> {t("Only folder tools")}</span>
     </label>}
     <div className="tool-directory-filters">
@@ -242,14 +355,14 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
           fileFilter.setEnabled(false); directoryFilter.setEnabled(false); setCursor({ offset: 0, revision: null });
         }}>{t("Clear filters and show all tools")}</button>}
     <p className="tool-center-source">{t("Browsing loads metadata only. Choose an entry to open it.")}</p>
-    {fileFilter.enabled && <p className="tool-center-source">{t("Shows enabled tools with file read permission. File type hints are plugin declarations; check supported formats before sharing.")}</p>}
-    {fileFilter.enabled && fileFilter.fileName && <p role="status" className="tool-center-source">
+    {fileToolsOnly && <p className="tool-center-source">{t("Shows enabled tools with file read permission. File type hints are plugin declarations; check supported formats before sharing.")}</p>}
+    {!intake && fileFilter.enabled && fileFilter.fileName && <p role="status" className="tool-center-source">
       {t("Selected file: {name}. Its contents have not been shared.").replace("{name}", fileFilter.fileName)}
     </p>}
-    {fileFilter.enabled && fileFilter.fileNames && <p role="status" className="tool-center-source">
+    {!intake && fileFilter.enabled && fileFilter.fileNames && <p role="status" className="tool-center-source">
       {t("Selected files: {names}. Their contents have not been shared.").replace("{names}", fileFilter.fileNames.join(", "))}
     </p>}
-    {fileFilter.enabled && fileFilter.selectedFileCount && <p className="tool-center-source">{t("Showing tools that declare support for at least {count} input files. Confirm formats and sharing before use.").replace("{count}", String(fileFilter.selectedFileCount))}</p>}
+    {!intake && fileFilter.enabled && fileFilter.selectedFileCount && <p className="tool-center-source">{t("Showing tools that declare support for at least {count} input files. Confirm formats and sharing before use.").replace("{count}", String(fileFilter.selectedFileCount))}</p>}
     {fileFilter.failed && <p role="status">{t("The opened file could not be checked. You can select the file tool filter manually.")}</p>}
     {directoryFilter.failed && <p role="status">{t("The opened folder could not be checked. You can select the directory tool filter manually.")}</p>}
     {effectiveView !== "all" && <p className="tool-center-source">{t("This list belongs to the current workspace. Removed tools are hidden.")}</p>}
@@ -265,13 +378,19 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
         {page.items.map(tool => <article key={tool.toolId} className="ui-card tool-center-card">
           <h2>{tool.title}</h2><p className="tool-center-source">{tool.applicationName} · {tool.publisher} · {tool.version}</p>
           {tool.description && <p>{tool.description}</p>}
-          {tool.kind !== "view-operation" && fileFilter.enabled && (fileFilter.fileName || fileFilter.fileNames) && <span className="ui-badge">{t(tool.fileInputMatch === "declared"
-            ? fileFilter.fileNames ? "Plugin declares support for every selected filename" : "Plugin declares a matching filename suffix"
+          {tool.kind !== "view-operation" && fileToolsOnly && (fileName || fileNames) && <span className="ui-badge">{t(tool.fileInputMatch === "declared"
+            ? fileNames ? "Plugin declares support for every selected filename" : "Plugin declares a matching filename suffix"
             : "Plugin has not declared file types")}</span>}
           {!tool.enabled && <span>{t("Plugin is disabled")}</span>}
           {tool.kind === "view-operation" && <span className="ui-badge">{t("Opens in application")}</span>}
-          <div className="ui-toolbar"><button type="button" className="ui-button ui-button--primary" disabled={loading || (tool.kind === "view-operation" && (!openViewOperation || !tool.enabled))}
+          <div className="ui-toolbar"><button type="button" className="ui-button ui-button--primary" disabled={loading || (tool.kind === "view-operation" && (!openViewOperation || !tool.enabled)) ||
+              (intake !== null && (!tool.enabled || tool.runtime !== "wasi"))}
+            aria-disabled={intake !== null && checkingFileTool === intake ? true : undefined}
             onClick={() => {
+              if (intake && tool.kind !== "view-operation") {
+                void openWithPickedFile(tool, page.revision, intake);
+                return;
+              }
               if (tool.kind === "view-operation") {
                 void Promise.resolve(openViewOperation?.(tool, page.revision)).catch(reason => setError(manualToolError(reason)));
                 return;
@@ -306,6 +425,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
         onDirectory={() => setActiveTool(null)} api={api} scope={scope} tool={item.tool} revision={item.revision} accessStore={accessStore}
         initialDraft={seededDraft?.values} focusInitialDraft={seededDraft?.focus} onOpenWorkbenchDraft={receiverFrom(item)}
         workbenchDraftActive={activeTool === item.tool.toolId}
+        fileOffer={item.fileOffer}
         draftReaderRef={isWorkbenchDraftTool(item.tool) ? reader => {
           if (reader) readers.current.set(item.tool.toolId, reader); else readers.current.delete(item.tool.toolId);
         } : undefined}

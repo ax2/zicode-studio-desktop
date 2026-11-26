@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ToolAccessScope } from "../commandPalette/tool-access";
 import type { ManualToolApi } from "./manual-tools";
 
-function validEntryName(value: unknown): value is string {
+export function validEntryName(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value !== "." && value !== ".." &&
     new TextEncoder().encode(value).length <= 1024 && !/[\\/:]/u.test(value) &&
     ![...value].some((char) => char.charCodeAt(0) < 32 ||

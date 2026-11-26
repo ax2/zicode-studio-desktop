@@ -207,9 +207,8 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
     });
   }
   function handleEntryChanged() { reset(); refreshOpenedSelection(); }
-  input.addEventListener("change", () => {
+  function selectLocalFiles(files) {
     if (uploading || !active || !isCurrent()) return;
-    const files = Array.from(input.files ?? []);
     reset({ clearInput: false });
     selected = files;
     const allowed = allowedSelection();
@@ -220,7 +219,15 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
         ? (selected.length < minResources ? t("Choose at least {count} files before confirming.").replace("{count}", String(minResources))
           : maxBytes < MAX_BYTES && !fileSizesAllowed() ? sizeLimitMessage()
             : t("Choose at most {count} files totaling up to 32 MiB.").replace("{count}", String(maxResources))) : "";
-  });
+    const token = revision;
+    return () => {
+      if (active && token === revision) {
+        reset();
+        status.textContent = "";
+      }
+    };
+  }
+  input.addEventListener("change", () => selectLocalFiles(Array.from(input.files ?? [])));
   cancel.addEventListener("click", () => {
     reset();
     status.textContent = uploading ? t("File sharing canceled. Waiting for preparation to finish.") : t("File sharing canceled.");
@@ -294,7 +301,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
     cancel.textContent = t("Cancel file sharing");
   }
   window.addEventListener("zicode:locale-changed", handleLocaleChange);
-  return { getDisplayNames() {
+  return { offerLocalFile: file => minResources <= 1 ? selectLocalFiles([file]) : undefined, getDisplayNames() {
     return active && granted.length === selected.length && granted.length > 0
       ? selected.map(file => typeof file.name === "string" ? file.name : "") : [];
   }, getOriginalFiles() { return [...originalFiles]; }, destroy() { active = false; entryRequest++; reset();
