@@ -832,7 +832,9 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
   const restoreBackup = store((state) => state.restoreBackup);
   const latestUsableBackup = backups.find(hasRestorableBackupMetadata);
   const visibleBackups = [
-    ...backups.filter(hasRestorableBackupMetadata).slice(0, 7),
+    ...backups
+      .filter(hasRestorableBackupMetadata)
+      .filter((backup, index) => index < 7 || backup.id === queuedBackupId),
     ...backups.filter((backup) => !hasRestorableBackupMetadata(backup)),
   ];
 
@@ -893,6 +895,7 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                   {backup.damaged ? `${t("Backup folder modified")}: ` : ""}
                   {new Date(backup.createdAt).toLocaleString()}
                 </strong>
+                {queuedBackupId === backup.id && <strong>{t("Queued for restore")}</strong>}
                 <span>
                   {backup.damaged
                     ? backup.id
