@@ -265,8 +265,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const independentQrFile = enabledWasi && tool.pluginId === "com.zicode.devtools.qr" && tool.version === "0.1.0" &&
     tool.capabilityId === "devtools.qr.png" && fields?.length === 1 && textField?.maxLength === 2048;
   const qrFileTool = computeQrFile || independentQrFile;
+  const strictInspectVersion = tool.version === "0.1.4" || tool.version === "0.1.5";
   const inspectTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.inspect" &&
-    (tool.version === "0.1.2" || tool.version === "0.1.4") &&
+    (tool.version === "0.1.2" || strictInspectVersion) &&
     detail?.pluginId === tool.pluginId && detail.capability.id === tool.capabilityId;
   const yamlToJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.to_json";
   const yamlFromJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.from_json";
@@ -310,7 +311,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const sqlFormat = tool.capabilityId === "devtools.text.sql.format" &&
     (sqlWithOptions || (textOnlyContract && textProfile === "text-only"));
   let failureNotice: string | undefined;
-  if ((yamlToJson || yamlFromJson) && tool.version === "0.1.4" &&
+  if ((yamlToJson || yamlFromJson) && strictInspectVersion &&
       isInspectConversionPolicy(result?.errorCode, result?.errorMessage)) {
     failureNotice = t("Could not convert without changing the data. Check for duplicate keys, unsupported values, or numbers that cannot be represented exactly.");
   } else if (sqlFormat && isTextWorkerOutputLimit(result?.errorCode, result?.errorMessage)) {

@@ -18,7 +18,7 @@ const yamlFiles = [
   { op: "from_json", inputLabel: "JSON input file", name: "fixture.JSON", accept: ".json", ext: "yaml", mime: "application/yaml",
     source: "{\r\n  \"wide\": 9007199254740993\r\n}", expected: "wide: 9007199254740993\n" },
 ];
-const inspectVersions = ["0.1.2", "0.1.4"];
+const inspectVersions = ["0.1.2", "0.1.4", "0.1.5"];
 
 it.each(inspectVersions.flatMap(version => yamlFiles.map(selected => ({ ...selected, version }))))(
 "uses the appropriate file and exact result bytes for $op with Inspect $version", async selected => {
@@ -51,7 +51,7 @@ it.each(inspectVersions.flatMap(version => yamlFiles.map(selected => ({ ...selec
   expect(download).not.toHaveBeenCalled();
   fireEvent.click(view.getByRole("button", { name: "Download " + selected.ext.toUpperCase() }));
   expect(download).toHaveBeenCalledWith(expect.stringMatching(new RegExp("^converted-\\d+\\." + selected.ext + "$")), selected.expected, selected.mime);
-  if (selected.version === "0.1.4") {
+  if (selected.version !== "0.1.2") {
     const warning = "Could not convert without changing the data. Check for duplicate keys, unsupported values, or numbers that cannot be represented exactly.";
     const diagnostic = "Conversion requires unique keys and lossless numbers. 转换要求键唯一，且数值能精确往返。";
     vi.mocked(api.invoke).mockResolvedValueOnce({ result: {
