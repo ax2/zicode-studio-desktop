@@ -26,8 +26,9 @@ pub async fn list(window: WebviewWindow, before: Option<i64>, query: Option<Stri
         return Err("Download search is too long".into());
     }
     let query = query.map(str::to_ascii_lowercase);
-    let live = live(window.clone(), Request::DownloadLive).await?;
+    // Read history before the live snapshot so a new operation cannot look like a lost one.
     let mut page = super::download_journal::list(window.label().into(), before, query.clone()).await?;
+    let live = live(window.clone(), Request::DownloadLive).await?;
     let entries = page["entries"].as_array_mut().ok_or("Invalid download history")?;
     let current = live.as_array().ok_or("Invalid live downloads")?;
     for saved in entries.iter_mut() {
