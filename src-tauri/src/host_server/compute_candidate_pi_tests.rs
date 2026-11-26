@@ -182,7 +182,8 @@ async fn run_compute_candidate_inner(
         if family == "text" {
             (
                 "com.zicode.devtools.inspect",
-                project.join("tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/inspect-0.1.2-candidate-01"),
+                super::devtools_fixture_paths::devtools_9c17_bundle_root(&project)
+                    .join("release/plugin-candidates/inspect-0.1.2-candidate-01"),
                 "devtools_inspect_unicode_nfc",
                 json!({"text":"Hello"}),
                 "Hello".to_owned(),

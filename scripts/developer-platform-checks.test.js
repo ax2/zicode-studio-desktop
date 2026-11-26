@@ -1,8 +1,11 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+// @vitest-environment node
+
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { verifyDevtoolsPackage } from "./verify-devtools-package.mjs";
+import { devtools9c17BundleRoot, resolveDevtoolsProviderRoot } from "./devtools-fixture-paths.mjs";
 import {
   aggregateStatus,
   CHECKS,
@@ -11,6 +14,31 @@ import {
   summary,
   workerBinaryPath,
 } from "./developer-platform-checks.mjs";
+
+it("uses the new bundle and keeps the historical checkout and audit path readable", () => {
+  const checkout = mkdtempSync(join(tmpdir(), "studio-devtools-paths-"));
+  const current = join(checkout, "tests/fixtures/devtools-9c17-bundle");
+  const archived = join(checkout, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle");
+  try {
+    mkdirSync(archived, { recursive: true });
+    expect(devtools9c17BundleRoot(checkout)).toBe(archived);
+    const json = CHECKS.find((step) => step.id === "devtools-json-host-worker");
+    expect(json.environment({ cwd: checkout, directory: checkout, env: {} }).ZICODE_TEST_JSON_DIR)
+      .toBe(join(archived, "release/plugin-candidates/json-object-0.1.1-candidate-03"));
+    expect(resolveDevtoolsProviderRoot(checkout, archived)).toBe(archived);
+    mkdirSync(current, { recursive: true });
+    expect(devtools9c17BundleRoot(checkout)).toBe(current);
+    expect(resolveDevtoolsProviderRoot(checkout, archived)).toBe(archived);
+    const relocatedCheckout = join(checkout, "relocated");
+    mkdirSync(join(relocatedCheckout, "tests/fixtures/devtools-9c17-bundle"), { recursive: true });
+    expect(resolveDevtoolsProviderRoot(relocatedCheckout, join(relocatedCheckout, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle")))
+      .toBe(join(relocatedCheckout, "tests/fixtures/devtools-9c17-bundle"));
+    expect(resolveDevtoolsProviderRoot(checkout, join(checkout, "external")))
+      .toBe(join(checkout, "external"));
+  } finally {
+    rmSync(checkout, { recursive: true, force: true });
+  }
+});
 
 it("runs strict Rust lint before integration tests and identifies a blocking probe in the live log", () => {
   const ids = CHECKS.map((step) => step.id);
@@ -191,14 +219,14 @@ describe("developer platform evidence", () => {
     expect(CHECKS.indexOf(jsonHost)).toBeLessThan(CHECKS.indexOf(jsonPi));
     expect(jsonHost.environment({ cwd: "/checkout", directory: "/evidence", env: {} })).toEqual({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath("/checkout"),
-      ZICODE_TEST_JSON_DIR: join("/checkout", "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03"),
-      ZICODE_TEST_JSON_RECEIPT: join("/checkout", "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
+      ZICODE_TEST_JSON_DIR: join("/checkout", "tests/fixtures/devtools-9c17-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03"),
+      ZICODE_TEST_JSON_RECEIPT: join("/checkout", "tests/fixtures/devtools-9c17-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
       ZICODE_TEST_JSON_HOST_RECEIPT: join("/evidence", "devtools-json-host-receipt.json"),
     });
     expect(jsonPi.environment({ cwd: "/checkout", directory: "/evidence", env: {} })).toEqual({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath("/checkout"),
-      ZICODE_TEST_JSON_DIR: join("/checkout", "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03"),
-      ZICODE_TEST_JSON_RECEIPT: join("/checkout", "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
+      ZICODE_TEST_JSON_DIR: join("/checkout", "tests/fixtures/devtools-9c17-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03"),
+      ZICODE_TEST_JSON_RECEIPT: join("/checkout", "tests/fixtures/devtools-9c17-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
       ZICODE_TEST_JSON_PI_RECEIPT: join("/evidence", "devtools-json-pi-receipt.json"),
       ZICODE_TEST_PREPARED_RESOURCES: "1",
     });

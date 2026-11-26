@@ -25,20 +25,17 @@ fn frozen_devtools_url_text_010_is_rejected_for_missing_profiles() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires ZICODE_TEST_RESOURCE_WORKER_EXE from the current Studio build"]
 async fn frozen_devtools_url_text_011_receiver_runs_after_explicit_transfer() {
-    run_frozen_devtools_url_text_receiver(
-        "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/url-text-resource-0.1.1-candidate-01",
-        "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/url-text-resource-0.1.1-candidate-01-verification.json",
-    )
-    .await;
-}
-
-async fn run_frozen_devtools_url_text_receiver(fixture_path: &str, receipt_path: &str) {
     let executable = PathBuf::from(std::env::var_os("ZICODE_TEST_RESOURCE_WORKER_EXE").unwrap());
     assert!(executable.is_file());
     let project = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let fixture = project.join(fixture_path);
-    let receipt: Value =
-        serde_json::from_slice(&std::fs::read(project.join(receipt_path)).unwrap()).unwrap();
+    let bundle = crate::host_server::devtools_fixture_paths::devtools_9c17_bundle_root(&project)
+        .join("release/plugin-candidates");
+    let fixture = bundle.join("url-text-resource-0.1.1-candidate-01");
+    let receipt: Value = serde_json::from_slice(
+        &std::fs::read(bundle.join("url-text-resource-0.1.1-candidate-01-verification.json"))
+            .unwrap(),
+    )
+    .unwrap();
     let mut pending = vec![fixture.clone()];
     let mut count = 0;
     while let Some(directory) = pending.pop() {

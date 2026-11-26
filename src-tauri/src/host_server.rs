@@ -19,6 +19,8 @@ mod tool_open_host_tests;
 #[cfg(test)]
 mod compute_candidate_pi_tests;
 #[cfg(test)]
+mod devtools_fixture_paths;
+#[cfg(test)]
 mod devtools_data_transform_tests;
 #[cfg(test)]
 mod devtools_json_schema_tests;
