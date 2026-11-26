@@ -3,6 +3,7 @@ use rusqlite::{Connection, OpenFlags};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::sync::{Mutex, MutexGuard};
 use studio_alibaba_mail::{Alibaba, Cursor, Mailbox};
 use tauri::WebviewWindow;
 use zeroize::Zeroizing;
@@ -106,6 +107,14 @@ impl Request {
         }
     }
 }
+// Pair a confirmation's generation check and credential read with keyring
+// changes. The picker and the IMAP request never hold this lock.
+static ATTACHMENT_AUTHORIZATION: Mutex<()> = Mutex::new(());
+
+fn attachment_authorization() -> Result<MutexGuard<'static, ()>, &'static str> {
+    ATTACHMENT_AUTHORIZATION.lock().map_err(|_| "mail_storage")
+}
+
 fn credential(scope: &str, account: &str) -> Result<keyring::Entry, String> {
     if !crate::desktop_profile::system_credentials_enabled() {
         return Err("mail_credentials_disabled".into());
@@ -171,13 +180,24 @@ pub(crate) async fn mail_alibaba(
           Request::SetPassword{password,..}=>{
             let value=Zeroizing::new(password);
             if value.is_empty()||value.len()>1024||value.contains(['\0','\r','\n']){return Err("mail_invalid_password".into())}
-            vault()?.set_password(&value).map_err(|_|"mail_vault_unavailable")?;Ok(json!({"configured":true}))
+            let _authorization = attachment_authorization()?;
+            let entry = vault()?;
+            // Expire old confirmations before publishing a replacement credential.
+            mailbox.invalidate_pending_operations()?;
+            entry.set_password(&value).map_err(|_| "mail_vault_unavailable")?;
+            Ok(json!({"configured":true}))
           }
           Request::ForgetPassword{clear_cache,..}=>{
-            if crate::desktop_profile::system_credentials_enabled(){
-                match vault()?.delete_credential(){Ok(())|Err(keyring::Error::NoEntry)=>{},Err(_)=>return Err("mail_vault_unavailable".into())}
+            let _authorization = attachment_authorization()?;
+            if crate::desktop_profile::system_credentials_enabled() {
+                let entry = vault()?;
+                mailbox.invalidate_pending_operations()?;
+                match entry.delete_credential() {
+                    Ok(()) | Err(keyring::Error::NoEntry) => {}
+                    Err(_) => return Err("mail_vault_unavailable".into()),
+                }
             }
-            if clear_cache {mailbox.clear_cache()?}
+            if clear_cache { mailbox.clear_cache()?; }
             Ok(json!({"configured":false}))
           }
           Request::Folders{..}=>Ok(json!(mailbox.folders(&adapter,pwd()?.as_str())?)),
@@ -193,7 +213,14 @@ pub(crate) async fn mail_alibaba(
               let attachment=body.attachments.get(part).filter(|a| a.id==part).ok_or("mail_attachment_missing")?;
               let Some(target)=crate::mail_attachment::choose(&window,&attachment.name)? else { return Ok(json!({"saved":false})); };
               crate::resource_export_picker::context(&window,&workspace_id)?;
-              let bytes=adapter.attachment(mailbox.address(),pwd()?.as_str(),mailbox.folder(),uid_validity,uid,attachment)?;
+              let password = {
+                  let _authorization = attachment_authorization()?;
+                  mailbox.attachment_is_current(uid_validity)?;
+                  pwd()?
+              };
+              let bytes = mailbox.read_attachment(&adapter, password.as_str(), uid_validity, uid, attachment)?;
+              drop(password);
+              let _authorization = attachment_authorization()?;
               crate::resource_export_picker::context(&window,&workspace_id)?;
               mailbox.attachment_is_current(uid_validity)?;
               crate::mail_attachment::save(&target,&bytes)?;

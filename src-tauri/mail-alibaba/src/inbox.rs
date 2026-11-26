@@ -21,9 +21,13 @@ pub struct Summary {
     pub uid: u32,
     pub subject: String,
     pub sender: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_name: Option<String>,
     pub reply_to: String,
     pub message_id: Option<String>,
     pub size: u32,
+    #[serde(default)]
+    pub header_limited: bool,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -56,6 +60,23 @@ pub struct Page {
 pub struct Folder {
     pub id: String,
     pub name: String,
+}
+
+fn unescape_mailbox_name(quoted: &str) -> Option<String> {
+    let mut chars = quoted.chars();
+    let mut decoded = String::with_capacity(quoted.len());
+    while let Some(c) = chars.next() {
+        let character = if c == '\\' {
+            match chars.next()? {
+                c @ ('\\' | '"') => c,
+                _ => return None,
+            }
+        } else {
+            c
+        };
+        decoded.push(character);
+    }
+    Some(decoded)
 }
 
 // IMAP modified UTF-7 uses UTF-16BE runs after '&', with ',' in place of '/'.
@@ -151,19 +172,44 @@ impl Alibaba {
             })
     }
     pub(crate) fn folders(&self, address: &str, password: &str) -> Result<Vec<Folder>> {
-        use imap::types::NameAttribute;
+        use imap_proto::types::{MailboxDatum, Response};
+        use std::borrow::Cow;
+
         let mut session = self.login(address, password, 2 * 1024 * 1024)?;
-        let names = session.list(Some(""), Some("*")).map_err(|_| "mail_protocol")?;
+        let response = session
+            .run_command_and_read_response("LIST \"\" \"*\"")
+            .map_err(|_| "mail_protocol")?;
         let mut folders = std::collections::BTreeMap::new();
-        for entry in names.iter() {
-            if entry.attributes().iter().any(|attr| match attr {
-                NameAttribute::NoSelect => true,
-                NameAttribute::Custom(s) => s.eq_ignore_ascii_case("\\noselect") || s.eq_ignore_ascii_case("\\nonexistent"),
-                _ => false,
-            }) { continue; }
-            let name = entry.name();
-            if name.is_empty() || name.chars().any(char::is_control) { continue; }
-            let id = if name.eq_ignore_ascii_case("INBOX") { "INBOX" } else { name };
+        let mut remaining = response.as_slice();
+        while !remaining.is_empty() {
+            let (rest, item) = imap_proto::parse_response(remaining).map_err(|_| "mail_protocol")?;
+            let frame = &remaining[..remaining.len() - rest.len()];
+            remaining = rest;
+            let Response::MailboxData(MailboxDatum::List { flags, name, .. }) = item else {
+                continue;
+            };
+            if flags.iter().any(|flag| {
+                flag.eq_ignore_ascii_case("\\noselect") || flag.eq_ignore_ascii_case("\\nonexistent")
+            }) {
+                continue;
+            }
+            // The parser preserves escapes and drops the string form. The borrowed
+            // mailbox ends before the closing quote only for quoted names.
+            let quoted = frame.strip_suffix(b"\"\r\n").is_some_and(|prefix| {
+                prefix.as_ptr_range().end == name.as_bytes().as_ptr_range().end
+            });
+            let name = if quoted && name.contains('\\') {
+                let Some(name) = unescape_mailbox_name(name) else {
+                    continue;
+                };
+                Cow::Owned(name)
+            } else {
+                Cow::Borrowed(name)
+            };
+            if name.is_empty() || name.chars().any(char::is_control) {
+                continue;
+            }
+            let id = if name.eq_ignore_ascii_case("INBOX") { "INBOX" } else { &name };
             folders.entry(id.to_owned()).or_insert_with(|| folder_name(id).unwrap_or_else(|| id.to_owned()));
         }
         let _ = session.logout();
@@ -176,7 +222,7 @@ impl Alibaba {
         folder: &str,
         cursor: Option<Cursor>,
         limit: u8,
-        cached: &[u32],
+        cached: Option<(u32, &[u32])>,
     ) -> Result<(Page, Vec<u32>)> {
         if !(1..=40).contains(&limit) || cursor.as_ref().is_some_and(|c| c.before == 0) {
             return Err("mail_invalid_page");
@@ -197,7 +243,7 @@ impl Alibaba {
             let rows = session
                 .fetch(
                     format!("{start}:{end}"),
-                    "(UID RFC822.SIZE BODY.PEEK[HEADER]<0.65536>)",
+                    format!("(UID RFC822.SIZE BODY.PEEK[HEADER]<0.{MAX_HEADER}>)"),
                 )
                 .map_err(|_| "mail_list_failed")?;
             for r in rows.iter() {
@@ -206,9 +252,6 @@ impl Alibaba {
                 let uid = r.uid.filter(|u| *u > 0).ok_or("mail_protocol")?;
                 if !(start..=end).contains(&r.message) || cursor.as_ref().is_some_and(|c| uid >= c.before) {
                     return Err("mail_inbox_changed");
-                }
-                if header.len() >= MAX_HEADER {
-                    return Err("mail_header_too_large");
                 }
                 messages.push(summary(header, uid, r.size.ok_or("mail_protocol")?)?);
             }
@@ -229,7 +272,10 @@ impl Alibaba {
             None
         };
         let mut removed = Vec::new();
-        if cursor.is_none() && !cached.is_empty() {
+        // Cached UIDs are meaningful only under the selected mailbox's UIDVALIDITY.
+        if let Some((_, cached)) = cached.filter(|(epoch, uids)| {
+            cursor.is_none() && *epoch == validity && !uids.is_empty()
+        }) {
             let page_ids: std::collections::HashSet<_> = messages.iter().map(|m| m.uid).collect();
             let mut older = Vec::new();
             for &uid in cached {
@@ -283,8 +329,9 @@ fn older_end(session: &mut imap::Session<Bounded>, exists: u32, before: u32) -> 
             .map_err(|_| "mail_list_failed")?;
         let uid = rows
             .iter()
-            .find(|r| u64::from(r.message) == mid)
-            .and_then(|r| r.uid)
+            // An unsolicited FLAGS response can precede the requested sequence UID.
+            .filter(|r| u64::from(r.message) == mid)
+            .find_map(|r| r.uid)
             .filter(|u| *u > 0)
             .ok_or("mail_inbox_changed")?;
         if uid < before {
@@ -296,29 +343,72 @@ fn older_end(session: &mut imap::Session<Bounded>, exists: u32, before: u32) -> 
     Ok((lo - 1) as u32)
 }
 fn summary(bytes: &[u8], uid: u32, size: u32) -> Result<Summary> {
-    let m = MessageParser::new()
-        .parse(bytes)
-        .ok_or("mail_mime_invalid")?;
-    Ok(metadata(&m, uid, size))
+    let bounded = &bytes[..bytes.len().min(MAX_HEADER)];
+    let clipped = bytes.len() >= MAX_HEADER
+        && !bounded.ends_with(b"\r\n\r\n")
+        && !bounded.ends_with(b"\n\n");
+    let header = if clipped {
+        complete_header_fields(bounded)
+    } else {
+        bounded
+    };
+    match MessageParser::new().parse_headers(header) {
+        Some(message) => Ok(metadata(&message, uid, size, clipped)),
+        // An empty header literal still identifies a message through its FETCH metadata.
+        None if clipped || matches!(bounded, b"" | b"\r\n" | b"\n") => Ok(Summary {
+            uid,
+            size,
+            subject: String::new(),
+            sender: String::new(),
+            sender_name: None,
+            reply_to: String::new(),
+            message_id: None,
+            header_limited: clipped,
+        }),
+        None => Err("mail_mime_invalid"),
+    }
 }
-fn metadata(m: &mail_parser::Message<'_>, uid: u32, size: u32) -> Summary {
-    let sender = m
-        .from()
-        .and_then(|a| a.first())
-        .and_then(|m| m.address())
-        .unwrap_or_default();
-    let reply = m
-        .reply_to()
-        .and_then(|a| a.first())
-        .and_then(|m| m.address())
-        .unwrap_or(sender);
+
+fn complete_header_fields(prefix: &[u8]) -> &[u8] {
+    // A field is complete only if the prefix contains the start of the next
+    // field. A folded line at the limit can still change an address.
+    let mut last_field = 0;
+    let mut offset = 0;
+    for line in prefix.split_inclusive(|byte| *byte == b'\n') {
+        if !matches!(line.first(), Some(b' ' | b'\t')) {
+            last_field = offset;
+        }
+        offset += line.len();
+    }
+    &prefix[..last_field]
+}
+
+fn metadata(m: &mail_parser::Message<'_>, uid: u32, size: u32, header_limited: bool) -> Summary {
+    let from = m.from().and_then(|addresses| addresses.first());
+    let sender = from.and_then(|mailbox| mailbox.address()).unwrap_or_default();
+    let sender_name = from
+        .and_then(|mailbox| mailbox.name())
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned);
+    // Clipped headers are only useful for display. Reconstruct no recipient.
+    let reply = if header_limited {
+        ""
+    } else {
+        m.reply_to()
+            .and_then(|a| a.first())
+            .and_then(|m| m.address())
+            .unwrap_or(sender)
+    };
     Summary {
         uid,
         size,
         sender: sender.into(),
+        sender_name,
         reply_to: reply.into(),
         subject: m.subject().unwrap_or_default().into(),
         message_id: m.message_id().filter(|id| valid_id(id)).map(str::to_owned),
+        header_limited,
     }
 }
 pub(crate) fn valid_id(id: &str) -> bool {

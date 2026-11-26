@@ -4616,6 +4616,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d4ea9311ef3ca6189aa85c5f984bd47b2f12079bcabae28917d900ab26c9ecc"
 dependencies = [
  "encodify",
+ "encoding_rs",
  "hashify",
  "memchr",
  "simdutf8",
@@ -11640,7 +11641,7 @@ dependencies = [
 
 [[package]]
 name = "zicode-studio-desktop"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "axum",
  "axum-server",
@@ -11712,6 +11713,7 @@ dependencies = [
  "toml 0.9.12+spec-1.1.0",
  "tower",
  "tower-http",
+ "unicase",
  "unicode-normalization",
  "uuid",
  "wasmtime",

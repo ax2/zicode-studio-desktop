@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { MailAttachments } from "./MailAttachments";
 import { type CreateMailReply, gmailReplyNeedsRefresh } from "./GmailInbox";
@@ -10,7 +10,7 @@ type Account = { id: string; address: string; provider: string };
 type Folder = { id: string; name: string };
 type Hit = { folder?: string | null; account: string; address: string; provider: string; id: string; epoch: number | null; subject: string; sender: string };
 type Page = { items: Hit[]; more: boolean };
-type Reading = { hit: Hit } & (
+type Reading = { hit: Hit; refreshing?: boolean } & (
   { status: "loading" } | { status: "missing"; error?: string } |
   { status: "failed"; error: string } | { status: "ready"; body: SearchMailBody }
 );
@@ -20,14 +20,19 @@ function isSameMessage(left: Hit, right: Hit): boolean {
     left.epoch === right.epoch && left.id === right.id;
 }
 
-export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onReply, replyBlocked = false}: {
+export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, canDownloadCurrentAttachments, accountsWithoutAttachmentAccess, onReply, replyBlocked = false}: {
   accounts: Account[]; current: string; invoke: Invoke; gmail?: Invoke; alibaba?: Invoke;
+  canDownloadCurrentAttachments?: boolean;
+  accountsWithoutAttachmentAccess?: ReadonlySet<string>;
   onReply?: CreateMailReply;
   replyBlocked?: boolean;
 }) {
   const [scope, setScope] = useState(current);
   const [folder, setFolder] = useState("");
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [directoryFailed, setDirectoryFailed] = useState(false);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const directoryGeneration = useRef(0);
   const provider = accounts.find(account => account.id === scope)?.provider;
   const directoryInvoke = provider === "gmail" ? gmail : provider === "alibaba" ? alibaba : undefined;
   const directoryKind = provider === "gmail" ? "cachedLabels" : "cachedFolders";
@@ -40,45 +45,93 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
   const replyPending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [failedRefresh, setFailedRefresh] = useState<number | null>(null);
   const searchGeneration = useRef(0);
   const readingRequest = useRef<{ hit: Hit; pending: boolean; canDownload: boolean } | null>(null);
   const readingAccess = reading && searchBodyAccess(reading.hit, gmail, alibaba);
-  const loadingBody = reading?.status === "loading";
+  const loadingBody = reading?.status === "loading" || reading?.refreshing === true;
+  const searchBlocked = busy || loadingBody;
   const updatedAccounts = useRef(new Set<string>());
   const requestedOffset = useRef<number | null>(null);
+  const displayedOffset = useRef<number | null>(null);
+  const queryInput = useRef<HTMLInputElement>(null);
+  const refreshRetry = useRef<HTMLButtonElement>(null);
+  const refreshRetryInFlight = useRef(false);
+  const firstResult = useRef<HTMLButtonElement>(null);
+  const paginationFocus = useRef<HTMLButtonElement | null>(null);
+  const readingHeading = useRef<HTMLHeadingElement>(null);
+  const openedResult = useRef<{button: HTMLButtonElement; focusPending: boolean} | null>(null);
+  useLayoutEffect(() => {
+    const button = paginationFocus.current;
+    paginationFocus.current = null;
+    if (!button || button.isConnected) return;
+    const owner = button.ownerDocument;
+    if (owner.activeElement !== owner.body) return;
+    (firstResult.current ?? queryInput.current)?.focus();
+  });
+  useLayoutEffect(() => {
+    const result = openedResult.current;
+    if (!reading || !result?.focusPending) return;
+    result.focusPending = false;
+    if (result.button.ownerDocument.activeElement === result.button) readingHeading.current?.focus();
+  }, [reading]);
   useEffect(() => () => {
     ++searchGeneration.current;
     readingRequest.current = null;
   }, []);
 
+  useEffect(() => {
+    // Mail keeps its view mounted when switching applications.
+    function abandonRetry(event: Event) {
+      const { pluginId } = (event as CustomEvent<{ pluginId: string }>).detail;
+      if (pluginId === "com.zicode.mail" || !refreshRetryInFlight.current) return;
+      refreshRetryInFlight.current = false;
+      ++searchGeneration.current;
+      requestedOffset.current = displayedOffset.current;
+      setBusy(false);
+      setError(true);
+    }
+    document.addEventListener("zicode:active-plugin-changed", abandonRetry);
+    return () => document.removeEventListener("zicode:active-plugin-changed", abandonRetry);
+  }, []);
+
   const closeReading = useCallback((account?: string) => {
     if (account && readingRequest.current?.hit.account !== account) return;
     readingRequest.current = null;
+    openedResult.current = null;
     setReading(null);
     setReplyError(null);
   }, []);
   const clear=useCallback(()=>{
     requestedOffset.current = null;
+    displayedOffset.current = null;
+    paginationFocus.current = null;
     ++searchGeneration.current;
     updatedAccounts.current.clear();
+    refreshRetryInFlight.current = false;
     setBusy(false);
     setPage(null);
     closeReading();
     setError(false);
+    setFailedRefresh(null);
   },[closeReading]);
+  const readDirectory = useCallback(async () => {
+    if (!directoryInvoke) return;
+    const request = ++directoryGeneration.current;
+    setDirectoryLoading(true);
+    try {
+      const rows = await directoryInvoke<Folder[] | null>({ kind: directoryKind, accountId: scope });
+      if (request !== directoryGeneration.current) return;
+      setFolders(Array.isArray(rows) ? rows : []);
+      setDirectoryFailed(false);
+    } catch {
+      if (request === directoryGeneration.current) setDirectoryFailed(true);
+    } finally {
+      if (request === directoryGeneration.current) setDirectoryLoading(false);
+    }
+  }, [directoryInvoke, directoryKind, scope]);
   useEffect(() => {
-    const invokeDirectory = directoryInvoke;
-    if (!invokeDirectory) return;
-    let version = 0;
-    const readDirectory = async () => {
-      const request = ++version;
-      try {
-        const rows = await invokeDirectory<Folder[] | null>({ kind: directoryKind, accountId: scope });
-        if (request === version) setFolders(Array.isArray(rows) ? rows : []);
-      } catch {
-        // Search remains available for the inbox and across all local folders.
-      }
-    };
+    if (!directoryInvoke) return;
     function directoryChanged(event: Event) {
       if ((event as CustomEvent<string>).detail !== scope) return;
       if (event.type === "studio-mail-cache-cleared") setFolders([]);
@@ -88,25 +141,35 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     window.addEventListener("studio-mail-directory-updated", directoryChanged);
     window.addEventListener("studio-mail-cache-cleared", directoryChanged);
     return () => {
-      ++version;
+      ++directoryGeneration.current;
       window.removeEventListener("studio-mail-directory-updated", directoryChanged);
       window.removeEventListener("studio-mail-cache-cleared", directoryChanged);
     };
-  }, [scope, directoryKind, directoryInvoke]);
+  }, [scope, directoryInvoke, readDirectory]);
+  function changeScope(next: string) {
+    ++directoryGeneration.current;
+    clear();
+    setFolder("");
+    setFolders([]);
+    setDirectoryFailed(false);
+    setDirectoryLoading(false);
+    setScope(next);
+  }
   useEffect(() => {
     if (folder && folder !== "INBOX" && !folders.some(item => item.id === folder)) {
       setFolder("");
       clear();
     }
   }, [folder, folders, clear]);
-  const search = useCallback(async (start: number, background = false) => {
+  const search = useCallback(async (start: number, background = false, button?: HTMLButtonElement) => {
     requestedOffset.current = start;
     const version = ++searchGeneration.current;
+    refreshRetryInFlight.current = background && Boolean(button);
     setBusy(true);
     setError(false);
     if (!background) {
       updatedAccounts.current.clear();
-      closeReading();
+      setFailedRefresh(null);
     }
     try {
       const readPage = (position: number) => invoke<Page>({
@@ -123,20 +186,35 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
         if (version !== searchGeneration.current) return;
       }
       const selected = readingRequest.current?.hit;
-      if (selected && updatedAccounts.current.has(selected.account) && !results.items.some(hit => isSameMessage(hit, selected))) {
-        closeReading();
-      }
+      const changedPage = nextOffset !== displayedOffset.current;
+      const selectedWasRemoved = selected && updatedAccounts.current.has(selected.account) &&
+        !results.items.some(hit => isSameMessage(hit, selected));
+      if (!background || changedPage || selectedWasRemoved) closeReading();
       updatedAccounts.current.clear();
+      displayedOffset.current = nextOffset;
       requestedOffset.current = nextOffset;
+      const focusOwner = button ?? refreshRetry.current;
+      paginationFocus.current = focusOwner && focusOwner.ownerDocument.activeElement === focusOwner ? focusOwner : null;
+      setFailedRefresh(null);
       setPage(results);
       setOffset(nextOffset);
     } catch {
       if (version === searchGeneration.current) {
+        requestedOffset.current = displayedOffset.current;
         setError(true);
-        if (!background) setPage(null);
+        if (background) setFailedRefresh(start);
       }
-    } finally { if (version === searchGeneration.current) setBusy(false); }
+    } finally {
+      if (version === searchGeneration.current) {
+        refreshRetryInFlight.current = false;
+        setBusy(false);
+      }
+    }
   }, [invoke, scope, query, folder, closeReading]);
+  function navigatePage(start: number, button: HTMLButtonElement) {
+    if (searchBlocked || requestedOffset.current !== displayedOffset.current) return;
+    void search(start, false, button);
+  }
   useEffect(()=>{
     function cacheChanged(event:Event) {
       const account=(event as CustomEvent<string>).detail;
@@ -157,33 +235,54 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
       window.removeEventListener("studio-mail-cache-updated",cacheChanged);
     };
   },[scope,search,closeReading]);
-  async function open(hit: Hit, download = false) {
+  async function open(
+    hit: Hit,
+    action: "cache" | "download" | "reply-refresh" = "cache",
+    resultButton?: HTMLButtonElement,
+  ) {
     const previous = readingRequest.current;
-    if (download && (previous?.hit !== hit || (!previous.canDownload && !replyError?.refresh))) return;
+    const download = action !== "cache";
+    const replyRefresh = action === "reply-refresh";
+    const original = replyRefresh && reading?.hit === hit ? reading : null;
+    if (download && (previous?.hit !== hit || (replyRefresh ? !original || !replyError?.refresh : !previous.canDownload))) return;
     if (previous?.pending && isSameMessage(previous.hit, hit)) return;
     const request = { hit, pending: true, canDownload: false };
+    if (resultButton) openedResult.current = { button: resultButton, focusPending: true };
     readingRequest.current = request;
-    setReplyError(null);
+    if (!original) setReplyError(null);
     const access = searchBodyAccess(hit, gmail, alibaba);
     if (!access) {
       request.pending = false;
       setReading({ hit, status: "missing" });
       return;
     }
-    setReading({ hit, status: "loading" });
+    setReading(original ? { ...original, refreshing: true } : { hit, status: "loading" });
     try {
       const body = await access.read(download);
       if (readingRequest.current !== request) return;
+      if (original && !body) throw Error("gmail_reply_metadata_missing");
       request.canDownload = !body;
+      if (original) setReplyError(null);
       setReading(body ? { hit, status: "ready", body } : { hit, status: "missing" });
     } catch (reason) {
       if (readingRequest.current !== request) return;
-      request.canDownload = download;
       const message = download ? access.error(reason) : t("Could not access local mail data.");
-      setReading({ hit, status: download ? "missing" : "failed", error: message });
+      if (original) {
+        request.canDownload = previous?.canDownload ?? false;
+        setReading(original);
+        setReplyError({ message, refresh: true });
+      } else {
+        request.canDownload = download;
+        setReading({ hit, status: download ? "missing" : "failed", error: message });
+      }
     } finally {
       request.pending = false;
     }
+  }
+  function returnToResults() {
+    const button = openedResult.current?.button;
+    (button?.isConnected ? button : queryInput.current)?.focus();
+    closeReading();
   }
   async function replyToReading() {
     const source = readingRequest.current;
@@ -208,8 +307,11 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
     }
   }
   return <fieldset><legend>{t("Search cached inboxes")}</legend>
-    <form onSubmit={e=>{e.preventDefault(); if(query.trim()) void search(0)}}>
-      <label>{t("Search scope")}<select className="ui-select" value={scope} onChange={e => { clear(); setFolder(""); setFolders([]); setScope(e.target.value); }}>
+    <form onSubmit={event => {
+      event.preventDefault();
+      if (!searchBlocked && query.trim()) void search(0);
+    }}>
+      <label>{t("Search scope")}<select className="ui-select" value={scope} onChange={e => changeScope(e.target.value)}>
         {accounts.map(a=><option key={a.id} value={a.id}>{a.address} · {a.provider==="gmail"?t("Gmail"):t("Alibaba Mail")}</option>)}
         <option value="">{t("All local mail accounts")}</option>
       </select></label>
@@ -221,27 +323,45 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
             <option key={item.id} value={item.id} translate="no">{item.name}</option>)}
         </select>
       </label>}
-      <label>{t("Search cached mail")}<input className="ui-input" type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
-      <button className="ui-button" type="submit" disabled={busy || loadingBody || !query.trim()}>{t("Search")}</button>
+      {directoryFailed && <>
+        <p role="status">{t("Could not read saved labels or folders.")}</p>
+        <button className="ui-button" type="button" disabled={directoryLoading} onClick={() => void readDirectory()}>
+          {t("Retry saved labels or folders")}
+        </button>
+      </>}
+      <label>{t("Search cached mail")}<input ref={queryInput} className="ui-input" type="search" maxLength={128} value={query} onChange={e=>{clear();setQuery(e.target.value)}}/></label>
+      <button className="ui-button" type="submit" disabled={!query.trim()} aria-disabled={searchBlocked || undefined}>
+        {t("Search")}
+      </button>
     </form>
+    {busy && <p role="status">{t("Searching messages…")}</p>}
     {error && <p role="alert">{t("Could not access local mail data.")}</p>}
+    {failedRefresh !== null && <button ref={refreshRetry} className="ui-button" type="button"
+      aria-disabled={searchBlocked || undefined} onClick={event => {
+        if (!searchBlocked) void search(failedRefresh, true, event.currentTarget);
+      }}>{t("Retry cached search")}</button>}
     {page && <>
       {!page.items.length && <p role="status">{t("No matching cached messages.")}</p>}
-      <ul className="mail-inbox-list">{page.items.map(hit=><li key={JSON.stringify([hit.account,hit.folder,hit.epoch,hit.id])}>
-        <button className="ui-button" type="button" aria-pressed={Boolean(reading && isSameMessage(reading.hit, hit))}
-          onClick={()=>void open(hit)}><strong translate="no">{hit.subject || t("No subject")}</strong>
+      <ul className="mail-inbox-list">{page.items.map((hit, index)=><li key={JSON.stringify([hit.account,hit.folder,hit.epoch,hit.id])}>
+        <button ref={index === 0 ? firstResult : undefined} className="ui-button" type="button" aria-pressed={Boolean(reading && isSameMessage(reading.hit, hit))}
+          onClick={event => void open(hit, "cache", event.currentTarget)}><strong translate="no">{hit.subject || t("No subject")}</strong>
           <small translate="no">{hit.sender} · {hit.address}{hit.folder && <> · {hit.folder === "INBOX" ? t("Inbox") : hit.folder}</>}</small>
         </button></li>)}</ul>
-      {offset>0 && <button className="ui-button" type="button" disabled={busy || loadingBody} onClick={()=>void search(offset-40)}>{t("Previous")}</button>}
-      {page.more && <button className="ui-button" type="button" disabled={busy || loadingBody} onClick={()=>void search(offset+40)}>{t("Next")}</button>}
+      {offset>0 && <button className="ui-button" type="button" aria-disabled={searchBlocked || undefined} onClick={event => navigatePage(offset - 40, event.currentTarget)}>{t("Previous")}</button>}
+      {page.more && <button className="ui-button" type="button" aria-disabled={searchBlocked || undefined} onClick={event => navigatePage(offset + 40, event.currentTarget)}>{t("Next")}</button>}
     </>}
-    {reading && <article aria-label={t("Cached message")} aria-busy={loadingBody || replying}><h3 translate="no">{reading.hit.subject||t("No subject")}</h3>
+    {reading && <article aria-label={t("Cached message")} aria-busy={loadingBody || replying}>
+      <h3 ref={readingHeading} tabIndex={-1} translate="no">{reading.hit.subject||t("No subject")}</h3>
+      <button className="ui-button" type="button" onClick={returnToResults}>{t("Back to search results")}</button>
       <p translate="no">{reading.hit.sender} · {reading.hit.address}</p>
       {reading.status === "loading" && <p role="status">{t("Loading…")}</p>}
       {(reading.status === "failed" || reading.status === "missing") && reading.error && <p role="alert">{reading.error}</p>}
+      {reading.status === "failed" && readingAccess && <button className="ui-button" type="button" onClick={() => {
+        if (readingRequest.current?.hit === reading.hit) void open(reading.hit);
+      }}>{t("Try again")}</button>}
       {reading.status === "missing" && <>
         <p>{t(readingAccess ? "This message is not available offline. Download it explicitly to read it." : "No message body is saved on this device.")}</p>
-        {readingAccess && <button className="ui-button" type="button" onClick={() => void open(reading.hit, true)}>
+        {readingAccess && !replyError?.refresh && <button className="ui-button" type="button" onClick={() => void open(reading.hit, "download")}>
           {t("Download message body")}
         </button>}
       </>}
@@ -249,15 +369,18 @@ export function CachedMailSearch({accounts, current, invoke, gmail, alibaba, onR
         {reading.body.bodyLimited && <p>{t("Some message text exceeds the reading limit.")}</p>}
         <MailBody text={reading.body.text} html={reading.body.html}/>
         {readingAccess && <MailAttachments key={JSON.stringify(readingAccess.message)} items={reading.body.attachments}
-          invoke={readingAccess.invoke} message={readingAccess.message}/>}
+          invoke={readingAccess.invoke} message={readingAccess.message}
+          canDownload={reading.hit.account === current
+            ? canDownloadCurrentAttachments !== false
+            : !accountsWithoutAttachmentAccess?.has(reading.hit.account)}/>}
       </>}
       {onReply && readingAccess?.replyDraft && (reading.status === "ready" || reading.status === "missing") &&
-        <button className="ui-button" type="button" disabled={replying || replyBlocked} onClick={() => void replyToReading()}>
+        <button className="ui-button" type="button" disabled={loadingBody || replying || replyBlocked} onClick={() => void replyToReading()}>
           {t("Create reply draft")}
         </button>}
       {replying && <p role="status">{t("Saving…")}</p>}
       {replyError && <p role="alert">{replyError.message}</p>}
-      {replyError?.refresh && <button className="ui-button" type="button" disabled={replying || replyBlocked} onClick={() => void open(reading.hit, true)}>
+      {replyError?.refresh && readingAccess && <button className="ui-button" type="button" disabled={loadingBody || replying || replyBlocked} onClick={() => void open(reading.hit, "reply-refresh")}>
         {t("Refresh message to reply")}
       </button>}
     </article>}

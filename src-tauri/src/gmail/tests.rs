@@ -429,6 +429,47 @@ fn narrower_refresh_grant_is_persisted_even_without_token_rotation() {
 }
 
 #[test]
+fn saved_connection_status_only_reports_grants_for_the_configured_client() {
+    let active_client = "active.apps.googleusercontent.com";
+    let old_connection = super::Saved {
+        refresh: "old-fixture-token".into(),
+        scope: format!("{} {}", oauth::READ, oauth::SEND),
+        client_id: "previous.apps.googleusercontent.com".into(),
+    };
+    let other_account = super::Saved {
+        refresh: "different-fixture-token".into(),
+        scope: old_connection.scope.clone(),
+        client_id: active_client.into(),
+    };
+    let stale = json!({"connected":true, "read":false, "send":false, "needsReconnect":true});
+    assert_eq!(
+        super::saved_grant_status(Some(&old_connection), Some(active_client)),
+        stale,
+    );
+    assert_eq!(
+        super::saved_grant_status(Some(&other_account), Some(active_client)),
+        json!({"connected":true, "read":true, "send":true}),
+    );
+    let reopened: super::Saved =
+        serde_json::from_value(serde_json::to_value(&old_connection).unwrap()).unwrap();
+    assert_eq!(
+        super::saved_grant_status(Some(&reopened), Some(active_client)),
+        stale,
+    );
+    assert_eq!(super::saved_grant_status(Some(&old_connection), None), stale);
+    assert_eq!(
+        super::saved_grant_status(Some(&old_connection), Some(&old_connection.client_id)),
+        json!({"connected":true, "read":true, "send":true}),
+    );
+    let read_only = super::updated_grant(&other_account, None, oauth::READ).unwrap();
+    assert_eq!(
+        super::saved_grant_status(Some(&read_only), Some(active_client)),
+        json!({"connected":true, "read":true, "send":false}),
+    );
+    assert_eq!(super::saved_grant_status(None, Some(active_client)), json!({"connected":false}));
+}
+
+#[test]
 fn disconnect_cache_keeps_scopes_and_rejects_late_gmail_writes() {
     let file = std::env::temp_dir().join(format!("mail-clear-{}.sqlite", uuid::Uuid::new_v4()));
     rusqlite::Connection::open(&file).unwrap();
@@ -519,6 +560,7 @@ async fn gmail_history_pages_reconcile_label_membership_and_recover_expiry() {
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
     let path = std::env::temp_dir().join(format!("gmail-sync-{}.sqlite", uuid::Uuid::new_v4()));
     drop(rusqlite::Connection::open(&path).unwrap());
+    let stop = tokio_util::sync::CancellationToken::new();
     let fetch = || {
         sync::fetch(
             &client,
@@ -532,6 +574,7 @@ async fn gmail_history_pages_reconcile_label_membership_and_recover_expiry() {
             },
             None,
             1,
+            &stop,
         )
     };
     let save =
@@ -587,4 +630,429 @@ async fn gmail_history_pages_reconcile_label_membership_and_recover_expiry() {
     assert!(offline(None).is_null());
     server.abort();
     std::fs::remove_file(path).unwrap();
+}
+
+
+#[tokio::test]
+async fn cancelling_gmail_refresh_releases_account_during_expired_history_recovery() {
+    use super::{sync, AccountGate};
+    use axum::{
+        extract::Query,
+        http::{header::AUTHORIZATION, HeaderMap, StatusCode},
+        routing::get,
+        Json, Router,
+    };
+    use std::{collections::HashMap, sync::Arc, time::Duration};
+    use tokio::sync::Notify;
+
+    let paused = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let pages = {
+        let paused = paused.clone();
+        let release = release.clone();
+        move |headers: HeaderMap, Query(query): Query<HashMap<String, String>>| {
+            let paused = paused.clone();
+            let release = release.clone();
+            async move {
+                if headers[AUTHORIZATION] == "Bearer previous" {
+                    if query.get("pageToken").is_some_and(|token| token == "later") {
+                        paused.notify_one();
+                        release.notified().await;
+                        return Json(json!({}));
+                    }
+                    return Json(json!({"nextPageToken":"later"}));
+                }
+                assert_eq!(headers[AUTHORIZATION], "Bearer fresh");
+                assert!(!query.contains_key("pageToken"));
+                Json(json!({"messages":[{"id":"saved"}]}))
+            }
+        }
+    };
+    let app = Router::new()
+        .route("/history", get(|| async { StatusCode::NOT_FOUND }))
+        .route(
+            "/profile",
+            get(|| async { Json(json!({"historyId":"80"})) }),
+        )
+        .route("/messages", get(pages))
+        .route(
+            "/messages/saved",
+            get(|| async {
+                Json(
+                    json!({"id":"saved","internalDate":"33","labelIds":["INBOX"],
+                "payload":{"headers":[{"name":"Subject","value":"Fresh subject"}]}}),
+                )
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let service = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let path =
+        std::env::temp_dir().join(format!("gmail-cancel-sync-{}.sqlite", uuid::Uuid::new_v4()));
+    drop(rusqlite::Connection::open(&path).unwrap());
+    store::cache(&path, "w", "acct", 0, "history", "INBOX", &json!("10")).unwrap();
+    let cached = json!({"items":[{"id":"saved","internalDate":33,"subject":"Saved subject"}]});
+    store::cache(&path, "w", "acct", 0, "page", "member:saved", &cached).unwrap();
+
+    let gate = AccountGate::default();
+    let previous_stop = gate.state.lock().unwrap().stop.clone();
+    let folder = || sync::CachedLabel {
+        path: &path,
+        scope: "w",
+        account: "acct",
+        label: "INBOX",
+    };
+    let previous = async {
+        let _network = gate.network.lock().await;
+        sync::fetch(
+            &client,
+            &base,
+            "previous",
+            folder(),
+            None,
+            1,
+            &previous_stop,
+        )
+        .await
+    };
+    let cancel_and_retry = async {
+        paused.notified().await;
+        let fresh_stop = {
+            let mut state = gate.state.lock().unwrap();
+            state.invalidate();
+            state.stop.clone()
+        };
+        let _network = gate.network.lock().await;
+        assert_eq!(
+            store::cached(&path, "w", "acct", "history", "INBOX").unwrap(),
+            "10"
+        );
+        assert_eq!(
+            store::cached(&path, "w", "acct", "page", "member:saved").unwrap(),
+            cached
+        );
+        sync::fetch(&client, &base, "fresh", folder(), None, 1, &fresh_stop).await
+    };
+    let result = tokio::time::timeout(Duration::from_secs(5), async {
+        tokio::join!(previous, cancel_and_retry)
+    })
+    .await;
+    release.notify_one();
+    service.abort();
+    let (cancelled, fresh) =
+        result.expect("cancelled Gmail refresh held the account's network lock");
+    assert!(matches!(cancelled, Err("gmail_cancelled")));
+    let fresh = fresh.unwrap();
+    sync::apply(&path, "w", "acct", "INBOX", 0, "1:", &fresh).unwrap();
+    assert_eq!(
+        store::cached(&path, "w", "acct", "history", "INBOX").unwrap(),
+        "80"
+    );
+    assert_eq!(
+        sync::offline_page(&path, "w", "acct", "INBOX", None, 1, "1:").unwrap()["items"][0]
+            ["subject"],
+        "Fresh subject"
+    );
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn disconnect_retries_cache_cleanup_with_the_original_revocation_credential() {
+    use std::cell::{Cell, RefCell};
+
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    let writer = rusqlite::Connection::open(&path).unwrap();
+    let letter = json!({"id":"test","plainText":"cached"});
+    store::cache(&path, "one", "gmail", 0, "body", "test", &letter).unwrap();
+    store::cache(&path, "two", "gmail", 0, "body", "test", &letter).unwrap();
+
+    let saved = RefCell::new(Some("isolated-revocation-grant"));
+    let removed = Cell::new(0);
+    let disconnect = || {
+        store::disconnect_local(
+            || Ok(*saved.borrow()),
+            || store::clear_cache(&path, "one", "gmail"),
+            || {
+                removed.set(removed.get() + 1);
+                saved.borrow_mut().take();
+                Ok(())
+            },
+        )
+    };
+
+    writer.execute_batch("BEGIN IMMEDIATE").unwrap();
+    let blocked = disconnect();
+    writer.execute_batch("ROLLBACK").unwrap();
+    assert_eq!(blocked, Err("gmail_storage"));
+    assert_eq!(store::cached(&path, "one", "gmail", "body", "test").unwrap(), letter);
+    assert_eq!(store::cache_generation(&path, "one", "gmail").unwrap(), 0);
+    assert_eq!(removed.get(), 0, "a failed cache transaction must preserve the grant for revocation");
+
+    assert_eq!(disconnect(), Ok(Some("isolated-revocation-grant")));
+    assert_eq!(removed.get(), 1);
+    assert!(saved.borrow().is_none());
+    assert_eq!(store::cache_generation(&path, "one", "gmail").unwrap(), 1);
+    assert_eq!(store::cached(&path, "one", "gmail", "body", "test").unwrap(), json!(null));
+    assert_eq!(store::cached(&path, "two", "gmail", "body", "test").unwrap(), letter);
+}
+
+#[tokio::test]
+async fn gmail_older_page_distinguishes_request_limits_from_permission_denial() {
+    use super::sync;
+    use axum::{
+        extract::{Path, Query},
+        http::{HeaderMap, StatusCode},
+        response::IntoResponse,
+        routing::get,
+        Json, Router,
+    };
+    use std::{
+        collections::HashMap,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
+    };
+
+    let phase = Arc::new(AtomicUsize::new(0));
+    let older_requests = Arc::new(AtomicUsize::new(0));
+    let requests = older_requests.clone();
+    let responses = phase.clone();
+    let app =
+        Router::new()
+            .route(
+                "/profile",
+                get(|| async { Json(json!({"historyId":"10"})) }),
+            )
+            .route(
+                "/messages",
+                get(
+                    move |headers: HeaderMap, Query(q): Query<HashMap<String, String>>| {
+                        let mode = responses.load(Ordering::Relaxed);
+                        let requests = requests.clone();
+                        async move {
+                            assert_eq!(headers["authorization"], "Bearer fixture-access");
+                            assert_eq!(q["labelIds"], "Label_A");
+                            if !q.contains_key("pageToken") {
+                                return Json(json!({
+                                    "messages":[{"id":"recent"}], "nextPageToken":"older"
+                                }))
+                                .into_response();
+                            }
+                            assert_eq!(q["pageToken"], "older");
+                            requests.fetch_add(1, Ordering::Relaxed);
+                            let reason = match mode {
+                                1 => "userRateLimitExceeded",
+                                2 => "rateLimitExceeded",
+                                3 => "domainPolicy",
+                                4 => "dailyLimitExceeded",
+                                5 => {
+                                    return (StatusCode::FORBIDDEN, "rateLimitExceeded")
+                                        .into_response()
+                                }
+                                6 => return (StatusCode::TOO_MANY_REQUESTS, "").into_response(),
+                                7 => return (StatusCode::UNAUTHORIZED, "").into_response(),
+                                8 => "rateLimitExceeded",
+                                _ => {
+                                    return Json(json!({"messages":[{"id":"stored"}]}))
+                                        .into_response()
+                                }
+                            };
+                            let message = if mode == 8 {
+                                "x".repeat(65_536)
+                            } else {
+                                "fixture".to_owned()
+                            };
+                            (StatusCode::FORBIDDEN, Json(json!({
+                        "error":{"code":403,"errors":[{"reason":reason,"message":message}]}
+                    }))).into_response()
+                        }
+                    },
+                ),
+            )
+            .route(
+                "/messages/{id}",
+                get(|Path(id): Path<String>| async move {
+                    Json(json!({
+                        "id":id,"labelIds":["Label_A"],
+                        "internalDate":if id == "recent" { "20" } else { "10" },
+                        "payload":{"headers":[{"name":"Subject","value":id}]}
+                    }))
+                }),
+            );
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("gmail-rate.sqlite");
+    drop(rusqlite::Connection::open(&path).unwrap());
+    let stop = CancellationToken::new();
+    let fetch = |cursor| {
+        sync::fetch(
+            &client,
+            &base,
+            "fixture-access",
+            sync::CachedLabel {
+                path: &path,
+                scope: "w",
+                account: "a",
+                label: "Label_A",
+            },
+            cursor,
+            2,
+            &stop,
+        )
+    };
+    let save = |snapshot| sync::apply(&path, "w", "a", "Label_A", 0, "unused", snapshot);
+    let cached = || sync::offline_page(&path, "w", "a", "Label_A", None, 2, "unused").unwrap();
+
+    let first = fetch(None).await.unwrap();
+    assert_eq!(first.page["nextCursor"], "older");
+    save(&first).unwrap();
+    for (mode, expected) in [
+        (1, "gmail_rate_limited"),
+        (2, "gmail_rate_limited"),
+        (3, "gmail_permission_denied"),
+        (4, "gmail_permission_denied"),
+        (5, "gmail_permission_denied"),
+        (6, "gmail_rate_limited"),
+        (7, "gmail_reauthorize"),
+        (8, "gmail_permission_denied"),
+    ] {
+        phase.store(mode, Ordering::Relaxed);
+        let error = fetch(Some("older")).await.err().expect("failed request");
+        eprintln!("response {mode}: {error}");
+        assert_eq!(error, expected);
+        assert_eq!(older_requests.load(Ordering::Relaxed), mode);
+        assert_eq!(cached()["items"][0]["id"], "recent");
+        assert!(cached()["items"].get(1).is_none());
+    }
+    phase.store(0, Ordering::Relaxed);
+    let next = fetch(Some("older")).await.unwrap();
+    assert_eq!(next.page["items"][0]["id"], "stored");
+    save(&next).unwrap();
+    assert_eq!(older_requests.load(Ordering::Relaxed), 9);
+    assert_eq!(cached()["items"][1]["id"], "stored");
+    assert_eq!(
+        store::cached(&path, "w", "a", "history", "Label_A").unwrap(),
+        "10"
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn gmail_reply_considers_an_unambiguous_recipient_from_cached_mail() {
+    use axum::{extract::Path, http::HeaderMap, routing::get, Json, Router};
+
+    let app = Router::new()
+        .route("/messages", get(|| async {
+            Json(json!({"messages":[{"id":"duplicate"},{"id":"malformed"},{"id":"fallback"},{"id":"single"},{"id":"multiple_from"}]}))
+        }))
+        .route("/messages/{id}", get(|Path(id): Path<String>, request: HeaderMap| async move {
+            let header = |name: &str, value: &str| json!({"name": name, "value": value});
+            let mut headers = vec![
+                header("From", "Fixture <sender@example.test>"),
+                header("Subject", "Local recipient fixture"),
+                header("Message-ID", "<original@example.test>"),
+            ];
+            if request["authorization"] == "Bearer fixture_peer" {
+                headers.push(header("Reply-To", "peer@example.test"));
+            } else {
+                assert_eq!(request["authorization"], "Bearer fixture_owner");
+                match id.as_str() {
+                    "duplicate" => {
+                        headers.push(header("Reply-To", "first@example.test"));
+                        headers.push(header("reply-to", "second@example.test"));
+                    }
+                    "malformed" => headers.push(json!({"name": "Reply-To", "value": null})),
+                    "multiple_from" => headers.push(header("from", "another@example.test")),
+                    "single" => headers.push(header("Reply-To", "one@example.test")),
+                    "fallback" => {}
+                    _ => unreachable!(),
+                }
+            }
+            Json(json!({
+                "id":id,"threadId":"thread_1","labelIds":["INBOX"],
+                "payload":{"mimeType":"text/plain","headers":headers,"body":{"data":"T2ZmbGluZSBib2R5"}}
+            }))
+        }));
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let profile = tempfile::tempdir().unwrap();
+    let path = profile.path().join("mail.sqlite3");
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch("CREATE TABLE accounts(scope,id,provider,address);
+        CREATE TABLE drafts(scope,account,id,revision INTEGER,recipient,subject,body,PRIMARY KEY(scope,account,id));
+        INSERT INTO accounts VALUES('w','owner','gmail','owner@example.test'),('w','peer','gmail','peer@example.test');").unwrap();
+    drop(db);
+
+    let page = api::list(&client, &base, "fixture_owner", "INBOX", None, 10)
+        .await
+        .unwrap();
+    assert_eq!(page["items"].as_array().unwrap().len(), 5);
+    store::cache(&path, "w", "owner", 0, "page", "10:", &page).unwrap();
+    for (id, recipient) in [
+        ("single", "one@example.test"),
+        ("fallback", "sender@example.test"),
+    ] {
+        assert_eq!(
+            store::reply_draft(&path, "w", "owner", id).unwrap()["recipient"],
+            recipient
+        );
+    }
+    let peer = api::read(&client, &base, "fixture_peer", "duplicate")
+        .await
+        .unwrap();
+    store::cache(&path, "w", "peer", 0, "body", "duplicate", &peer).unwrap();
+
+    for id in ["duplicate", "malformed", "multiple_from"] {
+        assert_eq!(
+            store::reply_draft(&path, "w", "owner", id),
+            Err("gmail_reply_unavailable"),
+            "page {id}"
+        );
+        let body = api::read(&client, &base, "fixture_owner", id)
+            .await
+            .unwrap();
+        assert_eq!(body["plainText"], "Offline body");
+        store::cache(&path, "w", "owner", 0, "body", id, &body).unwrap();
+        assert_eq!(
+            store::cached(&path, "w", "owner", "body", id).unwrap()["plainText"],
+            "Offline body"
+        );
+        assert_eq!(
+            store::reply_draft(&path, "w", "owner", id),
+            Err("gmail_reply_unavailable"),
+            "body {id}"
+        );
+    }
+    assert_eq!(
+        store::reply_draft(&path, "w", "peer", "duplicate").unwrap()["recipient"],
+        "peer@example.test"
+    );
+    let db = rusqlite::Connection::open(&path).unwrap();
+    for table in ["drafts", "gmail_reply"] {
+        let count: i64 = db
+            .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 3);
+    }
+    server.abort();
 }

@@ -21,6 +21,28 @@ pub struct Mailbox<'a> {
 fn db_err(_: rusqlite::Error) -> &'static str {
     "mail_storage"
 }
+fn load_summary(db: &Connection, scope: &str, account: &str, folder: &str, epoch: u32, uid: u32) -> Result<Summary> {
+    let meta: String = db
+        .query_row(
+            "SELECT meta FROM alibaba_inbox WHERE scope=? AND account=? AND folder=? AND epoch=? AND uid=?",
+            params![scope, account, folder, epoch, uid],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(db_err)?
+        .ok_or("mail_cache_empty")?;
+    serde_json::from_str(&meta).map_err(|_| "mail_storage")
+}
+fn advance_cache_generation(db: &Connection, scope: &str, account: &str) -> Result<()> {
+    db.execute(
+        "INSERT INTO alibaba_cache_generation VALUES(?,?,1)
+         ON CONFLICT(scope,account) DO UPDATE SET generation=generation+1",
+        params![scope, account],
+    )
+    .map_err(db_err)?;
+    Ok(())
+}
+
 pub fn initialize_cache(db: &mut Connection) -> Result<()> {
     let migrated: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('alibaba_inbox') WHERE name='folder')", [], |r| r.get(0)).map_err(db_err)?;
     if migrated { return Ok(()); }
@@ -96,10 +118,25 @@ impl<'a> Mailbox<'a> {
             params![self.scope,self.account.id,epoch,self.generation,self.folder],|r|r.get(0)).map_err(db_err)?;
         if current {Ok(())} else {Err("mail_attachment_changed")}
     }
+    pub fn read_attachment(
+        &self,
+        adapter: &Alibaba,
+        password: &str,
+        epoch: u32,
+        uid: u32,
+        expected: &Attachment,
+    ) -> Result<Vec<u8>> {
+        // Credentials are read separately by the Host. Recheck at the network boundary.
+        self.attachment_is_current(epoch)?;
+        adapter.attachment(self.address(), password, self.folder(), epoch, uid, expected)
+    }
+    /// Invalidate pending operations while retaining offline messages.
+    pub fn invalidate_pending_operations(&self) -> Result<()> {
+        advance_cache_generation(self.db, &self.scope, &self.account.id)
+    }
     pub fn clear_cache(&mut self) -> Result<()> {
         let tx = self.db.transaction().map_err(db_err)?;
-        tx.execute("INSERT INTO alibaba_cache_generation VALUES(?,?,1) ON CONFLICT(scope,account) DO UPDATE SET generation=generation+1",
-            params![self.scope,self.account.id]).map_err(db_err)?;
+        advance_cache_generation(&tx, &self.scope, &self.account.id)?;
         for table in ["alibaba_inbox", "alibaba_epoch", "alibaba_folders", "alibaba_sync_revision", "alibaba_sync_gap"] {
             tx.execute(
                 &format!("DELETE FROM {table} WHERE scope=? AND account=?"),
@@ -166,7 +203,14 @@ impl<'a> Mailbox<'a> {
             let ids = rows.query_map(params![self.scope,self.account.id,self.folder,observed], |r| r.get(0)).map_err(db_err)?;
             ids.collect::<std::result::Result<Vec<u32>,_>>().map_err(db_err)?
         } else { Vec::new() };
-        let (mut page, removed) = adapter.list(self.address(), password, &self.folder, cursor, limit, &cached)?;
+        let (mut page, removed) = adapter.list(
+            self.address(),
+            password,
+            &self.folder,
+            cursor,
+            limit,
+            observed.map(|epoch| (epoch, cached.as_slice())),
+        )?;
         let tx = self.db.transaction_with_behavior(TransactionBehavior::Immediate).map_err(db_err)?;
         let current_generation:i64=tx.query_row("SELECT COALESCE((SELECT generation FROM alibaba_cache_generation WHERE scope=? AND account=?),0)",params![self.scope,self.account.id],|r|r.get(0)).map_err(db_err)?;
         if current_generation != generation {
@@ -321,20 +365,15 @@ impl<'a> Mailbox<'a> {
         Ok(letter)
     }
     fn meta(&self, epoch: u32, uid: u32) -> Result<Summary> {
-        let meta: String = self
-            .db
-            .query_row(
-                "SELECT meta FROM alibaba_inbox WHERE scope=? AND account=? AND folder=? AND epoch=? AND uid=?",
-                params![self.scope, self.account.id, self.folder, epoch, uid],
-                |r| r.get(0),
-            )
-            .optional()
-            .map_err(db_err)?
-            .ok_or("mail_cache_empty")?;
-        serde_json::from_str(&meta).map_err(|_| "mail_storage")
+        load_summary(self.db, &self.scope, &self.account.id, &self.folder, epoch, uid)
     }
     pub fn reply_draft(&mut self, id: &str, epoch: u32, uid: u32) -> Result<serde_json::Value> {
-        let original = self.meta(epoch, uid)?;
+        // Read the source after acquiring the write lock, alongside draft creation.
+        let tx = self
+            .db
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(db_err)?;
+        let original = load_summary(&tx, &self.scope, &self.account.id, &self.folder, epoch, uid)?;
         let recipient = original.reply_to;
         if recipient.contains(['\r', '\n', '\0'])
             || recipient.parse::<lettre::message::Mailbox>().is_err()
@@ -348,10 +387,6 @@ impl<'a> Mailbox<'a> {
         while subject.len() > 998 {
             subject.pop();
         }
-        let tx = self
-            .db
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(db_err)?;
         tx.execute("INSERT INTO drafts(scope,account,id,revision,recipient,subject,body) VALUES(?,?,?,1,?,?,'')",params![self.scope,self.account.id,id,recipient,subject]).map_err(db_err)?;
         tx.execute(
             "INSERT INTO alibaba_reply VALUES(?,?,?,?)",
@@ -399,10 +434,12 @@ impl<'a> Mailbox<'a> {
         let parent = stored_parent.unwrap_or(parent);
         let files = draft_attachments(&tx, &self.scope, &self.account.id, draft)?;
         let msg = adapter.compose(&self.account.address, &saved, parent.as_deref(), files)?;
-        // Unknown is committed *before* any network write. Crashes or lost final replies never cause replay.
+        // Claim before dialing. Only a proven pre-submission failure permits another confirmed attempt.
         if tx
             .execute(
-                "INSERT OR IGNORE INTO alibaba_send VALUES(?,?,?,?,'unknown')",
+                "INSERT INTO alibaba_send VALUES(?,?,?,?,'unknown')
+                 ON CONFLICT(scope,account,draft,revision) DO UPDATE SET status=excluded.status
+                 WHERE alibaba_send.status='not_submitted'",
                 params![self.scope, self.account.id, draft, revision],
             )
             .map_err(db_err)?
@@ -411,7 +448,7 @@ impl<'a> Mailbox<'a> {
             return tx.query_row("SELECT status FROM alibaba_send WHERE scope=? AND account=? AND draft=? AND revision=?",params![self.scope,self.account.id,draft,revision],|r|r.get(0)).map_err(db_err);
         }
         tx.commit().map_err(db_err)?;
-        let outcome = adapter.transmit(self.address(), password, msg)?;
+        let outcome = adapter.transmit(self.address(), password, msg);
         self.db.execute("UPDATE alibaba_send SET status=? WHERE scope=? AND account=? AND draft=? AND revision=?",params![outcome,self.scope,self.account.id,draft,revision]).map_err(db_err)?;
         Ok(outcome.into())
     }

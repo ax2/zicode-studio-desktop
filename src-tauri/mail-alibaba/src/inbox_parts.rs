@@ -61,11 +61,17 @@ fn collect(tree: &BodyStructure<'_>, path: &mut Vec<u32>, parts: &mut Vec<Part>)
 
 fn structure(session:&mut imap::Session<Bounded>, uid:u32)->Result<(Summary,Vec<Part>)>{
     let rows=session.uid_fetch(uid.to_string(),format!("(UID RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER]<0.{MAX_HEADER}>)")).map_err(|_|"mail_read_failed")?;
-    let row=rows.iter().find(|r|r.uid==Some(uid)).ok_or("mail_message_missing")?;
-    let header=MessageParser::new().parse_headers(row.header().ok_or("mail_protocol")?).ok_or("mail_mime_invalid")?;
-    let summary=metadata(&header,uid,row.size.ok_or("mail_protocol")?);
-    let mut parts=Vec::new();
-    collect(row.bodystructure().ok_or("mail_protocol")?,&mut Vec::new(),&mut parts)?;
+    // An unsolicited FETCH can carry this UID and FLAGS before the requested fields.
+    let mut matching = rows.iter().filter(|row| row.uid == Some(uid)).peekable();
+    if matching.peek().is_none() {
+        return Err("mail_message_missing");
+    }
+    let (header, size, body) = matching
+        .find_map(|row| Some((row.header()?, row.size?, row.bodystructure()?)))
+        .ok_or("mail_protocol")?;
+    let summary = summary(header, uid, size)?;
+    let mut parts = Vec::new();
+    collect(body, &mut Vec::new(), &mut parts)?;
     Ok((summary,parts))
 }
 
@@ -75,7 +81,12 @@ fn fetch_part(session:&mut imap::Session<Bounded>, uid:u32, part:&Part)->Result<
     let section=part.path.iter().map(u32::to_string).collect::<Vec<_>>().join(".");
     let requested=part.octets+1;
     let rows=session.uid_fetch(uid.to_string(),format!("(UID BODY.PEEK[{section}]<0.{requested}>)")).map_err(|_|"mail_read_failed")?;
-    let bytes=rows.iter().find(|r|r.uid==Some(uid)).and_then(|r|r.section(&SectionPath::Part(part.path.clone(),None))).ok_or("mail_protocol")?;
+    let section = SectionPath::Part(part.path.clone(), None);
+    let bytes = rows
+        .iter()
+        .filter(|row| row.uid == Some(uid))
+        .find_map(|row| row.section(&section))
+        .ok_or("mail_protocol")?;
     if bytes.len()!=part.octets{return Err("mail_partial_message");}
     let mut mime=Vec::with_capacity(part.header.len()+bytes.len());
     mime.extend_from_slice(part.header.as_bytes());mime.extend_from_slice(bytes);Ok(mime)

@@ -29,14 +29,84 @@ it.each([["gmail", null], ["alibaba", { status: null }]] as const)(
   },
 );
 
-it("keeps an ambiguous Gmail send locked when the journal is empty and only rereads it on request", async () => {
+it.each(["gmail", "alibaba"] as const)("announces the %s draft review before its send controls", async provider => {
+  setLocale("en");
+  const invoke = vi.fn().mockResolvedValue(null);
+  const attachments = [{ id: "one", name: "brief.pdf", size: 42 }, { id: "two", name: "summary.txt", size: 18 }];
+  render(<><input aria-label="Continue editing" />
+    <MailDelivery invoke={invoke as Invoke} provider={provider} id="sample" address="sender@example.test"
+      draft={{ ...draft, attachments }} configured /></>);
+  const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
+  await waitFor(() => expect(review.disabled).toBe(false));
+  expect(review.getAttribute("aria-expanded")).toBe("false");
+  review.focus();
+  fireEvent.click(review);
+  const panel = screen.getByRole("region", { name: "Confirm sending email" });
+  const heading = screen.getByRole("heading", { name: "Send this saved draft now?" });
+  expect(document.activeElement).toBe(heading);
+  expect(review.getAttribute("aria-expanded")).toBe("true");
+  expect(review.getAttribute("aria-controls")).toBe(panel.id);
+  expect(screen.getByRole("list", { name: "Attachments" }).textContent).toContain("brief.pdf (42 B)");
+  expect(screen.getByRole("list", { name: "Attachments" }).textContent).toContain("summary.txt (18 B)");
+  const cancel = screen.getByRole("button", { name: "Cancel" });
+  cancel.focus();
+  fireEvent.click(cancel);
+  expect(document.activeElement).toBe(review);
+  const elsewhere = screen.getByRole("textbox", { name: "Continue editing" });
+  elsewhere.focus();
+  fireEvent.click(review);
+  expect(document.activeElement).toBe(elsewhere);
+  expect(invoke.mock.calls).toEqual([[receipt]]);
+});
+
+it.each(["gmail", "alibaba"] as const)("returns focus to the %s review button after canceling", async provider => {
+  const invoke = vi.fn().mockResolvedValue(null);
+  show(invoke as Invoke, provider);
+  const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
+  await waitFor(() => expect(review.disabled).toBe(false));
+  fireEvent.click(review);
+  const cancel = screen.getByRole("button", { name: "Cancel" });
+  cancel.focus();
+  fireEvent.click(cancel);
+  expect(screen.queryByRole("region", { name: "Confirm sending email" })).toBeNull();
+  expect(document.activeElement).toBe(review);
+  expect(invoke.mock.calls).toEqual([[receipt]]);
+});
+
+it.each(["gmail", "alibaba"] as const)("keeps the %s local receipt retry focused through another failure", async provider => {
+  let fail!: (error: Error) => void;
+  const pending = new Promise((_, reject) => { fail = reject; });
+  const invoke = vi.fn().mockRejectedValueOnce(Error("local record is busy"))
+    .mockReturnValueOnce(pending).mockResolvedValueOnce(null);
+  show(invoke as Invoke, provider);
+  await screen.findByRole("alert");
+  const check = screen.getByRole("button", { name: "Check local delivery status" });
+  check.focus();
+  fireEvent.click(check);
+  await screen.findByText("Checking local delivery status…");
+  expect(check.getAttribute("aria-disabled")).toBe("true");
+  expect(check.matches(":disabled")).toBe(false);
+  expect(document.activeElement).toBe(check);
+  fireEvent.click(check);
+  expect(invoke.mock.calls).toEqual([[receipt], [receipt]]);
+  fail(Error("local record is still busy"));
+  await screen.findByRole("alert");
+  expect(check.hasAttribute("aria-disabled")).toBe(false);
+  expect(document.activeElement).toBe(check);
+  fireEvent.click(check);
+  const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
+  await waitFor(() => expect(review.disabled).toBe(false));
+  expect(invoke.mock.calls).toEqual([[receipt], [receipt], [receipt]]);
+});
+
+it.each(["gmail", "alibaba"] as const)("keeps an ambiguous %s send locked when the journal is empty", async provider => {
   const replies = [null, null, null, { status: "accepted" }];
   const invoke = vi.fn(async (request: Record<string, unknown>) => {
     if (request.kind === "delivery") return replies.shift();
     if (request.kind === "send") throw new Error("the desktop reply was interrupted");
     throw new Error("Unexpected operation");
   });
-  show(invoke as Invoke, "gmail");
+  show(invoke as Invoke, provider);
   const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
   await waitFor(() => expect(review.disabled).toBe(false));
   fireEvent.click(review);
@@ -55,18 +125,74 @@ it("keeps an ambiguous Gmail send locked when the journal is empty and only rere
   ], [receipt], [receipt], [receipt]]);
 });
 
-it("retains permission to review after a known preflight rejection with no local record", async () => {
+it.each([true, false])("requires a new explicit review and confirmation after no submission (reopened=%s)", async reopened => {
+  const send = { ...receipt, kind: "send", confirmed: true };
+  const invoke = vi.fn().mockResolvedValueOnce(reopened ? { status: "not_submitted" } : null);
+  if (!reopened) invoke.mockResolvedValueOnce({ status: "not_submitted" });
+  invoke.mockResolvedValueOnce({ status: "accepted" });
+  show(invoke as Invoke, "alibaba");
+  const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
+  await waitFor(() => expect(review.disabled).toBe(false));
+  if (!reopened) {
+    fireEvent.click(review);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm and send email" }));
+  }
+  await screen.findByText(/The message was not submitted/);
+  const callsBeforeRetry = reopened ? [[receipt]] : [[receipt], [send]];
+  expect(invoke.mock.calls).toEqual(callsBeforeRetry);
+  expect(screen.queryByRole("button", { name: "Confirm and send email" })).toBeNull();
+  fireEvent.click(review);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(invoke.mock.calls).toEqual(callsBeforeRetry);
+  fireEvent.click(review);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm and send email" }));
+  await screen.findByText("The mail server accepted this message.");
+  expect(invoke.mock.calls).toEqual([...callsBeforeRetry, [send]]);
+  expect(screen.queryByRole("button", { name: "Review before sending" })).toBeNull();
+});
+
+it("treats the new Alibaba receipt as unknown if returned for Gmail", async () => {
+  const invoke = vi.fn().mockResolvedValueOnce({ status: "not_submitted" });
+  show(invoke as Invoke, "gmail");
+  await screen.findByText(/Delivery is unknown/);
+  expect(screen.queryByRole("button", { name: "Review before sending" })).toBeNull();
+  expect(invoke.mock.calls).toEqual([[receipt]]);
+});
+
+it.each([
+  ["gmail_permission_denied", "sending"], ["gmail_reauthorize", "connection"],
+] as const)("reports a known %s preflight rejection when no outcome was recorded", async (code, lost) => {
   const invoke = vi.fn(async (request: Record<string, unknown>) => {
     if (request.kind === "delivery") return null;
-    throw new Error("gmail_permission_denied");
+    throw new Error(code);
   });
-  show(invoke as Invoke, "gmail");
+  const grantLost = vi.fn();
+  setLocale("en");
+  render(<MailDelivery invoke={invoke as Invoke} provider="gmail" id="sample" address="sender@example.test"
+    draft={draft} configured onGmailGrantLost={grantLost} />);
   const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
   await waitFor(() => expect(review.disabled).toBe(false));
   fireEvent.click(review);
   fireEvent.click(screen.getByRole("button", { name: "Confirm and send email" }));
   await screen.findByRole("alert");
-  expect(review.disabled).toBe(false);
+  expect(grantLost).toHaveBeenCalledExactlyOnceWith(lost);
   expect(screen.queryByText(/Delivery is unknown/)).toBeNull();
   expect(invoke.mock.calls.filter(([request]) => request.kind === "send")).toHaveLength(1);
+});
+
+it("keeps a journaled unknown Gmail delivery locked after an authorization error", async () => {
+  const invoke = vi.fn().mockResolvedValueOnce(null).mockRejectedValueOnce(Error("gmail_reauthorize"))
+    .mockResolvedValueOnce({ status: "unknown" });
+  const grantLost = vi.fn();
+  setLocale("en");
+  render(<MailDelivery invoke={invoke as Invoke} provider="gmail" id="sample" address="sender@example.test"
+    draft={draft} configured onGmailGrantLost={grantLost} />);
+  const review = screen.getByRole("button", { name: "Review before sending" }) as HTMLButtonElement;
+  await waitFor(() => expect(review.disabled).toBe(false));
+  fireEvent.click(review);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm and send email" }));
+  await screen.findByText(/Delivery is unknown/);
+  expect(grantLost).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Review before sending" })).toBeNull();
+  expect(invoke).toHaveBeenCalledTimes(3);
 });
