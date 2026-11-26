@@ -75,8 +75,9 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
     const searchInput = input.current;
     const previous = lastFocused.current;
     // Removing a focused result can drop focus to the document without a focusin.
-    if (previous && !previous.isConnected && document.activeElement === document.body &&
-        searchInput?.closest("details")?.open) {
+    if (!previous || previous.isConnected) return;
+    lastFocused.current = null;
+    if (document.activeElement === document.body && searchInput?.closest("details")?.open) {
       searchInput.focus();
     }
   });
