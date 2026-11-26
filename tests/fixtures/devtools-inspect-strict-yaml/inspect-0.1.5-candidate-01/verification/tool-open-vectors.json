@@ -1,0 +1,45 @@
+{
+  "profile": {
+    "id": "tool.open.v1",
+    "version": "=1.0.0-preview.1"
+  },
+  "view": {
+    "id": "devtools.inspect.main",
+    "location": "main"
+  },
+  "mapping": {
+    "devtools.inspect.color.convert": "color.convert",
+    "devtools.inspect.yaml.to_json": "yaml.to_json",
+    "devtools.inspect.yaml.from_json": "yaml.from_json",
+    "devtools.inspect.cidr.inspect": "cidr.inspect",
+    "devtools.inspect.jwt.inspect": "jwt.inspect",
+    "devtools.inspect.unicode.inspect": "unicode.inspect",
+    "devtools.inspect.unicode.nfc": "unicode.nfc",
+    "devtools.inspect.unicode.nfkc": "unicode.nfkc"
+  },
+  "cases": [
+    {
+      "id": "declared-color-converter",
+      "capabilityId": "devtools.inspect.color.convert",
+      "expected": "opened",
+      "selectedAction": "color.convert",
+      "capabilityInvocations": 0
+    },
+    {
+      "id": "unknown-capability",
+      "capabilityId": "devtools.inspect.not-registered",
+      "expected": "not_found",
+      "selectedActionChanges": false,
+      "capabilityInvocations": 0
+    },
+    {
+      "id": "slow-view-callback",
+      "capabilityId": "devtools.inspect.color.convert",
+      "delayMs": 4500,
+      "viewBudgetMs": 4000,
+      "expected": "unsupported",
+      "lateAcknowledgementAccepted": false,
+      "capabilityInvocations": 0
+    }
+  ]
+}

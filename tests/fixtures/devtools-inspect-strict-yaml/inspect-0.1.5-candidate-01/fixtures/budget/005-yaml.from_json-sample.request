@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.inspect","sceneId":"coding","capabilityId":"devtools.inspect.yaml.from_json","commandId":null,"input":{"text":"{\n  \"items\": [\n    true,\n    null,\n    \"中\"\n  ],\n  \"name\": \"zi\",\n  \"wide\": 9007199254740993\n}"}}

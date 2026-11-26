@@ -19,7 +19,7 @@ const unicodeFiles = [
     file: /^unicode-nfkc-\d+\.txt$/, mime: "text/plain;charset=utf-8" },
 ];
 
-it.each(["0.1.2", "0.1.4"].flatMap(version => unicodeFiles.map(example => ({ ...example, version }))))(
+it.each(["0.1.2", "0.1.4", "0.1.5"].flatMap(version => unicodeFiles.map(example => ({ ...example, version }))))(
 "preserves the input file and downloads a complete $mode result for $version", async example => {
   setLocale("en");
   const download = vi.spyOn(downloads, "downloadFile").mockImplementation(() => {});
