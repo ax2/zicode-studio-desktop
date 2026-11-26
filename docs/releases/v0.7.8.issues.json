@@ -1,5 +1,6 @@
 {
   "milestones": ["v0.7.8"],
+  "windowsUpgradeFrom": { "version": "0.7.7", "sha256": "60ce542bf722fbc01c6cb109128024142d3d2b6387b26915770e84b302c71ee8" },
   "extraCompleted": [],
   "exclude": { "318": "已在公开 v0.7.3 列为完成，保留原交付记录。" },
   "known": [31, 36, 148, 255, 258, 549],
