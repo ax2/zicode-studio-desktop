@@ -5,8 +5,8 @@
   "version": "0.7.7",
   "build": {
     "frontendDist": "../public",
-    "beforeDevCommand": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git && bun run build:extensions && bun run build:react && bun run bundle-css",
-    "beforeBuildCommand": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run fetch:bun-runtime && bun run build:extensions && bun run build:react && bun run bundle-css"
+    "beforeDevCommand": "bun run build:frontend && bun run fetch:pi && bun run fetch:portable-git && bun run build:extensions",
+    "beforeBuildCommand": "bun run build:frontend && bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run fetch:bun-runtime && bun run build:extensions"
   },
   "app": {
     "withGlobalTauri": true,

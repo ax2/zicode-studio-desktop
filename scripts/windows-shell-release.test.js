@@ -6,6 +6,7 @@ import { expect, it, vi } from "vitest";
 
 const read = name => readFileSync(new URL(name, import.meta.url), "utf8");
 const script = read("./build-desktop.js");
+const tauri = JSON.parse(read("../src-tauri/tauri.conf.json"));
 const root = path.resolve("shell-release-fixture");
 const target = path.join(root, "target");
 const shellOutput = path.join(target, "release", "zicode_studio_shell.dll");
@@ -16,9 +17,7 @@ async function invoke(args, { platform = "win32", shellStatus = 0, stageError } 
   const spawn = vi.fn(() => ({ status: shellStatus }));
   const writeBuildOutput = vi.fn();
   const files = { mkdirSync: vi.fn(),
-    readFileSync: vi.fn(file => file === shellOutput ? shellBytes : JSON.stringify({ build: {
-      beforeBuildCommand: "bun run fetch:webview2 && bun run build:react",
-    }, bundle: { resources: { "../public": "public" } } })) };
+    readFileSync: vi.fn(file => file === shellOutput ? shellBytes : JSON.stringify(tauri)) };
   let exit;
   const stopped = {};
   const loggedError = vi.fn();
@@ -75,6 +74,18 @@ it("bundles local Windows release builds with the shared target tool cache", asy
   expect(JSON.parse(args.at(-1))).toEqual({ bundle: { useLocalToolsDir: true } });
 });
 
+it("prepares the same frontend before Tauri development and release packaging", () => {
+  for (const command of [tauri.build.beforeDevCommand, tauri.build.beforeBuildCommand]) {
+    const steps = command.split(" && ");
+    expect(steps.filter(step => step === "bun run build:frontend")).toHaveLength(1);
+    expect(steps).not.toContain("bun run build:react");
+    expect(steps).not.toContain("bun run bundle-css");
+    expect(steps).not.toContain("bun run sync:vendor");
+  }
+  expect(tauri.build.frontendDist).toBe("../public");
+  expect(tauri.bundle.resources[tauri.build.frontendDist]).toBe("public");
+});
+
 it("keeps the tool cache override specific to Windows bundles", async () => {
   const result = await invoke([], { platform: "linux" });
   expect(result.spawn).toHaveBeenCalledOnce();
@@ -87,10 +98,12 @@ it("keeps local builds beside the debug DLL and skips installer-only preparation
   expect(result.spawn).toHaveBeenCalledTimes(2);
   expect(result.spawn.mock.calls[0][1]).not.toContain("--release");
   expect(result.writeBuildOutput).not.toHaveBeenCalled();
-  expect(result.stageLocalResources).toHaveBeenCalledWith(path.join(root, "src-tauri"), path.join(target, "debug"), { "../public": "public" });
+  expect(result.stageLocalResources).toHaveBeenCalledWith(path.join(root, "src-tauri"), path.join(target, "debug"), tauri.bundle.resources);
   const build = result.spawn.mock.calls[1][1];
   expect(build.slice(0, 6)).toEqual(["run", "tauri", "build", "--debug", "--no-bundle", "--config"]);
-  expect(JSON.parse(build[6]).build.beforeBuildCommand).toBe("bun run build:react");
+  const hook = JSON.parse(build[6]).build.beforeBuildCommand.split(" && ");
+  expect(hook).toEqual(tauri.build.beforeBuildCommand.split(" && ").filter(step => step !== "bun run fetch:webview2"));
+  expect(hook).toContain("bun run build:frontend");
   expect(build).not.toContain("src-tauri/tauri.shell.windows.conf.json");
 });
 

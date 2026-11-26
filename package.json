@@ -44,6 +44,7 @@
     "plugin:keygen": "bun run scripts/generate-plugin-key.js",
     "build": "bun run scripts/build-desktop.js",
     "build:local": "bun run scripts/build-desktop.js --local",
+    "build:frontend": "bun run sync:vendor && bun run build:react && bun run bundle-css",
     "build:react": "node scripts/build-react.js",
     "typecheck": "tsc -p frontend/tsconfig.json --noEmit",
     "typecheck:external-clients": "tsc -p tsconfig.external-clients.json --noEmit",

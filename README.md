@@ -82,6 +82,8 @@ bun scripts/check-windows-checkout-paths.mjs 'D:\work\zicode-studio-desktop' HEA
 
 `bun run dev` 准备当前平台的运行时和前端资源。按改动运行本地定向检查。同批改动需要桌面验证时，统一使用 `bun run build:local`，产物位于 `target/debug`。正式 Windows 安装包使用 `bun run build`，NSIS 产物位于 `target/release/bundle/nsis/`。
 
+开发、Vitest 测试和 Windows 打包使用 `bun run build:frontend` 统一生成 React、CSS 和 Chart.js，写入 `public/`。Windows 发行工作流使用 Bun `1.3.14`，依赖版本由 `bun.lock` 锁定。只需生成界面资源时可单独运行此命令，无需下载桌面运行时。如提示缺少依赖，先执行 `bun install --frozen-lockfile`。直接运行依赖界面文件的 Rust 集成测试前，也需要生成这些资源。安装版从自身的 `public/` 读取资源。
+
 ```text
 bun run check
 bun run test
