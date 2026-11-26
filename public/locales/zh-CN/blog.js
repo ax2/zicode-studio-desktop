@@ -1,4 +1,12 @@
 export default {
+  "Site details": "站点详情",
+  "Default static homepage": "默认静态首页",
+  "Output found. It may come from an earlier build.": "已找到输出，可能是上次构建的快照。",
+  "Default output missing. Custom builds may use another directory.": "默认位置暂无输出。自定义构建可能使用其他目录。",
+  "Could not verify the default output.": "无法核实默认位置的输出。",
+  "Homepage recommendations": "首页推荐",
+  "Site preview and publishing": "站点预览和发布",
+  "Use your site's build and publishing tools.": "请使用站点自己的构建和发布工具。",
   "An attachment does not match its image format. Check the file before syncing.": "配图内容与图片格式不符，请核对文件后再同步。",
   "Markdown preview": "Markdown 预览",
   "Choose blog folder": "选择博客目录",

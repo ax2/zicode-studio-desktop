@@ -4,6 +4,53 @@ import { setLocale } from "../../shared/i18n";
 import { Blog, type Invoke, type Site } from "./index";
 
 afterEach(cleanup);
+
+it.each([
+  {
+    framework: "astro" as const,
+    label: "Astro",
+    path: "dist/index.html",
+    status: "found" as const,
+    outputMessage: "Output found. It may come from an earlier build.",
+  },
+  {
+    framework: "hugo" as const,
+    label: "Hugo",
+    path: "public/index.html",
+    status: "missing" as const,
+    outputMessage: "Default output missing. Custom builds may use another directory.",
+  },
+])("shows the selected $label site's actual defaults without running a build", async (fixture) => {
+  setLocale("en");
+  const site: Site = {
+    root: "C:/owned-blog",
+    paths: [],
+    framework: fixture.framework,
+    changedPaths: [],
+    pendingPush: false,
+    homepagePicks: fixture.framework === "astro",
+    defaultHomepage: { path: fixture.path, status: fixture.status },
+  };
+  const invoke = vi.fn(async (request: { action: string }) => {
+    if (request.action === "list") return site;
+    if (request.action === "read") return "export const HOME_PICKS: string[] = [\n  'first',\n];";
+    throw new Error("Unexpected action");
+  });
+  const view = render(<Blog invoke={invoke as Invoke} />);
+  expect(await view.findByText(fixture.label)).toBeTruthy();
+  const details = (await view.findByText("Site details")).closest("details");
+  expect(details?.open).toBe(false);
+  fireEvent.click(view.getByText("Site details"));
+  expect(details?.open).toBe(true);
+  expect(view.getByText(fixture.path).getAttribute("translate")).toBe("no");
+  expect(view.getByText(fixture.outputMessage)).toBeTruthy();
+  expect(await view.findByText(site.homepagePicks ? "Available" : "Unavailable")).toBeTruthy();
+  expect(view.getByText("Use your site's build and publishing tools.")).toBeTruthy();
+  expect(invoke.mock.calls.map(([request]) => request.action)).toEqual(
+    site.homepagePicks ? ["list", "read"] : ["list"],
+  );
+});
+
 it("reviews image-only changes for the open article and clears review when switching", async () => {
   setLocale("en");
   const site: Site = {
