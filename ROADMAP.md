@@ -28,6 +28,15 @@ GitHub Project #4 管理实时范围、优先级和版本。本页记录 2026-11
 | 发布信任 | 明确 Windows 签名来源及审批，校验下载和执行前的文件签名、时间戳与摘要。迁移 Tauri 签名更新时验证签名损坏、未知密钥、升级回退和当前用户资料保护。签名私钥由受控签名环境保管。 |
 | 项目与文档 | 每个开放 Issue 补齐阶段、模块、优先级和负责人，证据写在 Issue 中。P0 用于确凿的发布阻断。保留至少五个编号候选视图，压缩同时执行的范围。一般已发布版本的工作关闭或转到承接的编号版本。历史文档保留，当前入口统一到 [文档索引](docs/index.md)。 |
 
+## 整改跟踪
+
+| 工作 | 对应事项 |
+| --- | --- |
+| 一级内置博客 | [v0.8.5 版本视图](https://github.com/users/ax2/projects/4/views/39)；[写作到发布路线图 #775](https://github.com/ax2/zicode-studio-desktop/issues/775)、[Astro/Hugo 预览与发布 #776](https://github.com/ax2/zicode-studio-desktop/issues/776)、[GitHub 两机接续与冲突恢复 #779](https://github.com/ax2/zicode-studio-desktop/issues/779) |
+| 开发与交付 | [轻量自动检查 #773](https://github.com/ax2/zicode-studio-desktop/issues/773)、[Windows 检出和历史夹具 #774](https://github.com/ax2/zicode-studio-desktop/issues/774)、[Windows 签名更新 #780](https://github.com/ax2/zicode-studio-desktop/issues/780) |
+| Rust | [窗口状态与本地成本统计 #777](https://github.com/ax2/zicode-studio-desktop/issues/777)、[Host、桌面入口、插件和笔记分域 #778](https://github.com/ax2/zicode-studio-desktop/issues/778)、[编译性能对照 #549](https://github.com/ax2/zicode-studio-desktop/issues/549) |
+| 前端 | [统一构建入口并停止跟踪可生成产物 #781](https://github.com/ax2/zicode-studio-desktop/issues/781)、[按功能组织词典和运行时加载 #782](https://github.com/ax2/zicode-studio-desktop/issues/782) |
+
 ## 参考
 
 - [项目执行和验收规则](docs/agents/project-management.md)
