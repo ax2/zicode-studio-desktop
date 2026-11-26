@@ -1,3 +1,17 @@
+## 查找已交付的 Windows 工具
+
+先按源工具 ID 查冻结插件的 `catalog.json` 和分批验证记录，再按记录里的操作 ID、插件版本和安装步骤使用对应工具。例如：
+
+```powershell
+$sourceId = 'time-zone'
+rg -n -F ('"sourceToolId": "' + $sourceId + '"') tests/fixtures/devtools-windows-file-tools -g catalog.json
+rg -n -F -- $sourceId docs/plugins/devtools-all-tools.md docs/iterations
+```
+
+冻结目录可以按[下载和摘要核对说明](devtools-public-delivery.md)使用。若只找到验收记录，按该记录定位早期的本机包。对应的验证说明列出工具入口、操作范围和实际检查。
+
+[Windows 全量矩阵](devtools-windows-current.json)记录 2026-10-30 当时的隔离安装结果。后续操作逐批补充在下文和对应的验证记录。选取新迁移项时，先核对最新的验收范围，再使用提供方目录确认独立版的剩余功能。
+
 ## 2026-11-26 开发补充：时区工作台搜索与逐行复制
 
 `time-zone` 的 Studio 专用界面支持搜索 IANA 名称和常用中文城市、按顺序添加或移除最多八个目的地，以及逐行复制。隔离 Windows Studio 通过中文窄窗、英文宽窗、取消重试和原有离线换算。[入口与候选](../iterations/2026-11-26-time-zone-view.md)
