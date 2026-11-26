@@ -3,6 +3,8 @@
 import { readGitHubJson as gh, readRepositoryIssues, readRepositoryReleases } from "./project-api.mjs";
 import { openIssuesInPublishedMilestones, summarizeHierarchy, summarizeVersionReserve } from "./project-hierarchy.mjs";
 
+import { summarizePlanningFields } from "./project-planning.mjs";
+
 async function graphql(query, variables) {
   const operationName = /^query (\w+)/.exec(query)?.[1];
   const result = await gh(["api", "graphql", "--input", "-"], { query, variables, operationName });
@@ -90,13 +92,17 @@ try {
   const activeReleaseMilestonesWithoutView = missingVersionViews
     .filter(m => activeVersionTitles.has(m.title))
     .map(milestoneSummary);
+  const planningFields = summarizePlanningFields(repositoryIssues, items, repo);
   const known = new Set(items.map(i => i.url));
   const untracked = repositoryIssues
     .filter(issue => issue.state === "open" && !known.has(issue.html_url))
     .map(issueSummary);
-  console.log(JSON.stringify({ checkedAt: new Date().toISOString(), ...project, items, milestones, releaseReserve, untracked, openPublishedMilestoneIssues, issuesWithoutMilestone, issuesWithoutVersionMilestone, releaseMilestonesWithoutView, activeReleaseMilestonesWithoutView, hierarchy,
+  console.log(JSON.stringify({ checkedAt: new Date().toISOString(), ...project, items, milestones, releaseReserve, untracked, openPublishedMilestoneIssues, issuesWithoutMilestone, issuesWithoutVersionMilestone, releaseMilestonesWithoutView, activeReleaseMilestonesWithoutView, hierarchy, planningFields,
     instruction: "Read selected issue body, all comments and dependencies before work. Untracked items are for review only; do not automatically re-add removed work." }, null, 2));
 
+  if (process.argv.includes("--check-planning-fields") && (planningFields.missingFields.length || planningFields.issuesWithoutType.length)) {
+    process.exitCode = 1;
+  }
   if (process.argv.includes("--check-milestones") && (issuesWithoutVersionMilestone.length || activeReleaseMilestonesWithoutView.length)) {
     process.exitCode = 1;
   }
