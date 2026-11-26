@@ -3,6 +3,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { domains } from "./locales/zh-CN/index.js";
 import { setLocale, t } from "./i18n.js";
 
 function javascriptFiles(root) {
@@ -103,6 +104,7 @@ describe("Chinese translation coverage", () => {
     // Anything else is a hardcoded Chinese UI string that breaks the English
     // interface (e.g. the emoji categories or the Agent Inbox panel).
     const allowed = new Set([
+      ...Object.keys(domains).map(domain => join(process.cwd(), "public", "locales", "zh-CN", domain + ".js")),
       join(process.cwd(), "public", "i18n.js"),
       join(process.cwd(), "public", "offline.js"),
       join(process.cwd(), "public", "service-worker.js"),

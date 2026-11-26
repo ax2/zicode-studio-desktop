@@ -84,6 +84,8 @@ bun scripts/check-windows-checkout-paths.mjs 'D:\work\zicode-studio-desktop' HEA
 
 开发、Vitest 测试和 Windows 打包使用 `bun run build:frontend` 统一生成 React、CSS 和 Chart.js，写入 `public/`。Windows 发行工作流使用 Bun `1.3.14`，依赖版本由 `bun.lock` 锁定。只需生成界面资源时可单独运行此命令，无需下载桌面运行时。如提示缺少依赖，先执行 `bun install --frozen-lockfile`。直接运行依赖界面文件的 Rust 集成测试前，也需要生成这些资源。安装版从自身的 `public/` 读取资源。
 
+中文界面词条维护在 `public/locales/zh-CN/`。模块专用词条放在对应文件，多个模块使用的标签放在 `shared.js`。日常修改后执行 `node scripts/check-i18n-coverage.mjs`，检查缺失翻译、模块间重名和占位符。Studio 随安装包从本地加载同一份词典。
+
 ```text
 bun run check
 bun run test

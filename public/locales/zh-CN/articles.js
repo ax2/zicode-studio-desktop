@@ -1,0 +1,30 @@
+export default {
+  "Write, publish, sync": "一次创作，多处发布",
+  "Write a Markdown article and save it.": "用 Markdown 写一篇文章并保存。",
+  "Sync it to a WeChat Official Account draft or publish directly.":
+    "同步到公众号草稿，或直接发布到公众号。",
+  "Publish to the Astro blog or sync existing posts from the source directory.":
+    "发布到 Astro 博客，或从源目录同步已有文章。",
+  "No articles yet": "还没有文章",
+  "Search articles": "搜索文章",
+  Slug: "链接标识",
+  "Markdown content": "Markdown 内容",
+  "Sync to WeChat draft": "同步到公众号草稿",
+  "Sync and publish to WeChat": "同步并发布到公众号",
+  "Publish existing WeChat draft": "发布已有公众号草稿",
+  "Publish to blog": "发布到博客",
+  "Published {count} files to blog": "已发布 {count} 个文件到博客",
+  "Sync from source": "从源目录同步",
+  "Publishing settings": "发布设置",
+  "Article slug is required.": "需要填写文章 slug。",
+  "Article saved": "文章已保存",
+  "Chinese titles cannot be slugified; a placeholder slug was generated. Edit it to a short English slug before publishing.":
+    "中文标题无法自动生成英文 slug，已生成占位 slug；发布前请改为简短的英文 slug。",
+  "Article deleted": "文章已删除",
+  "Synced {count} articles": "已同步 {count} 篇文章",
+  "Published to WeChat": "已发布到公众号",
+  "Synced to WeChat draft": "已同步到公众号草稿",
+  "WeChat publish submitted": "公众号发布已提交",
+  "WeChat draft": "微信草稿",
+  "Auto-generated from the title when empty": "标题留空时按标题自动生成",
+};

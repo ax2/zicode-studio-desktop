@@ -94,3 +94,10 @@ test("base is validated and an unsuccessful Git fetch cannot appear docs-only", 
   assert.equal(changedFiles({ before: "0".repeat(40) }, "push", () => assert.fail("unexpected Git call")), null);
   assert.equal(changedFiles({ before: base }, "push", () => ({ status: 1 })), null);
 });
+
+test("a domain dictionary change runs localization and dictionary diagnostics", () => {
+  const plan = classify(["public/locales/zh-CN/blog.js"]);
+  assert.ok(plan.vitest.includes("public/i18n"));
+  assert.ok(plan.nodeTests.includes("scripts/i18n-dictionary-errors.test.mjs"));
+  assert.equal(plan.rust, false);
+});

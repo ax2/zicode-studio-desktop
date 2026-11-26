@@ -73,8 +73,8 @@ async fn actual_browser_favorites_survive_host_restart_and_origin_change() {
         std::fs::create_dir_all(root.join(folder)).unwrap();
     }
     std::fs::write(root.join("owner.json"), json!({"purpose":"real Host/browser persistence QA","lifetime":"remove on success; retain failure evidence"}).to_string()).unwrap();
+    crate::host_server::devtools_view_tests::stage_i18n(&project.join("public"), &root.join("public"));
     for file in [
-        "i18n.js",
         "themes.js",
         "style-theme.css",
         "design-system.css",

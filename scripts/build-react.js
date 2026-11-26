@@ -167,8 +167,14 @@ async function run() {
     // This trusted parent controller dynamically imports the compiled tool form.
     // Keep it as a runtime module so generated output never becomes bundle input.
     plugins: [{
-      name: "external-directory-resource-controller",
+      name: "shared-runtime-modules",
       setup(builder) {
+        // Legacy helpers imported by React must share the shell's locale and dictionary.
+        builder.onResolve({ filter: /i18n\.js$/ }, ({ path: specifier, resolveDir }) =>
+          path.resolve(resolveDir, specifier) === path.join(root, "public", "i18n.js")
+            ? { path: "../../i18n.js", external: true }
+            : undefined,
+        );
         // Read-only previews share the renderer already shipped with the app.
         builder.onResolve({ filter: /public\/ui\/markdown\.js$/ }, ({ importer }) =>
           path.basename(importer) === "ReadOnlyMarkdown.tsx"
