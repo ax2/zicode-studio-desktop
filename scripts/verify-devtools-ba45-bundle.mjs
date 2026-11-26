@@ -4,12 +4,12 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { verifyCatalogRevision } from "./verify-devtools-catalog-revision.mjs";
 import { verifyDevtoolsPackage } from "./verify-devtools-package.mjs";
+import { devtools9c17BundleRoot } from "./devtools-fixture-paths.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const fixtures = join(root, "tests/fixtures");
 const revisionId = "devtools-catalog-2026-10-18-ba45d264d48bf094";
-const previousBundle = join(fixtures,
-  "devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle");
+const previousBundle = devtools9c17BundleRoot(root);
 const localNew = new Map([
   ["com.zicode.devtools.agent-assist", join(fixtures,
     "devtools-view-operation-2026-10-18/agent-assist-preview-0.1.3-candidate-01")],

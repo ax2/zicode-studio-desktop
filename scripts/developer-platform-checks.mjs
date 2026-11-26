@@ -4,6 +4,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, 
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { devtools9c17BundleRoot } from "./devtools-fixture-paths.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = "src-tauri/Cargo.toml";
@@ -192,7 +193,7 @@ export const CHECKS = [
       "--", "--ignored", "--exact", "--nocapture"],
     environment: ({ cwd, env }) => ({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath(cwd, process.platform, env.CARGO_BUILD_TARGET, env.CARGO_TARGET_DIR),
-      ZICODE_TEST_INSPECT_012_DIR: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/inspect-0.1.2-candidate-01"),
+      ZICODE_TEST_INSPECT_012_DIR: join(devtools9c17BundleRoot(cwd), "release/plugin-candidates/inspect-0.1.2-candidate-01"),
       ZICODE_TEST_INSPECT_012_RECEIPT: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-ba45d264d48bf094/package-receipts/com.zicode.devtools.inspect-0.1.2-verification.json"),
     }),
   },
@@ -213,7 +214,7 @@ export const CHECKS = [
       "--", "--ignored", "--exact", "--nocapture"],
     environment: ({ cwd, directory, env }) => ({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath(cwd, process.platform, env.CARGO_BUILD_TARGET, env.CARGO_TARGET_DIR),
-      ZICODE_TEST_INSPECT_012_DIR: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/inspect-0.1.2-candidate-01"),
+      ZICODE_TEST_INSPECT_012_DIR: join(devtools9c17BundleRoot(cwd), "release/plugin-candidates/inspect-0.1.2-candidate-01"),
       ZICODE_TEST_INSPECT_012_RECEIPT: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-ba45d264d48bf094/package-receipts/com.zicode.devtools.inspect-0.1.2-verification.json"),
       ZICODE_TEST_INSPECT_012_PI_EVIDENCE_DIR: join(directory, "devtools-inspect-012"),
       ZICODE_TEST_CANDIDATE_PI_RECEIPT: join(directory, "devtools-inspect-012-pi-receipt.json"),
@@ -241,7 +242,7 @@ export const CHECKS = [
       "--", "--ignored", "--exact", "--nocapture"],
     environment: ({ cwd, directory, env }) => ({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath(cwd, process.platform, env.CARGO_BUILD_TARGET, env.CARGO_TARGET_DIR),
-      ZICODE_TEST_TEXT_041_DIR: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/text-plugin-0.4.1-candidate-02"),
+      ZICODE_TEST_TEXT_041_DIR: join(devtools9c17BundleRoot(cwd), "release/text-plugin-0.4.1-candidate-02"),
       ZICODE_TEST_TEXT_041_RECEIPT: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-ba45d264d48bf094/package-receipts/com.zicode.devtools.text-0.4.1-verification.json"),
       ZICODE_TEST_TEXT_041_PI_EVIDENCE_DIR: join(directory, "devtools-text-041"),
       ZICODE_TEST_CANDIDATE_PI_RECEIPT: join(directory, "devtools-text-041-pi-receipt.json"),
@@ -267,7 +268,7 @@ export const CHECKS = [
       "--", "--ignored", "--exact", "--nocapture"],
     environment: ({ cwd, directory, env }) => ({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath(cwd, process.platform, env.CARGO_BUILD_TARGET, env.CARGO_TARGET_DIR),
-      ZICODE_TEST_TRACE_011_DIR: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/trace-0.1.1-candidate-01"),
+      ZICODE_TEST_TRACE_011_DIR: join(devtools9c17BundleRoot(cwd), "release/plugin-candidates/trace-0.1.1-candidate-01"),
       ZICODE_TEST_TRACE_011_RECEIPT: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-ba45d264d48bf094/package-receipts/com.zicode.devtools.trace-0.1.1-verification.json"),
       ZICODE_TEST_TRACE_011_PI_EVIDENCE_DIR: join(directory, "devtools-trace-011"),
       ZICODE_TEST_CANDIDATE_PI_RECEIPT: join(directory, "devtools-trace-011-pi-receipt.json"),
@@ -293,7 +294,7 @@ export const CHECKS = [
       "--", "--ignored", "--exact", "--nocapture"],
     environment: ({ cwd, directory, env }) => ({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath(cwd, process.platform, env.CARGO_BUILD_TARGET, env.CARGO_TARGET_DIR),
-      ZICODE_TEST_TRANSFORMS_011_DIR: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/transforms-0.1.1-candidate-01"),
+      ZICODE_TEST_TRANSFORMS_011_DIR: join(devtools9c17BundleRoot(cwd), "release/plugin-candidates/transforms-0.1.1-candidate-01"),
       ZICODE_TEST_TRANSFORMS_011_RECEIPT: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-ba45d264d48bf094/package-receipts/com.zicode.devtools.transforms-0.1.1-verification.json"),
       ZICODE_TEST_TRANSFORMS_011_PI_EVIDENCE_DIR: join(directory, "devtools-transforms-011"),
       ZICODE_TEST_CANDIDATE_PI_RECEIPT: join(directory, "devtools-transforms-011-pi-receipt.json"),
@@ -319,8 +320,8 @@ export const CHECKS = [
       "--", "--ignored", "--exact", "--nocapture"],
     environment: ({ cwd, directory, env }) => ({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath(cwd, process.platform, env.CARGO_BUILD_TARGET, env.CARGO_TARGET_DIR),
-      ZICODE_TEST_JSON_DIR: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03"),
-      ZICODE_TEST_JSON_RECEIPT: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
+      ZICODE_TEST_JSON_DIR: join(devtools9c17BundleRoot(cwd), "release/plugin-candidates/json-object-0.1.1-candidate-03"),
+      ZICODE_TEST_JSON_RECEIPT: join(devtools9c17BundleRoot(cwd), "release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
       ZICODE_TEST_JSON_HOST_RECEIPT: join(directory, "devtools-json-host-receipt.json"),
     }),
   },
@@ -346,8 +347,8 @@ export const CHECKS = [
       "--", "--ignored", "--exact", "--nocapture"],
     environment: ({ cwd, directory, env }) => ({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath(cwd, process.platform, env.CARGO_BUILD_TARGET, env.CARGO_TARGET_DIR),
-      ZICODE_TEST_JSON_DIR: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03"),
-      ZICODE_TEST_JSON_RECEIPT: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
+      ZICODE_TEST_JSON_DIR: join(devtools9c17BundleRoot(cwd), "release/plugin-candidates/json-object-0.1.1-candidate-03"),
+      ZICODE_TEST_JSON_RECEIPT: join(devtools9c17BundleRoot(cwd), "release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
       ZICODE_TEST_JSON_PI_RECEIPT: join(directory, "devtools-json-pi-receipt.json"),
       ZICODE_TEST_PREPARED_RESOURCES: "1",
     }),

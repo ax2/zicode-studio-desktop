@@ -2,6 +2,8 @@
 
 Studio 的工具中心可以安装独立的开发插件。v0.7.1 的公开源码保存了下表九个提供方候选目录和对应的外部收据。可只取需要的包，在安装前逐文件核验。具备完整 Studio 源码的机器可直接使用现有目录，无需再下载。
 
+当前源码将这批冻结包保存在 `tests/fixtures/devtools-9c17-bundle/release/`，表中位置和包收据继续适用。已有的旧版检出也可以离线使用。下文按[固定历史提交](https://github.com/ax2/zicode-studio-desktop/tree/01b44da4fd8432a43d78f73cf5c022f3c7c56b60/tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle)取包，因此仍使用该提交中的原目录。
+
 | 插件 ID 后缀 | 版本 | 包目录（相对 release） | 核对文件数 |
 | --- | --- | --- | ---: |
 | inspect | 0.1.2 | plugin-candidates/inspect-0.1.2-candidate-01 | 616 |
