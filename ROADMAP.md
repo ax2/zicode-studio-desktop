@@ -1,110 +1,37 @@
-# Upstream Picot Roadmap
+# ZiCode Studio Desktop 路线图
 
-> Historical reference inherited from the Picot codebase. It is not the
-> ZiCode Studio Desktop delivery plan. Current product scope and status are
-> maintained in `docs/implementation-plan.md` and
-> `docs/implementation-status.md`.
+GitHub Project #4 管理实时范围、优先级和版本。本页记录 2026-11-26 评审后的产品方向、整改顺序和验收条件。正在交付的 v0.7.8、v0.7.9 会先收尾，随后分批推进整改。[GitHub Project #4](https://github.com/users/ax2/projects/4)
 
-Ideas and planned features. Nothing here is committed — just captured so it doesn't get lost.
+## 产品范围
 
----
+- 浏览器、Pi 对话、笔记和博客都是一级内置应用。浏览器阅读和采集可接续到有来源的 Pi 总结、笔记、产物与任务。博客保留独立主入口，发布编辑、Astro/Hugo 适配和 GitHub 跨机同步形成可独立使用的流程。
+- 邮箱和视觉资产中心继续作为内置工作台。邮箱以 Gmail 和阿里邮箱的真实收发和附件为主。视觉资产先验证一条真实生成到工程导出的闭环，再扩展供应商与大规模库。
+- Finance、Habits、Web Watch、ID Photo 和 ZiDevTools 长尾工具按需外部化。先核对持久资料、已有入口、权限和替代包的功能等价性，再迁移内置入口。图像、OCR、剪贴板和其他共享能力按实际依赖判断归属。远程连接和机器人独立审查运行边界及使用场景。
 
-## ✅ Done
+## 评审事实与修正
 
-### Rebrand: Pi Studio → Picot
-Renamed from Tau → Pi Studio → Picot. Own icon, README, and install scripts (`scripts/install.sh` / `install.ps1`) with one-liner install from GitHub Releases. npm publishing plan was dropped in favour of the Releases + install-script flow.
+- 主线 c60f92dd 的 Rust Host、桌面入口、插件注册表和笔记存储仍过大。仓库把 500 行作为新增逻辑前优先提取的审查线。根模块中的历史实现与内联测试都纳入清理。
+- 当前树跟踪 50 个前端编译产物。夹具目录有 9,136 个文件、约 101.6 MB，最长相对路径 220 个字符。生成产物和冻结插件证据需要各自的处理方式。保留旧标签、冻结包及原始验收回执。
+- 日常 Tests 和 Developer platform 目前手动触发。Windows 更新已检查安装包摘要并做原位升级验证。Authenticode 与 Tauri 更新签名各自需要可信签名材料和验收，Tauri 的默认 Windows 安装器可以是完整包。[Tauri 更新文档](https://v2.tauri.app/plugin/updater/)
+- 复核时有 51 个未归档的开放事项，26 个待验证、8 个缺优先级、11 个缺模块、21 个缺阶段。v0.7.3、v0.7.4 已关闭。v0.6.7 的里程碑计数显示 3，实际查询没有开放 Issue。跨版本子项应与其实际交付版本一致，一级路线图的目标标明模块基本完成时间。
 
-### Cost & Usage Dashboard
-Per-session token/cost tracking with live metrics. Full dashboard (`public/cost.js`, `cost-infobar.js`, `native/cost-dashboard.js`) with infobar stats, per-model breakdown chart, per-project breakdown, and trend view. Context window visualiser (below) is the companion per-turn view.
+## 实施顺序与验收
 
-### Quick Actions on Tool Results
-Copy-output button on every tool card. Expand All / Collapse All wired into the Command Palette (`⌘`-button → Expand All Tools / Collapse All Tools). Re-run command was dropped — not pursued.
+| 范围 | 实施与验收 |
+| --- | --- |
+| 当前交付 | 保留现有验证证据，按顺序完成 v0.7.8、v0.7.9。合并本次 Windows 系统选包、文件选择和拖放的检查。安装、升级及回退都保留用户固定资料；日常资料和账号仍由用户保管。 |
+| 持续集成 | 补充 PR 和主线的轻量 Windows 自动检查，按变更选择类型、lint、设计、测试与 Cargo 检查。必需状态应稳定出结果，按阶段退出默认 `[skip ci]`。正式打包仍由标签触发。先确认真实 PR 和主线回执，再启用必需检查。 |
+| 可复现构建 | 统一前端入口和构建流程，先让开发、测试、安装和发布统一消费生成结果，再移除 Git 中的生成物。把词典按功能拆分，保持运行时切换与覆盖检查。Windows 在普通目录从干净 clone 完成一次构建，不依赖全局长路径配置。 |
+| 夹具交付 | 区分最小回归夹具、冻结包和历史回执。大包按版本与摘要获取，支持已有缓存的离线回读。保持可复现命令、字节校验、明确报错与已有下载入口，避免重写既有公开历史。 |
+| Rust 模块与性能 | 先迁移窗口状态与本地成本统计等低耦合边界。再分组 Host 路由、桌面命令、插件注册、笔记存储与同步、HTTP 插件和前端笔记组件。权限一致性自动核对。全局死代码豁免按模块清理。用同源 Windows 样本对照当前配置与 Thin LTO，核对冷暖构建时间、体积、启动及安装升级。以依赖和编译数据决定各内部 crate 的落点。 |
+| 产品与真实验收 | 浏览器和 AI、邮箱与笔记同步、视觉资产按现有版本方向验收。每条人工事项注明设备、账号或服务条件，合并桌面检查。博客保持一级内置应用，独立验证导航、Astro/Hugo、双机同步与冲突反馈。外部工具迁移先证明版本、权限和数据兼容。 |
+| 发布信任 | 明确 Windows 签名来源及审批，校验下载和执行前的文件签名、时间戳与摘要。迁移 Tauri 签名更新时验证签名损坏、未知密钥、升级回退和当前用户资料保护。签名私钥由受控签名环境保管。 |
+| 项目与文档 | 每个开放 Issue 补齐阶段、模块、优先级和负责人，证据写在 Issue 中。P0 用于确凿的发布阻断。保留至少五个编号候选视图，压缩同时执行的范围。一般已发布版本的工作关闭或转到承接的编号版本。历史文档保留，当前入口统一到 [文档索引](docs/index.md)。 |
 
-### Command Palette
-`⌘`-button opens a command palette (`native/command-palette.js`) with Compact, Expand/Collapse All Tools, Settings, and Help. Extensible via `commandCatalog`.
+## 参考
 
-### Conversation Turn Navigator
-Codex-style dot rail (`ui/conv-nav.js`) alongside the chat — one dot per turn, hover shows a preview, click jumps to that point in the conversation.
-
-### Agent Inbox (bundled multi-agent dispatch)
-Ships as part of Picot, not a separate extension. Telegram bot integration (`components/chat-settings-panel.js`) routes incoming messages into a pinned "Agent Inbox" session; tasks can be dispatched to any open project's agent (`super-agent/dispatch.js`, `super-agent/task-state.js`) with a resizable task panel (pending/running/done, `components/super-agent-runtime.js`). Currently in Beta — see settings tab badge.
-
-### PWA / Install to Home Screen
-Service worker, manifest, custom icons. Installable on iOS/Android/macOS as a standalone app.
-
-### Full-Text Session Search
-Search across all historical sessions by message content, not just titles. Debounced API search with highlighted snippets in the sidebar.
-
-### Context Window Visualiser
-Click the token usage pill to see a breakdown of cached tokens, fresh input, and available space. Stacked bar with legend.
-
-### File Browser
-Right sidebar with lazy-loaded file tree. Navigate directories, double-click to open files natively (macOS `open`), drag files onto the input to insert their path. Filters out `node_modules`, `.git`, etc.
-
-### Custom Model Picker
-Styled dropdown with search/filter, keyboard support, frosted glass menu. Replaces native `<select>`.
-
-### Compaction Support
-Manual compact command broadcasts start/end events to Picot. Shows compaction status in the conversation.
-
-### Voice Input
-Mic button inside the input bubble. Uses Web Speech API (on-device dictation). Live transcription into the textarea. Pulses red while recording. Hidden if browser doesn't support it.
-
-### Diff Viewer
-Edit tool cards render a proper inline diff with red/green lines instead of raw JSON args. Works for both live and history cards.
-
-### Message Queuing
-Input stays enabled while the agent is working. Queued messages appear as pills above the input with cancel buttons. Auto-sends in order when the agent finishes. Just like the TUI.
-
-### Image Previews in Chat
-Sent images now display inline in user message bubbles. Works for both new messages and session history.
-
-### Six Themes
-Dusk (clean neutral dark, default), Dawn (warm blue dark), Midnight (OLED black), Clean (Apple-style light with cyan-blue accents), Terracotta (warm light), Sage (warm olive-green light). Theme picker shows colour palette dots. All shadows flattened — no more clay.
-
-### Frosted Header & Footer
-Both header and input area are `position: absolute` with `backdrop-filter: blur(40px) saturate(1.5)`. Messages scroll behind both for the frosted glass effect.
-
-### Settings Panel
-Theme picker, auto-compaction toggle, thinking level, show/hide thinking blocks, push notification toggle.
-
----
-
-## 🔨 In Progress
-
-### Conversation Fork/Branch Visualisation
-Partially there: a per-message "fork" button already forks a new session from any point (`ui/message-renderer.js` → `messagefork` event → RPC `fork`), and `native/session-tree.js` has a working `get_tree` / `navigate` client against Pi's tree RPC. Still missing: an actual visual tree UI — the `tree` command-catalog builtin currently just dispatches a `picot:open-tree` event with no listener wired up yet.
-
----
-
-## 🔜 Low-Hanging Fruit
-
-_(nothing queued right now — see Bigger Ideas below)_
-
----
-
-## 🔮 Bigger Ideas
-
-### File Preview Panel
-Context-aware split pane that displays files the agent is working on.
-
-- Code → syntax highlighted viewer (Monaco/CodeMirror)
-- Images → preview (PNG, SVG, generated images)
-- HTML → live iframe preview, hot reloads as agent edits
-- Markdown → rendered preview
-
-Desktop: button collapses sidebar and shrinks conversation to narrow feed, preview panel takes 60-70%. Mobile: tap a file reference to open full-screen preview.
-
-Builds on the file browser — could auto-show preview when a file gets edited.
-
-### Session Templates
-Start a new session pre-loaded with context for a specific project. Each with its own CLAUDE.md, working directory, and maybe a starter prompt.
-
-### Multi-Model A/B Testing
-Send the same prompt to two models side by side and compare responses. Split view with both responses streaming.
-
-### Live Terminal Embed
-Embedded terminal panel (xterm.js) showing real-time bash output from Pi's tool executions. Would need pi-core to expose a PTY stream through the extension API — currently bash tool runs one-shot commands, not a persistent shell. Read-only output display is possible now but limited value over existing tool cards.
-
-### memoryd Dashboard
-Standalone viewer for memoryd memory files. Was previously built into Picot, stripped out to keep the core lean. The viewer code is saved at `~/Desktop/memoryd-viewer/`. Now being integrated into the native macOS memoryd menu bar app.
+- [项目执行和验收规则](docs/agents/project-management.md)
+- [构建耗时对照 #549](https://github.com/ax2/zicode-studio-desktop/issues/549)
+- [博客既有交付 #276](https://github.com/ax2/zicode-studio-desktop/issues/276)
+- [现有模块拆分计划](docs/MODULE_SPLIT_PLAN.md)
+- [历史 Picot 路线图](https://github.com/ax2/zicode-studio-desktop/blob/c60f92ddb6ff32f78c57fb3564add4f72c57d20b/ROADMAP.md)
