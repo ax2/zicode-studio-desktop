@@ -125,6 +125,49 @@ it("retains errors and permits retry/cancel after a rejected save", async () => 
   getByRole(dialog, "button", { name: t("Cancel download") }).click(); await tick();
   expect(calls).toContainEqual({ kind: "downloadCancel", id: "two" });
 });
+
+it.each([true, false])("shows an action error only when its download remains in the search (visible: %s)", async visible => {
+  let fail;
+  const calls = [];
+  const records = [
+    { ...item("first", "failed", 25), name: "shared.txt", canResume: false },
+    { ...item("replacement", "waiting", 60), name: "shared.txt" },
+    { ...item("unrelated"), name: "different.txt", url: "https://example.org/unrelated" },
+  ];
+  const invoke = async (_, { request }) => {
+    if (request.kind === "downloads") {
+      return page(records.filter(record => record.name.includes(request.query ?? "")));
+    }
+    calls.push(request);
+    if (calls.length === 1) return new Promise((_, reject) => { fail = reject; });
+    return null;
+  };
+  const dialog = showBrowserDownloads({ invoke });
+  await tick();
+  const row = id => dialog.querySelector(`[data-download-id="${id}"]`);
+  const choose = () => getByRole(row("replacement"), "button", { name: t("Choose save location") });
+  choose().click();
+  const search = getByRole(dialog, "searchbox");
+  const searchFor = query => {
+    search.value = query;
+    search.focus();
+    search.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  };
+  searchFor(visible ? "shared" : "different");
+  fail(Error("Download file picker unavailable"));
+  await tick();
+
+  expect(getByRole(dialog, "status").textContent).toBe(visible ? t("Download file picker unavailable") : "");
+  expect(document.activeElement).toBe(search);
+  expect(Boolean(row("replacement"))).toBe(visible);
+  expect(calls).toEqual([{ kind: "downloadChoose", id: "replacement" }]);
+
+  if (!visible) { searchFor("shared"); await tick(); }
+  choose().click();
+  await tick();
+  expect(calls).toEqual([{ kind: "downloadChoose", id: "replacement" }, { kind: "downloadChoose", id: "replacement" }]);
+  expect(row("first").textContent).toContain(t("Download failed"));
+});
 it("serializes polling, ignores late responses after close and stops polling", async () => {
   let resolve; const invoke = vi.fn(() => new Promise(done => { resolve = done; }));
   const onClose = vi.fn(); const dialog = showBrowserDownloads({ invoke, onClose });
