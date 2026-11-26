@@ -1,5 +1,9 @@
 # 下一版本发布要求
 
+## v0.7.7 视觉资产与 Windows 发布可靠性
+
+优先交付本机已验收的游戏素材、图集、GIF 恢复和图库交互。将已合入的 Windows 发布修复 #554、#583、#591 纳入候选并核对实际包含范围。模型与真实供应商验收、Unity 适配由 v0.8.2 承接。见[发布单 #746](https://github.com/ax2/zicode-studio-desktop/issues/746)和[发行说明](v0.7.7.md)。
+
 ## v0.7.6 邮箱与 Windows 升级验收
 
 v0.7.6 以邮箱为主，见[发行说明](v0.7.6.md)、[Issue 清单](v0.7.6.issues.json)和[发布与邮箱验收 #739](https://github.com/ax2/zicode-studio-desktop/issues/739)。准备本机候选和发行范围。v0.7.5 公开后，用其正式 Windows 安装包验证原位升级。
