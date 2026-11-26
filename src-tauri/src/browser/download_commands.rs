@@ -26,8 +26,9 @@ pub async fn list(window: WebviewWindow, before: Option<i64>, query: Option<Stri
         return Err("Download search is too long".into());
     }
     let query = query.map(str::to_ascii_lowercase);
-    let live = live(window.clone(), Request::DownloadLive).await?;
+    // Read history before the live snapshot so a new operation cannot look like a lost one.
     let mut page = super::download_journal::list(window.label().into(), before, query.clone()).await?;
+    let live = live(window.clone(), Request::DownloadLive).await?;
     merge_history(&mut page, &live, before, query.as_deref())?;
     page["directory"] = json!(window.app_handle().path().download_dir().map_err(|e| e.to_string())?);
     Ok(page)
