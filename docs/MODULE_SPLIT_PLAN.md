@@ -7,28 +7,21 @@ files that are easier for humans and agents to navigate.
 
 ## Current large-file inventory
 
-Generated with source-only paths, excluding generated/dependency/worktree artifacts:
+Run this from the repository root in PowerShell to find the largest tracked Rust, frontend, shell, and extension sources in the current checkout. The report includes their tests. It skips packaged vendors and generated output. The previous table was a July snapshot and is available in this file's history.
 
-| Lines | File | Primary concern |
-| ---: | --- | --- |
-| 2644 | `public/style.css` | Global reset, layout, many feature styles |
-| 1636 | `src-tauri/src/host_data.rs` | Host data API, filesystem/session/workspace queries |
-| 1435 | `src-tauri/src/host_server.rs` | HTTP/WebSocket server, routing, protocol dispatch |
-| 1430 | `public/index.html` | App shell plus all modal/settings/composer markup |
-| 1195 | `extensions/chat-inbox/extension-entry.ts` | Pi chat extension command/event implementation |
-| 1089 | `public/native/app.js` | Native app bootstrap and orchestration |
-| 976 | `public/native/session-sidebar.js` | Session grouping, persistence, rendering, interactions |
-| 836 | `src-tauri/src/main.rs` | Tauri setup, commands, lifecycle wiring |
-| 735 | `public/native/cost-dashboard-render.js` | Cost dashboard rendering |
-| 700 | `src-tauri/src/native_pi_manager.rs` | Pi subprocess lifecycle and RPC supervision |
-| 672 | `public/native/settings-config.js` | Settings config UI/data binding |
-| 653 | `public/components/super-agent-runtime.js` | Super-agent runtime component |
-| 599 | `public/native/session-sidebar.css` | Session sidebar styles |
-| 564 | `public/native/cost-dashboard.css` | Cost dashboard styles |
-| 559 | `public/components/super-agent-runtime.test.js` | Super-agent runtime tests |
-| 546 | `src-tauri/src/pi_launch.rs` | Bundled Pi path/launch resolution |
-| 545 | `public/ui/message-renderer.js` | Chat message rendering |
-| 509 | `public/native/session-sidebar.test.js` | Sidebar tests |
+```powershell
+$roots = @('src-tauri/src', 'frontend/src', 'public', 'extensions')
+git ls-files -- $roots | Where-Object {
+    $_ -match '\.(rs|tsx?|[cm]?js|jsx|css|html)$' -and
+    $_ -notmatch '^(public/(native/react/|vendor/|style\.bundle\.css$)|extensions/dist/)'
+} | ForEach-Object {
+    if ([IO.File]::Exists($_)) {
+        [PSCustomObject]@{ Lines = [IO.File]::ReadAllLines($_).Length; Path = $_ }
+    }
+} | Where-Object Lines -gt 500 | Sort-Object -Property @{Expression='Lines';Descending=$true},Path
+```
+
+At `c60f92dd`, 70 of 703 Rust source files exceeded 500 lines. The Host server root contained 9,343 lines, including 2,174 lines of inline tests. The number helps prioritize a review. Choose an extraction by behavior, callers, and validation cost. The first two extractions are tracked in [#777](https://github.com/ax2/zicode-studio-desktop/issues/777). Router, command, registry, storage, test and lint boundaries are tracked in [#778](https://github.com/ax2/zicode-studio-desktop/issues/778). Compare actual product builds in [#549](https://github.com/ax2/zicode-studio-desktop/issues/549) before changing the release profile or introducing internal crates.
 
 ## Success criteria
 
