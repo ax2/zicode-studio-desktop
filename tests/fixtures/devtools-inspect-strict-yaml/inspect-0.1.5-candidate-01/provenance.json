@@ -1,0 +1,12 @@
+{
+  "packageId": "com.zicode.devtools.inspect",
+  "packageVersion": "0.1.5",
+  "sourceRevision": "b06cbfc7a5e8a961d0d53a28eef12ae9b9cb1c38",
+  "baseCandidate": "inspect-0.1.4-candidate-02",
+  "baseRuntimeSha256": "87eac509ffefdd8f4ba45a226afff3ecc24934618fc12b59bf2b03574448087f",
+  "baseIndexSha256": "ad2349420097697c2b4c14fab5c1a0a97eb67382e87fcbf4569fa0d8f57c7d9e",
+  "runtimeWasmSha256": "c9737a4b58d0b5bd54ac4965ca39be43ff0521037d5b97a516ba766acac5fa59",
+  "viewSha256": "e4452c341d0351517b8342a68b65307fb4e358c33a1e8d57f8d2bb9ac360396d",
+  "signature": null,
+  "proof": "Windows production Worker; Studio installation acceptance is a separate step"
+}

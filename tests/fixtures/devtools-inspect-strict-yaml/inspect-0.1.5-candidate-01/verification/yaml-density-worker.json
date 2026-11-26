@@ -1,0 +1,61 @@
+{
+  "wasm": "c9737a4b58d0b5bd54ac4965ca39be43ff0521037d5b97a516ba766acac5fa59",
+  "worker": "1bf0adf0d8e3e8874eca61258ef133de9875dac87c0cbd76a83a45a2d7f2f1a3",
+  "results": [
+    {
+      "id": "dense-sequence-8192",
+      "sourceBytes": 8192,
+      "requestSha256": "c100641dfaa934da0e8b00f6fdec14c1e0325c9c2d8a00d065a99b2ae23fec79",
+      "exit": 0,
+      "ok": true,
+      "resultOk": true,
+      "error": null,
+      "resultBytes": 10802,
+      "resultSha256": "5d4cbfbc21a327d7e83b360279da900f70a17b83bb066e4df60cfd1f53bd7d9d"
+    },
+    {
+      "id": "dense-mapping-8192",
+      "sourceBytes": 8192,
+      "requestSha256": "8dbb48834d9bc2d2da489cdb3690748c4a1b529780aad328231cf87fdacae170",
+      "exit": 0,
+      "ok": true,
+      "resultOk": true,
+      "error": null,
+      "resultBytes": 10432,
+      "resultSha256": "1bd0f0a0b98cd5d33f0cf92277078d8e2a55095ee253717f5e6b445b9dc83dfb"
+    },
+    {
+      "id": "minified-integers-8192",
+      "sourceBytes": 8192,
+      "requestSha256": "b0f0ad88bb3fda874b157944ef36a4b3b76416269cd13ae148aa68dba7282f1b",
+      "exit": 0,
+      "ok": true,
+      "resultOk": true,
+      "error": null,
+      "resultBytes": 20477,
+      "resultSha256": "7b0e4762f3f89faecc6d99cd169ec5e39ce072f2d947f0f04d4fed82611125f2"
+    },
+    {
+      "id": "control-floats-8192",
+      "sourceBytes": 8192,
+      "requestSha256": "718b76d59f751d6b590719cc2720cc50ab7a6dc1801bfe0a7d4c947ba3b8dce9",
+      "exit": 0,
+      "ok": true,
+      "resultOk": true,
+      "error": null,
+      "resultBytes": 3242,
+      "resultSha256": "13df3b0019d8e39535d9d5f69b2e516c2b464807a793e72c9922fb2ca5dbf79f"
+    },
+    {
+      "id": "control-ints-8192",
+      "sourceBytes": 8192,
+      "requestSha256": "1d3fdbb651d95d1d6a4343eaecc3b76beef8867592722028d3b66b8e1168717c",
+      "exit": 0,
+      "ok": true,
+      "resultOk": true,
+      "error": null,
+      "resultBytes": 7922,
+      "resultSha256": "641aeb8a45aa3d280c8601da5442c5582ed4c3e6221ede766e538a4bbc8ef8ee"
+    }
+  ]
+}
