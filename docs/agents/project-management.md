@@ -18,6 +18,8 @@ gh api repos/ax2/zicode-studio-desktop/issues/<number>/dependencies/blocked_by
 
 连续工作每 30 分钟重新读取。Project 暂不可用时，继续已确认、无需依赖最新状态的工作。取得最新状态后再选择新事项或发布。所有复核随主动工作进行。
 
+现有只读报告的 `planningFields` 列出两类遗漏。仓库的每个 Issue（包括已关闭项）应有与内容相符的 `type:*` 标签。已纳入项目且仍开放的 Issue 应填写状态、优先级、模块、阶段及负责会话。用简短的实际会话名称标明负责人，具体验收结果记录在原 Issue。需要检查这些字段时可运行 `bun scripts/project-status.mjs --check-planning-fields`，发现遗漏会返回非零状态。现有里程碑检查仍可单独运行。
+
 ## 决策与同步
 
 1. 用户最新正文/评论、优先级、依赖与版本范围优先于本地旧计划。有冲突先保持数据安全并澄清，不能擅自覆盖用户调整。
