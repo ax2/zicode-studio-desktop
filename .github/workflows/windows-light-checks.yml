@@ -1,0 +1,66 @@
+name: Windows lightweight checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-light-checks-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Windows lightweight checks
+    runs-on: windows-2022
+    timeout-minutes: 35
+    env:
+      CHECK_PLAN: ${{ runner.temp }}/zicode-windows-light-checks.json
+    steps:
+      - name: Enable Windows long paths
+        shell: pwsh
+        run: git config --global core.longpaths true
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Select applicable checks
+        id: plan
+        shell: pwsh
+        run: node scripts/windows-light-checks.mjs plan "$env:CHECK_PLAN"
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.plan.outputs.bun_checks == 'true'
+        with:
+          bun-version: 1.3.14
+
+      - name: Install frontend dependencies once
+        if: steps.plan.outputs.dependencies == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Run selected source checks and tests
+        shell: pwsh
+        run: node scripts/windows-light-checks.mjs check "$env:CHECK_PLAN"
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.plan.outputs.rust == 'true'
+
+      - name: Check Rust on Windows
+        if: steps.plan.outputs.rust == 'true'
+        shell: pwsh
+        run: |
+          # The repository-local development mirror is not used by hosted Windows.
+          git sparse-checkout set --no-cone '/*' '!/.cargo/config.toml'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo check --locked --manifest-path src-tauri/Cargo.toml --all-targets
