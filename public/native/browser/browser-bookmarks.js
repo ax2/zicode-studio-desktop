@@ -3,7 +3,7 @@ import { createBookmarkTransfer } from "./browser-bookmark-transfer.js";
 import { t } from "../../i18n.js";
 import { closeOnSearchEscape } from "./browser-manager-keyboard.js";
 import { createBackgroundOpenButton } from "./browser-background-open.js";
-import { createBookmarkFolderIndex, folderOptions, removeBookmarkFolder } from "./browser-bookmarks-data.js";
+import { createBookmarkFolderIndex, folderOptions, nextBookmarkPosition, orderBookmarkRows, removeBookmarkFolder } from "./browser-bookmarks-data.js";
 
 export function showBrowserBookmarks({ invoke, current, editCurrent = false, editShortcut = false, onOpen, onClose }) {
   let library = { revision: 0, folders: [], bookmarks: [] }, editing = null, filter = "*", query = "", busy = false;
@@ -42,7 +42,7 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
     library = await request({ kind: "save", expectedRevision: library.revision, folders, bookmarks });
     editing = null; render(); message.textContent = t("Bookmarks saved");
   };
-  const transfer = createBookmarkTransfer({ invoke, getLibrary: () => library, save, isOpen: () => dialog.isConnected, run, report: text => { message.textContent = text; } });
+  const transfer = createBookmarkTransfer({ invoke, getLibrary: () => library, save, isOpen: () => dialog.open, run, report: text => { message.textContent = text; } });
   const newBookmark = () => ({ kind: "bookmark", id: null, title: "", url: "https://", folderId: filter === "*" ? null : filter || null });
   const beginCurrent = (shortcut = false) => {
     if (!current) return;
@@ -94,7 +94,13 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
       event.preventDefault(); if (!form.reportValidity()) return;
       void run(async () => {
         const id = draft.id ?? crypto.randomUUID();
-        const item = isFolder ? { id, title: title.value.trim(), parentId: parent.value || null } : { id, title: title.value.trim(), url: url.value.trim(), folderId: parent.value || null, ...(shortcut.checked ? { shortcut: true } : {}) };
+        const parentId = parent.value || null;
+        const previousParent = isFolder ? draft.parentId : draft.folderId;
+        const position = draft.id && previousParent === parentId ? draft.position : nextBookmarkPosition(library, parentId);
+        const placement = position === undefined ? {} : { position };
+        const item = isFolder
+          ? { id, title: title.value.trim(), parentId, ...placement }
+          : { id, title: title.value.trim(), url: url.value.trim(), folderId: parentId, ...placement, ...(shortcut.checked ? { shortcut: true } : {}) };
         const list = isFolder ? library.folders : library.bookmarks;
         const next = draft.id ? list.map(old => old.id === id ? item : old) : [...list, item];
         await save(isFolder ? next : library.folders, isFolder ? library.bookmarks : next);
@@ -164,6 +170,7 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
       const showLocation = filter === "*" || term.length > 0;
       const inView = parent => filter === "*" || (parent ?? "") === filter ||
         Boolean(term && (filter === "" || index.path(parent).some(folder => folder.id === filter)));
+      const rows = [];
       for (const folder of library.folders.filter(f => inView(f.parentId) && f.title.toLocaleLowerCase().includes(term))) {
         const row = el("div", "browser-bookmark-row"); row.setAttribute("role", "listitem"); row.dataset.folderId = folder.id;
         const name = folderButton(folder.id, folder.title, "ui-button ui-button--secondary");
@@ -171,7 +178,7 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
         const edit = button("Edit", () => beginEdit({ kind: "folder", ...folder })); edit.setAttribute("aria-label", `${t("Edit folder")}: ${folder.title}`);
         const details = el("div", "browser-bookmark-details"); details.append(name);
         if (showLocation) details.append(locationLabel(folder.parentId));
-        row.append(details, edit); list.append(row);
+        row.append(details, edit); rows.push({ row, position: folder.position });
       }
       for (const bookmark of library.bookmarks.filter(b => inView(b.folderId) && `${b.title} ${b.url}`.toLocaleLowerCase().includes(term))) {
         const row = el("div", "browser-bookmark-row"); row.setAttribute("role", "listitem"); row.dataset.bookmarkId = bookmark.id;
@@ -182,14 +189,20 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
         const edit = button("Edit", () => beginEdit({ kind: "bookmark", ...bookmark })); edit.setAttribute("aria-label", `${t("Edit bookmark")}: ${bookmark.title}`);
         const actions = el("div", "ui-toolbar");
         actions.append(createBackgroundOpenButton(bookmark, { onOpen, run, message }), edit);
-        row.append(details, actions); list.append(row);
+        row.append(details, actions); rows.push({ row, position: bookmark.position });
       }
+      // Positions are relative to a single folder, not a flat search across the library.
+      if (!showLocation) rows.sort(orderBookmarkRows);
+      list.append(...rows.map(entry => entry.row));
       if (!list.childElementCount) list.append(el("p", "", t("No bookmarks in this view")));
     }
     search.addEventListener("input", () => { query = search.value; renderList(); });
     folders.addEventListener("change", () => { filter = folders.value; renderLocation(); renderList(); });
     content.replaceChildren(toolbar);
-    if (!editing) content.append(transfer.preview);
+    if (!editing) {
+      transfer.refresh();
+      content.append(transfer.limits, transfer.preview);
+    }
     const editor = renderEditor();
     guard.track(editor);
     if (editor) content.append(editor);

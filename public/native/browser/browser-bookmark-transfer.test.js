@@ -35,3 +35,42 @@ it("exports the displayed library revision and reports completion only after nat
   const f = fixture(); f.invoke.mockResolvedValueOnce({ name: "bookmarks.html" });f.transfer.buttons[1].click();
   await waitFor(() => expect(f.report).toHaveBeenCalledOnce());expect(f.invoke).toHaveBeenCalledWith("browser_bookmark_file", { request: { kind: "export", expectedRevision: 7 } });expect(f.save).not.toHaveBeenCalled();
 });
+
+it("counts normalized duplicates before confirmation and retains each entry", async () => {
+  const f = fixture();
+  f.imported.bookmarks.push(
+    { id: "old-again", title: "Same as saved", url: "https://EXISTING.org:443", folderId: null, position: 0 },
+    { id: "repeat", title: "Same as first in file", url: "https://example.org", folderId: "imported", position: 1 },
+  );
+  f.transfer.buttons[0].click();
+  await waitFor(() => expect(f.transfer.preview.hidden).toBe(false));
+  expect(f.transfer.limits.textContent).toContain("32 MiB");
+  expect(f.transfer.preview.textContent).toContain(t("Duplicate links to keep: {count}.").replace("{count}", "2"));
+  expect(f.save).not.toHaveBeenCalled();
+
+  const localBookmark = { id: "added", title: "Another saved copy", url: "https://example.org/", folderId: null };
+  f.library.bookmarks.push(localBookmark);
+  f.library.revision++;
+  const confirm = getByRole(f.transfer.preview, "button", { name: t("Import bookmarks") });
+  confirm.click();
+  await waitFor(() => expect(f.report).toHaveBeenCalledWith(t("Bookmarks changed. Review the updated counts before importing.")));
+  expect(f.save).not.toHaveBeenCalled();
+  expect(f.transfer.preview.textContent).toContain(t("Duplicate links to keep: {count}.").replace("{count}", "3"));
+  confirm.click();
+  await waitFor(() => expect(f.save).toHaveBeenCalledOnce());
+  const [, bookmarks] = f.save.mock.calls[0];
+  expect(bookmarks.map(({ id }) => id)).toEqual(["old", "added", "new", "old-again", "repeat"]);
+  expect(bookmarks[1]).toEqual(localBookmark);
+  expect(bookmarks[3]).toMatchObject({ position: 0, url: "https://EXISTING.org:443" });
+});
+
+it("clears a previous preview before choosing a replacement and never saves a bad file", async () => {
+  const f = fixture();
+  f.transfer.buttons[0].click();
+  await waitFor(() => expect(f.transfer.preview.hidden).toBe(false));
+  f.invoke.mockRejectedValueOnce(Error("Choose a bookmarks HTML file"));
+  f.transfer.buttons[0].click();
+  await waitFor(() => expect(f.report).toHaveBeenCalledWith("Choose a bookmarks HTML file"));
+  expect(f.transfer.preview.hidden).toBe(true);
+  expect(f.save).not.toHaveBeenCalled();
+});
