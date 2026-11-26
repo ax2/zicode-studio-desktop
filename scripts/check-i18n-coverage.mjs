@@ -5,8 +5,11 @@
 //
 // Usage:
 //   node scripts/check-i18n-coverage.mjs [--max=N]
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
+import { domains, zhCN } from "../public/locales/zh-CN/index.js";
+import { dictionaryErrors } from "./i18n-dictionary-errors.mjs";
 
 const ROOT = process.cwd();
 const MAX_REPORT = Number(
@@ -38,30 +41,6 @@ function walk(dir, out = []) {
   return out;
 }
 
-function dictionaryKeys() {
-  const source = readFileSync(join(ROOT, "public/i18n.js"), "utf8");
-  const keys = new Set();
-  const re = /^[ ]*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[\w-]+):/gm;
-  for (const match of source.matchAll(re)) {
-    keys.add(unquoteKey(match[1]).trim().replace(/\s+/g, " "));
-  }
-  return keys;
-}
-
-function unquoteKey(key) {
-  if (key.startsWith('"')) {
-    try {
-      return JSON.parse(key);
-    } catch {
-      return key.slice(1, -1);
-    }
-  }
-  if (key.startsWith("'")) {
-    return key.slice(1, -1).replace(/\\(['\\])/g, "$1");
-  }
-  return key;
-}
-
 function tKeys(source) {
   const keys = new Set();
   const re = /\b(?:t|l|i|n|s|a)\s*\(\s*("(?:\\.|[^"\\])*")\s*\)/g;
@@ -75,7 +54,7 @@ function tKeys(source) {
   return keys;
 }
 
-const dict = dictionaryKeys();
+const dict = new Set(Object.keys(zhCN));
 const missing = new Map();
 const roots = [
   join(ROOT, "frontend/src"),
@@ -103,18 +82,6 @@ if (sorted.length > MAX_REPORT) {
   console.log(`... and ${sorted.length - MAX_REPORT} more`);
 }
 
-// Placeholder entries ("Foo": "Foo") render English even though they have a
-// dictionary row, so flag them as untranslated too.
-const source = readFileSync(join(ROOT, "public/i18n.js"), "utf8");
-const identity = [];
-const entryRe = /^[ ]*(("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[\w-]+))\s*:\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')\s*,?$/gm;
-for (const match of source.matchAll(entryRe)) {
-  const key = unquoteKey(match[1]).trim();
-  const value = unquoteKey(match[3]).trim();
-  if (key === value) identity.push(key);
-}
-if (identity.length > 0) {
-  console.log(`untranslated placeholder entries: ${identity.length}`);
-  for (const key of identity.slice(0, MAX_REPORT)) console.log(`- ${key}`);
-}
-process.exitCode = sorted.length === 0 && identity.length === 0 ? 0 : 1;
+const errors = dictionaryErrors(domains);
+for (const error of errors) console.error(error);
+process.exitCode = sorted.length || errors.length ? 1 : 0;

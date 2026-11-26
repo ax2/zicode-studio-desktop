@@ -61,6 +61,9 @@ export function classify(paths) {
       const featureName = basename(file, ".js").replace(/-([a-z])/g, (_, part) => part.toUpperCase());
       vitest.add(`frontend/src/features/${featureName}/`);
       for (const test of shellTests) vitest.add(test);
+    } else if (file.startsWith("public/locales/") || file === "scripts/i18n-dictionary-errors.mjs") {
+      vitest.add("public/i18n");
+      nodeTests.add("scripts/i18n-dictionary-errors.test.mjs");
     } else if (file === "public/i18n.js" || file === "public/themes.js" || /^public\/[^/]+\.(?:css|html)$/.test(file)) {
       for (const test of shellTests) vitest.add(test);
     } else if (/^public\/native\/[^/]+\.js$/.test(file)) {
