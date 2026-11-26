@@ -169,9 +169,9 @@ async function run() {
     plugins: [{
       name: "external-directory-resource-controller",
       setup(builder) {
-        // Settings loads release notes through the renderer already shipped with the app.
+        // Read-only previews share the renderer already shipped with the app.
         builder.onResolve({ filter: /public\/ui\/markdown\.js$/ }, ({ importer }) =>
-          path.basename(importer) === "ReleaseNotes.tsx"
+          path.basename(importer) === "ReadOnlyMarkdown.tsx"
             ? { path: "../../ui/markdown.js", external: true }
             : undefined,
         );
