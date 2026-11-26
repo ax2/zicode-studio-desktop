@@ -28,11 +28,36 @@ export function folderOptions(folders, excludedId = null) {
     return [{ id: folder.id, title: path.map(item => item.title).join(" / ") }];
   }).sort((a, b) => a.title.localeCompare(b.title));
 }
+export function orderBookmarkRows(left, right) {
+  return (left.position ?? -1) - (right.position ?? -1);
+}
+
+export function nextBookmarkPosition(library, parentId) {
+  let position = 0;
+  for (const folder of library.folders) {
+    if (folder.parentId === parentId) position = Math.max(position, (folder.position ?? -1) + 1);
+  }
+  for (const bookmark of library.bookmarks) {
+    if (bookmark.folderId === parentId) position = Math.max(position, (bookmark.position ?? -1) + 1);
+  }
+  return position;
+}
+
 export function removeBookmarkFolder(library, id) {
   const folder = library.folders.find(entry => entry.id === id);
   if (!folder) throw Error("Bookmark folder is unavailable");
+  const moved = [
+    ...library.folders.filter(entry => entry.parentId === id),
+    ...library.bookmarks.filter(entry => entry.folderId === id),
+  ].sort(orderBookmarkRows);
+  const first = nextBookmarkPosition(library, folder.parentId);
+  const positions = new Map(moved.map((entry, index) => [entry.id, first + index]));
   return {
-    folders: library.folders.filter(entry => entry.id !== id).map(entry => entry.parentId === id ? { ...entry, parentId: folder.parentId } : entry),
-    bookmarks: library.bookmarks.map(entry => entry.folderId === id ? { ...entry, folderId: folder.parentId } : entry),
+    folders: library.folders.filter(entry => entry.id !== id).map(entry => (
+      entry.parentId === id ? { ...entry, parentId: folder.parentId, position: positions.get(entry.id) } : entry
+    )),
+    bookmarks: library.bookmarks.map(entry => (
+      entry.folderId === id ? { ...entry, folderId: folder.parentId, position: positions.get(entry.id) } : entry
+    )),
   };
 }

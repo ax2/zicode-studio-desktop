@@ -124,6 +124,9 @@ impl Store {
         tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_user_agents(profile TEXT PRIMARY KEY, value TEXT NOT NULL);").map_err(|e| e.to_string())?;
         tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_http_proxies(profile TEXT PRIMARY KEY, value TEXT NOT NULL);")
             .map_err(|error| error.to_string())?;
+        // A side table preserves HTML sibling order without making bookmarks unreadable on downgrade.
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_bookmark_order (owner TEXT PRIMARY KEY, payload TEXT NOT NULL);")
+            .map_err(|err| err.to_string())?;
         groups::create(&tx)?;
         windows::create(&tx)?;
         profiles::create(&tx)?;
