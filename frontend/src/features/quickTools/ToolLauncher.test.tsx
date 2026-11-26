@@ -73,6 +73,31 @@ it("keeps favorites open after one destination fails and closes on successful na
   expect(document.activeElement).toBe(summary);
 });
 
+it("keeps Escape in the launcher if a refresh removes the focused favorite", async () => {
+  const api = fixture();
+  const { input, details, summary } = await launcher(api);
+  const favorite = { id: encoder.accessId, title: encoder.title };
+  const publishFavorites = (items: typeof favorite[]) => {
+    act(() => {
+      window.dispatchEvent(new CustomEvent("zicode:quick-tools-changed", { detail: { items } }));
+    });
+  };
+  publishFavorites([favorite]);
+  fireEvent.keyDown(input, { key: "ArrowDown" });
+  const favoriteButton = screen.getByRole("button", { name: favorite.title });
+  fireEvent.keyDown(document.activeElement as HTMLElement, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(favoriteButton);
+  publishFavorites([favorite]);
+  expect(document.activeElement).toBe(favoriteButton);
+
+  publishFavorites([]);
+  expect(document.activeElement).toBe(input);
+  expect(fireEvent.keyDown(input, { key: "Escape" })).toBe(false);
+  expect(details.open).toBe(false);
+  expect(document.activeElement).toBe(summary);
+  expect(api.openFavorite).not.toHaveBeenCalled();
+});
+
 it("searches applications by alias and sends Enter directly to the matched application", async () => {
   const api = fixture();
   const { input, details } = await launcher(api);

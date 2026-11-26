@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { matchesSearchQuery } from "../../shared/catalog-search";
 import { t } from "../../shared/i18n";
 import { isWorkspaceEntryVisible } from "../../shared/workspaceMode";
@@ -54,6 +54,7 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
   const [actionError, setActionError] = useState(false);
   const [pinning, setPinning] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const lastFocused = useRef<HTMLElement>(null);
   const opening = useRef(false);
   const mounted = useRef(false);
   const search = query.trim();
@@ -70,6 +71,16 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
     input.current?.focus();
     return () => { mounted.current = false; };
   }, []);
+  useLayoutEffect(() => {
+    const searchInput = input.current;
+    const previous = lastFocused.current;
+    // Removing a focused result can drop focus to the document without a focusin.
+    if (!previous || previous.isConnected) return;
+    lastFocused.current = null;
+    if (document.activeElement === document.body && searchInput?.closest("details")?.open) {
+      searchInput.focus();
+    }
+  });
   useEffect(() => {
     const invalidate = (event: Event) => {
       // Pinning changes saved access, not the all-tools catalog or its page cursor.
@@ -142,7 +153,7 @@ export function ToolLauncher({ api, favorites, loadingFavorites, errorFavorites,
     finally { if (mounted.current) setPinning(false); }
   };
 
-  return <div className="tool-launcher">
+  return <div className="tool-launcher" onFocusCapture={event => { lastFocused.current = event.target; }}>
     <input ref={input} className="ui-input tool-launcher-search" type="search" aria-label={t("Search applications and tools")}
       placeholder={t("Search applications and tools")} value={query}
       onChange={event => { setQuery(event.target.value); setCursors([firstPage]); setActionError(false); }}
