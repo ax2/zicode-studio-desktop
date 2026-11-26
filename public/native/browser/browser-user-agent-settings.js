@@ -18,10 +18,12 @@ export function createBrowserUserAgentSettings(control) {
   save.textContent = t("Save"); reset.textContent = t("Restore default User-Agent");
   let busy = false;
   let loaded = false;
+  let savedUserAgent = "";
   input.disabled = save.disabled = reset.disabled = true;
   async function request(action) {
     const saving = action.kind === "setUserAgent";
     if (busy || (saving && !loaded)) return;
+    const keepDraft = !saving && input.value !== savedUserAgent;
     busy = true;
     if (!saving) loaded = false;
     input.disabled = save.disabled = reset.disabled = true;
@@ -29,7 +31,8 @@ export function createBrowserUserAgentSettings(control) {
     try {
       const saved = await control(action);
       loaded = true;
-      input.value = saved ?? "";
+      savedUserAgent = saved ?? "";
+      if (!keepDraft) input.value = savedUserAgent;
       if (saving) status.textContent = t("User-Agent saved for new tabs");
     } catch (error) {
       status.textContent = t(String(error?.message ?? error));
