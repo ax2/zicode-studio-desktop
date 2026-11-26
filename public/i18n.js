@@ -1001,6 +1001,10 @@ const zhCN = {
   "Image import failed. Use a static PNG, JPEG or WebP within 24 MiB and 4096 pixels per side.":
     "导入失败，请选择不超过 24 MiB、单边不超过 4096 像素的静态 PNG、JPEG 或 WebP。",
   "Enter a folder name": "请输入文件夹名称。",
+  "HTML imports allow up to 32 MiB, 50,000 links and 999 folders per file. The profile has a 4 MiB bookmark storage limit.":
+    "每个 HTML 文件最多 32 MiB、50,000 个链接和 999 个文件夹。当前浏览器资料的书签存储上限为 4 MiB。",
+  "Duplicate links to keep: {count}.": "将保留 {count} 个重复链接。",
+  "Bookmarks changed. Review the updated counts before importing.": "书签已变化，请检查更新后的数量再导入。",
   "Review bookmark import": "确认书签导入",
   "Import {bookmarks} bookmarks and {folders} folders into a new folder.":
     "将 {bookmarks} 个书签和 {folders} 个文件夹导入新文件夹。",
@@ -1016,6 +1020,7 @@ const zhCN = {
   "Bookmark file is too large": "书签文件超过 32 MiB 限制。",
   "Choose a bookmarks HTML file": "请选择浏览器导出的 HTML 书签文件。",
   "Bookmark file has too many entries": "书签文件中的条目过多。",
+  "Bookmark file has too many links": "书签文件中的链接超过 50,000 个。",
   "Bookmark folders are nested too deeply": "书签文件夹嵌套过深，最多支持 64 层。",
   "Invalid bookmark folder name": "书签文件夹名称为空或过长。",
   "Bookmark title is too long": "书签标题过长。",
