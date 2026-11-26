@@ -251,6 +251,41 @@ it("drops a pending site settings open when its tab starts a new navigation", as
   expect(request).not.toHaveBeenCalled();
 });
 
+it.each([false, true])("discards an old site read after leaving and returning to Browser (failure: %s)", async fails => {
+  let reply;
+  const readUrl = vi.fn().mockImplementationOnce(() => new Promise((resolve, reject) => {
+    reply = fails ? reject : resolve;
+  }));
+  const { open, host, origin, request, nativeControls, tab } = await mountSiteSettings({ readUrl });
+  readUrl.mockResolvedValue({ url: origin });
+  open();
+  await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
+  expect(await app.canDeactivate()).toBe(true);
+  app.renderContent(host);
+  const address = getByRole(host, "textbox", { name: t("Web address") });
+  const status = host.querySelector('.browser-footer > [role="status"]');
+  address.focus();
+  reply(fails ? Error("Old site read failed") : { url: origin });
+  await app.finishWindowWrites();
+
+  expect(queryByRole(document.body, "dialog", { name: t("Site permissions and storage") })).toBeNull();
+  expect(request).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(address);
+  expect(status.textContent).toBe("");
+
+  if (fails) {
+    readUrl.mockRejectedValueOnce(Error("Current site read failed"));
+    open();
+    await app.finishWindowWrites();
+    expect(status.textContent).toBe("Current site read failed");
+    expect(request).not.toHaveBeenCalled();
+  }
+  open();
+  await app.finishWindowWrites();
+  await waitFor(() => expect(request).toHaveBeenCalledExactlyOnceWith({ type: "list" }));
+  expect(nativeControls).toEqual([{ kind: "siteSettings", tab: tab.id, expectedOrigin: origin, action: { type: "list" } }]);
+});
+
 it("discards an outstanding confirmation and its actions when the active page navigates", async () => {
   const { open, navigate, request } = await mountSiteSettings();
   open();

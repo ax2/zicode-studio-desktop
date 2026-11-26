@@ -1142,7 +1142,8 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
         }) : act(() => invoke("browser_window_command", { action })),
       bookmarks: () => act(() => openBookmarks(false)), downloads: () => act(() => openDownloads()), history: () => act(() => openHistory()), siteSettings: () => {
         const source = readerSource();
-        return act(() => openSiteSettings(source));
+        const documentRevision = source && documentRevisions.get(source.id);
+        return act(() => openSiteSettings(source, documentRevision));
       }, searchTabs: () => queueTabSearch(options), pageControls, find: () => find.open(), fullscreen, searchSettings,
       reader: () => {
         const source = readerSource();
@@ -1393,18 +1394,23 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   function openHistory(returnToPage) {
     return openLibrary(libraryOwner(), onClose => showBrowserHistory({ invoke, onOpen: openSavedPage, onClose }), returnToPage);
   }
-  async function openSiteSettings(source) {
+  async function openSiteSettings(source, documentRevision) {
     if (siteSettingsPanel || surfaceUnavailable() || selected()?.localPdf) return;
+    if (source && source.generation !== panelGeneration) return;
     if (!source || !pageAvailable(source.id) || navigationStates.has(source.id)) {
       setStatus(t("Wait for the current page to finish loading"));
       return;
     }
     const tab = source.id;
-    const current = () => !surfaceUnavailable() && active === tab && selected()?.url === source.url &&
+    const current = () => source.generation === panelGeneration && !surfaceUnavailable() &&
+      active === tab && selected()?.url === source.url && documentRevisions.get(tab) === documentRevision &&
       pageAvailable(tab) && !navigationStates.has(tab) && pageVersions.get(tab) === source.version;
     if (!current()) return;
-    const origin = new URL((await tabPage(tab)).url).origin;
-    if (!current()) return;
+    const page = await tabPage(tab).catch(error => {
+      if (current()) throw error;
+    });
+    if (!page || !current()) return;
+    const origin = new URL(page.url).origin;
     await hide(true, current);
     if (!current()) { await syncSurface(); return; }
     const panel = showSiteSettings({
