@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 
+import { zhCN } from "../locales/zh-CN/index.js";
+
+const keys = new Set(Object.keys(zhCN));
 const read = (relative) => readFileSync(join(process.cwd(), relative), "utf8");
 
 describe("vanilla UI localization contract", () => {
@@ -139,14 +142,6 @@ describe("vanilla UI localization contract", () => {
 
   it("keeps every builtin plugin registry string in the dictionary", () => {
     const registry = read("public/native/plugins/plugin-registry.js");
-    const dictionary = read("public/i18n.js");
-    const keys = new Set();
-    for (const match of dictionary.matchAll(
-      /(?:^|\s)(?:"([^"]+)"|([A-Za-z][A-Za-z0-9 _.\-/{}%…"']*))\s*:/gm,
-    )) {
-      const key = (match[1] || match[2] || "").trim();
-      if (key && key.length > 1) keys.add(key);
-    }
     const strings = new Set(
       [...registry.matchAll(/(name|description|title|label|action|items):\s*"([^"]+)"/g)]
         .map((match) => match[2])
@@ -167,14 +162,6 @@ describe("vanilla UI localization contract", () => {
     expect(app).not.toMatch(/^\s*\{row\.label\}\s*$/m);
 
     const sidebar = read("frontend/src/features/sessionSidebar/index.ts");
-    const dictionary = read("public/i18n.js");
-    const keys = new Set();
-    for (const match of dictionary.matchAll(
-      /(?:^|\s)(?:"([^"]+)"|([A-Za-z][A-Za-z0-9 _.\-/{}%…"']*))\s*:/gm,
-    )) {
-      const key = (match[1] || match[2] || "").trim();
-      if (key && key.length > 1) keys.add(key);
-    }
     const labels = new Set([...sidebar.matchAll(/\blabel:\s*"([^"]+)"/g)].map((match) => match[1]));
     const missing = [...labels].filter((label) => !keys.has(label) && !label.includes("${"));
     expect(missing).toEqual([]);
@@ -184,26 +171,17 @@ describe("vanilla UI localization contract", () => {
     const header = read("public/components/sa-chat-header.js");
     expect(header).toContain(`t(\`\${capitalize(service)} settings\`)`);
     expect(header).toContain(`t(\`\${capitalize(service)} is not configured\`)`);
-    const dictionary = read("public/i18n.js");
     for (const key of [
       "Feishu settings",
       "Wecom settings",
       "Feishu is not configured",
       "Wecom is not configured",
     ]) {
-      expect(dictionary).toContain(`"${key}"`);
+      expect(keys.has(key)).toBe(true);
     }
   });
 
   it("keeps every known zh-gap string translated (English must not leak into the Chinese UI)", () => {
-    const dictionary = read("public/i18n.js");
-    const keys = new Set();
-    for (const match of dictionary.matchAll(
-      /(?:^|\s)(?:"([^"]+)"|'([^']+)'|([A-Za-z][A-Za-z0-9 _.\-/{}%…"']*))\s*:/gm,
-    )) {
-      const key = (match[1] || match[2] || match[3] || "").trim();
-      if (key && key.length > 1) keys.add(key);
-    }
     for (const key of [
       "Open link",
       "Refresh QR code",

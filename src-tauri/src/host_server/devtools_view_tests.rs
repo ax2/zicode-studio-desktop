@@ -1,8 +1,24 @@
 use super::*;
 use crate::metadata_store::MetadataStore;
 use sha2::{Digest, Sha256};
+use std::path::Path;
 use std::process::Stdio;
 use tokio::io::AsyncWriteExt;
+
+pub(super) fn stage_i18n(source: &Path, public: &Path) {
+    for file in ["i18n.js", "i18n-dom.js", "i18n-content-policy.js"] {
+        std::fs::copy(source.join(file), public.join(file)).unwrap();
+    }
+    let locale = "locales/zh-CN";
+    let target = public.join(locale);
+    std::fs::create_dir_all(&target).unwrap();
+    for entry in std::fs::read_dir(source.join(locale)).unwrap() {
+        let entry = entry.unwrap();
+        if entry.file_type().unwrap().is_file() {
+            std::fs::copy(entry.path(), target.join(entry.file_name())).unwrap();
+        }
+    }
+}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires a browser QA script, delivered Worker and installed Chromium"]
@@ -35,8 +51,8 @@ async fn devtools_view_browser_invokes_actual_host_worker() {
         .to_string(),
     )
     .unwrap();
+    stage_i18n(&project.join("public"), &public);
     for path in [
-        "i18n.js",
         "style-theme.css",
         "design-system.css",
         "native/plugins/plugin-view-host.js",
@@ -191,8 +207,8 @@ async fn trace_view_browser_invokes_actual_host_worker_and_displays_result() {
         .to_string(),
     )
     .unwrap();
+    stage_i18n(&project.join("public"), &public);
     for path in [
-        "i18n.js",
         "style-theme.css",
         "design-system.css",
         "native/features/artifact-navigation.js",
