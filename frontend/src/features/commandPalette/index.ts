@@ -84,6 +84,7 @@ export function setupCommandPalette({
   }
 
   function open() {
+    if (!panel.classList.contains("hidden")) return;
     composingTarget = null;
     const activeToolApi = getToolApi?.() ?? toolApi;
     const scope = getScope?.();
