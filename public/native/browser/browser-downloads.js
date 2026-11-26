@@ -22,8 +22,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe, getDownloadTa
   const list = el("div", "browser-downloads-list"); list.setAttribute("role", "list");
   const empty = el("p"); list.append(empty);
   const message = el("p", "browser-downloads-message"); message.setAttribute("role", "status");
-  let actionError = "", loadError = "";
-  const updateMessage = () => { message.textContent = actionError || loadError; };
+  let actionError = null, loadError = "";
   const request = request => invoke("browser_control", { request });
   const button = (label, action) => {
     const node = el("button", "ui-button ui-button--secondary", t(label)); node.type = "button";
@@ -43,7 +42,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe, getDownloadTa
     const target = kind === "switchTab" ? row?.downloadTab : undefined;
     if (kind === "switchTab" && !target) return;
     const focused = row?.element.contains(document.activeElement) ? document.activeElement : null;
-    acting = id; generation++; pendingOlder = false; actionError = ""; updateMessage(); render();
+    acting = id; generation++; pendingOlder = false; actionError = null; render();
     try {
       if (target) {
         if (!await onSwitchTab(target)) throw new Error(t("Browser tab is no longer available"));
@@ -60,7 +59,9 @@ export function showBrowserDownloads({ invoke, onClose, subscribe, getDownloadTa
         if (focused) close.focus();
       }
     }
-    catch (error) { if (!closed) { actionError = t(String(error?.message ?? error)); updateMessage(); } }
+    catch (error) {
+      if (!closed) actionError = { id, text: t(String(error?.message ?? error)) };
+    }
     finally {
       acting = null;
       if (!closed && dialog.open) {
@@ -94,6 +95,8 @@ export function showBrowserDownloads({ invoke, onClose, subscribe, getDownloadTa
     const row = { element, title, url, status, progress, path, feedback, tools, save, choose, pause, cancel, reveal, switchTab, remove }; rows.set(id, row); return row;
   }
   function render() {
+    const text = actionError && records.has(actionError.id) ? actionError.text : loadError;
+    if (message.textContent !== text) message.textContent = text;
     empty.hidden = records.size > 0 || Boolean(loadError);
     empty.textContent = t(awaitingFirstPage ? "Loading…" : query ? "No matching downloads" : "No downloads yet");
     list.setAttribute("aria-busy", String(awaitingFirstPage));
@@ -152,7 +155,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe, getDownloadTa
       const page = await request({ kind: "downloads", before, ...(requestedQuery ? { query: requestedQuery } : {}) });
       if (closed || version !== generation) return;
       if (before === null) awaitingFirstPage = false;
-      loadError = ""; updateMessage();
+      loadError = "";
       const entries = page.entries.map(record => liveUpdates.get(record.id) ?? record);
       const focusOlder = before !== null && document.activeElement === more;
       let firstAdded;
@@ -183,7 +186,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe, getDownloadTa
     } catch (error) {
       if (!closed && version === generation) {
         if (before === null) awaitingFirstPage = false;
-        loadError = t(String(error?.message ?? error)); updateMessage(); render();
+        loadError = t(String(error?.message ?? error)); render();
       }
     }
     finally {
@@ -222,7 +225,7 @@ export function showBrowserDownloads({ invoke, onClose, subscribe, getDownloadTa
     awaitingFirstPage = true;
     nextBefore = null;
     loadedOlder = false;
-    actionError = ""; loadError = ""; updateMessage();
+    actionError = null; loadError = "";
     render();
     void load();
   }
