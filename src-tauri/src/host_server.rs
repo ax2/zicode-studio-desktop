@@ -1,5 +1,3 @@
-#![cfg_attr(not(test), allow(dead_code))]
-
 #[cfg(test)]
 mod notes_backup_recovery_tests;
 #[cfg(test)]
@@ -266,6 +264,7 @@ impl HostServer {
             .map_err(|_| "Notes vault is unavailable".to_string())
     }
 
+    #[cfg(test)]
     pub async fn start(
         static_dir: PathBuf,
         runtimes: NativePiManager,
@@ -1343,6 +1342,7 @@ impl HostServer {
         Ok(())
     }
 
+    #[cfg(test)]
     pub fn install_developer_plugin(&self, source: &std::path::Path) -> Result<String, String> {
         let managed_root = self
             .state
@@ -1431,6 +1431,7 @@ impl HostServer {
         preview_package(package, &root)
     }
 
+    #[cfg(test)]
     pub fn install_signed_plugin(
         &self,
         package: &std::path::Path,
@@ -1513,6 +1514,7 @@ impl HostServer {
         Ok(())
     }
 
+    #[cfg(test)]
     pub fn stop(mut self) {
         self.request_shutdown();
         self.state.project_tasks.stop_all();
