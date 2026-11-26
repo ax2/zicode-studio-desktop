@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 function triggers(name) {
   const yaml = readFileSync(new URL(`../.github/workflows/${name}.yml`, import.meta.url), "utf8");
@@ -38,6 +39,37 @@ describe("GitHub build triggers", () => {
     expect(yaml).toContain("package-manager-cache: false");
     expect(yaml).toMatch(/name: Check Rust on Windows\s+if: steps\.plan\.outputs\.rust == 'true'/);
     expect(yaml).toContain("cargo check --locked");
-    expect(yaml).not.toMatch(/actions\/cache|rust-cache|pull_request_target|cargo build|bun run (?:build|fetch:pi)/);
+    expect(yaml).not.toMatch(/actions\/cache|pull_request_target|cargo build|bun run (?:build|fetch:pi)/);
+  });
+
+  it("resolves the check plan path inside both runner steps", () => {
+    const { jobs } = parse(readFileSync(new URL("../.github/workflows/windows-light-checks.yml", import.meta.url), "utf8"));
+    const [job] = Object.values(jobs);
+    expect(Object.values(job.env ?? {})).not.toEqual(expect.arrayContaining([expect.stringMatching(/\brunner\./)]));
+    const plan = job.steps.find((step) => step.id === "plan");
+    const check = job.steps.find((step) => step.name === "Run selected source checks and tests");
+    const path = "(Join-Path $env:RUNNER_TEMP 'zicode-windows-light-checks.json')";
+    expect(plan).toMatchObject({ shell: "pwsh", run: `node scripts/windows-light-checks.mjs plan ${path}` });
+    expect(check).toMatchObject({ shell: "pwsh", run: `node scripts/windows-light-checks.mjs check ${path}` });
+  });
+
+  it("uses the manual Windows Rust cache and saves only after a successful main push", () => {
+    const { jobs } = parse(readFileSync(new URL("../.github/workflows/windows-light-checks.yml", import.meta.url), "utf8"));
+    const { steps } = jobs.platform;
+    const prepare = steps.find((step) => step.name === "Prepare Rust workspace");
+    const cache = steps.find((step) => step.uses === "Swatinem/rust-cache@v2");
+    expect(prepare.if).toBe("steps.plan.outputs.rust == 'true'");
+    expect(prepare.run).toContain('"CARGO_TARGET_DIR=$env:GITHUB_WORKSPACE/target" >> $env:GITHUB_ENV');
+    expect(cache).toMatchObject({
+      if: "steps.plan.outputs.rust == 'true'",
+      with: {
+        workspaces: "src-tauri -> ../target",
+        key: "developer-platform-windows-2022",
+        "save-if": `\${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}`,
+        "cache-on-failure": false,
+      },
+    });
+    expect(steps.indexOf(prepare)).toBeLessThan(steps.indexOf(cache));
+    expect(steps.indexOf(cache)).toBeLessThan(steps.findIndex((step) => step.name === "Check Rust on Windows"));
   });
 });

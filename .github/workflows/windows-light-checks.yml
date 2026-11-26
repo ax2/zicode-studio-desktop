@@ -14,12 +14,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  # Keep the manual Windows check's cache namespace.
+  platform:
     name: Windows lightweight checks
     runs-on: windows-2022
     timeout-minutes: 35
-    env:
-      CHECK_PLAN: ${{ runner.temp }}/zicode-windows-light-checks.json
     steps:
       - name: Enable Windows long paths
         shell: pwsh
@@ -38,7 +37,7 @@ jobs:
       - name: Select applicable checks
         id: plan
         shell: pwsh
-        run: node scripts/windows-light-checks.mjs plan "$env:CHECK_PLAN"
+        run: node scripts/windows-light-checks.mjs plan (Join-Path $env:RUNNER_TEMP 'zicode-windows-light-checks.json')
 
       - uses: oven-sh/setup-bun@v2
         if: steps.plan.outputs.bun_checks == 'true'
@@ -51,16 +50,28 @@ jobs:
 
       - name: Run selected source checks and tests
         shell: pwsh
-        run: node scripts/windows-light-checks.mjs check "$env:CHECK_PLAN"
+        run: node scripts/windows-light-checks.mjs check (Join-Path $env:RUNNER_TEMP 'zicode-windows-light-checks.json')
 
       - uses: dtolnay/rust-toolchain@stable
         if: steps.plan.outputs.rust == 'true'
 
-      - name: Check Rust on Windows
+      - name: Prepare Rust workspace
         if: steps.plan.outputs.rust == 'true'
         shell: pwsh
         run: |
           # The repository-local development mirror is not used by hosted Windows.
           git sparse-checkout set --no-cone '/*' '!/.cargo/config.toml'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo check --locked --manifest-path src-tauri/Cargo.toml --all-targets
+          "CARGO_TARGET_DIR=$env:GITHUB_WORKSPACE/target" >> $env:GITHUB_ENV
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.plan.outputs.rust == 'true'
+        with:
+          workspaces: "src-tauri -> ../target"
+          key: developer-platform-windows-2022
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          cache-on-failure: false
+
+      - name: Check Rust on Windows
+        if: steps.plan.outputs.rust == 'true'
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml --all-targets
