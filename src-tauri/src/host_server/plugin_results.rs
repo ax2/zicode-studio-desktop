@@ -40,6 +40,11 @@ impl Scope {
             && self.capability_id == "devtools.compare.text.diff"
     }
 
+    fn is_json_schema_report(&self) -> bool {
+        self.plugin_id == "com.zicode.devtools.json-schema"
+            && self.capability_id == "devtools.json-schema.validate"
+    }
+
     fn is_quality_report(&self) -> bool {
         self.plugin_id == "com.zicode.devtools.compute"
             && matches!(

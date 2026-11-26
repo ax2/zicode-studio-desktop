@@ -1,0 +1,119 @@
+{
+  "cases": [
+    {
+      "error": null,
+      "id": "decimal-sequence",
+      "phase": "first-install",
+      "resultBytes": 10802,
+      "resultSha256": "5d4cbfbc21a327d7e83b360279da900f70a17b83bb066e4df60cfd1f53bd7d9d",
+      "sourceSha256": "00d0d56aac79ce8bd29e04a26e6e757943508dac3927dc990037cde8656476ba",
+      "sourceUnchanged": true
+    },
+    {
+      "error": null,
+      "id": "decimal-mapping",
+      "phase": "first-install",
+      "resultBytes": 10432,
+      "resultSha256": "1bd0f0a0b98cd5d33f0cf92277078d8e2a55095ee253717f5e6b445b9dc83dfb",
+      "sourceSha256": "077a61f2f85061567bf950332ff7868d61052c91918b60a175df7f7f1a84848a",
+      "sourceUnchanged": true
+    },
+    {
+      "error": null,
+      "id": "minified-integers",
+      "phase": "first-install",
+      "resultBytes": 20477,
+      "resultSha256": "7b0e4762f3f89faecc6d99cd169ec5e39ce072f2d947f0f04d4fed82611125f2",
+      "sourceSha256": "513346e739fa14a1ea6f65483c9de4ade4338152c998faef339bafa743b6849f",
+      "sourceUnchanged": true
+    },
+    {
+      "error": "INVALID_INPUT",
+      "id": "precision-rejected",
+      "phase": "first-install",
+      "resultBytes": 0,
+      "resultSha256": null,
+      "sourceSha256": "acd55ecbc68f68088cdaee9cf0072cfffd4043cba682b740d037f271fe65d527",
+      "sourceUnchanged": true
+    },
+    {
+      "error": "INVALID_INPUT",
+      "id": "duplicates-rejected",
+      "phase": "first-install",
+      "resultBytes": 0,
+      "resultSha256": null,
+      "sourceSha256": "c8d34d7290f112226423e69db31ca725f5506667ff88e2a9877e59549a5914b4",
+      "sourceUnchanged": true
+    },
+    {
+      "error": null,
+      "id": "reverse-precision",
+      "phase": "first-install",
+      "resultBytes": 37,
+      "resultSha256": "17b0b2b0bc55cbe36835b069e274f5568e93dea9a8650d8f8e313261e8c96db3",
+      "sourceSha256": "6fcbb73a8ec7f70539ec5be5ec71371f63b00a2274a9ded1880faeb5aa3c75b7",
+      "sourceUnchanged": true
+    },
+    {
+      "error": null,
+      "id": "decimal-sequence",
+      "phase": "reopen",
+      "resultBytes": 10802,
+      "resultSha256": "5d4cbfbc21a327d7e83b360279da900f70a17b83bb066e4df60cfd1f53bd7d9d",
+      "sourceSha256": "00d0d56aac79ce8bd29e04a26e6e757943508dac3927dc990037cde8656476ba",
+      "sourceUnchanged": true
+    },
+    {
+      "error": null,
+      "id": "decimal-mapping",
+      "phase": "reopen",
+      "resultBytes": 10432,
+      "resultSha256": "1bd0f0a0b98cd5d33f0cf92277078d8e2a55095ee253717f5e6b445b9dc83dfb",
+      "sourceSha256": "077a61f2f85061567bf950332ff7868d61052c91918b60a175df7f7f1a84848a",
+      "sourceUnchanged": true
+    },
+    {
+      "error": null,
+      "id": "minified-integers",
+      "phase": "reopen",
+      "resultBytes": 20477,
+      "resultSha256": "7b0e4762f3f89faecc6d99cd169ec5e39ce072f2d947f0f04d4fed82611125f2",
+      "sourceSha256": "513346e739fa14a1ea6f65483c9de4ade4338152c998faef339bafa743b6849f",
+      "sourceUnchanged": true
+    },
+    {
+      "error": "INVALID_INPUT",
+      "id": "precision-rejected",
+      "phase": "reopen",
+      "resultBytes": 0,
+      "resultSha256": null,
+      "sourceSha256": "acd55ecbc68f68088cdaee9cf0072cfffd4043cba682b740d037f271fe65d527",
+      "sourceUnchanged": true
+    },
+    {
+      "error": "INVALID_INPUT",
+      "id": "duplicates-rejected",
+      "phase": "reopen",
+      "resultBytes": 0,
+      "resultSha256": null,
+      "sourceSha256": "c8d34d7290f112226423e69db31ca725f5506667ff88e2a9877e59549a5914b4",
+      "sourceUnchanged": true
+    },
+    {
+      "error": null,
+      "id": "reverse-precision",
+      "phase": "reopen",
+      "resultBytes": 37,
+      "resultSha256": "17b0b2b0bc55cbe36835b069e274f5568e93dea9a8650d8f8e313261e8c96db3",
+      "sourceSha256": "6fcbb73a8ec7f70539ec5be5ec71371f63b00a2274a9ded1880faeb5aa3c75b7",
+      "sourceUnchanged": true
+    }
+  ],
+  "fileDialog": false,
+  "hostMode": "IsolatedDesktop",
+  "installedTools": 8,
+  "productionFileReader": "readManualToolFile",
+  "runtime": "c9737a4b58d0b5bd54ac4965ca39be43ff0521037d5b97a516ba766acac5fa59",
+  "version": "0.1.5",
+  "worker": "1bf0adf0d8e3e8874eca61258ef133de9875dac87c0cbd76a83a45a2d7f2f1a3"
+}
