@@ -14,170 +14,143 @@ export interface MemorySnapshot {
   entries: MemoryEntry[];
 }
 
-interface MemoryState {
-  enabled: boolean;
-  entries: MemoryEntry[];
+interface MemoryState extends MemorySnapshot {
   loading: boolean;
   error: string;
   loadedOnce: boolean;
   load(): Promise<void>;
   setEnabled(enabled: boolean): Promise<void>;
-  add(text: string): Promise<void>;
+  add(text: string): Promise<boolean>;
   importEntries(entries: Array<{ text?: string }>): Promise<number>;
   update(id: string, text: string): Promise<void>;
   remove(id: string): Promise<void>;
 }
 
-export function createMemoryStore(gateway: ConfigGatewayLike) {
-  const persist = async (next: MemorySnapshot) => {
-    const response = await gateway.call("write_memory", {
-      enabled: next.enabled,
-      entries: next.entries,
-    });
-    if (!response?.ok) {
-      throw localizeHostError(
-        new Error(response?.error || t("Could not save memory")),
-      );
-    }
-    return response.data as unknown as MemorySnapshot;
+function newEntry(text: string): MemoryEntry {
+  return {
+    id: `memory-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    text,
+    updatedAt: new Date().toISOString(),
   };
+}
 
-  return create<MemoryState>()((set, get) => ({
-    enabled: true,
-    entries: [],
-    loading: false,
-    error: "",
-    loadedOnce: false,
+export function createMemoryStore(gateway: ConfigGatewayLike) {
+  // The gateway replaces the whole file. Compute each update after the previous
+  // operation settles, so a later edit carries forward the saved snapshot.
+  let pending: Promise<unknown> = Promise.resolve();
+  function enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = pending.then(operation);
+    pending = result.catch(() => undefined);
+    return result;
+  }
 
-    async load() {
+  return create<MemoryState>()((set, get) => {
+    const reportError = (reason: unknown) => {
+      set({
+        loadedOnce: false,
+        error: localizeHostError(reason instanceof Error ? reason : new Error(String(reason)))
+          .message,
+      });
+    };
+
+    async function loadSnapshot() {
       set({ loading: true, error: "" });
       try {
         const response = await gateway.call("read_memory");
-        const data = (response?.data ?? {}) as Partial<MemorySnapshot>;
-        set({
-          enabled: data.enabled !== false,
-          entries: Array.isArray(data.entries) ? data.entries : [],
-          loading: false,
-          loadedOnce: true,
-        });
+        const data = response?.data as Partial<MemorySnapshot> | undefined;
+        if (!response?.ok || typeof data?.enabled !== "boolean" || !Array.isArray(data.entries)) {
+          throw new Error(response?.error || t("Could not load memory"));
+        }
+        set({ enabled: data.enabled, entries: data.entries, loadedOnce: true });
       } catch (reason) {
-        set({
-          loading: false,
-          error: localizeHostError(
-            reason instanceof Error ? reason : new Error(String(reason)),
-          ).message,
-        });
+        reportError(reason);
+      } finally {
+        set({ loading: false });
       }
-    },
+    }
 
-    async setEnabled(enabled) {
-      const next = { enabled, entries: get().entries };
+    async function commit(next: MemorySnapshot): Promise<boolean> {
       try {
-        const saved = await persist(next);
-        set({ enabled: saved.enabled, error: "" });
+        const response = await gateway.call("write_memory", next);
+        const data = response?.data as Partial<MemorySnapshot> | undefined;
+        if (!response?.ok || typeof data?.enabled !== "boolean" || !Array.isArray(data.entries)) {
+          throw new Error(response?.error || t("Could not save memory"));
+        }
+        set({ enabled: data.enabled, entries: data.entries, error: "" });
         window.dispatchEvent(new CustomEvent("zicode:memory-changed"));
+        return true;
       } catch (reason) {
-        set({
-          error: localizeHostError(
-            reason instanceof Error ? reason : new Error(String(reason)),
-          ).message,
-        });
+        reportError(reason);
+        return false;
       }
-    },
+    }
 
-    async add(text) {
-      const clean = String(text).trim();
-      if (!clean) return;
-      const entry: MemoryEntry = {
-        id: `memory-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        text: clean,
-        updatedAt: new Date().toISOString(),
-      };
-      const next = { enabled: get().enabled, entries: [...get().entries, entry] };
-      try {
-        const saved = await persist(next);
-        set({ entries: saved.entries, error: "" });
-        window.dispatchEvent(new CustomEvent("zicode:memory-changed"));
-      } catch (reason) {
-        set({
-          error: localizeHostError(
-            reason instanceof Error ? reason : new Error(String(reason)),
-          ).message,
-        });
-      }
-    },
+    function mutate<T>(fallback: T, operation: (state: MemorySnapshot) => Promise<T>): Promise<T> {
+      return enqueue(async () => {
+        if (!get().loadedOnce) await loadSnapshot();
+        return get().loadedOnce ? operation(get()) : fallback;
+      });
+    }
 
-    async importEntries(incoming) {
-      const current = get().entries;
-      const seen = new Set(current.map((entry) => entry.text.trim()));
-      const additions: MemoryEntry[] = [];
-      for (const candidate of incoming ?? []) {
-        const text = String(candidate?.text ?? "").trim();
-        if (!text || seen.has(text)) continue;
-        seen.add(text);
-        additions.push({
-          id: `memory-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          text,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-      if (additions.length === 0) return 0;
-      const next = { enabled: get().enabled, entries: [...current, ...additions] };
-      try {
-        const saved = await persist(next);
-        set({ entries: saved.entries, error: "" });
-        window.dispatchEvent(new CustomEvent("zicode:memory-changed"));
-        return additions.length;
-      } catch (reason) {
-        set({
-          error: localizeHostError(
-            reason instanceof Error ? reason : new Error(String(reason)),
-          ).message,
-        });
-        return 0;
-      }
-    },
+    return {
+      enabled: true,
+      entries: [],
+      loading: false,
+      error: "",
+      loadedOnce: false,
 
-    async update(id, text) {
-      const clean = String(text).trim();
-      if (!clean) return;
-      const entries = get().entries.map((entry) =>
-        entry.id === id
-          ? { ...entry, text: clean, updatedAt: new Date().toISOString() }
-          : entry,
-      );
-      const next = { enabled: get().enabled, entries };
-      try {
-        const saved = await persist(next);
-        set({ entries: saved.entries, error: "" });
-        window.dispatchEvent(new CustomEvent("zicode:memory-changed"));
-      } catch (reason) {
-        set({
-          error: localizeHostError(
-            reason instanceof Error ? reason : new Error(String(reason)),
-          ).message,
-        });
-      }
-    },
+      load: () => enqueue(loadSnapshot),
 
-    async remove(id) {
-      const next = {
-        enabled: get().enabled,
-        entries: get().entries.filter((entry) => entry.id !== id),
-      };
-      try {
-        const saved = await persist(next);
-        set({ entries: saved.entries, error: "" });
-        window.dispatchEvent(new CustomEvent("zicode:memory-changed"));
-      } catch (reason) {
-        set({
-          error: localizeHostError(
-            reason instanceof Error ? reason : new Error(String(reason)),
-          ).message,
+      async setEnabled(enabled) {
+        await mutate(undefined, async ({ entries }) => {
+          await commit({ enabled, entries });
         });
-      }
-    },
-  }));
+      },
+
+      async add(text) {
+        const clean = String(text).trim();
+        if (!clean) return false;
+        return mutate(false, ({ enabled, entries }) =>
+          commit({ enabled, entries: [...entries, newEntry(clean)] }),
+        );
+      },
+
+      async importEntries(incoming) {
+        return mutate(0, async ({ enabled, entries }) => {
+          const seen = new Set(entries.map((entry) => entry.text.trim()));
+          const additions: MemoryEntry[] = [];
+          for (const candidate of incoming ?? []) {
+            const text = String(candidate?.text ?? "").trim();
+            if (!text || seen.has(text)) continue;
+            seen.add(text);
+            additions.push(newEntry(text));
+          }
+          if (!additions.length) return 0;
+          const saved = await commit({ enabled, entries: [...entries, ...additions] });
+          return saved ? additions.length : 0;
+        });
+      },
+
+      async update(id, text) {
+        const clean = String(text).trim();
+        if (!clean) return;
+        await mutate(undefined, async ({ enabled, entries }) => {
+          const updated = entries.map((entry) =>
+            entry.id === id
+              ? { ...entry, text: clean, updatedAt: new Date().toISOString() }
+              : entry,
+          );
+          await commit({ enabled, entries: updated });
+        });
+      },
+
+      async remove(id) {
+        await mutate(undefined, async ({ enabled, entries }) => {
+          await commit({ enabled, entries: entries.filter((entry) => entry.id !== id) });
+        });
+      },
+    };
+  });
 }
 
 export type MemoryStore = ReturnType<typeof createMemoryStore>;

@@ -4675,6 +4675,7 @@ const zhCN = {
   "Usage guide": "使用指南",
   Memory: "记忆",
   Add: "添加",
+  "Could not load memory": "无法读取记忆",
   "Could not save memory": "无法保存记忆",
   "Extract memory from this conversation": "从这段对话提取记忆",
   "The memory-extract skill could not be loaded": "无法加载 memory-extract 技能",
