@@ -58,6 +58,8 @@ function repo(testCommand) {
   put("src-tauri/Cargo.toml", '[package]\nname = "zicode-studio-desktop"\nversion = "0.6.7"\n');
   put("src-tauri/Cargo.lock", '[[package]]\nname = "zicode-studio-desktop"\nversion = "0.6.7"\n');
   put("bun.lock", "");
+  put("scripts/export-windows-candidate.ps1", "# Windows candidate fixture");
+  put("src-tauri/tauri.shell.windows.conf.json", "{}");
   put("docs/releases/v0.6.7.md", "Frozen release notes");
   put(
     "docs/releases/v0.6.7.issues.json",
@@ -73,7 +75,7 @@ function repo(testCommand) {
   return {
     git,
     source,
-    run: () => spawnSync(bash, ["scripts/release.sh", "v0.6.7"], { ...opts, timeout: 60000 }),
+    run: (tag = "v0.6.7") => spawnSync(bash, ["scripts/release.sh", tag], { ...opts, timeout: 60000 }),
   };
 }
 it("tags an already frozen commit and pushes only to the disposable file remote", () => {
@@ -97,6 +99,22 @@ it.each([
   expect(result.status).not.toBe(0);
   expect(result.stderr + result.stdout).toContain("Missing release input");
   expect(result.stdout).not.toContain("Running release gates");
+  expect(git("ls-remote", "--tags", "origin")).toBe("");
+}, 65000);
+
+it("stops before tagging a modern Windows release with no pinned installer", () => {
+  const { git, run, source } = repo();
+  writeFileSync(join(source, "docs/releases/v0.7.8.md"), "Proposed release");
+  writeFileSync(join(source, "docs/releases/v0.7.8.issues.json"), JSON.stringify({
+    milestones: ["v0.7.8"], extraCompleted: [], known: [], exclude: {},
+  }));
+  git("add", "docs/releases");
+  git("commit", "--quiet", "-m", "Candidate without Windows upgrade baseline");
+  const result = run("v0.7.8");
+  expect(result.status).not.toBe(0);
+  expect(result.stderr + result.stdout).toContain("Windows upgrade baseline is required");
+  expect(result.stdout).not.toContain("Running release gates");
+  expect(git("tag", "--list")).toBe("");
   expect(git("ls-remote", "--tags", "origin")).toBe("");
 }, 65000);
 

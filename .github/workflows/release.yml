@@ -42,6 +42,8 @@ jobs:
       release_sha: ${{ steps.release-source.outputs.sha }}
       app_version: ${{ steps.release-source.outputs.version }}
       build_matrix: ${{ steps.build-matrix.outputs.matrix }}
+      windows_baseline_version: ${{ steps.release-inputs.outputs.windows_baseline_version }}
+      windows_baseline_sha256: ${{ steps.release-inputs.outputs.windows_baseline_sha256 }}
     steps:
       - name: Checkout workflow matrix source
         uses: actions/checkout@v6
@@ -66,9 +68,11 @@ jobs:
           echo "version=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Check tagged candidate inputs before building
+        id: release-inputs
         env:
           RELEASE_PLATFORM: ${{ inputs.platform || 'windows' }}
-        run: node "$RUNNER_TEMP/check-release-notes-inputs.mjs" "$RELEASE_TAG" "$RELEASE_PLATFORM"
+          PUBLISHING: ${{ github.event_name == 'push' || inputs.publish == true }}
+        run: node "$RUNNER_TEMP/check-release-notes-inputs.mjs" "$RELEASE_TAG" "$RELEASE_PLATFORM" "$PUBLISHING"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -331,6 +335,8 @@ jobs:
         env:
           STUDIO_RUNNER_ENVIRONMENT: ${{ runner.environment }}
           PUBLISHING: ${{ github.event_name == 'push' || inputs.publish == true }}
+          WINDOWS_BASELINE_VERSION: ${{ needs.prepare-release.outputs.windows_baseline_version }}
+          WINDOWS_BASELINE_SHA256: ${{ needs.prepare-release.outputs.windows_baseline_sha256 }}
         run: |
           $files = @(Get-ChildItem -LiteralPath target/release/bundle/nsis -Filter '*_x64-setup.exe' -File)
           if ($files.Count -ne 1) { throw 'Expected exactly one candidate installer' }
@@ -351,9 +357,16 @@ jobs:
               '0.7.5' = 'ef644bb01d36abbe1d2d891bbc9d466dda59c0d4f4ad77c7b474a96b62794273'
               '0.7.6' = 'e4c4f5c5db8e82a45d0ad1484abc900fa4823f00a9ebc7d259b0e06fcf23f2b6'
             }
-            $previous = $publicDigests.Keys | Where-Object { [version]$_ -lt $candidate } |
-              Sort-Object { [version]$_ } -Descending | Select-Object -First 1
-            $digest = $publicDigests[$previous]
+            $previous = $env:WINDOWS_BASELINE_VERSION
+            $digest = $env:WINDOWS_BASELINE_SHA256
+            if (!$previous -and $argsForBaseline.RequireUpgrade -and $candidate -ge [version]'0.7.8') {
+              throw 'Tagged Windows upgrade baseline is unavailable'
+            }
+            if (!$previous) {
+              $previous = $publicDigests.Keys | Where-Object { [version]$_ -lt $candidate } |
+                Sort-Object { [version]$_ } -Descending | Select-Object -First 1
+              $digest = $publicDigests[$previous]
+            }
             $baseline = Join-Path $env:RUNNER_TEMP "studio-upgrade-baseline-$previous.exe"
             $url = "https://github.com/ax2/zicode-studio-desktop/releases/download/v$previous/ZiCode.Studio.Desktop_${previous}_x64-setup.exe"
             curl.exe --fail --location --proto '=https' --proto-redir '=https' --silent --show-error --retry 2 --max-time 300 --output $baseline $url
