@@ -1,0 +1,327 @@
+{
+  "generator": "scripts/verify_plugin_manifest_preview.py",
+  "cases": [
+    {
+      "id": "provider-example-local-text",
+      "inputSha256": "e64adb43ae7e3a5f651397aeaa80e8e995628f81b30e2192051adff2a867a690",
+      "inputBytes": 1664,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "provider-example-ollama",
+      "inputSha256": "6d55a462d23372656e68d13b6b668726da1c895a2126ea8ae43e159df6769fec",
+      "inputBytes": 1848,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "provider-example-openai-compatible",
+      "inputSha256": "1f3554c6710599c3f3b2ec25b719b99be783509e7682f3f6801c02ce0d0ccc43",
+      "inputBytes": 1940,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "mixed-json-mime",
+      "inputSha256": "48a3cf1c465df0d46029d5e1cb789361347c84a147ccca0ab923fe2a1fbda1d0",
+      "inputBytes": 780,
+      "toolStart": null,
+      "mime": "application/json"
+    },
+    {
+      "id": "64-tools-first",
+      "inputSha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+      "inputBytes": 28743,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "64-tools-middle",
+      "inputSha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+      "inputBytes": 28743,
+      "toolStart": 57,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "64-tools-final",
+      "inputSha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+      "inputBytes": 28743,
+      "toolStart": 64,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "beyond-final-tool",
+      "inputSha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+      "inputBytes": 28743,
+      "toolStart": 65,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "zero-page",
+      "inputSha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+      "inputBytes": 28743,
+      "toolStart": 0,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "too-many-tools",
+      "inputSha256": "11691af81ce3758fc0c8c56d7805fceb37643885340ceee5e46a1032135a8031",
+      "inputBytes": 29190,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "visible-controls-stripped",
+      "inputSha256": "c6442506e971934534ee8f01995bfa1afc08f3ab9d7389b5fd5dc6f5f83d7030",
+      "inputBytes": 466,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "outside-padding-256k",
+      "inputSha256": "811d136421d7e565accc41d766d25cb3b3e330a459616786e27c90bbee9b23a0",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "file-limit-plus-one",
+      "inputSha256": "43f3bc75b21c2d27b7b485d9107c78655a14122c7b776a133e31f3faa39375c4",
+      "inputBytes": 262145,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "literal-text-at-256k",
+      "inputSha256": "56dd1166c774281277e2768df4524cb5fe5ea6caaae75f2098b8337bbbd4a988",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "dense-json-body-at-256k",
+      "inputSha256": "0496e6b66d5681c163a81f0841b5f2872d4d9ef8605309320397111ec27a4cc5",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "dense-json-escapes-at-256k",
+      "inputSha256": "05b79c5f6d3f3934b8b7dc297cd1da33872ea35dbea9af28a51d0faa3226ce49",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "internal-padding-at-256k",
+      "inputSha256": "16c8c68146c05ae2d86eb77a20c86c97f012029a0fa545f8ebc8005957542c50",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "combined-heavy-original",
+      "inputSha256": "5e1ec48d16d8004b62a1a7a2a20268b067ec264b2274762975823a9440a12f6d",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "pretty-spacing-within-limit",
+      "inputSha256": "c15ac9bc7ad52fbe48486f35605a030e655b312986094c242a8fb8de09b76121",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "long-http-path-at-256k",
+      "inputSha256": "b79e4b2c0015df8f2d9632cfe58dd8cebc9847e6a552e106058ac606efd753bb",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "http-path-limit",
+      "inputSha256": "a11d67f34a8a34a408e9f3abb3b788419ebde90885a6e206f0a04be75febc4d8",
+      "inputBytes": 2447,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "http-path-limit-plus-one",
+      "inputSha256": "8c357b1009ed33252ae0bbb02add09521b36bc9396cd48392486808b3147c856",
+      "inputBytes": 2448,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "1940-keys-0-escapes-at-256k",
+      "inputSha256": "ee88e387b8c6d30f5453015cc4951ae2521890da4537c0403bd96d1be5181498",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "950-keys-2000-escapes-at-256k",
+      "inputSha256": "d24c69f8d31194ff8d51873eed712ec883737293d1092a6a12685067a8158079",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "950-keys-0-escapes-at-256k",
+      "inputSha256": "878326965fd9fc69828b5b057624ccbc2d7a24fe412f300e07d6d18df95eb498",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "470-keys-2000-escapes-at-256k",
+      "inputSha256": "49d97a83d3cf79f59e42b719a81f3163a6acc0ef93020ee321410fe302f433e3",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "237-keys-0-escapes-at-256k",
+      "inputSha256": "da4ccbdcfc435608a3583cd3d4a651fe4cb2bdef2b44f34cad71a475b129c911",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "238-keys-0-escapes-at-256k",
+      "inputSha256": "7e97e0022711357de4644efdd1add28f50e1e589746df58490207b170a73dfb2",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "0-keys-4000-escapes-at-256k",
+      "inputSha256": "1a5a70b380c9b2f0c6e352b7fbbcb4bd90a659033801e56d88b1bc3d4adefcaa",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "220-keys-2000-escapes-at-256k",
+      "inputSha256": "7391192bf9100cad9cc1aa4200af588c0a353e3d393307e826aac61666318831",
+      "inputBytes": 262144,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "unknown-schema",
+      "inputSha256": "5528202877da5974e91ee208a9491f8dfddac3dec278cb336b8ef693c9782131",
+      "inputBytes": 780,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "studio-manifest-is-distinct",
+      "inputSha256": "a4e357f682ee78a393fbf075f78b886f95af13c181c49b641086387d8ca12cb0",
+      "inputBytes": 45,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "unknown-field-secret",
+      "inputSha256": "c09641220ec682ee284a336083da00bbc7bfd83fc4bf08e81c1c09ecc5e9a228",
+      "inputBytes": 818,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "malformed-source-secret",
+      "inputSha256": "ccb1371835be32cb1c5d87bbddc3390beb6cab809b4f84db8e20fe6b4223b8f7",
+      "inputBytes": 34,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "duplicate-top-key",
+      "inputSha256": "438164b46a58885842f94b935e8eead783740b78ea2df888caed1b18f6d599ac",
+      "inputBytes": 799,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "duplicate-nested-decoded-key",
+      "inputSha256": "3277447effc4dcad93b5c5318d4b40c18ac78504f49062846fa2bccea856038b",
+      "inputBytes": 796,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "duplicate-tool-id",
+      "inputSha256": "e44798c2c280fa63a7697654a913ffd29f2e620b26eedca77017d00aa5cb57a8",
+      "inputBytes": 793,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "private-unknown-builtin",
+      "inputSha256": "8a653466525aa2528172b3c4a3e0fa1276b51be4ab1b2706cc5bd101647876c4",
+      "inputBytes": 487,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "action-no-longer-available",
+      "inputSha256": "fcb6c6a756b643e1ef0a86f7776d40d8b68e95094696fb25bd441a6043421dc7",
+      "inputBytes": 466,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "plain-remote-http-rejected",
+      "inputSha256": "013ac702ddff6e05e3b7a1434d75747e66bab6bf568552aa5f8b8da8ab9c16ca",
+      "inputBytes": 450,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "secret-url-details-rejected",
+      "inputSha256": "ae28347083a1de3f7a2788026f8b83ea37ea1461034587564ca2b4fb14723475",
+      "inputBytes": 463,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "loopback-declaration-only",
+      "inputSha256": "b93d411ea01dce7fae05af31443ea4177315494e3c96ac00c5c7f7e0f1550c53",
+      "inputBytes": 450,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "signed-envelope-not-a-manifest",
+      "inputSha256": "8db3d6a3da9659b1903ec4dd5731aa24b91cba2ece4e9a9d0cfa30c584ff4c39",
+      "inputBytes": 823,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "invalid-version-history-date",
+      "inputSha256": "d28e07dd822fe1fbab1f5e7a2f9cece5da202561094ca81e787338c901fbf960",
+      "inputBytes": 583,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "valid-version-history",
+      "inputSha256": "3c0e9c71adff604af5f361bed40c12e1090e615d2cac3cd4e361da33e20adede",
+      "inputBytes": 664,
+      "toolStart": null,
+      "mime": "application/octet-stream"
+    },
+    {
+      "id": "wrong-mime",
+      "inputSha256": "48a3cf1c465df0d46029d5e1cb789361347c84a147ccca0ab923fe2a1fbda1d0",
+      "inputBytes": 780,
+      "toolStart": null,
+      "mime": "image/png"
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+## 2026-11-26 开发补充：ZiDevTools 插件清单预览
+
+`plugins` 的离线清单预览已接入。确认共享 ZiDevTools 声明式 JSON 后，可核对身份、原字节 SHA-256 和最多 64 个工具。隔离 Windows Studio 已验证末页、256 KiB、重复键、撤权和重启。只读取当前文件。[范围与冻结候选](../iterations/2026-11-26-plugin-manifest-preview.md)
+
 ## 查找已交付的 Windows 工具
 
 先按源工具 ID 查冻结插件的 `catalog.json` 和分批验证记录，再按记录里的操作 ID、插件版本和安装步骤使用对应工具。例如：

@@ -1,0 +1,1636 @@
+{
+  "sourceRevision": "16913e7d97a3c937ddab550db30bbb345cc7adf3",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-26T02:45:02.516000+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "07d922c5f3c21812f400fbc72f7814d3341b020c52ee97b0dbc0211b07ffb67c",
+  "workerVerification": {
+    "cases": [
+      {
+        "case": "provider-example-local-text",
+        "inputBytes": 1664,
+        "inputSha256": "e64adb43ae7e3a5f651397aeaa80e8e995628f81b30e2192051adff2a867a690",
+        "resultBytes": 1057,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 1664,
+            "preview": {
+              "builtinTools": 2,
+              "httpTools": 0,
+              "id": "local-text",
+              "name": "本地文本配方",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 2,
+                  "category": "文本与编码",
+                  "historyCount": 1,
+                  "id": "deduplicate",
+                  "name": "保持顺序去重",
+                  "ordinal": 1,
+                  "version": "0.1.0"
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "json-path",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 0,
+                  "category": "数据与格式",
+                  "historyCount": 1,
+                  "id": "extract-names",
+                  "name": "批量提取名称",
+                  "ordinal": 2,
+                  "version": "0.1.0"
+                }
+              ],
+              "totalTools": 2,
+              "version": "1.0.0"
+            },
+            "sha256": "e64adb43ae7e3a5f651397aeaa80e8e995628f81b30e2192051adff2a867a690",
+            "text": "本地文本配方 · local-text · v1.0.0\nSHA-256 e64adb43ae7e3a5f651397aeaa80e8e995628f81b30e2192051adff2a867a690\n2 个声明：内置 2，HTTP 0。\n1. deduplicate · 保持顺序去重 · 文本与编码 · 内置 lines#0\n2. extract-names · 批量提取名称 · 数据与格式 · 内置 json-path#0"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "provider-example-ollama",
+        "inputBytes": 1848,
+        "inputSha256": "6d55a462d23372656e68d13b6b668726da1c895a2126ea8ae43e159df6769fec",
+        "resultBytes": 987,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 1848,
+            "preview": {
+              "builtinTools": 0,
+              "httpTools": 2,
+              "id": "ollama-local",
+              "name": "Ollama 本地连接器",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "method": "GET",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "AI 与模型",
+                  "historyCount": 1,
+                  "id": "models",
+                  "name": "Ollama 模型列表",
+                  "ordinal": 1,
+                  "version": "0.1.0"
+                },
+                {
+                  "adapter": {
+                    "method": "POST",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "AI 与模型",
+                  "historyCount": 1,
+                  "id": "chat",
+                  "name": "Ollama 单轮问答",
+                  "ordinal": 2,
+                  "version": "0.1.0"
+                }
+              ],
+              "totalTools": 2,
+              "version": "1.0.0"
+            },
+            "sha256": "6d55a462d23372656e68d13b6b668726da1c895a2126ea8ae43e159df6769fec",
+            "text": "Ollama 本地连接器 · ollama-local · v1.0.0\nSHA-256 6d55a462d23372656e68d13b6b668726da1c895a2126ea8ae43e159df6769fec\n2 个声明：内置 0，HTTP 2。\n1. models · Ollama 模型列表 · AI 与模型 · HTTP GET\n2. chat · Ollama 单轮问答 · AI 与模型 · HTTP POST"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "provider-example-openai-compatible",
+        "inputBytes": 1940,
+        "inputSha256": "1f3554c6710599c3f3b2ec25b719b99be783509e7682f3f6801c02ce0d0ccc43",
+        "resultBytes": 1013,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 1940,
+            "preview": {
+              "builtinTools": 0,
+              "httpTools": 2,
+              "id": "openai-local",
+              "name": "OpenAI 兼容本地服务",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "method": "GET",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "AI 与模型",
+                  "historyCount": 1,
+                  "id": "models",
+                  "name": "兼容接口模型列表",
+                  "ordinal": 1,
+                  "version": "0.1.0"
+                },
+                {
+                  "adapter": {
+                    "method": "POST",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "AI 与模型",
+                  "historyCount": 1,
+                  "id": "chat",
+                  "name": "兼容接口单轮问答",
+                  "ordinal": 2,
+                  "version": "0.1.0"
+                }
+              ],
+              "totalTools": 2,
+              "version": "1.0.1"
+            },
+            "sha256": "1f3554c6710599c3f3b2ec25b719b99be783509e7682f3f6801c02ce0d0ccc43",
+            "text": "OpenAI 兼容本地服务 · openai-local · v1.0.1\nSHA-256 1f3554c6710599c3f3b2ec25b719b99be783509e7682f3f6801c02ce0d0ccc43\n2 个声明：内置 0，HTTP 2。\n1. models · 兼容接口模型列表 · AI 与模型 · HTTP GET\n2. chat · 兼容接口单轮问答 · AI 与模型 · HTTP POST"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "mixed-json-mime",
+        "inputBytes": 780,
+        "inputSha256": "48a3cf1c465df0d46029d5e1cb789361347c84a147ccca0ab923fe2a1fbda1d0",
+        "resultBytes": 968,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 780,
+            "preview": {
+              "builtinTools": 1,
+              "httpTools": 1,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-one",
+                  "name": "行处理",
+                  "ordinal": 1,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "method": "POST",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "网络与接口",
+                  "historyCount": 0,
+                  "id": "request",
+                  "name": "请求工具",
+                  "ordinal": 2,
+                  "version": null
+                }
+              ],
+              "totalTools": 2,
+              "version": "1.0"
+            },
+            "sha256": "48a3cf1c465df0d46029d5e1cb789361347c84a147ccca0ab923fe2a1fbda1d0",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 48a3cf1c465df0d46029d5e1cb789361347c84a147ccca0ab923fe2a1fbda1d0\n2 个声明：内置 1，HTTP 1。\n1. tool-one · 行处理 · 文本与编码 · 内置 lines#0\n2. request · 请求工具 · 网络与接口 · HTTP POST"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "64-tools-first",
+        "inputBytes": 28743,
+        "inputSha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+        "resultBytes": 4380,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 28743,
+            "preview": {
+              "builtinTools": 64,
+              "httpTools": 0,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": 9,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-01",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试01",
+                  "ordinal": 1,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-02",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试02",
+                  "ordinal": 2,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-03",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试03",
+                  "ordinal": 3,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-04",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试04",
+                  "ordinal": 4,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-05",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试05",
+                  "ordinal": 5,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-06",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试06",
+                  "ordinal": 6,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-07",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试07",
+                  "ordinal": 7,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-08",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试08",
+                  "ordinal": 8,
+                  "version": null
+                }
+              ],
+              "totalTools": 64,
+              "version": "1.0"
+            },
+            "sha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2\n64 个声明：内置 64，HTTP 0。\n1. tool-01 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试01 · 文本与编码 · 内置 lines#0\n2. tool-02 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试02 · 文本与编码 · 内置 lines#0\n3. tool-03 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试03 · 文本与编码 · 内置 lines#0\n4. tool-04 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试04 · 文本与编码 · 内置 lines#0\n5. tool-05 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试05 · 文本与编码 · 内置 lines#0\n6. tool-06 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试06 · 文本与编码 · 内置 lines#0\n7. tool-07 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试07 · 文本与编码 · 内置 lines#0\n8. tool-08 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试08 · 文本与编码 · 内置 lines#0\n继续查看时，输入工具起始序号 9。"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "64-tools-middle",
+        "inputBytes": 28743,
+        "inputSha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+        "resultBytes": 4351,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 28743,
+            "preview": {
+              "builtinTools": 64,
+              "httpTools": 0,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 57,
+              "tools": [
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-57",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试57",
+                  "ordinal": 57,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-58",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试58",
+                  "ordinal": 58,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-59",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试59",
+                  "ordinal": 59,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-60",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试60",
+                  "ordinal": 60,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-61",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试61",
+                  "ordinal": 61,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-62",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试62",
+                  "ordinal": 62,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-63",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试63",
+                  "ordinal": 63,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-64",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试64",
+                  "ordinal": 64,
+                  "version": null
+                }
+              ],
+              "totalTools": 64,
+              "version": "1.0"
+            },
+            "sha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2\n64 个声明：内置 64，HTTP 0。\n57. tool-57 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试57 · 文本与编码 · 内置 lines#0\n58. tool-58 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试58 · 文本与编码 · 内置 lines#0\n59. tool-59 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试59 · 文本与编码 · 内置 lines#0\n60. tool-60 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试60 · 文本与编码 · 内置 lines#0\n61. tool-61 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试61 · 文本与编码 · 内置 lines#0\n62. tool-62 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试62 · 文本与编码 · 内置 lines#0\n63. tool-63 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试63 · 文本与编码 · 内置 lines#0\n64. tool-64 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试64 · 文本与编码 · 内置 lines#0"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "64-tools-final",
+        "inputBytes": 28743,
+        "inputSha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+        "resultBytes": 984,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 28743,
+            "preview": {
+              "builtinTools": 64,
+              "httpTools": 0,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 64,
+              "tools": [
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-64",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试64",
+                  "ordinal": 64,
+                  "version": null
+                }
+              ],
+              "totalTools": 64,
+              "version": "1.0"
+            },
+            "sha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2\n64 个声明：内置 64，HTTP 0。\n64. tool-64 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试64 · 文本与编码 · 内置 lines#0"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "beyond-final-tool",
+        "inputBytes": 28743,
+        "inputSha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+        "resultBytes": 148,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_TOOL_START",
+            "message": "工具起始序号超出此清单范围。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "zero-page",
+        "inputBytes": 28743,
+        "inputSha256": "484804582ce083caf4a58c0106a68a8f3eede46569c93a0672e8d3755c4560c2",
+        "resultBytes": 148,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_TOOL_START",
+            "message": "工具起始序号超出此清单范围。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "too-many-tools",
+        "inputBytes": 29190,
+        "inputSha256": "11691af81ce3758fc0c8c56d7805fceb37643885340ceee5e46a1032135a8031",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "visible-controls-stripped",
+        "inputBytes": 466,
+        "inputSha256": "c6442506e971934534ee8f01995bfa1afc08f3ab9d7389b5fd5dc6f5f83d7030",
+        "resultBytes": 727,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 466,
+            "preview": {
+              "builtinTools": 1,
+              "httpTools": 0,
+              "id": "demo-extension",
+              "name": "AB",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-one",
+                  "name": "Visible名称",
+                  "ordinal": 1,
+                  "version": null
+                }
+              ],
+              "totalTools": 1,
+              "version": "1.0"
+            },
+            "sha256": "c6442506e971934534ee8f01995bfa1afc08f3ab9d7389b5fd5dc6f5f83d7030",
+            "text": "AB · demo-extension · v1.0\nSHA-256 c6442506e971934534ee8f01995bfa1afc08f3ab9d7389b5fd5dc6f5f83d7030\n1 个声明：内置 1，HTTP 0。\n1. tool-one · Visible名称 · 文本与编码 · 内置 lines#0"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "outside-padding-256k",
+        "inputBytes": 262144,
+        "inputSha256": "811d136421d7e565accc41d766d25cb3b3e330a459616786e27c90bbee9b23a0",
+        "resultBytes": 4381,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 262144,
+            "preview": {
+              "builtinTools": 64,
+              "httpTools": 0,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": 9,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-01",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试01",
+                  "ordinal": 1,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-02",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试02",
+                  "ordinal": 2,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-03",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试03",
+                  "ordinal": 3,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-04",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试04",
+                  "ordinal": 4,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-05",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试05",
+                  "ordinal": 5,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-06",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试06",
+                  "ordinal": 6,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-07",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试07",
+                  "ordinal": 7,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-08",
+                  "name": "试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试08",
+                  "ordinal": 8,
+                  "version": null
+                }
+              ],
+              "totalTools": 64,
+              "version": "1.0"
+            },
+            "sha256": "811d136421d7e565accc41d766d25cb3b3e330a459616786e27c90bbee9b23a0",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 811d136421d7e565accc41d766d25cb3b3e330a459616786e27c90bbee9b23a0\n64 个声明：内置 64，HTTP 0。\n1. tool-01 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试01 · 文本与编码 · 内置 lines#0\n2. tool-02 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试02 · 文本与编码 · 内置 lines#0\n3. tool-03 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试03 · 文本与编码 · 内置 lines#0\n4. tool-04 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试04 · 文本与编码 · 内置 lines#0\n5. tool-05 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试05 · 文本与编码 · 内置 lines#0\n6. tool-06 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试06 · 文本与编码 · 内置 lines#0\n7. tool-07 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试07 · 文本与编码 · 内置 lines#0\n8. tool-08 · 试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试试08 · 文本与编码 · 内置 lines#0\n继续查看时，输入工具起始序号 9。"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "file-limit-plus-one",
+        "inputBytes": 262145,
+        "inputSha256": "43f3bc75b21c2d27b7b485d9107c78655a14122c7b776a133e31f3faa39375c4",
+        "resultBytes": 132,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_LARGE",
+            "message": "单份清单最多 256 KiB。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "literal-text-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "56dd1166c774281277e2768df4524cb5fe5ea6caaae75f2098b8337bbbd4a988",
+        "resultBytes": 2525,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 262144,
+            "preview": {
+              "builtinTools": 16,
+              "httpTools": 0,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": 9,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "bounded-01",
+                  "name": "行处理",
+                  "ordinal": 1,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "bounded-02",
+                  "name": "行处理",
+                  "ordinal": 2,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "bounded-03",
+                  "name": "行处理",
+                  "ordinal": 3,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "bounded-04",
+                  "name": "行处理",
+                  "ordinal": 4,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "bounded-05",
+                  "name": "行处理",
+                  "ordinal": 5,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "bounded-06",
+                  "name": "行处理",
+                  "ordinal": 6,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "bounded-07",
+                  "name": "行处理",
+                  "ordinal": 7,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "bounded-08",
+                  "name": "行处理",
+                  "ordinal": 8,
+                  "version": null
+                }
+              ],
+              "totalTools": 16,
+              "version": "1.0"
+            },
+            "sha256": "56dd1166c774281277e2768df4524cb5fe5ea6caaae75f2098b8337bbbd4a988",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 56dd1166c774281277e2768df4524cb5fe5ea6caaae75f2098b8337bbbd4a988\n16 个声明：内置 16，HTTP 0。\n1. bounded-01 · 行处理 · 文本与编码 · 内置 lines#0\n2. bounded-02 · 行处理 · 文本与编码 · 内置 lines#0\n3. bounded-03 · 行处理 · 文本与编码 · 内置 lines#0\n4. bounded-04 · 行处理 · 文本与编码 · 内置 lines#0\n5. bounded-05 · 行处理 · 文本与编码 · 内置 lines#0\n6. bounded-06 · 行处理 · 文本与编码 · 内置 lines#0\n7. bounded-07 · 行处理 · 文本与编码 · 内置 lines#0\n8. bounded-08 · 行处理 · 文本与编码 · 内置 lines#0\n继续查看时，输入工具起始序号 9。"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "dense-json-body-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "0496e6b66d5681c163a81f0841b5f2872d4d9ef8605309320397111ec27a4cc5",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "dense-json-escapes-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "05b79c5f6d3f3934b8b7dc297cd1da33872ea35dbea9af28a51d0faa3226ce49",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "internal-padding-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "16c8c68146c05ae2d86eb77a20c86c97f012029a0fa545f8ebc8005957542c50",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "combined-heavy-original",
+        "inputBytes": 262144,
+        "inputSha256": "5e1ec48d16d8004b62a1a7a2a20268b067ec264b2274762975823a9440a12f6d",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "pretty-spacing-within-limit",
+        "inputBytes": 262144,
+        "inputSha256": "c15ac9bc7ad52fbe48486f35605a030e655b312986094c242a8fb8de09b76121",
+        "resultBytes": 971,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 262144,
+            "preview": {
+              "builtinTools": 1,
+              "httpTools": 1,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 0,
+                  "id": "tool-one",
+                  "name": "行处理",
+                  "ordinal": 1,
+                  "version": null
+                },
+                {
+                  "adapter": {
+                    "method": "POST",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "网络与接口",
+                  "historyCount": 0,
+                  "id": "request",
+                  "name": "请求工具",
+                  "ordinal": 2,
+                  "version": null
+                }
+              ],
+              "totalTools": 2,
+              "version": "1.0"
+            },
+            "sha256": "c15ac9bc7ad52fbe48486f35605a030e655b312986094c242a8fb8de09b76121",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 c15ac9bc7ad52fbe48486f35605a030e655b312986094c242a8fb8de09b76121\n2 个声明：内置 1，HTTP 1。\n1. tool-one · 行处理 · 文本与编码 · 内置 lines#0\n2. request · 请求工具 · 网络与接口 · HTTP POST"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "long-http-path-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "b79e4b2c0015df8f2d9632cfe58dd8cebc9847e6a552e106058ac606efd753bb",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "http-path-limit",
+        "inputBytes": 2447,
+        "inputSha256": "a11d67f34a8a34a408e9f3abb3b788419ebde90885a6e206f0a04be75febc4d8",
+        "resultBytes": 726,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 2447,
+            "preview": {
+              "builtinTools": 0,
+              "httpTools": 1,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "method": "POST",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "网络与接口",
+                  "historyCount": 0,
+                  "id": "request",
+                  "name": "请求工具",
+                  "ordinal": 1,
+                  "version": null
+                }
+              ],
+              "totalTools": 1,
+              "version": "1.0"
+            },
+            "sha256": "a11d67f34a8a34a408e9f3abb3b788419ebde90885a6e206f0a04be75febc4d8",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 a11d67f34a8a34a408e9f3abb3b788419ebde90885a6e206f0a04be75febc4d8\n1 个声明：内置 0，HTTP 1。\n1. request · 请求工具 · 网络与接口 · HTTP POST"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "http-path-limit-plus-one",
+        "inputBytes": 2448,
+        "inputSha256": "8c357b1009ed33252ae0bbb02add09521b36bc9396cd48392486808b3147c856",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "1940-keys-0-escapes-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "ee88e387b8c6d30f5453015cc4951ae2521890da4537c0403bd96d1be5181498",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "950-keys-2000-escapes-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "d24c69f8d31194ff8d51873eed712ec883737293d1092a6a12685067a8158079",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "950-keys-0-escapes-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "878326965fd9fc69828b5b057624ccbc2d7a24fe412f300e07d6d18df95eb498",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "470-keys-2000-escapes-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "49d97a83d3cf79f59e42b719a81f3163a6acc0ef93020ee321410fe302f433e3",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "237-keys-0-escapes-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "da4ccbdcfc435608a3583cd3d4a651fe4cb2bdef2b44f34cad71a475b129c911",
+        "resultBytes": 728,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 262144,
+            "preview": {
+              "builtinTools": 0,
+              "httpTools": 1,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "method": "POST",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "网络与接口",
+                  "historyCount": 0,
+                  "id": "request",
+                  "name": "请求工具",
+                  "ordinal": 1,
+                  "version": null
+                }
+              ],
+              "totalTools": 1,
+              "version": "1.0"
+            },
+            "sha256": "da4ccbdcfc435608a3583cd3d4a651fe4cb2bdef2b44f34cad71a475b129c911",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 da4ccbdcfc435608a3583cd3d4a651fe4cb2bdef2b44f34cad71a475b129c911\n1 个声明：内置 0，HTTP 1。\n1. request · 请求工具 · 网络与接口 · HTTP POST"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "238-keys-0-escapes-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "7e97e0022711357de4644efdd1add28f50e1e589746df58490207b170a73dfb2",
+        "resultBytes": 195,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DOCUMENT_TOO_COMPLEX",
+            "message": "清单中的结构、转义或引号外字符过多，请缩小复杂声明后重试。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "0-keys-4000-escapes-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "1a5a70b380c9b2f0c6e352b7fbbcb4bd90a659033801e56d88b1bc3d4adefcaa",
+        "resultBytes": 728,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 262144,
+            "preview": {
+              "builtinTools": 0,
+              "httpTools": 1,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "method": "POST",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "网络与接口",
+                  "historyCount": 0,
+                  "id": "request",
+                  "name": "请求工具",
+                  "ordinal": 1,
+                  "version": null
+                }
+              ],
+              "totalTools": 1,
+              "version": "1.0"
+            },
+            "sha256": "1a5a70b380c9b2f0c6e352b7fbbcb4bd90a659033801e56d88b1bc3d4adefcaa",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 1a5a70b380c9b2f0c6e352b7fbbcb4bd90a659033801e56d88b1bc3d4adefcaa\n1 个声明：内置 0，HTTP 1。\n1. request · 请求工具 · 网络与接口 · HTTP POST"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "220-keys-2000-escapes-at-256k",
+        "inputBytes": 262144,
+        "inputSha256": "7391192bf9100cad9cc1aa4200af588c0a353e3d393307e826aac61666318831",
+        "resultBytes": 728,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 262144,
+            "preview": {
+              "builtinTools": 0,
+              "httpTools": 1,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "method": "POST",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "网络与接口",
+                  "historyCount": 0,
+                  "id": "request",
+                  "name": "请求工具",
+                  "ordinal": 1,
+                  "version": null
+                }
+              ],
+              "totalTools": 1,
+              "version": "1.0"
+            },
+            "sha256": "7391192bf9100cad9cc1aa4200af588c0a353e3d393307e826aac61666318831",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 7391192bf9100cad9cc1aa4200af588c0a353e3d393307e826aac61666318831\n1 个声明：内置 0，HTTP 1。\n1. request · 请求工具 · 网络与接口 · HTTP POST"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "unknown-schema",
+        "inputBytes": 780,
+        "inputSha256": "5528202877da5974e91ee208a9491f8dfddac3dec278cb336b8ef693c9782131",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "studio-manifest-is-distinct",
+        "inputBytes": 45,
+        "inputSha256": "a4e357f682ee78a393fbf075f78b886f95af13c181c49b641086387d8ca12cb0",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "unknown-field-secret",
+        "inputBytes": 818,
+        "inputSha256": "c09641220ec682ee284a336083da00bbc7bfd83fc4bf08e81c1c09ecc5e9a228",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "malformed-source-secret",
+        "inputBytes": 34,
+        "inputSha256": "ccb1371835be32cb1c5d87bbddc3390beb6cab809b4f84db8e20fe6b4223b8f7",
+        "resultBytes": 147,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "清单必须是不含重复键的有效 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "duplicate-top-key",
+        "inputBytes": 799,
+        "inputSha256": "438164b46a58885842f94b935e8eead783740b78ea2df888caed1b18f6d599ac",
+        "resultBytes": 147,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "清单必须是不含重复键的有效 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "duplicate-nested-decoded-key",
+        "inputBytes": 796,
+        "inputSha256": "3277447effc4dcad93b5c5318d4b40c18ac78504f49062846fa2bccea856038b",
+        "resultBytes": 147,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "清单必须是不含重复键的有效 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "duplicate-tool-id",
+        "inputBytes": 793,
+        "inputSha256": "e44798c2c280fa63a7697654a913ffd29f2e620b26eedca77017d00aa5cb57a8",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "private-unknown-builtin",
+        "inputBytes": 487,
+        "inputSha256": "8a653466525aa2528172b3c4a3e0fa1276b51be4ab1b2706cc5bd101647876c4",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "action-no-longer-available",
+        "inputBytes": 466,
+        "inputSha256": "fcb6c6a756b643e1ef0a86f7776d40d8b68e95094696fb25bd441a6043421dc7",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "plain-remote-http-rejected",
+        "inputBytes": 450,
+        "inputSha256": "013ac702ddff6e05e3b7a1434d75747e66bab6bf568552aa5f8b8da8ab9c16ca",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "secret-url-details-rejected",
+        "inputBytes": 463,
+        "inputSha256": "ae28347083a1de3f7a2788026f8b83ea37ea1461034587564ca2b4fb14723475",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "loopback-declaration-only",
+        "inputBytes": 450,
+        "inputSha256": "b93d411ea01dce7fae05af31443ea4177315494e3c96ac00c5c7f7e0f1550c53",
+        "resultBytes": 725,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 450,
+            "preview": {
+              "builtinTools": 0,
+              "httpTools": 1,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "method": "POST",
+                    "type": "http"
+                  },
+                  "aliasCount": 0,
+                  "category": "网络与接口",
+                  "historyCount": 0,
+                  "id": "request",
+                  "name": "请求工具",
+                  "ordinal": 1,
+                  "version": null
+                }
+              ],
+              "totalTools": 1,
+              "version": "1.0"
+            },
+            "sha256": "b93d411ea01dce7fae05af31443ea4177315494e3c96ac00c5c7f7e0f1550c53",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 b93d411ea01dce7fae05af31443ea4177315494e3c96ac00c5c7f7e0f1550c53\n1 个声明：内置 0，HTTP 1。\n1. request · 请求工具 · 网络与接口 · HTTP POST"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "signed-envelope-not-a-manifest",
+        "inputBytes": 823,
+        "inputSha256": "8db3d6a3da9659b1903ec4dd5731aa24b91cba2ece4e9a9d0cfa30c584ff4c39",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-version-history-date",
+        "inputBytes": 583,
+        "inputSha256": "d28e07dd822fe1fbab1f5e7a2f9cece5da202561094ca81e787338c901fbf960",
+        "resultBytes": 155,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_MANIFEST",
+            "message": "清单不符合 ZiDevTools 声明式插件格式。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "valid-version-history",
+        "inputBytes": 664,
+        "inputSha256": "3c0e9c71adff604af5f361bed40c12e1090e615d2cac3cd4e361da33e20adede",
+        "resultBytes": 742,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "byteLength": 664,
+            "preview": {
+              "builtinTools": 1,
+              "httpTools": 0,
+              "id": "demo-extension",
+              "name": "示例插件",
+              "nextToolStart": null,
+              "schemaVersion": 1,
+              "toolStart": 1,
+              "tools": [
+                {
+                  "adapter": {
+                    "action": 0,
+                    "tool": "lines",
+                    "type": "builtin"
+                  },
+                  "aliasCount": 1,
+                  "category": "文本与编码",
+                  "historyCount": 2,
+                  "id": "tool-one",
+                  "name": "行处理",
+                  "ordinal": 1,
+                  "version": "1.0.1"
+                }
+              ],
+              "totalTools": 1,
+              "version": "1.0"
+            },
+            "sha256": "3c0e9c71adff604af5f361bed40c12e1090e615d2cac3cd4e361da33e20adede",
+            "text": "示例插件 · demo-extension · v1.0\nSHA-256 3c0e9c71adff604af5f361bed40c12e1090e615d2cac3cd4e361da33e20adede\n1 个声明：内置 1，HTTP 0。\n1. tool-one · 行处理 · 文本与编码 · 内置 lines#0"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "wrong-mime",
+        "inputBytes": 780,
+        "inputSha256": "48a3cf1c465df0d46029d5e1cb789361347c84a147ccca0ab923fe2a1fbda1d0",
+        "resultBytes": 149,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "UNSUPPORTED_MIME",
+            "message": "请选择 ZiDevTools 声明式 JSON 清单。"
+          },
+          "ok": false
+        }
+      }
+    ],
+    "failures": [],
+    "passed": 46,
+    "moduleBytes": 536479,
+    "wasmSha256": "07d922c5f3c21812f400fbc72f7814d3341b020c52ee97b0dbc0211b07ffb67c",
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "workerProfile": "resource.wasi.input.draft2"
+  }
+}
