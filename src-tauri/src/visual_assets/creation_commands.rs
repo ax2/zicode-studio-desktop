@@ -56,6 +56,8 @@ pub(crate) enum Action {
     },
     Preview {
         id: Uuid,
+        #[serde(default)]
+        inspect: bool,
     },
     Approve {
         id: Uuid,
@@ -155,9 +157,14 @@ pub(super) async fn handle(
                     let cancelled = active.get(&job).map(|token|token.cancel()).is_some();
                     Ok(json!({"cancelRequested":cancelled}))
                 }
-                Action::Preview { id:job } => {
+                Action::Preview { id:job,inspect } => {
                     let (bytes,thumbnail) = store.output(&id,job)?;
-                    Ok(json!({"sha256":hash(&bytes),"base64":thumbnail,"mimeType":"image/png"}))
+                    let mut response = json!({"sha256":hash(&bytes),"base64":thumbnail,"mimeType":"image/png"});
+                    if inspect {
+                        let specifications = generation_outputs::inspect(&mut db, &library, &bytes).ok();
+                        response["specifications"] = json!(specifications);
+                    }
+                    Ok(response)
                 }
                 Action::Approve { id:job,sha256 } => {
                     if let Some(saved) = archive::get(&db,job)? {

@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { copyFile, lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { copyFile, lstat, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { releaseBuildMatrix } from "./release-build-matrix.mjs";
 import { validateReleaseBundleName } from "./release-artifact-policy.mjs";
+import { releaseBuildMatrix } from "./release-build-matrix.mjs";
 import { verifyReleaseInventory } from "./verify-release-inventory.mjs";
 
 async function inspect(file) {
@@ -15,7 +15,7 @@ async function inspect(file) {
   return { size: stat.size, digest: `sha256:${hash.digest("hex")}` };
 }
 
-export async function stageBundles(files, dest, { tag, sha, target }) {
+export async function stageBundles(files, dest, { tag, sha, target, installerAcceptance }) {
   await mkdir(dest);
   const entries = [];
   for (const file of files) {
@@ -23,6 +23,27 @@ export async function stageBundles(files, dest, { tag, sha, target }) {
     if (!/^[A-Za-z0-9][A-Za-z0-9._+-]*$/.test(name)) throw Error("Unsafe installer name");
     await copyFile(file, join(dest, name));
     entries.push({ name, ...(await inspect(join(dest, name))) });
+  }
+  if (target === "windows-x64") {
+    const cases = installerAcceptance?.cases;
+    if (
+      installerAcceptance?.schemaVersion !== 1 ||
+      installerAcceptance.version !== tag.slice(1) ||
+      cases?.cleanInstall?.status !== "passed" ||
+      Object.values(cases).some(
+        (result) => result?.status !== "passed" && result?.status !== "skipped",
+      )
+    ) {
+      throw Error("Invalid Windows installer acceptance receipt");
+    }
+    const [installer] = entries;
+    if (
+      entries.length !== 1 ||
+      installer.size !== installerAcceptance.installerBytes ||
+      installer.digest !== `sha256:${String(installerAcceptance.installerSha256).toLowerCase()}`
+    ) {
+      throw Error("Staged installer differs from Windows installer acceptance");
+    }
   }
   await writeFile(join(dest, "receipt.json"), JSON.stringify({ tag, sha, target, entries }));
 }

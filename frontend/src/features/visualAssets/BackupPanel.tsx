@@ -62,7 +62,7 @@ export function BackupPanel({
   onBusyChange: (busy: boolean) => void;
   canRestore?: boolean;
   onRestored?: () => void;
-  animation?: { libraryId: string; assets: AnimationAsset[] };
+  animation?: { libraryId: string; assets: AnimationAsset[]; initialAtlas?: AnimationAsset };
 }) {
   const [job, setJob] = useState<Job | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -264,9 +264,10 @@ export function BackupPanel({
       </details>
       {(animation || exporting) && (
         <AnimationPanel
-          key={animation?.libraryId ?? "pending-library"}
+          key={JSON.stringify([animation?.libraryId, animation?.initialAtlas?.id])}
           libraryId={animation?.libraryId ?? ""}
           assets={animation?.assets ?? []}
+          initialAtlas={animation?.initialAtlas}
           disabled={disabled || !animation || !loaded || active || requesting}
           onExport={(intent) => void act("startAnimation", intent)}
           onPreview={(intent) =>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { t } from "../../shared/i18n";
+import type { SavedAtlasSource } from "./AnimationPanel";
 import { AssetLibrary, type Invoke } from "./AssetLibrary";
 import { CreationWorkspace } from "./CreationWorkspace";
 import { type CreationWorkflowId, creationWorkflows } from "./creation-workflows";
@@ -9,7 +10,12 @@ export type { Invoke } from "./AssetLibrary";
 
 export function VisualAssetsApp(props: { invoke: Invoke; workspaceId: string; sceneId?: string }) {
   const [view, setView] = useState<"home" | "library" | CreationWorkflowId>("home");
+  const [atlasSource, setAtlasSource] = useState<SavedAtlasSource>();
   const selected = creationWorkflows.find((entry) => entry.id === view);
+  function openView(next: typeof view, source?: SavedAtlasSource) {
+    setAtlasSource(source);
+    setView(next);
+  }
   return (
     <section className="visual-assets-main visual-assets-shell" aria-label={t("Visual creation studio")}>
       <header className="visual-assets-masthead">
@@ -19,7 +25,7 @@ export function VisualAssetsApp(props: { invoke: Invoke; workspaceId: string; sc
             type="button"
             className="ui-button"
             aria-current={view === "home" ? "page" : undefined}
-            onClick={() => setView("home")}
+            onClick={() => openView("home")}
           >
             {t("Creation home")}
           </button>
@@ -27,7 +33,7 @@ export function VisualAssetsApp(props: { invoke: Invoke; workspaceId: string; sc
             type="button"
             className="ui-button ui-button--secondary"
             aria-current={view === "library" ? "page" : undefined}
-            onClick={() => setView("library")}
+            onClick={() => openView("library")}
           >
             {t("Materials and library")}
           </button>
@@ -46,7 +52,7 @@ export function VisualAssetsApp(props: { invoke: Invoke; workspaceId: string; sc
                 <button
                   type="button"
                   className={`ui-button${workflow.id === "outfit" ? " ui-button--primary" : ""}`}
-                  onClick={() => setView(workflow.id)}
+                  onClick={() => openView(workflow.id)}
                 >
                   {t("Open workflow")} · {t(workflow.title)}
                 </button>
@@ -55,15 +61,19 @@ export function VisualAssetsApp(props: { invoke: Invoke; workspaceId: string; sc
           </div>
         </>
       )}
-      {view === "library" && <AssetLibrary {...props} />}
-      {(view === "outfit" || view === "style" || view === "generate") && (
-        <OutfitWorkspace {...props} workflow={view} />
+      {view === "library" && <AssetLibrary {...props} atlasSource={atlasSource} />}
+      {(view === "outfit" || view === "style" || view === "generate" || view === "game") && (
+        <OutfitWorkspace
+          {...props}
+          workflow={view}
+          onUseAsAtlas={view === "game" ? (source) => openView("library", source) : undefined}
+        />
       )}
-      {selected && view !== "outfit" && view !== "style" && view !== "generate" && (
+      {selected?.id === "animation" && (
         <CreationWorkspace
           key={selected.id}
           workflow={selected}
-          onOpenLibrary={() => setView("library")}
+          onOpenLibrary={() => openView("library")}
         />
       )}
     </section>

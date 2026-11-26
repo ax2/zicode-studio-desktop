@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import type { SavedAtlasSource } from "./AnimationPanel";
 import { GenerationSummary } from "./GenerationFields";
 import { imageWorkflowLabel } from "./generation-types";
 import { type LibraryRequest, OutfitImagePreview } from "./OutfitImagePicker";
+import { type ImageSpecifications, OutputSpecifications } from "./OutputSpecifications";
 import { type ImageUsage, OutfitUsage } from "./OutfitUsage";
 import { type CreationRequest, type OutfitPlan, outfitError } from "./outfit-types";
 import { StyleSummary } from "./StyleFields";
@@ -15,26 +17,32 @@ type Job = {
   error?: string | null;
   usage?: ImageUsage;
 };
-type Status = { job: Job | null; active: boolean; archived: { assetId: number } | null };
+type ArchiveReceipt = { assetId: number; jobId?: string; plan?: Pick<OutfitPlan, "libraryId"> };
+type Status = { job: Job | null; active: boolean; archived: ArchiveReceipt | null };
+type Preview = { base64: string; sha256: string; specifications?: ImageSpecifications | null };
 const statusBusyDelays = [250, 500, 1000];
 export function OutfitTask({
   id,
+  onUseAsAtlas,
   request,
   library,
   libraryId,
+  reviewOutput = false,
 }: {
   id: string;
+  onUseAsAtlas?: (source: SavedAtlasSource) => void;
   request: CreationRequest;
   library: LibraryRequest;
   libraryId: string;
+  reviewOutput?: boolean;
 }) {
   const [status, setStatus] = useState<Status>();
-  const [preview, setPreview] = useState<{ base64: string; sha256: string }>();
+  const [preview, setPreview] = useState<Preview>();
   const [loadedDigest, setLoadedDigest] = useState("");
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState<number>();
+  const [saved, setSaved] = useState<ArchiveReceipt>();
   const saving = useRef(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: revision explicitly re-reads the same job.
   useEffect(() => {
@@ -60,11 +68,12 @@ export function OutfitTask({
       setStatus(next);
       try {
         if (next.job?.state === "ready" && !next.archived) {
-          const result = (await request({ kind: "preview", id })) as {
-            mimeType: string;
-            base64: string;
-            sha256: string;
-          };
+          const inspect = reviewOutput && Boolean(next.job.plan.input.generation);
+          const result = (await request({
+            kind: "preview",
+            id,
+            ...(inspect ? { inspect: true } : {}),
+          })) as Preview & { mimeType: string };
           if (current && result.mimeType === "image/png" && result.base64.length <= 700_000)
             setPreview(result);
         }
@@ -79,7 +88,7 @@ export function OutfitTask({
       current = false;
       clearTimeout(timer);
     };
-  }, [request, id, revision]);
+  }, [request, id, revision, reviewOutput]);
   async function cancel() {
     setBusy(true);
     try {
@@ -97,10 +106,8 @@ export function OutfitTask({
     setBusy(true);
     setError("");
     try {
-      const result = (await request({ kind: "approve", id, sha256: preview.sha256 })) as {
-        assetId: number;
-      };
-      setSaved(result.assetId);
+      const result = (await request({ kind: "approve", id, sha256: preview.sha256 })) as ArchiveReceipt;
+      setSaved(result);
     } catch (reason) {
       setError(t(outfitError(reason)));
     } finally {
@@ -108,7 +115,8 @@ export function OutfitTask({
       setBusy(false);
     }
   }
-  const archived = saved ?? status?.archived?.assetId;
+  const receipt = saved ?? status?.archived;
+  const archived = receipt?.assetId;
   const plan = status?.job?.plan;
   const isStyle = plan?.workflow === "style";
   const isGeneration = !!plan?.input.generation;
@@ -123,6 +131,12 @@ export function OutfitTask({
       ? "Restyled image"
       : "Generated outfit";
   const sourceLabel = isStyle || isGeneration ? "Source image" : "Original person";
+  // Approved creation archives always refer to the original at revision 1.
+  const atlasSource = status?.job?.state === "ready" && isGeneration && typeof archived === "number" &&
+    Number.isSafeInteger(archived) && archived > 0 &&
+    receipt?.jobId === id && receipt.plan?.libraryId === libraryId
+    ? { libraryId, assetId: archived }
+    : undefined;
   return (
     <section className="ui-card" aria-label={t(taskTitle)}>
       <h4>{t(taskTitle)}</h4>
@@ -220,6 +234,9 @@ export function OutfitTask({
           </figure>
         </div>
       )}
+      {reviewOutput && plan?.input.generation && preview && loadedDigest === preview.sha256 && !archived && (
+        <OutputSpecifications original={preview.specifications} requested={plan.input.generation.options} />
+      )}
       {archived ? (
         <p role="status">
           {t(
@@ -247,6 +264,11 @@ export function OutfitTask({
             )}
           </button>
         )
+      )}
+      {atlasSource && onUseAsAtlas && (
+        <button type="button" className="ui-button" disabled={busy} onClick={() => onUseAsAtlas(atlasSource)}>
+          {t("Use as sprite atlas")}
+        </button>
       )}
       {error && <p role="alert">{error}</p>}
     </section>

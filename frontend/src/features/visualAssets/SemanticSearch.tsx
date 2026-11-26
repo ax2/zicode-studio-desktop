@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import { isImeComposing } from "../../shared/ime";
 import { OutfitImagePreview } from "./OutfitImagePreview";
 import type { Invoke } from "./AssetLibrary";
 
@@ -25,12 +26,17 @@ export function SemanticSearch({
   const [result, setResult] = useState<{ concepts: string[]; matches: Hit[] } | null>(null);
 
   const [preview, setPreview] = useState<Hit | null>(null);
+  const composing = useRef(false);
+  const reviewOnRelease = useRef(false);
+  const hasSearchInput = selected !== "" && query.trim().length > 0;
+  const canReview = !busy && hasSearchInput;
   const request = useCallback(
     (value: Record<string, unknown>) =>
       invoke("visual_assets_control", { workspaceId, request: value }),
     [invoke, workspaceId],
   );
   async function perform(load: boolean) {
+    if (busy) return;
     setBusy(true);
     setError("");
     setPreview(null);
@@ -79,6 +85,9 @@ export function SemanticSearch({
       setBusy(false);
     }
   }
+  function reviewSearch() {
+    if (canReview) void perform(false);
+  }
   return (
     <details className="visual-assets-tool visual-assets-search-results">
       <summary>{t("Semantic search")}</summary>
@@ -91,7 +100,7 @@ export function SemanticSearch({
         <button
           type="button"
           className="ui-button"
-          disabled={busy}
+          aria-disabled={busy || undefined}
           onClick={() => void perform(true)}
         >
           {t("Load search models")}
@@ -121,7 +130,25 @@ export function SemanticSearch({
           placeholder={t("Search phrase")}
           maxLength={64}
           value={query}
-          disabled={busy}
+          readOnly={busy}
+          onCompositionStart={() => {
+            composing.current = true;
+            reviewOnRelease.current = false;
+          }}
+          onCompositionEnd={() => { composing.current = false; }}
+          onBlur={() => { reviewOnRelease.current = false; }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" || event.repeat) return;
+            const plainEnter = !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+            reviewOnRelease.current = canReview && plainEnter && !isImeComposing(event.nativeEvent, composing.current);
+            if (reviewOnRelease.current) event.preventDefault();
+          }}
+          onKeyUp={(event) => {
+            if (event.key !== "Enter" || !reviewOnRelease.current) return;
+            reviewOnRelease.current = false;
+            // Open the native confirmation after release so a held key cannot repeat into it.
+            if (!isImeComposing(event.nativeEvent, composing.current)) reviewSearch();
+          }}
           onChange={(e) => {
             setQuery(e.target.value);
             setResult(null);
@@ -130,8 +157,9 @@ export function SemanticSearch({
         <button
           type="button"
           className="ui-button"
-          disabled={busy || !selected || !query.trim()}
-          onClick={() => void perform(false)}
+          disabled={!hasSearchInput}
+          aria-disabled={busy || undefined}
+          onClick={reviewSearch}
         >
           {t("Review model search")}
         </button>
