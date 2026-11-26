@@ -1,0 +1,15 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.clock-backup",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "clock-workbench",
+      "capabilityId": "devtools.clock.backup.inspect",
+      "title": "时钟备份检查",
+      "status": "candidate",
+      "scope": "确认共享本机时钟 JSON v1–v3，核验格式并报告保存时间、计时器、闹钟等摘要。"
+    }
+  ]
+}
