@@ -143,7 +143,7 @@ async fn persists_reviewed_windows_ocr_text_in_an_isolated_notes_vault() {
     let recognize = |file: &str, language: Option<&str>| {
         let bytes = std::fs::read(fixtures.join(file)).unwrap();
         let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png).unwrap();
-        crate::ocr::extract_decoded_text(&image, language, None, true).map(|result| result.text)
+        crate::ocr::extract_decoded_text(&image, language, None).map(|result| result.text)
     };
     assert_eq!(
         recognize("primary.png", Some("en-US")).unwrap_err(),
