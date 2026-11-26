@@ -348,6 +348,7 @@ jobs:
               '0.7.2' = 'e1b7219e7002b3911876838914be8d61dc9adfa1a0228267d47f73492ad7af3c'
               '0.7.3' = 'bb0de3f9e7660ed0c96ef409764c2df15cb58693783b3cd2c2282ae7ce4b748a'
               '0.7.4' = 'bced3c4e94f697b1a7c050a10a67280a2cc06463c5b7382199ab34fa7e8a81e3'
+              '0.7.5' = 'ef644bb01d36abbe1d2d891bbc9d466dda59c0d4f4ad77c7b474a96b62794273'
             }
             $previous = $publicDigests.Keys | Where-Object { [version]$_ -lt $candidate } |
               Sort-Object { [version]$_ } -Descending | Select-Object -First 1
