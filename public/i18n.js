@@ -9,6 +9,7 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Could not load this plugin’s tools. Open Tool Center to try again.": "暂时无法列出此插件的工具，请打开工具中心重试。",
   "Automatic updates": "自动更新",
   "Check manually": "手动检查",
   "Notify me about new versions": "发现新版本时提醒我",
