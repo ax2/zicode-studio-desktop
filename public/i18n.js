@@ -4173,6 +4173,7 @@ const zhCN = {
   "An attachment does not match its image format. Check the file before syncing.": "配图内容与图片格式不符，请核对文件后再同步。",
   "Write and organize static blog articles": "写作与管理静态博客文章",
   "Open Blog": "打开博客",
+  "Markdown preview": "Markdown 预览",
   "Choose blog folder": "选择博客目录",
   "Pulled latest articles": "已拉取最新文章",
   "Pull changes": "拉取更改",
