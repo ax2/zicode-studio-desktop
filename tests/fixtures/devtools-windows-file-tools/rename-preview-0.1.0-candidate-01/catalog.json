@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.rename-preview",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "file-rename",
+      "capabilityId": "devtools.files.rename.preview",
+      "title": "批量改名预览",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "切到「文件夹」并确认共享一层名称，预览查找替换、前后缀及目标冲突。最多 64 个目录项。"
+    }
+  ]
+}

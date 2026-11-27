@@ -1,5 +1,5 @@
 import { webcrypto } from "node:crypto";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
 import { ToolCenterApp } from "./ToolCenterApp";
@@ -61,4 +61,47 @@ it("keeps failed listing recoverable through explicit search", async () => {
 it("omits the entry if the saved file gateway is unavailable", () => {
   render(<ToolCenterApp entries={[]} onOpen={vi.fn()} onManage={vi.fn()} onCommands={vi.fn()} />);
   expect(screen.queryByRole("button", { name: "Saved files" })).toBeNull();
+});
+
+it("isolates a changed saved file and keeps other results readable on the current page", async () => {
+  const f = fixture();
+  const otherId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const other = { ...item, receiptVersion: "b".repeat(64), receipt: {
+    ...item.receipt, saveId: otherId, relativePath: `.zicode/outputs/${otherId}/result.txt`,
+  } };
+  f.savedOutputs.list.mockResolvedValueOnce({ ...page, total: 42, hasMore: true })
+    .mockResolvedValue({ ...page, total: 42, offset: 40, items: [item, other] });
+  f.savedOutputs.read.mockRejectedValueOnce(Object.assign(Error("private changed path"), { code: "saved_output_changed" }));
+  const library = within(await f.open());
+  const next = library.getByRole<HTMLButtonElement>("button", { name: "Next page" });
+  await waitFor(() => expect(next.disabled).toBe(false));
+  fireEvent.click(next);
+  await waitFor(() => expect(library.getAllByRole("listitem")).toHaveLength(2));
+  const [, goodRow] = library.getAllByRole("listitem");
+  const first = () => library.getAllByRole<HTMLButtonElement>("button", { name: "Preview saved file" })[0];
+  fireEvent.click(first());
+  await library.findByText("This saved file changed. Refresh the list before opening it again.");
+  expect(first().disabled).toBe(true);
+  expect(library.getAllByRole<HTMLButtonElement>("button", { name: "Download saved file" })[0].disabled).toBe(true);
+  expect(library.queryByText("private changed path")).toBeNull();
+  expect(library.getByRole<HTMLButtonElement>("button", { name: "Previous page" }).disabled).toBe(false);
+  fireEvent.click(within(goodRow).getByRole("button", { name: "Preview saved file" }));
+  await library.findByDisplayValue("hello");
+  expect(f.savedOutputs.read.mock.calls.map(([, , input]) => input.receipt.saveId)).toEqual([id, otherId]);
+  expect(f.savedOutputs.list).toHaveBeenCalledTimes(2);
+  fireEvent.click(library.getByRole("button", { name: "Refresh" }));
+  await waitFor(() => expect(first().disabled).toBe(false));
+  expect(f.savedOutputs.list).toHaveBeenLastCalledWith("programming", "ws", expect.objectContaining({ offset: 40 }));
+  expect(f.savedOutputs.read).toHaveBeenCalledTimes(2);
+});
+
+it("clears the entire saved library after permission denial", async () => {
+  const f = fixture();
+  f.savedOutputs.read.mockRejectedValueOnce(Object.assign(Error("private authorization error"), { code: "permission_denied" }));
+  const library = within(await f.open());
+  fireEvent.click(await library.findByRole("button", { name: "Preview saved file" }));
+  await library.findByText(/access was revoked/);
+  expect(library.queryByRole("listitem")).toBeNull();
+  expect(library.queryByText("This saved file changed. Refresh the list before opening it again.")).toBeNull();
+  expect(library.queryByText("private authorization error")).toBeNull();
 });

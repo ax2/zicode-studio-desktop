@@ -1,0 +1,1 @@
+{"contractVersion":"1.0.0-rc.1","ok":true,"data":{"text":"{\n  \"codePoints\": [],\n  \"nfc\": \"\",\n  \"nfkc\": \"\",\n  \"notes\": \"按 Unicode 码点而非可见字形列出；attention 标记常见控制、空白与格式字符，并非完整安全检测。NFKC 可能改变字符语义。\"\n}"},"error":null}

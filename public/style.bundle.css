@@ -8378,6 +8378,13 @@ body[data-active-plugin="core.tools"] #sidebar-overlay { display: none; }
   overflow: auto;
 }
 
+.plugin-resource-preview-content pre.plugin-ascii-art {
+  font-family: var(--font-mono, monospace);
+  white-space: pre;
+  overflow-wrap: normal;
+  max-width: 100%;
+}
+
 .image-crop-selection { margin-block: var(--space-2); }
 .image-crop-stage {
   position: relative;
@@ -9091,8 +9098,11 @@ dialog.saved-tool-files-dialog { position: fixed; inset: 0; margin: auto; box-si
 
 .notes-move-popover {
   position: fixed;
-  z-index: 120;
+  z-index: 200;
   width: min(280px, calc(100vw - var(--space-8)));
+  max-height: calc(100dvh - var(--space-4));
+  display: flex;
+  flex-direction: column;
   padding: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -9114,6 +9124,7 @@ dialog.saved-tool-files-dialog { position: fixed; inset: 0; margin: auto; box-si
   display: grid;
   gap: var(--space-0-5);
   max-height: 320px;
+  min-height: 0;
   overflow-y: auto;
 }
 

@@ -384,10 +384,11 @@ export class PluginCapabilityGateway {
     });
   }
 
-  commitTransfer(scope, grantId) {
+  commitTransfer(scope, grantId, { signal } = {}) {
     return this.#request(this.#url("/v2/plugin-results/commit-transfer"), {
       method: "POST",
       body: JSON.stringify({ scope, grantId, confirmed: true }),
+      signal,
     });
   }
 

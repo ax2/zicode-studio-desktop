@@ -2,6 +2,7 @@
 mod assets;
 mod catalog;
 mod git;
+mod homepage;
 mod site;
 
 use serde_json::{json, Value};
@@ -44,6 +45,7 @@ fn listing(root: Option<&Path>) -> Result<Value, String> {
         "framework": layout.framework(),
         "collection": layout.collection(),
         "catalog": catalog,
+        "defaultHomepage": homepage::inspect(root, layout),
         "homepagePicks": site::resolve(root, "@homepagePicks", false).is_ok(),
         "changedPaths": state.as_ref().map(|s| &s.changed).cloned().unwrap_or_default(),
         "pendingPush": state.as_ref().is_ok_and(|s| s.pending),

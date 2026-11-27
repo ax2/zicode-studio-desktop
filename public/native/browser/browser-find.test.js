@@ -153,17 +153,149 @@ it("restores native page focus only after manual dismissal completes", async () 
   const restoreFocus = vi.fn(async () => {}), control = vi.fn(async () => {});
   vi.useFakeTimers(); find = createBrowserFind({ control, getTab: () => ({ id: "a" }), available: () => true, restoreFocus }); document.body.append(find.element); find.open();
   getByRole(find.element, "searchbox").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  await vi.advanceTimersByTimeAsync(0); expect(restoreFocus).toHaveBeenCalledWith("a");
+  await vi.advanceTimersByTimeAsync(0); expect(restoreFocus).toHaveBeenCalledWith("a", expect.objectContaining({ toAddress: false }));
   expect(control.mock.invocationCallOrder.at(-1)).toBeLessThan(restoreFocus.mock.invocationCallOrder[0]);
   restoreFocus.mockClear(); find.open(); await find.close(); expect(restoreFocus).not.toHaveBeenCalled();
 });
-it.each(["reopened", "tab changed", "blocked"])("never steals focus after a delayed dismiss when %s", async state => {
+it.each([false, true])("keeps address origin across repeated find unless explicitly reopening from a native page (%s)", async fromPage => {
+  vi.useFakeTimers();
+  const control = vi.fn(async () => {}), restoreFocus = vi.fn(async () => {});
+  const address = document.createElement("input");
+  find = createBrowserFind({ control, getTab: () => ({ id: "a" }), available: () => true, address, restoreFocus });
+  document.body.append(address, find.element);
+  address.value = "Unsent browser draft";
+  address.focus();
+  address.setSelectionRange(3, 10);
+  find.open();
+  find.open({ fromPage });
+  getByRole(find.element, "searchbox").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(restoreFocus).toHaveBeenCalledExactlyOnceWith("a", expect.objectContaining({ toAddress: !fromPage }));
+  expect(address.value).toBe("Unsent browser draft");
+  expect([address.selectionStart, address.selectionEnd]).toEqual([3, 10]);
+});
+
+it.each(["reopened", "tab changed", "blocked", "focus moved"])("never steals focus after a delayed dismiss when %s", async state => {
   let finish, id = "a", available = true;
   const restoreFocus = vi.fn(async () => {}), control = vi.fn(() => new Promise(done => { finish = done; }));
   vi.useFakeTimers(); find = createBrowserFind({ control, getTab: () => ({ id }), available: () => available, restoreFocus }); document.body.append(find.element); find.open();
   getByRole(find.element, "button", { name: t("Close page search") }).click(); await vi.advanceTimersByTimeAsync(0);
-  if (state === "reopened") find.open(); else if (state === "tab changed") id = "b"; else available = false;
+  if (state === "reopened") find.open();
+  else if (state === "tab changed") id = "b";
+  else if (state === "focus moved") {
+    const elsewhere = document.createElement("button");
+    document.body.append(elsewhere);
+    elsewhere.focus();
+  } else available = false;
   finish(); await vi.advanceTimersByTimeAsync(0); expect(restoreFocus).not.toHaveBeenCalled();
   control.mockResolvedValue(undefined);
 });
 
+it("keeps a failed direction available for a manual retry without restarting the query", async () => {
+  let active = 1, rejectStep = true;
+  const control = vi.fn(async request => {
+    if (request.kind === "findStatus") return { count: 3, active };
+    if (request.kind === "findStep") {
+      if (rejectStep) { rejectStep = false; throw Error("Direction unavailable"); }
+      active += request.backward ? -1 : 1;
+    }
+  });
+  const ui = setup(control);
+  await type(ui.input, "unchanged");
+  ui.button("Next match").click();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(ui.counter.textContent).toBe("Direction unavailable");
+  expect(ui.button("Previous match").disabled).toBe(false);
+  expect(ui.button("Next match").disabled).toBe(false);
+  ui.button("Next match").click();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(ui.counter.textContent).toBe("2 / 3");
+  expect(ui.input.value).toBe("unchanged");
+  expect(control.mock.calls.filter(([request]) => request.kind === "findStart")).toHaveLength(1);
+});
+
+it.each(["poll", "after step"])("recovers a status error %s without replaying a direction", async source => {
+  let active = 1, count = 3, rejectStatus = false;
+  const control = vi.fn(async request => {
+    if (request.kind === "findStep") {
+      active++;
+      rejectStatus = true;
+    }
+    if (request.kind === "findStatus") {
+      if (rejectStatus) { rejectStatus = false; throw Error("Status unavailable"); }
+      return { count, active };
+    }
+  });
+  const ui = setup(control);
+  await type(ui.input, "same");
+  if (source === "poll") {
+    rejectStatus = true;
+    await vi.advanceTimersByTimeAsync(350);
+  } else {
+    ui.button("Next match").click();
+    await vi.advanceTimersByTimeAsync(0);
+  }
+  expect(ui.counter.textContent).toBe("Status unavailable");
+  expect(ui.button("Next match").disabled).toBe(false);
+  find.refreshMatchControls();
+  expect(ui.counter.textContent).toBe("Status unavailable");
+  await vi.advanceTimersByTimeAsync(350);
+  expect(ui.counter.textContent).toBe(source === "poll" ? "1 / 3" : "2 / 3");
+  expect(control.mock.calls.map(([request]) => request).filter(request => request.kind === "findStep"))
+    .toHaveLength(source === "poll" ? 0 : 1);
+
+  count = active = 0;
+  await vi.advanceTimersByTimeAsync(350);
+  expect(ui.counter.textContent).toBe(t("No matches"));
+  expect(ui.button("Next match").disabled).toBe(true);
+  expect(ui.button("Previous match").disabled).toBe(true);
+  const calls = control.mock.calls.length;
+  ui.input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(control.mock.calls).toHaveLength(calls);
+});
+
+it("polls the first status only after native start accepted the current query", async () => {
+  let rejectStatus = true;
+  const control = vi.fn(async request => {
+    if (request.kind === "findStart" && request.text === "cannot start") throw Error("Start unavailable");
+    if (request.kind === "findStatus") {
+      if (rejectStatus) { rejectStatus = false; throw Error("First status unavailable"); }
+      return { count: 1, active: 1 };
+    }
+  });
+  const ui = setup(control);
+  await type(ui.input, "cannot start");
+  expect(ui.counter.textContent).toBe("Start unavailable");
+  await vi.advanceTimersByTimeAsync(700);
+  expect(control.mock.calls.map(([request]) => request.kind)).toEqual(["findStart"]);
+  await type(ui.input, "accepted");
+  expect(ui.counter.textContent).toBe("First status unavailable");
+  expect(ui.button("Next match").disabled).toBe(true);
+  await vi.advanceTimersByTimeAsync(350);
+  expect(ui.counter.textContent).toBe("1 / 1");
+});
+
+it("ignores a late status failure after the tab or document search is closed", async () => {
+  let rejectPoll, deferred = false, tab = "a";
+  const control = vi.fn(async request => {
+    if (request.kind === "findStatus") {
+      if (deferred && request.tab === "a") return new Promise((_, reject) => { rejectPoll = reject; });
+      return request.tab === "a" ? { count: 9, active: 2 } : { count: 1, active: 1 };
+    }
+  });
+  const ui = setup(control, () => ({ id: tab }));
+  await type(ui.input, "old");
+  deferred = true;
+  await vi.advanceTimersByTimeAsync(350);
+  expect(rejectPoll).toBeTypeOf("function");
+  const closing = find.close({ stopNative: false });
+  tab = "b";
+  find.open();
+  await closing;
+  rejectPoll(Error("Late old document status"));
+  await type(ui.input, "new");
+  expect(ui.counter.textContent).toBe("1 / 1");
+  await vi.advanceTimersByTimeAsync(700);
+  expect(control.mock.calls.filter(([request]) => request.kind === "findStatus" && request.tab === "a")).toHaveLength(2);
+});

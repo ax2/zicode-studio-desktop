@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.root-solver",
+  "name": "ZiDevTools Bisection Root Solver",
+  "displayName": "非线性方程求根",
+  "description": "用区间二分法估算 f(x)=0 的一个候选点，显示收敛状态、残差和迭代次数。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "compute.wasi.v1": "=1.0.0-rc.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.roots.bisect"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.roots.bisect",
+        "title": "非线性方程求根",
+        "description": "用区间二分法估算 f(x)=0 的一个候选点，显示收敛状态、残差和迭代次数。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "type": "string",
+              "maxLength": 2048,
+              "minLength": 1,
+              "title": "函数 f(x)",
+              "description": "输入例如 x^2-2。函数在所给区间内需连续，程序无法判断连续性。"
+            },
+            "lower": {
+              "type": "number",
+              "minimum": -1000000000000,
+              "maximum": 1000000000000,
+              "title": "左端点"
+            },
+            "upper": {
+              "type": "number",
+              "minimum": -1000000000000,
+              "maximum": 1000000000000,
+              "title": "右端点"
+            },
+            "tolerance": {
+              "type": "number",
+              "minimum": 1e-12,
+              "maximum": 0.01,
+              "default": 1e-10,
+              "title": "区间宽度容差",
+              "description": "允许 1e-12 到 1e-2，默认 1e-10。"
+            },
+            "maxIterations": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "title": "迭代上限",
+              "description": "允许 1–200 次，默认 100 次。"
+            },
+            "angle": {
+              "type": "string",
+              "enum": [
+                "radians",
+                "degrees"
+              ],
+              "default": "radians",
+              "title": "角度单位",
+              "description": "三角函数默认用弧度 radians。选 degrees 改用角度。"
+            },
+            "constants": {
+              "type": "object",
+              "maxProperties": 64,
+              "additionalProperties": true,
+              "title": "常量（可选）",
+              "description": "JSON 对象如 {\"scale\":\"3/2\",\"shift\":0.75}。字符串为精确数，JSON 数字为有限近似数，不能覆盖 x 或内置名称。"
+            }
+          },
+          "required": [
+            "formula",
+            "lower",
+            "upper"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "error": {
+                  "type": "null"
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "converged": {
+                      "type": "boolean"
+                    },
+                    "iterations": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 200
+                    },
+                    "root": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "residual": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "converged",
+                    "iterations",
+                    "root",
+                    "residual",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "error",
+                "data"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 1024,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "区间二分",
+            "非线性方程",
+            "区间求根",
+            "Bisection",
+            "Nonlinear root"
+          ],
+          "description": "用区间二分法估算 f(x)=0 的一个候选点，显示收敛状态、残差和迭代次数。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [],
+    "optional": []
+  }
+}

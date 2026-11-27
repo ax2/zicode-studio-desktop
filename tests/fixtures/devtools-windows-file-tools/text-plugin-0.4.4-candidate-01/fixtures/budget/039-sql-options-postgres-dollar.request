@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.text","sceneId":"coding","capabilityId":"devtools.text.sql.format","commandId":null,"input":{"text":"select $body$中文 select; from$body$ as body, $1 from records","dialect":"postgresql"}}

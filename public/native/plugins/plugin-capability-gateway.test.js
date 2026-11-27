@@ -34,6 +34,21 @@ it("queries transfer status without committing or cancelling it", async () => {
   expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ scope, grantId: "grant" });
 });
 
+it("can abort the one confirmed transfer reply without sending a second Host request", async () => {
+  const fetchImpl = vi.fn((_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () => reject(Object.assign(Error("aborted"), { name: "AbortError" })), { once: true });
+  }));
+  const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+  const scope = { sceneId: "programming", workspaceId: "workspace", pluginId: "source", capabilityId: "text" };
+  const controller = new AbortController();
+  const pending = gateway.commitTransfer(scope, "grant", { signal: controller.signal });
+  controller.abort();
+  await expect(pending).rejects.toMatchObject({ code: "plugin_capability_cancelled" });
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+  expect(fetchImpl.mock.calls[0][0].pathname).toBe("/v2/plugin-results/commit-transfer");
+  expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ scope, grantId: "grant", confirmed: true });
+});
+
 it("keeps resource prepare, one-use invoke and mutating reconciliation separate", async () => {
   const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
   const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });

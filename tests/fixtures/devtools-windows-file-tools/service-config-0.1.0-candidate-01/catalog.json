@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.service-config",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "services",
+      "capabilityId": "devtools.services.config.preflight",
+      "title": "本地服务配置预检",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "确认读取一份本机 ZiDevTools 服务 YAML，核对导入前置条件并获得脱敏诊断。"
+    }
+  ]
+}

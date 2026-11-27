@@ -206,6 +206,52 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
         .lock()
         .unwrap()
         .manual_revision("programming");
+    let name_with_spaces = "report  sample.txt";
+    let source = folder.join(name_with_spaces);
+    fs::write(&source, b"abc").unwrap();
+    let mut normalized = Vec::new();
+    for marker in [' ', '*'] {
+        let preview = host
+            .prepare_native_checksum_folder(
+                context.clone(),
+                owner.clone(),
+                format!("{ABC} {marker}{name_with_spaces}\r\n"),
+                folder.clone(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(preview["entryNamesRead"], false);
+        let id = preview["grantId"].as_str().unwrap();
+        assert_eq!(
+            commit(id, false).await.unwrap_err(),
+            "resource_confirmation_required"
+        );
+        let verified = commit(id, true).await.unwrap();
+        let row = &verified["entries"][0];
+        assert_eq!(
+            row,
+            &json!({ "name": name_with_spaces, "expected": ABC, "actual": ABC, "status": "match" })
+        );
+        assert_eq!(fs::read(&source).unwrap(), b"abc");
+        if marker == '*' {
+            normalized.push(row.clone());
+        }
+    }
+    for bad in [
+        format!("{ABC} #readme.txt"),
+        format!("{ABC} *"),
+        format!("{ABC} *../readme.txt"),
+        format!("{ABC} */readme.txt"),
+        format!("{ABC} *C:\\readme.txt"),
+        format!("{ABC}  report.txt\n{ABC} *REPORT.txt"),
+    ] {
+        let error = host
+            .prepare_native_checksum_folder(context.clone(), owner.clone(), bad, folder.clone())
+            .await
+            .unwrap_err();
+        assert_eq!(error, "resource_checksum_manifest_invalid");
+    }
+
     let generated_dir = root.join("generate-selection");
     fs::create_dir_all(&generated_dir).unwrap();
     let generated_dir = generated_dir.canonicalize().unwrap();
@@ -346,10 +392,16 @@ async fn checksum_folder_uses_confirmed_directory_and_independent_wasi_review() 
         "resource_export_conflict"
     );
 
-    for batch in rows.chunks(16) {
+    for batch in rows.chunks(16).chain(normalized.chunks(16)) {
         let text = batch
             .iter()
-            .map(|row| format!("{ABC}  {}\n", row["name"].as_str().unwrap()))
+            .map(|row| {
+                format!(
+                    "{}  {}\n",
+                    row["expected"].as_str().unwrap(),
+                    row["name"].as_str().unwrap()
+                )
+            })
             .collect::<String>();
         let files = batch
             .iter()

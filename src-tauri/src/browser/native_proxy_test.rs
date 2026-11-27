@@ -1,4 +1,6 @@
 //! Native WebView2 route acceptance. Every response comes from an owned local socket.
+#[path = "native_proxy_https_test.rs"]
+mod https;
 use super::{
     engine::{native_privacy_tests::HiddenOwner, Bounds, EngineEvent, NativeBrowserEngine},
     policy::BrowserPolicy,

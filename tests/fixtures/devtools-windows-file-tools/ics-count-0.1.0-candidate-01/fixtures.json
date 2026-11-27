@@ -1,0 +1,407 @@
+{
+  "generator": "scripts/verify_ics_count_plugin.py",
+  "cases": [
+    {
+      "id": "floating-daily-includes-dtstart",
+      "inputSha256": "471e53be99625f5088858e7752102b2cb3d11d58d42b34cee6eac06bf8f74784",
+      "inputBytes": 217,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "floating-daily-plain-mime",
+      "inputSha256": "471e53be99625f5088858e7752102b2cb3d11d58d42b34cee6eac06bf8f74784",
+      "inputBytes": 217,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "all-day-daily",
+      "inputSha256": "447c67fb3dc620b6752f807dac89d06ad7a031d59da39bc3a02ebf0b07d2f83e",
+      "inputBytes": 221,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "count-one-keeps-source-frequency-in-report",
+      "inputSha256": "8762839594ea7e8f410b9de643240368231c5df62c3a3938ee50e9ed12ec030e",
+      "inputBytes": 218,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "supported-with-value-parameter",
+      "inputSha256": "1e7d1ad401050a613115241a2b32c6779788f738af75fa481b55ab7bd07a09c0",
+      "inputBytes": 229,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "folded-rule",
+      "inputSha256": "4d0c8b63ec4b7a2dd7af8721eb1a1ba65f862644d88028f9aac02feee72704c7",
+      "inputBytes": 220,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "bom-and-folded-rule",
+      "inputSha256": "ed34d43e5be6f07e79bb3e07729717cb2c842f7c75a3f7477abc3be0372e3c85",
+      "inputBytes": 223,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "weekly-same-dtstart-weekday",
+      "inputSha256": "8f154dcd86166995d27740dfe270042bfc54538cfc1ba2fdca097760701800f1",
+      "inputBytes": 246,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "monthly-missing-day-is-skipped",
+      "inputSha256": "47980e452a05f1de61c1eb1da564116afaad60d9e7307964ffe1f874242d096b",
+      "inputBytes": 237,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "monthly-clamped-missing-day",
+      "inputSha256": "47dd80152febc6bdbf052ec4eba693edd2f1817dd4da585d6cbf77024a244c99",
+      "inputBytes": 258,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "yearly-leap-is-skipped",
+      "inputSha256": "8aacc2b19e333d382bb1decaa363521d14660370c234291e31bfeceae5b86d45",
+      "inputBytes": 222,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "yearly-clamp-at-february",
+      "inputSha256": "d855630d1cd2005526a99c1207c915a40a9bcda0f70db0423d7e21f89d0e7a45",
+      "inputBytes": 261,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "exact-daily-horizon",
+      "inputSha256": "665612f85ac1987b3bd35fa8c5d071e7e1683bee92f4848742fd94934945d29d",
+      "inputBytes": 225,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "daily-horizon-plus-one",
+      "inputSha256": "f7e53cf282004db3c609b7d764792271a1b2e0a1bab056506e6d13eabed90d5e",
+      "inputBytes": 225,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "monthly-full-budget",
+      "inputSha256": "1ff84ad14a18c27903ca3b2f12fed644daf525fd6f94025c1575a7b3a2438ea6",
+      "inputBytes": 226,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "monthly-horizon-plus-one",
+      "inputSha256": "44ff02bbbb19a39cbe37fa486f5f495c369b5657d673d6dededfb25c2bf2e75d",
+      "inputBytes": 226,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "rule-upper-u32-count",
+      "inputSha256": "e6abcde2949717bdeb545835636097daee259244c402da943ed60db9b52f394e",
+      "inputBytes": 226,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "annual-horizon-outside",
+      "inputSha256": "d53abfe1a106b7dc35e71783410b47a2ebf8de31bee90edee28a9bd2fcba78d8",
+      "inputBytes": 222,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "alarm-ignored",
+      "inputSha256": "8b2a962a379d64697b7670e37870484f6b7bded7700e15504e33cc1b1ee5df3b",
+      "inputBytes": 304,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "count-and-until",
+      "inputSha256": "299b5a18d1c36467c3ac2813320ee5dbdd24d9a8fbc6dfe22ca6c2ee30e20726",
+      "inputBytes": 239,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "no-count",
+      "inputSha256": "24307ff791b6f41e92851d987593ee179a4cabf01abe3a640086b6d8d5bf9269",
+      "inputBytes": 231,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "no-rule",
+      "inputSha256": "82adbad01d9e524ab2c64856ab6938a74a49eda761c5487e75d6b3b05d0c3220",
+      "inputBytes": 191,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "duplicate-rule-count",
+      "inputSha256": "4002e72d5638f1fa7cc6476bd376c89ac07436f6a5e8a8e3d3245469c0a5a50e",
+      "inputBytes": 225,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "second-rrule",
+      "inputSha256": "9867eeff8f43c191f881520a33d4dbb410b6f8beacbe9e84d01acaa285972d47",
+      "inputBytes": 243,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "zero-count",
+      "inputSha256": "a94d530635f910f409e630ba46ec675f8a11581ce5917898f896924de0768cde",
+      "inputBytes": 217,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "negative-count",
+      "inputSha256": "889a378d4a0c923f3a72f186e576c6d864247e5e1c788c70170f5a7f7eba5435",
+      "inputBytes": 218,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "unsupported-frequency",
+      "inputSha256": "16c9dd924bde27965ff071587ed4fdb925048b18c2b3094f04cec5b191d2fbe1",
+      "inputBytes": 218,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "unsupported-interval",
+      "inputSha256": "3f5ab1a5de42eea956f8495b669682c9c78f1cdbb4d7d355ac9832da4d5a6418",
+      "inputBytes": 228,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "nonmatching-weekday",
+      "inputSha256": "5c4cacd1cf6ec5ba6e38251ce3f02f9be6e90dbedd06f81de7d5b39ed2c43ccd",
+      "inputBytes": 227,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "several-weekdays",
+      "inputSha256": "505bf64a8c8d2f92bcb83ddff094b558b0b87b0ba53338b4ffa20ec884b65ac1",
+      "inputBytes": 230,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "yearly-month-gap-invalid",
+      "inputSha256": "6196e8d9e83a7e53fe01a9c4d2a2d49c53aa05302ba62b4fdbbc5779d6904920",
+      "inputBytes": 231,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "bare-date-is-ambiguous",
+      "inputSha256": "9833575af28ad02dda9c0627f8923591d5d4ecddf07bc2917e0cf2e98f04a6bb",
+      "inputBytes": 210,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "nonminute-start",
+      "inputSha256": "6d9feaead20e0f33ac264f470759074382b7344de8a64198c6b5e53c695341b5",
+      "inputBytes": 217,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "invalid-start-year",
+      "inputSha256": "c022b919f25c57817a7a63c193302b8d7d2f3246781eff0fb3a602e9118290bc",
+      "inputBytes": 221,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "utc-is-not-floating",
+      "inputSha256": "7f1941f8b411ad53dc573a204af2e659776d38157ca1d71b6496b616b0c3e30b",
+      "inputBytes": 218,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "tzid-is-not-floating",
+      "inputSha256": "f8c381406d0da54e148dcbdf4133870fc47a7933f4125b5d4951b03b59b5a2e2",
+      "inputBytes": 236,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "calendar-tz-hint",
+      "inputSha256": "08ea6f717ea649a31a12acf315bf6032f65cd2e1be91ee61630b502e87ea4ab6",
+      "inputBytes": 246,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "tz-component-rejected",
+      "inputSha256": "404cada0096659c5a4cabe63272068ee76b40c922d14d35eab933f07c5321b5b",
+      "inputBytes": 261,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "invitation-policy",
+      "inputSha256": "195a5e216c9f5a99425d1a6b6071ddaf105c58c689d394e2a58720cfb006caab",
+      "inputBytes": 233,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "exception-date",
+      "inputSha256": "02b1eeaf0de317fdfb2d798ebfbd8ab90324a93c18ea90a137821e5fe2b148e6",
+      "inputBytes": 241,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "additional-date",
+      "inputSha256": "4e170c5711207d9fa01e4cd76f9bc89bee0b5abd5518674e1999e3dddd4c5df6",
+      "inputBytes": 240,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "example-cancelled",
+      "inputSha256": "e2f78cccc7bd45dd95896391046d569617209c7bf28734be23b08bbaf0b85153",
+      "inputBytes": 235,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "two-events-ambiguous",
+      "inputSha256": "66fae52647def4ccc8a773109eb04411c33d69a455909fa3dc0f5d5baedf93a2",
+      "inputBytes": 369,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "no-event",
+      "inputSha256": "07f11f8a6ea532a41439f21478946b951e0913fb0515a7ec03a3f67fd0e4412b",
+      "inputBytes": 65,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "utf8-invalid",
+      "inputSha256": "b3d510ef04275ca8e698e5b3cbb0ece3949ef9252f0cdc839e9ee347409a2209",
+      "inputBytes": 2,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "unrelated-mime",
+      "inputSha256": "471e53be99625f5088858e7752102b2cb3d11d58d42b34cee6eac06bf8f74784",
+      "inputBytes": 217,
+      "input": {},
+      "mime": "text/html",
+      "ok": false
+    },
+    {
+      "id": "unknown-user-option",
+      "inputSha256": "471e53be99625f5088858e7752102b2cb3d11d58d42b34cee6eac06bf8f74784",
+      "inputBytes": 217,
+      "input": {
+        "save": true
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "exact-16k-plus-full-month-horizon",
+      "inputSha256": "be3d4d2b3c0a39784e5ad75daa2d799fa3ba58fb98544128681f52b9688b7314",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "oversize-ics",
+      "inputSha256": "cab5e3beaa5dd6d574802eeb656403bdeff62855120ba563086fbc9eae157986",
+      "inputBytes": 16385,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "too-many-physical-lines",
+      "inputSha256": "a1070e497f6865f3c4490195c11dbba57441e7837859c1b6a99069acf8cdf41c",
+      "inputBytes": 1241,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    }
+  ]
+}

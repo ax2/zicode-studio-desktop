@@ -40,6 +40,9 @@ async function mount({
   readUrl = async () => ({ url: tab.url }),
   readPanel = async (_name, value) => value,
   takePreview = async () => "data:image/jpeg;base64,AA==",
+  documentRevision,
+  openDeveloperTools = async () => ({}),
+  printPage = async () => ({}),
 } = {}) {
   const invoke = vi.fn(async (command, args) => {
     if (command === "browser_get_state") return { startupMode: "browser", session: { revision: 0, activeTab: tab.id, tabs: [tab] } };
@@ -48,9 +51,11 @@ async function mount({
     }
     if (command === "browser_history") return readPanel("Browsing history", history);
     const control = args?.request;
-    if (control?.kind === "status") return { surfaceRevision: 0, tabs: [tab] };
+    if (control?.kind === "status") return { surfaceRevision: 0, tabs: [{ ...tab, documentRevision }] };
     if (control?.kind === "url") return readUrl();
     if (control?.kind === "snapshot") return takePreview();
+    if (control?.kind === "printPage") return printPage();
+    if (control?.kind === "openDeveloperTools") return openDeveloperTools();
     if (control?.kind === "downloads") return readPanel("Downloads", downloads);
     return {};
   });
@@ -86,12 +91,12 @@ async function mount({
 
 const panel = name => getByRole(document.body, "dialog", { name: t(name) });
 
-it("does not open an old Bookmarks request after leaving and reopening Browser", async () => {
+it("does not open an old current-page bookmark edit after leaving and reopening Browser", async () => {
   let reply;
   const readUrl = vi.fn().mockImplementationOnce(() => new Promise(resolve => { reply = resolve; })).mockResolvedValue({ url: tab.url });
   const readPanel = vi.fn(async (_name, value) => value);
   const h = await mount({ readUrl, readPanel });
-  h.open("Bookmarks");
+  document.querySelector(".browser-bookmark-toggle").click();
   await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
   await h.leave();
   await h.returnToBrowser();
@@ -105,6 +110,55 @@ it("does not open an old Bookmarks request after leaving and reopening Browser",
   await waitFor(() => expect(getByRole(dialog, "button", { name: `${t("Open bookmark")}: Saved` })).toBeTruthy());
   getByRole(dialog, "button", { name: t("Close") }).click();
   await waitFor(() => expect(dialog.isConnected).toBe(false));
+});
+
+it("opens saved bookmarks even if the current page URL is temporarily unavailable", async () => {
+  const failed = Error("Current native URL unavailable");
+  const readUrl = vi.fn()
+    .mockRejectedValueOnce(failed)
+    .mockRejectedValueOnce(failed)
+    .mockResolvedValue({ url: "http://127.0.0.1/live-url" });
+  const h = await mount({ readUrl });
+
+  h.open("Bookmarks");
+  const library = await waitFor(() => panel("Bookmarks"));
+  await waitFor(() => getByRole(library, "button", { name: t("Open bookmark") + ": Saved" }));
+  expect(getByRole(library, "button", { name: t("Bookmark this page") }).disabled).toBe(true);
+  expect(getByRole(library, "button", { name: t("New bookmark") }).disabled).toBe(false);
+  getByRole(library, "button", { name: t("Close") }).click();
+  await waitFor(() => expect(library.isConnected).toBe(false));
+
+  document.querySelector(".browser-bookmark-toggle").click();
+  await waitFor(() => expect(document.querySelector('.browser-footer > [role="status"]').textContent).toContain(failed.message));
+  expect(queryByRole(document.body, "dialog", { name: t("Bookmarks") })).toBeNull();
+
+  document.querySelector(".browser-bookmark-toggle").click();
+  const editor = await waitFor(() => panel("Bookmarks"));
+  await waitFor(() => expect(getByLabelText(editor, t("Bookmark URL")).value).toBe("http://127.0.0.1/live-url"));
+  expect(readUrl).toHaveBeenCalledTimes(3);
+});
+
+it("keeps the saved bookmark list usable while the optional page URL is pending", async () => {
+  let reply;
+  const readUrl = vi.fn(() => new Promise(resolve => { reply = resolve; }));
+  const h = await mount({ readUrl });
+  h.open("Bookmarks");
+  const dialog = await waitFor(() => panel("Bookmarks"));
+  const open = await waitFor(() => getByRole(dialog, "button", { name: t("Open bookmark") + ": Saved" }));
+  expect(open.matches(":disabled")).toBe(false);
+  const addCurrent = getByRole(dialog, "button", { name: t("Bookmark this page") });
+  expect(addCurrent.disabled).toBe(true);
+
+  const search = getByRole(dialog, "searchbox");
+  search.focus();
+  fireEvent.input(search, { target: { value: "Sav" } });
+  reply({ url: "http://127.0.0.1/live-url" });
+  await waitFor(() => expect(addCurrent.disabled).toBe(false));
+  expect(document.activeElement).toBe(search);
+  expect(search.value).toBe("Sav");
+  addCurrent.click();
+  const editor = await waitFor(() => getByLabelText(dialog, t("Bookmark URL")));
+  expect(editor.value).toBe("http://127.0.0.1/live-url");
 });
 
 it.each(["Bookmarks", "Browsing history", "Downloads"])("closes %s on switching applications even if its list is still loading", async name => {
@@ -185,4 +239,144 @@ it.each(["Browsing history", "Downloads"])("drops a pending %s open before the o
   await app.finishWindowWrites();
   expect(queryByRole(document.body, "dialog", { name: t(name) })).toBeNull();
   expect(readPanel).not.toHaveBeenCalled();
+});
+
+it.each(["menu", "page shortcut"])("drops a pending tab search from the %s after leaving and returning", async trigger => {
+  let reply;
+  const takePreview = vi.fn()
+    .mockImplementationOnce(() => new Promise(resolve => { reply = resolve; }))
+    .mockResolvedValue("data:image/jpeg;base64,AA==");
+  const h = await mount({ takePreview });
+  const search = () => trigger === "menu" ? h.open("Search tabs") : h.fromPage("searchTabs");
+  search();
+  await waitFor(() => expect(takePreview).toHaveBeenCalledOnce());
+  await h.leave();
+  await h.returnToBrowser();
+  const address = getByRole(document.body, "textbox", { name: t("Web address") });
+  fireEvent.input(address, { target: { value: "unsent draft" } });
+  address.focus();
+  reply("data:image/jpeg;base64,AA==");
+  await app.finishWindowWrites();
+  expect(queryByRole(document.body, "dialog", { name: t("Search tabs") })).toBeNull();
+  expect(document.activeElement).toBe(address);
+  expect(address.value).toBe("unsent draft");
+  expect(h.invoke).not.toHaveBeenCalledWith("browser_control", { request: expect.objectContaining({ kind: "focusPage" }) });
+
+  search();
+  const fresh = await waitFor(() => panel("Search tabs"));
+  expect(document.activeElement).toBe(getByRole(fresh, "searchbox"));
+  getByRole(fresh, "button", { name: t("Close") }).click();
+  await waitFor(() => expect(fresh.isConnected).toBe(false));
+});
+
+it.each(["menu", "page shortcut"])("drops the %s tab search queued before leaving Browser", async trigger => {
+  let reply;
+  const readUrl = vi.fn().mockImplementationOnce(() => new Promise(resolve => { reply = resolve; }))
+    .mockResolvedValue({ url: tab.url });
+  const h = await mount({ readUrl });
+  document.querySelector(".browser-bookmark-toggle").click();
+  await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
+  if (trigger === "menu") h.open("Search tabs");
+  else h.fromPage("searchTabs");
+
+  await h.leave();
+  await h.returnToBrowser();
+  const address = getByRole(document.body, "textbox", { name: t("Web address") });
+  fireEvent.input(address, { target: { value: "still editing" } });
+  address.focus();
+  reply({ url: tab.url });
+  await app.finishWindowWrites();
+  expect(queryByRole(document.body, "dialog", { name: t("Search tabs") })).toBeNull();
+  expect(document.activeElement).toBe(address);
+  expect(address.value).toBe("still editing");
+
+  h.open("Search tabs");
+  const fresh = await waitFor(() => panel("Search tabs"));
+  expect(document.activeElement).toBe(getByRole(fresh, "searchbox"));
+});
+
+it.each(["menu", "page shortcut"])("drops the %s print queued before leaving Browser", async trigger => {
+  let reply;
+  const readUrl = vi.fn().mockImplementationOnce(() => new Promise(resolve => { reply = resolve; }))
+    .mockResolvedValue({ url: tab.url });
+  const h = await mount({ documentRevision: "owned:1", readUrl });
+  const print = () => trigger === "menu" ? h.open("Print page…") : h.fromPage("print");
+  const requests = () => h.invoke.mock.calls.filter(([command, args]) =>
+    command === "browser_control" && args?.request?.kind === "printPage"
+  );
+  document.querySelector(".browser-bookmark-toggle").click();
+  await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
+  print();
+
+  await h.leave();
+  await h.returnToBrowser();
+  reply({ url: tab.url });
+  await app.finishWindowWrites();
+  expect(requests()).toHaveLength(0);
+
+  print();
+  await waitFor(() => expect(requests()).toHaveLength(1));
+  expect(requests()[0][1].request).toMatchObject({
+    tab: tab.id, expectedUrl: tab.url, expectedDocumentRevision: "owned:1",
+  });
+});
+
+it("does not show an old print failure after leaving and returning to Browser", async () => {
+  let fail;
+  const printPage = vi.fn().mockImplementationOnce(() => new Promise((_, reject) => { fail = reject; }));
+  const h = await mount({ documentRevision: "owned:1", printPage });
+  h.open("Print page…");
+  await waitFor(() => expect(printPage).toHaveBeenCalledOnce());
+
+  await h.leave();
+  await h.returnToBrowser();
+  fail(Error("Old print request failed"));
+  await app.finishWindowWrites();
+
+  expect(document.querySelector('.browser-footer > [role="status"]').textContent)
+    .not.toContain("Old print request failed");
+});
+
+it("requires a fresh DevTools action after leaving and returning to the same document", async () => {
+  let reply;
+  const readUrl = vi.fn().mockImplementationOnce(() => new Promise(resolve => { reply = resolve; }))
+    .mockResolvedValue({ url: tab.url });
+  const openDeveloperTools = vi.fn(async () => ({}));
+  const h = await mount({ documentRevision: "owned:1", readUrl, openDeveloperTools });
+  document.querySelector(".browser-bookmark-toggle").click();
+  await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
+  h.open("Developer tools");
+  expect(openDeveloperTools).not.toHaveBeenCalled();
+
+  await h.leave();
+  await h.returnToBrowser();
+  reply({ url: tab.url });
+  await app.finishWindowWrites();
+  expect(openDeveloperTools).not.toHaveBeenCalled();
+
+  h.open("Developer tools");
+  await app.finishWindowWrites();
+  expect(openDeveloperTools).toHaveBeenCalledOnce();
+  expect(h.invoke).toHaveBeenCalledWith("browser_control", {
+    request: { kind: "openDeveloperTools", tab: tab.id, expectedUrl: tab.url, expectedDocumentRevision: "owned:1" },
+  });
+});
+
+it("does not show a DevTools failure from a previous Browser activation", async () => {
+  let fail;
+  const openDeveloperTools = vi.fn(async () => ({}))
+    .mockImplementationOnce(() => new Promise((_, reject) => { fail = reject; }));
+  const h = await mount({ documentRevision: "owned:1", openDeveloperTools });
+  h.open("Developer tools");
+  await waitFor(() => expect(openDeveloperTools).toHaveBeenCalledOnce());
+
+  await h.leave();
+  await h.returnToBrowser();
+  fail(Error("Old DevTools request failed"));
+  await app.finishWindowWrites();
+  expect(document.querySelector('.browser-footer > [role="status"]').textContent)
+    .not.toContain(t("Could not open developer tools for this page."));
+  h.open("Developer tools");
+  await app.finishWindowWrites();
+  expect(openDeveloperTools).toHaveBeenCalledTimes(2);
 });

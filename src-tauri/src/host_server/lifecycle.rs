@@ -143,6 +143,7 @@ impl HostServer {
 
     /// Wait for tracked listeners, background jobs and upgraded connections.
     /// External clones of storage/runtime handles are not owned by this barrier.
+    #[cfg(test)]
     pub async fn stop_and_wait(self) -> Result<(), String> {
         let lifecycle = self.state.lifecycle.clone();
         let commands = self.state.project_tasks.completion_tracker();

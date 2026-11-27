@@ -234,9 +234,24 @@ export function createPluginResultTransfer({
         : null;
       let committing = false;
       let cancellationRequested = false;
+      let terminalCancellation = false;
       let checking = false;
+      const commitController = new AbortController();
+      const outcomeCurrent = () => valid(token) && !terminalCancellation;
+      const finishCancellation = () => {
+        if (!outcomeCurrent()) return;
+        terminalCancellation = true;
+        committing = false;
+        confirm.disabled = true;
+        checkButton.hidden = true;
+        cancelButton.disabled = false;
+        chooseReceiver.disabled = false;
+        if (editInputs) editInputs.disabled = false;
+        status.textContent = t("Receiver tool cancelled");
+        commitController.abort();
+      };
       const settle = (result) => {
-        if (!valid(token)) return;
+        if (!outcomeCurrent()) return;
         if (!result || result.error || result.result?.ok !== true) {
           const code = result?.error?.code ?? result?.result?.error?.code ?? "unknown";
           status.textContent = code === "worker_cancelled"
@@ -255,20 +270,20 @@ export function createPluginResultTransfer({
         });
       };
       const checkOutcome = async () => {
-        if (!valid(token) || checking || typeof gateway.transferStatus !== "function") return;
+        if (!outcomeCurrent() || checking || typeof gateway.transferStatus !== "function") return;
         checking = true;
         checkButton.disabled = true;
         status.textContent = t("Checking receiver outcome…");
         try {
           const outcome = await gateway.transferStatus(source.scope, response.grantId);
-          if (!valid(token)) return;
+          if (!outcomeCurrent()) return;
           if (outcome.schemaVersion !== 1 || !["ready", "running", "cancellation_requested", "cancelled", "completed"].includes(outcome.status)) {
             throw new Error("result_transfer_status_invalid");
           }
           if (outcome.status === "completed") {
             settle(outcome.response);
           } else if (outcome.status === "cancelled") {
-            status.textContent = t("Receiver tool cancelled");
+            finishCancellation();
           } else if (outcome.status === "ready") {
             status.textContent = t("No receiver execution is recorded yet. Choose a receiver again if needed.");
           } else {
@@ -277,16 +292,16 @@ export function createPluginResultTransfer({
               : t("Receiver tool is still running. Check its outcome again.");
           }
         } catch (error) {
-          if (valid(token)) status.textContent = t("Could not check receiver outcome: {error}").replace("{error}", error.message);
+          if (outcomeCurrent()) status.textContent = t("Could not check receiver outcome: {error}").replace("{error}", error.message);
         } finally {
           checking = false;
-          if (valid(token)) checkButton.disabled = false;
+          if (outcomeCurrent()) checkButton.disabled = false;
         }
       };
       const checkButton = button(t("Check receiver outcome"), () => { void checkOutcome(); });
       checkButton.hidden = true;
       const confirm = button(t("Confirm transfer and run"), async () => {
-        if (!valid(token)) return;
+        if (!outcomeCurrent() || confirm.disabled) return;
         committing = true;
         confirm.disabled = true;
         cancelButton.disabled = typeof gateway.cancelTransfer !== "function";
@@ -294,10 +309,10 @@ export function createPluginResultTransfer({
         if (editInputs) editInputs.disabled = true;
         status.textContent = t("Running receiver tool…");
         try {
-          const result = await gateway.commitTransfer(source.scope, response.grantId);
+          const result = await gateway.commitTransfer(source.scope, response.grantId, { signal: commitController.signal });
           settle(result);
         } catch (error) {
-          if (valid(token)) {
+          if (outcomeCurrent()) {
             status.textContent = cancellationRequested
               ? t("Transfer outcome is uncertain after cancellation. Do not run it again.")
               : t("Transfer failed: {error}").replace("{error}", error.message);
@@ -322,10 +337,11 @@ export function createPluginResultTransfer({
         status.textContent = t("Requesting receiver cancellation…");
         try {
           const outcome = await gateway.cancelTransfer(source.scope, response.grantId);
-          if (!valid(token)) return;
+          if (!outcomeCurrent()) return;
           if (outcome.schemaVersion !== 1 || !["cancelled", "cancellation_requested", "completed"].includes(outcome.status)) {
             throw new Error("result_transfer_cancel_response_invalid");
           }
+          if (outcome.status === "cancelled") { finishCancellation(); return; }
           cancellationRequested = true;
           status.textContent = outcome.status === "completed"
             ? t("Receiver already completed. Checking its outcome…")
@@ -335,7 +351,7 @@ export function createPluginResultTransfer({
             if (outcome.status === "completed") void checkOutcome();
           }
         } catch (error) {
-          if (!valid(token)) return;
+          if (!outcomeCurrent()) return;
           status.textContent = t("Could not request cancellation: {error}").replace("{error}", error.message);
           cancelButton.disabled = false;
         }

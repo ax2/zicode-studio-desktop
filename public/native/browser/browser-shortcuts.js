@@ -24,6 +24,7 @@ export function browserShortcut(event) {
   if (key === "tab" && event.ctrlKey) return event.shiftKey ? "previousTab" : "nextTab";
   if (key === "+") return "zoomIn";
   if (event.shiftKey) return null;
+  if (key === "o" && event.ctrlKey && !event.metaKey && event.keyCode !== 229) return "openLocalPdf";
   if (key === "p") return "print";
   if (key === "=") return "zoomIn";
   if (key === "-") return "zoomOut";
@@ -31,12 +32,14 @@ export function browserShortcut(event) {
   if (/^[1-9]$/.test(key)) return numberActions[Number(key) - 1];
   return key === "l" ? "address" : key === "w" ? "closeTab" : key === "r" ? "reload" : panelKeys.get(key) ?? null;
 }
-export function setupBrowserShortcuts({ available, getTab, focusChrome, find, address, tabAction = () => {}, pageAction = () => {}, fullscreen = () => {}, searchTabs = () => {}, openPanel = () => {}, translateSelection = () => {}, report = () => {} }) {
+export function setupBrowserShortcuts({ available, getTab, focusChrome, find, address, tabAction = () => {}, pageAction = () => {}, fullscreen = () => {}, searchTabs = () => {}, openPanel = () => {}, openLocalPdf = () => {}, localPdfPending = () => false, translateSelection = () => {}, report = () => {} }) {
+  const canRun = () => available() && !localPdfPending();
   const run = (action, fromPage = false) => {
     if (pageActions.has(action)) return pageAction(action, getTab()?.id);
     if (action === "fullscreen") return fullscreen();
     if (action === "searchTabs") return searchTabs(fromPage, getTab()?.id);
     if (action === "find") return find();
+    if (action === "openLocalPdf") return openLocalPdf(fromPage, getTab()?.id);
     if (panelActions.has(action)) return openPanel(action, fromPage, getTab()?.id);
     if (action === "address") { address.focus(); address.select(); }
     else if (tabActions.has(action)) return tabAction(action, getTab()?.id);
@@ -44,20 +47,22 @@ export function setupBrowserShortcuts({ available, getTab, focusChrome, find, ad
   const keydown = event => {
     const action = browserShortcut(event);
     if (!action || !available()) return;
+    const pickerPending = localPdfPending();
+    if (pickerPending && action !== "openLocalPdf") return;
     event.preventDefault(); event.stopPropagation();
-    if (!event.repeat) { try { Promise.resolve(run(action)).catch(report); } catch (error) { report(error); } }
+    if (!event.repeat && !pickerPending) { try { Promise.resolve(run(action)).catch(report); } catch (error) { report(error); } }
   };
   document.addEventListener("keydown", keydown, true);
   return {
     async native(event) {
-      if (!["find", "address", "fullscreen", "searchTabs", "translateSelection"].includes(event.action) && !tabActions.has(event.action) && !pageActions.has(event.action) && !panelActions.has(event.action)) return;
-      if (!available() || event.tab !== getTab()?.id) return;
+      if (!["find", "address", "fullscreen", "searchTabs", "translateSelection", "openLocalPdf"].includes(event.action) && !tabActions.has(event.action) && !pageActions.has(event.action) && !panelActions.has(event.action)) return;
+      if (!canRun() || event.tab !== getTab()?.id) return;
       try {
         if (event.action === "translateSelection") return await translateSelection(event.tab);
         if (!pageActions.has(event.action) && !browserTabNumber(event.action)) await focusChrome(event.tab);
-        if (available() && event.tab === getTab()?.id) await run(event.action, true);
+        if (canRun() && event.tab === getTab()?.id) await run(event.action, true);
       }
-      catch (error) { if (available() && event.tab === getTab()?.id) report(error); }
+      catch (error) { if (canRun() && event.tab === getTab()?.id) report(error); }
     },
     destroy() { document.removeEventListener("keydown", keydown, true); },
   };

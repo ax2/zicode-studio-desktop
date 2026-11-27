@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { t } from "../../shared/i18n";
 import { ComfyGeneration } from "./ComfyGeneration";
-import { GenerationRecipeForm, type RecipeDraft } from "./GenerationRecipeForm";
+import { GenerationRecipeForm, type RecipeDraft, type RecipeVersion } from "./GenerationRecipeForm";
 import { type CharacterRequest, type RecordPage, useCharacterRecords } from "./useCharacterRecords";
 
 type Props = {
@@ -11,9 +11,8 @@ type Props = {
   generation?: CharacterRequest;
 };
 type Summary = { id: string; name: string };
-type Version = { version: number; draft: RecipeDraft };
 type Review = {
-  recipe: Version;
+  recipe: RecipeVersion;
   identity: string;
   appearance: string | null;
   style: string | null;
@@ -54,7 +53,7 @@ function RecipeLibrary({ id, disabled, request, generation }: Props) {
       ? [selected, ...entries]
       : entries;
 
-  async function create(name: string, draft: RecipeDraft) {
+  async function create(name: string, draft: RecipeDraft): Promise<undefined> {
     const result = (await request({ kind: "createRecipe", id, name, draft })) as { id: string };
     setSelected({ id: result.id, name: name.trim() });
     records.reload();
@@ -120,7 +119,7 @@ function RecipeVersions({
   const read = useCallback(
     async (before?: number) =>
       (await request({ kind: "recipeVersions", id, recipeId, before })) as RecordPage<
-        Version,
+        RecipeVersion,
         number
       >,
     [id, recipeId, request],
@@ -131,11 +130,14 @@ function RecipeVersions({
   const [reviewing, setReviewing] = useState(false);
   const [reviewError, setReviewError] = useState(false);
 
-  async function append(_name: string, draft: RecipeDraft) {
-    if (!latest) return;
+  async function append(_name: string, draft: RecipeDraft, previous: number | null) {
+    if (previous === null) return;
     try {
-      await request({ kind: "appendRecipe", id, recipeId, previous: latest.version, draft });
+      const { version } = (await request({
+        kind: "appendRecipe", id, recipeId, previous, draft,
+      })) as { version: number };
       records.reload();
+      return version;
     } catch (reason) {
       if (String(reason).includes("visual_assets_recipe_version_changed")) records.reload();
       throw reason;
@@ -159,7 +161,7 @@ function RecipeVersions({
       {latest && (
         <GenerationRecipeForm
           id={id}
-          initial={latest.draft}
+          initial={latest}
           disabled={disabled || records.loading || records.error}
           request={request}
           save={append}

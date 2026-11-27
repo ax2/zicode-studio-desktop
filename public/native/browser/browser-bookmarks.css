@@ -22,3 +22,5 @@
 .browser-bookmark-row { padding: var(--space-2); }
 .browser-bookmark-row:hover, .browser-downloads-row:hover { background: var(--bg-glass-hover); }
 .browser-bookmark-details { gap: var(--space-1); }
+
+.browser-bookmark-transfer-limits { margin: 0; font-size: var(--font-size-sm); color: var(--text-secondary); }

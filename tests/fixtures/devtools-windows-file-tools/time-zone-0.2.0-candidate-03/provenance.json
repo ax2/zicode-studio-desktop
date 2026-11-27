@@ -1,0 +1,1105 @@
+{
+  "sourceRevision": "de84fe7af82c687ac30596257a9975954625cf55",
+  "wasmSourceRevision": "a699b65e10d602e3dc02b2041df0f14b29eea2ca",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-26T02:05:53.259721+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "bc172f6ae3835dec7180882ab13f0ffa719541b5e47626a051526f35deab28e0",
+  "ianaVersion": "2025b",
+  "workerVerification": {
+    "cases": [
+      {
+        "case": "native-rollover",
+        "requestSha256": "4e5d8b7be286408b0a2ee56af09e04c8ca9b9af2573229b67c0cb3c721af39af",
+        "resultBytes": 758,
+        "resultSha256": "b9781da285b095ca0f27721e2b7cbc850fbe9f0049e69aab9b30c008674ff366",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "PST",
+                "local": "2025-12-31 17:00:00",
+                "offset": "-08:00",
+                "zone": "America/Los_Angeles"
+              },
+              {
+                "abbreviation": "GMT",
+                "local": "2026-01-01 01:00:00",
+                "offset": "+00:00",
+                "zone": "Europe/London"
+              }
+            ],
+            "selectedChoice": null,
+            "sourceAbbreviation": "CST",
+            "sourceLocal": "2026-01-01 09:00:00",
+            "sourceOffset": "+08:00",
+            "sourceZone": "Asia/Shanghai",
+            "status": "unique",
+            "text": "Asia/Shanghai 2026-01-01 09:00:00 · IANA 2025b\nUTC：2026-01-01T01:00:00+00:00 · 来源 +08:00 CST\nAmerica/Los_Angeles  2025-12-31 17:00:00  -08:00 PST\nEurope/London  2026-01-01 01:00:00  +00:00 GMT",
+            "tzdbVersion": "2025b",
+            "utc": "2026-01-01T01:00:00+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "maximum-eight-zones-fractional-offsets",
+        "requestSha256": "6f6670cff3fa0b6f7bfe5d8085fc4266be8e8f765cee62c1b5ca6884a80dad60",
+        "resultBytes": 1642,
+        "resultSha256": "b6fb96929b9148638a40a870b9ab95507ee93b14d949172bfa1553916729d849",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "UTC",
+                "local": "2025-12-31 18:45:15",
+                "offset": "+00:00",
+                "zone": "UTC"
+              },
+              {
+                "abbreviation": "IST",
+                "local": "2026-01-01 00:15:15",
+                "offset": "+05:30",
+                "zone": "Asia/Kolkata"
+              },
+              {
+                "abbreviation": "ACDT",
+                "local": "2026-01-01 05:15:15",
+                "offset": "+10:30",
+                "zone": "Australia/Adelaide"
+              },
+              {
+                "abbreviation": "+1345",
+                "local": "2026-01-01 08:30:15",
+                "offset": "+13:45",
+                "zone": "Pacific/Chatham"
+              },
+              {
+                "abbreviation": "NST",
+                "local": "2025-12-31 15:15:15",
+                "offset": "-03:30",
+                "zone": "Canada/Newfoundland"
+              },
+              {
+                "abbreviation": "PST",
+                "local": "2025-12-31 10:45:15",
+                "offset": "-08:00",
+                "zone": "America/Los_Angeles"
+              },
+              {
+                "abbreviation": "+14",
+                "local": "2026-01-01 08:45:15",
+                "offset": "+14:00",
+                "zone": "Pacific/Kiritimati"
+              },
+              {
+                "abbreviation": "NST",
+                "local": "2025-12-31 15:15:15",
+                "offset": "-03:30",
+                "zone": "America/St_Johns"
+              }
+            ],
+            "selectedChoice": null,
+            "sourceAbbreviation": "+0545",
+            "sourceLocal": "2026-01-01 00:30:15",
+            "sourceOffset": "+05:45",
+            "sourceZone": "Asia/Kathmandu",
+            "status": "unique",
+            "text": "Asia/Kathmandu 2026-01-01 00:30:15 · IANA 2025b\nUTC：2025-12-31T18:45:15+00:00 · 来源 +05:45 +0545\nUTC  2025-12-31 18:45:15  +00:00 UTC\nAsia/Kolkata  2026-01-01 00:15:15  +05:30 IST\nAustralia/Adelaide  2026-01-01 05:15:15  +10:30 ACDT\nPacific/Chatham  2026-01-01 08:30:15  +13:45 +1345\nCanada/Newfoundland  2025-12-31 15:15:15  -03:30 NST\nAmerica/Los_Angeles  2025-12-31 10:45:15  -08:00 PST\nPacific/Kiritimati  2026-01-01 08:45:15  +14:00 +14\nAmerica/St_Johns  2025-12-31 15:15:15  -03:30 NST",
+            "tzdbVersion": "2025b",
+            "utc": "2025-12-31T18:45:15+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "new-york-overlap-unselected",
+        "requestSha256": "114510a8376091c5d63e9b6d99a2a8433b9c505a556aac2851a5fabde5af04d3",
+        "resultBytes": 677,
+        "resultSha256": "0f82b7660b3725127e2fd9d612f040c1f3c6d6c0f49698622ebc881930a57704",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": {
+              "offset": "-04:00",
+              "utc": "2026-11-01T05:30:00+00:00"
+            },
+            "later": {
+              "offset": "-05:00",
+              "utc": "2026-11-01T06:30:00+00:00"
+            },
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [],
+            "selectedChoice": null,
+            "sourceAbbreviation": null,
+            "sourceLocal": "2026-11-01 01:30:00",
+            "sourceOffset": null,
+            "sourceZone": "America/New_York",
+            "status": "ambiguous",
+            "text": "America/New_York 2026-11-01 01:30:00 · IANA 2025b\n该本地时间出现两次\n较早 earlier：2026-11-01T05:30:00+00:00 (-04:00)\n较晚 later：2026-11-01T06:30:00+00:00 (-05:00)\n请选择较早或较晚的时刻后再执行换算。",
+            "tzdbVersion": "2025b",
+            "utc": null
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "new-york-overlap-earlier",
+        "requestSha256": "1f5f75b96a7654758ac79012ba05f6d6ee40a85e126dc32215bf8ae083a4cd37",
+        "resultBytes": 829,
+        "resultSha256": "1c2c35c9fb9f4643b7e07be75fec9f9375a1919880405689454c56f6014f9a01",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": {
+              "offset": "-04:00",
+              "utc": "2026-11-01T05:30:00+00:00"
+            },
+            "later": {
+              "offset": "-05:00",
+              "utc": "2026-11-01T06:30:00+00:00"
+            },
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "UTC",
+                "local": "2026-11-01 05:30:00",
+                "offset": "+00:00",
+                "zone": "UTC"
+              }
+            ],
+            "selectedChoice": "earlier",
+            "sourceAbbreviation": "EDT",
+            "sourceLocal": "2026-11-01 01:30:00",
+            "sourceOffset": "-04:00",
+            "sourceZone": "America/New_York",
+            "status": "ambiguous",
+            "text": "America/New_York 2026-11-01 01:30:00 · IANA 2025b\n该本地时间出现两次\n较早 earlier：2026-11-01T05:30:00+00:00 (-04:00)\n较晚 later：2026-11-01T06:30:00+00:00 (-05:00)\nUTC：2026-11-01T05:30:00+00:00 · 来源 -04:00 EDT\nUTC  2026-11-01 05:30:00  +00:00 UTC",
+            "tzdbVersion": "2025b",
+            "utc": "2026-11-01T05:30:00+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "new-york-overlap-later",
+        "requestSha256": "3165641becadeb2adeb705e798c481b8b3e7b739b7dda7344c483e4126311e68",
+        "resultBytes": 827,
+        "resultSha256": "41ccdd5cf9e04c55398c41f0403debea1f5ff5cd914f36b6daf9315b0c049e89",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": {
+              "offset": "-04:00",
+              "utc": "2026-11-01T05:30:00+00:00"
+            },
+            "later": {
+              "offset": "-05:00",
+              "utc": "2026-11-01T06:30:00+00:00"
+            },
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "UTC",
+                "local": "2026-11-01 06:30:00",
+                "offset": "+00:00",
+                "zone": "UTC"
+              }
+            ],
+            "selectedChoice": "later",
+            "sourceAbbreviation": "EST",
+            "sourceLocal": "2026-11-01 01:30:00",
+            "sourceOffset": "-05:00",
+            "sourceZone": "America/New_York",
+            "status": "ambiguous",
+            "text": "America/New_York 2026-11-01 01:30:00 · IANA 2025b\n该本地时间出现两次\n较早 earlier：2026-11-01T05:30:00+00:00 (-04:00)\n较晚 later：2026-11-01T06:30:00+00:00 (-05:00)\nUTC：2026-11-01T06:30:00+00:00 · 来源 -05:00 EST\nUTC  2026-11-01 06:30:00  +00:00 UTC",
+            "tzdbVersion": "2025b",
+            "utc": "2026-11-01T06:30:00+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "lord-howe-thirty-minute-overlap",
+        "requestSha256": "6e0df2900cc9cbb50430fa79920e072b793b740d32c54fd2ba36463c8a0264fa",
+        "resultBytes": 683,
+        "resultSha256": "b251a97eb2b2e514bc51b7c9b76911c8ae6c6468d66bc56764976d47c3ecd868",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": {
+              "offset": "+11:00",
+              "utc": "2026-04-04T14:45:00+00:00"
+            },
+            "later": {
+              "offset": "+10:30",
+              "utc": "2026-04-04T15:15:00+00:00"
+            },
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [],
+            "selectedChoice": null,
+            "sourceAbbreviation": null,
+            "sourceLocal": "2026-04-05 01:45:00",
+            "sourceOffset": null,
+            "sourceZone": "Australia/Lord_Howe",
+            "status": "ambiguous",
+            "text": "Australia/Lord_Howe 2026-04-05 01:45:00 · IANA 2025b\n该本地时间出现两次\n较早 earlier：2026-04-04T14:45:00+00:00 (+11:00)\n较晚 later：2026-04-04T15:15:00+00:00 (+10:30)\n请选择较早或较晚的时刻后再执行换算。",
+            "tzdbVersion": "2025b",
+            "utc": null
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "lord-howe-explicit-later",
+        "requestSha256": "4749ec532f82089a580e93f4a671fea924f4e5ac2fd178a3d235a25fe9d7d049",
+        "resultBytes": 837,
+        "resultSha256": "f5fc317897bfde9c6214b8dfd4dad79383253f783370d67125c87b0437be4db3",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": {
+              "offset": "+11:00",
+              "utc": "2026-04-04T14:45:00+00:00"
+            },
+            "later": {
+              "offset": "+10:30",
+              "utc": "2026-04-04T15:15:00+00:00"
+            },
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "UTC",
+                "local": "2026-04-04 15:15:00",
+                "offset": "+00:00",
+                "zone": "UTC"
+              }
+            ],
+            "selectedChoice": "later",
+            "sourceAbbreviation": "+1030",
+            "sourceLocal": "2026-04-05 01:45:00",
+            "sourceOffset": "+10:30",
+            "sourceZone": "Australia/Lord_Howe",
+            "status": "ambiguous",
+            "text": "Australia/Lord_Howe 2026-04-05 01:45:00 · IANA 2025b\n该本地时间出现两次\n较早 earlier：2026-04-04T14:45:00+00:00 (+11:00)\n较晚 later：2026-04-04T15:15:00+00:00 (+10:30)\nUTC：2026-04-04T15:15:00+00:00 · 来源 +10:30 +1030\nUTC  2026-04-04 15:15:00  +00:00 UTC",
+            "tzdbVersion": "2025b",
+            "utc": "2026-04-04T15:15:00+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "new-york-skip",
+        "requestSha256": "3878b600b4b9399c8820391d3f07231338b27b83f00010ba30a2a0d45f0e65a2",
+        "resultBytes": 542,
+        "resultSha256": "86dafffa74697cad17780eb48037eb5d7d7db0da0655c28de69e26fa8b67fc45",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": "2026-03-08 03:00",
+            "previousValid": "2026-03-08 01:59",
+            "rows": [],
+            "selectedChoice": null,
+            "sourceAbbreviation": null,
+            "sourceLocal": "2026-03-08 02:30:00",
+            "sourceOffset": null,
+            "sourceZone": "America/New_York",
+            "status": "nonexistent",
+            "text": "America/New_York 2026-03-08 02:30:00 · IANA 2025b\n该本地时间不存在\n之前最近的有效分钟：2026-03-08 01:59\n之后最近的有效分钟：2026-03-08 03:00",
+            "tzdbVersion": "2025b",
+            "utc": null
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "lord-howe-thirty-minute-skip",
+        "requestSha256": "5077340e57ff4bbf69a20388767479c656e40dccb399d78dd2e075bb90be484e",
+        "resultBytes": 548,
+        "resultSha256": "8b18929b1d3b39f71632f642511294e841324f85a36514e263c74567a8c45d9c",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": "2026-10-04 02:30",
+            "previousValid": "2026-10-04 01:59",
+            "rows": [],
+            "selectedChoice": null,
+            "sourceAbbreviation": null,
+            "sourceLocal": "2026-10-04 02:15:00",
+            "sourceOffset": null,
+            "sourceZone": "Australia/Lord_Howe",
+            "status": "nonexistent",
+            "text": "Australia/Lord_Howe 2026-10-04 02:15:00 · IANA 2025b\n该本地时间不存在\n之前最近的有效分钟：2026-10-04 01:59\n之后最近的有效分钟：2026-10-04 02:30",
+            "tzdbVersion": "2025b",
+            "utc": null
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "kathmandu-fifteen-minute-skip",
+        "requestSha256": "e0efd367f694ae554a660fcb1db698bd2a4c898334d0849ab6ae2d80a5eebdc2",
+        "resultBytes": 538,
+        "resultSha256": "c393859acfd6d8c850cdd7182fee26c8d92119bec7652f18e39b694e713178af",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": "1986-01-01 00:15",
+            "previousValid": "1985-12-31 23:59",
+            "rows": [],
+            "selectedChoice": null,
+            "sourceAbbreviation": null,
+            "sourceLocal": "1986-01-01 00:05:00",
+            "sourceOffset": null,
+            "sourceZone": "Asia/Kathmandu",
+            "status": "nonexistent",
+            "text": "Asia/Kathmandu 1986-01-01 00:05:00 · IANA 2025b\n该本地时间不存在\n之前最近的有效分钟：1985-12-31 23:59\n之后最近的有效分钟：1986-01-01 00:15",
+            "tzdbVersion": "2025b",
+            "utc": null
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "apia-skipped-date-00:00",
+        "requestSha256": "2d8a7e7baea5b6d216832da542c0ef62804dc97c5441b801d56a6029e7fe8688",
+        "resultBytes": 534,
+        "resultSha256": "a2735ece03aeec5203bc5c4fe8d4b4d0ce92d3afad7e49e98c46b5625e7bf4a6",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": "2011-12-31 00:00",
+            "previousValid": "2011-12-29 23:59",
+            "rows": [],
+            "selectedChoice": null,
+            "sourceAbbreviation": null,
+            "sourceLocal": "2011-12-30 00:00:00",
+            "sourceOffset": null,
+            "sourceZone": "Pacific/Apia",
+            "status": "nonexistent",
+            "text": "Pacific/Apia 2011-12-30 00:00:00 · IANA 2025b\n该本地时间不存在\n之前最近的有效分钟：2011-12-29 23:59\n之后最近的有效分钟：2011-12-31 00:00",
+            "tzdbVersion": "2025b",
+            "utc": null
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "apia-skipped-date-12:00",
+        "requestSha256": "d9677d941322c7a1f69a6e1aef55e411d9ee1ca96938eb80cbb1eea0fbcec545",
+        "resultBytes": 534,
+        "resultSha256": "475ef444f3ae8d0ef18d54a5943f40251d249fc73498c55b305b8d46f5b9064c",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": "2011-12-31 00:00",
+            "previousValid": "2011-12-29 23:59",
+            "rows": [],
+            "selectedChoice": null,
+            "sourceAbbreviation": null,
+            "sourceLocal": "2011-12-30 12:00:00",
+            "sourceOffset": null,
+            "sourceZone": "Pacific/Apia",
+            "status": "nonexistent",
+            "text": "Pacific/Apia 2011-12-30 12:00:00 · IANA 2025b\n该本地时间不存在\n之前最近的有效分钟：2011-12-29 23:59\n之后最近的有效分钟：2011-12-31 00:00",
+            "tzdbVersion": "2025b",
+            "utc": null
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "apia-skipped-date-23:59",
+        "requestSha256": "ef50d92469c85cf01cc350b886ecbf45ad1e04aed8d3180020d9391aa08600e3",
+        "resultBytes": 534,
+        "resultSha256": "848ab028d80d9b2e80a1fd4fd4268459ad3ba22ee371d01575149f6226e284b5",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": "2011-12-31 00:00",
+            "previousValid": "2011-12-29 23:59",
+            "rows": [],
+            "selectedChoice": null,
+            "sourceAbbreviation": null,
+            "sourceLocal": "2011-12-30 23:59:00",
+            "sourceOffset": null,
+            "sourceZone": "Pacific/Apia",
+            "status": "nonexistent",
+            "text": "Pacific/Apia 2011-12-30 23:59:00 · IANA 2025b\n该本地时间不存在\n之前最近的有效分钟：2011-12-29 23:59\n之后最近的有效分钟：2011-12-31 00:00",
+            "tzdbVersion": "2025b",
+            "utc": null
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "historical-second-offset",
+        "requestSha256": "4a4533116993c2096b6cd5f233571595ddbeec1718de56ea0c14e85d7f5cd11d",
+        "resultBytes": 586,
+        "resultSha256": "a8217300299642cf8e1d45b65b9a393eb49e0481f65734e276aca50c9b824d20",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "UTC",
+                "local": "1909-12-31 18:18:44",
+                "offset": "+00:00",
+                "zone": "UTC"
+              }
+            ],
+            "selectedChoice": null,
+            "sourceAbbreviation": "LMT",
+            "sourceLocal": "1910-01-01 00:00:00",
+            "sourceOffset": "+05:41",
+            "sourceZone": "Asia/Kathmandu",
+            "status": "unique",
+            "text": "Asia/Kathmandu 1910-01-01 00:00:00 · IANA 2025b\nUTC：1909-12-31T18:18:44+00:00 · 来源 +05:41 LMT\nUTC  1909-12-31 18:18:44  +00:00 UTC",
+            "tzdbVersion": "2025b",
+            "utc": "1909-12-31T18:18:44+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "iana-2025b-coyhaique-distinct-from-santiago",
+        "requestSha256": "42519868dc47b79fd1f5da307c80871998f374b53d7f95511ace6b502ae02345",
+        "resultBytes": 618,
+        "resultSha256": "e261ac5bd12c10e8931c7f173614ae6b90b5127f0de058e751f304fcd1989f0c",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "-04",
+                "local": "2026-07-01 09:15:00",
+                "offset": "-04:00",
+                "zone": "America/Santiago"
+              }
+            ],
+            "selectedChoice": null,
+            "sourceAbbreviation": "-03",
+            "sourceLocal": "2026-07-01 10:15:00",
+            "sourceOffset": "-03:00",
+            "sourceZone": "America/Coyhaique",
+            "status": "unique",
+            "text": "America/Coyhaique 2026-07-01 10:15:00 · IANA 2025b\nUTC：2026-07-01T13:15:00+00:00 · 来源 -03:00 -03\nAmerica/Santiago  2026-07-01 09:15:00  -04:00 -04",
+            "tzdbVersion": "2025b",
+            "utc": "2026-07-01T13:15:00+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "paraguay-permanent-minus-three",
+        "requestSha256": "f2bfe05465c099e52302205f4085912193291a1928d776944df0171b03556803",
+        "resultBytes": 590,
+        "resultSha256": "337b1af0eae881471fc7cb2d406dc518bf11c97629906cc83310f5d30f9d98a7",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "UTC",
+                "local": "2026-06-01 03:00:00",
+                "offset": "+00:00",
+                "zone": "UTC"
+              }
+            ],
+            "selectedChoice": null,
+            "sourceAbbreviation": "-03",
+            "sourceLocal": "2026-06-01 00:00:00",
+            "sourceOffset": "-03:00",
+            "sourceZone": "America/Asuncion",
+            "status": "unique",
+            "text": "America/Asuncion 2026-06-01 00:00:00 · IANA 2025b\nUTC：2026-06-01T03:00:00+00:00 · 来源 -03:00 -03\nUTC  2026-06-01 03:00:00  +00:00 UTC",
+            "tzdbVersion": "2025b",
+            "utc": "2026-06-01T03:00:00+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "explicit-iana-etc-gmt-alias",
+        "requestSha256": "72edd5182d7894b69cd2b64605d18603e885bc069f608c1d5f8910300fe5d548",
+        "resultBytes": 584,
+        "resultSha256": "4d75e577915fdb123339c0b9206877478efea2abf98005d9238d184773b13e9e",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "UTC",
+                "local": "2026-06-01 05:00:00",
+                "offset": "+00:00",
+                "zone": "Etc/UTC"
+              }
+            ],
+            "selectedChoice": null,
+            "sourceAbbreviation": "-05",
+            "sourceLocal": "2026-06-01 00:00:00",
+            "sourceOffset": "-05:00",
+            "sourceZone": "Etc/GMT+5",
+            "status": "unique",
+            "text": "Etc/GMT+5 2026-06-01 00:00:00 · IANA 2025b\nUTC：2026-06-01T05:00:00+00:00 · 来源 -05:00 -05\nEtc/UTC  2026-06-01 05:00:00  +00:00 UTC",
+            "tzdbVersion": "2025b",
+            "utc": "2026-06-01T05:00:00+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "choice-has-no-effect-on-unique-local",
+        "requestSha256": "147512f67e4d9ef2a0c3d37dfbc754b78a91a69219687b072bf8accc95304986",
+        "resultBytes": 564,
+        "resultSha256": "e55ea0a7bd5e2ea2d85fc0011b2ef0f97cbbc55b9f3fdb11daab4384f5478a73",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "UTC",
+                "local": "2000-02-29 18:43:28",
+                "offset": "+00:00",
+                "zone": "UTC"
+              }
+            ],
+            "selectedChoice": null,
+            "sourceAbbreviation": "UTC",
+            "sourceLocal": "2000-02-29 18:43:28",
+            "sourceOffset": "+00:00",
+            "sourceZone": "UTC",
+            "status": "unique",
+            "text": "UTC 2000-02-29 18:43:28 · IANA 2025b\nUTC：2000-02-29T18:43:28+00:00 · 来源 +00:00 UTC\nUTC  2000-02-29 18:43:28  +00:00 UTC",
+            "tzdbVersion": "2025b",
+            "utc": "2000-02-29T18:43:28+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "extended-native-calendar-low",
+        "requestSha256": "455bb3c96fec5186cacce80bbba4f62c6b8147c9ed05c12ce891fee1e5fedee5",
+        "resultBytes": 760,
+        "resultSha256": "157647bc2c33abc6048d6340748fd3aa5310d2fec9b1cde6f16c97883344f16d",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "LMT",
+                "local": "-262143-01-01 12:33:04",
+                "offset": "+12:33",
+                "zone": "Pacific/Apia"
+              },
+              {
+                "abbreviation": "LMT",
+                "local": "-262144-12-31 16:07:02",
+                "offset": "-07:53",
+                "zone": "America/Los_Angeles"
+              }
+            ],
+            "selectedChoice": null,
+            "sourceAbbreviation": "UTC",
+            "sourceLocal": "-262143-01-01 00:00:00",
+            "sourceOffset": "+00:00",
+            "sourceZone": "UTC",
+            "status": "unique",
+            "text": "UTC -262143-01-01 00:00:00 · IANA 2025b\nUTC：-262143-01-01T00:00:00+00:00 · 来源 +00:00 UTC\nPacific/Apia  -262143-01-01 12:33:04  +12:33 LMT\nAmerica/Los_Angeles  -262144-12-31 16:07:02  -07:53 LMT",
+            "tzdbVersion": "2025b",
+            "utc": "-262143-01-01T00:00:00+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "extended-native-calendar-high",
+        "requestSha256": "f3bd909bddadd4d150889ba9ce1e37e4599a45ae9abc231ffb775db0fcddd08f",
+        "resultBytes": 612,
+        "resultSha256": "9530f9044faaca6eb1adf1d8992e9801b701cfcfaa1a475632f618d2d3ec5ed9",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "earlier": null,
+            "later": null,
+            "nextValid": null,
+            "previousValid": null,
+            "rows": [
+              {
+                "abbreviation": "+14",
+                "local": "+262143-01-01 13:59:59",
+                "offset": "+14:00",
+                "zone": "Pacific/Kiritimati"
+              }
+            ],
+            "selectedChoice": null,
+            "sourceAbbreviation": "UTC",
+            "sourceLocal": "+262142-12-31 23:59:59",
+            "sourceOffset": "+00:00",
+            "sourceZone": "UTC",
+            "status": "unique",
+            "text": "UTC +262142-12-31 23:59:59 · IANA 2025b\nUTC：+262142-12-31T23:59:59+00:00 · 来源 +00:00 UTC\nPacific/Kiritimati  +262143-01-01 13:59:59  +14:00 +14",
+            "tzdbVersion": "2025b",
+            "utc": "+262142-12-31T23:59:59+00:00"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "invalid-date-1900-02-29 13:00",
+        "requestSha256": "8eee63fca5f00ebba6b2fafad620d2f06a1aa7902b36bac1690714fdfefbbcd0",
+        "resultBytes": 171,
+        "resultSha256": "e55ea5bc8cb121a8013110915c4f5d545e299138bdf81c31edfe85c6d2d2a84b",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_LOCAL_TIME",
+            "message": "请使用 YYYY-MM-DD HH:MM[:SS] 格式输入有效本地时间。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-date-2026-11-31 13:00",
+        "requestSha256": "33a1466d645e59166da9a47a9fa3d4b05bafed98fe67ff1cf2a99c34104c4ebb",
+        "resultBytes": 171,
+        "resultSha256": "e55ea5bc8cb121a8013110915c4f5d545e299138bdf81c31edfe85c6d2d2a84b",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_LOCAL_TIME",
+            "message": "请使用 YYYY-MM-DD HH:MM[:SS] 格式输入有效本地时间。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-date-2026-11-01 01:30:61",
+        "requestSha256": "2577def21733f23329c1574ef9f7c81fe3d8248bae550a2260fa84837ec18435",
+        "resultBytes": 171,
+        "resultSha256": "e55ea5bc8cb121a8013110915c4f5d545e299138bdf81c31edfe85c6d2d2a84b",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_LOCAL_TIME",
+            "message": "请使用 YYYY-MM-DD HH:MM[:SS] 格式输入有效本地时间。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-date-2026-11-01T01:30",
+        "requestSha256": "785f23d00236b32c1c5c5086830d96789e6c616bec6f98fc6f512f9d3a20549a",
+        "resultBytes": 171,
+        "resultSha256": "e55ea5bc8cb121a8013110915c4f5d545e299138bdf81c31edfe85c6d2d2a84b",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_LOCAL_TIME",
+            "message": "请使用 YYYY-MM-DD HH:MM[:SS] 格式输入有效本地时间。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-date-2026-11-01 01:30 +04:00",
+        "requestSha256": "0b8705a2f81458e618a99fa47fbd7ceef00be77da5ef05cacb2e85092190fac0",
+        "resultBytes": 171,
+        "resultSha256": "e55ea5bc8cb121a8013110915c4f5d545e299138bdf81c31edfe85c6d2d2a84b",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_LOCAL_TIME",
+            "message": "请使用 YYYY-MM-DD HH:MM[:SS] 格式输入有效本地时间。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-date-１２月",
+        "requestSha256": "8fc3beda08d1327e870cf5876df7d242ecb2c548d499b4c7aafc23d6c5237cdf",
+        "resultBytes": 171,
+        "resultSha256": "e55ea5bc8cb121a8013110915c4f5d545e299138bdf81c31edfe85c6d2d2a84b",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_LOCAL_TIME",
+            "message": "请使用 YYYY-MM-DD HH:MM[:SS] 格式输入有效本地时间。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-date-",
+        "requestSha256": "767125e10f67325d9ea88ea1a4642425fbf93bd35b5633d57b5d42ecbe232806",
+        "resultBytes": 171,
+        "resultSha256": "e55ea5bc8cb121a8013110915c4f5d545e299138bdf81c31edfe85c6d2d2a84b",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_LOCAL_TIME",
+            "message": "请使用 YYYY-MM-DD HH:MM[:SS] 格式输入有效本地时间。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "missing-location",
+        "requestSha256": "2deacd57aaec5647042e5f8e037185db9d29bf8f9eeb8c03b1559f38406d6380",
+        "resultBytes": 169,
+        "resultSha256": "586bf8b8ec03fea1f4a98ece98d2252d69bd1ed04b4dfc6ac588e9834885c0c0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SOURCE_ZONE",
+            "message": "请输入有效的来源 IANA 时区，例如 Asia/Shanghai。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "unknown-iana",
+        "requestSha256": "f0823902d09f0fa377e1ff216e099869cb7c7eef5f856a0997dfbd964f4617e2",
+        "resultBytes": 169,
+        "resultSha256": "586bf8b8ec03fea1f4a98ece98d2252d69bd1ed04b4dfc6ac588e9834885c0c0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SOURCE_ZONE",
+            "message": "请输入有效的来源 IANA 时区，例如 Asia/Shanghai。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "local-name",
+        "requestSha256": "c0f9118e728e76a94fe3930645dcc0dad56429fa04f702f0fa4b6707aee624d5",
+        "resultBytes": 169,
+        "resultSha256": "586bf8b8ec03fea1f4a98ece98d2252d69bd1ed04b4dfc6ac588e9834885c0c0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SOURCE_ZONE",
+            "message": "请输入有效的来源 IANA 时区，例如 Asia/Shanghai。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "source-byte-budget",
+        "requestSha256": "fbcc9bb8bb3a59afec488581d73dda1bb49a274bcb0901a3b9b25e54e8272556",
+        "resultBytes": 169,
+        "resultSha256": "586bf8b8ec03fea1f4a98ece98d2252d69bd1ed04b4dfc6ac588e9834885c0c0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SOURCE_ZONE",
+            "message": "请输入有效的来源 IANA 时区，例如 Asia/Shanghai。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "target-unknown",
+        "requestSha256": "65fc6aad64297639a58ef336a51c8d1123023683fe99be1c7c98d50b1520ce50",
+        "resultBytes": 169,
+        "resultSha256": "f32239f261c98423bede31cc43339002b453af415cc34290dab00c77dc5bb3cd",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_TARGET_ZONE",
+            "message": "请输入有效的目的 IANA 时区，例如 Europe/London。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "target-byte-budget",
+        "requestSha256": "319cdaeb1bd2a73275ea1470b2bdd5d002da80e795839f57137200e4779483ab",
+        "resultBytes": 169,
+        "resultSha256": "f32239f261c98423bede31cc43339002b453af415cc34290dab00c77dc5bb3cd",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_TARGET_ZONE",
+            "message": "请输入有效的目的 IANA 时区，例如 Europe/London。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "duplicate-trimmed-iana-name",
+        "requestSha256": "86b53be2795163b485fa2aeb415063940ed965edee4e4c2a4a26f6b1e52b63cf",
+        "resultBytes": 140,
+        "resultSha256": "2c4e594483905ea0828adb17dfd9a5b77fb3c7d53f1c935d2a7e1fef8a37ca39",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DUPLICATE_TARGET",
+            "message": "目的时区列表中有重复项。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "target-count-zero",
+        "requestSha256": "9335486528ec50b453a522050a436e852e026d6182c3fb5d95e44303da8fe81d",
+        "resultBytes": 136,
+        "resultSha256": "959002569779d0f94988f32358b6b6255c385c42ba637b0505f2019f96f99d1d",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "TARGET_COUNT",
+            "message": "请输入 1 至 8 个目的时区。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "target-count-nine",
+        "requestSha256": "1b2dc9d71fabeb64bcd3b63b2fe792bfecd755c67e14fc6d410ffb55d1180110",
+        "resultBytes": 136,
+        "resultSha256": "959002569779d0f94988f32358b6b6255c385c42ba637b0505f2019f96f99d1d",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "TARGET_COUNT",
+            "message": "请输入 1 至 8 个目的时区。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "target-type",
+        "requestSha256": "94bb472baf4fde96827870ee5b4fcb99d0ced612be8eb3f2558738778dd61656",
+        "resultBytes": 152,
+        "resultSha256": "ccebe2cbffb7e329e233bd585d6eaebc5fb7e2e27eae58308c6009f2044ccfde",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_INPUT",
+            "message": "请检查源时间、时区和重叠时间设置。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "unknown-field",
+        "requestSha256": "1e04dd10d50367e79612597cb72aa1ef8ca1f11f7e1c8cecfb545cf1c6b7d721",
+        "resultBytes": 152,
+        "resultSha256": "ccebe2cbffb7e329e233bd585d6eaebc5fb7e2e27eae58308c6009f2044ccfde",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_INPUT",
+            "message": "请检查源时间、时区和重叠时间设置。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "wrong-ambiguity-choice",
+        "requestSha256": "ab9e3d4e6190f00142a0a258e609b86501fce4ee61c311ea4537e017d54beb0f",
+        "resultBytes": 152,
+        "resultSha256": "ccebe2cbffb7e329e233bd585d6eaebc5fb7e2e27eae58308c6009f2044ccfde",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_INPUT",
+            "message": "请检查源时间、时区和重叠时间设置。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "missing-required-field",
+        "requestSha256": "31e2d2a5c45ec4efb2931b4f2ce47c6ff1d06e75db1f197a13cf2da7b2873786",
+        "resultBytes": 152,
+        "resultSha256": "ccebe2cbffb7e329e233bd585d6eaebc5fb7e2e27eae58308c6009f2044ccfde",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_INPUT",
+            "message": "请检查源时间、时区和重叠时间设置。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "foreign-plugin",
+        "requestSha256": "880280dd0dfc07d6204a9230cbe603c400d741ea29edc207f5e71bc62ec3acf6",
+        "resultBytes": 130,
+        "resultSha256": "3854020fb668b2e3bc73c80a110545e7abcbd728a69f0e1d972093d18e0e1cbf",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "时区请求结构无效。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "foreign-capability",
+        "requestSha256": "12156d015f3edb92a252298ac5f7748c7762d8d7f3aa589cfc89516c47581a67",
+        "resultBytes": 126,
+        "resultSha256": "af5dc817e7d4df80329a9590e9f68747baede0327b9ded77b891bf3d4a8c857d",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "UNKNOWN_OPERATION",
+            "message": "未知时区操作。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "no-command-use",
+        "requestSha256": "e47c7286d327a204a6180ccbe12cdfc2d7b9fde9fbc7355e7410f6925dd5f3c0",
+        "resultBytes": 130,
+        "resultSha256": "3854020fb668b2e3bc73c80a110545e7abcbd728a69f0e1d972093d18e0e1cbf",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "时区请求结构无效。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "request-exact-8192",
+        "requestSha256": "8acb0e814a5480366b6e4f5c52b6e1f7efc4531e8f948d7fd80f4d4a51034f38",
+        "resultBytes": 171,
+        "resultSha256": "e55ea5bc8cb121a8013110915c4f5d545e299138bdf81c31edfe85c6d2d2a84b",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_LOCAL_TIME",
+            "message": "请使用 YYYY-MM-DD HH:MM[:SS] 格式输入有效本地时间。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "request-8193",
+        "requestSha256": "3cf9fbfe89b805f8c690cbda8f4ba261e4f9389b075fa4d007e50f109e983bed",
+        "resultBytes": 124,
+        "resultSha256": "ef98f6402ccb0f8a5ec6b749092e29fff79bc16878e23eb6362ed9e3728c186e",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_LARGE",
+            "message": "请求超过 8 KiB。"
+          },
+          "ok": false
+        }
+      }
+    ],
+    "failures": [],
+    "passed": 45,
+    "ianaVersion": "2025b",
+    "workerProfile": "compute.wasi.v1",
+    "wasmSha256": "bc172f6ae3835dec7180882ab13f0ffa719541b5e47626a051526f35deab28e0",
+    "moduleBytes": 1169030,
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641"
+  }
+}

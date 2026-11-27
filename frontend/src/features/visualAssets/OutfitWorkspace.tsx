@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import type { SavedAtlasSource } from "./AnimationPanel";
 import { CreationReview } from "./CreationReview";
+import { type GameAssetTemplateId, gameAssetTemplates } from "./creation-workflows";
 import { GenerationFields } from "./GenerationFields";
 import {
   basicCapabilities,
@@ -21,12 +23,15 @@ import { StyleFields } from "./StyleFields";
 import { defaultPreservation, type StyleInput, stylePresets } from "./style-presets";
 import type { Invoke } from "./VisualAssetsApp";
 
-export function OutfitWorkspace(props: {
+type WorkspaceProps = {
   invoke: Invoke;
   workspaceId: string;
   sceneId?: string;
-  workflow?: "outfit" | "style" | "generate";
-}) {
+  workflow?: "outfit" | "style" | "generate" | "game";
+  onUseAsAtlas?: (source: SavedAtlasSource) => void;
+};
+
+export function OutfitWorkspace(props: WorkspaceProps) {
   return (
     <Workspace
       key={JSON.stringify([props.workspaceId, props.sceneId, props.workflow])}
@@ -39,19 +44,18 @@ function Workspace({
   workspaceId,
   sceneId,
   workflow = "outfit",
-}: {
-  invoke: Invoke;
-  workspaceId: string;
-  sceneId?: string;
-  workflow?: "outfit" | "style" | "generate";
-}) {
+  onUseAsAtlas,
+}: WorkspaceProps) {
   const isStyle = workflow === "style";
-  const isGeneration = workflow === "generate";
-  const title = isGeneration
-    ? "Text to image and image to image"
-    : isStyle
-      ? "Image style transfer"
-      : "Character outfit change";
+  const isGame = workflow === "game";
+  const isGeneration = workflow === "generate" || isGame;
+  const title = isGame
+    ? "Game asset creation"
+    : isGeneration
+      ? "Text to image and image to image"
+      : isStyle
+        ? "Image style transfer"
+        : "Character outfit change";
   const [generation, setGeneration] = useState<GenerationInput>({ mode: "text", options: {} });
   const needsImage = !isGeneration || generation.mode === "image";
   const library = useMemo(() => libraryRequest(invoke, workspaceId), [invoke, workspaceId]);
@@ -78,6 +82,10 @@ function Workspace({
   const [person, setPerson] = useState<{ id: number; name: string }>();
   const [clothing, setClothing] = useState<{ id: number; name: string }>();
   const [description, setDescription] = useState(isStyle ? t(stylePresets[0].description) : "");
+  const [templateId, setTemplateId] = useState("");
+  const [gameDrafts, setGameDrafts] = useState<Partial<Record<GameAssetTemplateId, string>>>({});
+  const gameTemplate = gameAssetTemplates.find((template) => template.id === templateId);
+  const brief = gameTemplate ? (gameDrafts[gameTemplate.id] ?? t(gameTemplate.brief)) : description;
   const [style, setStyle] = useState<StyleInput>({
     preset: "van-gogh",
     revision: 1,
@@ -131,7 +139,7 @@ function Workspace({
     };
   }, [request, revision]);
   async function prepare() {
-    if ((needsImage && !person) || !description.trim() || busy || settingsEdited) return;
+    if ((needsImage && !person) || !brief.trim() || busy || settingsEdited) return;
     setBusy(true);
     setError("");
     setPlan(undefined);
@@ -141,7 +149,7 @@ function Workspace({
         input: {
           person: needsImage ? (person?.id ?? null) : null,
           clothing: isStyle || isGeneration ? null : (clothing?.id ?? null),
-          description,
+          description: brief,
           ...(isStyle ? { style } : {}),
           ...(isGeneration ? { generation } : {}),
         },
@@ -181,13 +189,53 @@ function Workspace({
       <h3>{t(title)}</h3>
       <p>
         {t(
-          isGeneration
-            ? "Describe an image, or choose a reference to edit. Review the model and parameters before generating."
-            : isStyle
-              ? "Choose a source image, edit the style and preserved content, then review before uploading."
-              : "Choose a person and describe the outfit. Review the model and images before uploading.",
+          isGame
+            ? "Choose a template and edit its brief. Image options depend on the selected model."
+            : isGeneration
+              ? "Describe an image, or choose a reference to edit. Review the model and parameters before generating."
+              : isStyle
+                ? "Choose a source image, edit the style and preserved content, then review before uploading."
+                : "Choose a person and describe the outfit. Review the model and images before uploading.",
         )}
       </p>
+      {isGame && (
+        <>
+          <label>
+            {t("Game asset template")}
+            <select
+              className="ui-select"
+              value={templateId}
+              disabled={busy}
+              onChange={(event) => {
+                setTemplateId(event.target.value);
+                setPlan(undefined);
+              }}
+            >
+              <option value="">{t("Choose an asset type")}</option>
+              {gameAssetTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {t(template.title)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("Game asset brief")}
+            <textarea
+              className="ui-textarea"
+              value={brief}
+              maxLength={4000}
+              disabled={busy || !gameTemplate}
+              onChange={(event) => {
+                if (!gameTemplate) return;
+                const value = event.target.value;
+                setGameDrafts((drafts) => ({ ...drafts, [gameTemplate.id]: value }));
+                setPlan(undefined);
+              }}
+            />
+          </label>
+        </>
+      )}
       {!config && (
         <button
           type="button"
@@ -281,7 +329,7 @@ function Workspace({
                 setPlan(undefined);
               }}
             />
-          ) : (
+          ) : !isGame && (
             <>
               <label>
                 {t(isGeneration ? "Describe the image to create" : "Describe the new outfit")}
@@ -315,7 +363,7 @@ function Workspace({
               busy ||
               settingsEdited ||
               (needsImage && !person) ||
-              !description.trim() ||
+              !brief.trim() ||
               (isStyle && !style.preserve.trim()) ||
               !config.settings.model ||
               (!isStyle && !isGeneration && person?.id === clothing?.id)
@@ -343,9 +391,11 @@ function Workspace({
             <OutfitTask
               key={job}
               id={job}
+              onUseAsAtlas={onUseAsAtlas}
               request={request}
               library={library}
               libraryId={config.libraryId}
+              reviewOutput={isGame}
             />
           )}
           <OutfitTaskHistory request={request} onOpen={setJob} />

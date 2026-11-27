@@ -1,0 +1,330 @@
+{
+  "generator": "scripts/verify_clipboard_compose_plugin.py",
+  "cases": [
+    {
+      "case": "paragraphs-array",
+      "mime": "application/json",
+      "inputBytes": 92,
+      "sourceSha256": "2e4b74cb7232ee73d77d264ba98b9cf26440440af0d15aba588829dfa4702b53",
+      "options": {
+        "format": "paragraphs"
+      },
+      "code": null,
+      "mimeOutput": "text/plain",
+      "outputBytes": 76,
+      "outputSha256": "ad996f3b24b57034083565b37f7545612b36d38a3ccad1af1646da5ca8251ce5"
+    },
+    {
+      "case": "paragraphs-native-records",
+      "mime": "application/json",
+      "inputBytes": 778,
+      "sourceSha256": "f0061af621ee003815d5c20fdbc911edca5f667c85d7a118f894b883e8e6adec",
+      "options": {
+        "format": "paragraphs"
+      },
+      "code": null,
+      "mimeOutput": "text/plain",
+      "outputBytes": 76,
+      "outputSha256": "ad996f3b24b57034083565b37f7545612b36d38a3ccad1af1646da5ca8251ce5"
+    },
+    {
+      "case": "numbered-array",
+      "mime": "application/json",
+      "inputBytes": 92,
+      "sourceSha256": "2e4b74cb7232ee73d77d264ba98b9cf26440440af0d15aba588829dfa4702b53",
+      "options": {
+        "format": "numbered"
+      },
+      "code": null,
+      "mimeOutput": "text/plain",
+      "outputBytes": 91,
+      "outputSha256": "25cdea695ce68df6ffb178995894b3397ea2b5b6fd962d9bebff5f70f5e90af0"
+    },
+    {
+      "case": "numbered-native-records",
+      "mime": "application/json",
+      "inputBytes": 778,
+      "sourceSha256": "f0061af621ee003815d5c20fdbc911edca5f667c85d7a118f894b883e8e6adec",
+      "options": {
+        "format": "numbered"
+      },
+      "code": null,
+      "mimeOutput": "text/plain",
+      "outputBytes": 91,
+      "outputSha256": "25cdea695ce68df6ffb178995894b3397ea2b5b6fd962d9bebff5f70f5e90af0"
+    },
+    {
+      "case": "csv-array",
+      "mime": "application/json",
+      "inputBytes": 92,
+      "sourceSha256": "2e4b74cb7232ee73d77d264ba98b9cf26440440af0d15aba588829dfa4702b53",
+      "options": {
+        "format": "csv"
+      },
+      "code": null,
+      "mimeOutput": "text/csv",
+      "outputBytes": 85,
+      "outputSha256": "eb8a6282c0aa8b7880db83d41f9e233962c64d229991d64fb0d1dabfc4c45eed"
+    },
+    {
+      "case": "csv-native-records",
+      "mime": "application/json",
+      "inputBytes": 778,
+      "sourceSha256": "f0061af621ee003815d5c20fdbc911edca5f667c85d7a118f894b883e8e6adec",
+      "options": {
+        "format": "csv"
+      },
+      "code": null,
+      "mimeOutput": "text/csv",
+      "outputBytes": 85,
+      "outputSha256": "eb8a6282c0aa8b7880db83d41f9e233962c64d229991d64fb0d1dabfc4c45eed"
+    },
+    {
+      "case": "markdown-array",
+      "mime": "application/json",
+      "inputBytes": 92,
+      "sourceSha256": "2e4b74cb7232ee73d77d264ba98b9cf26440440af0d15aba588829dfa4702b53",
+      "options": {
+        "format": "markdown"
+      },
+      "code": null,
+      "mimeOutput": "text/markdown",
+      "outputBytes": 87,
+      "outputSha256": "d9293175bda5e073e7ea69c6e7b8d92daf39de93b6048b24a2854708351c40c4"
+    },
+    {
+      "case": "markdown-native-records",
+      "mime": "application/json",
+      "inputBytes": 778,
+      "sourceSha256": "f0061af621ee003815d5c20fdbc911edca5f667c85d7a118f894b883e8e6adec",
+      "options": {
+        "format": "markdown"
+      },
+      "code": null,
+      "mimeOutput": "text/markdown",
+      "outputBytes": 87,
+      "outputSha256": "d9293175bda5e073e7ea69c6e7b8d92daf39de93b6048b24a2854708351c40c4"
+    },
+    {
+      "case": "markdown-lone-cr",
+      "mime": "text/plain",
+      "inputBytes": 21,
+      "sourceSha256": "2916b33a458391a0386c2c4571b8caf541b7fc879eb5a08b72b20aa398d98580",
+      "options": {
+        "format": "markdown"
+      },
+      "code": null,
+      "mimeOutput": "text/markdown",
+      "outputBytes": 22,
+      "outputSha256": "86f0e49288b1c17b5c92aeb565dbaa6704b5246211d7ed0c334994da26f81264"
+    },
+    {
+      "case": "utf8-bom",
+      "mime": "application/octet-stream",
+      "inputBytes": 95,
+      "sourceSha256": "19ed1969404f6feef4ad7d8d42685ca4a68720d173b111f5e5e969d7eea023a6",
+      "options": {
+        "format": "paragraphs"
+      },
+      "code": null,
+      "mimeOutput": "text/plain",
+      "outputBytes": 76,
+      "outputSha256": "ad996f3b24b57034083565b37f7545612b36d38a3ccad1af1646da5ca8251ce5"
+    },
+    {
+      "case": "csv-native-formula-and-whitespace",
+      "mime": "application/json",
+      "inputBytes": 58,
+      "sourceSha256": "631e94b1218ff1df640d5df96b99879f642de48983f8c0b9b8ac0748a8b71689",
+      "options": {
+        "format": "csv"
+      },
+      "code": null,
+      "mimeOutput": "text/csv",
+      "outputBytes": 58,
+      "outputSha256": "3ab694612570603d41f48014c449ff42d96085548aa606160644405d99351449"
+    },
+    {
+      "case": "exact-64-texts",
+      "mime": "application/json",
+      "inputBytes": 503,
+      "sourceSha256": "1237f32414f4ee64c48982aa3d195f2f5ac9bc71a4010920f3ac581e9b567c3f",
+      "options": {
+        "format": "markdown"
+      },
+      "code": null,
+      "mimeOutput": "text/markdown",
+      "outputBytes": 501,
+      "outputSha256": "95c0850f5a7f4b5b822b687242d40165430e937d57b1331d05111a244e6802e3"
+    },
+    {
+      "case": "exact-32-kib-source",
+      "mime": "application/json",
+      "inputBytes": 32768,
+      "sourceSha256": "42e587bbf87e225ac7f20b1dfb06b350c7e4087925f70d976ac9301c8962912e",
+      "options": {
+        "format": "paragraphs"
+      },
+      "code": null,
+      "mimeOutput": "text/plain",
+      "outputBytes": 32764,
+      "outputSha256": "18c7af0b079de93db9374b9a3a0463ff69a3d5b4c72c07b1adb78f989c063bda"
+    },
+    {
+      "case": "dense-max-lines",
+      "mime": "application/json",
+      "inputBytes": 32768,
+      "sourceSha256": "7e44bff3cfabb81a0647aaedfeec75371ac8108805f4f8c969302719cea78908",
+      "options": {
+        "format": "markdown"
+      },
+      "code": null,
+      "mimeOutput": "text/markdown",
+      "outputBytes": 49148,
+      "outputSha256": "a75a6ff4db1abb11bdfebf50693085daf7ff5d00f59e51ded6c9f9595ec6c26b"
+    },
+    {
+      "case": "too-many-entries",
+      "mime": "application/json",
+      "inputBytes": 513,
+      "sourceSha256": "830535576c79284d160678996df747e55fab44513648380763dd2208880aeb75",
+      "options": {
+        "format": "csv"
+      },
+      "code": "ITEM_LIMIT",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "source-one-byte-over",
+      "mime": "application/json",
+      "inputBytes": 32769,
+      "sourceSha256": "c415c807c1a8898d0323a22107d6cb66dafb267ade34f62f4b6f6eb469fe1042",
+      "options": {
+        "format": "csv"
+      },
+      "code": "INPUT_LIMIT",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "unordered-record",
+      "mime": "application/json",
+      "inputBytes": 72,
+      "sourceSha256": "20ab98e6c2803dfc9400045012a188ef587d430d150284cf4749a33445d43a62",
+      "options": {
+        "format": "csv"
+      },
+      "code": "RECORD_ORDER",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "duplicate-order-field",
+      "mime": "application/json",
+      "inputBytes": 70,
+      "sourceSha256": "01ad1cee2ee6cf5bbf166a04898c45e8af181d2ab890753b24acd18c97869725",
+      "options": {
+        "format": "csv"
+      },
+      "code": "INVALID_JSON",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "invalid-record-shape",
+      "mime": "application/json",
+      "inputBytes": 40,
+      "sourceSha256": "0fbce53fa84732fb9cc4ffd68a4e4aac1454ca53e44b2c6bf30af5ad8de6b651",
+      "options": {
+        "format": "markdown"
+      },
+      "code": "INVALID_JSON",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "mixed-records-and-plain",
+      "mime": "application/json",
+      "inputBytes": 73,
+      "sourceSha256": "6e8edfff525859852e41cbd0b6b694d4468963a86fe6a3da2ef2dd116435a02b",
+      "options": {
+        "format": "markdown"
+      },
+      "code": "INVALID_JSON",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "invalid-utf8",
+      "mime": "application/json",
+      "inputBytes": 5,
+      "sourceSha256": "d7e1fd6f762f8c56a677954609ede1f15b518a9dd565a719f7841ed6b3e3836a",
+      "options": {
+        "format": "paragraphs"
+      },
+      "code": "INVALID_JSON",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "empty-source",
+      "mime": "application/json",
+      "inputBytes": 2,
+      "sourceSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "options": {
+        "format": "csv"
+      },
+      "code": "ITEM_LIMIT",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "empty-text",
+      "mime": "application/json",
+      "inputBytes": 4,
+      "sourceSha256": "055539df4a0b804c58caf46c0cd2941af10d64c1395ddd8e50b5f55d945841e6",
+      "options": {
+        "format": "csv"
+      },
+      "code": "ITEM_LIMIT",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "unknown-format",
+      "mime": "application/json",
+      "inputBytes": 92,
+      "sourceSha256": "2e4b74cb7232ee73d77d264ba98b9cf26440440af0d15aba588829dfa4702b53",
+      "options": {
+        "format": "html"
+      },
+      "code": "INVALID_REQUEST",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "unknown-mime",
+      "mime": "image/png",
+      "inputBytes": 92,
+      "sourceSha256": "2e4b74cb7232ee73d77d264ba98b9cf26440440af0d15aba588829dfa4702b53",
+      "options": {
+        "format": "markdown"
+      },
+      "code": "INVALID_RESOURCE",
+      "mimeOutput": null,
+      "outputBytes": 0,
+      "outputSha256": null
+    }
+  ]
+}

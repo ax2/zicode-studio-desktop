@@ -26,7 +26,7 @@ export function showBrowserReader(page, onClose, position = {}) {
   let scrollTop = position.scrollTop ?? 0;
   const smaller = button("Smaller reading text", "A−", () => resize(-1));
   const larger = button("Larger reading text", "A+", () => resize(1));
-  const close = button("Close", t("Close"), () => { rememberBeforeClose(); dialog.close(); });
+  const close = button("Close", t("Close"), closeReader);
   function paintSize() {
     dialog.dataset.readerSize = String(size);
     smaller.setAttribute("aria-disabled", String(size === 0));
@@ -159,12 +159,22 @@ export function showBrowserReader(page, onClose, position = {}) {
   }
   // Capture before native Escape closes the dialog and the scroll box no longer has layout.
   dialog.addEventListener("cancel", rememberBeforeClose);
-  dialog.addEventListener("close", () => {
+  function finishClose() {
+    if (!dialog.isConnected) return;
     observer?.disconnect();
     const anchor = storedReflowAnchor();
     dialog.remove();
     onClose({ scrollTop, size, width: observedWidth, anchor });
-  }, { once: true });
+  }
+  function closeReader() {
+    if (dialog.open) {
+      rememberBeforeClose();
+      dialog.close();
+    }
+    // Close events can be deferred until after Browser has been reactivated.
+    finishClose();
+  }
+  dialog.addEventListener("close", finishClose, { once: true });
   document.body.append(dialog);
   try { dialog.showModal(); }
   catch (error) { dialog.remove(); throw error; }
@@ -179,4 +189,5 @@ export function showBrowserReader(page, onClose, position = {}) {
     rememberReflowPosition();
   }
   observer?.observe(scroll);
+  return { close: closeReader };
 }

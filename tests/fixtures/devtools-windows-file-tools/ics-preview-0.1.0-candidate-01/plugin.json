@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.ics-preview",
+  "name": "ZiDevTools ICS Preview",
+  "displayName": "ICS 日程预览",
+  "description": "只读预览一份经确认的 ICS 日历。保留日程原始起止时间、时区和重复规则，文件限 16 KiB。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.calendar.ics.preview"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.calendar.ics.preview",
+        "title": "ICS 日程预览",
+        "description": "只读预览一份经确认的 ICS 日历。保留日程原始起止时间、时区和重复规则，文件限 16 KiB。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "sourceByteCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16384
+                },
+                "eventCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16384
+                },
+                "recurringEventCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16384
+                },
+                "recurrenceExpanded": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "truncated": {
+                  "type": "boolean"
+                },
+                "events": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "summary": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "summaryTruncated": {
+                        "type": "boolean"
+                      },
+                      "start": {
+                        "type": "object",
+                        "properties": {
+                          "value": {
+                            "type": "string",
+                            "maxLength": 16
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "all-day",
+                              "floating",
+                              "utc",
+                              "named-timezone"
+                            ]
+                          },
+                          "timezone": {
+                            "oneOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 128
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "value",
+                          "kind",
+                          "timezone"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "end": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "string",
+                                "maxLength": 16
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "all-day",
+                                  "floating",
+                                  "utc",
+                                  "named-timezone"
+                                ]
+                              },
+                              "timezone": {
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 128
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "kind",
+                              "timezone"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "recurrenceRule": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "recurrenceExceptionsPresent": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "summary",
+                      "summaryTruncated",
+                      "start",
+                      "end",
+                      "recurrenceRule",
+                      "recurrenceExceptionsPresent"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "ok",
+                "sourceByteCount",
+                "eventCount",
+                "recurringEventCount",
+                "recurrenceExpanded",
+                "truncated",
+                "events"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 49152,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "日历文件查看",
+            "查看 ICS",
+            "iCalendar preview"
+          ],
+          "description": "只读预览一份经确认的 ICS 日历。保留日程原始起止时间、时区和重复规则，文件限 16 KiB。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的 ICS 临时快照。"
+      }
+    ],
+    "optional": []
+  }
+}

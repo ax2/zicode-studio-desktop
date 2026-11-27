@@ -1,8 +1,9 @@
 // @vitest-environment node
-import { afterEach, expect, it } from "vitest";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, expect, it } from "vitest";
 import { collectBundles, stageBundles } from "./release-candidate-files.mjs";
 
 const roots = [];
@@ -23,15 +24,27 @@ async function setup() {
     part = join(input, "verified-bundles-windows-x64");
   await mkdir(input);
   const file = join(dir, name.replaceAll("ZiCode.Studio.Desktop", "ZiCode Studio Desktop"));
-  await writeFile(file, Buffer.from([1, 2, 3, 255]));
-  await stageBundles([file], part, { ...config, target: "windows-x64" });
+  const bytes = Buffer.from([1, 2, 3, 255]);
+  await writeFile(file, bytes);
+  const acceptance = {
+    schemaVersion: 1,
+    version: "0.6.7-rc.1",
+    installerSha256: createHash("sha256").update(bytes).digest("hex").toUpperCase(),
+    installerBytes: bytes.length,
+    cases: { cleanInstall: { status: "passed" }, upgradeAndData: { status: "passed" } },
+  };
   return {
     part,
+    file,
+    acceptance,
+    stage: (installerAcceptance = acceptance) =>
+      stageBundles([file], part, { ...config, target: "windows-x64", installerAcceptance }),
     collect: (opts = {}) => collectBundles(input, join(dir, "output"), { ...config, ...opts }),
   };
 }
 it("preserves exact candidate bytes and accepts a tagged release with its encoded bundle version", async () => {
-  const { part, collect } = await setup();
+  const { part, collect, stage } = await setup();
+  await stage();
   const [asset] = await collect();
   expect(asset.name).toBe(name);
   expect(asset.size).toBe(4);
@@ -45,8 +58,9 @@ it.each([
   "missing platform",
   "path traversal",
 ])("rejects %s", async (problem) => {
-  const { part, collect } = await setup(),
+  const { part, collect, stage } = await setup(),
     opts = {};
+  await stage();
   if (problem === "same-size tampering")
     await writeFile(join(part, name), Buffer.from([1, 2, 4, 255]));
   if (problem === "extra attachment") await writeFile(join(part, "extra.zip"), "unreviewed");
@@ -60,4 +74,26 @@ it.each([
     await writeFile(path, JSON.stringify(receipt));
   }
   await expect(collect(opts)).rejects.toThrow();
+});
+
+it("refuses to stage a same-length replacement without a matching installer acceptance receipt", async () => {
+  const { file, part, stage } = await setup();
+  await writeFile(file, Buffer.from([1, 2, 4, 255]));
+  await expect(stage()).rejects.toThrow("differs from Windows installer acceptance");
+  await expect(readFile(join(part, "receipt.json"))).rejects.toMatchObject({ code: "ENOENT" });
+});
+
+it.each([
+  "missing",
+  "version mismatch",
+  "wrong size",
+  "unfinished upgrade",
+])("refuses installer acceptance that is %s", async (problem) => {
+  const { acceptance, stage } = await setup();
+  if (problem === "missing")
+    return expect(stage(null)).rejects.toThrow("Invalid Windows installer acceptance");
+  if (problem === "version mismatch") acceptance.version = "0.6.6";
+  if (problem === "wrong size") acceptance.installerBytes = 3;
+  if (problem === "unfinished upgrade") acceptance.cases.upgradeAndData.status = "notRun";
+  await expect(stage(acceptance)).rejects.toThrow("Windows installer acceptance");
 });

@@ -90,6 +90,15 @@ pub(super) fn execute(
     profile: Option<EngineProfile>,
     request: Request,
 ) -> Result<Value, String> {
+    execute_with_local_pdf(window, profile, request, None)
+}
+
+pub(super) fn execute_with_local_pdf(
+    window: &WebviewWindow,
+    profile: Option<EngineProfile>,
+    request: Request,
+    local_pdf: Option<super::engine::local_pdf::Document>,
+) -> Result<Value, String> {
     if let Request::Fullscreen { enabled } = request { return super::window_controls::fullscreen(window, enabled); }
     WINDOWS.with(|slot| slot.with_mut(|windows| {
         if matches!(&request, Request::Status) {
@@ -108,7 +117,7 @@ pub(super) fn execute(
                         let title = webview2_com::take_pwstr(title).chars().take(512).collect::<String>();
                         title_result.map_err(|error| error.to_string())?;
                         let history = super::windows_policy::history_state(&view.webview()).map_err(|e|e.to_string())?;
-                        Ok(json!({"id":id,"history":history,"title":title,"popupOpener":browser.engine.popup_opener(id),"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"favicon":browser.engine.favicon(id),"settings":browser.engine.preferred_page_settings(id, super::engine::page_controls::read(view)?),
+                        Ok(json!({"id":id,"history":history,"title":title,"popupOpener":browser.engine.popup_opener(id),"localPdf":browser.engine.is_local_pdf(id),"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"favicon":browser.engine.favicon(id),"settings":browser.engine.preferred_page_settings(id, super::engine::page_controls::read(view)?),
                             "pdfDocument":browser.engine.is_pdf_document(id),
                             "documentRevision":browser.engine.export_ready(id).then(|| browser.engine.document_revision(id)).transpose()?}))
                     };
@@ -128,7 +137,7 @@ pub(super) fn execute(
         {
             let EngineProfile { directory, user_agent, proxy } = profile.ok_or("Browser profile unavailable")?;
             let rect = bounds(window, viewport)?;
-            if !BrowserPolicy::public_web().permits(&url) {
+            if local_pdf.is_none() && !BrowserPolicy::public_web().permits(&url) {
                 return Err("Browser navigation blocked".into());
             }
             let tab = tab_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
@@ -191,13 +200,20 @@ pub(super) fn execute(
                 .get_mut(window.label())
                 .ok_or("Browser unavailable")?;
             browser.engine.user_agent = user_agent;
-            if let Some(request) = popup_request {
-                browser.engine.create_popup(window, &tab, &url, rect, (zoom, muted), &request)?;
+            let opened = if let Some(document) = local_pdf {
+                let name = document.name().to_owned();
+                browser.engine.create_local_pdf(window, &tab, rect, document)?;
+                json!({"tab":tab,"name":name,"url":url})
             } else {
-                browser.engine.create(window, &tab, &url, rect, zoom, muted)?;
-            }
-            browser.tabs.push(tab.clone());
-            return Ok(json!({"tab":tab}));
+                if let Some(request) = popup_request {
+                    browser.engine.create_popup(window, &tab, &url, rect, (zoom, muted), &request)?;
+                } else {
+                    browser.engine.create(window, &tab, &url, rect, zoom, muted)?;
+                }
+                json!({"tab":tab})
+            };
+            browser.tabs.push(tab);
+            return Ok(opened);
         }
         if matches!(&request, Request::DownloadLive) && !windows.contains_key(window.label()) { return Ok(json!([])); }
         // Keep the hide revision even before the first native view is created.
@@ -304,7 +320,7 @@ pub(super) fn execute(
                     json!({"url":browser.engine.view(&tab)?.url().map_err(|e|e.to_string())?}),
                 )
             }
-            Request::GetUserAgent | Request::SetUserAgent { .. } | Request::GetHttpProxy | Request::SetHttpProxy { .. } | Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Suspend { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } | Request::SiteSettings { .. } => unreachable!(),
+            Request::GetUserAgent | Request::SetUserAgent { .. } | Request::GetHttpProxy | Request::SetHttpProxy { .. } | Request::Create { .. } | Request::OpenLocalPdf { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Suspend { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } | Request::SiteSettings { .. } => unreachable!(),
         }
         Ok(Value::Null)
     }))

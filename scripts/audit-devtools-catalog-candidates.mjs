@@ -10,6 +10,7 @@ import {
 } from "./check-plugin-manifest-profiles.mjs";
 import { verifyCatalogRevision } from "./verify-devtools-catalog-revision.mjs";
 import { verifyDevtoolsPackage } from "./verify-devtools-package.mjs";
+import { resolveDevtoolsProviderRoot } from "./devtools-fixture-paths.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const revisionId = "devtools-catalog-2026-10-18-3c7c5aa8ad679a14";
@@ -40,7 +41,7 @@ export async function auditCandidates(
   catalogDirectory = fixture,
   catalogReceipt = receipt,
 ) {
-  const provider = resolve(providerRoot);
+  const provider = resolveDevtoolsProviderRoot(root, providerRoot);
   const catalogRoot = resolve(catalogDirectory);
   const catalog = await verifyCatalogRevision(catalogRoot, resolve(catalogReceipt));
   const map = JSON.parse(await readFile(resolve(catalogRoot, "package-map.json"), "utf8"));

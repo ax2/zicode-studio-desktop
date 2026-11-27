@@ -26,8 +26,7 @@
     } catch { return null; }
   };
   let textRemaining = 48000;
-  let nodesRemaining = 12000;
-  let structureRemaining = 24000;
+  const pageTextBudget = { nodes: 12000, structure: 24000 };
   let selectionRemaining = 8192;
   function renderedChildren(element) {
     if (element.shadowRoot) return element.shadowRoot.childNodes;
@@ -40,9 +39,8 @@
   function composedParent(node) {
     return node.assignedSlot || node.parentElement || node.getRootNode().host;
   }
-  function readText(doc, limit) {
-    const charLimit = Math.min(limit, textRemaining);
-    const root = doc.body || doc.documentElement;
+  function readTextFlow(doc, root, charLimit, budget, tableCell = false) {
+    let remaining = charLimit;
     const pending = [{ nodes: [root].values(), flow: root }];
     let text = '', textTruncated = false, textRange;
     let previousFlow, spacePending = false, lineBreaks = 0;
@@ -50,11 +48,16 @@
       const { nodes, flow } = pending.at(-1);
       const next = nodes.next();
       if (next.done) { pending.pop(); continue; }
-      if (structureRemaining === 0) { textTruncated = true; break; }
-      structureRemaining--;
+      if (budget.structure === 0) { textTruncated = true; break; }
+      budget.structure--;
       const node = next.value;
       if (node.nodeType === Node.ELEMENT_NODE) {
         if (node.matches(excluded)) continue;
+        if (tableCell && node.localName === 'table') {
+          // A nested table is its own structure, but still separates adjacent prose visually.
+          if (text && allowed(node)) lineBreaks = Math.max(1, lineBreaks);
+          continue;
+        }
         if (node.localName === 'br') {
           if (text && allowed(node)) lineBreaks++;
           continue;
@@ -67,8 +70,8 @@
         continue;
       }
       if (node.nodeType !== Node.TEXT_NODE) continue;
-      if (nodesRemaining === 0) { textTruncated = true; break; }
-      nodesRemaining--;
+      if (budget.nodes === 0) { textTruncated = true; break; }
+      budget.nodes--;
       const raw = node.nodeValue || '';
       if (!raw) continue;
       const parent = composedParent(node);
@@ -109,14 +112,31 @@
                (spacePending || (!preserveSpace && normalized.startsWith(' ')))) separator = ' ';
 
       const value = separator + part;
-      const remaining = charLimit - text.length;
-      if (value.length > remaining) { text += clip(value, remaining); textTruncated = true; break; }
+      if (tableCell) {
+        // Table limits use characters in the native decoder, unlike the page UTF-16 limit.
+        const characters = [...value.slice(0, remaining * 2 + 2)];
+        if (characters.length > remaining) {
+          text += characters.slice(0, remaining).join("");
+          textTruncated = true;
+          break;
+        }
+        remaining -= characters.length;
+      } else {
+        if (value.length > remaining) { text += clip(value, remaining); textTruncated = true; break; }
+        remaining -= value.length;
+      }
       text += value;
       previousFlow = flow;
       spacePending = !preserveSpace && normalized.endsWith(' ');
       lineBreaks = 0;
     }
-    if (!textTruncated && text && !text.endsWith('\n') && text.length < charLimit) text += '\n';
+    return { text, textTruncated };
+  }
+  function readText(doc, limit) {
+    const charLimit = Math.min(limit, textRemaining);
+    const { text: content, textTruncated } = readTextFlow(doc, doc.body || doc.documentElement, charLimit, pageTextBudget);
+    const text = !textTruncated && content && !content.endsWith('\n') && content.length < charLimit
+      ? content + '\n' : content;
     textRemaining -= text.length;
     return { text, textTruncated };
   }
@@ -144,6 +164,7 @@
   let tablesRemaining = 4;
   let tablesToScan = 100;
   let tableTextRemaining = 3600;
+  const tableTextBudget = { nodes: 64, structure: 24000 };
   function readReferences(doc, linkLimit, imageLimit, scan) {
     const links = [], images = [], tables = [];
     const linkUrls = new Set(), imageKeys = new Set();
@@ -208,24 +229,12 @@
   function readTable(table) {
     let tablesTruncated = false;
     const readTableText = element => {
-      const nodes = table.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-      const limit = Math.min(120, tableTextRemaining);
-      let value = "", scanned = 0;
-      for (let node = nodes.nextNode(); node; node = nodes.nextNode()) {
-        if (++scanned > 64) { tablesTruncated = true; break; }
-        const parent = node.parentElement;
-        if (!parent || parent.closest("table") !== table || !visible(parent)) continue;
-        const part = node.nodeValue.trim();
-        if (!part) continue;
-        const available = limit - [...value].length;
-        const chars = [...part.slice(0, available * 2 + 2)];
-        if (value && available) value += " ";
-        const remaining = limit - [...value].length;
-        value += chars.slice(0, remaining).join("");
-        if (chars.length > remaining) { tablesTruncated = true; break; }
-      }
-      tableTextRemaining -= [...value].length;
-      return value.trim();
+      tableTextBudget.nodes = 64;
+      const { text, textTruncated } = readTextFlow(table.ownerDocument, element,
+        Math.min(120, tableTextRemaining), tableTextBudget, true);
+      tableTextRemaining -= [...text].length;
+      tablesTruncated ||= textTruncated;
+      return text.trim();
     };
     const rows = [];
     if (table.rows.length > 80) tablesTruncated = true;

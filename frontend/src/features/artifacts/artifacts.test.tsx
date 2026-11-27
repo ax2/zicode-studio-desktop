@@ -202,6 +202,32 @@ describe("artifacts React app", () => {
     store.getState().destroy();
   });
 
+  it("keeps type and source filtering inside the drawer but lets a result open the detail", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    const store = renderStore(gateway);
+    const onNavigationClick = vi.fn();
+    document.addEventListener("click", onNavigationClick);
+    try {
+      const type = await screen.findByRole("button", { name: /^Reports$/ });
+      const source = screen.getByRole("button", { name: /^Finance$/ });
+      fireEvent.click(type);
+      fireEvent.click(source);
+      await waitFor(() => expect(gateway.list).toHaveBeenLastCalledWith("finance", "ws-finance", {
+        query: "", kind: "report", pluginId: "com.zicode.finance",
+      }));
+      expect(onNavigationClick).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole("button", { name: /Deterministic backtest/ }));
+      await screen.findByRole("heading", { name: DESCRIPTOR.title });
+      expect(onNavigationClick).toHaveBeenCalledTimes(1);
+      expect(gateway.get).toHaveBeenCalledExactlyOnceWith("finance", "ws-finance", DESCRIPTOR.id);
+    } finally {
+      document.removeEventListener("click", onNavigationClick);
+      store.getState().destroy();
+    }
+  });
+
   it("scopes search and type filters to the active scene", async () => {
     setLocale("en");
     const gateway = createGateway();

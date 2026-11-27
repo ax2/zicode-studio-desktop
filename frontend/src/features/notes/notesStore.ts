@@ -227,6 +227,7 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   selectNote(summary: NoteSummary): Promise<void>;
   loadBacklinks(note: Note): Promise<void>;
   openNote(notebookId: string, noteId: string): Promise<void>;
+  openWidgetShortcut(kind: "new" | "pinned" | "recent"): Promise<void>;
   selectNotebook(id: string): Promise<void>;
   resolveRecentNotes(): Promise<void>;
   resolvePinnedNotes(): Promise<void>;
@@ -241,7 +242,7 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<Note>;
   createNotebook(title: string, icon: string, parentId?: string | null): Promise<void>;
   deleteNotebook(notebookId: string): Promise<void>;
-  updateNotebook(notebookId: string, title: string, icon: string, parentId?: string | null): Promise<void>;
+  updateNotebook(notebookId: string, title: string, icon: string, parentId?: string | null, isDraftCurrent?: () => boolean): Promise<void>;
   deleteSelectedNote(): Promise<void>;
   loadTrash(): Promise<void>;
   restoreFromTrash(entry: TrashEntry): Promise<void>;
@@ -313,6 +314,7 @@ export function createNotesStore(options: NotesStoreOptions) {
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   let loadSequence = 0;
   let noteSelectionSequence = 0;
+  let widgetShortcutSequence = 0;
   let stopRelationshipWatch = () => {};
   let stopDraftWatch = () => {};
   let stopDraftLifecycle = () => {};
@@ -530,6 +532,28 @@ export function createNotesStore(options: NotesStoreOptions) {
       await get().selectNote({ notebookId, id: noteId, title: "", updatedAt: "" });
     },
 
+    async openWidgetShortcut(kind) {
+      const scope = operationScope.capture();
+      const request = ++widgetShortcutSequence;
+      const selection = noteSelectionSequence;
+      const current = () =>
+        scope.isCurrent() && request === widgetShortcutSequence && selection === noteSelectionSequence;
+
+      await get().load();
+      if (!current() || get().error) return;
+      if (kind === "new") return get().newNote();
+
+      await get().refreshShortcuts(true);
+      if (!current()) return;
+      const state = get();
+      const shortcut = (kind === "pinned" ? state.pinnedNotes : state.recentNotes)[0];
+      if (!shortcut) {
+        notify(t(kind === "pinned" ? "No pinned notes yet." : "No recent notes yet."));
+        return;
+      }
+      await state.openNote(shortcut.notebookId, shortcut.id);
+    },
+
     resolveRecentNotes: () => get().refreshShortcuts(),
     resolvePinnedNotes: () => get().refreshShortcuts(),
     togglePinned: shortcuts.togglePinned,
@@ -540,24 +564,38 @@ export function createNotesStore(options: NotesStoreOptions) {
 
     captureChatExchange: createChatNoteCapture({ get, set, gateway, capture: operationScope.capture, notify }),
 
-    async updateNotebook(notebookId, title, icon, parentId = null) {
+    async updateNotebook(notebookId, title, icon, parentId = null, isDraftCurrent) {
       const normalizedTitle = String(title).trim();
       if (!normalizedTitle) return;
+      const scope = operationScope.capture();
+      const editingNotebookId = get().editingNotebookId;
+      const ownsDraft = () => get().editingNotebookId === editingNotebookId && (isDraftCurrent?.() ?? true);
       set({ loading: true, error: null });
       try {
-        await gateway.updateNotebook(sceneId(), workspaceId(), {
+        await gateway.updateNotebook(scope.sceneId, scope.workspaceId, {
           notebookId,
           title: normalizedTitle,
           icon: String(icon).trim() || DEFAULT_NOTEBOOK_ICON,
           parentId: parentId ?? null,
         });
-        set({ editingNotebookId: null });
-        await get().load({ preserveSelection: true });
-        notify(t("Notebook saved"));
       } catch (error) {
+        if (!scope.isCurrent()) return;
         const friendly = localizeNotesHostError(error);
-        set({ error: friendly, loading: false });
-        throw friendly;
+        if (ownsDraft()) {
+          set({ error: friendly, loading: false });
+          throw friendly;
+        }
+        set({ loading: false });
+        notify([normalizedTitle, friendly.message].join(" · "));
+        return;
+      }
+      if (!scope.isCurrent()) return;
+      const closeEditor = ownsDraft();
+      if (closeEditor) set({ editingNotebookId: null });
+      await get().load({ preserveSelection: true });
+      if (scope.isCurrent()) {
+        const message = t("Notebook saved");
+        notify(closeEditor ? message : [normalizedTitle, message].join(" · "));
       }
     },
 
@@ -718,7 +756,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       get().cancelAutosave();
       set({
         backlinks: [], similarNotes: [], relationshipLoading: false, relationshipError: null, relationshipIncomplete: false,
-        mode: "library", summaryModel: null, capturing: false,
+        mode: "library", editingNotebookId: null, summaryModel: null, capturing: false,
         query: "", selectedTag: null, sourceOnly: false, ...readNotebookLayout(layoutScope()),
         trash: [], trashLoading: false, trashBusy: false, trashLoaded: false, trashError: null,
         workflowBusy: null, attachmentBusy: false, editorLocked: false, transferBusy: false, externalImport: null, saveState: "idle", saveDisabled: true,

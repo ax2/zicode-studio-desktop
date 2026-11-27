@@ -68,7 +68,7 @@ ensure_clean_worktree() {
   fi
 }
 ensure_clean_worktree "before release gates"
-bun scripts/check-release-notes-inputs.mjs "$TAG"
+bun scripts/check-release-notes-inputs.mjs "$TAG" windows true
 
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   echo "Tag already exists locally: $TAG"

@@ -1,0 +1,103 @@
+export default {
+  "Update the API key in model settings and try again.": "请在模型设置中更新 API 密钥后重试。",
+  "Check the model channel in settings, then try again.": "请检查设置中的模型渠道，然后重试。",
+  "This tool is unavailable. Check whether it is enabled and has the required permissions.":
+    "此工具不可用，请检查它是否已启用并具有所需权限。",
+  "Write a message below, open a note, or choose a tool.": "在下方开始对话，或打开笔记、常用工具。",
+  "Write a tech blog post": "写技术博客",
+  "Translate text": "翻译文本",
+  "Organize into notes": "整理成笔记",
+  "Review code": "审查代码",
+  "Brainstorm ideas": "头脑风暴",
+  "Analyze data": "分析数据",
+  "Write a technical blog article. Topic: … Requirements: clear structure, concrete examples, concise professional language.":
+    "请帮我写一篇技术博客文章。主题：… 要求：结构清晰、有具体示例、语言简洁专业。",
+  "Translate the text below into the target language, keeping the original meaning and natural phrasing: …":
+    "请把下面这段文本翻译成目标语言，保留原意并符合阅读习惯：…",
+  "Turn the content below into well-structured notes: extract the key points and keep the essential information: …":
+    "请把下面的内容整理成结构化的笔记，提取要点、保留关键信息：…",
+  "Review the code below. Point out issues and suggest concrete improvements: …":
+    "请审查下面的代码，指出问题并给出改进建议：…",
+  "Brainstorm around the following topic: give as many ideas as possible, then rank the most promising ones: …":
+    "围绕以下主题进行头脑风暴，给出尽可能多的想法，并排序最有潜力的：…",
+  "Analyze the following data or problem and give conclusions and recommendations: …":
+    "请分析以下数据或问题，给出结论和建议：…",
+  Thinking: "思考",
+  "Keyboard shortcuts": "键盘快捷键",
+  "Focus input": "聚焦输入框",
+  "Quick actions": "快捷入口",
+  "Retry request": "重试请求",
+  "Attached image": "附加图片",
+  "Expand tool details": "展开工具详情",
+  "Collapse tool details": "收起工具详情",
+  "Copy output": "复制输出",
+  "Use result": "使用结果",
+  "Tool output copied": "工具输出已复制",
+  "Unable to copy tool output. Check browser clipboard permission.":
+    "无法复制工具输出，请检查浏览器剪贴板权限。",
+  "The session runtime stopped before the tool finished. Retry to run it again.":
+    "会话运行时在工具完成前已停止。请重试以再次运行。",
+  "The tool session expired. Retry to run it again.": "工具会话已过期。请重试以再次运行。",
+  "Opening a page": "正在打开网页",
+  "Working with memory": "正在读写记忆",
+  "Handling a task": "正在处理任务",
+  Searching: "正在搜索",
+  "Working with notes": "正在处理笔记",
+  "Working with artifacts": "正在处理产物",
+  "Processing images": "正在处理图片",
+  "Translating text": "正在翻译",
+  "Querying data": "正在查询数据",
+  "Managing git": "正在管理版本",
+  "Running a command": "正在执行命令",
+  "Reading a file": "正在读取文件",
+  "Writing files": "正在写入文件",
+  "Editing files": "正在修改文件",
+  "Browsing files": "正在浏览文件",
+  "Using the clipboard": "正在使用剪贴板",
+  "Sending a notification": "正在发送通知",
+  "Messages sent to your Feishu or WeCom bot land here as tasks. Approve them and a project agent executes the work on your machine; results come back to the inbox panel and task center.":
+    "飞书或企业微信机器人收到的消息会在这里变成待办任务；你批准后，项目代理在本机执行，结果回到智能收件箱面板和任务中心。",
+  "Inbox flow": "收件箱流程",
+  "External message": "外部消息",
+  "Pending task": "待办任务",
+  "You approve": "你批准",
+  "Agent executes": "代理执行",
+  "Result returns": "结果回传",
+  "Three steps to start": "三步开始",
+  "Connect a bot in Settings → Agent Inbox (Feishu or WeCom).":
+    "在“设置 → 智能收件箱”接入飞书或企业微信机器人。",
+  "Send the bot a message, for example: organize this week's project progress.":
+    "给机器人发一条消息，例如：整理本周项目进度。",
+  "Approve and run it in the Task center; the result comes back here.":
+    "在任务中心点“批准并运行”；结果回到这里。",
+  "Configure the inbox": "配置智能收件箱",
+  "Learn about the inbox": "了解智能收件箱",
+  "Nothing runs without your approval; tasks execute only in your local project.":
+    "未经你批准不会执行任何任务；任务只在你本机的项目里运行。",
+  "Conversation is too long for this model": "对话内容超出该模型的上下文窗口",
+  "The request exceeded the model's context window.": "请求超出了模型的上下文窗口。",
+  "Start a new conversation or compact the context, then try again.":
+    "请新建会话或压缩上下文后重试。",
+  "Total cost for this response": "本次回复的总费用",
+  Abort: "中止",
+  "Save memory from this chat": "沉淀这段对话的记忆",
+  "Save exchange to Notes": "将本轮对话保存到笔记",
+  "Copy message": "复制消息",
+  "Fork session from here": "从这里分叉会话",
+  "Share answer": "分享回答",
+  "ZiCode answer": "ZiCode 回答",
+  "Model service quota is insufficient": "模型服务额度不足",
+  "The selected model service does not have enough quota or balance for this request.":
+    "当前模型服务的额度或余额不足，无法完成本次请求。",
+  "Available balance": "当前余额",
+  "Required reservation": "所需预扣",
+  "Try a less expensive model, start a new conversation to reduce context, or check your provider balance.":
+    "请切换成本更低的模型、新建会话以减少上下文，或检查当前服务商的余额。",
+  "Model authentication failed": "模型身份验证失败",
+  "The model gateway rejected the configured credential.": "模型网关拒绝了当前配置的凭据。",
+  "The model service is busy": "模型服务繁忙",
+  "The request was rate limited by the model gateway.": "模型网关限制了本次请求频率。",
+  "Wait a moment, then try again or choose another model.": "请稍后重试，或选择其他模型。",
+  "The model did not return a usable response.": "模型没有返回可用的响应。",
+  "Open model settings": "打开模型设置",
+};

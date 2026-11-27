@@ -67,6 +67,7 @@ pub struct Viewport {
 pub enum Request {
     SiteSettings { tab: String, #[serde(rename = "expectedOrigin")] expected_origin: String, action: SiteAction },
     Status,
+    OpenLocalPdf { tab: String },
     Fullscreen { enabled: Option<bool> },
     Downloads { before: Option<i64>, query: Option<String> },
     DownloadSave { id: String },
@@ -180,7 +181,25 @@ pub(crate) async fn browser_control(
     crate::require_workspace_window(&window)?;
     #[cfg(windows)]
     {
+        let mut local_pdf = None;
         let request = match request {
+            Request::OpenLocalPdf { tab } => {
+                if uuid::Uuid::parse_str(&tab).is_err() { return Err("Invalid browser tab identity".into()); }
+                use tauri_plugin_dialog::DialogExt;
+                let parent = window.clone();
+                let document = tauri::async_runtime::spawn_blocking(move || {
+                    let selected = parent.dialog().file().set_parent(&parent).add_filter("PDF", &["pdf"]).blocking_pick_file();
+                    selected.map(|file| {
+                        let path = file.into_path().map_err(|_| "Choose a PDF file.")?;
+                        engine::local_pdf::Document::read(&path)
+                    }).transpose()
+                }).await.map_err(|_| "Could not open the selected PDF.")??;
+                let Some(document) = document else { return Ok(Value::Null); };
+                let url = document.url().to_owned();
+                local_pdf = Some(document);
+                Request::Create { url, bounds: Viewport { x: 0.0, y: 0.0, width: 1.0, height: 1.0 },
+                    tab_id: Some(tab), popup_request: None, zoom: 1.0, muted: false }
+            }
             action @ (Request::GetUserAgent | Request::SetUserAgent { .. }) => {
                 let owner = window.label().to_owned();
                 let root = crate::app_paths::data_root()?.join("browser");
@@ -271,7 +290,7 @@ pub(crate) async fn browser_control(
                 Request::SiteSettings { tab, expected_origin, action } => runtime::site_settings(&window, &tab, &expected_origin, action, tx),
                 Request::FindStart { tab, text, case_sensitive } => runtime::start_find(&window, tab, text, case_sensitive, tx),
                 Request::Suspend { tab } => runtime::start_suspend(&window, &tab, tx),
-                request => { let _ = tx.send(runtime::execute(&window, profile, request)); }
+                request => { let _ = tx.send(runtime::execute_with_local_pdf(&window, profile, request, local_pdf)); }
             }
         })
         .map_err(|e| e.to_string())?;

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 
 export function MailDisconnect({ connected, label, prompt, disconnect }: {
-  connected: boolean; label: string; prompt: string; disconnect: (clearCache: boolean) => Promise<void>;
+  connected: boolean; label: string; prompt: string; disconnect: (clearCache: boolean) => Promise<boolean>;
 }) {
   const [clear, setClear] = useState(false);
   const live = useRef(true);
@@ -12,10 +12,12 @@ export function MailDisconnect({ connected, label, prompt, disconnect }: {
     if(pending.current) return;
     pending.current=true;
     try {
-    const accepted = await window.confirm(clear
-      ? (connected ? t("Disconnect this account and clear its cached messages? Drafts and delivery records will be kept.") : t("Clear cached messages for this account? Drafts and delivery records will be kept."))
-      : prompt);
-    if (accepted && live.current) { setClear(false); await disconnect(clear); }
+      const accepted = await window.confirm(clear
+        ? (connected ? t("Disconnect this account and clear its cached messages? Drafts and delivery records will be kept.") : t("Clear cached messages for this account? Drafts and delivery records will be kept."))
+        : prompt);
+      if (!accepted || !live.current) return;
+      const completed = await disconnect(clear);
+      if (completed && live.current) setClear(false);
     } finally { pending.current=false; }
   }
   return <>

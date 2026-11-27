@@ -33,6 +33,13 @@
   overflow: auto;
 }
 
+.plugin-resource-preview-content pre.plugin-ascii-art {
+  font-family: var(--font-mono, monospace);
+  white-space: pre;
+  overflow-wrap: normal;
+  max-width: 100%;
+}
+
 .image-crop-selection { margin-block: var(--space-2); }
 .image-crop-stage {
   position: relative;

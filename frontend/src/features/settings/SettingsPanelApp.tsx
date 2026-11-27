@@ -3,7 +3,7 @@ import { UpdatesTab } from "./UpdatesTab";
 import { SettingsToggle } from "./SettingsToggle";
 import { SystemInfoTab } from "./SystemInfoTab";
 import { getLocale, setLocale, supportedLocales } from "i18n";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { applyTheme, getCurrentTheme, themes } from "themes";
 import { t } from "../../shared/i18n";
 import { Select } from "../../shared/Select";
@@ -254,6 +254,7 @@ function MemorySection({ memory }: { memory: MemoryStore }) {
   const loading = memory((state) => state.loading);
   const error = memory((state) => state.error);
   const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
@@ -270,9 +271,16 @@ function MemorySection({ memory }: { memory: MemoryStore }) {
     }, 4000);
   };
 
-  const submit = () => {
-    void memory.getState().add(draft);
-    setDraft("");
+  const submit = async () => {
+    if (adding || loading || !draft.trim()) return;
+    setAdding(true);
+    try {
+      if (await memory.getState().add(draft)) {
+        setDraft((current) => current === draft ? "" : current);
+      }
+    } finally {
+      setAdding(false);
+    }
   };
 
   const exportMemory = () => {
@@ -360,7 +368,7 @@ function MemorySection({ memory }: { memory: MemoryStore }) {
         <button
           type="button"
           className="ui-button ui-button--primary ui-button--sm"
-          disabled={!draft.trim() || loading}
+          disabled={!draft.trim() || loading || adding}
           onClick={submit}
         >
           {t("Add")}
@@ -481,6 +489,20 @@ function TemplateSection() {
   const [notice, setNotice] = useState("");
   const [formError, setFormError] = useState("");
   const transferFileRef = useRef<HTMLInputElement | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const openedFrom = useRef<HTMLButtonElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (formOpen) {
+      nameInput.current?.focus();
+      return;
+    }
+    const button = openedFrom.current;
+    openedFrom.current = null;
+    if (button) (button.isConnected ? button : addButton.current)?.focus();
+  }, [formOpen]);
 
   const resetForm = () => {
     setFormOpen(false);
@@ -492,12 +514,20 @@ function TemplateSection() {
     setFormError("");
   };
 
-  const startNew = () => {
+  const closeForm = () => {
+    if (!formRef.current?.contains(document.activeElement)) openedFrom.current = null;
     resetForm();
+  };
+
+  const startNew = (button: HTMLButtonElement) => {
+    resetForm();
+    openedFrom.current = button;
     setFormOpen(true);
   };
 
-  const startEdit = (template: ChatTemplate) => {
+  const startEdit = (template: ChatTemplate, button: HTMLButtonElement) => {
+    if (formOpen) nameInput.current?.focus();
+    openedFrom.current = button;
     setEditingId(template.id);
     setName(template.label);
     setIcon(template.icon);
@@ -524,7 +554,7 @@ function TemplateSection() {
       : [...templates, { id: createTemplateId(), label, icon: iconText, prompt: promptText }];
     saveCustomTemplates(next);
     setTemplates(next);
-    resetForm();
+    closeForm();
   };
 
   const remove = (id: string) => {
@@ -595,7 +625,7 @@ function TemplateSection() {
                 type="button"
                 className="ui-button ui-button--ghost ui-button--sm"
                 aria-label={`${t("Edit template")} ${template.label}`}
-                onClick={() => startEdit(template)}
+                onClick={(event) => startEdit(template, event.currentTarget)}
               >
                 {t("Edit")}
               </button>
@@ -650,11 +680,12 @@ function TemplateSection() {
         </p>
       ) : null}
       {formOpen ? (
-        <div className="settings-template-form">
+        <div className="settings-template-form" ref={formRef}>
           <div className="settings-row">
             <span className="settings-label">{t("Template name")}</span>
             <input
               className="ui-input"
+              ref={nameInput}
               value={name}
               aria-label={t("Template name")}
               placeholder={t("e.g. Weekly review")}
@@ -690,7 +721,7 @@ function TemplateSection() {
             <button type="button" className="ui-button ui-button--primary" onClick={commit}>
               {t("Save template")}
             </button>
-            <button type="button" className="ui-button ui-button--ghost" onClick={resetForm}>
+            <button type="button" className="ui-button ui-button--ghost" onClick={closeForm}>
               {t("Cancel")}
             </button>
           </div>
@@ -700,7 +731,8 @@ function TemplateSection() {
           type="button"
           className="ui-button ui-button--secondary"
           id="add-chat-template"
-          onClick={startNew}
+          ref={addButton}
+          onClick={(event) => startNew(event.currentTarget)}
         >
           {t("Add custom template")}
         </button>
@@ -785,6 +817,7 @@ function ThinkingEffortControl({
 
 function WorkspaceBackupSection({ store }: { store: BackupStore }) {
   const backups = store((state) => state.backups);
+  const queuedBackupId = store((state) => state.queuedBackupId);
   const backupAvailable = store((state) => state.available);
   const loading = store((state) => state.loading);
   const creating = store((state) => state.creating);
@@ -799,7 +832,9 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
   const restoreBackup = store((state) => state.restoreBackup);
   const latestUsableBackup = backups.find(hasRestorableBackupMetadata);
   const visibleBackups = [
-    ...backups.filter(hasRestorableBackupMetadata).slice(0, 7),
+    ...backups
+      .filter(hasRestorableBackupMetadata)
+      .filter((backup, index) => index < 7 || backup.id === queuedBackupId),
     ...backups.filter((backup) => !hasRestorableBackupMetadata(backup)),
   ];
 
@@ -838,14 +873,19 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
         aria-live={error ? "assertive" : "polite"}
         data-tone={error ? "error" : undefined}
       >
-        {status ||
-          error ||
+        {error ||
+          status ||
           (latestUsableBackup
             ? `${t("Latest backup")}: ${new Date(latestUsableBackup.createdAt).toLocaleString()}`
             : backups.length > 0
               ? t("No usable backups; review damaged snapshots below")
               : t("No backups yet"))}
       </p>
+      {error && queuedBackupId && (
+        <p className="settings-help" role="status">
+          {t("Restore queued. Restart ZiCode Studio to apply the backup.")}
+        </p>
+      )}
       {backups.length > 0 ? (
         <ul className="workspace-backup-list" aria-label={t("Workspace backups")}>
           {visibleBackups.map((backup) => (
@@ -855,6 +895,7 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                   {backup.damaged ? `${t("Backup folder modified")}: ` : ""}
                   {new Date(backup.createdAt).toLocaleString()}
                 </strong>
+                {queuedBackupId === backup.id && <strong>{t("Queued for restore")}</strong>}
                 <span>
                   {backup.damaged
                     ? backup.id
@@ -877,12 +918,12 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
               <button
                 type="button"
                 className="ui-button ui-button--ghost ui-button--sm"
-                disabled={mutating}
+                disabled={mutating || queuedBackupId === backup.id}
                 onClick={async () => {
                   if (
                     (await globalThis.confirm?.(
                       `${t("Delete workspace backup")} “${backup.damaged ? backup.id : new Date(backup.createdAt).toLocaleString()}”? ${t("This cannot be undone.")}`,
-                    )) === false
+                    )) !== true
                   ) {
                     return;
                   }
@@ -896,6 +937,7 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                 className="ui-button ui-button--secondary ui-button--sm"
                 disabled={
                   mutating ||
+                  queuedBackupId !== null ||
                   !hasRestorableBackupMetadata(backup)
                 }
                 onClick={async () => {
@@ -906,7 +948,7 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                       ).toLocaleString()}”? ${t(
                         "Restore overwrites current workspace data; the current state is snapshotted first.",
                       )}`,
-                    )) === false
+                    )) !== true
                   ) {
                     return;
                   }

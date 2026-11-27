@@ -1,0 +1,57 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.matrix-calculator",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.matrix.add",
+      "title": "矩阵加法",
+      "status": "candidate",
+      "scope": "对同样尺寸的矩阵 A 和 B 逐项相加。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.matrix.subtract",
+      "title": "矩阵减法",
+      "status": "candidate",
+      "scope": "从矩阵 A 中逐项减去同样尺寸的矩阵 B。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.matrix.multiply",
+      "title": "矩阵乘法",
+      "status": "candidate",
+      "scope": "计算 A × B。A 的列数须与 B 的行数相同。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.matrix.transpose",
+      "title": "矩阵转置",
+      "status": "candidate",
+      "scope": "将 A 的行与列互换。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.matrix.determinant",
+      "title": "矩阵行列式",
+      "status": "candidate",
+      "scope": "计算方阵 A 的 det(A)。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.matrix.inverse",
+      "title": "逆矩阵",
+      "status": "candidate",
+      "scope": "计算可逆方阵 A 的逆。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.matrix.solve",
+      "title": "矩阵方程求解",
+      "status": "candidate",
+      "scope": "求解 AX=B。A 须为可逆方阵，B 可有多列右端项。"
+    }
+  ]
+}

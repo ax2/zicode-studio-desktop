@@ -1,6 +1,6 @@
 {
   "name": "zicode-studio-desktop",
-  "version": "0.7.4",
+  "version": "0.7.7",
   "description": "Local-first cross-platform personal developer platform for projects, AI collaboration, knowledge, and automation",
   "keywords": [
     "zicode-studio-desktop",
@@ -44,6 +44,7 @@
     "plugin:keygen": "bun run scripts/generate-plugin-key.js",
     "build": "bun run scripts/build-desktop.js",
     "build:local": "bun run scripts/build-desktop.js --local",
+    "build:frontend": "bun run sync:vendor && bun run build:react && bun run bundle-css",
     "build:react": "node scripts/build-react.js",
     "typecheck": "tsc -p frontend/tsconfig.json --noEmit",
     "typecheck:external-clients": "tsc -p tsconfig.external-clients.json --noEmit",
@@ -91,8 +92,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "latest",
-    "@earendil-works/pi-coding-agent": "1.6.0",
-    "@earendil-works/pi-tui": "1.6.0",
+    "@earendil-works/pi-coding-agent": "1.6.1",
+    "@earendil-works/pi-tui": "1.6.1",
     "@sinclair/typebox": "^0.34.52",
     "@tauri-apps/cli": "^2.11.2",
     "@testing-library/dom": "^10.4.1",

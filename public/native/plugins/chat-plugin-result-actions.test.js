@@ -102,7 +102,7 @@ it("routes a Pi result through receiver preview and explicit confirmation", asyn
   [...document.querySelectorAll("button")].find((button) => button.textContent === "Confirm transfer and run").click();
   await vi.waitFor(() => expect(gateway.commitTransfer).toHaveBeenCalledWith(
     { workspaceId: "workspace", sceneId: "programming", pluginId: detail.pluginId,
-      capabilityId: detail.capabilityId }, "grant"));
+      capabilityId: detail.capabilityId }, "grant", { signal: expect.any(AbortSignal) }));
   actions.destroy();
 });
 

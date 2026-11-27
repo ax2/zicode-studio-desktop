@@ -167,6 +167,7 @@ pub(super) fn publish(
             .to_owned(),
         state: "completed".into(),
         can_resume: false,
+        stalled: false,
         received: size,
         total: Some(size),
         path: Some(target.to_string_lossy().into_owned()),

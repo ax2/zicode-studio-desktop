@@ -112,6 +112,7 @@ impl Grants {
         }
     }
 
+    #[cfg(test)]
     pub(in crate::host_server) fn invalidate(&mut self) {
         self.pending.clear();
         for operation in self.operations.values_mut() {

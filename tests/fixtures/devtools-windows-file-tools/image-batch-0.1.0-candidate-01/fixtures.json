@@ -1,0 +1,532 @@
+{
+  "generator": "scripts/verify_image_batch_plugin.py",
+  "cases": [
+    {
+      "case": "two-inputs-and-two-output-dimensions",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "0ec3c0d9c6449378cf05e32ba4e65a2a17a8397f7627945cfdfe2e1c2730e67b",
+          "bytes": 13188
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": null,
+      "outputs": [
+        {
+          "mime": "image/png",
+          "sha256": "e594eca96736087b5c2e8cec36b6ab95c331556959fd30be53479a0372804191",
+          "bytes": 3551
+        },
+        {
+          "mime": "image/png",
+          "sha256": "38bd5cabaaa87815db3e094498ad845e507e6b7d9885eea5c898a1db2f341da3",
+          "bytes": 5228
+        }
+      ]
+    },
+    {
+      "case": "same-batch-reversed",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "0ec3c0d9c6449378cf05e32ba4e65a2a17a8397f7627945cfdfe2e1c2730e67b",
+          "bytes": 13188
+        },
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": null,
+      "outputs": [
+        {
+          "mime": "image/png",
+          "sha256": "38bd5cabaaa87815db3e094498ad845e507e6b7d9885eea5c898a1db2f341da3",
+          "bytes": 5228
+        },
+        {
+          "mime": "image/png",
+          "sha256": "e594eca96736087b5c2e8cec36b6ab95c331556959fd30be53479a0372804191",
+          "bytes": 3551
+        }
+      ]
+    },
+    {
+      "case": "one-input",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": null,
+      "outputs": [
+        {
+          "mime": "image/png",
+          "sha256": "e594eca96736087b5c2e8cec36b6ab95c331556959fd30be53479a0372804191",
+          "bytes": 3551
+        }
+      ]
+    },
+    {
+      "case": "exact-edge-unchanged",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "f456765879b649d6141b7ea9284867a0eaafe21484d8f802f4856d74f6f568d2",
+          "bytes": 16521
+        },
+        {
+          "mime": "image/png",
+          "sha256": "f1f8cb05a559bde9e20d6e29aa7bdca639abf3c62ced2d4c92ce58d1d905155c",
+          "bytes": 16521
+        }
+      ],
+      "options": {},
+      "error": null,
+      "outputs": [
+        {
+          "mime": "image/png",
+          "sha256": "5ddd5c76aca108f7b51f33387ee9de498b5daa135e6233831291505413729282",
+          "bytes": 16516
+        },
+        {
+          "mime": "image/png",
+          "sha256": "b2b24c547a1f29c54318a51bb4725553816bfced424d375d6d1b17d0581fe493",
+          "bytes": 16516
+        }
+      ]
+    },
+    {
+      "case": "exact-edge-at-maximum-resized-width",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "f456765879b649d6141b7ea9284867a0eaafe21484d8f802f4856d74f6f568d2",
+          "bytes": 16521
+        },
+        {
+          "mime": "image/png",
+          "sha256": "f1f8cb05a559bde9e20d6e29aa7bdca639abf3c62ced2d4c92ce58d1d905155c",
+          "bytes": 16521
+        }
+      ],
+      "options": {
+        "maxWidth": 48
+      },
+      "error": null,
+      "outputs": [
+        {
+          "mime": "image/png",
+          "sha256": "9ab8ba0f8f6f67546a06614f6caa1962a3dd7a68b4f8aeaaf3c225fdce00d180",
+          "bytes": 9332
+        },
+        {
+          "mime": "image/png",
+          "sha256": "b7ff817a9f7e18dcd4190973bfbb6ec3d775c4814e372c8f1525cd61d65ca765",
+          "bytes": 9332
+        }
+      ]
+    },
+    {
+      "case": "exact-edge-at-minimum-width",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "f456765879b649d6141b7ea9284867a0eaafe21484d8f802f4856d74f6f568d2",
+          "bytes": 16521
+        },
+        {
+          "mime": "image/png",
+          "sha256": "f1f8cb05a559bde9e20d6e29aa7bdca639abf3c62ced2d4c92ce58d1d905155c",
+          "bytes": 16521
+        }
+      ],
+      "options": {
+        "maxWidth": 1
+      },
+      "error": null,
+      "outputs": [
+        {
+          "mime": "image/png",
+          "sha256": "840eb1a215c2eb6795973ea33f9be919f1ce8505efbe213aedf32202bdbdfe4b",
+          "bytes": 73
+        },
+        {
+          "mime": "image/png",
+          "sha256": "26a87e480f1a64938007545fe911d01361eabfca4938d053783e777ed396f015",
+          "bytes": 73
+        }
+      ]
+    },
+    {
+      "case": "near-maximum-source-with-almost-no-resize",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "b659cb2fb9dbeb78106784b4626d414d19ebe07be878afc8a84105cb55154d69",
+          "bytes": 12676
+        },
+        {
+          "mime": "image/png",
+          "sha256": "ab05e24b163fad925a638906a3a31cfadd45ec6d386478534914d921d4fb9e76",
+          "bytes": 12676
+        }
+      ],
+      "options": {
+        "maxWidth": 48
+      },
+      "error": null,
+      "outputs": [
+        {
+          "mime": "image/png",
+          "sha256": "0dec97f763023e9baa32bad21b4b2855fde00eac515ceff3f98eb89b906ab0b4",
+          "bytes": 12227
+        },
+        {
+          "mime": "image/png",
+          "sha256": "92add9e365d22bc041945f1595415f46a480927643bb864da6ec0ea4e450a2f5",
+          "bytes": 12227
+        }
+      ]
+    },
+    {
+      "case": "opposite-aspect-ratios",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "16e35baa03bf3a3fe04857be9e48f273902eecb6084ef6e662d91b12bb43fcb3",
+          "bytes": 582
+        },
+        {
+          "mime": "image/png",
+          "sha256": "b276df9c267fb08bb86027476b46b3e05e67e94a754123cdd3d39fa3b1912612",
+          "bytes": 644
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": null,
+      "outputs": [
+        {
+          "mime": "image/png",
+          "sha256": "53a419007944dd5d7eaab1850584580c6e24748cadd24cd1c52b94c8b9bc4aac",
+          "bytes": 197
+        },
+        {
+          "mime": "image/png",
+          "sha256": "c3351740717e20ded873f9ebbdf8bc130b9de8b7a9dd96628008cd6d50a5bddc",
+          "bytes": 644
+        }
+      ]
+    },
+    {
+      "case": "no-upscaling",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "48efe45ad89af3b823316c0ae71aa0b64a2c28296b1bd894495ddde951c715c7",
+          "bytes": 757
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": null,
+      "outputs": [
+        {
+          "mime": "image/png",
+          "sha256": "a69b855123eeb68b52baeed865d1a9add61109a30646c1842ba776caab8506f8",
+          "bytes": 757
+        }
+      ]
+    },
+    {
+      "case": "exact-byte-boundary",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "e5da446f86558563fd646a02fafeaa4dbea685348f904401f551e8247969d1a8",
+          "bytes": 32768
+        },
+        {
+          "mime": "image/png",
+          "sha256": "e5da446f86558563fd646a02fafeaa4dbea685348f904401f551e8247969d1a8",
+          "bytes": 32768
+        }
+      ],
+      "options": {},
+      "error": null,
+      "outputs": [
+        {
+          "mime": "image/png",
+          "sha256": "7850c5ab7ba8a6402b9d57c21469430f7b89a3a65d0410750e181d92a1895cef",
+          "bytes": 16516
+        },
+        {
+          "mime": "image/png",
+          "sha256": "7850c5ab7ba8a6402b9d57c21469430f7b89a3a65d0410750e181d92a1895cef",
+          "bytes": 16516
+        }
+      ]
+    },
+    {
+      "case": "edge-limit",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "a32a2a83cc07c096a6ecb42d1feae98d23008cc1b84d1a659644515c9c1e7a04",
+          "bytes": 1373
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": "INPUT_LIMIT",
+      "outputs": []
+    },
+    {
+      "case": "height-limit",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "46db7255e81f7e4c30841dc5e293397012c167c8bc44eb25360b00efc4265e8d",
+          "bytes": 1433
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": "INPUT_LIMIT",
+      "outputs": []
+    },
+    {
+      "case": "byte-limit",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "82d6b0e243aef0bcfeca78e09eddbefb6e706ea1f1bb0463dbdf525b4b5d5552",
+          "bytes": 32769
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": "INPUT_LIMIT",
+      "outputs": []
+    },
+    {
+      "case": "too-many-inputs",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "0ec3c0d9c6449378cf05e32ba4e65a2a17a8397f7627945cfdfe2e1c2730e67b",
+          "bytes": 13188
+        },
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": "INVALID_RESOURCE",
+      "outputs": []
+    },
+    {
+      "case": "malformed-second-file",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "5464533c9647b67eb320c40ccc5959537c09102ae75388f6a7675b433e745c9d",
+          "bytes": 12
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": "INVALID_IMAGE",
+      "outputs": []
+    },
+    {
+      "case": "unsupported-second-mime",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/jpeg",
+          "sha256": "0ec3c0d9c6449378cf05e32ba4e65a2a17a8397f7627945cfdfe2e1c2730e67b",
+          "bytes": 13188
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": "INVALID_RESOURCE",
+      "outputs": []
+    },
+    {
+      "case": "invalid-second-stream",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "4e4f04de55eb7ee84c015856897c17809025040fbeaf09568b835ae4d30c2b04",
+          "bytes": 13153
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": "INVALID_IMAGE",
+      "outputs": []
+    },
+    {
+      "case": "animated-second-file",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "f5d680b7bafc769ec9d5bfe557d3426151d24fc94ca24adf78c032ff2020d2ff",
+          "bytes": 1166
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": "ANIMATED_IMAGE",
+      "outputs": []
+    },
+    {
+      "case": "sixteen-bit-second-image",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "0a06a57167520cc7fab0fd923e472bfb3db863fe47fab8129e49a6d1389621e0",
+          "bytes": 70
+        }
+      ],
+      "options": {
+        "maxWidth": 32
+      },
+      "error": "COLOR_DEPTH",
+      "outputs": []
+    },
+    {
+      "case": "invalid-width",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "0ec3c0d9c6449378cf05e32ba4e65a2a17a8397f7627945cfdfe2e1c2730e67b",
+          "bytes": 13188
+        }
+      ],
+      "options": {
+        "maxWidth": 0
+      },
+      "error": "INVALID_REQUEST",
+      "outputs": []
+    },
+    {
+      "case": "width-between-resize-and-no-resize",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "0ec3c0d9c6449378cf05e32ba4e65a2a17a8397f7627945cfdfe2e1c2730e67b",
+          "bytes": 13188
+        }
+      ],
+      "options": {
+        "maxWidth": 49
+      },
+      "error": "INVALID_REQUEST",
+      "outputs": []
+    },
+    {
+      "case": "unsupported-format",
+      "sources": [
+        {
+          "mime": "image/png",
+          "sha256": "996d3ec584e3f58a79d4dc8f82d5f2598023a640be8202d9aadb275f49cd03e8",
+          "bytes": 13689
+        },
+        {
+          "mime": "image/png",
+          "sha256": "0ec3c0d9c6449378cf05e32ba4e65a2a17a8397f7627945cfdfe2e1c2730e67b",
+          "bytes": 13188
+        }
+      ],
+      "options": {
+        "maxWidth": 32,
+        "format": "gif"
+      },
+      "error": "INVALID_REQUEST",
+      "outputs": []
+    }
+  ]
+}

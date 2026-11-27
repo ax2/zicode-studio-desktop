@@ -1,0 +1,407 @@
+{
+  "generator": "scripts/verify_service_config_plugin.py",
+  "cases": [
+    {
+      "id": "yaml-octet",
+      "inputSha256": "de786a1067316df683cf5f8fe40a3accf63d4453f2229d54d371ab82e35c7b7a",
+      "inputBytes": 687,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "yml-text",
+      "inputSha256": "de786a1067316df683cf5f8fe40a3accf63d4453f2229d54d371ab82e35c7b7a",
+      "inputBytes": 687,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "bom",
+      "inputSha256": "a744ed1857f04629e30e54762bb0d43c3f427ec9a30dd9b3d629f432a2a05de4",
+      "inputBytes": 690,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "crlf",
+      "inputSha256": "d0129c027d5c4dcfc0b758ee033ec016618856076cacc22a71fad2d1351fc732",
+      "inputBytes": 710,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "explicit-document-start",
+      "inputSha256": "299720e632dfeec67bfb304e41df7d88ae67bada46d087298f8265ba4d548e4f",
+      "inputBytes": 691,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "same-native-defaults",
+      "inputSha256": "e579a2f12d8d45fc02d8290500dd72e3dc431eb258d0e7c246ba4ff7a0ddea9c",
+      "inputBytes": 67,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "yaml-alias-backed-service",
+      "inputSha256": "0b298225f450a434e86fdd9fd24b9e7be40e8a5e5ca115796fcc070de5bcd9f9",
+      "inputBytes": 82,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "explicit-null-stops-and-env",
+      "inputSha256": "662f0a13990adccd4fbe152e2f0d72abb39a56e6d91347ee18fde6fe47b28b00",
+      "inputBytes": 131,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "existing-root-and-service-extensions",
+      "inputSha256": "131f60b70678c5a7bae0cd0480c82cc77f2fb4fe59349b754c767c258ea4e640",
+      "inputBytes": 89,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "empty-services-map",
+      "inputSha256": "d4fd3af6d6ccdaeefeec3b0c2fe3ae2d5dde874cc4ed1b7acbb2cec4dfdfe032",
+      "inputBytes": 12,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "empty-selected-command-and-repo",
+      "inputSha256": "177150cfb14efd17b9786ded7ea6634ab319e472f73ce8008a0b5e4a3fe09d2a",
+      "inputBytes": 75,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "only-first-problem-and-stable-key-order",
+      "inputSha256": "cedcd02b542789b59867962e580eabd449da7ded37288cd03a4b9f36e607676e",
+      "inputBytes": 206,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "stop-outside-range-0",
+      "inputSha256": "825d75b81538cf7e7615886510a2ae33d5bebe33e4e5a82328c7f882c97ccfca",
+      "inputBytes": 90,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "stop-outside-range-99",
+      "inputSha256": "c5361e90027feba3a88917f8b00c331282367433fd645a04b29b1d8e85b0fee6",
+      "inputBytes": 91,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "stop-outside-range-60001",
+      "inputSha256": "f1da21042dcd367f89db66b2dd11a3a8a403b8e029e934d0405f2eaad5a7caa7",
+      "inputBytes": 94,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "valid-stop-timeout-100",
+      "inputSha256": "e33283fcc29cd16b9b383800c333d46c497e4c40c96777b954ff16127edd0f50",
+      "inputBytes": 92,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "valid-stop-timeout-5000",
+      "inputSha256": "33e901bef5d4c56b5610705d83b450586ab660aa346c30b75b5c2fa4be928e72",
+      "inputBytes": 93,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "valid-stop-timeout-60000",
+      "inputSha256": "87d8022bd310a9666fdd93c7d74aea6bc240acb351342e39e94798396a68c544",
+      "inputBytes": 94,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "explicitly-reports-configured-but-no-subsystem-check",
+      "inputSha256": "c987c57a09f7d07b0ff7f0f27c6aec7c990ca19ad3224fb5af61edbdbcafa540",
+      "inputBytes": 112,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "not-yaml",
+      "inputSha256": "cb5729b02d7a78f05ece8cefb1a7b4028b47cdbf4ee76d4c06d31e4086439cf8",
+      "inputBytes": 11,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "missing-services",
+      "inputSha256": "1b37939d85c59e3cbae3926656e9b499986163b3dc6bfaabddeb7726de860a82",
+      "inputBytes": 19,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "wrong-services-type",
+      "inputSha256": "be455e0519d89c8496f87525ff73467e5b5ed658993f397c2fbb555bede8a3c1",
+      "inputBytes": 15,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "missing-repo",
+      "inputSha256": "7e18dae055952aed13a25058ec7ae6f86c2f7aa7b9a3c836c97dd0ca328a27ce",
+      "inputBytes": 34,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "missing-command",
+      "inputSha256": "e10e410fa9de916ae7a74d71c6e5c66a35f8bdf963343f36636191a903da3bd8",
+      "inputBytes": 29,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "wrong-command-type",
+      "inputSha256": "b82cdf105942705aff6b87c32a95a20a5221fe2fb4d7d206a5af7485dadaba0e",
+      "inputBytes": 45,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "wrong-env-type",
+      "inputSha256": "4714e613432e6af78e4de918bf093e53a11f459e0fb97d9fb94e2abec1d412ad",
+      "inputBytes": 91,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "port-out-of-type-range",
+      "inputSha256": "b439607005b0ca9e78923791c04066667ba868392dc2d4ffaf27d32fd846d47b",
+      "inputBytes": 82,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "invalid-stop-type",
+      "inputSha256": "fb2477c7845261273ae3bd8a3f493f68a1a17ca2c45d560e525de6564159f010",
+      "inputBytes": 90,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "multiple-documents",
+      "inputSha256": "58f0e9eda2b81272defb655d00edf9317cea1d6fd6d215d533ca4cfabe3891fa",
+      "inputBytes": 138,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "unresolved-alias",
+      "inputSha256": "020362e3b583b86e318e155097b499f38536ced741ea4bf0026c567c56ba94dc",
+      "inputBytes": 25,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "duplicate-known-field",
+      "inputSha256": "afe0d5212639f9e41731a917d97a766dcd0a4ffd07de7edbfe34c927cf74a5b4",
+      "inputBytes": 67,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "source-secret-not-in-parser-error",
+      "inputSha256": "2707d830cd52a22fd8ea010e4488a1afc24136964a2c08e1bd7dad7d957bf242",
+      "inputBytes": 66,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "wrong-file-encoding",
+      "inputSha256": "a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89",
+      "inputBytes": 1,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "unsupported-mime",
+      "inputSha256": "de786a1067316df683cf5f8fe40a3accf63d4453f2229d54d371ab82e35c7b7a",
+      "inputBytes": 687,
+      "input": {},
+      "mime": "image/png",
+      "ok": false
+    },
+    {
+      "id": "unknown-input-option",
+      "inputSha256": "de786a1067316df683cf5f8fe40a3accf63d4453f2229d54d371ab82e35c7b7a",
+      "inputBytes": 687,
+      "input": {
+        "apply": true
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "exact-16-kib-comment",
+      "inputSha256": "628a26a1a17841a32ad12c4ea21cb954026438291bd755422ffc88302b9ba367",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "over-byte-limit",
+      "inputSha256": "726f545501ad08a2b219048e91a9c94705180e464e18afdc8aa55fdfdba119aa",
+      "inputBytes": 16385,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "exact-64-services",
+      "inputSha256": "cb22212a4c5abcca70f0e028be45c025c0e853b3ca7002f0d8d675797ad59bad",
+      "inputBytes": 3466,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "one-service-over",
+      "inputSha256": "e4c84473cc495dab999598d228254ae24bb754c1d84bea6b03b249d044af6021",
+      "inputBytes": 3520,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "all-64-problems-fit-in-output",
+      "inputSha256": "a1429276f5565fc08546f79ad303f07310f54c7c59c933a23dd8480929dcec8b",
+      "inputBytes": 3722,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "dense-64-services-gives-guidance",
+      "inputSha256": "a2b4a07377add554faf74049cc40427a7695a38cdf40fb72531a6cc82d0790cb",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "32-services-with-advanced-settings-at-16-kib",
+      "inputSha256": "0a29b1b8d0e9d4c48e42b476072217393b585369386caac6b73702b8c1d58361",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "dense-small-scalars-gives-guidance",
+      "inputSha256": "4c4219d20ff1766af937394245a20f0ed6b94c89b084b7861f61993b8f27875b",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "1280-small-scalars-at-16-kib",
+      "inputSha256": "2eaa6d7c60a31d77ab44b63c7f5de05fd0c6d5bc9c9e24d4e1ec1f69dd31a545",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "450-env-pairs-at-16-kib",
+      "inputSha256": "d2a8de481473a35c16d6f4a7636c05f1ec54f1604d458f3ef2708338850a251e",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "650-env-pairs-gives-guidance",
+      "inputSha256": "45d0c8b70e6057be18d6862841a69edd758f2a6fe92818785a20dae54690607b",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "large-alias-expansion-gives-guidance",
+      "inputSha256": "2a4ad10eda3a869962577f3a4eea961d8699511d7229609ae11f65f77eeb7869",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "little-alias-at-16-kib",
+      "inputSha256": "eef6933a1cb4a31bb2afee1591ee24d4f5a821cbe5fc3a01489c6bbcf90692cc",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "very-long-unicode-scalar",
+      "inputSha256": "1da07b4827ebad3be480528d36195fefcb1f48663eddfcb93347f0ba27e58192",
+      "inputBytes": 16384,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "recursive-alias-is-rejected",
+      "inputSha256": "8cdb701e9c2cbd1d2e07c2c57a9278d4587af6e20c00757adfadfe8e800980a7",
+      "inputBytes": 85,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    }
+  ]
+}

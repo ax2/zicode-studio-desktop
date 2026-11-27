@@ -57,7 +57,26 @@ struct CapturedFrame {
     document_revision: String,
 }
 
+#[derive(Clone, Copy, Deserialize)]
+pub(crate) enum ImageOcrLanguage {
+    #[serde(rename = "zh-CN")]
+    SimplifiedChinese,
+    #[serde(rename = "en-US")]
+    English,
+}
+
+impl ImageOcrLanguage {
+    #[cfg(windows)]
+    fn tag(self) -> &'static str {
+        match self {
+            Self::SimplifiedChinese => "zh-CN",
+            Self::English => "en-US",
+        }
+    }
+}
+
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Preserve the existing IPC keys while adding an optional language.
 pub(crate) async fn browser_recognize_image_text(
     window: WebviewWindow,
     tab: String,
@@ -66,6 +85,7 @@ pub(crate) async fn browser_recognize_image_text(
     image: PageImage,
     confirmed: bool,
     frame: Option<ImageFrameSource>,
+    language: Option<ImageOcrLanguage>,
 ) -> Result<ImageRecognition, String> {
     crate::require_workspace_window(&window)?;
     if !confirmed {
@@ -82,12 +102,13 @@ pub(crate) async fn browser_recognize_image_text(
                 image,
                 frame,
             },
+            language,
         )
         .await
     }
     #[cfg(not(windows))]
     {
-        let _ = (tab, expected_url, expected_revision, image, frame);
+        let _ = (tab, expected_url, expected_revision, image, frame, language);
         Err("OCR is only available on Windows".into())
     }
 }
@@ -272,11 +293,13 @@ mod windows {
     pub(super) async fn recognize(
         window: WebviewWindow,
         target: ImageTarget,
+        language: Option<ImageOcrLanguage>,
     ) -> Result<ImageRecognition, String> {
         let captured = capture_pixels(window, &target, MAX_SIDE).await?;
         tauri::async_runtime::spawn_blocking(move || {
             let pixels = decode_png(&captured.page)?;
-            let result = crate::ocr::extract_decoded_text(&pixels, None, None)?;
+            let result =
+                crate::ocr::extract_decoded_text(&pixels, language.map(ImageOcrLanguage::tag), None, true)?;
             Ok(ImageRecognition {
                 provenance: provenance(target, captured),
                 text: result.text.chars().take(MAX_TEXT).collect(),

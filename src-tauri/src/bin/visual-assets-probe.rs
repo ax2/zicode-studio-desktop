@@ -6,11 +6,11 @@ mod process_command;
 
 #[cfg(all(windows, debug_assertions))]
 #[path = "../visual_assets/probe.rs"]
-mod probe;
+mod visual_assets;
 
 fn main() {
     #[cfg(all(windows, debug_assertions))]
-    if let Err(error) = probe::run() {
+    if let Err(error) = visual_assets::run() {
         eprintln!("{error}");
         std::process::exit(1);
     }

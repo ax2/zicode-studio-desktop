@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.text","sceneId":"coding","capabilityId":"devtools.text.sql.format","commandId":null,"input":{"text":"select [order], [a]]b] from [table] where [user_id] = @id","dialect":"sqlserver"}}

@@ -1,5 +1,5 @@
 import { MULTI_PROJECT_UI_ENABLED } from "../../shared/workspaceMode";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { friendlyTaskDispatchError } from "../../shared/hostErrors";
@@ -70,6 +70,8 @@ function AutomationContent({ store, listWorkspaceStatus, openWorkspaceTasks, bac
   const draftStore = store((state) => state.draftStore);
   const [draft, setDraft] = useState<DraftSelection | undefined>();
   const [formSequence, setFormSequence] = useState(0);
+  const activeFormSequence = useRef(0);
+  const replaceForm = () => setFormSequence(++activeFormSequence.current);
   const workflows = store((state) => state.workflows);
   const pendingApprovalTasks = store((state) => state.pendingApprovalTasks);
   const approvalTasksError = store((state) => state.approvalTasksError);
@@ -230,7 +232,7 @@ function AutomationContent({ store, listWorkspaceStatus, openWorkspaceTasks, bac
         onRestore={(selection) => {
           setEditing(null);
           setDraft(selection);
-          setFormSequence((value) => value + 1);
+          replaceForm();
         }}
       />
       <WorkflowForm
@@ -240,10 +242,13 @@ function AutomationContent({ store, listWorkspaceStatus, openWorkspaceTasks, bac
         initial={editing ?? undefined}
         initialProject={creationRequest?.projectPath}
         onDone={() => {
-          if (store.getState().creationRequest?.sequence !== creationRequest?.sequence) return;
+          if (
+            formSequence !== activeFormSequence.current ||
+            store.getState().creationRequest?.sequence !== creationRequest?.sequence
+          ) return;
           setEditing(null);
           setDraft(undefined);
-          setFormSequence((value) => value + 1);
+          replaceForm();
           store.getState().clearCreation();
         }}
       />
@@ -278,7 +283,7 @@ function AutomationContent({ store, listWorkspaceStatus, openWorkspaceTasks, bac
               onEdit={(workflow) => {
                 setDraft(undefined);
                 setEditing(workflow);
-                setFormSequence((value) => value + 1);
+                replaceForm();
               }}
             />
           ))}

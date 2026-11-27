@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type Ref, useState } from "react";
 import { matchesSearchTerms, prepareSearchQuery } from "../../shared/catalog-search";
 import { t } from "../../shared/i18n";
 
@@ -17,14 +17,20 @@ export interface SignedPluginPreview {
 }
 
 export function SignedPluginPreviewCard({
+  cardRef,
   preview,
   busy,
+  installError,
   onInstall,
+  onReselect,
   onCancel,
 }: {
+  cardRef?: Ref<HTMLElement>;
   preview: SignedPluginPreview;
   busy: boolean;
+  installError?: string;
   onInstall(): void;
+  onReselect?(): void;
   onCancel(): void;
 }) {
   const [query, setQuery] = useState("");
@@ -33,7 +39,7 @@ export function SignedPluginPreviewCard({
     matchesSearchTerms(searchTerms, [capability.id, capability.title, t(capability.title)]),
   );
   return (
-    <section className="ui-card plugin-manager-preview" aria-label={t("Review signed package")}>
+    <section ref={cardRef} tabIndex={-1} className="ui-card plugin-manager-preview" aria-label={t("Review signed package")}>
       <strong>{t("Review signed package")}</strong>
       <p>{`${preview.name} · ${preview.version} · ${preview.publisher}`}</p>
       <p><code>{preview.pluginId}</code></p>
@@ -67,9 +73,12 @@ export function SignedPluginPreviewCard({
       <p>{`${t("Permissions")}: ${preview.permissions.length ? preview.permissions.join(", ") : t("No permissions requested")}`}</p>
       <p>{`${t("Key fingerprint")}: ${preview.publisherKeyId}`}</p>
       <p>{t(preview.trusted ? "Publisher already trusted" : "Publisher approval required")}</p>
+      {onReselect ? <p role="alert">{t("The plugin package changed after preview. Select it again.")}</p>
+        : installError ? <p role="alert"><strong>{t("Install failed")}</strong> <span>{installError}</span></p> : null}
       <div className="plugin-manager-preview-actions">
-        <button type="button" className="ui-button ui-button--sm ui-button--primary" disabled={busy} aria-busy={busy} onClick={onInstall}>
-          {t("Install reviewed signed package")}
+        <button type="button" className="ui-button ui-button--sm ui-button--primary" aria-disabled={busy || undefined} aria-busy={busy}
+          onClick={() => { if (!busy) (onReselect ?? onInstall)(); }}>
+          {t(onReselect ? "Select plugin package again" : installError ? "Try again" : "Install reviewed signed package")}
         </button>
         <button type="button" className="ui-button ui-button--sm ui-button--ghost" disabled={busy} onClick={onCancel}>
           {t("Cancel")}

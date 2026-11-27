@@ -1,0 +1,1053 @@
+{
+  "sourceRevision": "556b41f14f6c83b77422c6d60ef9ad4546544527",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-26T00:32:32.567128+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "6290986d45303a420f148c548fe6d7158c0d739fc3f858e456fd47dd4480f7fc",
+  "workerVerification": {
+    "passed": 50,
+    "failures": [],
+    "cases": [
+      {
+        "case": "version-1",
+        "inputSha256": "c374a62aaa34a383140a4ade51d440a17cdecd5d3db0a176b664c310db57120c",
+        "inputBytes": 840,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 663,
+        "resultSha256": "fece6c03986879d798d70eca11239657b6b3c32538ba6168bbbd5c3adc00e30d",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 1,
+            "audioSettingsPresent": false,
+            "byteLength": 840,
+            "lapCount": 3,
+            "legacyV1": true,
+            "noticeCount": 1,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 1,
+            "storedTimerPolicy": "pause",
+            "text": "时钟备份 v1 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n1 个计时器 · 1 个闹钟 · 3 个秒表分段 · 1 条提醒\n3 个世界时区 · 0 条小窗尺寸 · 声音设置未记录\n备份中的倒计时恢复方式：按剩余时间暂停恢复\n独立版确认恢复并保存后会升级 v1，并保留旧格式校验备份。",
+            "timerCount": 1,
+            "windowSizeCount": 0,
+            "zoneCount": 3
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "version-2",
+        "inputSha256": "437481d732f559864c0ba4f4984a1b89a3f75674691deaf6ea857fbe1d4f7d13",
+        "inputBytes": 952,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 580,
+        "resultSha256": "9cd43294c12507bb4c22a7f2392b52a5d03a6fcdf4bdc76dcca974bcbba510b1",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 1,
+            "audioSettingsPresent": true,
+            "byteLength": 952,
+            "lapCount": 3,
+            "legacyV1": false,
+            "noticeCount": 1,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 2,
+            "storedTimerPolicy": "pause",
+            "text": "时钟备份 v2 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n1 个计时器 · 1 个闹钟 · 3 个秒表分段 · 1 条提醒\n3 个世界时区 · 0 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按剩余时间暂停恢复",
+            "timerCount": 1,
+            "windowSizeCount": 0,
+            "zoneCount": 3
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "version-3",
+        "inputSha256": "e7636aeded41ed2196cd2111fa176ecc269f82ef2c71eee906a4ad81df9e84d9",
+        "inputBytes": 1020,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 581,
+        "resultSha256": "d3ea2ea090e1e9176507e69f52b0189329396f194721395edbbc66193e5bdc31",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 1,
+            "audioSettingsPresent": true,
+            "byteLength": 1020,
+            "lapCount": 3,
+            "legacyV1": false,
+            "noticeCount": 1,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 3,
+            "storedTimerPolicy": "continue",
+            "text": "时钟备份 v3 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n1 个计时器 · 1 个闹钟 · 3 个秒表分段 · 1 条提醒\n3 个世界时区 · 1 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按原到期时间继续",
+            "timerCount": 1,
+            "windowSizeCount": 1,
+            "zoneCount": 3
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "recognized-json-mime",
+        "inputSha256": "e7636aeded41ed2196cd2111fa176ecc269f82ef2c71eee906a4ad81df9e84d9",
+        "inputBytes": 1020,
+        "mime": "application/json",
+        "hostRejected": false,
+        "resultBytes": 581,
+        "resultSha256": "d3ea2ea090e1e9176507e69f52b0189329396f194721395edbbc66193e5bdc31",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 1,
+            "audioSettingsPresent": true,
+            "byteLength": 1020,
+            "lapCount": 3,
+            "legacyV1": false,
+            "noticeCount": 1,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 3,
+            "storedTimerPolicy": "continue",
+            "text": "时钟备份 v3 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n1 个计时器 · 1 个闹钟 · 3 个秒表分段 · 1 条提醒\n3 个世界时区 · 1 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按原到期时间继续",
+            "timerCount": 1,
+            "windowSizeCount": 1,
+            "zoneCount": 3
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "normal-512-kib-with-mixed-padding",
+        "inputSha256": "40b537e8839902dee38848274b58e56200c528598fe19bed7fc5ccde93b16763",
+        "inputBytes": 524288,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 583,
+        "resultSha256": "dfd1737558a009dbc6e2e318342e12b186acd96ecc17114006a54b2bfae3a7a9",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 1,
+            "audioSettingsPresent": true,
+            "byteLength": 524288,
+            "lapCount": 3,
+            "legacyV1": false,
+            "noticeCount": 1,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 3,
+            "storedTimerPolicy": "continue",
+            "text": "时钟备份 v3 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n1 个计时器 · 1 个闹钟 · 3 个秒表分段 · 1 条提醒\n3 个世界时区 · 1 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按原到期时间继续",
+            "timerCount": 1,
+            "windowSizeCount": 1,
+            "zoneCount": 3
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "native-pretty-full-chinese-structure",
+        "inputSha256": "92975d2d15a7601ba99f11c6865e8432d45f00e1c07fe21edac7968cb1c346d1",
+        "inputBytes": 212875,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 599,
+        "resultSha256": "9ee57d1c6d59fdeb19b4353506e600047d2f83a62ff9b791955a193c477eb7d5",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 64,
+            "audioSettingsPresent": true,
+            "byteLength": 212875,
+            "lapCount": 1024,
+            "legacyV1": false,
+            "noticeCount": 97,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 3,
+            "storedTimerPolicy": "continue",
+            "text": "时钟备份 v3 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n32 个计时器 · 64 个闹钟 · 1024 个秒表分段 · 97 条提醒\n12 个世界时区 · 48 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按原到期时间继续",
+            "timerCount": 32,
+            "windowSizeCount": 48,
+            "zoneCount": 12
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "full-bmp-at-exact-work-limit",
+        "inputSha256": "a23e37da94cf098374d266cad225a852126f647d63a5e17ce02fe2a81f54c62b",
+        "inputBytes": 229376,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 599,
+        "resultSha256": "82febbd51ab78bc81dd43cd6a2d15b737bf675c4b53ae05a5f83dbfa723ac06b",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 64,
+            "audioSettingsPresent": true,
+            "byteLength": 229376,
+            "lapCount": 1024,
+            "legacyV1": false,
+            "noticeCount": 97,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 3,
+            "storedTimerPolicy": "continue",
+            "text": "时钟备份 v3 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n32 个计时器 · 64 个闹钟 · 1024 个秒表分段 · 97 条提醒\n12 个世界时区 · 48 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按原到期时间继续",
+            "timerCount": 32,
+            "windowSizeCount": 48,
+            "zoneCount": 12
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "full-bmp-work-limit-plus-one",
+        "inputSha256": "0b048e353f174f6f1fe718ec6480260d3cb66f8884eeb665933bbbb29abda519",
+        "inputBytes": 229377,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 218,
+        "resultSha256": "330b596530416b3005ca65969a907fa76ece54ef1b4d3280569d662643a24a44",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "SNAPSHOT_COMPLEXITY",
+            "message": "备份 JSON 内容或转义过密。请使用独立版原始保存文件，或在独立版检查这份备份。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "full-ascii-512-kib",
+        "inputSha256": "7777b35242525ab8614a95b1b7bb83e66b2943c2f40eadcfe7727b24897a1e84",
+        "inputBytes": 524288,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 599,
+        "resultSha256": "cfe15a4107be45091210293ed9c4899fb1b1825d4c7fb6bbad504bf8306eedaa",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 64,
+            "audioSettingsPresent": true,
+            "byteLength": 524288,
+            "lapCount": 1024,
+            "legacyV1": false,
+            "noticeCount": 97,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 3,
+            "storedTimerPolicy": "continue",
+            "text": "时钟备份 v3 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n32 个计时器 · 64 个闹钟 · 1024 个秒表分段 · 97 条提醒\n12 个世界时区 · 48 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按原到期时间继续",
+            "timerCount": 32,
+            "windowSizeCount": 48,
+            "zoneCount": 12
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "full-ascii-exact-byte-and-work-limit",
+        "inputSha256": "69383e09d7d70783aeb0a20ebeda25d39a6eeb4b591e63fc5d3b9a8fee4078da",
+        "inputBytes": 524288,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 599,
+        "resultSha256": "cfe15a4107be45091210293ed9c4899fb1b1825d4c7fb6bbad504bf8306eedaa",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 64,
+            "audioSettingsPresent": true,
+            "byteLength": 524288,
+            "lapCount": 1024,
+            "legacyV1": false,
+            "noticeCount": 97,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 3,
+            "storedTimerPolicy": "continue",
+            "text": "时钟备份 v3 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n32 个计时器 · 64 个闹钟 · 1024 个秒表分段 · 97 条提醒\n12 个世界时区 · 48 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按原到期时间继续",
+            "timerCount": 32,
+            "windowSizeCount": 48,
+            "zoneCount": 12
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "both-budgets-combined-plus-one",
+        "inputSha256": "db0a4490d8ebf187cbe42c0353630f423bdfa996363592fa6bbeba11fc322856",
+        "inputBytes": 524288,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 218,
+        "resultSha256": "330b596530416b3005ca65969a907fa76ece54ef1b4d3280569d662643a24a44",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "SNAPSHOT_COMPLEXITY",
+            "message": "备份 JSON 内容或转义过密。请使用独立版原始保存文件，或在独立版检查这份备份。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "full-chinese-with-excess-exterior-padding",
+        "inputSha256": "21fac49d2c1dd73ec4f2a7edeac910ae70cb5cee98a984d7912f293a016a6aa4",
+        "inputBytes": 524288,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 218,
+        "resultSha256": "330b596530416b3005ca65969a907fa76ece54ef1b4d3280569d662643a24a44",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "SNAPSHOT_COMPLEXITY",
+            "message": "备份 JSON 内容或转义过密。请使用独立版原始保存文件，或在独立版检查这份备份。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "legitimate-escaped-small-records",
+        "inputSha256": "a0e5cecfd0bedcbf9c973a313077a7e914974276f65a638878b80250ebfa8f31",
+        "inputBytes": 111342,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 599,
+        "resultSha256": "8ad6d843d1d3a9570950b07c34326c1b1ff5d23f4159f3183e7c6b835b7f98f7",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 64,
+            "audioSettingsPresent": true,
+            "byteLength": 111342,
+            "lapCount": 1024,
+            "legacyV1": false,
+            "noticeCount": 97,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 3,
+            "storedTimerPolicy": "continue",
+            "text": "时钟备份 v3 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n32 个计时器 · 64 个闹钟 · 1024 个秒表分段 · 97 条提醒\n12 个世界时区 · 48 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按原到期时间继续",
+            "timerCount": 32,
+            "windowSizeCount": 48,
+            "zoneCount": 12
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "escaped-sums-exact-work-limit",
+        "inputSha256": "4f75ec8b1be5b8a2ba1e3078008f0b084a13fc9c91cac8fefea2b53de85e1e8d",
+        "inputBytes": 204800,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 599,
+        "resultSha256": "bed4e71fa83e0b46351cc88fbe9d621559c6c492b3f55e40e447d634be838230",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 64,
+            "audioSettingsPresent": true,
+            "byteLength": 204800,
+            "lapCount": 1024,
+            "legacyV1": false,
+            "noticeCount": 97,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 3,
+            "storedTimerPolicy": "continue",
+            "text": "时钟备份 v3 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n32 个计时器 · 64 个闹钟 · 1024 个秒表分段 · 97 条提醒\n12 个世界时区 · 48 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按原到期时间继续",
+            "timerCount": 32,
+            "windowSizeCount": 48,
+            "zoneCount": 12
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "escaped-sums-work-limit-plus-one",
+        "inputSha256": "24016828d20a53fab3dd58e7dd82a8e280df579ebeb99e8584301a0991bd3cc8",
+        "inputBytes": 204801,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 218,
+        "resultSha256": "330b596530416b3005ca65969a907fa76ece54ef1b4d3280569d662643a24a44",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "SNAPSHOT_COMPLEXITY",
+            "message": "备份 JSON 内容或转义过密。请使用独立版原始保存文件，或在独立版检查这份备份。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "structurally-valid-dense-astral",
+        "inputSha256": "18d5982db9252803108dfaf4e0a7bbcd7b142c7bde03fab9d412e684edb017b9",
+        "inputBytes": 281413,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 218,
+        "resultSha256": "330b596530416b3005ca65969a907fa76ece54ef1b4d3280569d662643a24a44",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "SNAPSHOT_COMPLEXITY",
+            "message": "备份 JSON 内容或转义过密。请使用独立版原始保存文件，或在独立版检查这份备份。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "native-shape-all-unicode-escaped",
+        "inputSha256": "5bb510070f8d3c558f756bee73e693f8866db0c7b98444952ec2a8b1a5a621f0",
+        "inputBytes": 349597,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 218,
+        "resultSha256": "330b596530416b3005ca65969a907fa76ece54ef1b4d3280569d662643a24a44",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "SNAPSHOT_COMPLEXITY",
+            "message": "备份 JSON 内容或转义过密。请使用独立版原始保存文件，或在独立版检查这份备份。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "limit-512-kib-plus-one",
+        "inputSha256": "b06f6b10946ed0b4b7f31859f383ffc778ce35f037542373b87af3fd1f9e769c",
+        "inputBytes": 524289,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 138,
+        "resultSha256": "738f23988892ba15c77d580efd3b1443adee85c1684b4e0f69f667c39044c4e1",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_LARGE",
+            "message": "单份时钟备份最多 512 KiB。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "safe-future-schema",
+        "inputSha256": "91fecb09c4481457b5e8f3feadffaf5c028c332f6ef1d770a5ec7b6b7fc7ebe0",
+        "inputBytes": 1017,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 152,
+        "resultSha256": "207ed9f77f391d25b1bb9695ccad631f07d056daaabea21da0788972ac77dbfe",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "UNSUPPORTED_VERSION",
+            "message": "支持独立版时钟备份 v1、v2 和 v3。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "malformed-json",
+        "inputSha256": "828ceeed7b4c93c3d0c17c3399d86e731cf587bd27d14fe8e6442ff0e3f028a7",
+        "inputBytes": 12,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 141,
+        "resultSha256": "a95c2164d864994d70beff0352465a4491e0634a5c47851a173740533640e682",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "文件不是有效的时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-utf8",
+        "inputSha256": "c014474891717de5fa0b24eda3684c490c9b3a08c47eb864e6085f10cf2a1412",
+        "inputBytes": 31,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 141,
+        "resultSha256": "a95c2164d864994d70beff0352465a4491e0634a5c47851a173740533640e682",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "文件不是有效的时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "wrong-root",
+        "inputSha256": "31d98e56d460aba443c6fa954551e0ebd7ddac1f7340614236fa487de78c17da",
+        "inputBytes": 14,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 141,
+        "resultSha256": "a95c2164d864994d70beff0352465a4491e0634a5c47851a173740533640e682",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "文件不是有效的时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "outer-non-json-form-feed",
+        "inputSha256": "f21f7582baf3185528dc6dddb43b4dd1af42f568b227636436958c96b1fef37a",
+        "inputBytes": 1021,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 141,
+        "resultSha256": "a95c2164d864994d70beff0352465a4491e0634a5c47851a173740533640e682",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "文件不是有效的时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "outer-illegal-suffix",
+        "inputSha256": "c07e973985bd95b9fd1b8cd436287188fb03bfabcd89406780c1b5c496ea26fd",
+        "inputBytes": 1022,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 141,
+        "resultSha256": "a95c2164d864994d70beff0352465a4491e0634a5c47851a173740533640e682",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "文件不是有效的时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "multiple-root-objects",
+        "inputSha256": "94e801444009d87bfaad607964d882b6d665e8c22d0d2b8626dcf8dea9109758",
+        "inputBytes": 2040,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 141,
+        "resultSha256": "a95c2164d864994d70beff0352465a4491e0634a5c47851a173740533640e682",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "文件不是有效的时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "whitespace-512-kib",
+        "inputSha256": "7971df8e16e512ea996d451471af7c13e3ccf35ea7e6651e95f9196b0e915885",
+        "inputBytes": 524288,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 141,
+        "resultSha256": "a95c2164d864994d70beff0352465a4491e0634a5c47851a173740533640e682",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "文件不是有效的时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "unknown-json-field",
+        "inputSha256": "a76f40186e708f9ef5f01c4fe675db1c4607a90923e658894dbec14ff44bf51c",
+        "inputBytes": 1065,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 141,
+        "resultSha256": "a95c2164d864994d70beff0352465a4491e0634a5c47851a173740533640e682",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "文件不是有效的时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "v1-cannot-claim-audio",
+        "inputSha256": "7186ba6577fc61024f7feb85774ac10be4015fd3c154f14a33ec891226872c69",
+        "inputBytes": 952,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "v2-cannot-claim-window-sizes",
+        "inputSha256": "fcaca796355474211f8ca950153b1758abe65d0587343fcf95cb8202c6876b33",
+        "inputBytes": 1017,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "v2-needs-audio",
+        "inputSha256": "b6a91097bce7de3540a54d0967906373989ef716f252a76ce6862294dccb8cbd",
+        "inputBytes": 840,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "audio-outside-bound",
+        "inputSha256": "0ac31c99f4b0a4cfd8434cd35d305c65a5be2b0262be536571b03989f9d59622",
+        "inputBytes": 1020,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "duplicate-window-target-after-canonicalization",
+        "inputSha256": "8389a1e19b8d2052f30e1a7b1e477385000ede05550479b8e7f73fdea16d1bfa",
+        "inputBytes": 1065,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-window-size",
+        "inputSha256": "cedb70db5d7c10bc874f6a39d3350cdd688e337d714159ac7be4b4e43523dfef",
+        "inputBytes": 1021,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-window-zone",
+        "inputSha256": "9da35ddf34c1f1d2b6dd52de60c36e70d46347134dff28eaa23cf7574168b053",
+        "inputBytes": 1029,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "invalid-known-time-zone",
+        "inputSha256": "b1dfe5f94d503c4b6bac0ee69617cf3d25e77f8e43c56a98d65ea79931658149",
+        "inputBytes": 1010,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "duplicate-known-time-zone",
+        "inputSha256": "925cf565a5b2b09f5dc64d71ce515ba585e449b1d306b0dbc21c607fdb04270b",
+        "inputBytes": 993,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "out-of-order-laps",
+        "inputSha256": "1ae7992bd81b795b61ae8eff0c96a0f3a42b39fc8fd43a38906a579e98e8485c",
+        "inputBytes": 1020,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "lap-one-above-native-limit",
+        "inputSha256": "b57ba009dd14fef9036100e286e309161718c30415eab0ba5d560f48bd24f976",
+        "inputBytes": 3058,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 141,
+        "resultSha256": "a95c2164d864994d70beff0352465a4491e0634a5c47851a173740533640e682",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "文件不是有效的时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "heavily-malformed-native-lap-list",
+        "inputSha256": "228ab3773fa2fc878baf60e25c224652b87e146b5985011e8cb85099be27f202",
+        "inputBytes": 131008,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 141,
+        "resultSha256": "a95c2164d864994d70beff0352465a4491e0634a5c47851a173740533640e682",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_JSON",
+            "message": "文件不是有效的时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "orphaned-reminder",
+        "inputSha256": "249aa61cebfbad0e677216a2e73e527b9d0fd201ba6bd33b995ab972c8b11578",
+        "inputBytes": 1020,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "duplicate-reminder",
+        "inputSha256": "c3b2d153f98b740fdd801273a1d5eaeed38262644843acbe17a44b1f48405cda",
+        "inputBytes": 1083,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "alarm-id-overlap-timer-id",
+        "inputSha256": "1ea44e7aee9aaa93ef784350d09b0840a8dd0dbed0fbf8a624eb21b6e1d05ff9",
+        "inputBytes": 1019,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "native-multibyte-name-length-limit",
+        "inputSha256": "249b4fbbbed9ef3b9ca830c79d654609933784a893d76e749ce8da97e35cf092",
+        "inputBytes": 1315,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "running-finished-timer-disagreement",
+        "inputSha256": "47ad78c4edf08427bca2b811faddfe73c8018c960df025720e10c1754744078e",
+        "inputBytes": 1019,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "native-focus-id-is-zero",
+        "inputSha256": "adc7a100195306b66eee50cbe036bfc75d984965533f2fa2ea2d0065cc4a6af5",
+        "inputBytes": 1021,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 173,
+        "resultSha256": "f7998a6eada19587b7dec27eb3c11ccdf27be9c13f0055838936d6ee85c385b0",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_SNAPSHOT",
+            "message": "此备份包含不一致或越界的时钟设置、记录或关联。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "bad-mime",
+        "inputSha256": "e7636aeded41ed2196cd2111fa176ecc269f82ef2c71eee906a4ad81df9e84d9",
+        "inputBytes": 1020,
+        "mime": "image/png",
+        "hostRejected": false,
+        "resultBytes": 133,
+        "resultSha256": "c6bc6f7fcd1e399ed7227ae1981df64b201cb8723b2a19e9aa7a6e802faff28e",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "UNSUPPORTED_MIME",
+            "message": "请选择时钟备份 JSON。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "unknown-invoke-params",
+        "inputSha256": "e7636aeded41ed2196cd2111fa176ecc269f82ef2c71eee906a4ad81df9e84d9",
+        "inputBytes": 1020,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 136,
+        "resultSha256": "5bb1d144ccfd1fb89fde690596e291cc6f65305af71100756109688d7c4238ee",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "时钟备份检查请求无效。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "other-plugin-id",
+        "inputSha256": "e7636aeded41ed2196cd2111fa176ecc269f82ef2c71eee906a4ad81df9e84d9",
+        "inputBytes": 1020,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 136,
+        "resultSha256": "5bb1d144ccfd1fb89fde690596e291cc6f65305af71100756109688d7c4238ee",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "时钟备份检查请求无效。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "other-capability-id",
+        "inputSha256": "e7636aeded41ed2196cd2111fa176ecc269f82ef2c71eee906a4ad81df9e84d9",
+        "inputBytes": 1020,
+        "mime": "application/octet-stream",
+        "hostRejected": false,
+        "resultBytes": 136,
+        "resultSha256": "5bb1d144ccfd1fb89fde690596e291cc6f65305af71100756109688d7c4238ee",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_REQUEST",
+            "message": "时钟备份检查请求无效。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "altered-snapshot-rejected-before-guest",
+        "inputSha256": "e7636aeded41ed2196cd2111fa176ecc269f82ef2c71eee906a4ad81df9e84d9",
+        "inputBytes": 1020,
+        "mime": "application/octet-stream",
+        "hostRejected": true,
+        "resultBytes": 581,
+        "resultSha256": "d3ea2ea090e1e9176507e69f52b0189329396f194721395edbbc66193e5bdc31",
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "alarmCount": 1,
+            "audioSettingsPresent": true,
+            "byteLength": 1020,
+            "lapCount": 3,
+            "legacyV1": false,
+            "noticeCount": 1,
+            "savedAtUtc": "2026-11-26T01:05:02Z",
+            "schemaVersion": 3,
+            "storedTimerPolicy": "continue",
+            "text": "时钟备份 v3 通过校验\n保存时间（UTC） 2026-11-26T01:05:02Z\n1 个计时器 · 1 个闹钟 · 3 个秒表分段 · 1 条提醒\n3 个世界时区 · 1 条小窗尺寸 · 声音设置已记录\n备份中的倒计时恢复方式：按原到期时间继续",
+            "timerCount": 1,
+            "windowSizeCount": 1,
+            "zoneCount": 3
+          },
+          "error": null,
+          "ok": true
+        }
+      }
+    ],
+    "wasmSha256": "6290986d45303a420f148c548fe6d7158c0d739fc3f858e456fd47dd4480f7fc",
+    "moduleBytes": 313009,
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "workerProfile": "resource.wasi.input.draft2",
+    "fileLimit": 524288,
+    "workLimit": 229376
+  }
+}

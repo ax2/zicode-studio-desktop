@@ -110,6 +110,9 @@ pub fn run() -> Result<()> {
         if command == "--zicode-visual-assets-worker" {
             return worker::decode(Path::new(input), Path::new(output));
         }
+        if command == worker::image_specifications::WORKER {
+            return worker::image_specifications::inspect_file(Path::new(input), Path::new(output));
+        }
     }
     let [root, operation, rest @ ..] = args.as_slice() else {
         return Err(

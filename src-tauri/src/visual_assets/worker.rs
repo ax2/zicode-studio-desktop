@@ -29,6 +29,9 @@ pub(super) const TIME_LIMIT: Duration = Duration::from_secs(10);
 mod restore;
 pub(super) use restore::{decode_batch, restore_thumbnails};
 
+#[path = "image_specifications.rs"]
+pub(super) mod image_specifications;
+
 pub fn read_input(path: &Path) -> Result<Vec<u8>> {
     read_input_file(open_input(path)?)
 }

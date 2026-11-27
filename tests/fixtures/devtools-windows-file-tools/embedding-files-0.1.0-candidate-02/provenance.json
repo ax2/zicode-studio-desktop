@@ -1,0 +1,1284 @@
+{
+  "sourceRevision": "0b5001c8c8c599a8789d3ff2becfbfd634edf26c",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-26T03:14:39.982060+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "2fe71885d5925a6b9795a0ea8a7f8765a436c88fcd70292bcd03a024e4c2f244",
+  "workerVerification": {
+    "workerProfile": "resource.wasi.input.draft2",
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "moduleBytes": 182587,
+    "wasmSha256": "2fe71885d5925a6b9795a0ea8a7f8765a436c88fcd70292bcd03a024e4c2f244",
+    "cases": [
+      {
+        "case": "two-copied-arrays",
+        "inputBytes": [
+          5,
+          5
+        ],
+        "inputSha256": [
+          "8be6d66e9099c68d8feb52ce42478d2153cac2763b784174ae6ae96cd636b596",
+          "45e1c0b7597006d357bb6b74965c9d19ee076dc5bf7ff45406f375e146f187df"
+        ],
+        "resultBytes": 251,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.8,
+            "dimensions": 2,
+            "euclidean": 3.605551275463989,
+            "normA": 5.0,
+            "normB": 2.0,
+            "text": "维度 2\nA 范数 5.000000\nB 范数 2.000000\n余弦相似度 0.800000\n欧氏距离 3.605551"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "reverse-resource-order",
+        "inputBytes": [
+          5,
+          5
+        ],
+        "inputSha256": [
+          "45e1c0b7597006d357bb6b74965c9d19ee076dc5bf7ff45406f375e146f187df",
+          "8be6d66e9099c68d8feb52ce42478d2153cac2763b784174ae6ae96cd636b596"
+        ],
+        "resultBytes": 251,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.8,
+            "dimensions": 2,
+            "euclidean": 3.605551275463989,
+            "normA": 2.0,
+            "normB": 5.0,
+            "text": "维度 2\nA 范数 2.000000\nB 范数 5.000000\n余弦相似度 0.800000\n欧氏距离 3.605551"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "single-native-response",
+        "inputBytes": [
+          114
+        ],
+        "inputSha256": [
+          "954420a0e20ec6700081f3211297479eb84677c351eba281bb0553d9336d7a42"
+        ],
+        "resultBytes": 251,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.8,
+            "dimensions": 2,
+            "euclidean": 3.605551275463989,
+            "normA": 5.0,
+            "normB": 2.0,
+            "text": "维度 2\nA 范数 5.000000\nB 范数 2.000000\n余弦相似度 0.800000\n欧氏距离 3.605551"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "same-copied-array",
+        "inputBytes": [
+          5,
+          5
+        ],
+        "inputSha256": [
+          "8be6d66e9099c68d8feb52ce42478d2153cac2763b784174ae6ae96cd636b596",
+          "8be6d66e9099c68d8feb52ce42478d2153cac2763b784174ae6ae96cd636b596"
+        ],
+        "resultBytes": 237,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 1.0,
+            "dimensions": 2,
+            "euclidean": 0.0,
+            "normA": 5.0,
+            "normB": 5.0,
+            "text": "维度 2\nA 范数 5.000000\nB 范数 5.000000\n余弦相似度 1.000000\n欧氏距离 0.000000"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "orthogonal",
+        "inputBytes": [
+          5,
+          5
+        ],
+        "inputSha256": [
+          "5aaf1e183f1faf12c327dc2fb8c223022f04684c61fc34533bff62e7e572c776",
+          "463f2998327eb3a694145e6014444480b2235be84aa6cfd57871cc64f1cd816c"
+        ],
+        "resultBytes": 252,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.0,
+            "dimensions": 2,
+            "euclidean": 1.4142135623730951,
+            "normA": 1.0,
+            "normB": 1.0,
+            "text": "维度 2\nA 范数 1.000000\nB 范数 1.000000\n余弦相似度 0.000000\n欧氏距离 1.414214"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "negative-collinear",
+        "inputBytes": [
+          5,
+          7
+        ],
+        "inputSha256": [
+          "49a64717d5d4cb19952e6eac2946415cf6879adacf9908e7d872332d32c6e684",
+          "ed51f97621652b584947a0b702d64069a8e7541a76f24f8ee574dcdab7d944f0"
+        ],
+        "resultBytes": 294,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": -0.9999999999999998,
+            "dimensions": 2,
+            "euclidean": 6.708203932499369,
+            "normA": 2.23606797749979,
+            "normB": 4.47213595499958,
+            "text": "维度 2\nA 范数 2.236068\nB 范数 4.472136\n余弦相似度 -1.000000\n欧氏距离 6.708204"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "fraction-and-exponents",
+        "inputBytes": [
+          18,
+          20
+        ],
+        "inputSha256": [
+          "66c7b53f149f93a1472cace5030a8a886ac873fea3a6cd35cacc758c39b3bfe3",
+          "f15db28ac3a00a9ce424ebf2fbd347ce3d208eddd28b9f436dfb6ae16b12ae91"
+        ],
+        "resultBytes": 298,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.9344703853533308,
+            "dimensions": 3,
+            "euclidean": 19.002213029013227,
+            "normA": 20.00156493877417,
+            "normB": 1.0735455276791943,
+            "text": "维度 3\nA 范数 20.001565\nB 范数 1.073546\n余弦相似度 0.934470\n欧氏距离 19.002213"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "amplitude-limit",
+        "inputBytes": [
+          18,
+          17
+        ],
+        "inputSha256": [
+          "1f2861faafba5392a58345c5f7722c563aa017d60d6350b1f0b9176a7635cbb6",
+          "8e2e37acb507e2c29b1ab0db715c4c2831339ac62c77f9ff44b48e1d196c6a82"
+        ],
+        "resultBytes": 292,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.999999999999875,
+            "dimensions": 2,
+            "euclidean": 1.0,
+            "normA": 1414213.562373095,
+            "normB": 1414212.8552664907,
+            "text": "维度 2\nA 范数 1414213.562373\nB 范数 1414212.855266\n余弦相似度 1.000000\n欧氏距离 1.000000"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "not-finite-overflow",
+        "inputBytes": [
+          7,
+          3
+        ],
+        "inputSha256": [
+          "f8438fff8680415208a346a12baae5edffedff2df93d083ee385a3c412546c0a",
+          "080a9ed428559ef602668b4c00f114f1a11c3f6b02a435f0bdc154578e4d7f22"
+        ],
+        "resultBytes": 153,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_VECTOR",
+            "message": "每份向量文件须是单一 JSON 数值数组。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "beyond-amplitude",
+        "inputBytes": [
+          9,
+          3
+        ],
+        "inputSha256": [
+          "1af379343f03ebec84a3cf74003aafc732a85169efc26a05bacf08455c3bc007",
+          "06d033ece6645de592db973644cf7357255f24536ff7b03c3b2ace10736f7636"
+        ],
+        "resultBytes": 169,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_COMPONENT",
+            "message": "向量分量须为有限数，绝对值不能超过 1,000,000。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "below-negative-amplitude",
+        "inputBytes": [
+          3,
+          10
+        ],
+        "inputSha256": [
+          "06d033ece6645de592db973644cf7357255f24536ff7b03c3b2ace10736f7636",
+          "dc669c2112a8333f9a71bd3fe79533b59db9455c09f5c94107c74364296ec709"
+        ],
+        "resultBytes": 169,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_COMPONENT",
+            "message": "向量分量须为有限数，绝对值不能超过 1,000,000。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "json-number-as-string",
+        "inputBytes": [
+          40,
+          3
+        ],
+        "inputSha256": [
+          "afcd9c9523f7d9eb98c5d1de1b958f2b6b2f5a76cbe757aa071ace7f6d9ded12",
+          "080a9ed428559ef602668b4c00f114f1a11c3f6b02a435f0bdc154578e4d7f22"
+        ],
+        "resultBytes": 153,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_VECTOR",
+            "message": "每份向量文件须是单一 JSON 数值数组。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "non-numeric-boolean",
+        "inputBytes": [
+          6,
+          3
+        ],
+        "inputSha256": [
+          "1c28f2eb0958c3d15db1f0f0e7f2b8998ca2b8f67ab426a1fbb3d561fe76fad9",
+          "080a9ed428559ef602668b4c00f114f1a11c3f6b02a435f0bdc154578e4d7f22"
+        ],
+        "resultBytes": 153,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_VECTOR",
+            "message": "每份向量文件须是单一 JSON 数值数组。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "zero-vector",
+        "inputBytes": [
+          8,
+          5
+        ],
+        "inputSha256": [
+          "1e7418426de033a434d14fbb8904588f6ac6d129838cf2060cbd303c3a711906",
+          "49a64717d5d4cb19952e6eac2946415cf6879adacf9908e7d872332d32c6e684"
+        ],
+        "resultBytes": 130,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_NORM",
+            "message": "向量范数无效或为零。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "negative-zero-response",
+        "inputBytes": [
+          117
+        ],
+        "inputSha256": [
+          "888fb8d5143031a38e39216609f784b6e5cce03c8f4fcfbb4a333ec6cb3a110f"
+        ],
+        "resultBytes": 130,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_NORM",
+            "message": "向量范数无效或为零。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "norm-underflow",
+        "inputBytes": [
+          8,
+          3
+        ],
+        "inputSha256": [
+          "47deb2164267fede4b41ba47621e930728bf6ae902c2b2a83eeb6ba8981f8b3f",
+          "080a9ed428559ef602668b4c00f114f1a11c3f6b02a435f0bdc154578e4d7f22"
+        ],
+        "resultBytes": 130,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_NORM",
+            "message": "向量范数无效或为零。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "empty-vector",
+        "inputBytes": [
+          2,
+          3
+        ],
+        "inputSha256": [
+          "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "080a9ed428559ef602668b4c00f114f1a11c3f6b02a435f0bdc154578e4d7f22"
+        ],
+        "resultBytes": 152,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DIMENSION_LIMIT",
+            "message": "每个向量的维度必须在 1–8192 之间。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "different-dimensions",
+        "inputBytes": [
+          5,
+          3
+        ],
+        "inputSha256": [
+          "8be6d66e9099c68d8feb52ce42478d2153cac2763b784174ae6ae96cd636b596",
+          "038966de9f6b9a901b20b4c6ca8b2a46009feebe031babc842d43690c0bc222b"
+        ],
+        "resultBytes": 141,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DIMENSIONS_DIFFER",
+            "message": "两份向量的维度必须相同。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "second-confirmation-required",
+        "inputBytes": [
+          5
+        ],
+        "inputSha256": [
+          "8be6d66e9099c68d8feb52ce42478d2153cac2763b784174ae6ae96cd636b596"
+        ],
+        "resultBytes": 185,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "SECOND_VECTOR_REQUIRED",
+            "message": "已提供一份向量数组。请再选择并确认第二份 JSON 向量。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "single-array-with-space",
+        "inputBytes": [
+          262144
+        ],
+        "inputSha256": [
+          "7afa46334ab32e3e04cf46f1e90528e5e2d0a357f3c27a3d1422cb5953f9e27a"
+        ],
+        "resultBytes": 185,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "SECOND_VECTOR_REQUIRED",
+            "message": "已提供一份向量数组。请再选择并确认第二份 JSON 向量。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "missing-second-component-response",
+        "inputBytes": [
+          69
+        ],
+        "inputSha256": [
+          "01398dfee4f400351423fe022a0f34780647af85185ee061cbdebe757e02159b"
+        ],
+        "resultBytes": 160,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_EMBEDDINGS",
+            "message": "单份响应须有且仅有两个 embeddings 向量。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "too-many-response-vectors",
+        "inputBytes": [
+          81
+        ],
+        "inputSha256": [
+          "45651bea319d487ec0a6f2901c695b5eb1ca6c8f71e92e23b5d5c0c2a1655740"
+        ],
+        "resultBytes": 160,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_EMBEDDINGS",
+            "message": "单份响应须有且仅有两个 embeddings 向量。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "duplicate-response-key",
+        "inputBytes": [
+          47
+        ],
+        "inputSha256": [
+          "ef39cf5605a857a534e8c582d9b0d94768a8875b98920b701234973ba96b49f5"
+        ],
+        "resultBytes": 160,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_EMBEDDINGS",
+            "message": "单份响应须有且仅有两个 embeddings 向量。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "unknown-single-file",
+        "inputBytes": [
+          79
+        ],
+        "inputSha256": [
+          "ff3b139b40dc0d8a059cb51ab457df8c87a23e81da2f1b04a93c279a50a1c329"
+        ],
+        "resultBytes": 160,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_EMBEDDINGS",
+            "message": "单份响应须有且仅有两个 embeddings 向量。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "response-file-in-two-array-mode",
+        "inputBytes": [
+          114,
+          5
+        ],
+        "inputSha256": [
+          "954420a0e20ec6700081f3211297479eb84677c351eba281bb0553d9336d7a42",
+          "45e1c0b7597006d357bb6b74965c9d19ee076dc5bf7ff45406f375e146f187df"
+        ],
+        "resultBytes": 153,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_VECTOR",
+            "message": "每份向量文件须是单一 JSON 数值数组。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "bad-utf8",
+        "inputBytes": [
+          5,
+          5
+        ],
+        "inputSha256": [
+          "1335ce86e0043cf9c4f4b81a9603345fe56fd17f1e4c3c9d3b40ad81aef15e17",
+          "45e1c0b7597006d357bb6b74965c9d19ee076dc5bf7ff45406f375e146f187df"
+        ],
+        "resultBytes": 153,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_VECTOR",
+            "message": "每份向量文件须是单一 JSON 数值数组。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "unexpected-utf8-bom",
+        "inputBytes": [
+          6,
+          3
+        ],
+        "inputSha256": [
+          "1b2e03400c8ff6aa09a5422cb28b4ee5a15af0592922e6c54224c1d7f4e2483e",
+          "080a9ed428559ef602668b4c00f114f1a11c3f6b02a435f0bdc154578e4d7f22"
+        ],
+        "resultBytes": 153,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INVALID_VECTOR",
+            "message": "每份向量文件须是单一 JSON 数值数组。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "wrong-resource-type",
+        "inputBytes": [
+          5,
+          5
+        ],
+        "inputSha256": [
+          "8be6d66e9099c68d8feb52ce42478d2153cac2763b784174ae6ae96cd636b596",
+          "45e1c0b7597006d357bb6b74965c9d19ee076dc5bf7ff45406f375e146f187df"
+        ],
+        "resultBytes": 152,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "UNSUPPORTED_MIME",
+            "message": "请选择 JSON 格式的向量或嵌入响应。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "8192-integer-elements",
+        "inputBytes": [
+          21369,
+          18905
+        ],
+        "inputSha256": [
+          "c514b0cf5e24b640dd3a8899447386d296097f3238c3086c3b0abc046e11ea56",
+          "aa0556013b1f404b21ed8c66d1bccdb961b392119a8e08c63cd4b32ac8d5c244"
+        ],
+        "resultBytes": 307,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.771780993447047,
+            "dimensions": 8192,
+            "euclidean": 824.4337450638468,
+            "normA": 1240.7151163744238,
+            "normB": 718.3139981929908,
+            "text": "维度 8192\nA 范数 1240.715116\nB 范数 718.313998\n余弦相似度 0.771781\n欧氏距离 824.433745"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "8192-amplitude-integers",
+        "inputBytes": [
+          69633,
+          69633
+        ],
+        "inputSha256": [
+          "dd9436462c5d322de0f75de676462cd1c89b1b152b7f1ac3103660e15e1fe87f",
+          "4ee0fd21ef60db21d7d74c6caa3fb26e21512a9ff3a949ec77e5effbcdf1d6a7"
+        ],
+        "resultBytes": 310,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": -1.0,
+            "dimensions": 8192,
+            "euclidean": 181019335.98375615,
+            "normA": 90509667.99187808,
+            "normB": 90509667.99187808,
+            "text": "维度 8192\nA 范数 90509667.991878\nB 范数 90509667.991878\n余弦相似度 -1.000000\n欧氏距离 181019335.983756"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "8192-dense-fractional-elements",
+        "inputBytes": [
+          160866,
+          160833
+        ],
+        "inputSha256": [
+          "897a6c92d2765cb0c49ae781f021a08090b68ba944f2e402f8496c1641f50f3e",
+          "bf369abcd7269f656d69f1ae3e98f5244f196c486e5127fd5e4771071ed4b00c"
+        ],
+        "resultBytes": 180,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_COMPLEX",
+            "message": "这组向量的小数、指数或 JSON 内容超过预览工作量上限。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "8192-native-response-dense",
+        "inputBytes": [
+          153890
+        ],
+        "inputSha256": [
+          "3f48836d1aa3811b91fdb2d2ab6bfd39baaec68d4cfb00ed16b4bb53fccdf188"
+        ],
+        "resultBytes": 180,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_COMPLEX",
+            "message": "这组向量的小数、指数或 JSON 内容超过预览工作量上限。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "4096-short-decimals",
+        "inputBytes": [
+          16385,
+          16385
+        ],
+        "inputSha256": [
+          "917665ffd202a7b872c86484afdd9bcccab7964cece6ce62ae9bc645abdbae0c",
+          "917665ffd202a7b872c86484afdd9bcccab7964cece6ce62ae9bc645abdbae0c"
+        ],
+        "resultBytes": 247,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 1.0,
+            "dimensions": 4096,
+            "euclidean": 0.0,
+            "normA": 64.0,
+            "normB": 64.0,
+            "text": "维度 4096\nA 范数 64.000000\nB 范数 64.000000\n余弦相似度 1.000000\n欧氏距离 0.000000"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "unrelated-shape-budget",
+        "inputBytes": [
+          34129
+        ],
+        "inputSha256": [
+          "c42995caee3203241894a3b23d2ff996068c201e3bf89340d73f8fa21d5a32ef"
+        ],
+        "resultBytes": 180,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_COMPLEX",
+            "message": "这组向量的小数、指数或 JSON 内容超过预览工作量上限。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "oversize-native-response",
+        "inputBytes": [
+          321803
+        ],
+        "inputSha256": [
+          "f446d9ee4113df040e4cddc9426570714710b30f3f59a6053ce2b871482e3062"
+        ],
+        "resultBytes": 132,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_LARGE",
+            "message": "每份文件最多 256 KiB。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "decimal-1024-ordered-files",
+        "inputBytes": [
+          20037,
+          20073
+        ],
+        "inputSha256": [
+          "81520a68b85115b73041c621db1a88510238c59b3ecf5825ba53d673b58cf856",
+          "1d6e9f5ae1fb13e3e1a19e18c905cbefcc945108636ddf59334dc2b58e7a291d"
+        ],
+        "resultBytes": 304,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.2317473299719595,
+            "dimensions": 1024,
+            "euclidean": 28.413163482205828,
+            "normA": 22.86864709776585,
+            "normB": 22.97515926767987,
+            "text": "维度 1024\nA 范数 22.868647\nB 范数 22.975159\n余弦相似度 0.231747\n欧氏距离 28.413163"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "decimal-1024-embedded-response",
+        "inputBytes": [
+          40214
+        ],
+        "inputSha256": [
+          "1e227126720b5d0822ef12953f7f55d08d710f6f8a35d0cc969c99c9a35917ef"
+        ],
+        "resultBytes": 304,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.2317473299719595,
+            "dimensions": 1024,
+            "euclidean": 28.413163482205828,
+            "normA": 22.86864709776585,
+            "normB": 22.97515926767987,
+            "text": "维度 1024\nA 范数 22.868647\nB 范数 22.975159\n余弦相似度 0.231747\n欧氏距离 28.413163"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "decimal-1536-ordered-files",
+        "inputBytes": [
+          30162,
+          30124
+        ],
+        "inputSha256": [
+          "9f8340b32b231bc31fcf76534287058fbfc35a68aa4d82b1948b8c38677d5d03",
+          "6af651f2fe43370069e2065940e6d069e5b6bb453cf54e5ed801b9582fdce648"
+        ],
+        "resultBytes": 307,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.016909304281883815,
+            "dimensions": 1536,
+            "euclidean": 38.95488305891566,
+            "normA": 27.502233435459058,
+            "normB": 28.057186279215493,
+            "text": "维度 1536\nA 范数 27.502233\nB 范数 28.057186\n余弦相似度 0.016909\n欧氏距离 38.954883"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "decimal-1536-embedded-response",
+        "inputBytes": [
+          60390
+        ],
+        "inputSha256": [
+          "26642b0e1a8aecfbc23a623f7914aa204b3c86863f49139b4dd50eb2286b232d"
+        ],
+        "resultBytes": 307,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.016909304281883815,
+            "dimensions": 1536,
+            "euclidean": 38.95488305891566,
+            "normA": 27.502233435459058,
+            "normB": 28.057186279215493,
+            "text": "维度 1536\nA 范数 27.502233\nB 范数 28.057186\n余弦相似度 0.016909\n欧氏距离 38.954883"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "decimal-2048-ordered-files",
+        "inputBytes": [
+          40189,
+          40148
+        ],
+        "inputSha256": [
+          "16517523ee5ef98357ba1c33a44917dfd03c993e587f2d42cb898d1868ee252e",
+          "2b978a929b00a0e9a792e8190d03e0cc52512852233942c281ffb5b31cc91a8f"
+        ],
+        "resultBytes": 304,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.08776230700010229,
+            "dimensions": 2048,
+            "euclidean": 43.51585081061123,
+            "normA": 32.14896924866401,
+            "normB": 32.28387983103716,
+            "text": "维度 2048\nA 范数 32.148969\nB 范数 32.283880\n余弦相似度 0.087762\n欧氏距离 43.515851"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "decimal-2048-embedded-response",
+        "inputBytes": [
+          80441
+        ],
+        "inputSha256": [
+          "734272d3411a364b17104a6fa477337da5de61181021ece3af1f44766041a240"
+        ],
+        "resultBytes": 304,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.08776230700010229,
+            "dimensions": 2048,
+            "euclidean": 43.51585081061123,
+            "normA": 32.14896924866401,
+            "normB": 32.28387983103716,
+            "text": "维度 2048\nA 范数 32.148969\nB 范数 32.283880\n余弦相似度 0.087762\n欧氏距离 43.515851"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "decimal-3072-ordered-files",
+        "inputBytes": [
+          60319,
+          60247
+        ],
+        "inputSha256": [
+          "d7a47b92566c29cfc45a74efa557628b86165bfbdfc355c76738cd607c1d7eda",
+          "baacaa438c3005ec7b58e60945ae413106e0cfbe4aeab4dfe75282c7b664fe6a"
+        ],
+        "resultBytes": 305,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.019006051550575664,
+            "dimensions": 3072,
+            "euclidean": 54.91923232672186,
+            "normA": 39.15843676433147,
+            "normB": 39.25778791942771,
+            "text": "维度 3072\nA 范数 39.158437\nB 范数 39.257788\n余弦相似度 0.019006\n欧氏距离 54.919232"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "decimal-3072-embedded-response",
+        "inputBytes": [
+          120670
+        ],
+        "inputSha256": [
+          "904b59230c64a6846e5c3d0c85f18e2ad5c2d2850e29bbbb9c28b6adb2270740"
+        ],
+        "resultBytes": 305,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.019006051550575664,
+            "dimensions": 3072,
+            "euclidean": 54.91923232672186,
+            "normA": 39.15843676433147,
+            "normB": 39.25778791942771,
+            "text": "维度 3072\nA 范数 39.158437\nB 范数 39.257788\n余弦相似度 0.019006\n欧氏距离 54.919232"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "decimal-4096-ordered-files",
+        "inputBytes": [
+          80428,
+          80387
+        ],
+        "inputSha256": [
+          "a81a2f28a14c7e49660dc884320da6b4c5ebe1ed3c780bad636036e1c8a9cda8",
+          "7595edcb80192c75c9e94a2744ecf40a1332302c543e1ab0798f9658668320ae"
+        ],
+        "resultBytes": 305,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.046062314804518195,
+            "dimensions": 4096,
+            "euclidean": 62.32589785112931,
+            "normA": 45.12785193603307,
+            "normB": 45.11722824763988,
+            "text": "维度 4096\nA 范数 45.127852\nB 范数 45.117228\n余弦相似度 0.046062\n欧氏距离 62.325898"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "decimal-4096-embedded-response",
+        "inputBytes": [
+          160919
+        ],
+        "inputSha256": [
+          "c609d676f8d9422c0926e2274accdb580e7b9984f43cd488882ee16164c682f5"
+        ],
+        "resultBytes": 305,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.046062314804518195,
+            "dimensions": 4096,
+            "euclidean": 62.32589785112931,
+            "normA": 45.12785193603307,
+            "normB": 45.11722824763988,
+            "text": "维度 4096\nA 范数 45.127852\nB 范数 45.117228\n余弦相似度 0.046062\n欧氏距离 62.325898"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "decimal-6144-ordered-files",
+        "inputBytes": [
+          120589,
+          120593
+        ],
+        "inputSha256": [
+          "f9819ec046da032de049d7889b046b95c7d7014580e164ee0a15af7e859ed384",
+          "c91a4f7f54700d14bbf3c8eccf2fb40e653214d36f4766678f0f2fb4742a687b"
+        ],
+        "resultBytes": 180,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_COMPLEX",
+            "message": "这组向量的小数、指数或 JSON 内容超过预览工作量上限。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "decimal-6144-embedded-response",
+        "inputBytes": [
+          241286
+        ],
+        "inputSha256": [
+          "893e058b2c185604425078c176d13a0809d8fe179b53c920afa62b429ccee4d4"
+        ],
+        "resultBytes": 180,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_COMPLEX",
+            "message": "这组向量的小数、指数或 JSON 内容超过预览工作量上限。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "weighted-work-exact-limit",
+        "inputBytes": [
+          163624
+        ],
+        "inputSha256": [
+          "c1348938687a55e961a039a2ef9512f4b41109ec4245d1cf4ceebe27ca0fc771"
+        ],
+        "resultBytes": 305,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.046062314804518195,
+            "dimensions": 4096,
+            "euclidean": 62.32589785112931,
+            "normA": 45.12785193603307,
+            "normB": 45.11722824763988,
+            "text": "维度 4096\nA 范数 45.127852\nB 范数 45.117228\n余弦相似度 0.046062\n欧氏距离 62.325898"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "weighted-work-limit-plus-one",
+        "inputBytes": [
+          163625
+        ],
+        "inputSha256": [
+          "16956634b0e0236ec67a2306894a71f36117d41f94737201f8039f8151eb5664"
+        ],
+        "resultBytes": 180,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_COMPLEX",
+            "message": "这组向量的小数、指数或 JSON 内容超过预览工作量上限。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "short-decimal-marks-at-limit",
+        "inputBytes": [
+          20001,
+          20001
+        ],
+        "inputSha256": [
+          "6c9a1db9ad4a7080cb073e76e9a414876b72d473b5be25fd3b2fd87a150260ed",
+          "6c9a1db9ad4a7080cb073e76e9a414876b72d473b5be25fd3b2fd87a150260ed"
+        ],
+        "resultBytes": 273,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 1.0,
+            "dimensions": 5000,
+            "euclidean": 0.0,
+            "normA": 70.71067811865476,
+            "normB": 70.71067811865476,
+            "text": "维度 5000\nA 范数 70.710678\nB 范数 70.710678\n余弦相似度 1.000000\n欧氏距离 0.000000"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "short-decimal-marks-plus-one",
+        "inputBytes": [
+          20005,
+          20001
+        ],
+        "inputSha256": [
+          "df5b128a7a550da4ae3572b0525594729f37d52f1ae9c4145d0fbdfd849733a6",
+          "6c9a1db9ad4a7080cb073e76e9a414876b72d473b5be25fd3b2fd87a150260ed"
+        ],
+        "resultBytes": 180,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_COMPLEX",
+            "message": "这组向量的小数、指数或 JSON 内容超过预览工作量上限。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "8193-elements",
+        "inputBytes": [
+          21371,
+          18905
+        ],
+        "inputSha256": [
+          "23902122ad6a22558d39a88412051fc978acddd00ce6637ec2fc8042aadac00b",
+          "aa0556013b1f404b21ed8c66d1bccdb961b392119a8e08c63cd4b32ac8d5c244"
+        ],
+        "resultBytes": 152,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "DIMENSION_LIMIT",
+            "message": "每个向量的维度必须在 1–8192 之间。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "two-exact-256-kib-files",
+        "inputBytes": [
+          262144,
+          262144
+        ],
+        "inputSha256": [
+          "7afa46334ab32e3e04cf46f1e90528e5e2d0a357f3c27a3d1422cb5953f9e27a",
+          "5e850c44acebc345bfa3d5cca17a52ca7a608681668817c39c9f2df55a973da8"
+        ],
+        "resultBytes": 251,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.8,
+            "dimensions": 2,
+            "euclidean": 3.605551275463989,
+            "normA": 5.0,
+            "normB": 2.0,
+            "text": "维度 2\nA 范数 5.000000\nB 范数 2.000000\n余弦相似度 0.800000\n欧氏距离 3.605551"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "single-exact-256-kib-response",
+        "inputBytes": [
+          262144
+        ],
+        "inputSha256": [
+          "ba2474734c2cbc39d80e3289f67463a93f2204f8815a05ead203988d8ba67242"
+        ],
+        "resultBytes": 251,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.8,
+            "dimensions": 2,
+            "euclidean": 3.605551275463989,
+            "normA": 5.0,
+            "normB": 2.0,
+            "text": "维度 2\nA 范数 5.000000\nB 范数 2.000000\n余弦相似度 0.800000\n欧氏距离 3.605551"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "256-kib-plus-one",
+        "inputBytes": [
+          262145,
+          5
+        ],
+        "inputSha256": [
+          "a123c7e195cf43e79104f363eefdc78edd4b407017477972635b4357f37a112b",
+          "45e1c0b7597006d357bb6b74965c9d19ee076dc5bf7ff45406f375e146f187df"
+        ],
+        "resultBytes": 132,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": null,
+          "error": {
+            "code": "INPUT_TOO_LARGE",
+            "message": "每份文件最多 256 KiB。"
+          },
+          "ok": false
+        }
+      },
+      {
+        "case": "dense-float-token-at-256-kib",
+        "inputBytes": [
+          262144,
+          3
+        ],
+        "inputSha256": [
+          "f4c857aaf1ee069e76e15250ad590511a37c12ecce1c7f2336f49b4e02f639cf",
+          "080a9ed428559ef602668b4c00f114f1a11c3f6b02a435f0bdc154578e4d7f22"
+        ],
+        "resultBytes": 237,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 1.0,
+            "dimensions": 1,
+            "euclidean": 0.0,
+            "normA": 1.0,
+            "normB": 1.0,
+            "text": "维度 1\nA 范数 1.000000\nB 范数 1.000000\n余弦相似度 1.000000\n欧氏距离 0.000000"
+          },
+          "error": null,
+          "ok": true
+        }
+      },
+      {
+        "case": "internal-space-at-256-kib",
+        "inputBytes": [
+          262144,
+          5
+        ],
+        "inputSha256": [
+          "c1b3204002e10ea44f056fa82543074cb6d81d69ed02245d215aba4198280fbf",
+          "45e1c0b7597006d357bb6b74965c9d19ee076dc5bf7ff45406f375e146f187df"
+        ],
+        "resultBytes": 265,
+        "result": {
+          "contractVersion": "1.0.0-rc.1",
+          "data": {
+            "cosine": 0.8944271909999159,
+            "dimensions": 2,
+            "euclidean": 1.0,
+            "normA": 2.23606797749979,
+            "normB": 2.0,
+            "text": "维度 2\nA 范数 2.236068\nB 范数 2.000000\n余弦相似度 0.894427\n欧氏距离 1.000000"
+          },
+          "error": null,
+          "ok": true
+        }
+      }
+    ],
+    "passed": 57,
+    "failures": []
+  }
+}

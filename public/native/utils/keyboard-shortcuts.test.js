@@ -65,6 +65,29 @@ describe("app keyboard shortcuts", () => {
     expect(abort).not.toHaveBeenCalled();
   });
 
+
+  it("does not abort after another handler consumes Escape and closes the overlay", () => {
+    const palette = document.createElement("div");
+    palette.id = "command-palette";
+    document.body.append(palette);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !palette.classList.contains("hidden")) {
+        event.preventDefault();
+        palette.classList.add("hidden");
+      }
+    });
+    const abort = vi.fn();
+    setupAppKeyboardShortcuts({ input, abort, isWorking: () => true });
+    const pressEscape = () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", cancelable: true }));
+
+    pressEscape();
+    expect(palette.classList.contains("hidden")).toBe(true);
+    expect(abort).not.toHaveBeenCalled();
+
+    pressEscape();
+    expect(abort).toHaveBeenCalledTimes(1);
+  });
+
   it("opens the command palette with Ctrl+Shift+P but not bare Ctrl+K", () => {
     const openCommandPalette = vi.fn();
     setupAppKeyboardShortcuts({

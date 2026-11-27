@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.integration-entries",
+  "name": "ZiDevTools Windows Tool Entry Inventory",
+  "displayName": "本机工具目录盘点",
+  "description": "确认工作区目录的单层名称，盘点已知 Windows 工具入口并单独保存文本报告。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.integrations.directory.entries"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.integrations.directory.entries",
+        "title": "本机工具目录盘点",
+        "description": "确认工作区目录的单层名称，盘点已知 Windows 工具入口并单独保存文本报告。",
+        "resourceInputMimeTypes": [
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "entryCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2048
+                    },
+                    "found": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 13
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 4096
+                    },
+                    "apps": {
+                      "type": "array",
+                      "minItems": 13,
+                      "maxItems": 13,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          "names": {
+                            "type": "array",
+                            "maxItems": 3,
+                            "items": {
+                              "type": "string",
+                              "maxLength": 64
+                            }
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "names"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "entryCount",
+                    "found",
+                    "text",
+                    "apps"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "本机集成发现",
+            "目录入口扫描",
+            "Windows Tool Entries"
+          ],
+          "description": "确认工作区目录的单层名称，盘点已知 Windows 工具入口并单独保存文本报告。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "只读取本次确认的名称摘要。"
+      },
+      {
+        "name": "resource.directory.read",
+        "reason": "用户确认后获取指定工作区目录的单层名称与类型。"
+      }
+    ],
+    "optional": []
+  }
+}

@@ -48,6 +48,59 @@ it("ambiguous response offers only explicit read-only verification and never ret
   expect(f.onSaved).not.toHaveBeenCalled(); await f.click("Check saved file"); expect(f.api.verify).toHaveBeenCalledExactlyOnceWith("w", source, id);
   expect(f.api.commit).toHaveBeenCalledOnce(); expect(f.onSaved).toHaveBeenCalledOnce();
 });
+it("rechecks the same saved file after an unavailable or mismatched status without another write", async () => {
+  const f = fixture();
+  let rejectFirst;
+  f.api.commit.mockRejectedValueOnce(Error("response lost"));
+  f.api.verify.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectFirst = reject; }))
+    .mockResolvedValueOnce({
+      schemaVersion: 1, profile, status: "verified", saved: true,
+      receipt: { ...receipt, destination: "D:\\different.html" },
+    });
+  await f.open();
+  await f.click("Confirm save file");
+  const check = [...f.container.querySelectorAll("button")].find(button => button.textContent === "Check saved file");
+  check.focus();
+  await f.click("Check saved file");
+  expect(check.getAttribute("aria-disabled")).toBe("true");
+  expect(document.activeElement).toBe(check);
+  await f.click("Check saved file");
+  expect(f.api.verify).toHaveBeenCalledTimes(1);
+
+  rejectFirst(Error("read unavailable"));
+  await flush();
+  expect(check.isConnected).toBe(true);
+  expect(check.hasAttribute("aria-disabled")).toBe(false);
+  expect(document.activeElement).toBe(check);
+  await f.click("Check saved file");
+  expect(f.container.textContent).toContain("The chosen file could not be verified.");
+  expect(f.onSaved).not.toHaveBeenCalled();
+  await f.click("Check saved file");
+  expect(f.api.verify.mock.calls).toEqual(Array.from({ length: 3 }, () => ["w", source, id]));
+  expect(f.api.commit).toHaveBeenCalledOnce();
+  expect(f.onSaved).toHaveBeenCalledExactlyOnceWith(receipt);
+  expect(check.isConnected).toBe(false);
+  expect(document.activeElement.textContent).toBe("Close");
+});
+
+it("a verification response after leaving cannot restore the save dialog", async () => {
+  const f = fixture();
+  let finish;
+  f.api.commit.mockRejectedValueOnce(Error("response lost"));
+  f.api.verify.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  await f.open();
+  await f.click("Confirm save file");
+  await f.click("Check saved file");
+  f.change();
+  f.c.clear();
+  finish({ schemaVersion: 1, profile, status: "verified", saved: true, receipt });
+  await flush();
+  expect(f.container.children).toHaveLength(0);
+  expect(f.api.commit).toHaveBeenCalledOnce();
+  expect(f.api.verify).toHaveBeenCalledOnce();
+  expect(f.onSaved).not.toHaveBeenCalled();
+});
+
 it("cannot cancel or duplicate an explicitly committing export, and view disposal never deletes the saved file", async () => {
   const f = fixture(); await f.open(); let resolve; f.api.commit.mockImplementationOnce(() => new Promise(r => { resolve = r; }));
   await f.click("Confirm save file"); expect(f.container.querySelector("button").disabled).toBe(true); f.c.destroy();

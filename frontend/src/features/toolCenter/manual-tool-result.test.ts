@@ -23,3 +23,27 @@ it("rejects provider failures and malformed known contracts", () => {
     .toMatchObject({ successful: false, errorCode: "INVALID_RESULT" });
   expect(manualToolResult({ ok: false, error: null }).successful).toBe(false);
 });
+
+it("displays captured structured output only for the explicitly supported result flow", () => {
+  const data = { keyCount: 1, serializedBytes: 27, keys: ["\u6837\u672c"], maxDepth: 2, value: { "\u6837\u672c": 9007199254740991 }, valueTypes: { "\u6837\u672c": "integer" } };
+  const result = { contractVersion: "1.0.0-rc.1", ok: true, data, error: null };
+  const reference = { schemaVersion: 2, mimeType: "application/json", resultId: "8ec4d0a5-b746-451e-9f0b-792f0e958381",
+    contentVersion: "f".repeat(64), byteLength: 164 };
+  expect(manualToolResult(result, { reference })).toEqual({
+    successful: true, text: JSON.stringify(data, null, 2), raw: JSON.stringify(result, null, 2),
+  });
+  expect(manualToolResult(result)).toMatchObject({ successful: false, errorCode: "INVALID_RESULT" });
+
+  for (const invalid of [undefined, { ...reference, schemaVersion: 1 }, { ...reference, mimeType: "text/plain" },
+    { ...reference, resultId: "missing" }, { ...reference, contentVersion: "" },
+    { ...reference, byteLength: 0 }, { ...reference, byteLength: 48 * 1024 + 1 }]) {
+    expect(manualToolResult(result, { reference: invalid })).toMatchObject({ successful: false, errorCode: "INVALID_RESULT" });
+  }
+
+  for (const invalid of [{ ...result, contractVersion: "2" }, { ...result, data: [] },
+    { ...result, error: { code: "BAD_RESULT" } }, { ...result, ok: "true" }]) {
+    expect(manualToolResult(invalid, { reference })).toMatchObject({ successful: false, errorCode: "INVALID_RESULT" });
+  }
+  expect(manualToolResult({ ...result, ok: false, error: { code: "INPUT_LIMIT" } }, { reference }))
+    .toMatchObject({ successful: false, errorCode: "INPUT_LIMIT" });
+});

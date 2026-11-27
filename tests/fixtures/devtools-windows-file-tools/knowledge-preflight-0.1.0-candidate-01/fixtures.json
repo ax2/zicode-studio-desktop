@@ -1,0 +1,205 @@
+{
+  "generator": "scripts/verify_knowledge_preflight_plugin.py",
+  "cases": [
+    {
+      "id": "native-format-list-and-default-excludes",
+      "inputSha256": "aebc52532bdb23fa8b87b769d6d6030d6f3662dd76ea48d3abe28268d35e359a",
+      "inputBytes": 852,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "custom-rule-wildcards-case-and-folder",
+      "inputSha256": "aebc52532bdb23fa8b87b769d6d6030d6f3662dd76ea48d3abe28268d35e359a",
+      "inputBytes": 852,
+      "input": {
+        "excludes": "*.MD;draft.txt;archive.pdf/;map.JPG"
+      },
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "default-excluded-leaf-file",
+      "inputSha256": "a0e168a548811179a9122f1cb78de9778dd4456336e4517594990043dc0934c5",
+      "inputBytes": 147,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "directory-with-document-extension",
+      "inputSha256": "2180bad68eb43d77b6bbe95e78a35bf849bdbe87fc27aba44de9c519c25d4ea3",
+      "inputBytes": 113,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "empty-folder",
+      "inputSha256": "01f5ea9376766c128970ce057648876fb0d2a3f28baf060805740dd5fd5a5b93",
+      "inputBytes": 76,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "no-contents-needed-for-candidate",
+      "inputSha256": "b15fe5d8842ad3ee305791f004d5344c3f309bf1f3489d2f7e9b72af512d9db3",
+      "inputBytes": 109,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "invalid-rule-parent-relative",
+      "inputSha256": "aebc52532bdb23fa8b87b769d6d6030d6f3662dd76ea48d3abe28268d35e359a",
+      "inputBytes": 852,
+      "input": {
+        "excludes": "../private.txt"
+      },
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "unsupported-wildcard",
+      "inputSha256": "aebc52532bdb23fa8b87b769d6d6030d6f3662dd76ea48d3abe28268d35e359a",
+      "inputBytes": 852,
+      "input": {
+        "excludes": "*.p*d"
+      },
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "eight-rule-limit",
+      "inputSha256": "02af3b6cd035f05e7f6bf6a1f26b92a6353bc8a7b670bc822159e8be384cf12a",
+      "inputBytes": 107,
+      "input": {
+        "excludes": "ignored0;ignored1;ignored2;ignored3;ignored4;ignored5;ignored6;ignored7"
+      },
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "one-rule-over",
+      "inputSha256": "aebc52532bdb23fa8b87b769d6d6030d6f3662dd76ea48d3abe28268d35e359a",
+      "inputBytes": 852,
+      "input": {
+        "excludes": "ignored0;ignored1;ignored2;ignored3;ignored4;ignored5;ignored6;ignored7;ignored8"
+      },
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "rule-utf8-budget",
+      "inputSha256": "aebc52532bdb23fa8b87b769d6d6030d6f3662dd76ea48d3abe28268d35e359a",
+      "inputBytes": 852,
+      "input": {
+        "excludes": "规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规规"
+      },
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "wrong-snapshot-profile",
+      "inputSha256": "a3d11b72e3ad4452cfea46fdedde17de7d3cf3116990f8fa1d442c1c0ad35082",
+      "inputBytes": 58,
+      "input": {},
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "unknown-entry-type",
+      "inputSha256": "7460ab8484963ef3210b3ae2eac2a78246ad08850a09cbe6fe716edc70f9243c",
+      "inputBytes": 112,
+      "input": {},
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "file-path-escape",
+      "inputSha256": "b785efd00b6961aaf358de8797602839b16792f154979da5afe99631e4b1cdd5",
+      "inputBytes": 115,
+      "input": {},
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "duplicate-casefolded-name",
+      "inputSha256": "b2cf3718a2219f0584b110a42710ee1b67e4cdc44be92f26207a8176c7a42755",
+      "inputBytes": 141,
+      "input": {},
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "non-text-resource",
+      "inputSha256": "aebc52532bdb23fa8b87b769d6d6030d6f3662dd76ea48d3abe28268d35e359a",
+      "inputBytes": 852,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "extra-execution-argument",
+      "inputSha256": "aebc52532bdb23fa8b87b769d6d6030d6f3662dd76ea48d3abe28268d35e359a",
+      "inputBytes": 852,
+      "input": {
+        "scan": true
+      },
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "bad-utf8-snapshot",
+      "inputSha256": "b3d510ef04275ca8e698e5b3cbb0ece3949ef9252f0cdc839e9ee347409a2209",
+      "inputBytes": 2,
+      "input": {},
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "entry-and-snapshot-byte-limits",
+      "inputSha256": "ba7658e79f31506cfbb6f57707a37b2dcbc0c25d851d472b6877d075287a48ee",
+      "inputBytes": 65536,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "one-entry-over",
+      "inputSha256": "99de4c694025f47b340a571c05630c3fcf1b15f6aca1baf7166d2d50dbcbff47",
+      "inputBytes": 2158,
+      "input": {},
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "one-snapshot-byte-over",
+      "inputSha256": "0d5953a4ff678aedae29c6eafa420526eeffd925a9e1dd58173bfe0182c72bda",
+      "inputBytes": 65537,
+      "input": {},
+      "mime": "text/plain",
+      "ok": false
+    },
+    {
+      "id": "exact-unicode-name-and-rule-byte-limits",
+      "inputSha256": "ea3e677c71ac3a106b2227763ab0673f2e1f6851c31b18c1eaa9adb087a18550",
+      "inputBytes": 13949,
+      "input": {
+        "excludes": "0词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词x;1词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词x;2词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词x;3词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词x;4词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词x;5词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词x;6词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词x;7词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词词xx"
+      },
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "one-name-byte-over",
+      "inputSha256": "ee028e63770696fd81016422773386d31bdcfdd08e69d995e65b77567afeee31",
+      "inputBytes": 13976,
+      "input": {},
+      "mime": "text/plain",
+      "ok": false
+    }
+  ]
+}

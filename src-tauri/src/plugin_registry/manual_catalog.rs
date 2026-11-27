@@ -467,6 +467,12 @@ impl PluginRegistry {
             capability["resourceInputMin"] = json!(2);
             capability["resourceInputLabels"] = json!(["Left JSON file", "Right JSON file"]);
         }
+        use crate::plugin_resource_execution::shortcut_profile;
+        if capability["executionProfile"] == shortcut_profile::PROFILE
+            && shortcut_profile::matches_capability(&request.plugin_id, Some(&request.capability_id))
+        {
+            capability["resourceInputMin"] = json!(2);
+        }
         let permissions: Vec<_> = plugin.manifest.permissions.required.iter()
             .chain(plugin.manifest.permissions.optional.iter()).map(|permission| {
                 let granted = self.plugin_permission_granted(&request.scene_id, plugin, &permission.name);

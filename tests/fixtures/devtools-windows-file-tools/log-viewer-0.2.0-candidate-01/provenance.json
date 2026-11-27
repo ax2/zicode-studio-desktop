@@ -1,0 +1,306 @@
+{
+  "sourceRevision": "5ff0ebb3f3efed421be937cd8ef9fd8a9c51f4b9",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T06:45:33.756055+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "bff04915ce94132f68ae4919eb37bed22c10ad62e432bad49b37ab93ecf99bb5",
+  "workerVerification": {
+    "passed": 24,
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "wasmSha256": "bff04915ce94132f68ae4919eb37bed22c10ad62e432bad49b37ab93ecf99bb5",
+    "workerProfile": "resource.wasi.input.draft2",
+    "cases": [
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "multiline-bom-crlf",
+        "inputBytes": 179,
+        "inputSha256": "fd72707c487432ed8b0fc5b257a760ec5b54cc07b1b382a0cbd7263a4750366e",
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": true,
+        "outputBytes": 614,
+        "outputSha256": "da999930acbb87d8f1ec1899168fc14c4db726b20ce79c5920e0536a43d6f268"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "filter-continuation",
+        "inputBytes": 179,
+        "inputSha256": "fd72707c487432ed8b0fc5b257a760ec5b54cc07b1b382a0cbd7263a4750366e",
+        "input": {
+          "level": "error",
+          "query": "连接超时"
+        },
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 280,
+        "outputSha256": "2057063a7efc7e3d198ee7c47cf52d4e061e0201683baa5da62ea9f25abba052"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "case-sensitive-no-hit",
+        "inputBytes": 179,
+        "inputSha256": "fd72707c487432ed8b0fc5b257a760ec5b54cc07b1b382a0cbd7263a4750366e",
+        "input": {
+          "query": "Started"
+        },
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 94,
+        "outputSha256": "6bb9a282da9ff0e1ddf1240f190dbea986559d74ec289f2b84a653ceba307b1e"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "empty-file",
+        "inputBytes": 0,
+        "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "input": {},
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 92,
+        "outputSha256": "c246c7dd61afdbdf45416b2cd3b81a951d96a8bc3cf5f1bc665c76692224de36"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "largest-dense-file",
+        "inputBytes": 16384,
+        "inputSha256": "705fde65cd0c81b123da1b6889138e457241cc1a820381efd8b94db6a4ec4c18",
+        "input": {},
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 1159,
+        "outputSha256": "c366b1ce8b022245cdb2b94fd655a41a187677c28880eb2668ebf987e6360216"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "dense-level-tokens",
+        "inputBytes": 16380,
+        "inputSha256": "515bb15f4e52ee9c506af937e3657ce36ddf74954c7f52328dee8c77bae05745",
+        "input": {
+          "level": "warning"
+        },
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 1195,
+        "outputSha256": "57df751bd00707ea8702d58d4c5321900b9ebfb4ab7adb81049b948fc25cb7b8"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "dense-timestamps",
+        "inputBytes": 16380,
+        "inputSha256": "19b47539c1464afcccce9915c420f7caa80acc8e3f5c8892f2705bcc8a13bc25",
+        "input": {
+          "level": "error"
+        },
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 1421,
+        "outputSha256": "9b591792bb2b9e55ba38ec8deeceb545f0d9e1d97fd1e5c6aae994becaf988af"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "search-beyond-utf8-preview",
+        "inputBytes": 911,
+        "inputSha256": "30b55c22f9870fe84fa6a6168048e03d96fc254fc17140062549345f44280581",
+        "input": {
+          "query": "last"
+        },
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 686,
+        "outputSha256": "f18b87ccd6ff9637f0e7e433e0f455dae7e3baf962d500a9e3f49c881d055d33"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "escaped-report-limit",
+        "inputBytes": 6144,
+        "inputSha256": "9abee1c92c244dc8a06a605702713c53e92dbe018434ce33d7b06dd400922557",
+        "input": {},
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 37599,
+        "outputSha256": "17d387db3f64406f2b61af905d42fbf31db0c4533e10d90781dfc849345a11f4"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "strict-level-tokens",
+        "inputBytes": 36,
+        "inputSha256": "fe1edde8b63b4d0e901dfc4383b1000c04b4462c4ea54d507ea023954071e6eb",
+        "input": {
+          "level": "fatal"
+        },
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 188,
+        "outputSha256": "c66f6197b7a04fc75fd592b4aff724bd334051cb8d189b2dd76454bf52905392"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "too-big",
+        "inputBytes": 16385,
+        "inputSha256": "39061532d423f2d385027b9d40fc07e2bedf7bf3151e8f8bdd5ff005cd5136d1",
+        "input": {},
+        "mime": "text/plain",
+        "ok": false,
+        "outputBytes": 107,
+        "outputSha256": "237870c9c2dabe64d95ee6bb89cfa36c3574586b7f685a0061736e82d5d553e0"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "invalid-utf8",
+        "inputBytes": 2,
+        "inputSha256": "ea0eb6354aadf0be78f9212784025da3324a2d0443457be52b6a9bf8636b4e4a",
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "outputBytes": 123,
+        "outputSha256": "ed4862be9410447ed5a9a85b6794c37d057340981333cf171ead4e8d6fa2851e"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "wrong-mime",
+        "inputBytes": 6,
+        "inputSha256": "cc735169056b2fd1125b7495dbbc1620ccc0cc1d5102cb2e98d7616050a3fc8b",
+        "input": {},
+        "mime": "image/png",
+        "ok": false,
+        "outputBytes": 118,
+        "outputSha256": "f505e88afa110cec5be921476168ba563e93b628aeccd8033df8705c580666e8"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "unknown-argument",
+        "inputBytes": 6,
+        "inputSha256": "cc735169056b2fd1125b7495dbbc1620ccc0cc1d5102cb2e98d7616050a3fc8b",
+        "input": {
+          "extra": ""
+        },
+        "mime": "text/plain",
+        "ok": false,
+        "outputBytes": 116,
+        "outputSha256": "2fe52ee53f7a5e5486ae61dfc986106bb35d8d5a0fa9985053e3758b3cbb4c21"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "invalid-level",
+        "inputBytes": 6,
+        "inputSha256": "cc735169056b2fd1125b7495dbbc1620ccc0cc1d5102cb2e98d7616050a3fc8b",
+        "input": {
+          "level": "TRACE"
+        },
+        "mime": "text/plain",
+        "ok": false,
+        "outputBytes": 116,
+        "outputSha256": "2fe52ee53f7a5e5486ae61dfc986106bb35d8d5a0fa9985053e3758b3cbb4c21"
+      },
+      {
+        "capability": "devtools.log-viewer.filter",
+        "case": "oversized-utf8-query",
+        "inputBytes": 6,
+        "inputSha256": "cc735169056b2fd1125b7495dbbc1620ccc0cc1d5102cb2e98d7616050a3fc8b",
+        "input": {
+          "query": "界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界界"
+        },
+        "mime": "text/plain",
+        "ok": false,
+        "outputBytes": 138,
+        "outputSha256": "651afb61dab9978f567a25924d6c87bc880cc834809303cb50a8d4aec0c3a1fe"
+      },
+      {
+        "capability": "devtools.log-viewer.tail",
+        "case": "tail-small-bom-without-final-lf",
+        "inputBytes": 28,
+        "inputSha256": "b7bf65fbf11fbc0364e9c2f832552d6ad7203150edb21cd850fe109de314ab1c",
+        "input": {},
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 477,
+        "outputSha256": "ba859d599235663d629bf9fc2fd0801eda4828a44e520ac61664eceb7d4f00b6"
+      },
+      {
+        "capability": "devtools.log-viewer.tail",
+        "case": "tail-proven-complete-first-line",
+        "inputBytes": 16512,
+        "inputSha256": "330ce9db3fc30975b4a5e454ef354c30e13ac8e385c58d370a088c0fe84bfc98",
+        "input": {},
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 890,
+        "outputSha256": "045dabf3aa57fa32edf58652d8645c42301bd79c4c42f64e53c28a4e59b0567e"
+      },
+      {
+        "capability": "devtools.log-viewer.tail",
+        "case": "tail-2mib-crossed-utf8",
+        "inputBytes": 2097152,
+        "inputSha256": "47a587253be986f9e388663590a95b529245cb5c887aa3ec509888d9375fbd33",
+        "input": {
+          "level": "error",
+          "query": "中文"
+        },
+        "mime": "application/octet-stream",
+        "ok": true,
+        "outputBytes": 489,
+        "outputSha256": "a798454a75e4ee3abbae697b506c55cf73a0f2e496f7d939964fbe49a6896ec3"
+      },
+      {
+        "capability": "devtools.log-viewer.tail",
+        "case": "tail-32mib-boundary",
+        "inputBytes": 33554432,
+        "inputSha256": "ec366453b1f6983823c93eb8fb1dc0fdc4a82d0f324b39bcc296093bbf7d60c8",
+        "input": {
+          "level": "error",
+          "query": "中文"
+        },
+        "mime": "application/octet-stream",
+        "ok": true,
+        "outputBytes": 493,
+        "outputSha256": "aa0b634db7a72efb38ace7769c5a87f0e3462a3f80397820a3387fa2bdd43b6a"
+      },
+      {
+        "capability": "devtools.log-viewer.tail",
+        "case": "tail-dense-complete-window",
+        "inputBytes": 16408,
+        "inputSha256": "a94acb883f1da246770f4e808e3d343d8fb53b3ef1a7eeb3d0298b00dd5b5832",
+        "input": {},
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 1358,
+        "outputSha256": "615bad04c0c6b450365f262d3af59a9a7205b5a1b959cb15dd7e4a62cec7c0eb"
+      },
+      {
+        "capability": "devtools.log-viewer.tail",
+        "case": "tail-window-is-one-partial-line",
+        "inputBytes": 16391,
+        "inputSha256": "91f1815b3275186ccfd5c9799076b798db90f88d9a93120efae7f7069a808332",
+        "input": {},
+        "mime": "text/plain",
+        "ok": true,
+        "outputBytes": 298,
+        "outputSha256": "fae8e68c1dda3dd9d68881253f262ed2b9ac9db052bbc5bceda3226064e1a0ba"
+      },
+      {
+        "capability": "devtools.log-viewer.tail",
+        "case": "tail-invalid-utf8-inside-retained-window",
+        "inputBytes": 16425,
+        "inputSha256": "314472fac0a9517e1c9585f70a61ef5e9343c3b6a645e12ede1e93e0e911dcab",
+        "input": {},
+        "mime": "application/octet-stream",
+        "ok": false,
+        "outputBytes": 123,
+        "outputSha256": "ed4862be9410447ed5a9a85b6794c37d057340981333cf171ead4e8d6fa2851e"
+      },
+      {
+        "capability": "devtools.log-viewer.tail",
+        "case": "tail-wrong-mime",
+        "inputBytes": 6,
+        "inputSha256": "cc735169056b2fd1125b7495dbbc1620ccc0cc1d5102cb2e98d7616050a3fc8b",
+        "input": {},
+        "mime": "image/png",
+        "ok": false,
+        "outputBytes": 118,
+        "outputSha256": "f505e88afa110cec5be921476168ba563e93b628aeccd8033df8705c580666e8"
+      }
+    ]
+  }
+}

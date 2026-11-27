@@ -1,15 +1,17 @@
+import { springConfigFileTargets, supportsSpringConfigFiles } from "./spring-config-files";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { FileImportButton } from "./FileImportButton";
 import { WorkbenchDraftFileActions } from "./WorkbenchDraftFileActions";
 import type { ToolAccessScope, ToolAccessStore } from "../commandPalette/tool-access";
-import { type ManualTool, type ManualToolApi, type ToolDetail, manualToolError, supportsResultActions } from "./manual-tools";
+import { type ManualTool, type ManualToolApi, type ToolDetail, type ToolFileOffer, manualToolError, supportsResultActions, toolDraftContract } from "./manual-tools";
 import { toolFields, prepareToolInput } from "./manual-tool-fields";
 import { ManualToolInput } from "./ManualToolInput";
 import { ManualToolInformation } from "./ManualToolInformation";
 import type { CapturedToolResponse } from "../../../../public/native/plugins/plugin-result-actions.js";
 import { ManualToolResultActions } from "./ManualToolResultActions";
 import { ManualToolResultView } from "./ManualToolResultView";
+import { isInspectConversionPolicy, isTextWorkerOutputLimit } from "./worker-error-protocol";
 import { downloadFile } from "../../shared/download-file";
 import { type ManualToolResult, manualToolResult } from "./manual-tool-result";
 import { useManualToolCall } from "./use-manual-tool-call";
@@ -42,6 +44,10 @@ const jsonDiffFileTargets = [
   { target: "json-diff-right", field: "right", label: "Import right JSON file…", inputLabel: "Right JSON file", fieldLabel: "Revised JSON" },
 ] as const;
 
+const jsonObjectFileTargets = [
+  { target: "json-object", field: "value", label: "Import JSON file…", inputLabel: "JSON input file", fieldLabel: "JSON text" },
+] as const;
+
 const jsonSchemaFileTargets = [
   { target: "schema-instance", field: "instance", label: "Import JSON instance…", inputLabel: "JSON instance file", fieldLabel: "JSON instance" },
   { target: "schema-root", field: "schema", label: "Import JSON Schema…", inputLabel: "JSON Schema file", fieldLabel: "Root JSON Schema" },
@@ -50,6 +56,24 @@ const jsonSchemaFileTargets = [
 const sqlFileTargets = [
   { target: "sql-format", field: "text", label: "Import SQL file…", inputLabel: "SQL file", fieldLabel: "SQL text" },
 ] as const;
+
+// Frozen Text capabilities reviewed for this file and output workflow.
+const textFileProfiles = new Map<string, "text-only" | "sql-options">([
+  ["0.4.1", "text-only"], ["0.4.2", "sql-options"], ["0.4.3", "sql-options"], ["0.4.4", "sql-options"],
+]);
+
+const sqlOptions = new Map<string, { label: string; defaultValue: string; choices: ReadonlyMap<string, string> }>([
+  ["dialect", { label: "SQL dialect", defaultValue: "generic", choices: new Map([
+    ["generic", "Generic SQL"], ["postgresql", "PostgreSQL"], ["mysql", "MySQL"],
+    ["sqlite", "SQLite"], ["sqlserver", "SQL Server"],
+  ]) }],
+  ["indent", { label: "Indentation", defaultValue: "fourSpaces", choices: new Map([
+    ["twoSpaces", "2 spaces"], ["fourSpaces", "4 spaces"], ["tabs", "Tabs"],
+  ]) }],
+  ["keywordCase", { label: "Keyword case", defaultValue: "uppercase", choices: new Map([
+    ["uppercase", "Uppercase"], ["lowercase", "Lowercase"], ["preserve", "Keep original case"],
+  ]) }],
+]);
 
 const yamlToJsonFiles = [
   { target: "yaml-to-json", field: "text", label: "Import YAML file…", inputLabel: "YAML input file", fieldLabel: "YAML text" },
@@ -97,8 +121,10 @@ export interface ManualToolDetailProps {
   getResourceTarget?: ResourceTargetProvider;
   receiveNoteDraft?: ReceiveNoteDraft;
   resourceSession?: ResourceSessionOwner;
-  onReload?(): Promise<void>;
+  fileOffer?: ToolFileOffer;
+  onReload?(draft?: { contract: string; read(): Record<string, string> | undefined }): Promise<void>;
   initialDraft?: Record<string, string>;
+  focusInitialDraft?: boolean;
   workbenchDraftActive?: boolean;
   draftReaderRef?(reader: WorkbenchDraftReader | null): void;
   onOpenWorkbenchDraft?: OpenWorkbenchDraft;
@@ -106,7 +132,10 @@ export interface ManualToolDetailProps {
 
 interface ToolDraft {
   values: Record<string, string>;
-  undo?: { identity: string; values: Record<string, string>; kind: "apply" | "import"; mergeSide?: MergeSide; scopeBound?: boolean };
+  undo?: {
+    identity: string; values: Record<string, string>; kind: "apply" | "import";
+    mergeSide?: MergeSide; scopeBound?: boolean; diffInputField?: "left" | "right";
+  };
 }
 
 interface DraftExecution {
@@ -127,7 +156,7 @@ export function ManualToolDetail(props: ManualToolDetailProps) {
   return <ManualToolDetailView {...props} call={call} />;
 }
 
-export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, initialDraft, draftReaderRef, onOpenWorkbenchDraft, workbenchDraftActive = true, call }: ManualToolDetailProps & {
+export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, fileOffer, onReload, initialDraft, focusInitialDraft = true, draftReaderRef, onOpenWorkbenchDraft, workbenchDraftActive = true, call }: ManualToolDetailProps & {
   call: ReturnType<typeof useManualToolCall>;
 }) {
   const detailOwner = useMemo(() => ({ api, sceneId: scope.sceneId, pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision }),
@@ -136,6 +165,8 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const detail = loadedDetail?.owner === detailOwner ? loadedDetail.value : null;
   const detailId = useId();
   const [{ values, undo }, setDraft] = useState<ToolDraft>(() => ({ values: initialDraft ?? {} }));
+  const latestValues = useRef(values);
+  useLayoutEffect(() => { latestValues.current = values; }, [values]);
   const [error, setError] = useState("");
   const [stale, setStale] = useState(false);
   const [reloading, setReloading] = useState(false);
@@ -184,7 +215,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const fields = detail ? toolFields(detail.capability.inputSchema) : null;
   const permissionNeeded = detail?.permissions.some(permission => permission.required && permission.name !== "pi.tools.register");
   const supported = detail && fields && tool.runtime !== "builtin" && !permissionNeeded;
-  useEffect(() => { if (initialDraft && supported) formRef.current?.focus({ preventScroll: true }); }, [initialDraft, supported]);
+  useEffect(() => { if (focusInitialDraft && initialDraft && supported) formRef.current?.focus({ preventScroll: true }); }, [focusInitialDraft, initialDraft, supported]);
   const hostResourceProfile = hostResourceReceivers.get(`${tool.pluginId}/${tool.capabilityId}`);
   const resourceTool = (detail?.resourceInputProfile === "resource.wasi.input.draft2" && tool.runtime === "wasi") ||
     (tool.runtime === "builtin" && hostResourceProfile !== undefined && detail?.resourceInputProfile === hostResourceProfile);
@@ -218,27 +249,49 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const jsonPath = comparePlugin && tool.capabilityId === "devtools.compare.json.path";
   const textDiff = comparePlugin && tool.capabilityId === "devtools.compare.text.diff";
   const jsonDiff = comparePlugin && /^devtools\.compare\.json\.diff\.(ordered|unordered)$/.test(tool.capabilityId);
+  const diffFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets : null;
   const jsonSchema = tool.pluginId === "com.zicode.devtools.json-schema" && tool.capabilityId === "devtools.json-schema.validate";
-  const boundedTextTool = tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version &&
-    fields?.some(field => field.key === "text" && field.kind === "string" && field.maxLength === 8192);
-  const qrFileTool = boundedTextTool && computePlugin && (tool.version === "0.1.0" || tool.version === "0.2.0") &&
+  const enabledWasi = tool.runtime === "wasi" && detail?.enabled && detail.version === tool.version;
+  const jsonObject = enabledWasi && tool.version === "0.1.1" && tool.pluginId === "com.zicode.devtools.json-object" &&
+    tool.capabilityId === "devtools.json.object.inspect" && detail.pluginId === tool.pluginId &&
+    detail.capability.id === tool.capabilityId && fields?.length === 1 &&
+    fields[0].key === "value" && fields[0].kind === "object" && fields[0].required;
+  const textField = fields?.find(field => field.key === "text" && field.kind === "string");
+  const boundedTextTool = enabledWasi && textField?.maxLength === 8192;
+  const regexMatches = boundedTextTool && comparePlugin && tool.version === "0.1.0" &&
+    tool.capabilityId === "devtools.compare.regex.matches";
+  const computeQrFile = boundedTextTool && computePlugin && (tool.version === "0.1.0" || tool.version === "0.2.0") &&
     tool.capabilityId === "devtools.compute.qr.png";
-  const inspectTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.inspect" && tool.version === "0.1.2";
+  const independentQrFile = enabledWasi && tool.pluginId === "com.zicode.devtools.qr" && tool.version === "0.1.0" &&
+    tool.capabilityId === "devtools.qr.png" && fields?.length === 1 && textField?.maxLength === 2048;
+  const qrFileTool = computeQrFile || independentQrFile;
+  const strictInspectVersion = tool.version === "0.1.4" || tool.version === "0.1.5";
+  const inspectTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.inspect" &&
+    (tool.version === "0.1.2" || strictInspectVersion) &&
+    detail?.pluginId === tool.pluginId && detail.capability.id === tool.capabilityId;
   const yamlToJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.to_json";
   const yamlFromJson = inspectTool && tool.capabilityId === "devtools.inspect.yaml.from_json";
   const unicodeInspect = inspectTool && tool.capabilityId === "devtools.inspect.unicode.inspect";
   const unicodeNfc = inspectTool && tool.capabilityId === "devtools.inspect.unicode.nfc";
   const unicodeNfkc = inspectTool && tool.capabilityId === "devtools.inspect.unicode.nfkc";
   const unicodeNormalize = unicodeNfc || unicodeNfkc;
+  const springConfig = boundedTextTool && fields !== null && detail?.version === tool.version && supportsSpringConfigFiles(tool, fields);
   const tracePlugin = boundedTextTool && tool.pluginId === "com.zicode.devtools.trace" && tool.version === "0.1.1";
   const javaTrace = tracePlugin && tool.capabilityId === "devtools.trace.java.trace";
   const pythonTrace = tracePlugin && tool.capabilityId === "devtools.trace.django.trace";
   const traceReport = javaTrace || pythonTrace;
-  const textPlugin = boundedTextTool && tool.pluginId === "com.zicode.devtools.text" && tool.version === "0.4.1";
+  const textProfile = textFileProfiles.get(tool.version);
+  const textSchema = detail?.capability.inputSchema as { additionalProperties?: unknown; minProperties?: unknown; maxProperties?: unknown } | undefined;
+  const textPlugin = boundedTextTool && tool.enabled && tool.pluginId === "com.zicode.devtools.text" &&
+    detail?.pluginId === tool.pluginId && detail.capability.id === tool.capabilityId && Boolean(textProfile) &&
+    textField.required && textField.minLength === 0 && !textField.choices && textSchema?.additionalProperties === false &&
+    textSchema.minProperties === undefined && textSchema.maxProperties === undefined;
+  const textOnlyContract = textPlugin && fields?.length === 1;
   const transformsTool = boundedTextTool && tool.pluginId === "com.zicode.devtools.transforms" && tool.version === "0.1.1";
   const textLines = transformsTool && /^devtools\.transforms\.lines\.(deduplicate|ascending|descending|nonempty|trim)$/.test(tool.capabilityId);
   const textStatistics = transformsTool && tool.capabilityId === "devtools.transforms.stats.inspect";
   const urlInspect = transformsTool && tool.capabilityId === "devtools.transforms.url.inspect";
+  const urlDecode = transformsTool && tool.capabilityId === "devtools.transforms.url.decode";
   const htmlEscape = transformsTool && tool.capabilityId === "devtools.transforms.html.escape";
   const htmlUnescape = transformsTool && tool.capabilityId === "devtools.transforms.html.unescape";
   const htmlText = htmlEscape || htmlUnescape;
@@ -246,22 +299,46 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const stringUnescape = transformsTool && tool.capabilityId === "devtools.transforms.string.unescape";
   const hexEncode = transformsTool && tool.capabilityId === "devtools.transforms.hex.encode";
   const hexDecode = transformsTool && tool.capabilityId === "devtools.transforms.hex.decode";
-  const sqlFormat = textPlugin && tool.capabilityId === "devtools.text.sql.format";
-  const base64Encode = textPlugin && tool.capabilityId === "devtools.text.base64.encode";
-  const base64Decode = textPlugin && tool.capabilityId === "devtools.text.base64.decode";
+  const sqlWithOptions = textPlugin && tool.capabilityId === "devtools.text.sql.format" &&
+    textProfile === "sql-options" && fields?.length === sqlOptions.size + 1 && fields.every(field => {
+      if (field.key === "text") return true;
+      const option = sqlOptions.get(field.key);
+      return option && field.kind === "string" && !field.required &&
+        field.minLength === 0 && field.maxLength === 32768 && field.suggested?.preview === option.defaultValue &&
+        field.choices?.length === option.choices.size &&
+        field.choices.every(choice => typeof choice === "string" && option.choices.has(choice));
+    });
+  const sqlFormat = tool.capabilityId === "devtools.text.sql.format" &&
+    (sqlWithOptions || (textOnlyContract && textProfile === "text-only"));
+  let failureNotice: string | undefined;
+  if ((yamlToJson || yamlFromJson) && strictInspectVersion &&
+      isInspectConversionPolicy(result?.errorCode, result?.errorMessage)) {
+    failureNotice = t("Could not convert without changing the data. Check for duplicate keys, unsupported values, or numbers that cannot be represented exactly.");
+  } else if (sqlFormat && isTextWorkerOutputLimit(result?.errorCode, result?.errorMessage)) {
+    const indentChoices = fields?.find(field => field.key === "indent")?.choices;
+    const indent = values.indent ? indentChoices?.[Number(values.indent)] : "fourSpaces";
+    const canReduceIndent = sqlWithOptions && indent === "fourSpaces";
+    failureNotice = canReduceIndent
+      ? t("Formatted SQL exceeds the 48 KiB output limit. Select 2 spaces for indentation and run again.")
+      : t("Formatted SQL exceeds the 48 KiB output limit.");
+  }
+  const base64Encode = textOnlyContract && tool.capabilityId === "devtools.text.base64.encode";
+  const base64Decode = textOnlyContract && tool.capabilityId === "devtools.text.base64.decode";
   const base64Tool = base64Encode || base64Decode;
-  const documentFileTargets = textDiff ? textDiffFileTargets : jsonDiff ? jsonDiffFileTargets :
+  const textSha256 = textOnlyContract && tool.capabilityId === "devtools.text.sha256";
+  const documentFileTargets = diffFileTargets ?? (jsonObject ? jsonObjectFileTargets :
     jsonSchema ? jsonSchemaFileTargets : qrFileTool ? qrFileTargets : sqlFormat ? sqlFileTargets :
       yamlToJson ? yamlToJsonFiles : yamlFromJson ? yamlFromJsonFiles :
-        (base64Encode || hexEncode || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
-          stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets : traceReport ? traceFileTargets :
-          (textLines || textStatistics || stringEscape || htmlText) ? utf8FileTargets : [];
-  const jsonDocument = jsonPath || jsonDiff || jsonSchema || yamlFromJson;
+        (base64Encode || hexEncode || textSha256 || unicodeInspect || unicodeNormalize) ? byteTextFileTargets : base64Decode ? base64DecodeFiles :
+          stringUnescape ? jsonStringFiles : hexDecode ? hexFiles : urlInspect ? urlTextFileTargets : traceReport ? traceFileTargets : springConfig ? springConfigFileTargets :
+          (textLines || textStatistics || stringEscape || htmlText || urlDecode || regexMatches) ? utf8FileTargets : []);
+  const jsonDocument = jsonPath || jsonDiff || jsonObject || jsonSchema || yamlFromJson;
   const textDownload = sqlFormat ? { label: "Download formatted SQL", stem: "formatted-sql", extension: "sql", mime: "application/sql" }
     : yamlToJson ? { label: "Download JSON", stem: "converted", extension: "json", mime: "application/json" }
     : yamlFromJson ? { label: "Download YAML", stem: "converted", extension: "yaml", mime: "application/yaml" }
     : base64Encode ? { label: "Download Base64 file", stem: "encoded", extension: "base64", mime: "text/plain" }
     : base64Decode ? { label: "Download decoded text", stem: "decoded", extension: "txt", mime: "text/plain;charset=utf-8" }
+    : textSha256 ? { label: "Download SHA-256 digest", stem: "sha256", extension: "txt", mime: "text/plain" }
     : textLines ? { label: "Download processed text", stem: "processed", extension: "txt", mime: "text/plain;charset=utf-8" }
     : textStatistics ? { label: "Download text statistics", stem: "text-statistics", extension: "txt", mime: "text/plain;charset=utf-8" }
     : stringEscape ? { label: "Download JSON", stem: "escaped-string", extension: "json", mime: "application/json" }
@@ -269,8 +346,10 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     : hexEncode ? { label: "Download Hex text", stem: "hex-bytes", extension: "txt", mime: "text/plain" }
     : hexDecode ? { label: "Download decoded text", stem: "hex-decoded", extension: "txt", mime: "text/plain;charset=utf-8" }
     : urlInspect ? { label: "Download JSON", stem: "url-details", extension: "json", mime: "application/json" }
+    : urlDecode ? { label: "Download decoded text", stem: "url-decoded", extension: "txt", mime: "text/plain;charset=utf-8" }
     : htmlEscape ? { label: "Download escaped text", stem: "html-escaped", extension: "txt", mime: "text/plain;charset=utf-8" }
     : htmlUnescape ? { label: "Download restored text", stem: "html-restored", extension: "txt", mime: "text/plain;charset=utf-8" }
+    : springConfig ? { label: "Download JSON", stem: "spring-config-comparison", extension: "json", mime: "application/json" }
     : traceReport ? { label: "Download JSON", stem: javaTrace ? "java-trace" : "python-trace", extension: "json", mime: "application/json" }
     : unicodeInspect ? { label: "Download JSON", stem: "unicode-code-points", extension: "json", mime: "application/json" }
     : unicodeNormalize ? { label: "Download normalized text", stem: unicodeNfc ? "unicode-nfc" : "unicode-nfkc", extension: "txt", mime: "text/plain;charset=utf-8" } : null;
@@ -355,8 +434,12 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const next = await readManualToolFile(file, values, target, choices);
       if (!isCurrent()) return;
       setInvalidField("");
+      const diffInputField = diffFileTargets?.find(side => side.target === target)?.field;
       setDraft(current => current.values === values
-        ? { values: { ...values, ...next }, undo: { identity: transformIdentity, values, kind: "import" } }
+        ? {
+          values: { ...values, ...next },
+          undo: { identity: transformIdentity, values, kind: "import", diffInputField },
+        }
         : current);
     } catch (reason) {
       if (isCurrent()) setError(reason instanceof Error ? reason.message :
@@ -385,11 +468,13 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       const response = await call.run({ ...scope, pluginId: tool.pluginId, capabilityId: tool.capabilityId,
         input: prepared.input, catalogRevision: detail.revision, ...(supportsResultActions(api) ? { captureResult: true } : {}) });
       if (!isLatest() || ((independentMerge || workbenchApply) && !ownsExecution())) return;
-      const outcome = manualToolResult(response.result);
+      const outcome = manualToolResult(response.result, jsonObject ? { reference: response.resultRef } : undefined);
       const wire = response.result;
       const declared = wire !== null && typeof wire === "object" && "contractVersion" in wire &&
         wire.contractVersion === "1.0.0-rc.1";
-      if (textDownload && ownsExecution() && outcome.successful && declared && (base64Tool || textLines || stringUnescape || hexEncode || hexDecode || htmlText || unicodeNormalize || outcome.text.trim().length > 0)) {
+      const validTextOutput = textSha256 ? /^[0-9a-f]{64}$/.test(outcome.text) :
+        (base64Tool || textLines || stringUnescape || hexEncode || hexDecode || htmlText || unicodeNormalize || urlDecode || outcome.text.trim().length > 0);
+      if (textDownload && ownsExecution() && outcome.successful && declared && validTextOutput) {
         setDownloadExecution({ identity: transformIdentity, sequence, api, source: values, text: outcome.text });
       }
       if (independentMerge && outcome.successful) {
@@ -432,9 +517,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     label={t(side.label)} inputLabel={t(side.inputLabel)}
     accept={jsonDocument ? ".json" : sqlFormat ? ".sql" : yamlToJson ? ".yaml,.yml" :
       base64Decode ? ".base64,.b64,.txt" : stringUnescape ? ".json,.txt" : hexDecode ? ".txt,.hex" : urlInspect || qrFileTool ? ".txt" :
-        htmlText ? ".html,.htm,.txt" : traceReport ? ".log,.txt,.traceback" : ""}
+        htmlText ? ".html,.htm,.txt" : traceReport ? ".log,.txt,.traceback" : springConfig ? ".json,.yaml,.yml" : ""}
     loadingLabel={jsonDocument ? "Reading JSON file…" : sqlFormat ? "Reading SQL file…" :
-      yamlToJson ? "Reading YAML file…" : "Reading text file…"}
+      yamlToJson ? "Reading YAML file…" : springConfig ? "Reading configuration file…" : "Reading text file…"}
     disabled={editingLocked || !detail?.enabled} loading={fileLoading === side.target}
     onPick={file => { void importFile(file, side.target); }} />);
   return <section className="ui-card tool-detail" aria-labelledby={`${detailId}-title`} aria-busy={running || resourceBusy || fileLoading !== null}>
@@ -445,7 +530,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     {stale && onReload && <button type="button" className="ui-button ui-button--secondary"
       disabled={editingLocked || resourceBusy || reloading} onClick={() => {
         setReloading(true);
-        void onReload().catch(reason => { if (alive.current) setError(manualToolError(reason)); })
+        const contract = detail && supported ? toolDraftContract(tool, detail, revision) : null;
+        const seed = contract ? { contract, read: () => alive.current ? latestValues.current : undefined } : undefined;
+        void onReload(seed).catch(reason => { if (alive.current) setError(manualToolError(reason)); })
           .finally(() => { if (alive.current) setReloading(false); });
       }}>{t(reloading ? "Reloading tool details…" : "Reload tool details")}</button>}
     {call.phase === "cancelled" && <p role="status">{t("Tool cancelled. No result was kept.")}</p>}
@@ -454,18 +541,31 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       {!detail.enabled && <p role="status">{t("Plugin is disabled")}</p>}
       {!detail.enabled && <p>{t("Enable this plugin in Plugin Manager before running its tools.")}</p>}
       {resourceTool ? <ResourceToolRunner tool={tool} detail={detail} api={api} getTarget={getResourceTarget} scope={scope}
-        accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
+        accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} fileOffer={fileOffer} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
+        {springConfig && <div className="ui-toolbar">{documentFileButtons}</div>}
         {fields.map(field => {
           const side = documentFileTargets.find(target => target.field === field.key);
-          const label = side?.fieldLabel ?? (independentMerge ? independentMergeLabels.get(field.key) : undefined);
+          const sqlOption = sqlWithOptions ? sqlOptions.get(field.key) : undefined;
+          const label = side?.fieldLabel ?? sqlOption?.label ?? (independentMerge ? independentMergeLabels.get(field.key) : undefined);
           return <ManualToolInput key={field.key} id={`${detailId}-${field.key}`}
-            field={label ? { ...field, label: t(label) } : field} value={values[field.key]}
+            field={label ? { ...field, label: t(label) } : field} value={values[field.key]} choiceLabels={sqlOption?.choices}
             disabled={editingLocked} invalid={invalidField === field.key}
             compact={independentMerge && (field.key === "leftKey" || field.key === "rightKey")}
             onOmit={() => { setDraft(previous => { const next = { ...previous.values }; delete next[field.key]; return { values: next }; });
               if (invalidField === field.key) { setInvalidField(""); setError(""); } }}
-            onChange={value => setDraft(previous => ({ values: { ...previous.values, [field.key]: value } }))} />;
+            onChange={value => setDraft(previous => {
+              const next = { ...previous.values, [field.key]: value };
+              const previousUndo = previous.undo;
+              const editsOtherDiffSide = diffFileTargets && previousUndo?.diffInputField &&
+                (field.key === "left" || field.key === "right") && field.key !== previousUndo.diffInputField;
+              if (previousUndo?.kind === "import" && previousUndo.identity === transformIdentity &&
+                  (editsOtherDiffSide || (jsonPath && field.key === "query") || (regexMatches && field.key === "pattern"))) {
+                return { values: next, undo: { ...previousUndo, values: { ...previousUndo.values, [field.key]: value } } };
+              }
+              return { values: next };
+            })} />;
         })}
+        {textSha256 && <p className="tool-center-source">{t("The digest uses the current text. Import preserves the UTF-8 BOM, line endings, and trailing spaces.")}</p>}
         {draftFileTool && workbenchDraftActive && <WorkbenchDraftFileActions key={transformIdentity}
           tool={tool} values={values} disabled={!canReadDraft} onRestore={restoreDraftFile} />}
         {jsonSchema && <>
@@ -483,7 +583,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
             loadingLabel={jsonPath ? "Reading JSON file…" : undefined}
             disabled={editingLocked || !detail.enabled} loading={fileLoading === singleFileTarget}
             onPick={file => { void importFile(file, singleFileTarget); }} />}
-          {!jsonSchema && documentFileButtons}
+          {!jsonSchema && !springConfig && documentFileButtons}
           {tableMerge && <>
             <FileImportButton key={"left:" + transformIdentity} label={t("Import left table…")}
               inputLabel={t("Left table file")} disabled={editingLocked || !detail.enabled} loading={fileLoading === leftMergeTarget}
@@ -509,6 +609,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       </div>}
     </>}
     {result !== null && <ManualToolResultView result={result} dataTransform={dataTransform} dataMerge={tableMerge}
+      failureNotice={failureNotice}
       tablePreview={dataTransform ? transformed?.preview ?? null : merged?.preview}
       actions={downloadableResult && textDownload ? <>
         <div className="ui-toolbar">

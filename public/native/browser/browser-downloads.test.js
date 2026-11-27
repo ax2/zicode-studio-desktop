@@ -53,6 +53,66 @@ it("pauses and continues the same live download without replacing its row or pro
   expect(calls).toContainEqual({ kind: "downloadResume", id: "one" });
   expect(getByRole(row, "button", { name: t("Pause download") })).toBe(pause);
 });
+it("shows each operation's own progress and keeps retry approval separate", async () => {
+  const stale = "No recent progress. Cancel to try again.";
+  const needsSave = "Confirm where to save this download, or cancel it.";
+  let original = { ...item("original", "downloading", 25), stalled: true };
+  let waiting = item("resumed", "waiting", 62);
+  const deliberate = item("deliberate");
+  const calls = [];
+  const dialog = showBrowserDownloads({ invoke: async (_, { request }) => {
+    calls.push(request);
+    if (request.kind === "downloadSave") {
+      waiting = { ...waiting, state: "downloading" };
+      return null;
+    }
+    return page([original, waiting, deliberate]);
+  } });
+  await tick();
+  const row = id => dialog.querySelector('[data-download-id="' + id + '"]');
+  expect(row("original").textContent).toContain(t(stale));
+  expect(getByRole(row("original"), "button", { name: t("Cancel download") })).toBeTruthy();
+  expect(row("resumed").textContent).toContain("62 B / 100 B");
+  expect(row("resumed").textContent).toContain(t(needsSave));
+  expect(row("deliberate").textContent).not.toContain(t(needsSave));
+  expect(calls).toEqual([{ kind: "downloads", before: null }]);
+
+  original = { ...original, received: 35, stalled: false };
+  await vi.advanceTimersByTimeAsync(500);
+  expect(row("original").textContent).not.toContain(t(stale));
+  getByRole(row("resumed"), "button", { name: t("Save to Downloads") }).click();
+  await tick();
+  expect(calls.filter(request => request.kind.startsWith("download") && request.kind !== "downloads"))
+    .toEqual([{ kind: "downloadSave", id: "resumed" }]);
+  expect(row("resumed").textContent).not.toContain(t(needsSave));
+  expect(getByRole(row("deliberate"), "button", { name: t("Save to Downloads") })).toBeTruthy();
+});
+it("explains how to start a new download after restart while keeping approval on the new request", async () => {
+  const guidance = "This download can’t be resumed after Studio closes. Return to the page that started it, download again, and choose where to save when prompted.";
+  const previous = { ...item("lost", "interrupted", null), error: "Studio closed before this download finished" };
+  const anotherInterruption = { ...item("failed-before-restart", "interrupted"), error: "Interrupted" };
+  const cancelled = item("cancelled", "cancelled");
+  const completed = { ...item("completed", "completed"), path: "C:/fixture/complete.txt" };
+  let entries = [previous, anotherInterruption, cancelled, completed];
+  const invoke = vi.fn(async () => ({ ...page(entries) }));
+  const dialog = showBrowserDownloads({ invoke }); await tick();
+  const row = id => dialog.querySelector('[data-download-id="' + id + '"]');
+  expect(row("lost").textContent).toContain(t(guidance));
+  expect(row("lost").querySelector("a")).toBeNull();
+  expect(getByRole(row("lost"), "button", { name: t("Remove from list") })).toBeTruthy();
+  expect(row("lost").querySelectorAll("button:not([hidden])")).toHaveLength(1);
+  for (const id of ["failed-before-restart", "cancelled", "completed"]) {
+    expect(row(id).textContent).not.toContain(t(guidance));
+  }
+  expect(invoke.mock.calls.map(([, options]) => options.request)).toEqual([{ kind: "downloads", before: null }]);
+
+  entries = [item("new"), ...entries];
+  await vi.advanceTimersByTimeAsync(500);
+  expect(row("new").textContent).not.toContain(t(guidance));
+  getByRole(row("new"), "button", { name: t("Save to Downloads") }).click(); await tick();
+  expect(invoke.mock.calls.map(([, options]) => options.request).filter(request => request.kind !== "downloads"))
+    .toEqual([{ kind: "downloadSave", id: "new" }]);
+});
 it("retains errors and permits retry/cancel after a rejected save", async () => {
   const calls = []; const invoke = async (_, { request }) => {
     calls.push(request);
@@ -64,6 +124,49 @@ it("retains errors and permits retry/cancel after a rejected save", async () => 
   expect(dialog.textContent).toContain("Location unavailable");
   getByRole(dialog, "button", { name: t("Cancel download") }).click(); await tick();
   expect(calls).toContainEqual({ kind: "downloadCancel", id: "two" });
+});
+
+it.each([true, false])("shows an action error only when its download remains in the search (visible: %s)", async visible => {
+  let fail;
+  const calls = [];
+  const records = [
+    { ...item("first", "failed", 25), name: "shared.txt", canResume: false },
+    { ...item("replacement", "waiting", 60), name: "shared.txt" },
+    { ...item("unrelated"), name: "different.txt", url: "https://example.org/unrelated" },
+  ];
+  const invoke = async (_, { request }) => {
+    if (request.kind === "downloads") {
+      return page(records.filter(record => record.name.includes(request.query ?? "")));
+    }
+    calls.push(request);
+    if (calls.length === 1) return new Promise((_, reject) => { fail = reject; });
+    return null;
+  };
+  const dialog = showBrowserDownloads({ invoke });
+  await tick();
+  const row = id => dialog.querySelector(`[data-download-id="${id}"]`);
+  const choose = () => getByRole(row("replacement"), "button", { name: t("Choose save location") });
+  choose().click();
+  const search = getByRole(dialog, "searchbox");
+  const searchFor = query => {
+    search.value = query;
+    search.focus();
+    search.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  };
+  searchFor(visible ? "shared" : "different");
+  fail(Error("Download file picker unavailable"));
+  await tick();
+
+  expect(getByRole(dialog, "status").textContent).toBe(visible ? t("Download file picker unavailable") : "");
+  expect(document.activeElement).toBe(search);
+  expect(Boolean(row("replacement"))).toBe(visible);
+  expect(calls).toEqual([{ kind: "downloadChoose", id: "replacement" }]);
+
+  if (!visible) { searchFor("shared"); await tick(); }
+  choose().click();
+  await tick();
+  expect(calls).toEqual([{ kind: "downloadChoose", id: "replacement" }, { kind: "downloadChoose", id: "replacement" }]);
+  expect(row("first").textContent).toContain(t("Download failed"));
 });
 it("serializes polling, ignores late responses after close and stops polling", async () => {
   let resolve; const invoke = vi.fn(() => new Promise(done => { resolve = done; }));
@@ -308,6 +411,26 @@ it("does not regress a live update with an older list response or reinsert remov
   expect(dialog.querySelectorAll('[role="listitem"]')).toHaveLength(0);
 });
 
+it("applies the latest event to a row first returned by a pending page", async () => {
+  let emit, finish;
+  const invoke = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  const dialog = showBrowserDownloads({ invoke, subscribe: listener => { emit = listener; } });
+  emit(item("first", "downloading", 54));
+  emit(item("first", "cancelled", 54));
+  emit(item("outside-query", "completed", 100));
+  expect(dialog.querySelectorAll('[role="listitem"]')).toHaveLength(0);
+  finish(page([item("first"), item("separate")]));
+  await tick();
+  const first = dialog.querySelector('[data-download-id="first"]');
+  expect(first.textContent).toContain(t("Download cancelled"));
+  expect(first.textContent).toContain("54 B / 100 B");
+  expect(first.querySelectorAll("button:not([hidden])")).toHaveLength(1);
+  expect(getByRole(first, "button", { name: t("Remove from list") })).toBeTruthy();
+  expect(dialog.querySelector('[data-download-id="outside-query"]')).toBeNull();
+  expect(getByRole(dialog.querySelector('[data-download-id="separate"]'), "button", { name: t("Save to Downloads") })).toBeTruthy();
+  expect(invoke).toHaveBeenCalledOnce();
+});
+
 it("reloads the latest search immediately when the user returns to the pending keyword", async () => {
   let finishOldSearch;
   let matchingReads = 0;
@@ -399,4 +522,44 @@ it("drops queued pagination when the download search changes", async () => {
   expect(dialog.querySelector('[data-download-id="report"]')).not.toBeNull();
   expect(dialog.querySelector('[data-download-id="recent"]')).toBeNull();
   expect(document.activeElement).toBe(search);
+});
+
+it("switches only to the exact available tab of a lost operation, without replaying a download", async () => {
+  const firstTab = { id: "tab-one" };
+  const recovery = { ...item("old", "interrupted"), tab: firstTab.id, error: "Studio closed before this download finished" };
+  const entries = [
+    recovery,
+    { ...recovery, id: "same-url-other-tab", tab: "tab-two" },
+    { ...recovery, id: "cancelled", state: "cancelled" },
+    { ...recovery, id: "paused", state: "paused", canResume: true },
+  ];
+  const invoke = vi.fn(async () => page(entries));
+  const onSwitchTab = vi.fn(async () => true), onClose = vi.fn();
+  const dialog = showBrowserDownloads({ invoke, getDownloadTab: id => id === firstTab.id ? firstTab : undefined, onSwitchTab, onClose });
+  await tick();
+  const label = t("Switch to download tab");
+  const button = getByRole(dialog.querySelector('[data-download-id="old"]'), "button", { name: label });
+  expect([...dialog.querySelectorAll("button")].filter(node => !node.hidden && node.textContent === label)).toEqual([button]);
+  button.click(); await tick();
+  expect(onSwitchTab).toHaveBeenCalledExactlyOnceWith(firstTab);
+  expect(onClose).toHaveBeenCalledExactlyOnceWith(firstTab.id);
+  expect(invoke.mock.calls.map(([, { request }]) => request.kind)).toEqual(["downloads"]);
+});
+
+it("keeps the recovery guide visible if the selected download tab is no longer available", async () => {
+  const target = { id: "closed-tab" };
+  let live = target;
+  const invoke = vi.fn(async () => page([{ ...item("old", "interrupted"), tab: target.id,
+    error: "Studio closed before this download finished" }]));
+  const dialog = showBrowserDownloads({ invoke, getDownloadTab: () => live, onSwitchTab: async tab => tab === live });
+  await tick();
+  const label = t("Switch to download tab");
+  const button = getByRole(dialog, "button", { name: label });
+  live = undefined;
+  button.click(); await tick();
+  expect(dialog.open).toBe(true);
+  expect(getByRole(dialog, "status").textContent).toBe(t("Browser tab is no longer available"));
+  expect(button.hidden).toBe(true);
+  expect(dialog.textContent).toContain(t("This download can’t be resumed after Studio closes. Return to the page that started it, download again, and choose where to save when prompted."));
+  expect(invoke.mock.calls.every(([, { request }]) => request.kind === "downloads")).toBe(true);
 });

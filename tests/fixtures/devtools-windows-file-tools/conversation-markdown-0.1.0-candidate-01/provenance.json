@@ -1,0 +1,580 @@
+{
+  "sourceRevision": "93191a00f3bb512b5d72e15654070a0d15cc6977",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T22:55:13.577518+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "e8b8bce967c3f240671a13e93a9db157d6393bb3f8b793e56606f280cd3cf376",
+  "workerVerification": {
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "wasmSha256": "e8b8bce967c3f240671a13e93a9db157d6393bb3f8b793e56606f280cd3cf376",
+    "wasmBytes": 219938,
+    "inputProfile": "resource.wasi.input.draft2",
+    "outputProfile": "resource.wasi.output.draft1",
+    "cases": [
+      {
+        "case": "portable-two-turns",
+        "mime": "application/octet-stream",
+        "inputBytes": 385,
+        "sourceSha256": "2146551e4021f15264d776fb7ab51b02c18279f1e42f5d09c0c2578b3bcfcfd3",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 399,
+          "sha256": "4174bddbec89fe75630fe7235b42e431263c1d5ea43cc6cfa349af423be87317",
+          "data": {
+            "markdownBytes": 399,
+            "sourceBytes": 385,
+            "sourceSha256": "2146551e4021f15264d776fb7ab51b02c18279f1e42f5d09c0c2578b3bcfcfd3",
+            "text": "已转换 2 轮完整问答\nMarkdown 399 字节\n请确认保存新文件。",
+            "turns": 2
+          }
+        }
+      },
+      {
+        "case": "portable-bom-and-whitespace",
+        "mime": "text/plain",
+        "inputBytes": 394,
+        "sourceSha256": "e16cda5a6a1fdfe934c2144065a4f2cb15f0b6196c2f4dd1718f9e614d567026",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 399,
+          "sha256": "4174bddbec89fe75630fe7235b42e431263c1d5ea43cc6cfa349af423be87317",
+          "data": {
+            "markdownBytes": 399,
+            "sourceBytes": 394,
+            "sourceSha256": "e16cda5a6a1fdfe934c2144065a4f2cb15f0b6196c2f4dd1718f9e614d567026",
+            "text": "已转换 2 轮完整问答\nMarkdown 399 字节\n请确认保存新文件。",
+            "turns": 2
+          }
+        }
+      },
+      {
+        "case": "all-16-turns",
+        "mime": "application/octet-stream",
+        "inputBytes": 1580,
+        "sourceSha256": "2204d0039d0e008c12bb73407791608f9bfc697895f5267b8ae566006b39b71d",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 1748,
+          "sha256": "b6aa9af2f3665b2ea20cec4dec37287178b86d403494c7aedf010aaef25b478e",
+          "data": {
+            "markdownBytes": 1748,
+            "sourceBytes": 1580,
+            "sourceSha256": "2204d0039d0e008c12bb73407791608f9bfc697895f5267b8ae566006b39b71d",
+            "text": "已转换 16 轮完整问答\nMarkdown 1748 字节\n请确认保存新文件。",
+            "turns": 16
+          }
+        }
+      },
+      {
+        "case": "literal-html-and-special-characters",
+        "mime": "application/octet-stream",
+        "inputBytes": 207,
+        "sourceSha256": "ee42091eee28cdb5699d7b52572d79f2d9e83f2420f8bfdc941a8ca81f0b3c60",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 220,
+          "sha256": "7bc72c41b9eadab63d80b3d070d75b2f53f6c05f2e540e423ccc4901b982243a",
+          "data": {
+            "markdownBytes": 220,
+            "sourceBytes": 207,
+            "sourceSha256": "ee42091eee28cdb5699d7b52572d79f2d9e83f2420f8bfdc941a8ca81f0b3c60",
+            "text": "已转换 1 轮完整问答\nMarkdown 220 字节\n请确认保存新文件。",
+            "turns": 1
+          }
+        }
+      },
+      {
+        "case": "exact-64k-plain",
+        "mime": "application/octet-stream",
+        "inputBytes": 65536,
+        "sourceSha256": "594f74dc036a2b2f20be2895a9cc8913b63ec0858c001f25a954bd93c88af042",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 65540,
+          "sha256": "ec4b70b7dad6db9bb4635bdb9964aa8ea61e43028882678fd2ce217e2a8c38fd",
+          "data": {
+            "markdownBytes": 65540,
+            "sourceBytes": 65536,
+            "sourceSha256": "594f74dc036a2b2f20be2895a9cc8913b63ec0858c001f25a954bd93c88af042",
+            "text": "已转换 1 轮完整问答\nMarkdown 65540 字节\n请确认保存新文件。",
+            "turns": 1
+          }
+        }
+      },
+      {
+        "case": "exact-64k-utf8",
+        "mime": "application/octet-stream",
+        "inputBytes": 65536,
+        "sourceSha256": "5f19076bfa62348858ea432cbda21477c27a363a2fa1dbc627b1d3495dc70d3e",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 65540,
+          "sha256": "482c8cd035852d2cccea3ff646d88c61a240746f1594aa18227acf750d0e1d60",
+          "data": {
+            "markdownBytes": 65540,
+            "sourceBytes": 65536,
+            "sourceSha256": "5f19076bfa62348858ea432cbda21477c27a363a2fa1dbc627b1d3495dc70d3e",
+            "text": "已转换 1 轮完整问答\nMarkdown 65540 字节\n请确认保存新文件。",
+            "turns": 1
+          }
+        }
+      },
+      {
+        "case": "exact-64k-longest-fence",
+        "mime": "application/octet-stream",
+        "inputBytes": 65536,
+        "sourceSha256": "8b9817a1372cf5ea2df9242cc6abd59c3375e626b800116d3292c5579bb9bdc6",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 196356,
+          "sha256": "d733ee2fef5406160e9d733647fc0a1cb090a6bd6e63936ab21c39b62f7d413c",
+          "data": {
+            "markdownBytes": 196356,
+            "sourceBytes": 65536,
+            "sourceSha256": "8b9817a1372cf5ea2df9242cc6abd59c3375e626b800116d3292c5579bb9bdc6",
+            "text": "已转换 1 轮完整问答\nMarkdown 196356 字节\n请确认保存新文件。",
+            "turns": 1
+          }
+        }
+      },
+      {
+        "case": "exact-64k-alternating-fence",
+        "mime": "application/octet-stream",
+        "inputBytes": 65536,
+        "sourceSha256": "f83b08fa55d16a0be50d060ba98ff1508109a02b8dbac7bcfbee4814fa702c5a",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 65539,
+          "sha256": "d560fb4f0a7e4da4c45db21f44b3bee3e6e693849750df3c57bc6013a1b62116",
+          "data": {
+            "markdownBytes": 65539,
+            "sourceBytes": 65536,
+            "sourceSha256": "f83b08fa55d16a0be50d060ba98ff1508109a02b8dbac7bcfbee4814fa702c5a",
+            "text": "已转换 1 轮完整问答\nMarkdown 65539 字节\n请确认保存新文件。",
+            "turns": 1
+          }
+        }
+      },
+      {
+        "case": "exact-escape-limit-quotes",
+        "mime": "application/octet-stream",
+        "inputBytes": 65536,
+        "sourceSha256": "e78eae7d9749f1fd65c78643368994feb61f67ad4254e7f8854b47ac9b5ac0f5",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 12419,
+          "sha256": "8df6379755f4254027cfa20d3c3c3f7e508f780db03a0dd3902a38801a9e1448",
+          "data": {
+            "markdownBytes": 12419,
+            "sourceBytes": 65536,
+            "sourceSha256": "e78eae7d9749f1fd65c78643368994feb61f67ad4254e7f8854b47ac9b5ac0f5",
+            "text": "已转换 1 轮完整问答\nMarkdown 12419 字节\n请确认保存新文件。",
+            "turns": 1
+          }
+        }
+      },
+      {
+        "case": "exact-escape-limit-backslashes",
+        "mime": "application/octet-stream",
+        "inputBytes": 65536,
+        "sourceSha256": "6b6a45eeb5eb6e6c5e0e902909c83469ff1d1d4cebdfcc0096392d3a0c7e8716",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 12419,
+          "sha256": "13cbdc07ab70cee8549480a931b05536544513ec5934f323b1b8463b00c39e06",
+          "data": {
+            "markdownBytes": 12419,
+            "sourceBytes": 65536,
+            "sourceSha256": "6b6a45eeb5eb6e6c5e0e902909c83469ff1d1d4cebdfcc0096392d3a0c7e8716",
+            "text": "已转换 1 轮完整问答\nMarkdown 12419 字节\n请确认保存新文件。",
+            "turns": 1
+          }
+        }
+      },
+      {
+        "case": "exact-escape-limit-mixed",
+        "mime": "application/octet-stream",
+        "inputBytes": 65536,
+        "sourceSha256": "f1b761b44daf1724a2a826fe3188f9ed6f5da5d2ba4ca3b39d0067eea2b70338",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 12419,
+          "sha256": "70d5adad11ed5e1fa26c3c4a4cab71ca3aa511a75a8ef635adf6773dbdba5c90",
+          "data": {
+            "markdownBytes": 12419,
+            "sourceBytes": 65536,
+            "sourceSha256": "f1b761b44daf1724a2a826fe3188f9ed6f5da5d2ba4ca3b39d0067eea2b70338",
+            "text": "已转换 1 轮完整问答\nMarkdown 12419 字节\n请确认保存新文件。",
+            "turns": 1
+          }
+        }
+      },
+      {
+        "case": "exact-escape-limit-newlines",
+        "mime": "application/octet-stream",
+        "inputBytes": 65536,
+        "sourceSha256": "c39380c80710556c0eaf692af44ddfbf2719a4049f2e0c7451ea8eb219ef056c",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 12419,
+          "sha256": "b4a66810095eaa5b80229e1ace7e56b7a4771de16ce6bf0e29a80f325756478e",
+          "data": {
+            "markdownBytes": 12419,
+            "sourceBytes": 65536,
+            "sourceSha256": "c39380c80710556c0eaf692af44ddfbf2719a4049f2e0c7451ea8eb219ef056c",
+            "text": "已转换 1 轮完整问答\nMarkdown 12419 字节\n请确认保存新文件。",
+            "turns": 1
+          }
+        }
+      },
+      {
+        "case": "escape-limit-plus-one",
+        "mime": "application/octet-stream",
+        "inputBytes": 24704,
+        "sourceSha256": "1f2523d6fca0a497207dbe9726a980e760e0f1c469b24a08f78111425d257891",
+        "options": {},
+        "error": {
+          "code": "ESCAPE_LIMIT",
+          "message": "会话 JSON 包含过多转义（上限 12,288 个），请拆分导出后重试。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "previous-64k-escape-fuel-failure",
+        "mime": "application/octet-stream",
+        "inputBytes": 65536,
+        "sourceSha256": "a56a9ded2c0182ba88a11d6c970f6f87ba45068538091d0589fe669cb38272e2",
+        "options": {},
+        "error": {
+          "code": "ESCAPE_LIMIT",
+          "message": "会话 JSON 包含过多转义（上限 12,288 个），请拆分导出后重试。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "unicode-escapes-including-surrogate-pairs",
+        "mime": "application/octet-stream",
+        "inputBytes": 65536,
+        "sourceSha256": "581ed88f05cfcc81fb073833a489c8c42a65bf680970184873f4c69cde8114c6",
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/markdown",
+          "bytes": 24130,
+          "sha256": "bde6a43a85d2ac1d555c64451051d59a38fa662f738e879c111118a4c4634566",
+          "data": {
+            "markdownBytes": 24130,
+            "sourceBytes": 65536,
+            "sourceSha256": "581ed88f05cfcc81fb073833a489c8c42a65bf680970184873f4c69cde8114c6",
+            "text": "已转换 1 轮完整问答\nMarkdown 24130 字节\n请确认保存新文件。",
+            "turns": 1
+          }
+        }
+      },
+      {
+        "case": "file-limit-plus-one",
+        "mime": "application/octet-stream",
+        "inputBytes": 65537,
+        "sourceSha256": "978ea42ce625191604eb94055b0ba92b2db5568565ed20ed8c32b6237c0f64b5",
+        "options": {},
+        "error": {
+          "code": "FILE_LIMIT",
+          "message": "本次导入的会话 JSON 最多 64 KiB。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "invalid-utf8",
+        "mime": "application/octet-stream",
+        "inputBytes": 1,
+        "sourceSha256": "a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "comment-is-not-json",
+        "mime": "application/octet-stream",
+        "inputBytes": 396,
+        "sourceSha256": "bcc28ccd1cda9d8941c5101ca8bf06de80f3d93f22accf70d71e58cf8cc716da",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "wrong-root-fields",
+        "mime": "application/octet-stream",
+        "inputBytes": 422,
+        "sourceSha256": "6bb2380d0ebbc9ec693257588285d3c3d1c3dd239bda34b0825c11b2026b5e16",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "wrong-schema",
+        "mime": "application/octet-stream",
+        "inputBytes": 391,
+        "sourceSha256": "f7c69673fea3f6014149602bcda49adcb2fa3cb668408434ca6db01f5983cfb6",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "wrong-version",
+        "mime": "application/octet-stream",
+        "inputBytes": 385,
+        "sourceSha256": "c10be7349a862095fdfbde655bcbbafd2b1ce59e436f2a09049c134be4f027dc",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "missing-reply",
+        "mime": "application/octet-stream",
+        "inputBytes": 300,
+        "sourceSha256": "e748869b5193bc064b032aee3692edbb8e9030adccfa0d26a3be80741ad43335",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "zero-turns",
+        "mime": "application/octet-stream",
+        "inputBytes": 63,
+        "sourceSha256": "565f36f4bb09aa12dc6ce72ab075930a79cc6416d620c5e6d73dbdd5bc08f837",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "seventeen-turns",
+        "mime": "application/octet-stream",
+        "inputBytes": 1167,
+        "sourceSha256": "c6f2472e0f008bc6595d5b6f071058211f1e61c7a42a37878a5901e0e12f596e",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "empty-question",
+        "mime": "application/octet-stream",
+        "inputBytes": 129,
+        "sourceSha256": "42459d48a094636861a073266f4b3d25559e4017c01b5a10c12d9ddc496f45f6",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "empty-answer",
+        "mime": "application/octet-stream",
+        "inputBytes": 132,
+        "sourceSha256": "e447348661a8cf0ba7f228aad2de4c69c222b93a6f021d4a5d340f51de2e2b4e",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "unexpected-role-order",
+        "mime": "application/octet-stream",
+        "inputBytes": 390,
+        "sourceSha256": "951933abf2245338ddf252a76edd645a51e3d2c49e4d76b25f07524292087ab0",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "system-message",
+        "mime": "application/octet-stream",
+        "inputBytes": 387,
+        "sourceSha256": "6e2a6da9106e70a9f7bfc431a131642da152ca573c5931b15ca86ada2d99890d",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "tool-message",
+        "mime": "application/octet-stream",
+        "inputBytes": 380,
+        "sourceSha256": "dc48b3322c61609985a745273a7dcc1dcf9a19586a395c268f1598299c16399c",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "tool-data-field",
+        "mime": "application/octet-stream",
+        "inputBytes": 401,
+        "sourceSha256": "15345297fcf604a0617d5919dd7842840683bd9c906b914f536e53baa9bb2eed",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "object-content",
+        "mime": "application/octet-stream",
+        "inputBytes": 328,
+        "sourceSha256": "2908b3175c886745d80e47becff0e8315d93fc2e30c3e1fd41c16013528e57e1",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "duplicate-root-fields",
+        "mime": "application/octet-stream",
+        "inputBytes": 397,
+        "sourceSha256": "6976e2be060900e1734b0831784caae4b69a60573cf7a517cd07a99d939ec683",
+        "options": {},
+        "error": {
+          "code": "INVALID_CONVERSATION",
+          "message": "须为独立版版本 1 的 UTF-8 会话 JSON，包含 1–16 轮完整问答。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "resource-not-text",
+        "mime": "image/png",
+        "inputBytes": 385,
+        "sourceSha256": "2146551e4021f15264d776fb7ab51b02c18279f1e42f5d09c0c2578b3bcfcfd3",
+        "options": {},
+        "error": {
+          "code": "INVALID_RESOURCE",
+          "message": "请选择并确认一份独立版导出的会话 JSON。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "unsupported-extra-setting",
+        "mime": "application/octet-stream",
+        "inputBytes": 385,
+        "sourceSha256": "2146551e4021f15264d776fb7ab51b02c18279f1e42f5d09c0c2578b3bcfcfd3",
+        "options": {
+          "model": "synthetic"
+        },
+        "error": {
+          "code": "INVALID_REQUEST",
+          "message": "会话转换请求无效。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "wrong-resource-content-digest",
+        "mime": "application/octet-stream",
+        "inputBytes": 385,
+        "sourceSha256": "2146551e4021f15264d776fb7ab51b02c18279f1e42f5d09c0c2578b3bcfcfd3",
+        "options": {},
+        "error": {
+          "code": "INVALID_RESOURCE",
+          "message": "请选择并确认一份独立版导出的会话 JSON。"
+        },
+        "hostError": "Resource Worker content mismatch",
+        "output": null
+      }
+    ],
+    "failures": []
+  }
+}

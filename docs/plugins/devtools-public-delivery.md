@@ -2,6 +2,8 @@
 
 Studio 的工具中心可以安装独立的开发插件。v0.7.1 的公开源码保存了下表九个提供方候选目录和对应的外部收据。可只取需要的包，在安装前逐文件核验。具备完整 Studio 源码的机器可直接使用现有目录，无需再下载。
 
+当前源码将这批冻结包保存在 `tests/fixtures/devtools-9c17-bundle/release/`，表中位置和包收据继续适用。已有的旧版检出也可以离线使用。下文按[固定历史提交](https://github.com/ax2/zicode-studio-desktop/tree/01b44da4fd8432a43d78f73cf5c022f3c7c56b60/tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle)取包，因此仍使用该提交中的原目录。
+
 | 插件 ID 后缀 | 版本 | 包目录（相对 release） | 核对文件数 |
 | --- | --- | --- | ---: |
 | inspect | 0.1.2 | plugin-candidates/inspect-0.1.2-candidate-01 | 616 |
@@ -125,3 +127,63 @@ $dest = 'studio-plugin-encoding'
 这四个目录沿用提供方已交付的无签名候选及外部收据。各自 `provenance.json` 保留 `dirty: true`，所以固定提交和校验收据用于取得并复核本次验收的候选字节。在开启 CRLF 转换的全新 Windows 目录按固定提交回下载，31 个包文件与 4 份外部收据逐一匹配。
 
 2026-11-23 用相同字节通过六次隔离 Windows Host 与真实 Worker 运行。文件摘要覆盖 96 MiB 文件、64 文件批次、进度、取消、撤权和原文件接力。清单覆盖确认目录、核对及生成。编码覆盖 8 MiB 检测和输入、七种编码转换、16 MiB 确认保存、冲突及原件替换。JSON 覆盖查询、有序与无序对比、明确确认后写入和结果字节回读。所有编码分支集中留在一个测试 Host 时曾收到 409，分到独立 Host 后各路径通过，未修改产品预算。原生文件选择与系统另存窗口仍列入集中验收。
+
+## 2026-11-25 获取已验证的 Windows 工具候选
+
+这一批将历史 Windows 矩阵中 16 个尚未映射的源工具带入 Studio。所列范围已在隔离 Windows Studio 用实际工具中心、Host 和 Worker 验证。20 个候选共 37 个按插件 ID 区分的能力入口。表中的验收记录写明输入限制和剩余的源工具功能。
+
+按「只取一个包」的步骤，将示例中的 `$dir`、`$receipt`、`$commit` 和 `$dest` 替换成下方四项。选择其他候选时，只需将 `$package` 改成表中候选目录的最后一段。
+
+```powershell
+$package = 'service-config-0.1.0-candidate-01'
+$dir = "tests/fixtures/devtools-windows-file-tools/$package"
+$receipt = "$dir-verification.json"
+$commit = 'b9c9310ff3dab4b244cf87d5289e672af4903c0e'
+$dest = "studio-plugin-$package"
+```
+
+在插件管理安装通过校验的目录，审核所需权限，再从工具中心搜索验收记录列出的名称。每台机器各自安装和确认文件权限。这一批以独立、未签名的候选目录提供。
+
+| 源工具（版本） | Studio 已验证入口 | 冻结候选与能力清单 | 收据 | 独立版仍待补齐的范围 |
+| --- | --- | --- | --- | --- |
+| 全能计算器 0.15.0（advanced-calculator） | [非线性方程求根](../iterations/2026-11-25-root-solver.md) | [root-solver-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/root-solver-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/root-solver-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/root-solver-0.1.0-candidate-01-verification.json) | 方程工作表、曲线图、变量持久化 |
+| 全能计算器 0.15.0（advanced-calculator） | [公式计算器](../iterations/2026-11-25-expression-calculator.md) | [expression-calculator-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/expression-calculator-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/expression-calculator-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/expression-calculator-0.1.0-candidate-01-verification.json) | 原生工作表与变量持久化 |
+| 全能计算器 0.15.0（advanced-calculator） | [矩阵计算](../iterations/2026-11-25-matrix-calculator.md) | [matrix-calculator-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/matrix-calculator-0.1.0-candidate-01) / [7 项](../../tests/fixtures/devtools-windows-file-tools/matrix-calculator-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/matrix-calculator-0.1.0-candidate-01-verification.json) | 原生工作表与多步接力 |
+| 全能计算器 0.15.0（advanced-calculator） | [日期与工作日](../iterations/2026-11-25-date-calculator.md) | [date-calculator-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/date-calculator-0.1.0-candidate-01) / [4 项](../../tests/fixtures/devtools-windows-file-tools/date-calculator-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/date-calculator-0.1.0-candidate-01-verification.json) | 原生工作表与日期结果接力 |
+| 全能计算器 0.15.0（advanced-calculator） | [数值统计](../iterations/2026-11-25-numeric-statistics.md) | [numeric-statistics-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/numeric-statistics-0.1.0-candidate-01) / [7 项](../../tests/fixtures/devtools-windows-file-tools/numeric-statistics-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/numeric-statistics-0.1.0-candidate-01-verification.json) | 原生工作表与统计结果接力 |
+| Agent 记录查看器 1.1.0（agent-replay） | [Agent 运行记录检查](../iterations/2026-11-25-agent-record.md) | [agent-record-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/agent-record-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/agent-record-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/agent-record-0.1.0-candidate-01-verification.json) | 批量归档检索、超过 64 KiB 的记录 |
+| 网页与对话收集 1.2.0（browser-clipper） | [本机 HTML 正文预览](../iterations/2026-11-25-local-html.md) | [local-html-0.1.0-candidate-02](../../tests/fixtures/devtools-windows-file-tools/local-html-0.1.0-candidate-02) / [1 项](../../tests/fixtures/devtools-windows-file-tools/local-html-0.1.0-candidate-02/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/local-html-0.1.0-candidate-02-verification.json) | 网页和对话采集、来源接力 |
+| 万年历与日程 1.7.0（calendar-planner） | [ICS 日程预览](../iterations/2026-11-25-ics-preview.md) | [ics-preview-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/ics-preview-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/ics-preview-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/ics-preview-0.1.0-candidate-01-verification.json) | 日程写入、重复展开和提醒 |
+| 工作区与工具集合 0.3.0（command-collections） | [工具集合导入预览](../iterations/2026-11-25-tool-collections.md) | [tool-collections-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/tool-collections-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/tool-collections-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/tool-collections-0.1.0-candidate-01-verification.json) | 实际导入、持久合并与提交 |
+| 批量重命名 0.1.0（file-rename） | [批量改名预览](../iterations/2026-11-25-batch-rename-preview.md) | [rename-preview-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/rename-preview-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/rename-preview-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/rename-preview-0.1.0-candidate-01-verification.json) | 多选实际改名、提交复核及撤销 |
+| 日志工作台 0.2.0（log-viewer） | [本机日志筛选与末尾预览](../iterations/2026-11-25-local-log-filter.md) | [log-viewer-0.2.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/log-viewer-0.2.0-candidate-01) / [2 项](../../tests/fixtures/devtools-windows-file-tools/log-viewer-0.2.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/log-viewer-0.2.0-candidate-01-verification.json) | 实时跟踪与超出末尾窗口的内容 |
+| 备忘资料库互通 0.4.0（memo-library） | [备忘导入预览](../iterations/2026-11-25-memo-text-preview.md) | [memo-text-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/memo-text-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/memo-text-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/memo-text-0.1.0-candidate-01-verification.json) | 导入写入、批次合并和资料库恢复 |
+| PDF 文本提取 0.0.0（pdf-text） | [提取 PDF 单页文本](../iterations/2026-11-25-pdf-page-text.md) | [pdf-text-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/pdf-text-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/pdf-text-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/pdf-text-0.1.0-candidate-01-verification.json) | 多页范围、扫描页 OCR、独立版完整交付 |
+| 日程进阶与互通 0.1.0（planner-interop） | [ICS 重复截止预览](../iterations/2026-11-25-ics-count-cutoff.md) | [ics-count-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/ics-count-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/ics-count-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/ics-count-0.1.0-candidate-01-verification.json) | 农历生日、复杂例外和系统通知 |
+| 提示词模板库 0.1.0（prompt-library） | [提示词变量检查和模板展开](../iterations/2026-11-25-prompt-expansion.md) | [prompt-expansion-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/prompt-expansion-0.1.0-candidate-01) / [2 项](../../tests/fixtures/devtools-windows-file-tools/prompt-expansion-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/prompt-expansion-0.1.0-candidate-01-verification.json) | 完整模板库、持久化及管理 |
+| RAG 质量评测 1.0.0（rag-eval） | [检索评测报告复核](../iterations/2026-11-25-retrieval-review.md) | [retrieval-review-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/retrieval-review-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/retrieval-review-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/retrieval-review-0.1.0-candidate-01-verification.json) | 本机索引、数据集编辑与模型评测 |
+| 文档解析与分块 1.4.0（rag-ingestion） | [DOCX 正文分块预览](../iterations/2026-11-25-docx-chunk-preview.md) | [docx-preview-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/docx-preview-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/docx-preview-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/docx-preview-0.1.0-candidate-01-verification.json) | 完整多格式解析、OCR、后续索引 |
+| 本地知识源管理 1.2.0（rag-sources） | [知识源文件预检](../iterations/2026-11-25-knowledge-source-preflight.md) | [knowledge-preflight-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/knowledge-preflight-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/knowledge-preflight-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/knowledge-preflight-0.1.0-candidate-01-verification.json) | 递归扫描、内容读取和索引 |
+| 本地服务管理 1.8.0（services） | [本地服务配置预检](../iterations/2026-11-25-service-config-preflight.md) | [service-config-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/service-config-0.1.0-candidate-01) / [1 项](../../tests/fixtures/devtools-windows-file-tools/service-config-0.1.0-candidate-01/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/service-config-0.1.0-candidate-01-verification.json) | 实际导入、服务启动、停止及管理 |
+| 文本 / 表格流程 1.13.0（text-flow） | [文本流程配方检查](../iterations/2026-11-25-flow-recipe-inspection.md) | [flow-recipe-0.1.0-candidate-02](../../tests/fixtures/devtools-windows-file-tools/flow-recipe-0.1.0-candidate-02) / [1 项](../../tests/fixtures/devtools-windows-file-tools/flow-recipe-0.1.0-candidate-02/catalog.json) | [逐件 SHA-256](../../tests/fixtures/devtools-windows-file-tools/flow-recipe-0.1.0-candidate-02-verification.json) | 完整配方执行、批处理和工作流接力 |
+
+Windows 全新稀疏检出启用 CRLF 转换后，20 份外部收据与 160 个包文件（6,914,976 字节）逐项匹配。核对了包身份、源工具 ID 以及清单声明的 37 个能力。来源版本来自 [ZiDevTools 目录提交](https://github.com/ax2/zi-devtools/blob/ebc79dc3ab9fa08c7240767b6e4289cb14f78dd7/docs/tools.json)。先前的 [154 项矩阵](devtools-windows-current.json) 保留 2026-10-30 冻结数据。各项业务验收沿用表中与同一冻结候选对应的 Windows 回执。
+
+### Windows 同装与重开验证
+
+将上述 20 包放在同一份专用 Windows 测试资料里，真实 Studio Host 逐一预览安装、审核并启用，按各包声明授予最少权限。37 个目录和详情条目均可独立定位，操作标识和工具访问标识无冲突。停止并重新打开同一资料后，已启用状态和权限保持，160 个已安装文件与冻结收据一致。公式、均值、模板和逐次授权的日志四个代表操作通过真实 Worker 复现。Host 回执 SHA-256 `4cb288b496a96e5852f2421aed2a2749ac8713841e312100590638b777ed5176`。
+
+另将实际 Host 目录回执交给生产工具中心，在无窗口 DOM 审核 37 张工具卡与 20 个来源筛选。界面回执 SHA-256 `dc6a3aff10868c06db1a03b9eb03aeb6ebf800211ffff9abf3765493b1f4f609`。正式安装器、原生系统选取以及每个源工具的剩余操作继续沿各自验收记录跟进。[同装验收回执](https://github.com/ax2/zicode-studio-desktop/issues/26#issuecomment-7167949326)
+
+## 2026-11-26 获取备忘备份提取和原尺寸图片转换
+
+沿用「只取一个包」的步骤。候选与对应的逐件收据位于同一固定提交。将表中的目录用于 `$dir`，同名加 `-verification.json` 用于 `$receipt`。
+
+| 源工具与来源版本 | Studio 已验证范围 | 冻结候选、能力和收据 | 固定 Studio 提交 | 独立版仍待补齐的范围 |
+| --- | --- | --- | --- | --- |
+| `memos` 1.5.0 | [确认一份备忘 JSON 后列出普通备忘，按原序号逐字节提取单条 Markdown。128 KiB、64 条以内，含空正文](../iterations/2026-11-26-memo-backup-extract.md) | [memo-backup-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/memo-backup-0.1.0-candidate-01) / [`devtools.memos.backup.markdown`](../../tests/fixtures/devtools-windows-file-tools/memo-backup-0.1.0-candidate-01/catalog.json) / [收据](../../tests/fixtures/devtools-windows-file-tools/memo-backup-0.1.0-candidate-01-verification.json) | `7c4a5ad8a41b11027926297a4e2059f7087f400d` | 资料库管理、备份恢复或合并、日程和提醒 |
+| `image-tools` 1.7.1 | [确认单张静态 PNG、JPEG 或 WebP，保持原像素宽高转换并另存。分别验证三种输出、原件保护、撤权重启及动画拒绝](../iterations/2026-11-26-image-original-size-convert.md) | [image-convert-0.1.0-candidate-01](../../tests/fixtures/devtools-windows-file-tools/image-convert-0.1.0-candidate-01) / [`devtools.image.convert.original-size`](../../tests/fixtures/devtools-windows-file-tools/image-convert-0.1.0-candidate-01/catalog.json) / [收据](../../tests/fixtures/devtools-windows-file-tools/image-convert-0.1.0-candidate-01-verification.json) | `de354c40f2733e546854ea1e77cf024aa698cb29` | 批量、编辑、剪贴板和实例接力、拍摄元数据保留 |
+
+这两个候选分别通过隔离 Windows Studio 的真实工具中心、Host 和 Worker，保存结果已逐字节回读。上节 20 包同装回执仍涵盖原批次。
+
+逐件回读两批共 22 个候选、176 个文件（8,161,889 字节），以及 39 个按插件身份区分的能力。18 个源 ID 在 10 月 30 日冻结表中为未映射，本次为各自的部分范围提供实测入口。提供方两个固定目录的 154 个 ID 一致，`pdf-text` 仍是 0.0.0 / planned。来源见 [11 月 25 日目录](https://github.com/ax2/zi-devtools/blob/ebc79dc3ab9fa08c7240767b6e4289cb14f78dd7/docs/tools.json)和 [11 月 26 日目录](https://github.com/ax2/zi-devtools/blob/80544a5caf88ef3ec2ff70b1ce526ec07f43a742/docs/tools.json)。

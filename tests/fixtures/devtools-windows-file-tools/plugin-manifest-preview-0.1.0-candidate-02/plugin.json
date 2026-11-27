@@ -1,0 +1,361 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.plugin-manifest-preview",
+  "name": "ZiDevTools Declarative Manifest Preview",
+  "displayName": "ZiDevTools 插件清单预览",
+  "description": "逐次确认后核对一份本机 ZiDevTools 声明式 JSON 清单，查看包身份、原字节 SHA-256 和按序工具声明。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.plugin-manifest.preview"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.plugin-manifest.preview",
+        "title": "ZiDevTools 插件清单预览",
+        "description": "逐次确认后核对一份本机 ZiDevTools 声明式 JSON 清单，查看包身份、原字节 SHA-256 和按序工具声明。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "toolStart": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64,
+              "title": "工具起始序号（可选）",
+              "description": "默认从第 1 项开始，每次按原清单顺序查看最多 8 项。"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "preview": {
+                      "type": "object",
+                      "properties": {
+                        "schemaVersion": {
+                          "type": "integer",
+                          "const": 1
+                        },
+                        "id": {
+                          "type": "string",
+                          "maxLength": 64
+                        },
+                        "name": {
+                          "type": "string",
+                          "maxLength": 128
+                        },
+                        "version": {
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "totalTools": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 64
+                        },
+                        "builtinTools": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 64
+                        },
+                        "httpTools": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 64
+                        },
+                        "toolStart": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 64
+                        },
+                        "nextToolStart": {
+                          "oneOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 64
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tools": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 8,
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "ordinal": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 64
+                              },
+                              "id": {
+                                "type": "string",
+                                "maxLength": 64
+                              },
+                              "name": {
+                                "type": "string",
+                                "maxLength": 128
+                              },
+                              "category": {
+                                "type": "string",
+                                "maxLength": 32
+                              },
+                              "version": {
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 32
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "aliasCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 16
+                              },
+                              "historyCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 64
+                              },
+                              "adapter": {
+                                "type": "object",
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "const": "builtin"
+                                      },
+                                      "tool": {
+                                        "type": "string",
+                                        "maxLength": 64
+                                      },
+                                      "action": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 64
+                                      }
+                                    },
+                                    "required": [
+                                      "type",
+                                      "tool",
+                                      "action"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "const": "http"
+                                      },
+                                      "method": {
+                                        "type": "string",
+                                        "const": "GET"
+                                      }
+                                    },
+                                    "required": [
+                                      "type",
+                                      "method"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "const": "http"
+                                      },
+                                      "method": {
+                                        "type": "string",
+                                        "const": "POST"
+                                      }
+                                    },
+                                    "required": [
+                                      "type",
+                                      "method"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "ordinal",
+                              "id",
+                              "name",
+                              "category",
+                              "version",
+                              "aliasCount",
+                              "historyCount",
+                              "adapter"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "schemaVersion",
+                        "id",
+                        "name",
+                        "version",
+                        "totalTools",
+                        "builtinTools",
+                        "httpTools",
+                        "toolStart",
+                        "nextToolStart",
+                        "tools"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 262144
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 4096
+                    }
+                  },
+                  "required": [
+                    "preview",
+                    "byteLength",
+                    "sha256",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "插件清单预检",
+            "ZiDevTools 声明式插件",
+            "核对插件 SHA-256",
+            "Plugin manifest preview"
+          ],
+          "description": "逐次确认后核对一份本机 ZiDevTools 声明式 JSON 清单，查看包身份、原字节 SHA-256 和按序工具声明。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "仅读取本次确认提供的 ZiDevTools 声明式 JSON 清单。"
+      }
+    ],
+    "optional": []
+  }
+}

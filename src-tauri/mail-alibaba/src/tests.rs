@@ -4,16 +4,29 @@ use rusqlite::{params, Connection};
 use std::{
     io::{BufRead, BufReader, Write},
     net::{TcpListener, TcpStream},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
+    },
     thread,
 };
 const MSG:&str="From: Fixture <sender@example.test>\r\nReply-To: reply@example.test\r\nSubject: =?UTF-8?B?5rWL6K+V?=\r\nMessage-ID: <original@example.test>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=fixture\r\n\r\n--fixture\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n5L2g5aW9\r\n--fixture\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<p>HTML fixture</p>\r\n--fixture\r\nContent-Type: application/octet-stream\r\nContent-Disposition: attachment; filename=proof.bin\r\nContent-Transfer-Encoding: base64\r\n\r\nAP8BAg==\r\n--fixture--\r\n";
 const LARGE_ATTACHMENT: usize = 5*1024*1024 + 13;
+const QUOTED_FOLDER: &str = r#"Work "Notes"\Copies"#;
+const LITERAL_FOLDER: &str = r#"Work \"Notes\"\\Copies"#;
 type Server = BufReader<rustls::StreamOwned<rustls::ServerConnection, TcpStream>>;
 struct Fixture {
     adapter: Alibaba,
     thread: thread::JoinHandle<()>,
     rx: std::sync::mpsc::Receiver<String>,
+    smtp: Arc<SmtpTrace>,
+}
+
+#[derive(Default)]
+struct SmtpTrace {
+    reject_auth: AtomicBool,
+    commands: AtomicUsize,
+    envelope: AtomicUsize,
 }
 fn fixture(smtp: bool, drop_final: bool) -> Fixture {
     sized_fixture(smtp, drop_final, 3, 10)
@@ -22,6 +35,67 @@ fn sized_fixture(smtp: bool, drop_final: bool, count: u32, stride: u32) -> Fixtu
     fixture_with_search(smtp,drop_final,count,stride,false)
 }
 fn fixture_with_search(smtp: bool, drop_final: bool, count:u32, stride:u32, reject_search:bool) -> Fixture {
+    fixture_with_headers(smtp, drop_final, count, stride, reject_search, Vec::new())
+}
+fn fixture_with_headers(
+    smtp: bool,
+    drop_final: bool,
+    count: u32,
+    stride: u32,
+    reject_search: bool,
+    headers: Vec<(u32, String)>,
+) -> Fixture {
+    fixture_with_uid_validity(smtp, drop_final, count, stride, reject_search, headers, 7)
+}
+
+fn fixture_with_uid_validity(
+    smtp: bool,
+    drop_final: bool,
+    count: u32,
+    stride: u32,
+    reject_search: bool,
+    headers: Vec<(u32, String)>,
+    uid_validity: u32,
+) -> Fixture {
+    fixture_with_content(
+        smtp,
+        drop_final,
+        count,
+        stride,
+        reject_search,
+        ImapContent { headers, uid_validity, legacy_text: false, unsolicited_flags: None, cursor_probe: None },
+    )
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FetchStage {
+    Structure,
+    Part,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum CursorProbe {
+    LeadingFlags,
+    MissingUid,
+    WrongSequence,
+}
+
+struct ImapContent {
+    headers: Vec<(u32, String)>,
+    uid_validity: u32,
+    legacy_text: bool,
+    unsolicited_flags: Option<(FetchStage, u32)>,
+    cursor_probe: Option<CursorProbe>,
+}
+
+fn fixture_with_content(
+    smtp: bool,
+    drop_final: bool,
+    count: u32,
+    stride: u32,
+    reject_search: bool,
+    content: ImapContent,
+) -> Fixture {
     let mut ca = CertificateParams::new(Vec::<String>::new()).unwrap();
     ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     ca.key_usages = vec![KeyUsagePurpose::KeyCertSign];
@@ -55,6 +129,8 @@ fn fixture_with_search(smtp: bool, drop_final: bool, count:u32, stride:u32, reje
         extra_root: Some(cert.der().to_vec()),
     };
     let (tx, rx) = std::sync::mpsc::channel();
+    let smtp_trace = Arc::new(SmtpTrace::default());
+    let recorded_smtp = smtp_trace.clone();
     let thread = thread::spawn(move || {
         let (tcp, _) = listener.accept().unwrap();
         tcp.set_read_timeout(Some(TIMEOUT)).unwrap();
@@ -70,15 +146,16 @@ fn fixture_with_search(smtp: bool, drop_final: bool, count:u32, stride:u32, reje
         }
         let mut s = BufReader::new(wire);
         if smtp {
-            serve_smtp(&mut s, drop_final, tx)
+            serve_smtp(&mut s, drop_final, tx, &recorded_smtp)
         } else {
-            serve_imap(&mut s, count, stride, reject_search, tx)
+            serve_imap(&mut s, count, stride, reject_search, content, tx)
         }
     });
     Fixture {
         adapter,
         thread,
         rx,
+        smtp: smtp_trace,
     }
 }
 fn line(s: &mut Server) -> String {
@@ -93,7 +170,24 @@ fn emit(s: &mut Server, text: &str) {
     stream.write_all(text.as_bytes()).unwrap();
     stream.flush().unwrap();
 }
-fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace: std::sync::mpsc::Sender<String>) {
+fn serve_imap(
+    s: &mut Server,
+    count: u32,
+    stride: u32,
+    reject_search: bool,
+    content: ImapContent,
+    trace: std::sync::mpsc::Sender<String>,
+) {
+    let ImapContent { headers, uid_validity, legacy_text, unsolicited_flags, cursor_probe } = content;
+    let default_header = &MSG[..MSG.find("\r\n\r\n").unwrap() + 4];
+    let header_for = |uid| {
+        headers
+            .iter()
+            .find(|(id, _)| *id == uid)
+            .map_or(default_header, |(_, header)| {
+                &header[..header.len().min(MAX_HEADER)]
+            })
+    };
     let mut archive = false;
     emit(s, "* OK local synthetic IMAP\r\n");
     loop {
@@ -108,13 +202,28 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace
             emit(s, &format!("{tag} OK authenticated\r\n"));
         } else if upper.starts_with("LIST ") {
             trace.send(upper.clone()).unwrap();
-            emit(s, &format!("* LIST () \"/\" inbox\r\n* LIST (\\Noselect) \"/\" Parent\r\n* LIST () \"/\" \"Parent/&bUuL1Q- &- Notes\"\r\n{tag} OK folders\r\n"));
+            emit(s, "* LIST () \"/\" inbox\r\n* LIST (\\Noselect) \"/\" Parent\r\n* LIST () \"/\" \"Parent/&bUuL1Q- &- Notes\"\r\n");
+            emit(s, &format!("* LIST () \"/\" \"{LITERAL_FOLDER}\"\r\n"));
+            emit(s, &format!("* LIST () \"/\" {{{}}}\r\n{LITERAL_FOLDER}\r\n", LITERAL_FOLDER.len()));
+            emit(s, &format!("{tag} OK folders\r\n"));
         } else if upper == "LOGOUT" {
             emit(s, &format!("* BYE\r\n{tag} OK logout\r\n"));
             break;
         } else if upper.starts_with("EXAMINE ") {
             archive = upper.contains("ARCHIVE");
-            emit(s,&format!("* {count} EXISTS\r\n* OK [UIDVALIDITY 7] stable\r\n{tag} OK [READ-ONLY] examined\r\n"));
+            if cmd.starts_with("EXAMINE \"Work ") {
+                let quoted = format!("EXAMINE \"{LITERAL_FOLDER}\"");
+                let literal = format!("EXAMINE \"{}\"", LITERAL_FOLDER.replace('\\', "\\\\").replace('"', "\\\""));
+                match cmd {
+                    command if command == quoted => archive = true,
+                    command if command == literal => {}
+                    _ => {
+                        emit(s, &format!("{tag} NO folder missing\r\n"));
+                        continue;
+                    }
+                }
+            }
+            emit(s,&format!("* {count} EXISTS\r\n* OK [UIDVALIDITY {uid_validity}] stable\r\n{tag} OK [READ-ONLY] examined\r\n"));
         } else if let Some(probe) = upper.strip_prefix("UID SEARCH UID ") {
             trace.send(upper.clone()).unwrap();
             if reject_search {
@@ -139,24 +248,38 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace
             let a = a.parse::<u32>().unwrap();
             let b = b.parse::<u32>().unwrap();
             assert!(b >= a && b - a < 40, "page must be bounded");
+            // Known GB18030 and Big5 fixture bytes encoded as MIME base64.
+            let (plain_charset, plain, html_charset, html_transfer, html) = if legacy_text {
+                ("GB18030", "1f3OxJU4xDA=", "Big5", "BASE64", "PHA+wWPF6aW/pOU8L3A+")
+            } else {
+                let plain = if archive { "T3RoZXI=" } else { "5L2g5aW9" };
+                ("UTF-8", plain, "UTF-8", "8BIT", "<p>HTML fixture</p>")
+            };
             if upper.contains("BODYSTRUCTURE") {
-                let header=&MSG[..MSG.find("\r\n\r\n").unwrap()+4];
-                let tree=format!(r#"((("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "BASE64" 8 1)("TEXT" "HTML" ("CHARSET" "UTF-8") NIL NIL "8BIT" 19 1) "ALTERNATIVE")("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BASE64" 8 NIL ("ATTACHMENT" ("FILENAME" "proof.bin")))("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BINARY" {} NIL ("ATTACHMENT" ("FILENAME" "large.bin"))) "MIXED")"#,LARGE_ATTACHMENT);
-                emit(s,&format!("* 3 FETCH (UID {a} RFC822.SIZE {} BODYSTRUCTURE {tree} BODY[HEADER]<0> {{{}}}\r\n{header})\r\n{tag} OK fetched\r\n",MSG.len()+LARGE_ATTACHMENT,header.len()));
+                let mut response_uid = a;
+                if let Some((FetchStage::Structure, payload_uid)) = unsolicited_flags {
+                    emit(s, &format!("* 3 FETCH (UID {a} FLAGS (\\Seen))\r\n"));
+                    response_uid = payload_uid;
+                }
+                let header = header_for(response_uid);
+                let tree=format!(r#"((("TEXT" "PLAIN" ("CHARSET" "{plain_charset}") NIL NIL "BASE64" {} 1)("TEXT" "HTML" ("CHARSET" "{html_charset}") NIL NIL "{html_transfer}" {} 1) "ALTERNATIVE")("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BASE64" 8 NIL ("ATTACHMENT" ("FILENAME" "proof.bin")))("APPLICATION" "OCTET-STREAM" NIL NIL NIL "BINARY" {} NIL ("ATTACHMENT" ("FILENAME" "large.bin"))) "MIXED")"#,plain.len(),html.len(),LARGE_ATTACHMENT);
+                let sequence = response_uid / stride;
+                emit(s,&format!("* {sequence} FETCH (UID {response_uid} RFC822.SIZE {} BODYSTRUCTURE {tree} BODY[HEADER]<0> {{{}}}\r\n{header})\r\n{tag} OK fetched\r\n",MSG.len()+LARGE_ATTACHMENT,header.len()));
                 continue;
             }
             if upper.starts_with("UID FETCH") && upper.contains("BODY.PEEK[") && !upper.contains("[HEADER]") {
+                let mut response_uid = a;
+                if let Some((FetchStage::Part, payload_uid)) = unsolicited_flags {
+                    emit(s, &format!("* 3 FETCH (UID {a} FLAGS (\\Seen))\r\n"));
+                    response_uid = payload_uid;
+                }
                 let section=upper.split("BODY.PEEK[").nth(1).unwrap().split(']').next().unwrap();
-                let data=match section {"1.1"=>if archive {"T3RoZXI="} else {"5L2g5aW9"}.to_owned(),"1.2"=>"<p>HTML fixture</p>".to_owned(),"2"=>if archive {"QkJCQg=="} else {"AP8BAg=="}.to_owned(),"3"=>"Z".repeat(LARGE_ATTACHMENT),other=>panic!("Unexpected payload fetch {other}")};
-                emit(s,&format!("* 3 FETCH (UID {a} BODY[{section}]<0> {{{}}}\r\n{data})\r\n{tag} OK fetched\r\n",data.len()));
+                let data=match section {"1.1"=>plain.to_owned(),"1.2"=>html.to_owned(),"2"=>if archive {"QkJCQg=="} else {"AP8BAg=="}.to_owned(),"3"=>"Z".repeat(LARGE_ATTACHMENT),other=>panic!("Unexpected payload fetch {other}")};
+                let sequence = response_uid / stride;
+                emit(s,&format!("* {sequence} FETCH (UID {response_uid} BODY[{section}]<0> {{{}}}\r\n{data})\r\n{tag} OK fetched\r\n",data.len()));
                 continue;
             }
             let header = upper.contains("[HEADER]");
-            let bytes = if header {
-                &MSG[..MSG.find("\r\n\r\n").unwrap() + 4]
-            } else {
-                MSG
-            };
             let part = if header { "HEADER" } else { "" };
             for pos in a..=b {
                 if is_uid && !pos.is_multiple_of(stride) {
@@ -168,8 +291,25 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace
                 }
                 let uid = seq * stride;
                 if upper.ends_with("(UID)") {
+                    if let Some(probe) = cursor_probe.filter(|_| !is_uid) {
+                        let flags = format!("* {seq} FETCH (FLAGS (\\Seen))");
+                        trace.send(flags.clone()).unwrap();
+                        emit(s, &format!("{flags}\r\n"));
+                        if matches!(probe, CursorProbe::MissingUid) {
+                            continue;
+                        }
+                        if matches!(probe, CursorProbe::WrongSequence) {
+                            let other = if seq == 1 { 2 } else { 1 };
+                            let unread = format!("* {other} FETCH (UID {})", other * stride);
+                            trace.send(unread.clone()).unwrap();
+                            emit(s, &format!("{unread}\r\n"));
+                            continue;
+                        }
+                        trace.send(format!("* {seq} FETCH (UID {uid})")).unwrap();
+                    }
                     emit(s, &format!("* {seq} FETCH (UID {uid})\r\n"));
                 } else {
+                    let bytes = if header { header_for(uid) } else { MSG };
                     emit(s,&format!("* {seq} FETCH (UID {uid} RFC822.SIZE {} BODY[{part}]<0> {{{}}}\r\n{bytes})\r\n",MSG.len(),bytes.len()));
                 }
             }
@@ -178,6 +318,532 @@ fn serve_imap(s: &mut Server, count: u32, stride: u32, reject_search:bool, trace
             panic!("Unexpected synthetic IMAP command")
         }
     }
+}
+
+fn fixture_with_unsolicited_flags(stage: FetchStage, payload_uid: u32) -> Fixture {
+    fixture_with_content(
+        false,
+        false,
+        3,
+        10,
+        false,
+        ImapContent {
+            headers: vec![],
+            uid_validity: 7,
+            legacy_text: false,
+            unsolicited_flags: Some((stage, payload_uid)),
+            cursor_probe: None,
+        },
+    )
+}
+
+#[test]
+fn imap_unsolicited_fetch_flags_allow_read_and_offline_body() {
+    let results = [FetchStage::Structure, FetchStage::Part].map(|stage| {
+        let mut db = database();
+        let mut mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+        let list = fixture(false, false);
+        mailbox.sync(&list.adapter, "synthetic", None, 3).unwrap();
+        list.thread.join().unwrap();
+        let f = fixture_with_unsolicited_flags(stage, 30);
+        let letter = mailbox.read(&f.adapter, "synthetic", 7, 30);
+        f.thread.join().unwrap();
+        let commands = f.rx.try_iter().collect::<Vec<_>>();
+        let offline = mailbox.cached_body(7, 30);
+        (stage, letter, commands, offline)
+    });
+    let errors: Vec<_> = results.iter().filter_map(|(stage, letter, commands, _)| {
+        letter.as_ref().err().map(|error| (stage, error, commands))
+    }).collect();
+    assert!(errors.is_empty(), "Expected both body reads to succeed: {errors:?}");
+    for (stage, letter, commands, offline) in results {
+        let letter = letter.unwrap_or_else(|e| panic!("{stage:?} intercepted the requested data: {e}; {commands:?}"));
+        assert_eq!(letter.text.trim(), "你好");
+        assert_eq!(letter.html.as_deref().map(str::trim), Some("<p>HTML fixture</p>"));
+        assert_eq!(letter.summary.reply_to, "reply@example.test");
+        assert_eq!(letter.attachments[0].name, "proof.bin");
+        assert_eq!(commands.len(), 3);
+        assert!(commands[0].contains("BODYSTRUCTURE"));
+        assert!(commands[1].contains("BODY.PEEK[1.1]"));
+        assert!(commands[2].contains("BODY.PEEK[1.2]"));
+        assert_eq!(offline.unwrap().text.trim(), "你好");
+    }
+}
+
+#[test]
+fn imap_unsolicited_fetch_flags_allow_explicit_attachment_read() {
+    let attachment = Attachment { id: 0, name: "proof.bin".into(), size: 8 };
+    let results = [FetchStage::Structure, FetchStage::Part].map(|stage| {
+        let f = fixture_with_unsolicited_flags(stage, 30);
+        let bytes = f.adapter.attachment("user@example.test", "synthetic", "INBOX", 7, 30, &attachment);
+        f.thread.join().unwrap();
+        (stage, bytes, f.rx.try_iter().collect::<Vec<_>>())
+    });
+    let errors: Vec<_> = results.iter().filter_map(|(stage, bytes, commands)| {
+        bytes.as_ref().err().map(|error| (stage, error, commands))
+    }).collect();
+    assert!(errors.is_empty(), "Expected both attachment reads to succeed: {errors:?}");
+    for (stage, bytes, commands) in results {
+        assert_eq!(bytes.unwrap_or_else(|e| panic!("{stage:?} intercepted the requested data: {e}; {commands:?}")), [0, 255, 1, 2]);
+        assert_eq!(commands.len(), 2);
+        assert!(commands[0].contains("BODYSTRUCTURE"));
+        assert!(commands[1].contains("BODY.PEEK[2]"));
+    }
+}
+
+#[test]
+fn imap_unsolicited_fetch_flags_reject_another_uids_data() {
+    let attachment = Attachment { id: 0, name: "proof.bin".into(), size: 8 };
+    for stage in [FetchStage::Structure, FetchStage::Part] {
+        let f = fixture_with_unsolicited_flags(stage, 20);
+        let bytes = f.adapter.attachment("user@example.test", "synthetic", "INBOX", 7, 30, &attachment);
+        f.thread.join().unwrap();
+        assert!(matches!(bytes, Err("mail_protocol")), "{stage:?}: {bytes:?}");
+        let commands: Vec<_> = f.rx.try_iter().collect();
+        assert!(commands.iter().all(|command| command.starts_with("UID FETCH 30 ")));
+        assert_eq!(commands.len(), if stage == FetchStage::Structure { 1 } else { 2 });
+    }
+}
+
+#[test]
+fn imap_legacy_chinese_text_survives_cache_reopen_without_changing_attachments() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("legacy-mail.sqlite3");
+    let server = || {
+        fixture_with_content(
+            false,
+            false,
+            3,
+            10,
+            false,
+            ImapContent {
+                headers: vec![(
+                    30,
+                    concat!(
+                        "From: =?GBK?B?ssbO8c3FttM=?= <finance@example.test>\r\n",
+                        "Reply-To: reply@example.test\r\n",
+                        "Subject: =?GB18030?B?ssbO8bGose0=?=\r\n",
+                        "MIME-Version: 1.0\r\n\r\n",
+                    )
+                    .into(),
+                )],
+                uid_validity: 7,
+                legacy_text: true,
+                unsolicited_flags: None,
+                cursor_probe: None,
+            },
+        )
+    };
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+        let page = server();
+        let online = mailbox.sync(&page.adapter, "synthetic", None, 3).unwrap();
+        page.thread.join().unwrap();
+        assert_eq!(online.messages[1].subject, "测试");
+        let reader = server();
+        mailbox.read(&reader.adapter, "synthetic", 7, 30).unwrap();
+        reader.thread.join().unwrap();
+    }
+    let mut db = Connection::open(&path).unwrap();
+    let mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+    let list = mailbox.cached_page(None, 3).unwrap();
+    let letter = mailbox.cached_body(7, 30).unwrap();
+    assert_eq!(
+        (
+            list.messages[0].subject.as_str(),
+            list.messages[0].sender_name.as_deref(),
+            letter.summary.subject.as_str(),
+            letter.text.as_str(),
+            letter.html.as_deref(),
+        ),
+        (
+            "财务报表",
+            Some("财务团队"),
+            "财务报表",
+            "正文𢀖",
+            Some("<p>繁體正文</p>")
+        ),
+    );
+    assert_eq!(letter.summary.reply_to, "reply@example.test");
+    assert_eq!(letter.attachments[0].name, "proof.bin");
+    let download = server();
+    let bytes = mailbox
+        .read_attachment(
+            &download.adapter,
+            "synthetic",
+            7,
+            30,
+            &letter.attachments[0],
+        )
+        .unwrap();
+    download.thread.join().unwrap();
+    assert_eq!(bytes, [0, 255, 1, 2]);
+}
+
+#[test]
+fn imap_empty_headers_keep_their_page_and_do_not_supply_reply_recipients() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("inbox.sqlite3");
+    let epoch;
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+        mailbox.select_folder("Archive").unwrap();
+        let server = fixture_with_headers(
+            false,
+            false,
+            4,
+            10,
+            false,
+            vec![(40, String::new()), (30, "\r\n".into())],
+        );
+        let first = mailbox.sync(&server.adapter, "synthetic", None, 3);
+        server.thread.join().unwrap();
+        let trace: Vec<_> = server.rx.try_iter().collect();
+        assert_eq!(trace.len(), 1, "{trace:?}");
+        assert!(trace[0].starts_with("FETCH 2:4 "), "{trace:?}");
+        let first = first.expect("an empty header must not hide the other messages");
+        epoch = first.uid_validity;
+        assert_eq!(
+            first.messages.iter().map(|row| row.uid).collect::<Vec<_>>(),
+            [40, 30, 20]
+        );
+        for message in &first.messages[..2] {
+            assert!(message.subject.is_empty() && message.sender.is_empty());
+            assert!(message.reply_to.is_empty());
+            assert!(message.sender_name.is_none() && message.message_id.is_none());
+            assert!(!message.header_limited);
+            assert!(matches!(
+                mailbox.reply_draft("reply", epoch, message.uid),
+                Err("mail_invalid_reply")
+            ));
+        }
+        assert_eq!(first.messages[2].reply_to, "reply@example.test");
+        let reader = fixture_with_headers(false, false, 4, 10, false, vec![(30, "\r\n".into())]);
+        let read = mailbox
+            .read(&reader.adapter, "synthetic", epoch, 30)
+            .unwrap();
+        reader.thread.join().unwrap();
+        assert_eq!(read.text, "Other");
+        assert!(read.summary.reply_to.is_empty());
+        assert_eq!(read.attachments[0].name, "proof.bin");
+        let older = fixture_with_headers(false, false, 4, 10, false, Vec::new());
+        let next = mailbox
+            .sync(&older.adapter, "synthetic", first.next, 3)
+            .unwrap();
+        older.thread.join().unwrap();
+        assert_eq!(
+            next.messages.iter().map(|row| row.uid).collect::<Vec<_>>(),
+            [10]
+        );
+        assert!(next.next.is_none());
+    }
+    let mut db = Connection::open(&path).unwrap();
+    let mut mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+    mailbox.select_folder("Archive").unwrap();
+    let cached = mailbox.cached_page(None, 4).unwrap();
+    assert_eq!(cached.uid_validity, epoch);
+    assert_eq!(
+        cached
+            .messages
+            .iter()
+            .map(|row| row.uid)
+            .collect::<Vec<_>>(),
+        [40, 30, 20, 10]
+    );
+    assert_eq!(cached.messages[0].reply_to, "");
+    assert_eq!(cached.messages[2].reply_to, "reply@example.test");
+    assert_eq!(mailbox.cached_body(epoch, 30).unwrap().text, "Other");
+    mailbox.select_folder("INBOX").unwrap();
+    assert!(matches!(
+        mailbox.cached_page(None, 4),
+        Err("mail_cache_empty")
+    ));
+}
+
+#[test]
+fn imap_sender_display_name_survives_cache_reopen_without_changing_reply_address() {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+        let alias = format!(
+            "From: =?UTF-8?B?{}?= <billing@example.test>\r\nSubject: Invoice\r\n\r\n",
+            STANDARD.encode("财务团队"),
+        );
+        let without_name = "From: only-address@example.test\r\nSubject: Another invoice\r\n\r\n";
+        let server = fixture_with_headers(
+            false,
+            false,
+            3,
+            10,
+            false,
+            vec![(30, alias), (20, without_name.into())],
+        );
+        mail.sync(&server.adapter, "synthetic", None, 3).unwrap();
+        server.thread.join().unwrap();
+    }
+
+    let mut db = Connection::open(&path).unwrap();
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let page = mail.cached_page(None, 3).unwrap();
+    assert_eq!(page.messages[0].sender_name.as_deref(), Some("财务团队"));
+    assert_eq!(page.messages[0].sender, "billing@example.test");
+    assert_eq!(page.messages[1].sender_name, None);
+    assert_eq!(page.messages[1].sender, "only-address@example.test");
+    let draft = mail.reply_draft("alias-reply", page.uid_validity, 30).unwrap();
+    assert_eq!(draft["recipient"], "billing@example.test");
+}
+
+#[test]
+fn imap_attachment_confirmation_expires_when_credentials_change_without_clearing_cache() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    let mut db = Connection::open(&path).unwrap();
+    seed(&db);
+    let mut original = Mailbox::open(&mut db, "one", "a").unwrap();
+    let inbox = fixture(false, false);
+    let page = original
+        .sync(&inbox.adapter, "synthetic-original", None, 3)
+        .unwrap();
+    inbox.thread.join().unwrap();
+    let epoch = page.uid_validity;
+    let body = fixture(false, false);
+    let selected = original
+        .read(&body.adapter, "synthetic-original", epoch, 30)
+        .unwrap();
+    body.thread.join().unwrap();
+
+    let mut controls = Connection::open(&path).unwrap();
+    let other_view = Mailbox::open(&mut controls, "one", "a").unwrap();
+    // The Host advances the generation before forgetting the credential.
+    other_view.invalidate_pending_operations().unwrap();
+    assert!(matches!(
+        original.attachment_is_current(epoch),
+        Err("mail_attachment_changed")
+    ));
+    let disconnected = Mailbox::open(&mut controls, "one", "a").unwrap();
+    let offline = disconnected.cached_body(epoch, 30).unwrap();
+    assert_eq!(offline.text, "你好");
+    assert_eq!(offline.attachments[0].name, "proof.bin");
+    // Publishing a replacement credential advances it again, without deleting the cache.
+    disconnected.invalidate_pending_operations().unwrap();
+    assert!(matches!(
+        disconnected.attachment_is_current(epoch),
+        Err("mail_attachment_changed")
+    ));
+
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let blocked_server = Alibaba {
+        imap_host: "localhost".into(),
+        imap_port: listener.local_addr().unwrap().port(),
+        ..Alibaba::default()
+    };
+    assert!(matches!(
+        original.read_attachment(
+            &blocked_server,
+            "synthetic-reconnected",
+            epoch,
+            30,
+            &selected.attachments[0],
+        ),
+        Err("mail_attachment_changed")
+    ));
+    assert!(matches!(listener.accept(), Err(e) if e.kind() == std::io::ErrorKind::WouldBlock));
+
+    let reconnected = Mailbox::open(&mut controls, "one", "a").unwrap();
+    assert_eq!(reconnected.cached_page(None, 3).unwrap().messages.len(), 3);
+    let retained = reconnected.cached_body(epoch, 30).unwrap();
+    assert_eq!(retained.text, "你好");
+    let new_download = fixture(false, false);
+    assert_eq!(
+        reconnected
+            .read_attachment(
+                &new_download.adapter,
+                "synthetic-reconnected",
+                epoch,
+                30,
+                &retained.attachments[0],
+            )
+            .unwrap(),
+        [0, 255, 1, 2]
+    );
+    new_download.thread.join().unwrap();
+    assert_eq!(new_download.rx.try_iter().count(), 2);
+}
+
+#[test]
+fn imap_attachment_confirmation_is_scoped_to_its_original_cache_generation() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join("mail.sqlite3");
+    let mut db = Connection::open(&path).unwrap();
+    seed(&db);
+    db.execute(
+        "INSERT INTO accounts VALUES ('other','a','alibaba','separate@example.test')",
+        [],
+    )
+    .unwrap();
+    let mut pending = Mailbox::open(&mut db, "one", "a").unwrap();
+    let listing = fixture(false, false);
+    pending
+        .sync(&listing.adapter, "synthetic", None, 2)
+        .unwrap();
+    listing.thread.join().unwrap();
+    let reading = fixture(false, false);
+    pending.read(&reading.adapter, "synthetic", 7, 30).unwrap();
+    reading.thread.join().unwrap();
+    pending.attachment_is_current(7).unwrap();
+    let reviewed = pending.cached_body(7, 30).unwrap().attachments.remove(0);
+
+    let mut second = Connection::open(&path).unwrap();
+    Mailbox::open(&mut second, "other", "a")
+        .unwrap()
+        .clear_cache()
+        .unwrap();
+    let working = fixture(false, false);
+    assert_eq!(
+        pending
+            .read_attachment(&working.adapter, "synthetic", 7, 30, &reviewed)
+            .unwrap(),
+        [0, 255, 1, 2]
+    );
+    working.thread.join().unwrap();
+    let commands = working.rx.try_iter().collect::<Vec<_>>();
+    assert!(commands
+        .iter()
+        .any(|command| command.contains("BODYSTRUCTURE")));
+    assert!(commands
+        .iter()
+        .any(|command| command.contains("BODY.PEEK[2]")));
+    pending.attachment_is_current(7).unwrap();
+
+    Mailbox::open(&mut second, "one", "a")
+        .unwrap()
+        .clear_cache()
+        .unwrap();
+    let mut fresh = Mailbox::open(&mut second, "one", "a").unwrap();
+    let repopulated = fixture(false, false);
+    assert_eq!(
+        fresh
+            .sync(&repopulated.adapter, "synthetic", None, 2)
+            .unwrap()
+            .uid_validity,
+        7
+    );
+    repopulated.thread.join().unwrap();
+
+    let probe = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    probe.set_nonblocking(true).unwrap();
+    let server = Alibaba {
+        imap_host: "127.0.0.1".into(),
+        imap_port: probe.local_addr().unwrap().port(),
+        ..Alibaba::default()
+    };
+    assert_eq!(
+        pending.read_attachment(&server, "synthetic", 7, 30, &reviewed),
+        Err("mail_attachment_changed")
+    );
+    assert_eq!(
+        probe.accept().unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+    // The same old snapshot is no longer valid at the final pre-save check, either.
+    assert_eq!(
+        pending.attachment_is_current(7),
+        Err("mail_attachment_changed")
+    );
+    fresh.attachment_is_current(7).unwrap();
+}
+
+#[test]
+fn tls_imap_clipped_headers_keep_messages_and_never_supply_a_partial_reply_address() {
+    let mut db = database();
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let headers = || {
+        let mut exact_header = String::from(
+            "From: sender@example.test\r\nReply-To: exact@example.test\r\nSubject: Exact header\r\nX-Folded: body",
+        );
+        let padding = MAX_HEADER - exact_header.len() - 4;
+        let folded_line = format!("\r\n {}", "x".repeat(61));
+        exact_header.push_str(&folded_line.repeat(padding / 64));
+        exact_header.push_str(&"x".repeat(padding % 64));
+        exact_header.push_str("\r\n\r\n");
+        assert_eq!(exact_header.len(), MAX_HEADER);
+        vec![
+            (
+                40,
+                format!(
+                    "From: sender@example.test\r\nSubject: Large header\r\nReply-To: partial@example.test,\r\n{}\r\n",
+                    " extra@example.test,\r\n".repeat(4000)
+                ),
+            ),
+            (
+                30,
+                format!(
+                    "To: contact@example.test,\r\n{}From: later@example.test\r\n\r\n",
+                    "\tmore@example.test,\r\n".repeat(4000)
+                ),
+            ),
+            (20, exact_header),
+        ]
+    };
+    let current = fixture_with_headers(false, false, 4, 10, false, headers());
+    let page = mail.sync(&current.adapter, "synthetic", None, 3);
+    current.thread.join().unwrap();
+    let page = page.unwrap();
+    assert_eq!(
+        page.messages.iter().map(|message| message.uid).collect::<Vec<_>>(),
+        [40, 30, 20]
+    );
+    assert_eq!(page.messages[0].subject, "Large header");
+    assert_eq!(page.messages[0].sender, "sender@example.test");
+    assert!(page.messages[0].reply_to.is_empty());
+    assert!(page.messages[0].header_limited);
+    assert!(page.messages[1].sender.is_empty());
+    assert!(page.messages[1].reply_to.is_empty());
+    assert!(page.messages[1].header_limited);
+    assert_eq!(page.messages[2].reply_to, "exact@example.test");
+    assert!(!page.messages[2].header_limited);
+    assert_eq!(
+        current.rx.try_iter().collect::<Vec<_>>(),
+        ["FETCH 2:4 (UID RFC822.SIZE BODY.PEEK[HEADER]<0.65536>)"]
+    );
+    assert!(matches!(
+        mail.reply_draft("partial", 7, 40),
+        Err("mail_invalid_reply")
+    ));
+
+    let older = fixture_with_headers(false, false, 4, 10, false, headers());
+    let next = mail.sync(&older.adapter, "synthetic", page.next, 3).unwrap();
+    older.thread.join().unwrap();
+    assert_eq!(next.messages[0].uid, 10);
+    assert_eq!(next.messages[0].reply_to, "reply@example.test");
+    assert!(!next.messages[0].header_limited);
+
+    let detail = fixture_with_headers(false, false, 4, 10, false, headers());
+    let letter = mail.read(&detail.adapter, "synthetic", 7, 40).unwrap();
+    detail.thread.join().unwrap();
+    assert_eq!(letter.text.trim(), "你好");
+    assert_eq!(letter.summary.subject, "Large header");
+    assert!(letter.summary.header_limited);
+    assert!(letter.summary.reply_to.is_empty());
+    let cached = mail.cached_body(7, 40).unwrap();
+    assert!(cached.summary.header_limited);
+    assert!(cached.summary.reply_to.is_empty());
+    assert!(detail
+        .rx
+        .try_iter()
+        .next()
+        .unwrap()
+        .contains("BODY.PEEK[HEADER]<0.65536>"));
 }
 #[test]
 fn same_uid_and_validity_have_independent_folder_bodies() {
@@ -218,14 +884,33 @@ fn folders_survive_restart_decode_names_and_clear_with_the_account() {
         let list = mail.folders(&f.adapter, "synthetic").unwrap();
         f.thread.join().unwrap();
         assert_eq!(f.rx.try_iter().count(), 1);
-        assert_eq!(list.len(), 2);
+        assert_eq!(list.len(), 4);
         assert_eq!(list[0].id, "INBOX");
         assert_eq!(list[1].id, "Parent/&bUuL1Q- &- Notes");
         assert_eq!(list[1].name, "Parent/测试 & Notes");
+        assert_eq!(list[2].id, QUOTED_FOLDER);
+        assert_eq!(list[2].name, QUOTED_FOLDER);
+        assert_eq!(list[3].id, LITERAL_FOLDER);
+        assert_eq!(list[3].name, LITERAL_FOLDER);
+
+        let mut mail = mail;
+        for (name, body) in [(QUOTED_FOLDER, "Other"), (LITERAL_FOLDER, "你好")] {
+            mail.select_folder(name).unwrap();
+            let f = fixture(false, false);
+            mail.sync(&f.adapter, "synthetic", None, 2).unwrap();
+            f.thread.join().unwrap();
+            let f = fixture(false, false);
+            assert_eq!(mail.read(&f.adapter, "synthetic", 7, 30).unwrap().text, body);
+            f.thread.join().unwrap();
+        }
     }
     let mut db = Connection::open(path).unwrap();
-    let mail = Mailbox::open(&mut db, "one", "a").unwrap();
-    assert_eq!(mail.cached_folders().unwrap().len(), 2);
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    assert_eq!(mail.cached_folders().unwrap().len(), 4);
+    for (name, body) in [(QUOTED_FOLDER, "Other"), (LITERAL_FOLDER, "你好")] {
+        mail.select_folder(name).unwrap();
+        assert_eq!(mail.cached_body(7, 30).unwrap().text, body);
+    }
     let mut second = Connection::open(temp.path().join("mail.sqlite3")).unwrap();
     Mailbox::open(&mut second, "one", "a").unwrap().clear_cache().unwrap();
     let f = fixture(false, false);
@@ -299,6 +984,124 @@ fn refresh_reconciles_removed_old_uids_without_fetching_old_headers() {
     }
 }
 #[test]
+fn refresh_after_uidvalidity_change_does_not_search_retired_uids() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("mail.sqlite3");
+    {
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+        let original = fixture(false, false);
+        let original_page = mail.sync(&original.adapter, "synthetic", None, 3).unwrap();
+        original.thread.join().unwrap();
+        assert_eq!(original_page.uid_validity, 7);
+        let body = fixture(false, false);
+        assert_eq!(mail.read(&body.adapter, "synthetic", 7, 30).unwrap().text, "你好");
+        body.thread.join().unwrap();
+
+        // The server replaced the mailbox. A SEARCH error does not affect fetching its new headers.
+        let replaced = fixture_with_uid_validity(false, false, 3, 30, true, Vec::new(), 8);
+        let result = mail.sync(&replaced.adapter, "synthetic", None, 2);
+        replaced.thread.join().unwrap();
+        let commands: Vec<_> = replaced.rx.try_iter().collect();
+        let page = result.unwrap_or_else(|error| panic!("{error}: {commands:?}"));
+        assert_eq!(page.uid_validity, 8);
+        assert!(!page.pending);
+        assert_eq!(page.messages.iter().map(|entry| entry.uid).collect::<Vec<_>>(), [90, 60]);
+        assert_eq!(commands, ["FETCH 2:3 (UID RFC822.SIZE BODY.PEEK[HEADER]<0.65536>)"]);
+
+        let older = fixture_with_uid_validity(false, false, 3, 30, true, Vec::new(), 8);
+        let older_page = mail.sync(&older.adapter, "synthetic", page.next, 2).unwrap();
+        older.thread.join().unwrap();
+        assert_eq!(older_page.messages[0].uid, 30);
+        assert!(older_page.next.is_none());
+    }
+    let mut db = Connection::open(&path).unwrap();
+    let mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let cached = mail.cached_page(None, 3).unwrap();
+    assert_eq!(cached.uid_validity, 8);
+    assert_eq!(cached.messages.iter().map(|entry| entry.uid).collect::<Vec<_>>(), [90, 60, 30]);
+    // UID 30 was reused, but its old cached body did not migrate to either generation.
+    assert!(matches!(mail.cached_body(7, 30), Err("mail_cache_empty")));
+    assert!(matches!(mail.cached_body(8, 30), Err("mail_cache_empty")));
+}
+
+#[test]
+fn imap_expunged_cursor_ignores_flags_before_the_sequence_uid() {
+    let temp = tempfile::tempdir().unwrap();
+    let database = temp.path().join("mail.sqlite3");
+    let mut db = Connection::open(&database).unwrap();
+    seed(&db);
+    let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let fixture = fixture(false, false);
+    let first = mail.sync(&fixture.adapter, "synthetic", None, 1).unwrap();
+    fixture.thread.join().unwrap();
+    assert_eq!(first.messages[0].uid, 30);
+    let cursor = first.next.unwrap();
+    assert_eq!(cursor.before, 30);
+
+    for probe in [
+        CursorProbe::MissingUid,
+        CursorProbe::WrongSequence,
+        CursorProbe::LeadingFlags,
+    ] {
+        // Only the newest previously downloaded message was expunged.
+        let fixture = fixture_with_content(
+            false,
+            false,
+            2,
+            10,
+            false,
+            ImapContent {
+                headers: vec![],
+                uid_validity: 7,
+                legacy_text: false,
+                unsolicited_flags: None,
+                cursor_probe: Some(probe),
+            },
+        );
+        let page = mail.sync(&fixture.adapter, "synthetic", Some(cursor.clone()), 2);
+        fixture.thread.join().unwrap();
+        let wire: Vec<_> = fixture.rx.try_iter().collect();
+        eprintln!(
+            "{probe:?}: {wire:?}, outcome={:?}",
+            page.as_ref().map(|_| "success")
+        );
+        assert_eq!(wire[0], "UID FETCH 30 (UID)");
+        assert_eq!(wire[1], "FETCH 2 (UID)");
+        assert_eq!(wire[2], "* 2 FETCH (FLAGS (\\Seen))");
+        if matches!(probe, CursorProbe::LeadingFlags) {
+            assert_eq!(wire[3], "* 2 FETCH (UID 20)");
+            let page = page.unwrap();
+            let uids: Vec<_> = page.messages.iter().map(|message| message.uid).collect();
+            assert_eq!(uids, [20, 10]);
+            assert!(page.next.is_none());
+            assert_eq!(
+                wire[4],
+                "FETCH 1:2 (UID RFC822.SIZE BODY.PEEK[HEADER]<0.65536>)"
+            );
+            assert_eq!(wire.len(), 5);
+        } else {
+            if matches!(probe, CursorProbe::WrongSequence) {
+                assert_eq!(wire[3], "* 1 FETCH (UID 10)");
+            }
+            assert!(matches!(page, Err("mail_inbox_changed")));
+            assert!(wire.iter().all(|entry| !entry.contains("HEADER")));
+            assert_eq!(mail.cached_page(None, 3).unwrap().messages.len(), 1);
+        }
+    }
+
+    drop(mail);
+    drop(db);
+    let mut db = Connection::open(&database).unwrap();
+    let mail = Mailbox::open(&mut db, "one", "a").unwrap();
+    let saved = mail.cached_page(Some(cursor), 2).unwrap();
+    let uids: Vec<_> = saved.messages.iter().map(|message| message.uid).collect();
+    assert_eq!(uids, [20, 10]);
+    assert!(saved.next.is_none());
+}
+
+#[test]
 fn million_sparse_uids_use_one_header_window_and_bounded_cursor_probes() {
     let mut db = database();
     let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
@@ -334,10 +1137,18 @@ fn million_sparse_uids_use_one_header_window_and_bounded_cursor_probes() {
     assert!(log.len() <= 22);
     assert_eq!(log.iter().filter(|op| op.contains("HEADER")).count(), 1);
 }
-fn serve_smtp(s: &mut Server, drop_final: bool, tx: std::sync::mpsc::Sender<String>) {
+fn serve_smtp(
+    s: &mut Server,
+    drop_final: bool,
+    tx: std::sync::mpsc::Sender<String>,
+    trace: &SmtpTrace,
+) {
     emit(s, "220 localhost ESMTP fixture\r\n");
     loop {
         let l = line(s);
+        if !l.is_empty() {
+            trace.commands.fetch_add(1, Ordering::Relaxed);
+        }
         let u = l.to_ascii_uppercase();
         if l.is_empty() {
             break;
@@ -348,8 +1159,13 @@ fn serve_smtp(s: &mut Server, drop_final: bool, tx: std::sync::mpsc::Sender<Stri
                 emit(s, "334 \r\n");
                 assert!(!line(s).is_empty())
             }
-            emit(s, "235 via fixture\r\n")
+            if trace.reject_auth.load(Ordering::Relaxed) {
+                emit(s, "535 synthetic authentication refusal\r\n");
+            } else {
+                emit(s, "235 via fixture\r\n");
+            }
         } else if u.starts_with("MAIL FROM:") || u.starts_with("RCPT TO:") {
+            trace.envelope.fetch_add(1, Ordering::Relaxed);
             emit(s, "250 OK\r\n")
         } else if u == "DATA" {
             emit(s, "354 End with dot\r\n");
@@ -485,6 +1301,47 @@ fn imap_rejects_untrusted_fixture_and_hostname_mismatch() {
     }
 }
 #[test]
+fn smtp_pre_submission_failure_allows_an_explicit_retry_of_the_same_revision() {
+    for (reject_auth, lose_final_reply, expected) in [(false, false, "accepted"), (true, true, "unknown")] {
+        let temporary = tempfile::tempdir().unwrap();
+        let path = temporary.path().join("mail.sqlite3");
+        let mut db = Connection::open(&path).unwrap();
+        seed(&db);
+        let mut mail = Mailbox::open(&mut db, "one", "a").unwrap();
+        let mut failed = fixture(true, false);
+        if reject_auth {
+            failed.smtp.reject_auth.store(true, Ordering::Relaxed);
+        } else {
+            failed.adapter.extra_root = None;
+        }
+        let response = mail.send(&failed.adapter, "synthetic", "d", 1, true, None);
+        failed.thread.join().unwrap();
+        assert_eq!(failed.smtp.commands.load(Ordering::Relaxed) > 0, reject_auth);
+        assert_eq!(failed.smtp.envelope.load(Ordering::Relaxed), 0);
+        assert!(failed.rx.try_recv().is_err());
+        assert_eq!(response.as_deref(), Ok("not_submitted"));
+        drop(mail);
+        drop(db);
+
+        let mut reopened = Connection::open(&path).unwrap();
+        let mut mail = Mailbox::open(&mut reopened, "one", "a").unwrap();
+        assert_eq!(mail.delivery("d", 1).unwrap().as_deref(), Some("not_submitted"));
+        assert_eq!(mail.send(&failed.adapter, "synthetic", "d", 1, false, None), Err("mail_confirmation_required"));
+        assert_eq!(mail.delivery("d", 1).unwrap().as_deref(), Some("not_submitted"));
+
+        let working = fixture(true, lose_final_reply);
+        assert_eq!(mail.send(&working.adapter, "synthetic", "d", 1, true, None).as_deref(), Ok(expected));
+        working.thread.join().unwrap();
+        let messages = working.rx.try_iter().collect::<Vec<_>>();
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].contains("synthetic reply"));
+        assert_eq!(mail.delivery("d", 1).unwrap().as_deref(), Some(expected));
+        // Once submission began, even a final-reply loss must not open the same revision again.
+        assert_eq!(mail.send(&working.adapter, "synthetic", "d", 1, true, None).as_deref(), Ok(expected));
+    }
+}
+
+#[test]
 fn smtp_confirm_revision_reply_and_no_retry_after_ambiguous_delivery() {
     for (dropped, result) in [(false, "accepted"), (true, "unknown")] {
         let mut db = database();
@@ -615,4 +1472,74 @@ fn disconnect_cache_rejects_stale_sync_and_preserves_drafts_and_journal() {
             expected
         );
     }
+}
+
+
+#[test]
+fn reply_draft_rechecks_cache_after_a_concurrent_clear() {
+    use std::{cell::RefCell, sync::mpsc, time::Duration};
+
+    type LockGate = (mpsc::Sender<()>, mpsc::Receiver<()>);
+    thread_local! {
+        static REPLY_LOCK: RefCell<Option<LockGate>> = const { RefCell::new(None) };
+    }
+    const LOCK_TIMEOUT: Duration = Duration::from_secs(5);
+    let temp = tempfile::tempdir().unwrap();
+    let file = temp.path().join("mail.sqlite3");
+    let mut controls = Connection::open(&file).unwrap();
+    controls.execute_batch("PRAGMA journal_mode=WAL").unwrap();
+    seed(&controls);
+
+    for (scope, account) in [("one", "a"), ("two", "b")] {
+        let remote = fixture(false, false);
+        let mut mailbox = Mailbox::open(&mut controls, scope, account).unwrap();
+        let first_page = mailbox.sync(&remote.adapter, "synthetic", None, 2).unwrap();
+        remote.thread.join().unwrap();
+        assert_eq!(first_page.uid_validity, 7);
+        assert_eq!(first_page.messages[0].uid, 30);
+        let draft = mailbox.reply_draft("kept", 7, 30).unwrap();
+        assert_eq!(draft["recipient"], "reply@example.test");
+    }
+
+    let (ready, opened) = mpsc::channel();
+    let (begin, start) = mpsc::channel();
+    let (locked, waiting) = mpsc::channel();
+    let (resume, released) = mpsc::channel();
+    let worker = thread::spawn(move || {
+        let mut db = Connection::open(file).unwrap();
+        REPLY_LOCK.with(|gate| *gate.borrow_mut() = Some((locked, released)));
+        db.busy_handler(Some(|_| {
+            REPLY_LOCK.with(|gate| {
+                gate.borrow_mut().take().is_some_and(|(locked, released)| {
+                    locked.send(()).is_ok() && released.recv_timeout(LOCK_TIMEOUT).is_ok()
+                })
+            })
+        })).unwrap();
+        let mut mailbox = Mailbox::open(&mut db, "one", "a").unwrap();
+        ready.send(()).unwrap();
+        start.recv_timeout(LOCK_TIMEOUT).unwrap();
+        mailbox.reply_draft("after-clear", 7, 30)
+    });
+
+    opened.recv_timeout(LOCK_TIMEOUT).unwrap();
+    controls.execute_batch("BEGIN IMMEDIATE").unwrap();
+    begin.send(()).unwrap();
+    waiting.recv_timeout(LOCK_TIMEOUT).unwrap();
+    // Keep the reply blocked while a different connection clears the account.
+    controls.execute_batch("ROLLBACK").unwrap();
+    Mailbox::open(&mut controls, "one", "a").unwrap().clear_cache().unwrap();
+    resume.send(()).unwrap();
+
+    assert_eq!(worker.join().unwrap(), Err("mail_cache_empty"));
+    for (sql, expected) in [
+        ("SELECT count(*) FROM drafts WHERE id='after-clear'", 0),
+        ("SELECT count(*) FROM alibaba_reply WHERE draft='after-clear'", 0),
+        ("SELECT count(*) FROM drafts WHERE id='kept'", 2),
+        ("SELECT count(*) FROM alibaba_reply WHERE draft='kept'", 2),
+        ("SELECT count(*) FROM drafts WHERE scope='one' AND id='d'", 1),
+    ] {
+        assert_eq!(controls.query_row(sql, [], |row| row.get::<_, i64>(0)).unwrap(), expected);
+    }
+    let mut other = Mailbox::open(&mut controls, "two", "b").unwrap();
+    assert_eq!(other.reply_draft("after-clear", 7, 30).unwrap()["recipient"], "reply@example.test");
 }

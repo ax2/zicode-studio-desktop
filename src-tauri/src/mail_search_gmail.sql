@@ -14,8 +14,8 @@ WHERE a.scope=?1 AND a.provider='gmail' AND (?2 IS NULL OR a.id=?2)
       AND CASE WHEN ?5='INBOX' THEN page.cache_key NOT GLOB 'label:*'
                ELSE instr(page.cache_key,'label:' || ?5 || ':')=1 END
   ))
-  AND (instr(lower(json_extract(hit.value,'$.subject')),lower(?3))>0
-    OR instr(lower(json_extract(hit.value,'$.from')),lower(?3))>0
-    OR instr(lower(json_extract(hit.value,'$.snippet')),lower(?3))>0
-    OR instr(lower(json_extract(hit.value,'$.plainText')),lower(?3))>0)
+  AND (instr(mail_fold_case(json_extract(hit.value,'$.subject')),?3)>0
+    OR instr(mail_fold_case(json_extract(hit.value,'$.from')),?3)>0
+    OR instr(mail_fold_case(json_extract(hit.value,'$.snippet')),?3)>0
+    OR instr(mail_fold_case(json_extract(hit.value,'$.plainText')),?3)>0)
 ) WHERE choice=1

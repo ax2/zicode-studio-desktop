@@ -1,5 +1,8 @@
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+
+const root = fileURLToPath(new URL("./", import.meta.url));
 
 export default defineConfig({
   esbuild: {
@@ -7,12 +10,13 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      i18n: resolve(__dirname, "public/i18n.js"),
-      themes: resolve(__dirname, "public/themes.js"),
+      i18n: resolve(root, "public/i18n.js"),
+      themes: resolve(root, "public/themes.js"),
     },
   },
   test: {
     environment: "jsdom",
+    globalSetup: "./scripts/prepare-frontend-tests.js",
     // Bound concurrent jsdom instances and module transforms on developer machines/CI.
     maxWorkers: 4,
     // Node 25+ exposes its own Storage globals; jsdom must own them in test workers.

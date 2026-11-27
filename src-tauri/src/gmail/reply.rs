@@ -30,12 +30,30 @@ fn message_id(value: &str) -> Option<&str> {
     .then_some(value)
 }
 
+fn recipient_header(message: &Value) -> Option<&str> {
+    let headers = message["payload"]["headers"].as_array()?;
+    let named = |header: &Value, name: &str| {
+        header["name"]
+            .as_str()
+            .is_some_and(|field| field.eq_ignore_ascii_case(name))
+    };
+    // From is a fallback only when Reply-To is absent.
+    let name = if headers.iter().any(|header| named(header, "Reply-To")) {
+        "Reply-To"
+    } else {
+        "From"
+    };
+    let mut matches = headers.iter().filter(|header| named(header, name));
+    let value = matches.next()?["value"].as_str()?;
+    matches.next().is_none().then_some(value)
+}
+
 pub(super) fn metadata<'a>(
     message: &Value,
     header: impl Fn(&str) -> Option<&'a str>,
 ) -> Option<Metadata> {
     let (recipient, subject) = studio_alibaba_mail::parse_reply_headers(
-        header("Reply-To").or_else(|| header("From"))?,
+        recipient_header(message)?,
         header("Subject").unwrap_or_default(),
     )?;
     let thread = message["threadId"]

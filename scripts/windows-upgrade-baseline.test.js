@@ -25,7 +25,9 @@ function curl.exe {
   $script:url = $args[-1]
   $global:LASTEXITCODE = $script:downloadStatus
 }
-function Select-Baseline($tag, $publish, $status) {
+function Select-Baseline($tag, $publish, $status, $pinnedVersion='', $pinnedSha='') {
+  $env:WINDOWS_BASELINE_VERSION = $pinnedVersion
+  $env:WINDOWS_BASELINE_SHA256 = $pinnedSha
   $env:RELEASE_TAG = $tag
   $env:PUBLISHING = $publish
   $script:downloadStatus = $status
@@ -44,6 +46,9 @@ $candidatePath = Join-Path $PSScriptRoot 'candidate.txt'
 $receipt = Join-Path $PSScriptRoot 'receipt.json'
 [IO.File]::WriteAllText($candidatePath, 'synthetic; never executed')
 $matrix = @(
+  (Select-Baseline v0.7.8 'true' 0 '0.7.7' ('a'*64))
+  (Select-Baseline v0.7.8 'true' 22 '0.7.7' ('a'*64))
+  (Select-Baseline v0.7.7 'true' 0)
   (Select-Baseline v0.7.5 'true' 0)
   (Select-Baseline v0.7.5 'true' 22)
   (Select-Baseline v0.7.4-rc.1 'false' 0)
@@ -68,7 +73,10 @@ $diagnostic = Get-Content $receipt -Raw | ConvertFrom-Json
 $badDigest = $false
 try { & $validate -Installer $candidatePath -Version '0.6.8' -Receipt $receipt -PreviousInstaller $candidatePath -PreviousSha256 ('0'*64) -RequireUpgrade }
 catch { $badDigest = $_.Exception.Message -eq 'Unverified or identical upgrade baseline' }
-@{matrix=$matrix; failed=$failed; strict=$strict.cases.baselineInstall.status; diagnostic=$diagnostic.cases.upgradeAndData.status; badDigest=$badDigest} | ConvertTo-Json -Depth 5 -Compress
+$missingPin = $false
+try { $null = Select-Baseline v0.7.8 'true' 0 }
+catch { $missingPin = $_.Exception.Message -eq 'Tagged Windows upgrade baseline is unavailable' }
+@{matrix=$matrix; missingPin=$missingPin; failed=$failed; strict=$strict.cases.baselineInstall.status; diagnostic=$diagnostic.cases.upgradeAndData.status; badDigest=$badDigest} | ConvertTo-Json -Depth 5 -Compress
 `,
       );
       const output = execFileSync("pwsh", ["-NoProfile", "-File", check], {
@@ -81,6 +89,17 @@ catch { $badDigest = $_.Exception.Message -eq 'Unverified or identical upgrade b
       const historical = current.replaceAll("0.6.7", "0.6.2");
       const latest = current.replaceAll("0.6.7", "0.6.8");
       expect(result.matrix).toEqual([
+        {
+          url: current.replaceAll("0.6.7", "0.7.7"),
+          required: true,
+          digest: "a".repeat(64),
+        },
+        { url: current.replaceAll("0.6.7", "0.7.7"), required: true, digest: null },
+        {
+          url: current.replaceAll("0.6.7", "0.7.6"),
+          required: true,
+          digest: "e4c4f5c5db8e82a45d0ad1484abc900fa4823f00a9ebc7d259b0e06fcf23f2b6",
+        },
         {
           url: current.replaceAll("0.6.7", "0.7.4"),
           required: true,
@@ -133,6 +152,7 @@ catch { $badDigest = $_.Exception.Message -eq 'Unverified or identical upgrade b
         { url: "", required: false, digest: null },
       ]);
       expect(result).toMatchObject({
+        missingPin: true,
         failed: true,
         strict: "failed",
         diagnostic: "skipped",

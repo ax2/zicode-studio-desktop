@@ -1,9 +1,10 @@
-import {useCallback,useEffect,useId,useRef,useState} from "react";
+import {useCallback,useEffect,useId,useLayoutEffect,useRef,useState} from "react";
 import {t} from "../../shared/i18n";
-import {gmailError} from "./GmailInbox";
+import {gmailError, type GmailGrantLoss} from "./GmailInbox";
 import {mailError} from "./AlibabaInbox";
 import type {Draft,Invoke} from "./index";
-type Outcome = "accepted" | "rejected" | "unknown" | null;
+type Provider = "gmail" | "alibaba";
+type Outcome = "accepted" | "rejected" | "unknown" | "not_submitted" | null;
 type Receipt = { status: unknown } | null;
 
 const unsentErrors = new Set([
@@ -11,10 +12,13 @@ const unsentErrors = new Set([
   "gmail_reauthorize", "gmail_client_not_configured", "gmail_credentials_disabled", "mail_invalid_recipient",
   "mail_invalid_draft", "mail_password_missing", "mail_draft_changed", "mail_credentials_disabled",
 ]);
-const deliveryOutcome = (status: unknown): Exclude<Outcome, null> =>
-  status === "accepted" || status === "rejected" ? status : "unknown";
-const receiptOutcome = (record: Receipt): Outcome =>
-  record === null || record?.status === null ? null : deliveryOutcome(record?.status);
+const deliveryOutcome = (status: unknown, provider: Provider): Exclude<Outcome, null> => {
+  if (status === "accepted" || status === "rejected") return status;
+  if (provider === "alibaba" && status === "not_submitted") return status;
+  return "unknown";
+};
+const receiptOutcome = (record: Receipt, provider: Provider): Outcome =>
+  record === null || record?.status === null ? null : deliveryOutcome(record?.status, provider);
 function DraftPreview({text}:{text:string}){
   const [expanded,setExpanded]=useState(false);
   const id=useId();
@@ -30,14 +34,22 @@ function DraftPreview({text}:{text:string}){
   </section>;
 }
 
-export function MailDelivery({invoke,id,address,draft,configured,provider="alibaba"}:{provider?:"gmail"|"alibaba",invoke:Invoke,id:string,address:string,draft:Draft,configured:boolean}){
+export function MailDelivery({invoke,id,address,draft,configured,provider="alibaba",onGmailGrantLost}:{
+  provider?:Provider; invoke:Invoke; id:string; address:string; draft:Draft; configured:boolean;
+  onGmailGrantLost?:(loss:GmailGrantLoss)=>void;
+}){
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [check, setCheck] = useState<"pending" | "retrying" | "ready" | "failed">("pending");
   const [attempt, setAttempt] = useState(0);
   const [review, setReview] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ text: string; grantLoss?: GmailGrantLoss } | null>(null);
+  const deliveryLocked = outcome !== null && outcome !== "not_submitted";
   const explain = provider === "gmail" ? gmailError : mailError;
+  const reviewId = useId();
+  const reviewButton = useRef<HTMLButtonElement>(null);
+  const reviewHeading = useRef<HTMLHeadingElement>(null);
+  const reviewOrigin = useRef<HTMLButtonElement | null>(null);
   const active = useRef<symbol | null>(null);
   const locked = useRef(false);
   const readReceipt = useCallback(() => invoke<Receipt>({
@@ -49,42 +61,58 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
     active.current = owner;
     setCheck(attempt === 0 ? "pending" : "retrying");
     setReview(false);
-    setError("");
+    setError(null);
     void readReceipt().then(record => {
       if (active.current !== owner) return;
       // An empty local read cannot prove that an uncertain send did not happen.
-      setOutcome(previous => receiptOutcome(record) ?? previous);
+      setOutcome(previous => receiptOutcome(record, provider) ?? previous);
       setCheck("ready");
     }).catch(() => {
       if (active.current !== owner) return;
       setCheck("failed");
-      setError(t("Could not check local delivery status."));
+      setError({ text: t("Could not check local delivery status.") });
     });
     return () => { if (active.current === owner) active.current = null; };
-  }, [readReceipt, attempt]);
+  }, [readReceipt, attempt, provider]);
+
+  useLayoutEffect(() => {
+    const origin = reviewOrigin.current;
+    reviewOrigin.current = null;
+    const heading = reviewHeading.current;
+    if (!review || !heading || !origin || origin.ownerDocument.activeElement !== origin) return;
+    heading.focus({ preventScroll: true });
+    heading.scrollIntoView?.({ block: "start", inline: "nearest" });
+  }, [review]);
 
   async function submit() {
     const owner = active.current;
-    if (!owner || !review || locked.current || outcome || check !== "ready" || !configured) return;
+    if (!owner || !review || locked.current || deliveryLocked || check !== "ready" || !configured) return;
     const current = () => active.current === owner;
     locked.current = true;
     setBusy(true);
-    setError("");
+    setError(null);
     setReview(false);
     try {
       const reply = await invoke<{ status: unknown }>({
         kind: "send", accountId: id, draftId: draft.id, revision: draft.revision, confirmed: true,
       });
-      if (current()) setOutcome(deliveryOutcome(reply?.status));
+      if (current()) setOutcome(deliveryOutcome(reply?.status, provider));
     } catch (error) {
       if (!current()) return;
       // Receipt recovery can only read the local journal for this revision.
       try {
-        const stored = receiptOutcome(await readReceipt());
+        const stored = receiptOutcome(await readReceipt(), provider);
         if (!current()) return;
         if (stored) setOutcome(stored);
-        else if (unsentErrors.has(String(error).replace(/^Error:\s*/, ""))) setError(explain(error));
-        else setOutcome("unknown");
+        else {
+          const code = String(error).replace(/^Error:\s*/, "");
+          if (unsentErrors.has(code)) {
+            const grantLoss = provider === "gmail" && code === "gmail_reauthorize" ? "connection" :
+              provider === "gmail" && code === "gmail_permission_denied" ? "sending" : undefined;
+            if (grantLoss) onGmailGrantLost?.(grantLoss);
+            setError({ text: explain(error), grantLoss });
+          } else setOutcome("unknown");
+        }
       } catch { if (current()) setOutcome("unknown"); }
     } finally {
       if (current()) setBusy(false);
@@ -94,10 +122,16 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
 
   const checking = check === "pending" || check === "retrying";
   const showRetry = outcome === "unknown" || check === "failed" || check === "retrying";
+  const errorText = error?.grantLoss && configured && onGmailGrantLost
+    ? t("This draft was not sent. Review it again before sending.") : error?.text;
   return <section aria-label={t("Send saved draft")}>
-    {!outcome&&<button className="ui-button" type="button" disabled={!configured || check !== "ready" || busy || !draft.recipient.trim()} onClick={()=>setReview(true)}>{t("Review before sending")}</button>}
-    {review&&!outcome&&<section className="mail-send-review" aria-label={t("Confirm sending email")}>
-      <p>{t("Send this saved draft now?")}</p><dl>
+    {!deliveryLocked&&<button className="ui-button" ref={reviewButton} type="button" disabled={!configured || check !== "ready" || busy || !draft.recipient.trim()}
+      aria-expanded={review} aria-controls={review ? reviewId : undefined} onClick={event => {
+        if (!review) reviewOrigin.current = event.currentTarget;
+        setError(null);setReview(true);
+      }}>{t("Review before sending")}</button>}
+    {review&&!deliveryLocked&&<section className="mail-send-review" id={reviewId} aria-label={t("Confirm sending email")}>
+      <h3 ref={reviewHeading} tabIndex={-1}>{t("Send this saved draft now?")}</h3><dl>
         <dt>{t("Mail account")}</dt><dd translate="no">{address}</dd><dt>{t("Recipient")}</dt><dd translate="no">{draft.recipient}</dd>
         <dt>{t("Mail subject")}</dt><dd translate="no">{draft.subject||t("No subject")}</dd></dl>
       <DraftPreview text={draft.body}/>
@@ -105,17 +139,22 @@ export function MailDelivery({invoke,id,address,draft,configured,provider="aliba
         {draft.attachments?.map(file=><li key={file.id} translate="no">{file.name} ({file.size} B)</li>)}
       </ul>}
       <button className="ui-button" type="button" disabled={!configured || check !== "ready" || busy} onClick={()=>void submit()}>{t("Confirm and send email")}</button>
-      <button className="ui-button" type="button" onClick={()=>setReview(false)}>{t("Cancel")}</button>
+      <button className="ui-button" type="button" onClick={event => {
+        setReview(false);
+        if (event.currentTarget.ownerDocument.activeElement === event.currentTarget) reviewButton.current?.focus({ preventScroll: true });
+      }}>{t("Cancel")}</button>
     </section>}
     {busy&&<p role="status">{t("Sending saved draft…")}</p>}
     {checking && <p role="status">{t("Checking local delivery status…")}</p>}
-    {showRetry && <button className="ui-button" type="button" disabled={busy || checking} onClick={() => {
+    {showRetry && <button className="ui-button" type="button" aria-disabled={busy || checking || undefined} onClick={() => {
+      if (busy || checking) return;
       setCheck("retrying");
       setAttempt(attempt + 1);
     }}>{t("Check local delivery status")}</button>}
-    {outcome&&<p role="status">{t(outcome==="accepted"?"The mail server accepted this message.":outcome==="rejected"
+    {outcome === "not_submitted" && <p role="status">{t("The message was not submitted. Check the connection or client password, then review the draft to try again.")}</p>}
+    {deliveryLocked&&<p role="status">{t(outcome==="accepted"?"The mail server accepted this message.":outcome==="rejected"
       ?"The server rejected this send. Check the account and recipient before saving a revised draft."
       :provider==="gmail"?"Delivery is unknown. Check Gmail Sent before composing another copy. Studio will not resend this revision.":"Delivery is unknown. The server may have accepted the message. It will not be sent again automatically; check the recipient’s inbox before composing another copy.")}</p>}
-    {error&&<p role="alert">{error}</p>}
+    {errorText&&<p role="alert">{errorText}</p>}
   </section>;
 }

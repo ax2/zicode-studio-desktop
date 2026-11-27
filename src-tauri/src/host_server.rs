@@ -1,9 +1,8 @@
-#![cfg_attr(not(test), allow(dead_code))]
-
 #[cfg(test)]
 mod notes_backup_recovery_tests;
 #[cfg(test)]
 mod browser_artifact_tests;
+mod artifact_routes;
 mod automation_dispatch;
 mod automation_leader;
 mod automation_orphans;
@@ -18,6 +17,8 @@ mod application_directory_host_tests;
 mod tool_open_host_tests;
 #[cfg(test)]
 mod compute_candidate_pi_tests;
+#[cfg(test)]
+mod devtools_fixture_paths;
 #[cfg(test)]
 mod devtools_data_transform_tests;
 #[cfg(test)]
@@ -263,6 +264,7 @@ impl HostServer {
             .map_err(|_| "Notes vault is unavailable".to_string())
     }
 
+    #[cfg(test)]
     pub async fn start(
         static_dir: PathBuf,
         runtimes: NativePiManager,
@@ -1036,14 +1038,7 @@ impl HostServer {
                 "/v2/articles/blog/publish",
                 post(blog_publish_articles_http),
             )
-            .route("/v2/artifacts", get(list_artifacts))
-            .route("/v2/artifacts/item", get(get_artifact))
-            .route("/v2/artifacts/create", post(create_artifact))
-            .route("/v2/artifacts/delete", post(delete_artifact))
-            .route(
-                "/v2/artifacts/import-all",
-                post(import_artifacts_all).layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
-            )
+            .merge(artifact_routes::routes())
             .route("/v2/auth/exchange", post(exchange_pairing))
             .route("/v2/auth/ca.pem", get(download_remote_ca))
             .route("/v2/lan-qr", get(lan_qr))
@@ -1347,6 +1342,7 @@ impl HostServer {
         Ok(())
     }
 
+    #[cfg(test)]
     pub fn install_developer_plugin(&self, source: &std::path::Path) -> Result<String, String> {
         let managed_root = self
             .state
@@ -1435,6 +1431,7 @@ impl HostServer {
         preview_package(package, &root)
     }
 
+    #[cfg(test)]
     pub fn install_signed_plugin(
         &self,
         package: &std::path::Path,
@@ -1517,6 +1514,7 @@ impl HostServer {
         Ok(())
     }
 
+    #[cfg(test)]
     pub fn stop(mut self) {
         self.request_shutdown();
         self.state.project_tasks.stop_all();
@@ -2494,62 +2492,6 @@ struct RebuildNotesRequest {
     workspace_id: String,
     scene_id: String,
     notebook_id: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ArtifactsQuery {
-    workspace_id: String,
-    scene_id: String,
-    #[serde(default)]
-    kind: Option<String>,
-    #[serde(default)]
-    plugin_id: Option<String>,
-    #[serde(default)]
-    query: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ArtifactQuery {
-    workspace_id: String,
-    scene_id: String,
-    artifact_id: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct CreateArtifactRequest {
-    workspace_id: String,
-    scene_id: String,
-    plugin_id: String,
-    kind: String,
-    title: String,
-    #[serde(default)]
-    summary: String,
-    mime_type: String,
-    #[serde(default)]
-    provenance: Value,
-    #[serde(default)]
-    content: Value,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ImportArtifactsAllRequest {
-    workspace_id: String,
-    scene_id: String,
-    #[serde(default)]
-    artifacts: Vec<ArtifactDocument>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct DeleteArtifactRequest {
-    workspace_id: String,
-    scene_id: String,
-    artifact_id: String,
-    expected_version: String,
 }
 
 async fn list_plugins(
@@ -4470,123 +4412,6 @@ async fn rebuild_notes_index(
         .rebuild_index(&request.notebook_id)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "report": report })))
-}
-
-async fn list_artifacts(
-    State(state): State<Arc<HostState>>,
-    Query(query): Query<ArtifactsQuery>,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    ensure_artifacts_authorized(&state, &query.scene_id, None)?;
-    let artifacts = state
-        .artifacts
-        .lock()
-        .map_err(|_| artifacts_unavailable())?;
-    let scoped = artifacts
-        .scoped(&query.workspace_id)
-        .map_err(artifacts_api_error)?;
-    let snapshot = scoped
-        .list(
-            &query.scene_id,
-            query.kind.as_deref(),
-            query.plugin_id.as_deref(),
-            query.query.as_deref(),
-        )
-        .map_err(artifacts_api_error)?;
-    Ok(Json(json!({
-        "schemaVersion": 1,
-        "sceneId": query.scene_id,
-        "snapshot": snapshot,
-    })))
-}
-
-async fn get_artifact(
-    State(state): State<Arc<HostState>>,
-    Query(query): Query<ArtifactQuery>,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    ensure_artifacts_authorized(&state, &query.scene_id, None)?;
-    let artifacts = state
-        .artifacts
-        .lock()
-        .map_err(|_| artifacts_unavailable())?;
-    let scoped = artifacts
-        .scoped(&query.workspace_id)
-        .map_err(artifacts_api_error)?;
-    let artifact = scoped
-        .get(&query.scene_id, &query.artifact_id)
-        .map_err(artifacts_api_error)?;
-    Ok(Json(json!({ "artifact": artifact })))
-}
-
-async fn create_artifact(
-    State(state): State<Arc<HostState>>,
-    Json(request): Json<CreateArtifactRequest>,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    ensure_artifacts_authorized(&state, &request.scene_id, Some(&request.plugin_id))?;
-    let artifacts = state
-        .artifacts
-        .lock()
-        .map_err(|_| artifacts_unavailable())?;
-    let scoped = artifacts
-        .scoped(&request.workspace_id)
-        .map_err(artifacts_api_error)?;
-    let artifact = scoped
-        .create(ArtifactDraft {
-            workspace_id: request.workspace_id,
-            scene_id: request.scene_id,
-            plugin_id: request.plugin_id,
-            kind: request.kind,
-            title: request.title,
-            summary: request.summary,
-            mime_type: request.mime_type,
-            provenance: request.provenance,
-            content: request.content,
-        })
-        .map_err(artifacts_api_error)?;
-    Ok(Json(json!({ "artifact": artifact })))
-}
-
-/// Restore a workspace-level artifact bundle produced by the bulk export.
-async fn import_artifacts_all(
-    State(state): State<Arc<HostState>>,
-    Json(request): Json<ImportArtifactsAllRequest>,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    ensure_artifacts_authorized(&state, &request.scene_id, None)?;
-    let artifacts = state
-        .artifacts
-        .lock()
-        .map_err(|_| artifacts_unavailable())?;
-    let scoped = artifacts
-        .scoped(&request.workspace_id)
-        .map_err(artifacts_api_error)?;
-    let imported = scoped
-        .import_all(&request.workspace_id, request.artifacts)
-        .map_err(artifacts_api_error)?;
-    Ok(Json(json!({ "imported": imported })))
-}
-
-async fn delete_artifact(
-    State(state): State<Arc<HostState>>,
-    Json(request): Json<DeleteArtifactRequest>,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    ensure_artifacts_authorized(&state, &request.scene_id, None)?;
-    let artifacts = state
-        .artifacts
-        .lock()
-        .map_err(|_| artifacts_unavailable())?;
-    let scoped = artifacts
-        .scoped(&request.workspace_id)
-        .map_err(artifacts_api_error)?;
-    scoped
-        .delete(
-            &request.scene_id,
-            &request.artifact_id,
-            &request.expected_version,
-        )
-        .map_err(artifacts_api_error)?;
-    Ok(Json(json!({
-        "deleted": true,
-        "artifactId": request.artifact_id,
-    })))
 }
 
 async fn list_plugin_capabilities(
@@ -6663,51 +6488,6 @@ fn ensure_notes_network_permission(
             "permission_denied",
             "Grant Notes network access in Plugin Manager before capturing a web page",
         ));
-    }
-    Ok(())
-}
-
-fn ensure_artifacts_authorized(
-    state: &HostState,
-    scene_id: &str,
-    source_plugin_id: Option<&str>,
-) -> Result<(), (StatusCode, Json<Value>)> {
-    let registry = state.plugins.lock().map_err(|_| {
-        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
-    })?;
-    let artifacts = registry
-        .execution_plugin(scene_id, "com.zicode.artifacts")
-        .filter(|plugin| plugin.enabled)
-        .ok_or_else(|| {
-            plugin_api_error(
-                StatusCode::FORBIDDEN,
-                "plugin_not_enabled",
-                "Artifacts is not enabled in this scene",
-            )
-        })?;
-    if !artifacts
-        .permission_grants
-        .get("storage.plugin")
-        .copied()
-        .unwrap_or(false)
-    {
-        return Err(plugin_api_error(
-            StatusCode::FORBIDDEN,
-            "permission_denied",
-            "Artifacts storage permission is not granted",
-        ));
-    }
-    if let Some(plugin_id) = source_plugin_id {
-        let source_enabled = registry
-            .execution_plugin(scene_id, plugin_id)
-            .is_some_and(|plugin| plugin.enabled);
-        if !source_enabled {
-            return Err(plugin_api_error(
-                StatusCode::FORBIDDEN,
-                "source_plugin_not_enabled",
-                "The source plugin is not enabled in this scene",
-            ));
-        }
     }
     Ok(())
 }

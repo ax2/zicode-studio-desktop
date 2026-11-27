@@ -48,7 +48,12 @@ pub(super) fn run(
             )?;
             Ok(json!({"attempts":attempts}))
         })()),
-        (Some("comfy-review"), [expected, id, filename]) => Some((|| {
+        (Some("comfy-review"), [expected, id, filename, options @ ..]) => Some((|| {
+            let inspect = match options {
+                [] => false,
+                [flag] if flag == "--specifications" => true,
+                _ => return Err("invalid generation review options".into()),
+            };
             let source = generation_outputs::Source::load(
                 db,
                 text(expected)?,
@@ -56,9 +61,16 @@ pub(super) fn run(
                 text(filename)?,
             )?;
             let bytes = source.download()?;
-            Ok(
-                json!({"sha256":generation_outputs::digest(&bytes),"base64":generation_outputs::thumbnail(db,library,&bytes)?}),
-            )
+            let thumbnail = generation_outputs::thumbnail(db, library, &bytes)?;
+            let mut response = json!({
+                "sha256": generation_outputs::digest(&bytes),
+                "base64": thumbnail,
+            });
+            if inspect {
+                response["specifications"] =
+                    json!(generation_outputs::inspect(db, library, &bytes).ok());
+            }
+            Ok(response)
         })()),
         (Some("comfy-archive"), [expected, id, filename, digest]) => Some((|| {
             let expected = text(expected)?;

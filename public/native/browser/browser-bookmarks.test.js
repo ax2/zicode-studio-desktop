@@ -51,7 +51,7 @@ it("keeps edit text after a failed save and permits retry", async () => {
 });
 it("reparents folder contents without deleting bookmarks and excludes descendant parents", () => {
   const data = library(); expect(folderOptions(data.folders, "parent")).toEqual([]);
-  const next = removeBookmarkFolder(data, "parent");expect(next.folders).toEqual([{ id: "child", title: "Rust", parentId: null }]);
+  const next = removeBookmarkFolder(data, "parent");expect(next.folders).toEqual([{ id: "child", title: "Rust", parentId: null, position: 0 }]);
   expect(next.bookmarks).toEqual(data.bookmarks);
   const moved = removeBookmarkFolder(next, "child");expect(moved.bookmarks[0].folderId).toBeNull();expect(moved.bookmarks).toHaveLength(1);
 });
@@ -100,4 +100,65 @@ it("can close during a slow read and does not reopen when it resolves", async ()
   let resolve;const onClose = vi.fn();const dialog = showBrowserBookmarks({ invoke: () => new Promise(done => { resolve = done; }), current: null, onOpen: vi.fn(), onClose });
   getByRole(dialog, "button", { name: t("Close") }).click();expect(onClose).toHaveBeenCalledOnce();expect(dialog.isConnected).toBe(false);
   resolve(library());await Promise.resolve();expect(document.querySelector(".browser-bookmarks-dialog")).toBeNull();
+});
+
+it("retries a failed initial load without offering edits against an unknown library", async () => {
+  const requests = [];
+  const invoke = vi.fn(async (_command, { request }) => {
+    requests.push(request);
+    if (requests.length < 3) throw Error("Bookmarks temporarily unavailable");
+    return library();
+  });
+  const current = { title: "Current page", url: "https://example.com/" };
+  const dialog = showBrowserBookmarks({ invoke, current, editCurrent: true, onOpen: vi.fn(), onClose: vi.fn() });
+  const retryButton = () => getByRole(dialog, "button", { name: t("Reload bookmarks") });
+  await waitFor(() => expect(document.activeElement).toBe(retryButton()));
+  expect(getByRole(dialog, "status").textContent).toBe("Bookmarks temporarily unavailable");
+  expect(dialog.querySelector("form")).toBeNull();
+  retryButton().click();
+  await waitFor(() => expect(retryButton().matches(":disabled")).toBe(false));
+  expect(document.activeElement).toBe(retryButton());
+  retryButton().click();
+  const currentTitle = () => getByRole(dialog, "textbox", { name: t("Bookmark name") });
+  await waitFor(() => expect(document.activeElement).toBe(currentTitle()));
+  expect(currentTitle().value).toBe(current.title);
+  expect(getByRole(dialog, "button", { name: `${t("Open bookmark")}: Read me` })).toBeTruthy();
+  expect(requests).toEqual([{ kind: "list" }, { kind: "list" }, { kind: "list" }]);
+});
+
+it("keeps imported sibling order, appends a new link, and moves an empty folder after the destination's legacy entries", async () => {
+  const data = library();
+  data.folders.push(
+    { id: "imported", title: "Imported", parentId: null, position: 0 },
+    { id: "empty", title: "空文件夹", parentId: "imported", position: 1 },
+  );
+  data.bookmarks.push(
+    { id: "legacy", title: "Legacy", url: "https://legacy.test/", folderId: "imported" },
+    { id: "first", title: "首先", url: "https://first.test/", folderId: "imported", position: 0 },
+    { id: "second", title: "随后", url: "https://second.test/", folderId: "imported", position: 2 },
+  );
+  const h = await open({ library: data });
+  const rows = () => [...h.dialog.querySelectorAll(".browser-bookmark-row")].map(row => row.querySelector("button").textContent);
+  getByRole(h.dialog, "button", { name: t("Open folder") + ": Imported" }).click();
+  expect(rows()).toEqual(["Legacy", "首先", "空文件夹", "随后"]);
+
+  getByRole(h.dialog, "button", { name: t("New bookmark") }).click();
+  await waitFor(() => expect(h.dialog.querySelector("fieldset").disabled).toBe(false));
+  const bookmark = getByRole(h.dialog, "form", { name: t("Bookmark editor") });
+  fireEvent.change(getByLabelText(bookmark, t("Bookmark name")), { target: { value: "New after import" } });
+  fireEvent.change(getByLabelText(bookmark, t("Bookmark URL")), { target: { value: "https://new.test/" } });
+  fireEvent.submit(bookmark);
+  await waitFor(() => expect(rows()).toEqual(["Legacy", "首先", "空文件夹", "随后", "New after import"]));
+  expect(h.saved().bookmarks.at(-1).position).toBe(3);
+
+  await waitFor(() => expect(h.dialog.querySelector("fieldset").disabled).toBe(false));
+  getByRole(h.dialog, "button", { name: t("Edit folder") + ": 空文件夹" }).click();
+  await waitFor(() => expect(h.dialog.querySelector("fieldset").disabled).toBe(false));
+  const folder = getByRole(h.dialog, "form", { name: t("Folder editor") });
+  fireEvent.change(getByLabelText(folder, t("Parent folder")), { target: { value: "child" } });
+  fireEvent.submit(folder);
+  await waitFor(() => expect(rows()).toEqual(["Legacy", "首先", "随后", "New after import"]));
+  fireEvent.change(getByRole(h.dialog, "combobox", { name: t("Show folder") }), { target: { value: "child" } });
+  expect(rows()).toEqual(["Read me", "空文件夹"]);
+  expect(h.saved().folders.find(entry => entry.id === "empty")).toMatchObject({ parentId: "child", position: 0 });
 });

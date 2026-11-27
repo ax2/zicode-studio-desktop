@@ -1,0 +1,1351 @@
+{
+  "sourceRevision": "23a457b1dac370bb59e1d63386364ca5425ffae5",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T22:32:08.547204+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "0420a5aa70e4271c6aa46c6256c3131ad8135f5c98405df698bd0f6a67b1e28c",
+  "workerVerification": {
+    "workerSha256": "b18ca10e188add94d537c0d26321ab500b68b808c44cab1832506a46f053d641",
+    "wasmSha256": "0420a5aa70e4271c6aa46c6256c3131ad8135f5c98405df698bd0f6a67b1e28c",
+    "wasmBytes": 482290,
+    "inputProfile": "resource.wasi.input.draft2",
+    "outputProfile": "resource.wasi.output.draft1",
+    "cases": [
+      {
+        "case": "seven-step-production",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 611,
+            "sha256": "ccdc9d4ace0c662b5b1b40da1c3515c90b1eee507c743f56127d536d9bc61a68"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 114,
+            "sha256": "a4ea63db5f4bcdc31487b335fcf63380e541256011e0ffea2e8231cf7f0092e6"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 64,
+          "sha256": "5cf2c85934f83b2c58b6e66a89afa1129751984d0f2530cfaf53a5c9e90be631",
+          "data": {
+            "columns": 3,
+            "csvBytes": 64,
+            "formulaProtection": true,
+            "rowsAfter": 3,
+            "rowsBefore": 5,
+            "steps": 7,
+            "text": "管线已运行 7 步\n数据行 5 → 3 · 结果列 3\nCSV 64 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "v1-bom-and-crlf",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 96,
+            "sha256": "6104c2e21259c0ec9dae8072d265a6de3db17a90435c6cfc788c488655bc7531"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 20,
+            "sha256": "0efb3c7ac21939691b5778c729f21f3e4c456954aac3832bad20e1cf23b8793d"
+          }
+        ],
+        "options": {},
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 14,
+          "sha256": "64fe3c3f7c97442166d4a82a766d1832235af4b8e2695763ce19148e6c7e4a82",
+          "data": {
+            "columns": 1,
+            "csvBytes": 14,
+            "formulaProtection": true,
+            "rowsAfter": 2,
+            "rowsBefore": 2,
+            "steps": 1,
+            "text": "管线已运行 1 步\n数据行 2 → 2 · 结果列 1\nCSV 14 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "v2-tsv",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 112,
+            "sha256": "d150e2c209f62a6370b38d3a0464692d46a546d969e0cc101954b7a6cec0329c"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 25,
+            "sha256": "c50283a900f6f5db53a461562a0b9a7ad04802abe69db47b0578a9587228242f"
+          }
+        ],
+        "options": {
+          "format": "tsv"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 23,
+          "sha256": "ca0768a0129ddd3c740cbe92f7ca7080926a6e55c4fc78044b73cdf5acc53eb3",
+          "data": {
+            "columns": 2,
+            "csvBytes": 23,
+            "formulaProtection": true,
+            "rowsAfter": 1,
+            "rowsBefore": 1,
+            "steps": 1,
+            "text": "管线已运行 1 步\n数据行 1 → 1 · 结果列 2\nCSV 23 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "json-big-numbers-stable-sort",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 105,
+            "sha256": "0e62e425112d22dbca7ce73bb15907c3266fe5530cd4854524943a590e3e47e8"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 124,
+            "sha256": "f543c5468e58fa1941d72f51e16f94b7ef7b76da054ee42ddf13f26f6d3ffe09"
+          }
+        ],
+        "options": {
+          "format": "json"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 82,
+          "sha256": "b9589ab4f118922e370155c18eb63274f851dc61f61064aa24a2fd033bf53f03",
+          "data": {
+            "columns": 2,
+            "csvBytes": 82,
+            "formulaProtection": true,
+            "rowsAfter": 4,
+            "rowsBefore": 4,
+            "steps": 1,
+            "text": "管线已运行 1 步\n数据行 4 → 4 · 结果列 2\nCSV 82 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "json-array-null-fill",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 191,
+            "sha256": "c08dac330bbd319d9c4e2c5d25a999591b172261800fd817833dc1ad19e10d1f"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 30,
+            "sha256": "3bc2e7d720ddf31521083d4207931c56a373f3c2ddfcb14db5ea41cf812dbe1b"
+          }
+        ],
+        "options": {
+          "format": "json"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 20,
+          "sha256": "7c273a90ea8ece0dcd5089eb17dfd9ef40f131e487ef595eecea372b3358024e",
+          "data": {
+            "columns": 2,
+            "csvBytes": 20,
+            "formulaProtection": true,
+            "rowsAfter": 2,
+            "rowsBefore": 2,
+            "steps": 2,
+            "text": "管线已运行 2 步\n数据行 2 → 2 · 结果列 2\nCSV 20 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "typed-empty-table",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 110,
+            "sha256": "891ac2d7535907c5d22fc897b45ca622acce73d9338e16c22062840d67fa7dce"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 31,
+            "sha256": "28fd59917b5694732557bd8322a0487ffac61fde0771d251432b4f6f009cf3ba"
+          }
+        ],
+        "options": {
+          "format": "json"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 6,
+          "sha256": "1e1f2c881ae0608ec77ebf88a75c66d3099113a7343238f2f7a0ebb91a4ed335",
+          "data": {
+            "columns": 1,
+            "csvBytes": 6,
+            "formulaProtection": true,
+            "rowsAfter": 0,
+            "rowsBefore": 0,
+            "steps": 1,
+            "text": "管线已运行 1 步\n数据行 0 → 0 · 结果列 1\nCSV 6 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "empty-result-keeps-csv-header",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 137,
+            "sha256": "d66558e023174f0a77572809d0b61d0e6a567d4e8d23c75cc4317ccba4668e10"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 10,
+            "sha256": "e7819b12e9d9ba0395ff2a47900e711723d6b8de54466fac72ec66a6c813eedb"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 6,
+          "sha256": "1e1f2c881ae0608ec77ebf88a75c66d3099113a7343238f2f7a0ebb91a4ed335",
+          "data": {
+            "columns": 1,
+            "csvBytes": 6,
+            "formulaProtection": true,
+            "rowsAfter": 0,
+            "rowsBefore": 2,
+            "steps": 1,
+            "text": "管线已运行 1 步\n数据行 2 → 0 · 结果列 1\nCSV 6 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "formula-prefixes-and-typed-number",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 100,
+            "sha256": "ab522f4cd119f9836c7a6f1fd1f1c2021f85427f4272356e9729aa10c5764750"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 96,
+            "sha256": "0412e6bd4446248db15949a7d2b91db2c9e29374b14a8a700c6a81bcbd9d5afb"
+          }
+        ],
+        "options": {
+          "format": "json"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 56,
+          "sha256": "d39b2e468372814b853b1a45544aa5873b444938ec452f4443d2629779d5ae0b",
+          "data": {
+            "columns": 2,
+            "csvBytes": 56,
+            "formulaProtection": true,
+            "rowsAfter": 4,
+            "rowsBefore": 4,
+            "steps": 1,
+            "text": "管线已运行 1 步\n数据行 4 → 4 · 结果列 2\nCSV 56 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "exact-both-file-byte-limits",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 16384,
+            "sha256": "60eb13d89c18ac87a5de02d3cdb4dd914b696ccf0a6dbdaa4e3755d4f548e1e3"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 16384,
+            "sha256": "34e87ee23d2a6d23fc9e81415f477bddb96f7d0f2a4d5bfab0f3b1cee107e2c7"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 16384,
+          "sha256": "34e87ee23d2a6d23fc9e81415f477bddb96f7d0f2a4d5bfab0f3b1cee107e2c7",
+          "data": {
+            "columns": 1,
+            "csvBytes": 16384,
+            "formulaProtection": true,
+            "rowsAfter": 1,
+            "rowsBefore": 1,
+            "steps": 1,
+            "text": "管线已运行 1 步\n数据行 1 → 1 · 结果列 1\nCSV 16384 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "both-file-limits-plus-one",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 16385,
+            "sha256": "d7d27f19fb23163d0c301cccfa48672207b04c936ec55dbed3e1f27f10ffce01"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 16385,
+            "sha256": "e46cc9e35535bdda9bb50c7652cb284f8fb156b0978d4a964a5d1bf5c063a9f1"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "FILE_LIMIT",
+          "message": "管线配方和表格文件分别最多 16 KiB。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "recipe-file-limit-plus-one",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 16385,
+            "sha256": "d7d27f19fb23163d0c301cccfa48672207b04c936ec55dbed3e1f27f10ffce01"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "FILE_LIMIT",
+          "message": "管线配方和表格文件分别最多 16 KiB。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "table-file-limit-plus-one",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 16385,
+            "sha256": "e46cc9e35535bdda9bb50c7652cb284f8fb156b0978d4a964a5d1bf5c063a9f1"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "FILE_LIMIT",
+          "message": "管线配方和表格文件分别最多 16 KiB。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "max-steps-with-small-table",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 1581,
+            "sha256": "7f5b267bb57de8e2f2aa436ea655f870448ba153c266ea0f1ab7560b371e998f"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 8,
+          "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8",
+          "data": {
+            "columns": 1,
+            "csvBytes": 8,
+            "formulaProtection": true,
+            "rowsAfter": 1,
+            "rowsBefore": 1,
+            "steps": 32,
+            "text": "管线已运行 32 步\n数据行 1 → 1 · 结果列 1\nCSV 8 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "too-many-steps",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 1629,
+            "sha256": "7aff39217f680ce974e8dc0cf3c0d456074554a2aa722dc37087dc536a1adb46"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_RECIPE",
+          "message": "指定的配方文件必须是独立版格式 1–3 的有效表格管线 JSON。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "unsupported-version",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ff940bf6af68ed6d54e4bcdbda2224e40a68b2bba516aaa1cf3c8e6703922d5e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_RECIPE",
+          "message": "指定的配方文件必须是独立版格式 1–3 的有效表格管线 JSON。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "row-op-in-old-version",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 110,
+            "sha256": "64ad7b191445ad9499c573a06e3fc577b4e5425355a56f4898944949e39660d4"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_RECIPE",
+          "message": "指定的配方文件必须是独立版格式 1–3 的有效表格管线 JSON。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "invalid-recipe-field",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 111,
+            "sha256": "0b5d3eacf8a3f7a8238e8be78db958ff3b13e6b0dd3340d32b758b2ad1d70964"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_RECIPE",
+          "message": "指定的配方文件必须是独立版格式 1–3 的有效表格管线 JSON。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "recipe-input-encoding",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 1,
+            "sha256": "a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_RECIPE",
+          "message": "指定的配方文件必须是独立版格式 1–3 的有效表格管线 JSON。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "data-input-encoding",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 7,
+            "sha256": "5652d7b699a762ac52252bfd77b8040fe33b55a61f0b17a5faf30b42cb417caa"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_TABLE",
+          "message": "数据文件须是所选格式的有效 UTF-8 表格，最多 96 行、16 列。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "unsupported-table-format",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "xml"
+        },
+        "error": {
+          "code": "INVALID_REQUEST",
+          "message": "请选择表格格式，配方位置可填 1 或 2。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "bad-csv-header",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 16,
+            "sha256": "0bce15d239d951a7cec88fb11415c99959c67d09e3f9388e95c7bd347a242411"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_TABLE",
+          "message": "数据文件须是所选格式的有效 UTF-8 表格，最多 96 行、16 列。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "wrong-row-width",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 12,
+            "sha256": "8d42d0b9fdbb18c47fe326d1e1442eaf077427931fc75c619c682c03c8169462"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_TABLE",
+          "message": "数据文件须是所选格式的有效 UTF-8 表格，最多 96 行、16 列。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "missing-column-at-step-two",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 143,
+            "sha256": "a0c6e0bd9b98519bbc6da4338204274cfeb85a6622a475b7b86707ebd2f12744"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "STEP_FAILED",
+          "message": "管线步骤失败。请核对该步骤中的列名及数据类型。",
+          "step": 2
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "invalid-conversion-at-step-two",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 166,
+            "sha256": "d8f78aa2adce957ea546d346677268f804537170203f0af6dcac7253adf17b3a"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "STEP_FAILED",
+          "message": "管线步骤失败。请核对该步骤中的列名及数据类型。",
+          "step": 2
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "reject-csv-without-formula-protection",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 156,
+            "sha256": "153ac37dc208613ac2982f5a54445d6b67b7875aac0d7c539553e361dd48b64d"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 11,
+            "sha256": "c0f916c3822b019529bf146acd0bbe08fcf70609871c48fb09a810795b1c8873"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "CSV_POLICY",
+          "message": "请在配方中启用 CSV 公式保护，或删除另存格式设置。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "reject-sqlite-recipe-output",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 150,
+            "sha256": "07996444e2a53a7ba24b96a3c178f1a36c0e57a44ea17609e1332ed89272534f"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "CSV_POLICY",
+          "message": "请在配方中启用 CSV 公式保护，或删除另存格式设置。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "one-resource",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_RESOURCE",
+          "message": "请选择并确认两份文件：一份管线 JSON 配方，一份数据表格。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "same-resource-id",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_RESOURCE",
+          "message": "请选择并确认两份文件：一份管线 JSON 配方，一份数据表格。"
+        },
+        "hostError": "Invalid resource Worker frame",
+        "output": null
+      },
+      {
+        "case": "swapped-resources",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_RECIPE",
+          "message": "指定的配方文件必须是独立版格式 1–3 的有效表格管线 JSON。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "explicit-role-selects-second-file",
+        "sources": [
+          {
+            "mime": "text/csv",
+            "bytes": 114,
+            "sha256": "a4ea63db5f4bcdc31487b335fcf63380e541256011e0ffea2e8231cf7f0092e6"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 611,
+            "sha256": "ccdc9d4ace0c662b5b1b40da1c3515c90b1eee507c743f56127d536d9bc61a68"
+          }
+        ],
+        "options": {
+          "recipePosition": 2
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 64,
+          "sha256": "5cf2c85934f83b2c58b6e66a89afa1129751984d0f2530cfaf53a5c9e90be631",
+          "data": {
+            "columns": 3,
+            "csvBytes": 64,
+            "formulaProtection": true,
+            "rowsAfter": 3,
+            "rowsBefore": 5,
+            "steps": 7,
+            "text": "管线已运行 7 步\n数据行 5 → 3 · 结果列 3\nCSV 64 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "invalid-zero-role",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "recipePosition": 0
+        },
+        "error": {
+          "code": "INVALID_REQUEST",
+          "message": "请选择表格格式，配方位置可填 1 或 2。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "invalid-extra-role",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "recipePosition": 3
+        },
+        "error": {
+          "code": "INVALID_REQUEST",
+          "message": "请选择表格格式，配方位置可填 1 或 2。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "wrong-recipe-content-version",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_RESOURCE",
+          "message": "请选择并确认两份文件：一份管线 JSON 配方，一份数据表格。"
+        },
+        "hostError": "Resource Worker content mismatch",
+        "output": null
+      },
+      {
+        "case": "wrong-table-content-version",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8,
+            "sha256": "903bce70da23d0fcd75709fb986b12e6bf39045afc7bc8af017d361b0a9d76f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_RESOURCE",
+          "message": "请选择并确认两份文件：一份管线 JSON 配方，一份数据表格。"
+        },
+        "hostError": "Resource Worker content mismatch",
+        "output": null
+      },
+      {
+        "case": "maximum-row-and-column-counts",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 171,
+            "sha256": "ee34f8dfa349ba179e1dd86859440a39ea1085a9b9f7e6ad87a827eed24290b5"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 9270,
+            "sha256": "f44e567288e319ca0a47f558362d06ef2605bf7b136ae33f9219fd8c0dffa0a0"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 9270,
+          "sha256": "f44e567288e319ca0a47f558362d06ef2605bf7b136ae33f9219fd8c0dffa0a0",
+          "data": {
+            "columns": 16,
+            "csvBytes": 9270,
+            "formulaProtection": true,
+            "rowsAfter": 96,
+            "rowsBefore": 96,
+            "steps": 1,
+            "text": "管线已运行 1 步\n数据行 96 → 96 · 结果列 16\nCSV 9270 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "maximum-rows-plus-one",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 200,
+            "sha256": "03c69915dc9ec1734430c6e8a268c50d437867e1734cf60149ffc7a8f039c60e"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_TABLE",
+          "message": "数据文件须是所选格式的有效 UTF-8 表格，最多 96 行、16 列。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "maximum-columns-plus-one",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 93,
+            "sha256": "ec98c8adb047bc7d058dfeec5a5a3e943fa7cbe7b57ce19431f07adecb03084e"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 60,
+            "sha256": "ae112ec17e3c1e386e72d252cb813e7270b1dac6f150677066269ead1232e18a"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "INVALID_TABLE",
+          "message": "数据文件须是所选格式的有效 UTF-8 表格，最多 96 行、16 列。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "expanded-intermediate-limit",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 629,
+            "sha256": "c92bdf7c4550bd835c16ee4e34933c50ddd41cdbdefe9abcdcf4111cfd9d0cec"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 702,
+            "sha256": "35df70800cd27c2e674b6c97df5b964b3ae1899c909a13a8958baec6c386d606"
+          }
+        ],
+        "options": {
+          "format": "json"
+        },
+        "error": {
+          "code": "WORK_LIMIT",
+          "message": "本次管线的中间表格或累计处理规模超过上限，请缩小表格或分段运行。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "one-large-utf8-uppercase",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 113,
+            "sha256": "9e045bebc79dfbd14f914c1c11f111a9634d6f6fbe4b5fca25c1842ad7faeedd"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 16007,
+            "sha256": "824e1825aee1c55686b2973d8d04146a69b0c6d282147f4b2cfee021ad74c5f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 16007,
+          "sha256": "ba042fdc64d83298fa4158a54b986735551b786eb29391e34d355e40524dda99",
+          "data": {
+            "columns": 1,
+            "csvBytes": 16007,
+            "formulaProtection": true,
+            "rowsAfter": 1,
+            "rowsBefore": 1,
+            "steps": 1,
+            "text": "管线已运行 1 步\n数据行 1 → 1 · 结果列 1\nCSV 16007 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "two-shorter-utf8-case-conversions",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 181,
+            "sha256": "a718b8e72a5bfcdac85e6ba4a1055da5d23d3f91c3e95ceb10b2e6ee59e00d2b"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 8007,
+            "sha256": "3de83aa4a1aae4e5943037ecd878a5d98a83b5c9f28e914f9a1fad79c955a0c8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 8007,
+          "sha256": "5e66e6a07e3fdde0c6d33697c97047b7c762a65c2df9d6341fe416e86eaa2a8c",
+          "data": {
+            "columns": 1,
+            "csvBytes": 8007,
+            "formulaProtection": true,
+            "rowsAfter": 1,
+            "rowsBefore": 1,
+            "steps": 2,
+            "text": "管线已运行 2 步\n数据行 1 → 1 · 结果列 1\nCSV 8007 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "reject-dense-utf8-case-conversions",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 589,
+            "sha256": "8e07236b5950e3ec97fa175efea9b2197517b04dfd5468248b5906f98c06f8a4"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 16007,
+            "sha256": "824e1825aee1c55686b2973d8d04146a69b0c6d282147f4b2cfee021ad74c5f8"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "WORK_LIMIT",
+          "message": "本次管线的中间表格或累计处理规模超过上限，请缩小表格或分段运行。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "eight-steps-at-exact-cumulative-limit",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 429,
+            "sha256": "e4667d12eaa7660e494ef5f8fb777f4790a374a0a721736a2a01de7a5bce4356"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 16376,
+            "sha256": "8c89cee117ad77fc9cdcfd9ddb25c6db6c9377ba9a9b12d6f38919de69cbc9c1"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 16376,
+          "sha256": "8c89cee117ad77fc9cdcfd9ddb25c6db6c9377ba9a9b12d6f38919de69cbc9c1",
+          "data": {
+            "columns": 1,
+            "csvBytes": 16376,
+            "formulaProtection": true,
+            "rowsAfter": 1,
+            "rowsBefore": 1,
+            "steps": 8,
+            "text": "管线已运行 8 步\n数据行 1 → 1 · 结果列 1\nCSV 16376 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "one-step-over-cumulative-limit",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 477,
+            "sha256": "b5715e43754e1ca7ca37023690b12c8b7e26151fd4fbbbd380c611eaa08c7a72"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 16376,
+            "sha256": "8c89cee117ad77fc9cdcfd9ddb25c6db6c9377ba9a9b12d6f38919de69cbc9c1"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "WORK_LIMIT",
+          "message": "本次管线的中间表格或累计处理规模超过上限，请缩小表格或分段运行。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "five-steps-with-max-row-and-column-counts",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 454,
+            "sha256": "b45b065670fe0b9e64d566cd3253252a25714545b55670bcefc367c0f94b2eab"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 9270,
+            "sha256": "f44e567288e319ca0a47f558362d06ef2605bf7b136ae33f9219fd8c0dffa0a0"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 9270,
+          "sha256": "f44e567288e319ca0a47f558362d06ef2605bf7b136ae33f9219fd8c0dffa0a0",
+          "data": {
+            "columns": 16,
+            "csvBytes": 9270,
+            "formulaProtection": true,
+            "rowsAfter": 96,
+            "rowsBefore": 96,
+            "steps": 5,
+            "text": "管线已运行 5 步\n数据行 96 → 96 · 结果列 16\nCSV 9270 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "six-dense-steps-rejected-before-runtime-budget",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 429,
+            "sha256": "c590aa347f8048e01939c1b1352407c97b2fb897e366bbc313d159bdd81afe97"
+          },
+          {
+            "mime": "text/csv",
+            "bytes": 9270,
+            "sha256": "f44e567288e319ca0a47f558362d06ef2605bf7b136ae33f9219fd8c0dffa0a0"
+          }
+        ],
+        "options": {
+          "format": "csv"
+        },
+        "error": {
+          "code": "WORK_LIMIT",
+          "message": "本次管线的中间表格或累计处理规模超过上限，请缩小表格或分段运行。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "typed-multikey-repeated",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 1333,
+            "sha256": "da5ec71b841716cd2eaa969563637a6ec2fe268c82b55c110c4dc502558ca5b7"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 4928,
+            "sha256": "af3dc98eb9aac710a37d192031fc391455032cfe9c98b2738856a46cfe0c07b2"
+          }
+        ],
+        "options": {
+          "format": "json"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 4128,
+          "sha256": "1130247e4f3b8554304db416afda87ad679feaa6937851f428484261dbe92a54",
+          "data": {
+            "columns": 5,
+            "csvBytes": 4128,
+            "formulaProtection": true,
+            "rowsAfter": 96,
+            "rowsBefore": 96,
+            "steps": 8,
+            "text": "管线已运行 8 步\n数据行 96 → 96 · 结果列 5\nCSV 4128 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      },
+      {
+        "case": "reject-dense-multikey-sort",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 1655,
+            "sha256": "7a6cf8362b1f3e8dbf6ea4628e491fe47208c55419db8e32309d00268b401249"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 4928,
+            "sha256": "af3dc98eb9aac710a37d192031fc391455032cfe9c98b2738856a46cfe0c07b2"
+          }
+        ],
+        "options": {
+          "format": "json"
+        },
+        "error": {
+          "code": "WORK_LIMIT",
+          "message": "本次管线的中间表格或累计处理规模超过上限，请缩小表格或分段运行。"
+        },
+        "hostError": null,
+        "output": null
+      },
+      {
+        "case": "transformation-growth-stays-within-budget",
+        "sources": [
+          {
+            "mime": "application/octet-stream",
+            "bytes": 224,
+            "sha256": "785d216fc1f0ab00812c633b68009da46e0ab8c06f5bfa069ba878bfcedf6859"
+          },
+          {
+            "mime": "application/octet-stream",
+            "bytes": 702,
+            "sha256": "35df70800cd27c2e674b6c97df5b964b3ae1899c909a13a8958baec6c386d606"
+          }
+        ],
+        "options": {
+          "format": "json"
+        },
+        "error": null,
+        "hostError": null,
+        "output": {
+          "mime": "text/csv",
+          "bytes": 3846,
+          "sha256": "e468f080ced92fb4a14c7f12422e4c0724fc6885e11ceebdccf9fa7eb78b5705",
+          "data": {
+            "columns": 1,
+            "csvBytes": 3846,
+            "formulaProtection": true,
+            "rowsAfter": 96,
+            "rowsBefore": 96,
+            "steps": 2,
+            "text": "管线已运行 2 步\n数据行 96 → 96 · 结果列 1\nCSV 3846 字节 · 已启用公式保护\n请确认保存新文件。"
+          }
+        }
+      }
+    ],
+    "failures": []
+  }
+}

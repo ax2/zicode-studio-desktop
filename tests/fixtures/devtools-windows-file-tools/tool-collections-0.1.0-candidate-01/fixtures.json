@@ -1,0 +1,687 @@
+{
+  "generator": "scripts/verify_tool_collections_plugin.py",
+  "cases": [
+    {
+      "id": "unknown-ids-order-and-empty-collection",
+      "inputSha256": "9e4744858ea149db101c8f646dd57eebae615aa89f648c79a842c43eafba7fd4",
+      "inputBytes": 191,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "json-mime",
+      "inputSha256": "9e4744858ea149db101c8f646dd57eebae615aa89f648c79a842c43eafba7fd4",
+      "inputBytes": 191,
+      "input": {},
+      "mime": "application/json",
+      "ok": true
+    },
+    {
+      "id": "text-mime",
+      "inputSha256": "9e4744858ea149db101c8f646dd57eebae615aa89f648c79a842c43eafba7fd4",
+      "inputBytes": 191,
+      "input": {},
+      "mime": "text/plain",
+      "ok": true
+    },
+    {
+      "id": "first-order-and-select-second",
+      "inputSha256": "9e4744858ea149db101c8f646dd57eebae615aa89f648c79a842c43eafba7fd4",
+      "inputBytes": 191,
+      "input": {
+        "startCollection": 2
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "index-zero",
+      "inputSha256": "9e4744858ea149db101c8f646dd57eebae615aa89f648c79a842c43eafba7fd4",
+      "inputBytes": 191,
+      "input": {
+        "startCollection": 0
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "index-outside-file",
+      "inputSha256": "9e4744858ea149db101c8f646dd57eebae615aa89f648c79a842c43eafba7fd4",
+      "inputBytes": 191,
+      "input": {
+        "startCollection": 3
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "unicode-suffix-preserves-forty-characters",
+      "inputSha256": "50289841c49e655510370c161ecb7311e62de62fc4c5eeec66e00dfa6f2f21bc",
+      "inputBytes": 221,
+      "input": {
+        "compareNames": [
+          "星星星星星星星星星星星星星星星星星星星星星星星星星星星星星星星星星星星星星星ab"
+        ]
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "rename-cascade-reserves-predicted-names",
+      "inputSha256": "134f2c42814ec2b66080efaea82d79b37e701438f95e5547c4eaba6e990089f6",
+      "inputBytes": 159,
+      "input": {
+        "compareNames": [
+          " équipe "
+        ]
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "unicode-duplicate-names",
+      "inputSha256": "5ae940d3361699e226a2a001aa6e0d235e953a56e764f3d33535e6df87cdb7eb",
+      "inputBytes": 147,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "ordered-suffix-skip",
+      "inputSha256": "ce14ccb9ab4edf21ea6538d892f826a0eab39e6b4195c41c9f774a06ba59e2bc",
+      "inputBytes": 110,
+      "input": {
+        "compareNames": [
+          "DEV",
+          "Dev（导入 1）",
+          "Dev（导入 2）"
+        ]
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "combined-capacity-and-deep-suffix",
+      "inputSha256": "d85bc4a6770adf254cbec5bc555a4e19b9e12e5e8702ebb7ba2a836ec11e8700",
+      "inputBytes": 106,
+      "input": {
+        "compareNames": [
+          "Dev",
+          "Dev（导入 1）",
+          "Dev（导入 2）",
+          "Dev（导入 3）",
+          "Dev（导入 4）",
+          "Dev（导入 5）",
+          "Dev（导入 6）",
+          "Dev（导入 7）",
+          "Dev（导入 8）",
+          "Dev（导入 9）",
+          "Dev（导入 10）",
+          "Dev（导入 11）",
+          "Dev（导入 12）",
+          "Dev（导入 13）",
+          "Dev（导入 14）",
+          "Dev（导入 15）",
+          "Dev（导入 16）",
+          "Dev（导入 17）",
+          "Dev（导入 18）",
+          "Dev（导入 19）",
+          "Dev（导入 20）",
+          "Dev（导入 21）",
+          "Dev（导入 22）",
+          "Dev（导入 23）",
+          "Dev（导入 24）",
+          "Dev（导入 25）",
+          "Dev（导入 26）",
+          "Dev（导入 27）",
+          "Dev（导入 28）",
+          "Dev（导入 29）",
+          "Dev（导入 30）",
+          "Dev（导入 31）",
+          "Dev（导入 32）",
+          "Dev（导入 33）",
+          "Dev（导入 34）",
+          "Dev（导入 35）",
+          "Dev（导入 36）",
+          "Dev（导入 37）",
+          "Dev（导入 38）",
+          "Dev（导入 39）",
+          "Dev（导入 40）",
+          "Dev（导入 41）",
+          "Dev（导入 42）",
+          "Dev（导入 43）",
+          "Dev（导入 44）",
+          "Dev（导入 45）",
+          "Dev（导入 46）",
+          "Dev（导入 47）",
+          "Dev（导入 48）",
+          "Dev（导入 49）",
+          "Dev（导入 50）",
+          "Dev（导入 51）",
+          "Dev（导入 52）",
+          "Dev（导入 53）",
+          "Dev（导入 54）",
+          "Dev（导入 55）",
+          "Dev（导入 56）",
+          "Dev（导入 57）",
+          "Dev（导入 58）",
+          "Dev（导入 59）",
+          "Dev（导入 60）",
+          "Dev（导入 61）",
+          "Dev（导入 62）",
+          "Dev（导入 63）",
+          "Dev（导入 64）",
+          "Dev（导入 65）",
+          "Dev（导入 66）",
+          "Dev（导入 67）",
+          "Dev（导入 68）",
+          "Dev（导入 69）",
+          "Dev（导入 70）",
+          "Dev（导入 71）",
+          "Dev（导入 72）",
+          "Dev（导入 73）",
+          "Dev（导入 74）",
+          "Dev（导入 75）",
+          "Dev（导入 76）",
+          "Dev（导入 77）",
+          "Dev（导入 78）",
+          "Dev（导入 79）",
+          "Dev（导入 80）",
+          "Dev（导入 81）",
+          "Dev（导入 82）",
+          "Dev（导入 83）",
+          "Dev（导入 84）",
+          "Dev（导入 85）",
+          "Dev（导入 86）",
+          "Dev（导入 87）",
+          "Dev（导入 88）",
+          "Dev（导入 89）",
+          "Dev（导入 90）",
+          "Dev（导入 91）",
+          "Dev（导入 92）",
+          "Dev（导入 93）",
+          "Dev（导入 94）",
+          "Dev（导入 95）",
+          "Dev（导入 96）",
+          "Dev（导入 97）",
+          "Dev（导入 98）",
+          "Dev（导入 99）",
+          "Dev（导入 100）",
+          "Dev（导入 101）",
+          "Dev（导入 102）",
+          "Dev（导入 103）",
+          "Dev（导入 104）",
+          "Dev（导入 105）",
+          "Dev（导入 106）",
+          "Dev（导入 107）",
+          "Dev（导入 108）",
+          "Dev（导入 109）",
+          "Dev（导入 110）",
+          "Dev（导入 111）",
+          "Dev（导入 112）",
+          "Dev（导入 113）",
+          "Dev（导入 114）",
+          "Dev（导入 115）",
+          "Dev（导入 116）",
+          "Dev（导入 117）",
+          "Dev（导入 118）",
+          "Dev（导入 119）",
+          "Dev（导入 120）",
+          "Dev（导入 121）",
+          "Dev（导入 122）",
+          "Dev（导入 123）",
+          "Dev（导入 124）",
+          "Dev（导入 125）",
+          "Dev（导入 126）"
+        ]
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "combined-capacity-over",
+      "inputSha256": "d85bc4a6770adf254cbec5bc555a4e19b9e12e5e8702ebb7ba2a836ec11e8700",
+      "inputBytes": 106,
+      "input": {
+        "compareNames": [
+          "Dev",
+          "Dev（导入 1）",
+          "Dev（导入 2）",
+          "Dev（导入 3）",
+          "Dev（导入 4）",
+          "Dev（导入 5）",
+          "Dev（导入 6）",
+          "Dev（导入 7）",
+          "Dev（导入 8）",
+          "Dev（导入 9）",
+          "Dev（导入 10）",
+          "Dev（导入 11）",
+          "Dev（导入 12）",
+          "Dev（导入 13）",
+          "Dev（导入 14）",
+          "Dev（导入 15）",
+          "Dev（导入 16）",
+          "Dev（导入 17）",
+          "Dev（导入 18）",
+          "Dev（导入 19）",
+          "Dev（导入 20）",
+          "Dev（导入 21）",
+          "Dev（导入 22）",
+          "Dev（导入 23）",
+          "Dev（导入 24）",
+          "Dev（导入 25）",
+          "Dev（导入 26）",
+          "Dev（导入 27）",
+          "Dev（导入 28）",
+          "Dev（导入 29）",
+          "Dev（导入 30）",
+          "Dev（导入 31）",
+          "Dev（导入 32）",
+          "Dev（导入 33）",
+          "Dev（导入 34）",
+          "Dev（导入 35）",
+          "Dev（导入 36）",
+          "Dev（导入 37）",
+          "Dev（导入 38）",
+          "Dev（导入 39）",
+          "Dev（导入 40）",
+          "Dev（导入 41）",
+          "Dev（导入 42）",
+          "Dev（导入 43）",
+          "Dev（导入 44）",
+          "Dev（导入 45）",
+          "Dev（导入 46）",
+          "Dev（导入 47）",
+          "Dev（导入 48）",
+          "Dev（导入 49）",
+          "Dev（导入 50）",
+          "Dev（导入 51）",
+          "Dev（导入 52）",
+          "Dev（导入 53）",
+          "Dev（导入 54）",
+          "Dev（导入 55）",
+          "Dev（导入 56）",
+          "Dev（导入 57）",
+          "Dev（导入 58）",
+          "Dev（导入 59）",
+          "Dev（导入 60）",
+          "Dev（导入 61）",
+          "Dev（导入 62）",
+          "Dev（导入 63）",
+          "Dev（导入 64）",
+          "Dev（导入 65）",
+          "Dev（导入 66）",
+          "Dev（导入 67）",
+          "Dev（导入 68）",
+          "Dev（导入 69）",
+          "Dev（导入 70）",
+          "Dev（导入 71）",
+          "Dev（导入 72）",
+          "Dev（导入 73）",
+          "Dev（导入 74）",
+          "Dev（导入 75）",
+          "Dev（导入 76）",
+          "Dev（导入 77）",
+          "Dev（导入 78）",
+          "Dev（导入 79）",
+          "Dev（导入 80）",
+          "Dev（导入 81）",
+          "Dev（导入 82）",
+          "Dev（导入 83）",
+          "Dev（导入 84）",
+          "Dev（导入 85）",
+          "Dev（导入 86）",
+          "Dev（导入 87）",
+          "Dev（导入 88）",
+          "Dev（导入 89）",
+          "Dev（导入 90）",
+          "Dev（导入 91）",
+          "Dev（导入 92）",
+          "Dev（导入 93）",
+          "Dev（导入 94）",
+          "Dev（导入 95）",
+          "Dev（导入 96）",
+          "Dev（导入 97）",
+          "Dev（导入 98）",
+          "Dev（导入 99）",
+          "Dev（导入 100）",
+          "Dev（导入 101）",
+          "Dev（导入 102）",
+          "Dev（导入 103）",
+          "Dev（导入 104）",
+          "Dev（导入 105）",
+          "Dev（导入 106）",
+          "Dev（导入 107）",
+          "Dev（导入 108）",
+          "Dev（导入 109）",
+          "Dev（导入 110）",
+          "Dev（导入 111）",
+          "Dev（导入 112）",
+          "Dev（导入 113）",
+          "Dev（导入 114）",
+          "Dev（导入 115）",
+          "Dev（导入 116）",
+          "Dev（导入 117）",
+          "Dev（导入 118）",
+          "Dev（导入 119）",
+          "Dev（导入 120）",
+          "Dev（导入 121）",
+          "Dev（导入 122）",
+          "Dev（导入 123）",
+          "Dev（导入 124）",
+          "Dev（导入 125）",
+          "Dev（导入 126）",
+          "extra"
+        ]
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "comparison-names-reject-duplicate-after-trim",
+      "inputSha256": "9e4744858ea149db101c8f646dd57eebae615aa89f648c79a842c43eafba7fd4",
+      "inputBytes": 191,
+      "input": {
+        "compareNames": [
+          " DEV ",
+          "dev"
+        ]
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "invalid-comparison-name",
+      "inputSha256": "9e4744858ea149db101c8f646dd57eebae615aa89f648c79a842c43eafba7fd4",
+      "inputBytes": 191,
+      "input": {
+        "compareNames": [
+          "\u0000"
+        ]
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "unknown-input-field",
+      "inputSha256": "9e4744858ea149db101c8f646dd57eebae615aa89f648c79a842c43eafba7fd4",
+      "inputBytes": 191,
+      "input": {
+        "save": true
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "extra-preferences-field",
+      "inputSha256": "c4dbc77ed9c9c2b01c70f56bb6c1172e8555fc05c847dd90043b02b4d4531767",
+      "inputBytes": 127,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "extra-collection-field",
+      "inputSha256": "aa3b41f2bc7ea12e385b404b6b3f0993b867782e0fb05d44e636cec273ef301d",
+      "inputBytes": 117,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "duplicate-JSON-schema-version-key",
+      "inputSha256": "0070b5b5ee9f498859fa88dd159375b3aa1fae3fa8b69beef8374ba081a14275",
+      "inputBytes": 94,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "unsupported-schema",
+      "inputSha256": "b84ac3770fef9e0798050ecf0136a1f26609d5b9de8771c3f4b9e7649d5fb249",
+      "inputBytes": 78,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "unsupported-version",
+      "inputSha256": "f053b15590115f8805ffdbc5c80da0a5c5dea5063986a0a3ade942ba856adfee",
+      "inputBytes": 101,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "empty-document",
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputBytes": 0,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "bom-is-not-native-json",
+      "inputSha256": "03162e8d3d90b565c986189bee0c10deec095b6d70c66f7093034f11c7f58a20",
+      "inputBytes": 194,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "invalid-utf8",
+      "inputSha256": "a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89",
+      "inputBytes": 1,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "no-collections",
+      "inputSha256": "89b67cdcbff2746d1776f0bb843df359e4a753e19b097e13e64068a289bae514",
+      "inputBytes": 76,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "empty-name",
+      "inputSha256": "17be3e7a0c275b57f68c59987768d1925afdcc86cc22168e14fe257865ff7b18",
+      "inputBytes": 104,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "forty-one-characters",
+      "inputSha256": "aa1991b2b7153dd014597e2326049e4f90865371472d294125fd8393faab12d9",
+      "inputBytes": 223,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "control-in-name",
+      "inputSha256": "f24e54edfb0768a982045a987999d68733e267f44823af198da6717ab60a2b6b",
+      "inputBytes": 109,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "duplicate-tool-id",
+      "inputSha256": "ca8f173abcbdb6c0087e4d2f52b1c340c45e44ccc0c278a34cbef1e1ef3b23fd",
+      "inputBytes": 114,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "tool-id-empty",
+      "inputSha256": "ae204998e7336e11678fa02ef08534dffa75ba220b056594b200fd4a510e6430",
+      "inputBytes": 103,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "tool-id-one-byte-over",
+      "inputSha256": "e7b5f4bbe3ea48bc6198fcd00832d2482dd7e6770c013020bf40c58e722f41d6",
+      "inputBytes": 616,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "tool-id-at-512",
+      "inputSha256": "e1e0c3fdef4a2de3593e0d4fc7b67c0dc094ac1042cabe256030e7738148c731",
+      "inputBytes": 615,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "tool-id-with-unknown-unicode-and-control-is-raw-data",
+      "inputSha256": "450e588a2f5eea57d3ef4d32a39d690aae73425c17053ace22d18b6c7fcbb6dc",
+      "inputBytes": 118,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "maximally-escaped-512-byte-id-fits-on-a-page",
+      "inputSha256": "6099d510264a0308546bb97dc1cbc50efb77f256c9697fbaf1b3576e11153317",
+      "inputBytes": 3183,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "exact-members-limit",
+      "inputSha256": "fc1333286a69f3ae9f3ed197fca99b6dcdc5b239bb5a8d0d31c692da18a89615",
+      "inputBytes": 9316,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "members-seventeenth-following-first-page",
+      "inputSha256": "fc1333286a69f3ae9f3ed197fca99b6dcdc5b239bb5a8d0d31c692da18a89615",
+      "inputBytes": 9316,
+      "input": {
+        "startMember": 17
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "members-last-is-accessible",
+      "inputSha256": "fc1333286a69f3ae9f3ed197fca99b6dcdc5b239bb5a8d0d31c692da18a89615",
+      "inputBytes": 9316,
+      "input": {
+        "startMember": 512
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "member-position-past-end",
+      "inputSha256": "fc1333286a69f3ae9f3ed197fca99b6dcdc5b239bb5a8d0d31c692da18a89615",
+      "inputBytes": 9316,
+      "input": {
+        "startMember": 513
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "member-position-zero",
+      "inputSha256": "fc1333286a69f3ae9f3ed197fca99b6dcdc5b239bb5a8d0d31c692da18a89615",
+      "inputBytes": 9316,
+      "input": {
+        "startMember": 0
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "empty-collection-only-default-position",
+      "inputSha256": "48009da16a6c585adc22febf2241a90a37548f1f539522c882b1cb12d6c40dad",
+      "inputBytes": 101,
+      "input": {
+        "startMember": 2
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "select-last-of-several-very-long-ids",
+      "inputSha256": "1a7c2be2c8a6f45424580a9ec3d7b2032e3be4907f7a045666421fdd4888eb4c",
+      "inputBytes": 6250,
+      "input": {
+        "startMember": 2
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "members-one-over",
+      "inputSha256": "3f4376e0dbc94eb4b7d941d23f4892c93f1e304a52a3d1bcf806408d7dd4c523",
+      "inputBytes": 9328,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "128-collections-at-full-name-length",
+      "inputSha256": "4ee045ba6ebb48f879d1ba877ed4a5792b96b39511fc6d787db2a9d975bb78a9",
+      "inputBytes": 19659,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "last-page-remains-accessible-in-source-order",
+      "inputSha256": "4ee045ba6ebb48f879d1ba877ed4a5792b96b39511fc6d787db2a9d975bb78a9",
+      "inputBytes": 19659,
+      "input": {
+        "startCollection": 123
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "collection-count-one-over",
+      "inputSha256": "f68f94b62295bd21bd44a74977eb8778759a1c28e6078a4e55ccf3e23888eb72",
+      "inputBytes": 19688,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "exact-128-kib-and-512-distinct-members",
+      "inputSha256": "9efd16689cb98a4ea9e56630f565caf403f870043a58ddfb32fed5bd6dccd66b",
+      "inputBytes": 131072,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "input-one-byte-over",
+      "inputSha256": "2618fea435763186f58c36d5bd0d9ce2c0cf8d1ed727aed0b9c8445a215e626a",
+      "inputBytes": 131073,
+      "input": {},
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "wrong-mime",
+      "inputSha256": "9e4744858ea149db101c8f646dd57eebae615aa89f648c79a842c43eafba7fd4",
+      "inputBytes": 191,
+      "input": {},
+      "mime": "image/png",
+      "ok": false
+    }
+  ]
+}

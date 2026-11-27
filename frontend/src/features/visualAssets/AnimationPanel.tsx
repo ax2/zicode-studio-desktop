@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { AnimationInstall, type AnimationInstallActions } from "./AnimationInstall";
 import { AnimationPlayback } from "./AnimationPlayback";
@@ -14,6 +14,8 @@ export interface AnimationAsset {
   id: number;
   name: string;
 }
+
+export type SavedAtlasSource = { libraryId: string; assetId: number };
 
 type AnimationSource = { kind: "sequence" } | { kind: "atlas"; assetId: number; revision: number };
 type AnimationExportFormat = "godot" | "pngSequence" | "gif";
@@ -47,6 +49,7 @@ interface Draft {
 export function AnimationPanel({
   libraryId,
   assets,
+  initialAtlas,
   disabled,
   onExport,
   onPreview,
@@ -55,15 +58,21 @@ export function AnimationPanel({
 }: {
   libraryId: string;
   assets: AnimationAsset[];
+  initialAtlas?: AnimationAsset;
   disabled: boolean;
   onExport: (intent: AnimationIntent) => void;
   onPreview: (intent: AnimationIntent) => Promise<unknown>;
   install?: AnimationInstallActions;
   status?: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<AnimationSource["kind"]>("sequence");
-  const [selected, setSelected] = useState<AnimationAsset>();
+  const [open, setOpen] = useState(Boolean(initialAtlas));
+  const [mode, setMode] = useState<AnimationSource["kind"]>(initialAtlas ? "atlas" : "sequence");
+  const [selected, setSelected] = useState(initialAtlas);
+  const toggle = useRef<HTMLButtonElement>(null);
+  const initialAssetId = initialAtlas?.id;
+  useEffect(() => {
+    if (initialAssetId && document.activeElement === document.body) toggle.current?.focus();
+  }, [initialAssetId]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [looped, setLooped] = useState(true);
   const [format, setFormat] = useState<AnimationExportFormat>("godot");
@@ -78,7 +87,10 @@ export function AnimationPanel({
   const nextKey = useRef(0);
   const atlas = mode === "atlas";
   const fields = atlas ? [...cropFields, ...timingFields] : timingFields;
-  const selectedOnPage = assets.some((asset) => asset.id === selected?.id);
+  const available = initialAtlas && !assets.some(({ id }) => id === initialAtlas.id)
+    ? [initialAtlas, ...assets]
+    : assets;
+  const selectedOnPage = available.some((asset) => asset.id === selected?.id);
   const valid = drafts.every((draft) =>
     fields.every(([field, , min, max]) => {
       const value = Number(draft.values[field]);
@@ -137,6 +149,7 @@ export function AnimationPanel({
       <button
         type="button"
         className="ui-button"
+        ref={toggle}
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
@@ -160,7 +173,7 @@ export function AnimationPanel({
               disabled={disabled}
               onChange={(event) => {
                 setMode(event.target.value === "atlas" ? "atlas" : "sequence");
-                setSelected(undefined);
+                if (!initialAtlas) setSelected(undefined);
                 setDrafts([]);
               }}
             >
@@ -173,14 +186,14 @@ export function AnimationPanel({
               disabled={disabled}
               value={selectedOnPage || atlas ? (selected?.id ?? "") : ""}
               onChange={(event) =>
-                setSelected(assets.find((asset) => asset.id === Number(event.target.value)))
+                setSelected(available.find((asset) => asset.id === Number(event.target.value)))
               }
             >
               <option value="">{t("Select an image from this page")}</option>
               {atlas && selected && !selectedOnPage && (
                 <option value={selected.id}>{selected.name}</option>
               )}
-              {assets.map((asset) => (
+              {available.map((asset) => (
                 <option key={asset.id} value={asset.id}>
                   {asset.name}
                 </option>

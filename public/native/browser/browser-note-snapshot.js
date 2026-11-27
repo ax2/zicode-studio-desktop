@@ -129,6 +129,7 @@ function browserAnalysisNoteContent(source, analysis, capture) {
     question && line("Browser analysis question", question),
     analysis.selectionOnly && line("Source text", t("Selected text")),
     analysis.selectionOnly && capture.page.selectionTruncated && t("Selected text was shortened"),
+    source.textTruncated && t("Page content was shortened"),
     ...browserTranslationDetails(analysis.translation).map(([label, value]) => line(label, value)),
     ...sources,
     `### ${t("Browser model answer")}`,

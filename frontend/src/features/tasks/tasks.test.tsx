@@ -115,6 +115,57 @@ describe("task center React app", () => {
     expect(screen.getByText("旧任务")).toBeTruthy();
   });
 
+  it("retains task search across same-workspace remounts and clears it across scopes", async () => {
+    setLocale("en");
+    let target: TaskCenterTarget = { sceneId: "programming", workspaceId: "workspace-a", sessionId: "main" };
+    const call = mockCall([
+      { id: "invoice", title: "Current invoice", status: "done", result: { completedAt: new Date().toISOString() } },
+      { id: "archive", title: "Archived invoice", status: "done", result: { completedAt: "2020-01-01T00:00:00Z" } },
+      { id: "other", title: "Different task", status: "done" },
+    ]);
+    const store = createTaskCenterStore({ call, getTarget: () => target });
+    const read = () => act(() => store.getState().load());
+    const search = () => screen.getByRole<HTMLInputElement>("searchbox", { name: "Search tasks" });
+    const date = () => screen.getByLabelText<HTMLSelectElement>("Filter by date");
+    const filter = () => {
+      fireEvent.change(search(), { target: { value: "invoice" } });
+      fireEvent.change(date(), { target: { value: "today" } });
+    };
+    try {
+      const opening = render(<TaskMain store={store} />);
+      await read();
+      filter();
+      expect(screen.queryByText("Archived invoice")).toBeNull();
+      opening.unmount();
+
+      target = { ...target, sessionId: "related" };
+      store.getState().syncTarget();
+      render(<TaskMain store={store} />);
+      await read();
+      expect(search().value).toBe("invoice");
+      expect(date().value).toBe("today");
+      expect(screen.getByText("Current invoice")).toBeTruthy();
+      expect(screen.queryByText("Archived invoice")).toBeNull();
+      expect(screen.queryByText("Different task")).toBeNull();
+
+      target = { ...target, sceneId: "finance" };
+      act(() => store.getState().syncTarget());
+      await read();
+      expect(search().value).toBe("");
+      expect(date().value).toBe("all");
+
+      filter();
+      target = { ...target, workspaceId: "workspace-b" };
+      act(() => store.getState().syncTarget());
+      await read();
+      expect(search().value).toBe("");
+      expect(date().value).toBe("all");
+      expect(call.mock.calls.every(([op]) => op === "read_super_agent_tasks")).toBe(true);
+    } finally {
+      store.getState().destroy();
+    }
+  });
+
   it("focuses a task card by id and highlights it", async () => {
     setLocale("zh-CN");
     const call = mockCall([{ id: "t-focus", title: "聚焦目标任务", status: "done" }]);
@@ -129,6 +180,37 @@ describe("task center React app", () => {
     const card = document.querySelector('[data-task-id="t-focus"]');
     expect(card?.classList.contains("is-focused")).toBe(true);
     expect(store.getState().filter).toBe("all");
+  });
+
+  it("moves from Edit to the task title and returns to the original Edit button on cancel", async () => {
+    setLocale("en");
+    const call = mockCall([{ id: "edit-me", title: "Edit this draft", status: "draft" }]);
+    renderStore(call);
+    const edit = await screen.findByRole("button", { name: "Edit" });
+    edit.focus();
+    fireEvent.click(edit);
+    const title = screen.getByRole<HTMLInputElement>("textbox", { name: "Title" });
+    expect(document.activeElement).toBe(title);
+    fireEvent.change(title, { target: { value: "discard this unsaved edit" } });
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    cancel.focus();
+    fireEvent.click(cancel);
+    expect(document.activeElement).toBe(edit);
+    expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+    expect(screen.getByText("Edit this draft")).toBeTruthy();
+    expect(call.mock.calls.map(([operation]) => operation)).toEqual(["read_super_agent_tasks"]);
+  });
+
+  it("preserves focus outside the editor when the task form closes", async () => {
+    setLocale("en");
+    renderStore(mockCall([{ id: "edit-me", title: "Edit this draft", status: "draft" }]));
+    const edit = await screen.findByRole("button", { name: "Edit" });
+    edit.focus();
+    fireEvent.click(edit);
+    const search = screen.getByRole("searchbox", { name: "Search tasks" });
+    search.focus();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(document.activeElement).toBe(search);
   });
 
   it("groups tasks and exposes recoverable actions", async () => {

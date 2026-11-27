@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.flow-recipe",
+  "name": "ZiDevTools Text Flow Recipe Inspector",
+  "displayName": "文本流程配方检查",
+  "description": "检查一份经确认的本机 JSON 配方。显示动作、材料类型、影响和副输出，支持格式 1 至 4、最多 16 步、64 KiB。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.flow.recipe.inspect"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.flow.recipe.inspect",
+        "title": "文本流程配方检查",
+        "description": "检查一份经确认的本机 JSON 配方。显示动作、材料类型、影响和副输出，支持格式 1 至 4、最多 16 步、64 KiB。",
+        "resourceInputMimeTypes": [
+          "application/json",
+          "text/plain",
+          "application/octet-stream"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "recipeVersion": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "input": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "table",
+                    "file",
+                    "image"
+                  ]
+                },
+                "output": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "table",
+                    "file",
+                    "image"
+                  ]
+                },
+                "steps": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      "version": {
+                        "type": "integer",
+                        "const": 1
+                      },
+                      "label": {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      "input": {
+                        "type": "string",
+                        "enum": [
+                          "text",
+                          "table",
+                          "file",
+                          "image"
+                        ]
+                      },
+                      "output": {
+                        "type": "string",
+                        "enum": [
+                          "text",
+                          "table",
+                          "file",
+                          "image"
+                        ]
+                      },
+                      "effect": {
+                        "type": "string",
+                        "enum": [
+                          "transform",
+                          "read-selected-file",
+                          "process-in-memory-image"
+                        ]
+                      },
+                      "sideOutputs": {
+                        "type": "array",
+                        "maxItems": 1,
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "maxLength": 32
+                            },
+                            "label": {
+                              "type": "string",
+                              "maxLength": 64
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "text",
+                                "table",
+                                "file",
+                                "image"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "label",
+                            "kind"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "version",
+                      "label",
+                      "input",
+                      "output",
+                      "effect",
+                      "sideOutputs"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "ok",
+                "recipeVersion",
+                "input",
+                "output",
+                "steps"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 16384,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "配方检查",
+            "工具流程",
+            "文本流程",
+            "Text flow recipe inspector"
+          ],
+          "description": "检查一份经确认的本机 JSON 配方。显示动作、材料类型、影响和副输出，支持格式 1 至 4、最多 16 步、64 KiB。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的配方临时快照。"
+      }
+    ],
+    "optional": []
+  }
+}

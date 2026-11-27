@@ -36,6 +36,38 @@ function toggleSection(panel, open) {
   });
 }
 
+it("keeps the typed User-Agent through refresh and reads newer values when there is no draft", async () => {
+  let saved = "Original/1";
+  const control = vi.fn(async request => {
+    if (request.kind === "setUserAgent") saved = request.value;
+    return saved;
+  });
+  const panel = createBrowserUserAgentSettings(control);
+  document.body.append(panel);
+  try {
+    const input = panel.querySelector("input");
+    const save = panel.querySelector("button");
+    await toggleSection(panel, true);
+    await waitFor(() => expect(input.value).toBe(saved));
+    input.value = "Typed/2";
+    saved = "Other window/3";
+    await toggleSection(panel, false);
+    await toggleSection(panel, true);
+    await waitFor(() => expect(save.disabled).toBe(false));
+    expect(input.value).toBe("Typed/2");
+    expect(control.mock.calls).toEqual([[{ kind: "getUserAgent" }], [{ kind: "getUserAgent" }]]);
+    save.click();
+    await waitFor(() => expect(save.disabled).toBe(false));
+    expect(control).toHaveBeenLastCalledWith({ kind: "setUserAgent", value: "Typed/2" });
+    saved = "Later window/4";
+    await toggleSection(panel, false);
+    await toggleSection(panel, true);
+    await waitFor(() => expect(input.value).toBe("Later window/4"));
+  } finally {
+    panel.remove();
+  }
+});
+
 it("keeps a save in flight when the settings section is closed and reopened", async () => {
   let finishSave;
   const saveReceipt = new Promise(resolve => { finishSave = resolve; });

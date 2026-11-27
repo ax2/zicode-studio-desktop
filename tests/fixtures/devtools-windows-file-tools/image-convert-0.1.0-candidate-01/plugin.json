@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.image-convert",
+  "name": "ZiDevTools Original-size Image Conversion",
+  "displayName": "保持原尺寸转换图片",
+  "description": "明确选择一张静态 PNG、JPEG 或 WebP，保留原宽高并转换成所选格式，可确认另存。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.1.0 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.wasi.image.resize.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.image.convert.original-size"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "capabilities": [
+      {
+        "id": "devtools.image.convert.original-size",
+        "title": "保持原尺寸转换图片",
+        "description": "明确选择一张静态 PNG、JPEG 或 WebP，保留原宽高并转换成所选格式，可确认另存。",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "title": "输出格式（PNG/WebP无损）",
+              "enum": [
+                "png",
+                "jpeg",
+                "webp"
+              ],
+              "default": "webp"
+            },
+            "quality": {
+              "type": "integer",
+              "title": "JPEG质量（35–95；仅JPEG生效）",
+              "default": 85,
+              "minimum": 35,
+              "maximum": 95,
+              "description": "省略时为 85；JPEG 不保留透明度。"
+            }
+          },
+          "required": [
+            "format"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean",
+              "const": true
+            },
+            "sourceWidth": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12000
+            },
+            "sourceHeight": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12000
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12000
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12000
+            },
+            "mimeType": {
+              "type": "string",
+              "enum": [
+                "image/png",
+                "image/jpeg",
+                "image/webp"
+              ]
+            },
+            "byteLength": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 33554432
+            }
+          },
+          "required": [
+            "ok",
+            "sourceWidth",
+            "sourceHeight",
+            "width",
+            "height",
+            "mimeType",
+            "byteLength"
+          ],
+          "additionalProperties": false
+        },
+        "maxResultBytes": 1024,
+        "executionProfile": "resource.wasi.image.resize.v1",
+        "resourceInputMimeTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/webp"
+        ],
+        "directory": {
+          "categoryId": "media",
+          "aliases": [
+            "图片格式转换",
+            "原图尺寸",
+            "PNG JPEG WebP 转换",
+            "Convert image without resizing"
+          ],
+          "description": "明确选择一张静态 PNG、JPEG 或 WebP，保留原宽高并转换成所选格式，可确认另存。"
+        }
+      }
+    ],
+    "commands": [],
+    "piTools": []
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "每次调用都需要用户明确选择并授权一张图片，只读取该资源的有界快照。"
+      }
+    ],
+    "optional": []
+  }
+}

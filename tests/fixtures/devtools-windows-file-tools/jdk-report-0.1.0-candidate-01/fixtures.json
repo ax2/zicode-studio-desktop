@@ -1,0 +1,212 @@
+{
+  "generator": "scripts/verify_jdk_report_plugin.py",
+  "cases": [
+    {
+      "case": "one-snapshot-unknown-scope",
+      "mime": "application/json",
+      "inputBytes": 745,
+      "sourceSha256": "8ff24b5e55d35b3d9699454c9bf208f407f36d903a42eecb08c97b3fad4fb2aa",
+      "code": null,
+      "outputBytes": 322,
+      "outputSha256": "1a671351ba62146e59ec5a63542f16c97e705bfabdbb92e1743f5adfa51a4809"
+    },
+    {
+      "case": "bom-and-octet",
+      "mime": "application/octet-stream",
+      "inputBytes": 748,
+      "sourceSha256": "547c40bdf8aa9739e115a43e816917c4e5eb953cb98986fc969edebae1653aa2",
+      "code": null,
+      "outputBytes": 322,
+      "outputSha256": "1a671351ba62146e59ec5a63542f16c97e705bfabdbb92e1743f5adfa51a4809"
+    },
+    {
+      "case": "two-captures-version-difference",
+      "mime": "application/json",
+      "inputBytes": 918,
+      "sourceSha256": "e9c00ff888124e9cae5459c7f9627fd03b16b81efbd4ec3ab498483a7c2ba7da",
+      "code": null,
+      "outputBytes": 374,
+      "outputSha256": "6c6791f3ce697f44520100bc7461d34d3c1c2acb0c3c71f5154231b87396ab3b"
+    },
+    {
+      "case": "same-version-different-vendor",
+      "mime": "text/plain",
+      "inputBytes": 928,
+      "sourceSha256": "32d322f0932b5887a5c238ee9b498f58640d045f60b2bf75761c6eda895dcad0",
+      "code": null,
+      "outputBytes": 383,
+      "outputSha256": "e6e35d14ffd7d4b4e7f06ae893c58d44f50e4c5a73c2f373b2b83b1e0f3b2c28"
+    },
+    {
+      "case": "build-suffix-is-compared-exactly",
+      "mime": "application/json",
+      "inputBytes": 947,
+      "sourceSha256": "206ac45efb3bc91c63492f8a5d901d3574e1d32577a97654888f6dd70e19ef03",
+      "code": null,
+      "outputBytes": 382,
+      "outputSha256": "d4fe6b84e9ab3dd459bb7989519824b9ee9942606acc44363c67eafa8941b4ba"
+    },
+    {
+      "case": "captured-entry-presence-only",
+      "mime": "application/json",
+      "inputBytes": 716,
+      "sourceSha256": "8d1416f471226cd1cad1171599a7bd8d2b212a64bfa916e2720b2a1a9333979d",
+      "code": null,
+      "outputBytes": 322,
+      "outputSha256": "3ec61a7a19c4d0c7372bfb048190b7855e5e28fc037da95cd824daf00c78637b"
+    },
+    {
+      "case": "exact-file-byte-limit-notes-omitted",
+      "mime": "application/json",
+      "inputBytes": 32768,
+      "sourceSha256": "587bd12deb476784162afb7dcf75060a76668d657f7f395e08a9c40f575c800b",
+      "code": null,
+      "outputBytes": 322,
+      "outputSha256": "1a671351ba62146e59ec5a63542f16c97e705bfabdbb92e1743f5adfa51a4809"
+    },
+    {
+      "case": "original-jdk8-labels",
+      "mime": "application/json",
+      "inputBytes": 697,
+      "sourceSha256": "eb1e1a1163fda7c507c09e57fb1d13df2a06c73173d0cf1f9f1918c76eb4c7e4",
+      "code": null,
+      "outputBytes": 322,
+      "outputSha256": "d7dd869339b006954fa9af819d44d38e251c60c3ca651945cbdc6ec3d695cc49"
+    },
+    {
+      "case": "more-than-32-kib",
+      "mime": "application/json",
+      "inputBytes": 32769,
+      "sourceSha256": "93761fb7276027b3e9c29d7f91749c34cb734772b55a94109379d2685d6266ba",
+      "code": "INPUT_LIMIT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "wrong-media",
+      "mime": "image/png",
+      "inputBytes": 745,
+      "sourceSha256": "8ff24b5e55d35b3d9699454c9bf208f407f36d903a42eecb08c97b3fad4fb2aa",
+      "code": "INVALID_RESOURCE",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "invalid-utf8",
+      "mime": "application/json",
+      "inputBytes": 15,
+      "sourceSha256": "eefa238f27204c7142b43186e08fdd34c4db89be02731af04d3c6310431e0834",
+      "code": "INVALID_REPORT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "missing-native-envelope",
+      "mime": "application/json",
+      "inputBytes": 15,
+      "sourceSha256": "53b3b615d917bf7a201bcd12e67ae6e1a02487d3f43f5013f1f13efffb83d098",
+      "code": "INVALID_REPORT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "unexpected-private-field",
+      "mime": "application/json",
+      "inputBytes": 773,
+      "sourceSha256": "8ff5596e5de92a23a2b4fd079ec7aa50f0a4b4016448089535662b2123b1097d",
+      "code": "INVALID_REPORT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "untyped-boolean",
+      "mime": "application/json",
+      "inputBytes": 746,
+      "sourceSha256": "7c480a3e333a939d7ddb37dd98e227f0dd7fe589c86f1570b305c86b49191170",
+      "code": "INVALID_REPORT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "wrong-tool-id",
+      "mime": "application/json",
+      "inputBytes": 747,
+      "sourceSha256": "1971243fdc15ab7b3b4515fca6556d999fe785676f1348ebb370ef97f888de14",
+      "code": "INVALID_PROVENANCE",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "changed-fingerprint",
+      "mime": "application/json",
+      "inputBytes": 745,
+      "sourceSha256": "1ff58b1098b0220d696df5b1c1cb8e0e74ae1fc881f11f3434da1cfb6f316d4c",
+      "code": "INVALID_PROVENANCE",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "bad-tool-version",
+      "mime": "application/json",
+      "inputBytes": 746,
+      "sourceSha256": "0f92bafaaa2e76dd67a378d954a41e6cf378a2ca52589f228b5522b847000c79",
+      "code": "INVALID_PROVENANCE",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "comparison-flag-without-two",
+      "mime": "application/json",
+      "inputBytes": 746,
+      "sourceSha256": "a084837faa2db35a1d32e71360fa85a9ef6581d69467c7c95b0aed7ae4e8e27f",
+      "code": "INCONSISTENT_COMPARISON",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "altered-comparison-claim",
+      "mime": "application/json",
+      "inputBytes": 919,
+      "sourceSha256": "2c7ae259ff27cfb8d627880af9e64cdd572f4889dfd296a27d7e9f6a8c108b78",
+      "code": "INCONSISTENT_COMPARISON",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "unsafe-vendor-path",
+      "mime": "application/json",
+      "inputBytes": 753,
+      "sourceSha256": "e859a2a80b5bd58e7a73e9449bf0f8313220df6bbf1eb3559647daf8b9fab9b2",
+      "code": "INVALID_FIELD",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "unsafe-control-character",
+      "mime": "application/json",
+      "inputBytes": 746,
+      "sourceSha256": "36650e75ab9883ad8a61f79f208c7d41207e45e007217281f5bdc4ad2e9e6346",
+      "code": "INVALID_FIELD",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "oversize-version",
+      "mime": "application/json",
+      "inputBytes": 834,
+      "sourceSha256": "376b96ac9aefb6863e481ac4ab237141e51c98c88cb41819279d55a744b5125a",
+      "code": "INVALID_FIELD",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "empty-version",
+      "mime": "application/json",
+      "inputBytes": 739,
+      "sourceSha256": "a2fe48331e350f6e41c925c573e61852d3ecc9667e4420dedcace6dedf5b4b48",
+      "code": "INVALID_FIELD",
+      "outputBytes": 0,
+      "outputSha256": null
+    }
+  ]
+}

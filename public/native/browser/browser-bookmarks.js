@@ -3,10 +3,11 @@ import { createBookmarkTransfer } from "./browser-bookmark-transfer.js";
 import { t } from "../../i18n.js";
 import { closeOnSearchEscape } from "./browser-manager-keyboard.js";
 import { createBackgroundOpenButton } from "./browser-background-open.js";
-import { createBookmarkFolderIndex, folderOptions, removeBookmarkFolder } from "./browser-bookmarks-data.js";
+import { createBookmarkFolderIndex, folderOptions, nextBookmarkPosition, orderBookmarkRows, removeBookmarkFolder } from "./browser-bookmarks-data.js";
 
-export function showBrowserBookmarks({ invoke, current, editCurrent = false, editShortcut = false, onOpen, onClose }) {
+export function showBrowserBookmarks({ invoke, current, currentSource, editCurrent = false, editShortcut = false, onOpen, onClose }) {
   let library = { revision: 0, folders: [], bookmarks: [] }, editing = null, filter = "*", query = "", busy = false;
+  let currentPage = current, addCurrent, hasConfirmedWrite = false;
   const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
   const dialog = el("dialog", "browser-bookmarks-dialog ui-panel"); dialog.setAttribute("aria-label", t("Bookmarks"));
   const guard = createBookmarkDraftGuard(dialog);
@@ -19,8 +20,8 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
     if (!guard.dirty() || await dialog.canCloseBookmarkDraft()) dialog.close();
   };
   dialog.addEventListener("cancel", event => { event.preventDefault(); void requestClose(); });
-  const beginEdit = async draft => {
-    if (!guard.dirty() || await guard.confirm()) { editing = draft; render(); }
+  const beginEdit = async (draft, isCurrent = () => true) => {
+    if ((!guard.dirty() || await guard.confirm()) && isCurrent()) { editing = draft; render(); }
   };
   const heading = el("h2", "", t("Bookmarks"));
   const content = el("fieldset", "browser-bookmarks-content");
@@ -39,16 +40,23 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
   const close = el("button", "ui-button ui-button--secondary", t("Close")); close.type = "button"; close.addEventListener("click", () => void requestClose());
   const request = request => invoke("browser_bookmarks", { request });
   const save = async (folders, bookmarks) => {
-    library = await request({ kind: "save", expectedRevision: library.revision, folders, bookmarks });
+    const committed = await request({ kind: "save", expectedRevision: library.revision, folders, bookmarks });
+    if (!dialog.open) return;
+    library = committed;
+    hasConfirmedWrite = true;
     editing = null; render(); message.textContent = t("Bookmarks saved");
   };
-  const transfer = createBookmarkTransfer({ invoke, getLibrary: () => library, save, isOpen: () => dialog.isConnected, run, report: text => { message.textContent = text; } });
+  const transfer = createBookmarkTransfer({ invoke, getLibrary: () => library, save, isOpen: () => dialog.open, run, report: text => { message.textContent = text; } });
   const newBookmark = () => ({ kind: "bookmark", id: null, title: "", url: "https://", folderId: filter === "*" ? null : filter || null });
+  const canBookmarkCurrent = () => Boolean(currentPage) && (currentSource?.isCurrent() ?? true);
   const beginCurrent = (shortcut = false) => {
-    if (!current) return;
-    const found = library.bookmarks.find(item => item.url === current.url);
-    const draft = found ? { ...found, kind: "bookmark" } : { ...newBookmark(), title: current.title || current.url, url: current.url };
-    return beginEdit(shortcut ? { ...draft, shortcut: true } : draft);
+    if (!canBookmarkCurrent()) {
+      if (addCurrent) addCurrent.disabled = true;
+      return;
+    }
+    const found = library.bookmarks.find(item => item.url === currentPage.url);
+    const draft = found ? { ...found, kind: "bookmark" } : { ...newBookmark(), title: currentPage.title || currentPage.url, url: currentPage.url };
+    return beginEdit(shortcut ? { ...draft, shortcut: true } : draft, canBookmarkCurrent);
   };
   function folderSelect(label, value, excludedId = null, all = false) {
     const select = el("select", "ui-select"); select.setAttribute("aria-label", t(label));
@@ -94,7 +102,13 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
       event.preventDefault(); if (!form.reportValidity()) return;
       void run(async () => {
         const id = draft.id ?? crypto.randomUUID();
-        const item = isFolder ? { id, title: title.value.trim(), parentId: parent.value || null } : { id, title: title.value.trim(), url: url.value.trim(), folderId: parent.value || null, ...(shortcut.checked ? { shortcut: true } : {}) };
+        const parentId = parent.value || null;
+        const previousParent = isFolder ? draft.parentId : draft.folderId;
+        const position = draft.id && previousParent === parentId ? draft.position : nextBookmarkPosition(library, parentId);
+        const placement = position === undefined ? {} : { position };
+        const item = isFolder
+          ? { id, title: title.value.trim(), parentId, ...placement }
+          : { id, title: title.value.trim(), url: url.value.trim(), folderId: parentId, ...placement, ...(shortcut.checked ? { shortcut: true } : {}) };
         const list = isFolder ? library.folders : library.bookmarks;
         const next = draft.id ? list.map(old => old.id === id ? item : old) : [...list, item];
         await save(isFolder ? next : library.folders, isFolder ? library.bookmarks : next);
@@ -105,8 +119,9 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
   function render() {
     if (!dialog.isConnected) return;
     const toolbar = el("div", "ui-toolbar browser-bookmark-toolbar");
-    const add = button("Bookmark this page", beginCurrent); add.disabled = !current;
-    toolbar.append(add, button("New bookmark", () => beginEdit(newBookmark())),
+    addCurrent = button("Bookmark this page", beginCurrent);
+    addCurrent.disabled = !canBookmarkCurrent();
+    toolbar.append(addCurrent, button("New bookmark", () => beginEdit(newBookmark())),
       button("New folder", () => beginEdit({ kind: "folder", id: null, title: "", parentId: filter === "*" ? null : filter || null })));
     if (!editing) {
       toolbar.append(button("Reload bookmarks", async () => { library = await request({ kind: "list" }); render(); }), ...transfer.buttons);
@@ -164,6 +179,7 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
       const showLocation = filter === "*" || term.length > 0;
       const inView = parent => filter === "*" || (parent ?? "") === filter ||
         Boolean(term && (filter === "" || index.path(parent).some(folder => folder.id === filter)));
+      const rows = [];
       for (const folder of library.folders.filter(f => inView(f.parentId) && f.title.toLocaleLowerCase().includes(term))) {
         const row = el("div", "browser-bookmark-row"); row.setAttribute("role", "listitem"); row.dataset.folderId = folder.id;
         const name = folderButton(folder.id, folder.title, "ui-button ui-button--secondary");
@@ -171,7 +187,7 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
         const edit = button("Edit", () => beginEdit({ kind: "folder", ...folder })); edit.setAttribute("aria-label", `${t("Edit folder")}: ${folder.title}`);
         const details = el("div", "browser-bookmark-details"); details.append(name);
         if (showLocation) details.append(locationLabel(folder.parentId));
-        row.append(details, edit); list.append(row);
+        row.append(details, edit); rows.push({ row, position: folder.position });
       }
       for (const bookmark of library.bookmarks.filter(b => inView(b.folderId) && `${b.title} ${b.url}`.toLocaleLowerCase().includes(term))) {
         const row = el("div", "browser-bookmark-row"); row.setAttribute("role", "listitem"); row.dataset.bookmarkId = bookmark.id;
@@ -182,14 +198,20 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
         const edit = button("Edit", () => beginEdit({ kind: "bookmark", ...bookmark })); edit.setAttribute("aria-label", `${t("Edit bookmark")}: ${bookmark.title}`);
         const actions = el("div", "ui-toolbar");
         actions.append(createBackgroundOpenButton(bookmark, { onOpen, run, message }), edit);
-        row.append(details, actions); list.append(row);
+        row.append(details, actions); rows.push({ row, position: bookmark.position });
       }
+      // Positions are relative to a single folder, not a flat search across the library.
+      if (!showLocation) rows.sort(orderBookmarkRows);
+      list.append(...rows.map(entry => entry.row));
       if (!list.childElementCount) list.append(el("p", "", t("No bookmarks in this view")));
     }
     search.addEventListener("input", () => { query = search.value; renderList(); });
     folders.addEventListener("change", () => { filter = folders.value; renderLocation(); renderList(); });
     content.replaceChildren(toolbar);
-    if (!editing) content.append(transfer.preview);
+    if (!editing) {
+      transfer.refresh();
+      content.append(transfer.limits, transfer.preview);
+    }
     const editor = renderEditor();
     guard.track(editor);
     if (editor) content.append(editor);
@@ -200,21 +222,45 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, edi
   const header = document.createElement("header");
   header.className = "browser-library-heading";
   header.append(heading, close);
-  dialog.append(header, content, message);
-  dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
-  document.body.append(dialog); dialog.showModal(); close.focus();
-  void run(async () => {
-    const saved = await request({ kind: "list" });
+  const retry = el("button", "ui-button ui-button--secondary", t("Reload bookmarks"));
+  retry.type = "button";
+  retry.addEventListener("click", () => void loadInitial());
+  async function loadInitial() {
+    if (busy) return;
+    const previous = document.activeElement;
+    let loaded = false;
+    await run(async () => {
+      message.textContent = t("Loading…");
+      const saved = await request({ kind: "list" });
+      if (!dialog.open) return;
+      library = saved;
+      message.textContent = "";
+      if (editShortcut && !current) await beginEdit({ ...newBookmark(), shortcut: true });
+      else if ((editShortcut || editCurrent) && canBookmarkCurrent()) await beginCurrent(editShortcut);
+      else render();
+      loaded = true;
+    });
     if (!dialog.open) return;
-    library = saved;
-    if (editShortcut) {
-      if (current) await beginCurrent(true);
-      else await beginEdit({ ...newBookmark(), shortcut: true });
-    } else if (editCurrent && current) await beginCurrent();
-    else render();
-  }).then(() => {
-    if (!dialog.open || document.activeElement !== close) return;
-    content.querySelector(editShortcut || (editCurrent && current) ? ".browser-bookmark-editor input" : 'input[type="search"]')?.focus({ preventScroll: true });
+    const active = document.activeElement;
+    const restore = active === previous ||
+      (previous === retry && [dialog, document.body].includes(active));
+    if (!loaded) {
+      if (!retry.isConnected) content.append(retry);
+      if (restore) retry.focus({ preventScroll: true });
+    } else if (restore) {
+      (content.querySelector(".browser-bookmark-editor input") ?? content.querySelector('input[type="search"]'))
+        ?.focus({ preventScroll: true });
+    }
+  }
+  dialog.append(header, content, message);
+  dialog.addEventListener("close", () => { dialog.remove(); onClose(hasConfirmedWrite ? library : null); }, { once: true });
+  document.body.append(dialog); dialog.showModal(); close.focus();
+  void loadInitial();
+  // Read the optional page details outside the saved-library loading state.
+  if (currentSource) void currentSource.read().then(page => {
+    if (!page || !dialog.open || !currentSource.isCurrent()) return;
+    currentPage = page;
+    if (addCurrent) addCurrent.disabled = false;
   });
   return dialog;
 }

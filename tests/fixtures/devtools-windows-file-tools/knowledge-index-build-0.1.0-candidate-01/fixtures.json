@@ -1,0 +1,384 @@
+{
+  "generator": "scripts/verify_knowledge_index_build_plugin.py",
+  "cases": [
+    {
+      "case": "english-chinese-ranking",
+      "sourceSha256": "294e6f6d43065cd86d05289cd99a9ce0abe208c472d273fd7198f30415224a86",
+      "inputBytes": 506,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "演示笔记.txt"
+      },
+      "code": null,
+      "outputBytes": 36864,
+      "outputSha256": "cc0affb0b17f20f198203c8e6ab0d6de0720495de4dc7c3743531683c8f59a7f"
+    },
+    {
+      "case": "full-size-32-chunk-search-index",
+      "sourceSha256": "a4fef70dbae87d9beaadbf63f5ff6fd1a958232e26d0ffc46c2b6409ccfac518",
+      "inputBytes": 4096,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "演示笔记.txt"
+      },
+      "code": null,
+      "outputBytes": 45056,
+      "outputSha256": "8f8b1a81a1b9f807ad797e0a3e0e94311be116819d30f71a695a03dc9b812e57"
+    },
+    {
+      "case": "bom-and-octet",
+      "sourceSha256": "6adc6d1d827e15aab427216add664c977feb9b04896443f34890e32e056f1717",
+      "inputBytes": 22,
+      "mime": "application/octet-stream",
+      "options": {
+        "fileLabel": "资料 V2.TXT"
+      },
+      "code": null,
+      "outputBytes": 36864,
+      "outputSha256": "84f25088b2594b0c1ff166b87ea56f861d86953f151a31343168a120d626a9bf"
+    },
+    {
+      "case": "crlf-native-boundaries",
+      "sourceSha256": "3659811798ff69360c3b8170524093c0d8d22fa630ce00dbc9b9aef9d3374bc5",
+      "inputBytes": 18,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "windows.txt"
+      },
+      "code": null,
+      "outputBytes": 36864,
+      "outputSha256": "861bc3797610e0a3009864d5ea8a491fc22615ec9cda6ae75da01eca7f611eaa"
+    },
+    {
+      "case": "label-unicode-spaced-apostrophe",
+      "sourceSha256": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+      "inputBytes": 5,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "引用 title's copy.txt"
+      },
+      "code": null,
+      "outputBytes": 36864,
+      "outputSha256": "0f195c4e5ab26c4f20e8ea837be1472e187c6a4a9c1f820028d146039db2c803"
+    },
+    {
+      "case": "maximum-input-4096",
+      "sourceSha256": "5e387a92014a2d74ac54d1b9ef44b4dc060ac31e6e5eb8718ed35f97ac17bcab",
+      "inputBytes": 4096,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "limit.txt"
+      },
+      "code": null,
+      "outputBytes": 36864,
+      "outputSha256": "531940c8cda4dc84e76b6fb6c9066fce98f7da7fba8792cc8ac4affe7df4d710"
+    },
+    {
+      "case": "exact-indexed-4096-with-overlap",
+      "sourceSha256": "8ece747bfec96ae751b54b390a05421c445716cfef89641137f66941d3eb9870",
+      "inputBytes": 3800,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "body.txt"
+      },
+      "code": null,
+      "outputBytes": 53248,
+      "outputSha256": "a600b23ebe728f6b500233a9f295e2b82555aa003b23795be80f835383cd1dc9"
+    },
+    {
+      "case": "all-32-chunks",
+      "sourceSha256": "a8dd14d9516e018de4dde995507861a5ca825358df52c0bb76ba4421f6b60384",
+      "inputBytes": 190,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "count.txt"
+      },
+      "code": null,
+      "outputBytes": 36864,
+      "outputSha256": "cbef9b91c757706412e5874891dc28dfc3cdb60735b5f0be2789415e827ac677"
+    },
+    {
+      "case": "dense-32-chunks",
+      "sourceSha256": "fa66853bb0661d0b74287d33973fe3180041797623f7758c8bf627b6230483c5",
+      "inputBytes": 4096,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "dense.txt"
+      },
+      "code": null,
+      "outputBytes": 53248,
+      "outputSha256": "d0f4f38f5e65ef2be53360956b54beadacf4245d74d0fdad3b3480ff8979ed73"
+    },
+    {
+      "case": "maximum-label-128-bytes",
+      "sourceSha256": "8ed3f6ad685b959ead7022518e1af76cd816f8e8ec7ccdda1ed4018e8f2223f8",
+      "inputBytes": 5,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.txt"
+      },
+      "code": null,
+      "outputBytes": 36864,
+      "outputSha256": "ed82db733888bbe20f25823de9d4d973c36f2229bb5b28bab1c78a1600b107ce"
+    },
+    {
+      "case": "ordinary-crlf-with-tab",
+      "sourceSha256": "8c5998dc7804f1ef0fc6845e18645849b3fba3026ed3fc61e0f643cd3c103347",
+      "inputBytes": 17,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "tabs.txt"
+      },
+      "code": null,
+      "outputBytes": 36864,
+      "outputSha256": "6c20efdbbf18f79a139431a195d03e0106b64606c7d12482d2f703550e3d308f"
+    },
+    {
+      "case": "input-over-4-kib",
+      "sourceSha256": "9ee397cc4618a1fb8586f302523f5b8794e9b2035419f07fbb9dfa813e0bf31e",
+      "inputBytes": 4097,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "演示笔记.txt"
+      },
+      "code": "INPUT_LIMIT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "overlap-expands-over-limit",
+      "sourceSha256": "c93eee2d0db02f10acc7460d9576e122dcf8cd53c4bf8dfcae1b3e74ebcfff5a",
+      "inputBytes": 4096,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "演示笔记.txt"
+      },
+      "code": "INDEX_LIMIT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "33-paragraphs",
+      "sourceSha256": "3c95d6a1bd71277211ab74e95623f3b113eb2ace14034c90c26272450b8e5b55",
+      "inputBytes": 196,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "演示笔记.txt"
+      },
+      "code": "INDEX_LIMIT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "empty-input",
+      "sourceSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "inputBytes": 0,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "演示笔记.txt"
+      },
+      "code": "EMPTY_TEXT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "whitespace-only",
+      "sourceSha256": "7296a60a43bc5f276c4fcb175d478eb8641d96f622b93455d380b6b1ee57fd61",
+      "inputBytes": 128,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "演示笔记.txt"
+      },
+      "code": "EMPTY_TEXT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "invalid-utf8",
+      "sourceSha256": "a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89",
+      "inputBytes": 1,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "演示笔记.txt"
+      },
+      "code": "INVALID_TEXT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "bad-control",
+      "sourceSha256": "4163834372780d81f2af66f279e9f9561be95535729c56c283fe298aee15582e",
+      "inputBytes": 10,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "演示笔记.txt"
+      },
+      "code": "INVALID_TEXT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "wrong-media",
+      "sourceSha256": "294e6f6d43065cd86d05289cd99a9ce0abe208c472d273fd7198f30415224a86",
+      "inputBytes": 506,
+      "mime": "image/png",
+      "options": {
+        "fileLabel": "演示笔记.txt"
+      },
+      "code": "INVALID_RESOURCE",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "absolute-reference",
+      "sourceSha256": "294e6f6d43065cd86d05289cd99a9ce0abe208c472d273fd7198f30415224a86",
+      "inputBytes": 506,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "C:\\data\\file.txt"
+      },
+      "code": "INVALID_LABEL",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "relative-directory-ref",
+      "sourceSha256": "294e6f6d43065cd86d05289cd99a9ce0abe208c472d273fd7198f30415224a86",
+      "inputBytes": 506,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "inner/outer.txt"
+      },
+      "code": "INVALID_LABEL",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "dot-file-as-label",
+      "sourceSha256": "294e6f6d43065cd86d05289cd99a9ce0abe208c472d273fd7198f30415224a86",
+      "inputBytes": 506,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "..txt"
+      },
+      "code": "INVALID_LABEL",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "python-extension-reference",
+      "sourceSha256": "294e6f6d43065cd86d05289cd99a9ce0abe208c472d273fd7198f30415224a86",
+      "inputBytes": 506,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "file.py"
+      },
+      "code": "INVALID_LABEL",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "source-reference-over-128",
+      "sourceSha256": "294e6f6d43065cd86d05289cd99a9ce0abe208c472d273fd7198f30415224a86",
+      "inputBytes": 506,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.txt"
+      },
+      "code": "INVALID_LABEL",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "reference-control",
+      "sourceSha256": "294e6f6d43065cd86d05289cd99a9ce0abe208c472d273fd7198f30415224a86",
+      "inputBytes": 506,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "unicode‮bad.txt"
+      },
+      "code": "INVALID_LABEL",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "empty-label",
+      "sourceSha256": "294e6f6d43065cd86d05289cd99a9ce0abe208c472d273fd7198f30415224a86",
+      "inputBytes": 506,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": ""
+      },
+      "code": "INVALID_LABEL",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "extra-setting",
+      "sourceSha256": "294e6f6d43065cd86d05289cd99a9ce0abe208c472d273fd7198f30415224a86",
+      "inputBytes": 506,
+      "mime": "text/plain",
+      "options": {
+        "fileLabel": "演示笔记.txt",
+        "sourceId": "other"
+      },
+      "code": "INVALID_REQUEST",
+      "outputBytes": 0,
+      "outputSha256": null
+    }
+  ],
+  "followup": [
+    {
+      "case": "new-index-real-bm25-basic",
+      "passed": true,
+      "sqliteSha256": "cc0affb0b17f20f198203c8e6ab0d6de0720495de4dc7c3743531683c8f59a7f",
+      "outputSha256": "429c0a3d385584b407769a6011444a8541ffc4457958ac668351fb55b45dc907",
+      "ordinals": [
+        2,
+        1
+      ]
+    },
+    {
+      "case": "new-index-cjk-literal-basic",
+      "passed": true,
+      "sqliteSha256": "cc0affb0b17f20f198203c8e6ab0d6de0720495de4dc7c3743531683c8f59a7f",
+      "outputSha256": "c8dd38aa352a89cd26c0c0556817888b5771d0bc6ef77723d57f41e77a5e4030",
+      "ordinals": [
+        3
+      ]
+    },
+    {
+      "case": "new-index-source-filter-basic",
+      "passed": true,
+      "sqliteSha256": "cc0affb0b17f20f198203c8e6ab0d6de0720495de4dc7c3743531683c8f59a7f",
+      "outputSha256": "4915e5586e932779483bfb0d2c220161d9f2ed07e139cd51cf5b63a7f2fe6ceb",
+      "ordinals": []
+    },
+    {
+      "case": "new-index-real-bm25-full",
+      "passed": true,
+      "sqliteSha256": "8f8b1a81a1b9f807ad797e0a3e0e94311be116819d30f71a695a03dc9b812e57",
+      "outputSha256": "7f63966634b273449c4f6209505b9db77c3a4c25c775dbe801403cf00f3250b4",
+      "ordinals": [
+        5,
+        1
+      ]
+    },
+    {
+      "case": "new-index-cjk-literal-full",
+      "passed": true,
+      "sqliteSha256": "8f8b1a81a1b9f807ad797e0a3e0e94311be116819d30f71a695a03dc9b812e57",
+      "outputSha256": "a915a5b52183c2e6928fb86c62d2c3f9415b4ee6ba7481a7637a122f1d1c610d",
+      "ordinals": [
+        6
+      ]
+    },
+    {
+      "case": "new-index-source-filter-full",
+      "passed": true,
+      "sqliteSha256": "8f8b1a81a1b9f807ad797e0a3e0e94311be116819d30f71a695a03dc9b812e57",
+      "outputSha256": "4915e5586e932779483bfb0d2c220161d9f2ed07e139cd51cf5b63a7f2fe6ceb",
+      "ordinals": []
+    }
+  ]
+}

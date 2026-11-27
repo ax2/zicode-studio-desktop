@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.embedding",
+  "name": "ZiDevTools Offline Embedding Comparison",
+  "displayName": "离线向量比较",
+  "description": "确认两份 JSON 向量或一份包含两个 embeddings 的已有响应，离线比较维度、范数、余弦相似度和欧氏距离。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.embedding.compare-files"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.embedding.compare-files",
+        "title": "离线向量比较",
+        "description": "确认两份 JSON 向量或一份包含两个 embeddings 的已有响应，离线比较维度、范数、余弦相似度和欧氏距离。",
+        "resourceInputMax": 2,
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "dimensions": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8192
+                    },
+                    "normA": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "normB": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "cosine": {
+                      "type": "number",
+                      "minimum": -1,
+                      "maximum": 1
+                    },
+                    "euclidean": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  },
+                  "required": [
+                    "dimensions",
+                    "normA",
+                    "normB",
+                    "cosine",
+                    "euclidean",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 2048,
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "嵌入向量",
+            "比较数字向量",
+            "余弦相似度",
+            "Embedding comparison"
+          ],
+          "description": "确认两份 JSON 向量或一份包含两个 embeddings 的已有响应，离线比较维度、范数、余弦相似度和欧氏距离。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的两份向量文件或一份已有响应。"
+      }
+    ],
+    "optional": []
+  }
+}

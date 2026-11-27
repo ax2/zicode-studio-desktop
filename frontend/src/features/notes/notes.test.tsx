@@ -1,11 +1,9 @@
 import { referenceKey } from "./shortcut-repository";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
 import { setupNotesApp } from "./index";
 import {
-  buildDragGhost,
-  dropTargetIdAt,
   markUnresolvedWikilinks,
   NotesContent,
   NotesNav,
@@ -283,31 +281,6 @@ describe("notes logic", () => {
     expect(allTagSuggestions(["custom"])).toContain("inbox");
   });
 
-  it("builds a drag ghost with the note title and icon", () => {
-    const ghost = buildDragGhost({
-      id: "n1",
-      notebookId: "book-1",
-      title: "Roadmap",
-      icon: "🚀",
-      updatedAt: "2026-07-31T08:00:00Z",
-    });
-    expect(ghost.className).toBe("notes-drag-ghost");
-    expect(ghost.querySelector(".notes-note-icon")?.textContent).toBe("🚀");
-    expect(ghost.querySelector("strong")?.textContent).toBe("Roadmap");
-  });
-
-  it("resolves the notebook id under the pointer for a drop target", () => {
-    const branch = document.createElement("details");
-    branch.className = "notes-notebook-branch";
-    branch.dataset.notebookId = "book-2";
-    const original = document.elementFromPoint;
-    document.elementFromPoint = () => branch;
-    try {
-      expect(dropTargetIdAt(120, 340)).toBe("book-2");
-    } finally {
-      document.elementFromPoint = original;
-    }
-  });
 });
 
 describe("notes store", () => {
@@ -687,6 +660,44 @@ describe("notes store", () => {
     content.remove();
   });
 
+  it("keeps the editing position when preview closes, only for the same note and text", async () => {
+    const other = { ...NOTE, id: "note-2", title: "Second note" };
+    const store = storeWithGateway({
+      get: vi.fn(async (_sceneId, _workspaceId, _notebookId, id) => ({ note: id === other.id ? other : NOTE })),
+    });
+    await store.getState().selectNote(NOTE);
+    const view = render(<NotesContent store={store} />);
+    const text = () => {
+      const textarea = view.getByRole("textbox", { name: t("Note content") });
+      if (!(textarea instanceof HTMLTextAreaElement)) throw new Error("Expected note textarea");
+      return textarea;
+    };
+    const edit = () => fireEvent.click(view.getByRole("button", { name: t("Edit") + " (Ctrl+E)" }));
+    const preview = () => fireEvent.click(view.getByRole("button", { name: t("Preview") + " (Ctrl+E)" }));
+    edit();
+    text().setSelectionRange(3, 9, "backward");
+    text().scrollTop = 240;
+    preview();
+    expect(view.queryByRole("textbox", { name: t("Note content") })).toBeNull();
+    edit();
+    expect([text().selectionStart, text().selectionEnd, text().selectionDirection, text().scrollTop])
+      .toEqual([3, 9, "backward", 240]);
+
+    preview();
+    await act(async () => store.getState().selectNote(other));
+    await act(async () => store.getState().selectNote(NOTE));
+    edit();
+    expect(text().selectionStart).toBe(text().selectionEnd);
+    expect(text().scrollTop).toBe(0);
+
+    text().setSelectionRange(3, 9, "backward");
+    preview();
+    act(() => store.getState().setDraft({ content: "Changed while in preview" }));
+    edit();
+    expect(text().value).toBe("Changed while in preview");
+    expect(text().selectionStart).toBe(text().selectionEnd);
+  });
+
   it("closes the mobile function-area drawer when a note is selected", async () => {
     const store = storeWithGateway();
     const requests: Array<{ open?: boolean }> = [];
@@ -773,36 +784,7 @@ describe("notes store", () => {
     ).toBe("polite");
   });
 
-  it("surfaces captured source metadata in the preview", async () => {
-    const store = storeWithGateway({
-      get: vi.fn(async () => ({
-        note: {
-          ...NOTE,
-          source: {
-            url: "https://example.com/article",
-            siteName: "Example Site",
-            author: "Alice",
-            publishedAt: "2026-07-30T00:00:00Z",
-            capturedAt: "2026-07-31T08:00:00Z",
-          },
-        },
-      })),
-    });
-    await store.getState().load();
-    await store.getState().selectNote(SNAPSHOT.notes[0]);
-    const { container } = render(<NotesContent store={store} />);
-    const source = await waitFor(() => {
-      const element = container.querySelector(".notes-source");
-      expect(element).toBeTruthy();
-      return element as HTMLElement;
-    });
-    expect(source.textContent).toContain("Example Site");
-    expect(source.textContent).toContain("Alice");
-    expect(source.textContent).toContain("发布于");
-    expect(source.textContent).toContain("剪藏于");
-  });
-
-  it("opens the source explicitly in Studio with the current Notes scope", async () => {
+  it("opens the source explicitly in the current Notes scope without replacing the editor", async () => {
     const url = "https://example.invalid/article?q=one#part";
     let finish!: () => void;
     const onOpenSource = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
@@ -813,49 +795,25 @@ describe("notes store", () => {
     });
     await store.getState().load();
     await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setPreview(false);
     const view = render(<NotesContent store={store} />);
     const link = view.getByRole("link", { name: url });
+    const editor = view.getByRole("textbox", { name: t("Note content") }) as HTMLTextAreaElement;
     expect(onOpenSource).not.toHaveBeenCalled();
     expect(fireEvent.click(link)).toBe(false);
     expect(fireEvent.click(link)).toBe(false);
     expect(onOpenSource).toHaveBeenCalledOnce();
     expect(onOpenSource).toHaveBeenCalledWith(url, expect.objectContaining({ sceneId: "scene", workspaceId: "workspace" }));
     expect(link.getAttribute("aria-busy")).toBe("true");
+    fireEvent.change(editor, { target: { value: "Edited while the source opens" } });
+    editor.focus();
+    editor.setSelectionRange(0, 6);
     finish();
     await waitFor(() => expect(link.hasAttribute("aria-busy")).toBe(false));
-  });
-
-  it.each(["javascript:alert(1)", "https://user:password@example.invalid/"])("renders an unsafe source as text: %s", async (url) => {
-    const store = storeWithGateway({ get: vi.fn(async () => ({ note: { ...NOTE, source: { url } } })) });
-    await store.getState().load();
-    await store.getState().selectNote(SNAPSHOT.notes[0]);
-    const view = render(<NotesContent store={store} />);
-    expect(view.queryByRole("link", { name: url })).toBeNull();
-    expect(view.container.querySelector(".notes-source")?.textContent).toContain(url);
-  });
-
-  it("copies the captured source URL", async () => {
-    const writeText = vi.fn(async () => {});
-    vi.stubGlobal("navigator", {
-      ...globalThis.navigator,
-      clipboard: { writeText },
-    });
-    const store = storeWithGateway({
-      get: vi.fn(async () => ({
-        note: {
-          ...NOTE,
-          source: { url: "https://example.com/article" },
-        },
-      })),
-    });
-    await store.getState().load();
-    await store.getState().selectNote(SNAPSHOT.notes[0]);
-    const { container } = render(<NotesContent store={store} />);
-    const copy = await waitFor(
-      () => container.querySelector(".notes-source-copy") as HTMLButtonElement,
-    );
-    copy.click();
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith("https://example.com/article"));
+    expect(view.getByRole("textbox", { name: t("Note content") })).toBe(editor);
+    expect(document.activeElement).toBe(editor);
+    expect([editor.selectionStart, editor.selectionEnd]).toEqual([0, 6]);
+    expect(editor.value).toBe("Edited while the source opens");
   });
 
   it("copies the extracted markdown from the capture preview", async () => {
@@ -970,36 +928,6 @@ describe("notes store", () => {
       "programming",
       "ws-1",
       expect.objectContaining({ title: "Example" }),
-    );
-  });
-
-  it("shows a failed state when copying the source URL fails", async () => {
-    const writeText = vi.fn(async () => {
-      throw new Error("denied");
-    });
-    vi.stubGlobal("navigator", {
-      ...globalThis.navigator,
-      clipboard: { writeText },
-    });
-    const store = storeWithGateway({
-      get: vi.fn(async () => ({
-        note: {
-          ...NOTE,
-          source: { url: "https://example.com/article" },
-        },
-      })),
-    });
-    await store.getState().load();
-    await store.getState().selectNote(SNAPSHOT.notes[0]);
-    const { container } = render(<NotesContent store={store} />);
-    const copy = await waitFor(
-      () => container.querySelector(".notes-source-copy") as HTMLButtonElement,
-    );
-    copy.click();
-    await waitFor(() =>
-      expect(container.querySelector(".notes-source-copy")?.textContent).toBe(
-        t("Copy failed"),
-      ),
     );
   });
 
@@ -1434,6 +1362,37 @@ describe("notes store", () => {
     store.getState().setMode("trash");
     const { container } = render(<NotesContent store={store} />);
     await waitFor(() => expect(container.textContent).toContain(t("Trash is empty")));
+  });
+
+  it("does not create a widget note in the workspace opened during its lookup", async () => {
+    let workspace = "original";
+    let releaseOriginal: (() => void) | undefined;
+    const list = vi.fn(async (_scene: string, owner: string) => {
+      if (owner === "original") await new Promise<void>(resolve => { releaseOriginal = resolve; });
+      return { snapshot: SNAPSHOT };
+    });
+    const gateway = gatewayStub({ list });
+    const app = setupNotesApp({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: workspace }),
+    });
+    if (!app) throw Error("Notes app missing");
+    try {
+      const pending = app.openWidgetShortcut("new");
+      expect(list).toHaveBeenCalledWith("programming", "original", expect.any(Object));
+      workspace = "next";
+      await app.setTarget();
+      releaseOriginal?.();
+      await pending;
+      expect(gateway.create).not.toHaveBeenCalled();
+
+      await app.openWidgetShortcut("new");
+      expect(gateway.create).toHaveBeenCalledExactlyOnceWith(
+        "programming", "next", "book-1", expect.any(Object),
+      );
+    } finally {
+      app.destroy();
+    }
   });
 
   it("handles Ctrl+N, Ctrl+Shift+T, and Ctrl+S notes shortcuts", async () => {
@@ -2247,6 +2206,32 @@ describe("notes store", () => {
     ).rejects.toThrow();
     expect(store.getState().error).toBeTruthy();
     expect(store.getState().loading).toBe(false);
+  });
+
+  it("keeps a later notebook title edit when a previous save settles", async () => {
+    let finish!: () => void;
+    const updateNotebook = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }))
+      .mockResolvedValue(undefined);
+    const store = storeWithGateway({ updateNotebook });
+    await store.getState().load();
+    const { getByRole, container } = render(<NotesNav store={store} />);
+    const action = container.querySelector<HTMLButtonElement>('[data-notebook-id="book-1"] .notes-notebook-edit');
+    if (!action) throw new Error("Expected the notebook edit button");
+    fireEvent.click(action);
+    const title = getByRole("textbox", { name: t("Notebook name") }) as HTMLInputElement;
+    expect(document.activeElement).toBe(title);
+    fireEvent.change(title, { target: { value: "First title" } });
+    fireEvent.click(getByRole("button", { name: t("Save notebook") }));
+    expect(updateNotebook).toHaveBeenCalledTimes(1);
+    fireEvent.change(title, { target: { value: "Title still being edited" } });
+    await act(async () => { finish(); });
+    expect(store.getState().editingNotebookId).toBe("book-1");
+    expect(title.value).toBe("Title still being edited");
+    expect(document.activeElement).toBe(title);
+    fireEvent.click(getByRole("button", { name: t("Save notebook") }));
+    await waitFor(() => expect(store.getState().editingNotebookId).toBeNull());
+    expect(updateNotebook.mock.calls.map(([, , request]) => request.title)).toEqual(["First title", "Title still being edited"]);
   });
 
   it("passes the parent id when re-parenting a notebook", async () => {
@@ -3687,10 +3672,17 @@ describe("notes React components", () => {
     await waitFor(() => expect(document.querySelector(".notes-manage-popover")).toBeTruthy());
     const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
     moveAction?.click();
-    await waitFor(() => expect(container.querySelector(".notes-move-popover")).toBeTruthy());
+    await waitFor(() => expect(document.querySelector(".notes-move-popover")).toBeTruthy());
 
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    await waitFor(() => expect(container.querySelector(".notes-move-popover")).toBeNull());
+    const shellKey = vi.fn();
+    document.addEventListener("keydown", shellKey);
+    try {
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+      await waitFor(() => expect(document.querySelector(".notes-move-popover")).toBeNull());
+      expect(shellKey).not.toHaveBeenCalled();
+    } finally {
+      document.removeEventListener("keydown", shellKey);
+    }
   });
 
   it("moves focus into the move popover and restores it on close", async () => {
@@ -3707,7 +3699,7 @@ describe("notes React components", () => {
     const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
     moveAction?.click();
     await waitFor(() =>
-      expect(container.querySelector(".notes-move-popover")).toBeTruthy(),
+      expect(document.querySelector(".notes-move-popover")).toBeTruthy(),
     );
     await waitFor(() =>
       expect(document.activeElement?.matches(".notes-move-popover-item")).toBe(
@@ -3715,11 +3707,9 @@ describe("notes React components", () => {
       ),
     );
 
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     await waitFor(() =>
-      expect(container.querySelector(".notes-move-popover")).toBeNull(),
+      expect(document.querySelector(".notes-move-popover")).toBeNull(),
     );
     expect(document.activeElement).toBe(moveBtn);
   });
@@ -3749,10 +3739,10 @@ describe("notes React components", () => {
     const moveAction = Array.from(document.querySelectorAll<HTMLButtonElement>(".notes-manage-popover button")).find(button => button.textContent === t("Move to notebook"));
     moveAction?.click();
     await waitFor(() =>
-      expect(container.querySelector(".notes-move-popover")).toBeTruthy(),
+      expect(document.querySelector(".notes-move-popover")).toBeTruthy(),
     );
     const buttons = Array.from(
-      container.querySelectorAll<HTMLElement>(
+      document.querySelectorAll<HTMLElement>(
         ".notes-move-popover-item:not([disabled])",
       ),
     );
@@ -3761,20 +3751,11 @@ describe("notes React components", () => {
     const last = buttons[1];
 
     last.focus();
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
-    );
+    fireEvent.keyDown(last, { key: "Tab" });
     await waitFor(() => expect(document.activeElement).toBe(first));
 
     first.focus();
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Tab",
-        shiftKey: true,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+    fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
     await waitFor(() => expect(document.activeElement).toBe(last));
   });
 

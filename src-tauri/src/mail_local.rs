@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{functions::FunctionFlags, params, Connection};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::Path;
@@ -214,6 +214,9 @@ fn operate(file: &Path, scope: &str, req: Request) -> Result<Value, String> {
 }
 
 fn search_cache(db: &mut Connection, scope: &str, account: Option<&str>, label: Option<&str>, query: &str, offset: u32) -> Result<Value, String> {
+    fn fold_case(text: &str) -> String {
+        unicase::UniCase::new(text).to_folded_case()
+    }
     let query = query.trim();
     if label.is_some() && account.is_none() || query.is_empty() || query.len() > 512 {
         return Err("mail_invalid".into());
@@ -232,6 +235,16 @@ fn search_cache(db: &mut Connection, scope: &str, account: Option<&str>, label: 
     if sources.is_empty() {
         return Ok(json!({"items": [], "more": false}));
     }
+    // SQLite's built-in lower() only changes ASCII. Case-fold both the query
+    // and cached text before the existing literal substring comparison.
+    db.create_scalar_function(
+        "mail_fold_case",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |context| Ok(context.get_raw(0).as_str().ok().map(fold_case)),
+    )
+    .map_err(|_| "mail_storage")?;
+    let query = fold_case(query);
     let sql = format!("SELECT account, address, provider, id, epoch, subject, sender, folder FROM ({}) ORDER BY address, account, folder, id, epoch LIMIT 41 OFFSET ?4", sources.join(" UNION ALL "));
     let mut statement = db.prepare(&sql).map_err(|_| "mail_storage")?;
     let mut items = statement.query_map(params![scope, account, query, offset, label], |r| Ok(json!({
@@ -248,6 +261,136 @@ fn search_cache(db: &mut Connection, scope: &str, account: Option<&str>, label: 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn unicode_search_reopens_provider_caches_and_keeps_literal_filters_and_pages() {
+        let temporary = tempfile::tempdir().unwrap();
+        let file = temporary.path().join("mail.sqlite3");
+        let mut db = open_mail(&file).unwrap();
+        studio_alibaba_mail::initialize_cache(&mut db).unwrap();
+        db.execute_batch(
+            "CREATE TABLE gmail_cache(workspace TEXT NOT NULL, account TEXT NOT NULL, kind TEXT NOT NULL,
+              cache_key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(workspace,account,kind,cache_key));
+             INSERT INTO accounts VALUES ('here','gmail','gmail','a@example.test'),
+              ('here','ali','alibaba','b@example.test'),('elsewhere','gmail','gmail','private@example.test');
+             INSERT INTO alibaba_epoch(scope,account,epoch,folder) VALUES ('here','ali',7,'Archive');",
+        ).unwrap();
+        for position in 0..41 {
+            let id = format!("a{position:02}");
+            let subject = match position {
+                0 => "REÇU CAFÉ %",
+                40 => "CAFÉ Straße",
+                _ => "REÇU CAFÉ",
+            };
+            let sender = if position == 0 {
+                "ÉQUIPE DE NUIT"
+            } else {
+                "Fixture"
+            };
+            db.execute(
+                "INSERT INTO gmail_cache VALUES ('here','gmail','page',?1,?2)",
+                params![
+                    format!("label:Label_7:member:{id}"),
+                    json!({"items":[{"id":id,"subject":subject,"from":sender}]}).to_string()
+                ],
+            )
+            .unwrap();
+        }
+        db.execute(
+            "INSERT INTO gmail_cache VALUES ('here','gmail','page','20:',?1)",
+            [
+                json!({"items":[{"id":"a00","subject":"REÇU CAFÉ %","from":"ÉQUIPE DE NUIT"}]})
+                    .to_string(),
+            ],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO gmail_cache VALUES ('elsewhere','gmail','body','a00',?1)",
+            [json!({"id":"a00","subject":"CAFÉ secret","from":"Fixture"}).to_string()],
+        )
+        .unwrap();
+        db.execute(
+            "INSERT INTO alibaba_inbox(scope,account,folder,epoch,uid,meta,body) VALUES
+              ('here','ali','Archive',7,42,?1,'Facture pour le CAFÉ _ ΟΣΤΡΑΚΟ'),
+              ('here','ali','Archive',3,42,?1,'Ancien CAFÉ périmé')",
+            [json!({"subject":"Facture","sender":"receipts@example.test","senderName":"ÉQUIPE LOCALE 财务团队"}).to_string()],
+        )
+        .unwrap();
+        drop(db);
+
+        let search =
+            |scope: &str, account: Option<&str>, label: Option<&str>, query: &str, offset| {
+                operate(
+                    &file,
+                    scope,
+                    Request::Search {
+                        account: account.map(str::to_owned),
+                        label: label.map(str::to_owned),
+                        query: query.into(),
+                        offset,
+                    },
+                )
+                .unwrap()
+            };
+        let first = search("here", None, None, "  café  ", 0);
+        assert_eq!(first["items"].as_array().unwrap().len(), 40);
+        assert_eq!(first["items"][0]["id"], "a00");
+        assert_eq!(first["items"][39]["id"], "a39");
+        assert_eq!(first["more"], true);
+        let second = search("here", None, None, "cAfÉ", 40);
+        assert_eq!(second["items"].as_array().unwrap().len(), 2);
+        assert_eq!(second["items"][0]["id"], "a40");
+        assert_eq!(second["items"][1]["folder"], "Archive");
+        assert_eq!(second["items"][1]["epoch"], 7);
+        assert_eq!(second["more"], false);
+        assert_eq!(
+            search("here", None, None, "STRASSE", 0)["items"][0]["id"],
+            "a40"
+        );
+        let sigma = search("here", Some("ali"), Some("Archive"), "ος", 0);
+        assert_eq!(sigma["items"].as_array().unwrap().len(), 1);
+        assert_eq!(sigma["items"][0]["epoch"], 7);
+        assert_eq!(search("here", None, None, "cafe", 0)["items"], json!([]));
+
+        let label = search("here", Some("gmail"), Some("Label_7"), "équipe de nuit", 0);
+        assert_eq!(label["items"].as_array().unwrap().len(), 1);
+        assert_eq!(label["items"][0]["sender"], "ÉQUIPE DE NUIT");
+        let archive = search("here", Some("ali"), Some("Archive"), "équipe locale", 0);
+        assert_eq!(archive["items"].as_array().unwrap().len(), 1);
+        assert_eq!(archive["items"][0]["folder"], "Archive");
+        assert_eq!(archive["items"][0]["sender"], "receipts@example.test");
+        let chinese = search("here", None, None, "财务团队", 0);
+        assert_eq!(chinese["items"].as_array().unwrap().len(), 1);
+        assert_eq!(chinese["items"][0]["account"], "ali");
+        assert_eq!(chinese["items"][0]["epoch"], 7);
+        for literal in ["équipe%", "équipe_"] {
+            assert_eq!(search("here", Some("ali"), Some("Archive"), literal, 0)["items"], json!([]));
+        }
+        let address = search("here", None, None, "RECEIPTS@EXAMPLE.TEST", 0);
+        assert_eq!(address["items"][0]["id"], "42");
+        assert_eq!(
+            search("here", Some("ali"), Some("INBOX"), "équipe locale", 0)["items"],
+            json!([])
+        );
+        let legacy = search("here", Some("gmail"), Some("INBOX"), "équipe de nuit", 0);
+        assert_eq!(legacy["items"].as_array().unwrap().len(), 1);
+        assert_eq!(legacy["items"][0]["id"], "a00");
+        for (symbol, account) in [("%", "gmail"), ("_", "ali")] {
+            let literal = search("here", None, None, symbol, 0);
+            assert_eq!(literal["items"].as_array().unwrap().len(), 1);
+            assert_eq!(literal["items"][0]["account"], account);
+        }
+        assert_eq!(search("here", None, None, "cafÉ %_", 0)["items"], json!([]));
+        assert_eq!(search("here", None, None, "secret", 0)["items"], json!([]));
+        assert_eq!(
+            search("elsewhere", Some("gmail"), None, "café secret", 0)["items"][0]["id"],
+            "a00"
+        );
+        assert_eq!(
+            search("elsewhere", Some("ali"), Some("Archive"), "café", 0)["items"],
+            json!([])
+        );
+    }
+
     #[test]
     fn search_reopens_both_provider_caches_with_workspace_and_uidvalidity_boundaries() {
         let temp = std::env::temp_dir().join(format!("mail-search-{}", Uuid::new_v4()));
@@ -273,6 +416,7 @@ mod tests {
         assert_eq!(search("main", Some("b"), "SAME")[0]["subject"], "same");
         assert_eq!(search("main", None, "中文").len(), 2);
         assert_eq!(search("main", Some("a"), "%_")[0]["epoch"], 7);
+        assert_eq!(search("main", Some("a"), "ALICE")[0]["sender"], "Alice");
         assert_eq!(search("main", Some("b"), "preview")[0]["id"], "42");
         assert_eq!(search("main", None, "bob").len(), 1);
         assert!(search("main", None, "private").is_empty());

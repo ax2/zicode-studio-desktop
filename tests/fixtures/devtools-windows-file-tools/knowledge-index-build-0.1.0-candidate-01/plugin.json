@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.knowledge-index-build",
+  "name": "ZiDevTools Static Knowledge Index Builder",
+  "displayName": "从文本创建静态知识索引",
+  "description": "从已确认的一份 UTF-8 TXT 创建可离线检索的新 SQLite 知识索引，文件需另行确认保存。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.knowledge.index.snapshot.create"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.knowledge.index.snapshot.create",
+        "title": "从文本创建静态知识索引",
+        "description": "从已确认的一份 UTF-8 TXT 创建可离线检索的新 SQLite 知识索引，文件需另行确认保存。",
+        "resourceInputMimeTypes": [
+          "text/plain",
+          "application/octet-stream"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "fileLabel": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 5,
+              "title": "文本引用文件名",
+              "description": "填写单个 TXT 名称，例如「会议纪要.txt」。用于显示引用。"
+            }
+          },
+          "required": [
+            "fileLabel"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "fileLabel": {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    "sourceId": {
+                      "type": "string",
+                      "const": "studio-snapshot"
+                    },
+                    "sourceSha256": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "sourceBytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4096
+                    },
+                    "chunks": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 32
+                    },
+                    "textBytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4096
+                    },
+                    "sqliteBytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 131072
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 2048
+                    }
+                  },
+                  "required": [
+                    "fileLabel",
+                    "sourceId",
+                    "sourceSha256",
+                    "sourceBytes",
+                    "chunks",
+                    "textBytes",
+                    "sqliteBytes",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "构建 SQLite 知识索引",
+            "静态知识索引生成",
+            "Offline TXT knowledge index"
+          ],
+          "description": "从已确认的一份 UTF-8 TXT 创建可离线检索的新 SQLite 知识索引，文件需另行确认保存。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次明确确认的一份 TXT。"
+      }
+    ],
+    "optional": []
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.screenshot-pixel",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "screenshot-workbench",
+      "capabilityId": "devtools.screenshot.png.pixel",
+      "title": "PNG 截图取色",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "读取已确认的本机静态 PNG 的一个原始像素，可复制 RGB、Alpha 和十六进制色值。"
+    }
+  ]
+}

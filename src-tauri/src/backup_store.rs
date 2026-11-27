@@ -564,11 +564,29 @@ pub(crate) fn enqueue_workspace_restore(
     restore_request::enqueue(&root, workspace_id, backup_id)
 }
 
+#[derive(Serialize)]
+pub(crate) struct WorkspaceRestoreStatus {
+    #[serde(flatten)]
+    outcome: Option<RestoreOutcome>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pending: Option<RestoreRequest>,
+}
+
 pub(crate) fn workspace_restore_outcome(
     workspace_id: &str,
-) -> Result<Option<RestoreOutcome>, String> {
-    Ok(restore_request::outcome(&crate::app_paths::system_root()?)?
-        .filter(|outcome| outcome.workspace_id == workspace_id))
+) -> Result<Option<WorkspaceRestoreStatus>, String> {
+    let root = crate::app_paths::system_root()?;
+    let _lock = lock_system_restore(&root)?;
+    let pending = restore_request::read(&root)?.filter(|request| request.workspace_id == workspace_id);
+    let outcome = match restore_request::outcome(&root) {
+        Ok(outcome) => outcome.filter(|outcome| outcome.workspace_id == workspace_id),
+        Err(error) if pending.is_some() => {
+            log::warn!("Cannot read the earlier workspace restore result: {error}");
+            None
+        }
+        Err(error) => return Err(error),
+    };
+    Ok((pending.is_some() || outcome.is_some()).then_some(WorkspaceRestoreStatus { outcome, pending }))
 }
 
 fn restore_roots(system_root: &Path, workspaces: &[(String, String)]) -> Vec<PathBuf> {
@@ -1040,10 +1058,125 @@ mod tests {
             workspace_restore_outcome(workspace_id)
                 .unwrap()
                 .unwrap()
+                .outcome
+                .unwrap()
                 .request_id,
             request.request_id
         );
         assert!(!startup_restore_needed(&registered).unwrap());
+        let next = enqueue_workspace_restore(workspace_id, &backup.id).unwrap();
+        let current = workspace_restore_outcome(workspace_id).unwrap().unwrap();
+        let status = serde_json::to_value(current).unwrap();
+        assert_eq!(status["requestId"], request.request_id);
+        assert_eq!(status["report"]["backupId"], backup.id);
+        assert_eq!(status["pending"]["requestId"], next.request_id);
+        assert_eq!(status["pending"]["backupId"], backup.id);
+        assert!(workspace_restore_outcome("other-workspace").unwrap().is_none());
+        cancel_startup_restore(&next.request_id, &registered).unwrap();
+    }
+
+    #[test]
+    fn queued_restore_status_survives_unreadable_old_receipt() {
+        if !super::test_support::isolated() {
+            return;
+        }
+        let system = crate::app_paths::system_root().unwrap();
+        let workspace_id = "queued-with-old-receipt";
+        let workspace = system.join(workspace_id);
+        let note = workspace.join(".zicode/notes/probe.txt");
+        fs::create_dir_all(note.parent().unwrap()).unwrap();
+        fs::write(&note, b"snapshot").unwrap();
+        let backup = create_workspace_backup(workspace_id, &workspace).unwrap();
+        let registered = [(
+            workspace_id.to_owned(),
+            workspace.to_string_lossy().into_owned(),
+        )];
+        let completed = enqueue_workspace_restore(workspace_id, &backup.id).unwrap();
+        apply_startup_restore(&registered).unwrap();
+        let result = workspace_restore_outcome(workspace_id).unwrap().unwrap();
+        assert_eq!(result.outcome.unwrap().request_id, completed.request_id);
+
+        fs::write(&note, b"current").unwrap();
+        let receipt = system.join("workspace-restore-result.json");
+        let damaged_receipt = b"{\"requestId\":";
+        fs::write(&receipt, damaged_receipt).unwrap();
+        assert!(workspace_restore_outcome(workspace_id).is_err());
+        let queued = enqueue_workspace_restore(workspace_id, &backup.id).unwrap();
+
+        let status =
+            serde_json::to_value(workspace_restore_outcome(workspace_id).unwrap().unwrap())
+                .unwrap();
+        assert_eq!(status["pending"]["requestId"], queued.request_id);
+        assert_eq!(status["pending"]["backupId"], backup.id);
+        assert!(status.get("report").is_none());
+        assert!(workspace_restore_outcome("unrelated-workspace").is_err());
+        assert!(delete_workspace_backup(workspace_id, &backup.id).is_err());
+        assert_eq!(fs::read(&receipt).unwrap(), damaged_receipt);
+        assert_eq!(fs::read(&note).unwrap(), b"current");
+    }
+
+    #[test]
+    fn queued_restore_rejects_same_length_backup_damage_and_preserves_current_data() {
+        if !super::test_support::isolated() {
+            return;
+        }
+        let system = crate::app_paths::system_root().unwrap();
+        let workspace = system.join("tampered-snapshot-workspace");
+        let workspace_id = "tampered-snapshot-workspace";
+        let notes = workspace.join(".zicode/notes");
+        let note = notes.join("note.md");
+        let attachment = notes.join("attachments/proof.bin");
+        fs::create_dir_all(attachment.parent().unwrap()).unwrap();
+        fs::write(&note, b"original note").unwrap();
+        fs::write(&attachment, b"original attachment").unwrap();
+        let backup = create_workspace_backup(workspace_id, &workspace).unwrap();
+        fs::write(&note, b"newer note").unwrap();
+        fs::write(&attachment, b"newer attachment").unwrap();
+        let request = enqueue_workspace_restore(workspace_id, &backup.id).unwrap();
+
+        let snapshot = workspace_backups_dir(workspace_id)
+            .unwrap()
+            .join(&backup.id);
+        let metadata = snapshot.join("backup.json");
+        let original_metadata = fs::read(&metadata).unwrap();
+        let archived_attachment = snapshot.join("notes/attachments/proof.bin");
+        let changed = b"Original attachment";
+        assert_eq!(
+            fs::metadata(&archived_attachment).unwrap().len(),
+            changed.len() as u64
+        );
+        fs::write(&archived_attachment, changed).unwrap();
+        let registered = [(
+            workspace_id.to_owned(),
+            workspace.to_string_lossy().into_owned(),
+        )];
+
+        let failure = apply_startup_restore(&registered).unwrap_err();
+        assert!(failure.contains("Backup content checksum does not match metadata"));
+        assert_eq!(fs::read(&note).unwrap(), b"newer note");
+        assert_eq!(fs::read(&attachment).unwrap(), b"newer attachment");
+        assert_eq!(fs::read(&metadata).unwrap(), original_metadata);
+        assert_eq!(fs::read(&archived_attachment).unwrap(), changed);
+        let state = workspace_restore_outcome(workspace_id).unwrap().unwrap();
+        assert!(state.outcome.is_none());
+        assert_eq!(state.pending.unwrap().request_id, request.request_id);
+        assert_eq!(list_workspace_backups(workspace_id).unwrap().len(), 1);
+        assert!(!restore_transaction::needs_recovery(&workspace.join(".zicode")).unwrap());
+        assert_eq!(
+            cancellable_startup_restore(&registered).unwrap().as_deref(),
+            Some(request.request_id.as_str())
+        );
+
+        cancel_startup_restore(&request.request_id, &registered).unwrap();
+        assert!(!startup_restore_needed(&registered).unwrap());
+        assert!(system
+            .join(format!(
+                "workspace-restore-cancelled-{}.json",
+                request.request_id
+            ))
+            .is_file());
+        assert_eq!(fs::read(&note).unwrap(), b"newer note");
+        assert_eq!(fs::read(&attachment).unwrap(), b"newer attachment");
     }
 
     #[test]

@@ -1,7 +1,7 @@
 import { t } from "../../i18n.js";
 import { createBrowserTabIcon } from "./browser-tab-icon.js";
 
-export function showBrowserTabSearch({ tabs, active, getIcon, onSelect, onClose }) {
+export function showBrowserTabSearch({ getTabs, getActive, getIcon, onSelect, onClose }) {
   const element = (tag, className = "", text = "") => {
     const node = document.createElement(tag);
     node.className = className;
@@ -31,6 +31,11 @@ export function showBrowserTabSearch({ tabs, active, getIcon, onSelect, onClose 
       chosen = id;
       if (dialog.open) dialog.close();
     } catch (error) {
+      if (!dialog.open) return;
+      if (!getTabs().some(tab => tab.id === id)) {
+        render();
+        input.focus();
+      }
       message.textContent = t(String(error?.message ?? error));
     } finally {
       busy = false;
@@ -39,12 +44,13 @@ export function showBrowserTabSearch({ tabs, active, getIcon, onSelect, onClose 
 
   function render() {
     const words = input.value.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
-    matches = tabs.filter(tab => {
+    matches = getTabs().filter(tab => {
       const text = `${tab.group?.name ?? ""} ${tab.title ?? ""} ${tab.url}`.toLocaleLowerCase();
       return words.every(word => text.includes(word));
     });
     results.replaceChildren();
     message.textContent = matches.length ? "" : t("No matching tabs");
+    const active = getActive();
     for (const tab of matches) {
       const title = element("span", "browser-tab-search-title", tab.title || tab.url);
       const url = element("span", "browser-tab-search-url", tab.url);

@@ -406,6 +406,35 @@ it("keeps the diagnostic after cancelling location selection and writes only aft
   expect(gateway.prepareSave).not.toHaveBeenCalled();
 });
 
+it("exports only captured JSON Schema diagnostics through the native text chooser", async () => {
+  const textExports = { choose: vi.fn(async () => null), commit: vi.fn(), cancel: vi.fn() };
+  const { actions } = setup("en", undefined, { textExports });
+  const validationScope = { ...scope,
+    pluginId: "com.zicode.devtools.json-schema", capabilityId: "devtools.json-schema.validate" };
+  const label = "Save validation report as text…";
+  const hasReport = () => [...document.querySelectorAll("button")].some(button => button.textContent === label);
+  const result = { contractVersion: "1.0.0-rc.1", ok: true, data: { text: "Validation failed" } };
+  const captured = { result, resultRef: report.resultRef };
+  for (const [response, identity] of [
+    [{ result }, validationScope],
+    [{ ...captured, result: { ...result, ok: false } }, validationScope],
+    [{ ...captured, result: { ...result, contractVersion: "unknown" } }, validationScope],
+    [captured, { ...validationScope, pluginId: "other-plugin" }],
+  ]) {
+    actions.show(response, identity);
+    expect(hasReport()).toBe(false);
+  }
+
+  actions.show(captured, validationScope);
+  expect(hasReport()).toBe(true);
+  click(label);
+  await vi.waitFor(() => expect(textExports.choose).toHaveBeenCalledExactlyOnceWith(scope.workspaceId, {
+    scope: validationScope, resultId: captured.resultRef.resultId,
+  }));
+  expect(textExports.commit).not.toHaveBeenCalled();
+  actions.destroy();
+});
+
 it("releases a late diagnostic export grant when the view drops its result", async () => {
   const grant = exportGrant("55555555-5555-4555-8555-555555555555");
   let selected;

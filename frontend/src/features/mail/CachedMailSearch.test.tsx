@@ -86,6 +86,121 @@ it("discards stale label lists and resets a removed folder without replaying a w
   expect(local).toHaveBeenCalledExactlyOnceWith({ kind: "search", account: "b", label: "Archive", query: "invoice", offset: 0 });
 });
 
+const directoryFailure = "Could not read saved labels or folders.";
+const directoryRetry = "Retry saved labels or folders";
+
+it.each([
+  ["gmail", "cachedLabels", "Search Gmail label"],
+  ["alibaba", "cachedFolders", "Search IMAP folder"],
+])("recovers a missing initial %s search directory without a server request", async (provider, kind, filter) => {
+  setLocale("en");
+  const account = { id: "one", address: "first@example.test", provider };
+  let available = false;
+  const directory = vi.fn(async () => {
+    if (!available) throw Error("local directory unavailable");
+    return [{ id: "Archive", name: "Recovered archive" }];
+  });
+  const local = vi.fn(async () => ({ items: [], more: false }));
+  render(<CachedMailSearch accounts={[account]} current="one" invoke={local as Invoke}
+    gmail={provider === "gmail" ? directory as Invoke : undefined} alibaba={provider === "alibaba" ? directory as Invoke : undefined} />);
+  await screen.findByText(directoryFailure);
+  fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "saved invoice" } });
+  const retry = screen.getByRole("button", { name: directoryRetry });
+  await act(async () => fireEvent.click(retry));
+  expect(retry.matches(":disabled")).toBe(false);
+  expect(screen.getByText(directoryFailure)).toBeTruthy();
+
+  available = true;
+  fireEvent.click(retry);
+  await screen.findByRole("option", { name: "Recovered archive" });
+  expect(screen.queryByText(directoryFailure)).toBeNull();
+  expect(screen.queryByRole("button", { name: directoryRetry })).toBeNull();
+  expect(screen.getByDisplayValue("saved invoice")).toBeTruthy();
+  expect(directory.mock.calls).toEqual([[{ kind, accountId: "one" }], [{ kind, accountId: "one" }], [{ kind, accountId: "one" }]]);
+  expect(local).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText(filter), { target: { value: "Archive" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  await screen.findByText("No matching cached messages.");
+  expect(local).toHaveBeenCalledExactlyOnceWith({ kind: "search", account: "one", label: "Archive", query: "saved invoice", offset: 0 });
+});
+
+it("keeps the selected search folder and open body until a successful directory read removes that folder", async () => {
+  setLocale("en");
+  const account = { id: "one", address: "first@example.test", provider: "gmail" };
+  const archive = { id: "Archive", name: "Saved archive" };
+  const hit = { account: account.id, address: account.address, provider: account.provider, id: "42",
+    folder: archive.id, epoch: null, subject: "Saved search hit", sender: "Fixture" };
+  let rows: typeof archive[] | null = [archive], failed = false;
+  const gmail = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.kind === "cachedBody") return { plainText: "Still reading this body" };
+    if (request.kind !== "cachedLabels" || failed) throw Error("local directory unavailable");
+    return rows;
+  });
+  const local = vi.fn(async () => ({ items: [hit], more: false }));
+  render(<CachedMailSearch accounts={[account]} current="one" invoke={local as Invoke} gmail={gmail as Invoke} />);
+  await screen.findByRole("option", { name: archive.name });
+  const filter = screen.getByLabelText<HTMLSelectElement>("Search Gmail label");
+  fireEvent.change(filter, { target: { value: archive.id } });
+  fireEvent.change(screen.getByLabelText("Search cached mail"), { target: { value: "invoice" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Saved search hit/ }));
+  await screen.findByText("Still reading this body");
+  const directoryChanged = () => window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: account.id }));
+
+  failed = true;
+  await act(async () => directoryChanged());
+  await screen.findByText(directoryFailure);
+  expect(filter.value).toBe(archive.id);
+  expect(screen.getByText("Still reading this body")).toBeTruthy();
+  failed = false;
+  rows = [archive, { id: "Receipts", name: "Recovered receipts" }];
+  fireEvent.click(screen.getByRole("button", { name: directoryRetry }));
+  await screen.findByRole("option", { name: "Recovered receipts" });
+  expect(filter.value).toBe(archive.id);
+  expect(screen.getByText("Still reading this body")).toBeTruthy();
+
+  failed = true;
+  await act(async () => directoryChanged());
+  await screen.findByText(directoryFailure);
+  failed = false;
+  rows = null;
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: directoryRetry })));
+  expect(filter.value).toBe("");
+  expect(screen.queryByText("Still reading this body")).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Saved search hit/ })).toBeNull();
+  expect(screen.getByDisplayValue("invoice")).toBeTruthy();
+  expect(local).toHaveBeenCalledExactlyOnceWith({ kind: "search", account: "one", label: archive.id, query: "invoice", offset: 0 });
+  expect(gmail.mock.calls.filter(([request]) => request.kind !== "cachedLabels")).toEqual([[{ kind: "cachedBody", accountId: "one", id: "42" }]]);
+});
+
+it.each(["changing account", "reading a newer directory"])("ignores a late search directory retry after %s", async change => {
+  setLocale("en");
+  const accounts = ["one", "two"].map(id => ({ id, address: id + "@example.test", provider: "gmail" }));
+  let status: "failed" | "held" | "fresh" = "failed";
+  let resolveOld!: (folders: { id: string; name: string }[]) => void;
+  const gmail = vi.fn(async (request: Record<string, unknown>) => {
+    if (request.accountId === "two" || status === "fresh") return [{ id: "Fresh", name: "Fresh label" }];
+    if (status === "held") return new Promise(resolve => { resolveOld = resolve; });
+    throw Error("local directory unavailable");
+  });
+  render(<CachedMailSearch accounts={accounts} current="one" invoke={vi.fn() as Invoke} gmail={gmail as Invoke} />);
+  const retry = await screen.findByRole("button", { name: directoryRetry });
+  status = "held";
+  fireEvent.click(retry);
+  expect(retry.matches(":disabled")).toBe(true);
+  if (change === "changing account") {
+    fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "two" } });
+  } else {
+    status = "fresh";
+    await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-directory-updated", { detail: "one" })));
+  }
+  await screen.findByRole("option", { name: "Fresh label" });
+  await act(async () => resolveOld([{ id: "Late", name: "Late label" }]));
+  expect(screen.getByRole("option", { name: "Fresh label" })).toBeTruthy();
+  expect(screen.queryByRole("option", { name: "Late label" })).toBeNull();
+  expect(screen.queryByText(directoryFailure)).toBeNull();
+});
+
 function emptyDirectory(invoke: Invoke): Invoke {
   return async <T,>(request: Record<string, unknown>) => {
     if (request.kind === "cachedFolders" || request.kind === "cachedLabels") return [] as T;
@@ -229,6 +344,56 @@ const firstPage = { items: Array.from({ length: 40 }, (_, index) => ({
 })), more: true };
 const secondPage = { items: [secondHit], more: false };
 
+it("retries the same search page after clearing another account without closing the open body", async () => {
+  let finishRetry!: (value: unknown) => void;
+  const cached = { items: [firstHit], more: false };
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage).mockResolvedValueOnce({ items: [firstHit, secondHit], more: false })
+    .mockRejectedValueOnce(new Error("local read failed"))
+    .mockImplementationOnce(() => new Promise(resolve => { finishRetry = resolve; }));
+  const gmail = vi.fn(async () => ({ plainText: "Unrelated cached body on page two" }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  const result = await screen.findByRole("button", { name: /First fixture/ });
+  fireEvent.click(result);
+  await screen.findByText("Unrelated cached body on page two");
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-cleared", { detail: "b" })));
+  expect(screen.queryByRole("button", { name: /Second fixture/ })).toBeNull();
+  const retry = await screen.findByRole("button", { name: "Retry cached search" });
+  retry.focus();
+  fireEvent.click(retry);
+  fireEvent.click(retry);
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual([0, 40, 40, 40]);
+  expect(document.activeElement).toBe(retry);
+  await act(async () => finishRetry(cached));
+  expect(screen.queryByRole("button", { name: "Retry cached search" })).toBeNull();
+  expect(screen.getByText("Unrelated cached body on page two")).toBeTruthy();
+  expect(document.activeElement).toBe(result);
+  expect(gmail).toHaveBeenCalledExactlyOnceWith({ kind: "cachedBody", accountId: "a", id: "42" });
+});
+
+it.each(["query", "account", "application"])("drops a pending cache refresh retry after changing the %s", async (change) => {
+  let finishRetry!: (value: unknown) => void;
+  const invoke = vi.fn().mockResolvedValueOnce({ items: [firstHit], more: false })
+    .mockRejectedValueOnce(new Error("local read failed"))
+    .mockImplementationOnce(() => new Promise(resolve => { finishRetry = resolve; }));
+  beginAllAccountSearch(invoke as Invoke, vi.fn(async () => null) as Invoke);
+  await screen.findByRole("button", { name: /First fixture/ });
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" })));
+  fireEvent.click(await screen.findByRole("button", { name: "Retry cached search" }));
+  if (change === "query") {
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "different" } });
+  } else if (change === "account") {
+    fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "b" } });
+  } else {
+    await act(async () => document.dispatchEvent(new CustomEvent("zicode:active-plugin-changed", { detail: { pluginId: "core.chat" } })));
+  }
+  await act(async () => finishRetry({ items: [{ ...firstHit, subject: "Obsolete read" }], more: false }));
+  expect(screen.queryByRole("button", { name: /Obsolete read/ })).toBeNull();
+  expect(Boolean(screen.queryByRole("button", { name: /First fixture/ }))).toBe(change === "application");
+  expect(Boolean(screen.queryByRole("button", { name: "Retry cached search" }))).toBe(change === "application");
+  expect(invoke).toHaveBeenCalledTimes(3);
+});
+
 it("refreshes the current search page and keeps its opened message", async () => {
   const invoke = vi.fn().mockResolvedValueOnce(firstPage)
     .mockResolvedValueOnce(secondPage).mockResolvedValueOnce(secondPage);
@@ -248,11 +413,15 @@ it("refreshes a requested page even when navigation has not finished yet", async
   const invoke = vi.fn().mockResolvedValueOnce(firstPage)
     .mockImplementationOnce(() => new Promise(resolve => { finishEarlierRead = resolve; }))
     .mockResolvedValueOnce(secondPage);
-  beginAllAccountSearch(invoke as Invoke, vi.fn() as Invoke);
+  beginAllAccountSearch(invoke as Invoke, vi.fn(async () => ({ plainText: "Opened first-page body" })) as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: /^First page hit 0/ }));
+  await screen.findByText("Opened first-page body");
   fireEvent.click(await screen.findByRole("button", { name: "Next" }));
-  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" })));
+  expect(screen.queryByText("Opened first-page body")).toBeTruthy();
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "b" })));
   expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual([0, 40, 40]);
   expect(await screen.findByRole("button", { name: /Second fixture/ })).toBeTruthy();
+  expect(screen.queryByText("Opened first-page body")).toBeNull();
   await act(async () => finishEarlierRead({ items: [{ ...secondHit, subject: "Stale second page" }], more: false }));
   expect(screen.queryByText("Stale second page")).toBeNull();
 });
@@ -403,4 +572,207 @@ it("shows cached attachments without offering to download an already cached body
   expect(screen.queryByText("This message is not available offline. Download it explicitly to read it.")).toBeNull();
   expect(screen.queryByRole("button", { name: "Download message body" })).toBeNull();
   expect(gmail).toHaveBeenCalledExactlyOnceWith({ kind: "cachedBody", accountId: "a", id: "42" });
+});
+
+it("keeps the last valid search page and its opened mail when navigation fails", async () => {
+  let rejectNext!: (error: Error) => void;
+  const nextPage = new Promise<never>((_resolve, reject) => { rejectNext = reject; });
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage).mockReturnValueOnce(nextPage)
+    .mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage);
+  const gmail = vi.fn(async () => ({ plainText: "Current page remains readable" }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: /^First page hit 0/ }));
+  await screen.findByText("Current page remains readable");
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  expect(screen.queryByText("Current page remains readable")).toBeTruthy();
+  await act(async () => rejectNext(Error("mail_storage")));
+  await screen.findByRole("alert");
+  expect(screen.queryByText("Current page remains readable")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Next" }).matches(":disabled")).toBe(false);
+  expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
+  expect(screen.getByLabelText<HTMLInputElement>("Search cached mail").value).toBe("fixture");
+
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "b" })));
+  expect(screen.queryByText("Current page remains readable")).toBeTruthy();
+  expect(invoke.mock.calls.map(([r]) => r.offset)).toEqual([0, 40, 0]);
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  await screen.findByRole("button", { name: /Second fixture/ });
+  expect(screen.queryByText("Current page remains readable")).toBeNull();
+  expect(screen.getByRole("button", { name: "Previous" })).toBeTruthy();
+  expect(invoke.mock.calls.map(([r]) => r.offset)).toEqual([0, 40, 0, 40]);
+  expect(gmail.mock.calls).toEqual([[{ kind: "cachedBody", accountId: "a", id: "first-0" }]]);
+});
+
+it("focuses the opened reader and returns to the exact account result while its offline body is pending", async () => {
+  let finish!: (body: { plainText: string }) => void;
+  const pending = new Promise<{ plainText: string }>(resolve => { finish = resolve; });
+  const invoke = vi.fn().mockResolvedValue({ items: [firstHit, secondHit], more: false });
+  const gmail = vi.fn().mockReturnValueOnce(pending).mockResolvedValueOnce({ plainText: "First account body" });
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  const second = await screen.findByRole("button", { name: /^Second fixture/ });
+  second.focus();
+  fireEvent.click(second);
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Second fixture" }));
+  expect(gmail).toHaveBeenCalledWith({ kind: "cachedBody", accountId: "b", id: "42" });
+
+  const back = screen.getByRole("button", { name: "Back to search results" });
+  back.focus();
+  fireEvent.click(back);
+  expect(document.activeElement).toBe(second);
+  expect(screen.queryByRole("article")).toBeNull();
+  expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("fixture");
+  expect(invoke).toHaveBeenCalledTimes(1);
+
+  const first = screen.getByRole("button", { name: /^First fixture/ });
+  first.focus();
+  fireEvent.click(first);
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "First fixture" }));
+  await screen.findByText("First account body");
+  const query = screen.getByRole("searchbox");
+  query.focus();
+  await act(async () => finish({ plainText: "Late second account body" }));
+  expect(document.activeElement).toBe(query);
+  expect(screen.queryByText("Late second account body")).toBeNull();
+  expect(screen.getByText("First account body")).toBeTruthy();
+});
+
+it.each(["Next", "Previous"] as const)("keeps the %s pagination control focused through a failed read", async control => {
+  let fail!: (reason: Error) => void;
+  const pending = new Promise<never>((_resolve, reject) => { fail = reject; });
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage);
+  const forward = control === "Next";
+  if (!forward) invoke.mockResolvedValueOnce(secondPage);
+  invoke.mockReturnValueOnce(pending).mockResolvedValueOnce(forward ? secondPage : firstPage);
+  const gmail = vi.fn(async () => ({ plainText: "Current search mail remains open" }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  if (!forward) fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  fireEvent.click(await screen.findByRole("button", { name: forward ? /^First page hit 0/ : /^Second fixture/ }));
+  await screen.findByText("Current search mail remains open");
+  const button = screen.getByRole("button", { name: control });
+  button.focus();
+  fireEvent.click(button);
+  await screen.findByText("Searching messages…");
+  expect(button.getAttribute("aria-disabled")).toBe("true");
+  expect(button.matches(":disabled")).toBe(false);
+  expect(document.activeElement).toBe(button);
+  fireEvent.click(button);
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual(forward ? [0, 40] : [0, 40, 0]);
+  await act(async () => fail(Error("mail_storage")));
+  await screen.findByRole("alert");
+  expect(button.hasAttribute("aria-disabled")).toBe(false);
+  expect(document.activeElement).toBe(button);
+  expect(screen.getByText("Current search mail remains open")).toBeTruthy();
+  fireEvent.click(button);
+  await screen.findByRole("button", { name: forward ? /^Second fixture/ : /^First page hit 0/ });
+  expect(screen.queryByText("Current search mail remains open")).toBeNull();
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual(forward ? [0, 40, 40] : [0, 40, 0, 0]);
+});
+
+it.each([
+  { title: "reaches the last page", control: "Next", page: secondPage, result: /^Second fixture/ },
+  { title: "returns to the first page", control: "Previous", page: firstPage, result: /^First page hit 0/ },
+  { title: "leaves focus where the user moved it", control: "Next", page: secondPage, moveFocus: true },
+  { title: "keeps the current button when paging is still available", control: "Next", page: { ...secondPage, more: true } },
+  { title: "returns to the query when the cache has no results", control: "Next", page: { items: [], more: false }, empty: true },
+])("$title", async ({ control, page, result, moveFocus, empty }) => {
+  let finish!: (value: typeof page) => void;
+  const pending = new Promise<typeof page>(resolve => { finish = resolve; });
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage);
+  if (control === "Previous") invoke.mockResolvedValueOnce(secondPage);
+  invoke.mockReturnValueOnce(pending);
+  if (empty) invoke.mockResolvedValueOnce(page);
+  beginAllAccountSearch(invoke as Invoke, vi.fn() as Invoke);
+  if (control === "Previous") fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  const button = await screen.findByRole("button", { name: control });
+  const input = screen.getByRole("searchbox");
+  button.focus();
+  fireEvent.click(button);
+  if (moveFocus) input.focus();
+
+  await act(async () => finish(page));
+  if (empty) await screen.findByText("No matching cached messages.");
+  const expected = result ? screen.getByRole("button", { name: result }) : button;
+  expect(document.activeElement).toBe(moveFocus || empty ? input : expected);
+});
+
+it.each(["query", "account", "label"])("ignores a pending search page after changing the %s", async change => {
+  setLocale("en");
+  const accounts = [
+    { id: "a", address: "first@example.test", provider: "gmail" },
+    { id: "b", address: "second@example.test", provider: "gmail" },
+  ];
+  let finish!: (value: unknown) => void;
+  const oldPage = new Promise(resolve => { finish = resolve; });
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage).mockReturnValueOnce(oldPage);
+  const gmail = vi.fn(async () => [{ id: "Archive", name: "Archive" }]);
+  render(<CachedMailSearch accounts={accounts} current="a" invoke={invoke as Invoke} gmail={gmail as Invoke}/>);
+  fireEvent.change(screen.getByRole("searchbox"), { target: { value: "fixture" } });
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  const next = await screen.findByRole("button", { name: "Next" });
+  next.focus();
+  fireEvent.click(next);
+  if (change === "query") fireEvent.change(screen.getByRole("searchbox"), { target: { value: "other" } });
+  else if (change === "account") fireEvent.change(screen.getByLabelText("Search scope"), { target: { value: "b" } });
+  else {
+    await screen.findByRole("option", { name: "Archive" });
+    fireEvent.change(screen.getByLabelText("Search Gmail label"), { target: { value: "Archive" } });
+  }
+  const input = screen.getByRole("searchbox");
+  input.focus();
+  await act(async () => finish(secondPage));
+  expect(document.activeElement).toBe(input);
+  expect(screen.queryByRole("button", { name: /Second fixture/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" })));
+  expect(invoke.mock.calls.map(([r]) => r.offset)).toEqual([0, 40]);
+});
+
+
+it("closes the previous reading when a cache refresh falls back to a different page", async () => {
+  const invoke = vi.fn().mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage)
+    .mockResolvedValueOnce({ items: [], more: false }).mockResolvedValueOnce(firstPage);
+  const gmail = vi.fn(async () => ({ plainText: "Opened before automatic page fallback" }));
+  beginAllAccountSearch(invoke as Invoke, gmail as Invoke);
+  fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Second fixture/ }));
+  await screen.findByText("Opened before automatic page fallback");
+  await act(async () => window.dispatchEvent(new CustomEvent("studio-mail-cache-updated", { detail: "a" })));
+  await screen.findByRole("button", { name: /First page hit 0/ });
+  expect(invoke.mock.calls.map(([request]) => request.offset)).toEqual([0, 40, 40, 0]);
+  expect(screen.queryByText("Opened before automatic page fallback")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Previous" })).toBeNull();
+});
+
+it("keeps the cached search submit action focusable and blocks resubmission while reading", async () => {
+  setLocale("en");
+  let rejectRead: ((reason: Error) => void) | undefined;
+  const local = vi.fn()
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectRead = reject; }))
+    .mockResolvedValueOnce({ items: [], more: false });
+  const account = { id: "one", address: "first@example.test", provider: "alibaba" };
+  render(<CachedMailSearch accounts={[account]} current="one" invoke={local as Invoke} />);
+  const input = screen.getByRole("searchbox", { name: "Search cached mail" });
+  const submit = screen.getByRole("button", { name: "Search" });
+  if (!(submit instanceof HTMLButtonElement) || !submit.form) throw new Error("Cached search form missing");
+  expect(submit.disabled).toBe(true);
+
+  fireEvent.change(input, { target: { value: "invoice" } });
+  submit.focus();
+  fireEvent.click(submit);
+  expect(submit.disabled).toBe(false);
+  expect(submit.getAttribute("aria-disabled")).toBe("true");
+  expect(screen.getByText("Searching messages…")).toBeTruthy();
+  fireEvent.submit(submit.form);
+  expect(local).toHaveBeenCalledTimes(1);
+
+  await act(async () => rejectRead?.(new Error("local storage busy")));
+  expect(document.activeElement).toBe(submit);
+  expect(submit.getAttribute("aria-disabled")).toBeNull();
+  expect(screen.getByRole("alert")).toBeTruthy();
+  fireEvent.click(submit);
+  await screen.findByText("No matching cached messages.");
+  expect(local.mock.calls).toEqual([
+    [{ kind: "search", account: "one", query: "invoice", offset: 0 }],
+    [{ kind: "search", account: "one", query: "invoice", offset: 0 }],
+  ]);
 });

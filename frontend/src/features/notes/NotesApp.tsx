@@ -1,11 +1,13 @@
 import { PageHeaderActions } from "../../shared/PageHeaderActions";
 import { isTreeItemVisible } from "./tree-navigation";
 import { CaptureForm } from "./CaptureForm";
-import { NoteManageButton } from "./NoteManageButton";
 import { NoteDraftRecovery } from "./NoteDraftRecovery";
 import { NoteReferenceButton } from "./NoteReferenceButton";
 import { NoteRelationshipStatus } from "./NoteRelationshipStatus";
 import { NoteShortcutStatus } from "./NoteShortcutStatus";
+import { NoteSourceDetails } from "./NoteSourceDetails";
+import { NoteTreeItem } from "./NoteTreeItem";
+import { HighlightedText, Icon, PinButton } from "./NotesControls";
 import { NoteWorkflowActions } from "./NoteWorkflowActions";
 import { markUnresolvedWikilinks, openNoteLink, wikilinkMarkdown } from "./note-links";
 import { referenceKey } from "./shortcut-repository";
@@ -13,7 +15,7 @@ import { TrashView } from "./TrashView";
 
 export { markUnresolvedWikilinks, wikilinkMarkdown } from "./note-links";
 
-import { cloneElement, useEffect, useId, useRef, useState } from "react";
+import { cloneElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 // @ts-expect-error plain JS module without type declarations (public/ui/attachment-viewer.js)
 import { attachmentIconFor, initAttachmentViewer } from "../../../../public/ui/attachment-viewer.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/image-lightbox.js)
@@ -46,44 +48,15 @@ import {
   findActiveOutlineId,
   formatDate,
   formatRelativeTime,
-  highlightSegments,
   ICONS,
   type Note,
   type Notebook,
-  type NoteSummary,
   type OutlineEntry,
   stripMarkdown,
   TAG_ICON_FALLBACK,
   tagIcon,
 } from "./notesLogic";
 import type { NotesStore } from "./notesStore";
-
-function Icon({ svg }: { svg: string }) {
-  const ref = useRef<HTMLSpanElement | null>(null);
-  useEffect(() => {
-    if (ref.current) ref.current.innerHTML = svg;
-  }, [svg]);
-  return <span ref={ref} className="notes-btn-icon" aria-hidden="true" />;
-}
-
-function HighlightedText({ text, query }: { text: string; query: string }) {
-  const segments = highlightSegments(text, query);
-  return (
-    <span translate="no">
-      {segments.map((segment, index) =>
-        segment.match ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: segments are non-reordered title slices
-          <mark key={index} className="notes-search-hit">
-            {segment.text}
-          </mark>
-        ) : (
-          // biome-ignore lint/suspicious/noArrayIndexKey: segments are non-reordered title slices
-          <span key={index}>{segment.text}</span>
-        ),
-      )}
-    </span>
-  );
-}
 
 function useIsNarrowViewport() {
   const [isNarrow, setIsNarrow] = useState(false);
@@ -109,6 +82,22 @@ export function NotesNav({ store }: { store: NotesStore }) {
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchDeleteArmed, setBatchDeleteArmed] = useState(false);
   const batchArmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    const sidebar = nav?.closest<HTMLElement>("#sidebar");
+    if (!nav || !sidebar) return;
+    const resumeNoteNavigation = (event: FocusEvent) => {
+      if (!(event.relatedTarget instanceof HTMLElement) || event.relatedTarget.id !== "sidebar-toggle") return;
+      if (!sidebar.ownerDocument.querySelector("#sidebar-overlay.visible")) return;
+      // The drawer is now open. Resume at the active note when its notebook still shows it.
+      const activeNote = nav.querySelector<HTMLElement>(".notes-tree-note.active");
+      if (activeNote && isTreeItemVisible(activeNote)) activeNote.focus();
+    };
+    sidebar.addEventListener("focus", resumeNoteNavigation);
+    return () => sidebar.removeEventListener("focus", resumeNoteNavigation);
+  }, []);
+
   const armBatchDelete = () => {
     if (!batchDeleteArmed) {
       setBatchDeleteArmed(true);
@@ -165,7 +154,7 @@ export function NotesNav({ store }: { store: NotesStore }) {
   };
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: arrow-key navigation container for the tree; items remain individually keyboard-activatable
-    <div className="notes-nav" onKeyDown={handleNavKeydown}>
+    <div className="notes-nav" ref={navRef} onKeyDown={handleNavKeydown}>
       <div className="notes-nav-actions">
         <button
           type="button"
@@ -517,6 +506,11 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
   const snapshot = store((state) => state.snapshot);
   const loading = store((state) => state.loading);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const draftRevision = useRef(0);
+  const edit = (setValue: (value: string) => void, value: string) => {
+    draftRevision.current += 1;
+    setValue(value);
+  };
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -541,12 +535,15 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
       onSubmit={async (event) => {
         event.preventDefault();
         setError(null);
+        const form = event.currentTarget;
+        const revision = draftRevision.current;
         try {
           await store.getState().updateNotebook(
             notebook.id,
             title,
             icon,
             parentId || null,
+            () => form.isConnected && draftRevision.current === revision,
           );
         } catch (updateError) {
           setError(updateError instanceof Error ? updateError.message : String(updateError));
@@ -557,17 +554,16 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
         <span>{t("Icon")}</span>
         <div className="notes-icon-box">
           <EmojiPicker
-            onPick={setIcon}
+            onPick={(value) => edit(setIcon, value)}
             label={t("Choose an icon")}
             trigger={
               <input
                 id="notes-edit-icon"
-                ref={inputRef}
                 className="notes-field-input"
                 maxLength={8}
                 title={t("Choose an icon")}
                 value={icon}
-                onChange={(event) => setIcon(event.target.value)}
+                onChange={(event) => edit(setIcon, event.target.value)}
               />
             }
           />
@@ -577,9 +573,10 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
         <span>{t("Notebook name")}</span>
         <input
           className="notes-field-input"
+          ref={inputRef}
           required
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => edit(setTitle, event.target.value)}
         />
       </label>
       <div className="notes-field">
@@ -589,7 +586,7 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
           value={parentId}
           label={t("Parent notebook")}
           options={parentOptions}
-          onChange={setParentId}
+          onChange={(value) => edit(setParentId, value)}
         />
       </div>
       {error ? <p className="notes-form-error">{error}</p> : null}
@@ -873,265 +870,6 @@ function NavAction({ label, onClick }: { label: string; onClick(): void }) {
     <button type="button" className="notes-nav-button" onClick={onClick}>
       {label}
     </button>
-  );
-}
-
-function PinButton({ store, note }: { store: NotesStore; note: NoteSummary }) {
-  const pinned = store((state) => state.pinnedReferences.some((entry) => entry.id === note.id && entry.notebookId === note.notebookId));
-  return (
-    <button
-      type="button"
-      className={`notes-pin-btn${pinned ? " is-pinned" : ""}`}
-      title={pinned ? t("Unpin from quick access") : t("Pin to quick access")}
-      aria-label={pinned ? t("Unpin from quick access") : t("Pin to quick access")}
-      aria-pressed={pinned}
-      onClick={(event) => {
-        event.stopPropagation();
-        store.getState().togglePinned(note.id, note.notebookId);
-      }}
-    >
-      <Icon svg={ICONS.pin} />
-    </button>
-  );
-}
-
-function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary }) {
-  const selectedNote = store((state) => state.selectedNote);
-  const query = store((state) => state.query);
-  const selectNote = store((state) => state.selectNote);
-  const openMovePopover = store((state) => state.openMovePopover);
-  const selectMode = store((state) => state.selectMode);
-  const selectedNoteIds = store((state) => state.selectedNoteIds);
-  const isSelected = selectedNoteIds.includes(referenceKey(note));
-  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
-  const dragRef = useRef<{
-    startX: number;
-    startY: number;
-    active: boolean;
-    ghost: HTMLElement | null;
-    targetId: string | null;
-  } | null>(null);
-
-  function beginPointerDrag(event: React.PointerEvent) {
-    if (dragRef.current || event.button !== 0) return;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    dragRef.current = { startX, startY, active: false, ghost: null, targetId: null };
-    const onMove = (moveEvent: PointerEvent) => {
-      const session = dragRef.current;
-      if (!session) return;
-      const dx = moveEvent.clientX - session.startX;
-      const dy = moveEvent.clientY - session.startY;
-      if (!session.active) {
-        if (Math.hypot(dx, dy) < 6) return;
-        session.active = true;
-        session.ghost = buildDragGhost(note);
-        document.body.append(session.ghost);
-        document.body.classList.add("notes-dragging");
-      }
-      if (session.ghost) {
-        session.ghost.style.transform = `translate(${Math.round(moveEvent.clientX + 10)}px, ${Math.round(moveEvent.clientY + 10)}px)`;
-      }
-      const targetId = dropTargetIdAt(moveEvent.clientX, moveEvent.clientY);
-      if (targetId !== session.targetId) {
-        session.targetId = targetId;
-        store.getState().setDragTarget(targetId);
-      }
-    };
-    const onUp = (upEvent: PointerEvent) => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
-      document.removeEventListener("pointercancel", onUp);
-      const session = dragRef.current;
-      dragRef.current = null;
-      document.body.classList.remove("notes-dragging");
-      if (session?.ghost) session.ghost.remove();
-      const targetId = session?.active ? dropTargetIdAt(upEvent.clientX, upEvent.clientY) : null;
-      store.getState().setDragTarget(null);
-      if (targetId && session && targetId !== note.notebookId) {
-        void store.getState().moveNoteTo(note.notebookId, note.id, targetId);
-      }
-    };
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
-    document.addEventListener("pointercancel", onUp);
-    event.preventDefault();
-  }
-
-  return (
-    // biome-ignore lint/a11y/useSemanticElements: ARIA button pattern preserved from the vanilla note tree items
-    <div
-      role="button"
-      tabIndex={0}
-      aria-pressed={selectMode ? isSelected : undefined}
-      className={`notes-list-item notes-tree-note${selectedNote && referenceKey(selectedNote) === referenceKey(note) ? " active" : ""}${
-        isSelected ? " notes-selected" : ""
-      }`}
-      draggable={false}
-      onClick={() => {
-        if (selectMode) {
-          store.getState().toggleNoteSelected(note);
-          return;
-        }
-        void selectNote(note);
-      }}
-      onPointerDown={(event) => {
-        if ((event.target as HTMLElement).closest?.("button"))
-          return;
-        beginPointerDrag(event);
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        const target = event.target as HTMLElement;
-        if (target.closest?.("button")) return;
-        event.preventDefault();
-        if (selectMode) {
-          store.getState().toggleNoteSelected(note);
-        } else {
-          void selectNote(note);
-        }
-      }}
-    >
-      {selectMode ? (
-        <span className={`notes-select-check${isSelected ? " checked" : ""}`} aria-hidden="true">
-          {isSelected ? "✓" : ""}
-        </span>
-      ) : null}
-      <span className="notes-note-icon">{note.icon || DEFAULT_NOTE_ICON}</span>
-      <span className="notes-list-item-main">
-        <strong title={note.title} translate="no">
-          <HighlightedText text={note.title} query={query} />
-        </strong>
-        <span>
-          {formatDate(note.updatedAt)}
-          {note.source ? ` · ${t("Web clip")}` : ""}
-        </span>
-      </span>
-      <span className="notes-row-actions">
-      <PinButton store={store} note={note} />
-      <NoteManageButton store={store} note={note} onMove={rect => {
-        const width = Math.min(280, window.innerWidth - 16);
-        setPopoverPos({ top: Math.round(rect.bottom + 4), left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) });
-        openMovePopover(note);
-      }} />
-      </span>
-      {popoverPos ? <MovePopover store={store} note={note} pos={popoverPos} onClose={() => setPopoverPos(null)} /> : null}
-    </div>
-  );
-}
-
-export function buildDragGhost(note: NoteSummary): HTMLElement {
-  const ghost = document.createElement("div");
-  ghost.className = "notes-drag-ghost";
-  const icon = document.createElement("span");
-  icon.className = "notes-note-icon";
-  icon.textContent = note.icon || DEFAULT_NOTE_ICON;
-  ghost.append(icon);
-  const main = document.createElement("span");
-  main.className = "notes-list-item-main";
-  const title = document.createElement("strong");
-  title.textContent = note.title;
-  title.setAttribute("translate", "no");
-  const meta = document.createElement("span");
-  meta.textContent = formatDate(note.updatedAt);
-  main.append(title, meta);
-  ghost.append(main);
-  return ghost;
-}
-
-export function dropTargetIdAt(x: number, y: number): string | null {
-  const target = document.elementFromPoint(x, y);
-  const branch = target?.closest?.(".notes-notebook-branch");
-  return (branch as HTMLElement | null)?.dataset?.notebookId ?? null;
-}
-
-function MovePopover({
-  store,
-  note,
-  pos,
-  onClose,
-}: {
-  store: NotesStore;
-  note: NoteSummary;
-  pos: { top: number; left: number };
-  onClose(): void;
-}) {
-  const snapshot = store((state) => state.snapshot);
-  const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    ref.current
-      ?.querySelector<HTMLButtonElement>(".notes-move-popover-item")
-      ?.focus();
-    const onPointerDown = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) {
-        onClose();
-        store.getState().closeMovePopover();
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-        store.getState().closeMovePopover();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusables = Array.from(
-        ref.current?.querySelectorAll<HTMLElement>("button:not([disabled])") ?? [],
-      );
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      const active = document.activeElement;
-      if (event.shiftKey) {
-        if (active === first || !ref.current?.contains(active)) {
-          event.preventDefault();
-          last.focus();
-        }
-      } else if (active === last || !ref.current?.contains(active)) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus();
-    };
-  }, [onClose, store]);
-  return (
-    <div ref={ref} className="notes-move-popover" role="dialog" aria-label={t("Move to notebook")} style={{ top: pos.top, left: pos.left }}>
-      <strong className="notes-move-popover-title">
-        {t("Move to notebook")} · <span translate="no">{note.title}</span>
-      </strong>
-      <div className="notes-move-popover-list">
-        {snapshot.notebooks
-          .filter((notebook) => notebook.id !== note.notebookId)
-          .map((notebook) => (
-            <button
-              key={notebook.id}
-              type="button"
-              className="notes-move-popover-item"
-              onClick={() => {
-                onClose();
-                store.getState().closeMovePopover();
-                void store.getState().moveNoteTo(note.notebookId, note.id, notebook.id);
-              }}
-            >
-              <span className="notes-nav-item-icon">{notebook.icon || DEFAULT_NOTEBOOK_ICON}</span>
-              <span className="notes-nav-item-label" translate="no">{notebook.title}</span>
-            </button>
-          ))}
-        {snapshot.notebooks.filter((notebook) => notebook.id !== note.notebookId).length === 0 ? (
-          <p className="notes-nav-message">{t("No other notebooks")}</p>
-        ) : null}
-      </div>
-    </div>
   );
 }
 
@@ -1676,20 +1414,12 @@ function backlinkKindLabel(kind: string): string {
   return kind;
 }
 
-function noteSourceUrl(value?: string): URL | null {
-  if (!value || !URL.canParse(value)) return null;
-  const url = new URL(value);
-  return (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password ? url : null;
-}
-
 function NoteEditor({ store }: { store: NotesStore }) {
   const workflowBusy = store((state) => state.workflowBusy);
   const attachmentBusy = store((state) => state.attachmentBusy);
   const editorLocked = store((state) => state.editorLocked);
   const note = store((state) => state.selectedNote) as Note;
   const openSource = store((state) => state.openSource);
-  const sourceUrl = noteSourceUrl(note.source?.url);
-  const [openingSource, setOpeningSource] = useState(false);
   const draftTitle = store((state) => state.draftTitle);
   const draftIcon = store((state) => state.draftIcon);
   const draftContent = store((state) => state.draftContent);
@@ -1707,6 +1437,35 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const setPreview = store((state) => state.setPreview);
   const openNote = store((state) => state.openNote);
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
+  const noteKey = referenceKey(note);
+  const editorPosition = useRef<{
+    noteKey: string;
+    value: string;
+    start: number;
+    end: number;
+    direction: HTMLTextAreaElement["selectionDirection"];
+    top: number;
+    left: number;
+  } | null>(null);
+  const attachContent = useCallback((textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+    contentRef.current = textarea;
+    const position = editorPosition.current;
+    editorPosition.current = null;
+    if (position?.noteKey === noteKey && position.value === textarea.value) {
+      textarea.setSelectionRange(position.start, position.end, position.direction);
+      textarea.scrollTop = position.top;
+      textarea.scrollLeft = position.left;
+    }
+    return () => {
+      const { value, selectionStart: start, selectionEnd: end, selectionDirection: direction, scrollTop: top, scrollLeft: left } = textarea;
+      editorPosition.current = { noteKey, value, start, end, direction, top, left };
+      contentRef.current = null;
+    };
+  }, [noteKey]);
+  useLayoutEffect(() => {
+    if (editorPosition.current?.noteKey !== noteKey) editorPosition.current = null;
+  }, [noteKey]);
   const titleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   const outlineListRef = useRef<HTMLOListElement | null>(null);
@@ -1715,11 +1474,10 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
   const [outlineCollapsed, setOutlineCollapsed] = useState(false);
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
-  const [copiedSource, setCopiedSource] = useState(false);
-  const [copySourceError, setCopySourceError] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [linkQuery, setLinkQuery] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
+  const linkAnchor = useRef<{ noteKey: string; value: string; cursor: number } | null>(null);
   const [activeLinkIndex, setActiveLinkIndex] = useState(0);
   const isNarrow = useIsNarrowViewport();
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1918,31 +1676,44 @@ function NoteEditor({ store }: { store: NotesStore }) {
         .slice(0, 8)
     : [];
 
-  const detectLink = (value: string, cursor: number) => {
-    const match = value.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
-    if (match) {
-      setLinkQuery(match[1]);
-      setLinkOpen(true);
-      setActiveLinkIndex(0);
-    } else {
-      setLinkQuery("");
-      setLinkOpen(false);
-      setActiveLinkIndex(0);
-    }
+  const dismissLink = () => {
+    linkAnchor.current = null;
+    setLinkQuery("");
+    setLinkOpen(false);
+    setActiveLinkIndex(0);
+  };
+
+  const linkAtCaret = (textarea: HTMLTextAreaElement) => {
+    const anchor = linkAnchor.current;
+    return anchor?.noteKey === referenceKey(note) && anchor.value === textarea.value &&
+      anchor.cursor === textarea.selectionStart && anchor.cursor === textarea.selectionEnd;
+  };
+
+  const syncEditorSelection = (textarea: HTMLTextAreaElement) => {
+    currentSelectionRef.current = selection();
+    if (linkAnchor.current && !linkAtCaret(textarea)) dismissLink();
+  };
+
+  const detectLink = (textarea: HTMLTextAreaElement) => {
+    const { value, selectionStart, selectionEnd } = textarea;
+    const match = selectionStart === selectionEnd && value.slice(0, selectionStart).match(/\[\[([^\]\n]*)$/);
+    if (!match) { dismissLink(); return; }
+    linkAnchor.current = { noteKey: referenceKey(note), value, cursor: selectionStart };
+    setLinkQuery(match[1]);
+    setLinkOpen(true);
+    setActiveLinkIndex(0);
   };
 
   const insertLink = (title: string) => {
     const textarea = contentRef.current;
-    if (!textarea) return;
-    const cursor = textarea.selectionStart ?? 0;
-    const match = draftContent.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
+    if (!textarea || !linkAtCaret(textarea)) { dismissLink(); return; }
+    const { value, selectionStart: cursor } = textarea;
+    const match = value.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
     if (!match) return;
     const start = cursor - match[0].length;
-    const next = `${draftContent.slice(0, start)}[[${title}]]${draftContent.slice(cursor)}`;
+    const next = `${value.slice(0, start)}[[${title}]]${value.slice(cursor)}`;
     setDraft({ content: next });
-    setLinkQuery("");
-    setLinkOpen(false);
-    setActiveLinkIndex(0);
+    dismissLink();
     const cursorAfter = start + title.length + 4;
     window.requestAnimationFrame(() => {
       const el = contentRef.current;
@@ -2321,61 +2092,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
         tags={draftTags}
         onChange={(tags) => setDraft({ tags })}
       />
-      {note.source?.url ? (
-        <div className="notes-source">
-          <p>
-            {t("Source")}:{" "}
-            {sourceUrl ? (
-              <a href={sourceUrl.href} target="_blank" rel="noreferrer"
-                title={openSource ? t("Open source in Studio Browser") : undefined}
-                aria-busy={openingSource || undefined}
-                onClick={openSource ? (event) => {
-                  event.preventDefault();
-                  if (openingSource) return;
-                  setOpeningSource(true);
-                  void openSource(sourceUrl.href).finally(() => setOpeningSource(false));
-                } : undefined}>
-                {note.source.url}
-              </a>
-            ) : note.source.url}
-            <button
-              type="button"
-              className="notes-source-copy"
-              aria-label={t("Copy source URL")}
-              onClick={() => {
-                void navigator.clipboard
-                  ?.writeText(note.source?.url ?? "")
-                  .then(() => {
-                    setCopiedSource(true);
-                    setCopySourceError(false);
-                    window.setTimeout(() => setCopiedSource(false), 1600);
-                  })
-                  .catch(() => {
-                    setCopySourceError(true);
-                    window.setTimeout(() => setCopySourceError(false), 1600);
-                  });
-              }}
-            >
-              {copiedSource ? t("Copied") : copySourceError ? t("Copy failed") : t("Copy")}
-            </button>
-          </p>
-          {[note.source.siteName, note.source.author].filter(Boolean).length > 0 ? (
-            <p className="notes-source-meta">
-              {[note.source.siteName, note.source.author].filter(Boolean).join(" · ")}
-            </p>
-          ) : null}
-          {note.source.publishedAt ? (
-            <p className="notes-source-meta">
-              {t("Published")}: {formatDate(note.source.publishedAt)}
-            </p>
-          ) : null}
-          {note.source.capturedAt ? (
-            <p className="notes-source-meta">
-              {t("Captured")}: {formatDate(note.source.capturedAt)}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      <NoteSourceDetails source={note.source} openSource={openSource} />
       {preview ? (
         <div className="notes-preview-wrap">
           {!draftContent.trim() ? (
@@ -2610,7 +2327,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           </button>
         </div>
         <textarea
-          ref={contentRef}
+          ref={attachContent}
           className="notes-content-input"
           value={draftContent}
           placeholder={t("Write Markdown…")}
@@ -2622,22 +2339,16 @@ function NoteEditor({ store }: { store: NotesStore }) {
           onChange={(event) => {
             const textarea = event.target as HTMLTextAreaElement;
             setDraft({ content: textarea.value });
-            detectLink(textarea.value, textarea.selectionStart ?? 0);
+            detectLink(textarea);
           }}
-          onSelect={() => {
-            currentSelectionRef.current = selection();
-          }}
-          onKeyUp={() => {
-            currentSelectionRef.current = selection();
-          }}
-          onMouseUp={() => {
-            currentSelectionRef.current = selection();
-          }}
+          onSelect={(event) => syncEditorSelection(event.currentTarget)}
+          onKeyUp={(event) => syncEditorSelection(event.currentTarget)}
+          onMouseUp={(event) => syncEditorSelection(event.currentTarget)}
           onBlur={() => {
+            const blurredAnchor = linkAnchor.current;
+            if (!blurredAnchor) return;
             window.setTimeout(() => {
-              setLinkOpen(false);
-              setLinkQuery("");
-              setActiveLinkIndex(0);
+              if (linkAnchor.current === blurredAnchor) dismissLink();
             }, 120);
           }}
           onCompositionStart={() => {
@@ -2648,6 +2359,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
           }}
           onKeyDown={(event) => {
             if (isImeComposing(event, composingRef.current)) return;
+            const suggestionAtCaret = linkOpen && linkAtCaret(event.currentTarget);
+            if (linkOpen && !suggestionAtCaret) dismissLink();
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
               event.preventDefault();
               wrapSelection("**");
@@ -2663,23 +2376,21 @@ function NoteEditor({ store }: { store: NotesStore }) {
               wrapCodeBlock();
             } else if (event.key === "Escape") {
               event.preventDefault();
-              if (linkOpen) {
-                setLinkOpen(false);
-                setLinkQuery("");
-                setActiveLinkIndex(0);
+              if (suggestionAtCaret) {
+                dismissLink();
               } else {
                 (event.target as HTMLTextAreaElement).blur();
               }
-            } else if (linkOpen && linkSuggestions.length > 0 && event.key === "ArrowDown") {
+            } else if (suggestionAtCaret && linkSuggestions.length > 0 && event.key === "ArrowDown") {
               event.preventDefault();
               setActiveLinkIndex((current) => (current + 1) % linkSuggestions.length);
-            } else if (linkOpen && linkSuggestions.length > 0 && event.key === "ArrowUp") {
+            } else if (suggestionAtCaret && linkSuggestions.length > 0 && event.key === "ArrowUp") {
               event.preventDefault();
               setActiveLinkIndex(
                 (current) => (current - 1 + linkSuggestions.length) % linkSuggestions.length,
               );
             } else if (
-              linkOpen &&
+              suggestionAtCaret &&
               linkSuggestions.length > 0 &&
               (event.key === "Tab" || event.key === "Enter")
             ) {

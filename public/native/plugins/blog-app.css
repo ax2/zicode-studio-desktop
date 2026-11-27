@@ -27,6 +27,33 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.blog-framework {
+  font-size: 0.85rem;
+}
+
+.blog-site-details {
+  margin-bottom: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.blog-site-details summary {
+  cursor: pointer;
+}
+
+.blog-site-details dl {
+  margin: 0.4rem 0 0;
+}
+
+.blog-site-details dt {
+  font-weight: 600;
+}
+
+.blog-site-details dd {
+  display: grid;
+  margin: 0 0 0.45rem;
+}
+
 .blog-status {
   margin: 0;
   overflow-wrap: anywhere;
@@ -102,6 +129,15 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+.blog-editor fieldset[hidden] {
+  display: none;
+}
+.blog-draft-preview {
+  overflow-wrap: anywhere;
+}
+.blog-draft-preview pre {
+  overflow-x: auto;
 }
 .blog-fields {
   display: grid;

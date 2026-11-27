@@ -1,0 +1,166 @@
+{
+  "generator": "scripts/verify_pdf_text_plugin.py",
+  "cases": [
+    {
+      "id": "selected-second-page",
+      "inputSha256": "675bc723704cdddba04c31025487721a032c5be9f1fb65c5b31409c8a35f2886",
+      "inputBytes": 893,
+      "input": {
+        "page": 2
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "flate-second-page",
+      "inputSha256": "3093e0c9ae2a48c2c07c2bbb594d45270058b7a8cec6b1c52c41a805d4cdf5dc",
+      "inputBytes": 951,
+      "input": {
+        "page": 2
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "blank-page",
+      "inputSha256": "d85d8605ecf75a94256421cf441e5bfc26c865d3d1b0712fb708a5a1ced9cb86",
+      "inputBytes": 838,
+      "input": {
+        "page": 2
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "image-without-text",
+      "inputSha256": "5d373a3977ec0119f6316485c51e0b52a6c0dc9ad364dcbb7b26725a955819a6",
+      "inputBytes": 797,
+      "input": {
+        "page": 1
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "vector-without-text",
+      "inputSha256": "f08305bb427efd928c8cd5cf9ea3ec429980654951b36307c0c52249a37e2fa3",
+      "inputBytes": 592,
+      "input": {
+        "page": 1
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "text-preview-bound",
+      "inputSha256": "bb201a32aff6e9646e0cb57549da03d4ffcacb3d55771e335741d0bb1cc36373",
+      "inputBytes": 6834,
+      "input": {
+        "page": 1
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "exact-128kib",
+      "inputSha256": "1f7fb0125f09106c51f526aef04928d85579de5b6604eaaf8356431c7a38f2a3",
+      "inputBytes": 131072,
+      "input": {
+        "page": 2
+      },
+      "mime": "application/octet-stream",
+      "ok": true
+    },
+    {
+      "id": "over-128kib",
+      "inputSha256": "0fe744793b62cf4b3f9dec188ce32d8da86ac78faf1def8cd681f9ea8113ecd1",
+      "inputBytes": 131073,
+      "input": {
+        "page": 2
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "encrypted-container-marker",
+      "inputSha256": "bd09c198be6c42602660498d6cb5fb9b33129eb4369fc717d822ded2ec5c4042",
+      "inputBytes": 877,
+      "input": {
+        "page": 1
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "broken-pdf",
+      "inputSha256": "07c5645f33693441592d266a8e0a5fde233d050bc7f6cd019a17e37e1486bf05",
+      "inputBytes": 18,
+      "input": {
+        "page": 1
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "plain-text",
+      "inputSha256": "f1b0e0f8af56ec8cac50fdf369909c8b8da9eca070c221f925b4064b46ad2950",
+      "inputBytes": 9,
+      "input": {
+        "page": 1
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "nonexistent-page",
+      "inputSha256": "675bc723704cdddba04c31025487721a032c5be9f1fb65c5b31409c8a35f2886",
+      "inputBytes": 893,
+      "input": {
+        "page": 3
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "nonpositive-page",
+      "inputSha256": "675bc723704cdddba04c31025487721a032c5be9f1fb65c5b31409c8a35f2886",
+      "inputBytes": 893,
+      "input": {
+        "page": 0
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "wrong-mime",
+      "inputSha256": "675bc723704cdddba04c31025487721a032c5be9f1fb65c5b31409c8a35f2886",
+      "inputBytes": 893,
+      "input": {
+        "page": 1
+      },
+      "mime": "image/png",
+      "ok": false
+    },
+    {
+      "id": "undeclared-option",
+      "inputSha256": "675bc723704cdddba04c31025487721a032c5be9f1fb65c5b31409c8a35f2886",
+      "inputBytes": 893,
+      "input": {
+        "page": 1,
+        "other": true
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    },
+    {
+      "id": "more-than-32-pages",
+      "inputSha256": "c666f0440a70e503b61ed248188fd6a717517c5774efd1e89eeb2ddab283a33b",
+      "inputBytes": 7804,
+      "input": {
+        "page": 1
+      },
+      "mime": "application/octet-stream",
+      "ok": false
+    }
+  ]
+}

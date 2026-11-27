@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.text","sceneId":"coding","capabilityId":"devtools.text.sql.format","commandId":null,"input":{"text":"SeLeCt a_very_long_column_name_that_pushes_the_line_wrap_threshold, another_very_long_column_name_that_pushes_the_line_wrap_threshold, 'MiXeD' FrOm users Where active = true","indent":"tabs","keywordCase":"preserve"}}

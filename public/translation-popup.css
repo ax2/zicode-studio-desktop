@@ -9,7 +9,12 @@
 body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; }
 main {
   box-sizing: border-box; max-inline-size: var(--chat-content-max-width); margin: 0 auto;
-  padding: var(--space-4); display: grid; gap: var(--space-4);
+  block-size: 100vh; padding: var(--space-4); display: grid; gap: var(--space-4);
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+.translation-popup-content {
+  min-inline-size: 0; overflow: auto; display: grid;
+  align-content: start; gap: var(--space-4); scroll-padding-block: var(--space-2);
 }
 header { display: grid; gap: var(--space-1); padding-bottom: var(--space-3); border-bottom: 1px solid var(--outline); }
 #destination { font-size: var(--font-size-sm); }
@@ -36,5 +41,14 @@ textarea, select, button {
 .languages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-1-5); }
 button { min-height: var(--control-height-md); cursor: pointer; }
-button:disabled { cursor: default; opacity: .65; }
+button:disabled, #retry[aria-disabled="true"] { cursor: default; opacity: .65; }
 [hidden] { display: none; }
+
+@media (max-height: 420px) {
+  main { padding: var(--space-3); }
+  main, .translation-popup-content { gap: var(--space-2); }
+  header, .actions { padding-block: var(--space-2); }
+  header { padding-block-start: 0; }
+  .actions { padding-block-end: 0; }
+  #source-text { block-size: calc(2 * var(--control-height-md)); }
+}

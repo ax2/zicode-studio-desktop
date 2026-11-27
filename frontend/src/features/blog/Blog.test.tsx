@@ -4,6 +4,53 @@ import { setLocale } from "../../shared/i18n";
 import { Blog, type Invoke, type Site } from "./index";
 
 afterEach(cleanup);
+
+it.each([
+  {
+    framework: "astro" as const,
+    label: "Astro",
+    path: "dist/index.html",
+    status: "found" as const,
+    outputMessage: "Output found. It may come from an earlier build.",
+  },
+  {
+    framework: "hugo" as const,
+    label: "Hugo",
+    path: "public/index.html",
+    status: "missing" as const,
+    outputMessage: "Default output missing. Custom builds may use another directory.",
+  },
+])("shows the selected $label site's actual defaults without running a build", async (fixture) => {
+  setLocale("en");
+  const site: Site = {
+    root: "C:/owned-blog",
+    paths: [],
+    framework: fixture.framework,
+    changedPaths: [],
+    pendingPush: false,
+    homepagePicks: fixture.framework === "astro",
+    defaultHomepage: { path: fixture.path, status: fixture.status },
+  };
+  const invoke = vi.fn(async (request: { action: string }) => {
+    if (request.action === "list") return site;
+    if (request.action === "read") return "export const HOME_PICKS: string[] = [\n  'first',\n];";
+    throw new Error("Unexpected action");
+  });
+  const view = render(<Blog invoke={invoke as Invoke} />);
+  expect(await view.findByText(fixture.label)).toBeTruthy();
+  const details = (await view.findByText("Site details")).closest("details");
+  expect(details?.open).toBe(false);
+  fireEvent.click(view.getByText("Site details"));
+  expect(details?.open).toBe(true);
+  expect(view.getByText(fixture.path).getAttribute("translate")).toBe("no");
+  expect(view.getByText(fixture.outputMessage)).toBeTruthy();
+  expect(await view.findByText(site.homepagePicks ? "Available" : "Unavailable")).toBeTruthy();
+  expect(view.getByText("Use your site's build and publishing tools.")).toBeTruthy();
+  expect(invoke.mock.calls.map(([request]) => request.action)).toEqual(
+    site.homepagePicks ? ["list", "read"] : ["list"],
+  );
+});
+
 it("reviews image-only changes for the open article and clears review when switching", async () => {
   setLocale("en");
   const site: Site = {
@@ -176,4 +223,55 @@ it("uses Hugo fields for newly saved articles and previews the matching sync pat
   fireEvent.click(view.getByText("Review files to sync"));
   expect(await view.findByText("content/posts/note.md")).toBeTruthy();
   expect(requests.find((r) => r.action === "push")).toBeUndefined();
+});
+
+it.each([
+  "astro",
+  "hugo",
+] as const)("previews an unsaved %s draft locally and preserves the editor", async (framework) => {
+  setLocale("en");
+  const site: Site = {
+    root: "C:/fixture",
+    framework,
+    paths: ["next.md"],
+    changedPaths: [],
+    pendingPush: false,
+    homepagePicks: false,
+  };
+  const invoke = vi.fn(async (request) =>
+    request.action === "read" ? "---\ntitle: Next\n---\nNext body" : site,
+  );
+  const view = render(<Blog invoke={invoke as Invoke} />);
+  fireEvent.click(await view.findByText("New article"));
+  const body = (await view.findByRole("textbox", { name: "Markdown text" })) as HTMLTextAreaElement;
+  const draft =
+    "## Draft heading\n\n**Strong** [source](https://example.com) ![Diagram](https://example.com/image.png)";
+  fireEvent.change(view.getByLabelText("Title"), { target: { value: "Unsaved title" } });
+  fireEvent.change(body, { target: { value: draft } });
+  body.setSelectionRange(3, 8);
+  const toggle = view.getByRole("button", { name: "Markdown preview" });
+  const calls = invoke.mock.calls.length;
+  fireEvent.click(toggle);
+  const preview = view.getByRole("article", { name: "Markdown preview" });
+  expect(preview.querySelector("h1")?.textContent).toBe("Unsaved title");
+  expect(preview.querySelector("h2")?.textContent).toBe("Draft heading");
+  expect(preview.querySelector("strong")?.textContent).toBe("Strong");
+  expect(preview.textContent).toContain("Diagram");
+  expect(preview.querySelector("[src], [href], button, iframe")).toBeNull();
+  expect(view.queryByRole("textbox", { name: "Markdown text" })).toBeNull();
+  expect(invoke).toHaveBeenCalledTimes(calls);
+  fireEvent.click(toggle);
+  expect(view.getByRole("textbox", { name: "Markdown text" })).toBe(body);
+  expect([body.selectionStart, body.selectionEnd, body.value]).toEqual([3, 8, draft]);
+  fireEvent.click(toggle);
+  const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+  try {
+    fireEvent.click(view.getByText("next.md"));
+    expect(view.getByRole("article")).toBeTruthy();
+    fireEvent.click(view.getByText("next.md"));
+    await waitFor(() => expect(view.queryByRole("article")).toBeNull());
+    expect(body.value).toContain("Next body");
+  } finally {
+    confirm.mockRestore();
+  }
 });

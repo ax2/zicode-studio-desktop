@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.clock-backup",
+  "packageVersion": "0.1.0",
+  "signatureVerified": false,
+  "directoryIndexSha256": "cc93bc56096086d43991684928e054821924e4fc50d7df37e7ab94f8e64d6ee3",
+  "files": [
+    {
+      "path": "catalog.json",
+      "size": 519,
+      "sha256": "f4d445e3bd06f831c6dd93eda8d7a3d2bacae8f194de4e99114d4b7cc7e9afbb"
+    },
+    {
+      "path": "fixtures.json",
+      "size": 37810,
+      "sha256": "4d54d39395f1d9417cf34e9a6b4069f6065adce1273773ed04c6c871936e4b59"
+    },
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 82,
+      "sha256": "2595c722e866dc3127f53c98b53059ee2a5ad64c406e7033e9f3b0413b2fd1dc"
+    },
+    {
+      "path": "plugin.json",
+      "size": 6686,
+      "sha256": "2185c5fc5cdbc79d0d49d34760b6b6cce9f5705b7a67eca15b7b806ee139ebf1"
+    },
+    {
+      "path": "provenance.json",
+      "size": 40496,
+      "sha256": "ce6afe566c72dda4083da4280bb783e6e612dbd466dc6cbbec6852a36f3335aa"
+    },
+    {
+      "path": "README.md",
+      "size": 993,
+      "sha256": "e440075015861e3f59df74f4a4752af8b96170e8df5885ea78e90c702a53e470"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 313009,
+      "sha256": "6290986d45303a420f148c548fe6d7158c0d739fc3f858e456fd47dd4480f7fc"
+    }
+  ],
+  "fileCount": 8,
+  "totalBytes": 400692,
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}

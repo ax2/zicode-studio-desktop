@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.recording-chapters",
+  "name": "ZiDevTools Recording Chapter Export",
+  "displayName": "录屏章节元数据",
+  "description": "从这次确认的本机 JSON 章节计划生成完整 FFmpeg 章节元数据，预览并确认保存。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.recording.chapters.export"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.recording.chapters.export",
+        "title": "录屏章节元数据",
+        "description": "从这次确认的本机 JSON 章节计划生成完整 FFmpeg 章节元数据，预览并确认保存。",
+        "resourceInputMimeTypes": [
+          "application/json",
+          "text/plain",
+          "application/octet-stream"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "durationMs": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2678400000
+                    },
+                    "firstStartMs": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2678399999
+                    },
+                    "chapterCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 256
+                    },
+                    "skippedCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 256
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 49152
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 1024
+                    }
+                  },
+                  "required": [
+                    "durationMs",
+                    "firstStartMs",
+                    "chapterCount",
+                    "skippedCount",
+                    "byteLength",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "FFmpeg 章节",
+            "视频章节导出",
+            "FFMETADATA1"
+          ],
+          "description": "从这次确认的本机 JSON 章节计划生成完整 FFmpeg 章节元数据，预览并确认保存。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "只读取本次明确确认的章节计划。"
+      }
+    ],
+    "optional": []
+  }
+}

@@ -10,6 +10,8 @@ import {
   type Framework,
 } from "./article";
 import { messageForError } from "./messages";
+import { BlogDraftPreview } from "./BlogDraftPreview";
+import { type DefaultHomepage, SiteDetails } from "./SiteDetails";
 import { SyncArticles } from "./SyncArticles";
 
 export type Site = {
@@ -18,6 +20,7 @@ export type Site = {
   framework?: Framework;
   collection?: string;
   catalog?: Record<string, { title: string; categories: string[]; tags: string[] }>;
+  defaultHomepage?: DefaultHomepage;
   homepagePicks: boolean;
   changedPaths: string[];
   pendingPush: boolean;
@@ -74,6 +77,7 @@ function matches(path: string, query: string) {
 export function Blog({ invoke }: { invoke: Invoke }) {
   const [site, setSite] = useState<Site | null>(null);
   const [edit, setEdit] = useState<Edit | null>(null);
+  const [preview, setPreview] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(100);
@@ -135,6 +139,7 @@ export function Blog({ invoke }: { invoke: Invoke }) {
       const text =
         path === null ? null : await invoke<string>({ action: "read", site: root, path });
       setEdit(editor(path ?? "", text, framework));
+      setPreview(false);
       setDirty(false);
     });
   }
@@ -183,6 +188,11 @@ export function Blog({ invoke }: { invoke: Invoke }) {
         <span className="blog-site" title={root}>
           {root.split(/[\\/]/).pop()}
         </span>
+        {site?.framework && (
+          <span className="blog-framework" translate="no">
+            {site.framework === "hugo" ? "Hugo" : "Astro"}
+          </span>
+        )}
         <button
           className="ui-button"
           disabled={busy}
@@ -200,6 +210,16 @@ export function Blog({ invoke }: { invoke: Invoke }) {
         >
           {t("Choose blog folder")}
         </button>
+        {root && article && (
+          <button
+            type="button"
+            className="ui-button"
+            aria-pressed={preview}
+            onClick={() => setPreview((current) => !current)}
+          >
+            {t("Markdown preview")}
+          </button>
+        )}
         {root && site?.gitAvailable && (
           <button
             className="ui-button"
@@ -225,6 +245,13 @@ export function Blog({ invoke }: { invoke: Invoke }) {
       {root && site && (
         <div className="blog-layout">
           <aside>
+            {site.defaultHomepage && (
+              <SiteDetails
+                key={root}
+                homepage={site.defaultHomepage}
+                recommendations={picks !== null}
+              />
+            )}
             <div className="blog-filter">
               <input
                 type="search"
@@ -275,10 +302,11 @@ export function Blog({ invoke }: { invoke: Invoke }) {
               className="blog-editor"
               onSubmit={(e) => {
                 e.preventDefault();
-                void run(save);
+                if (!preview) void run(save);
               }}
             >
-              <fieldset disabled={busy}>
+              {preview && <BlogDraftPreview title={article.title} body={article.body} />}
+              <fieldset disabled={busy || preview} hidden={preview}>
                 <div className="blog-fields">
                   <label>
                     {t("Title")}

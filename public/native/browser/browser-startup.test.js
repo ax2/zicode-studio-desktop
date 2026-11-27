@@ -1,15 +1,16 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { waitFor } from "@testing-library/dom";
+import { fireEvent, waitFor } from "@testing-library/dom";
 import { t } from "../../i18n.js";
 import { setupBrowserApp } from "./browser-app.js";
 let app;
 afterEach(async () => { await app?.canDeactivate(); document.body.replaceChildren(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-function setup(metadata, present = async () => {}, nativeWindow) {
+function setup(metadata, present = async () => {}, nativeWindow, saveStartup) {
   vi.spyOn(document, "hidden", "get").mockReturnValue(false);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () { return this.classList.contains("browser-viewport") ? { x: 50, y: 80, width: 900, height: 600 } : { x: 0, y: 0, width: 0, height: 0 }; });
   vi.stubGlobal("ResizeObserver", class { observe() {} });
   const invoke = vi.fn(async (command, args) => {
     if (command === "browser_get_state") return metadata();
+    if (command === "browser_set_startup_mode") return saveStartup?.(args.mode);
     if (command === "browser_control") {
       if (args.request.kind === "status") return { surfaceRevision: 0, tabs: [] };
       if (args.request.kind === "present") return present();
@@ -48,6 +49,43 @@ it("enables a genuinely empty browser without waiting for a nonexistent native p
   await waitFor(() => expect(f.strip().inert).toBe(false));
   expect(f.host.querySelector(".browser-viewport").textContent).not.toBe("");
   expect(f.invoke.mock.calls.some(([,args]) => args?.request?.kind === "create")).toBe(false);
+});
+
+it("serializes startup preference writes and waits for the final choice before closing", async () => {
+  let release;
+  const save = vi.fn().mockImplementationOnce(() => new Promise(resolve => { release = resolve; })).mockResolvedValue(undefined);
+  const f = setup(stored, undefined, undefined, save);
+  const preference = f.host.querySelector('.browser-options option[value="workspace"]').closest("select");
+  await waitFor(() => expect(preference.disabled).toBe(false));
+  fireEvent.change(preference, { target: { value: "workspace" } });
+  await waitFor(() => expect(release).toBeTypeOf("function"));
+  fireEvent.change(preference, { target: { value: "browser" } });
+  let finished = false;
+  const closing = app.finishWindowWrites().then(() => { finished = true; });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(finished).toBe(false);
+  expect(save.mock.calls).toEqual([["workspace"]]);
+  release();
+  await closing;
+  expect(save.mock.calls).toEqual([["workspace"], ["browser"]]);
+  expect(preference.value).toBe("browser");
+});
+
+it("restores the acknowledged startup mode on failure and allows retry", async () => {
+  const save = vi.fn().mockRejectedValueOnce(Error("Disk write failed")).mockResolvedValue(undefined);
+  const f = setup(stored, undefined, undefined, save);
+  const preference = f.host.querySelector('.browser-options option[value="workspace"]').closest("select");
+  await waitFor(() => expect(preference.disabled).toBe(false));
+  fireEvent.change(preference, { target: { value: "workspace" } });
+  await app.finishWindowWrites();
+  const status = f.host.querySelector('.browser-footer > [role="status"]');
+  expect(preference.value).toBe("browser");
+  expect(status.textContent).toBe(t("Startup mode could not be saved. Your previous choice was kept."));
+  fireEvent.change(preference, { target: { value: "workspace" } });
+  await app.finishWindowWrites();
+  expect(save.mock.calls).toEqual([["workspace"], ["workspace"]]);
+  expect(preference.value).toBe("workspace");
+  expect(status.textContent).toBe("");
 });
 
 it("defers startup presentation while the owner is minimized and reuses the view after restore", async () => {

@@ -1,4 +1,7 @@
 mod api;
+mod attachment;
+#[cfg(test)]
+mod authorization_tests;
 mod oauth;
 pub(crate) mod reply;
 mod sync;
@@ -98,6 +101,20 @@ fn consent_scope(requested: &str, granted: &str) -> String {
 fn perms(scopes: &str) -> Value {
     json!({"connected":true,"read":allowed(scopes,READ),"send":allowed(scopes,SEND)})
 }
+fn grant_matches_client(saved: &Saved, client_id: &str) -> bool {
+    saved.client_id == client_id
+}
+fn saved_grant_status(saved: Option<&Saved>, client_id: Option<&str>) -> Value {
+    let Some(saved) = saved else {
+        return json!({"connected":false});
+    };
+    if client_id.is_some_and(|id| grant_matches_client(saved, id)) {
+        return perms(&saved.scope);
+    }
+    // Keep the stored connection visible for explicit disconnect or cache cleanup.
+    json!({"connected":true,"read":false,"send":false,"needsReconnect":true})
+}
+
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum Request {
@@ -235,7 +252,18 @@ pub(crate) async fn mail_gmail(
         }
         _ => {}
     }
+    let check_attachment_scope = || -> std::result::Result<(), String> {
+        crate::resource_export_picker::context(&window, &scope)?;
+        attachment::check_generation(&path, &scope, &account_id, cache_epoch)?;
+        Ok(())
+    };
     let download = if let Request::DownloadAttachment { id, part } = &request {
+        // Bind the explicit selection to the account grant active when it opened.
+        let authorization_generation = gate
+            .state
+            .lock()
+            .map_err(|_| "gmail_unavailable")?
+            .generation;
         if !api::valid_id(id) {
             return Err("gmail_invalid".into());
         }
@@ -258,7 +286,8 @@ pub(crate) async fn mail_gmail(
         let Some(target) = target else {
             return Ok(json!({"saved":false}));
         };
-        Some((target, item))
+        check_attachment_scope()?;
+        Some((target, item, authorization_generation))
     } else {
         None
     };
@@ -275,6 +304,12 @@ pub(crate) async fn mail_gmail(
         ) {
             g.invalidate()
         }
+        if download
+            .as_ref()
+            .is_some_and(|(_, _, expected)| g.generation != *expected)
+        {
+            return Err("gmail_cancelled".into());
+        }
         (g.generation, g.stop.clone())
     };
     let current = || -> Result<std::sync::MutexGuard<'_, Gate>> {
@@ -285,9 +320,12 @@ pub(crate) async fn mail_gmail(
         Ok(g)
     };
     if matches!(request, Request::Status) {
-        return Ok(read_secret(&key)?
-            .map(|s| perms(&s.scope))
-            .unwrap_or(json!({"connected":false})));
+        let saved = read_secret(&key)?;
+        let config = Config::load().ok();
+        return Ok(saved_grant_status(
+            saved.as_ref(),
+            config.as_ref().map(|config| config.id.as_str()),
+        ));
     }
     // Token rotation and revocation are serialized per account. Cancel can still
     // invalidate an authorization while the browser or network is pending.
@@ -300,17 +338,22 @@ pub(crate) async fn mail_gmail(
     if let Request::Disconnect { clear_cache } = request {
         let previous = {
             let _g = current()?;
-            let v = if crate::desktop_profile::system_credentials_enabled() {
-                let saved = read_secret(&key)?;
-                clear_secret(&key)?;
-                saved
-            } else {
-                None
+            let clear_cached_mail = || {
+                if clear_cache {
+                    store::clear_cache(&path, &scope, &account_id)?;
+                }
+                Ok(())
             };
-            if clear_cache {
-                store::clear_cache(&path, &scope, &account_id)?;
+            if crate::desktop_profile::system_credentials_enabled() {
+                store::disconnect_local(
+                    || read_secret(&key),
+                    clear_cached_mail,
+                    || clear_secret(&key),
+                )?
+            } else {
+                clear_cached_mail()?;
+                None
             }
-            v
         };
         let revoked = match previous {
             Some(s) => client
@@ -333,16 +376,19 @@ pub(crate) async fn mail_gmail(
             .open(url.to_string(), None)
             .map_err(|_| "gmail_browser_unavailable")?;
         let code = login.wait(&stop).await?;
-        let mut tok = oauth::tokens(
-            &client,
-            TOKEN,
-            &cfg,
-            &[
-                ("grant_type", "authorization_code"),
-                ("code", code.as_str()),
-                ("code_verifier", login.verifier.as_str()),
-                ("redirect_uri", login.redirect.as_str()),
-            ],
+        let mut tok = oauth::until_cancelled(
+            &stop,
+            oauth::tokens(
+                &client,
+                TOKEN,
+                &cfg,
+                &[
+                    ("grant_type", "authorization_code"),
+                    ("code", code.as_str()),
+                    ("code_verifier", login.verifier.as_str()),
+                    ("redirect_uri", login.redirect.as_str()),
+                ],
+            ),
         )
         .await?;
         let access = Zeroizing::new(std::mem::take(&mut tok.access_token));
@@ -358,7 +404,8 @@ pub(crate) async fn mail_gmail(
         if !allowed(&scope, READ) {
             return Err("gmail_permission_denied".into());
         }
-        let identity = api::profile(&client, api::BASE, &access).await?;
+        let identity =
+            oauth::until_cancelled(&stop, api::profile(&client, api::BASE, &access)).await?;
         if !identity.eq_ignore_ascii_case(&address) {
             return Err("gmail_account_mismatch".into());
         }
@@ -386,7 +433,7 @@ pub(crate) async fn mail_gmail(
     } else {
         READ
     };
-    if saved.client_id != cfg.id {
+    if !grant_matches_client(&saved, &cfg.id) {
         return Err("gmail_reauthorize".into());
     }
     if !allowed(&saved.scope, need) {
@@ -401,14 +448,20 @@ pub(crate) async fn mail_gmail(
     ) {
         return Err("gmail_confirmation_required".into());
     }
-    let refreshed = oauth::tokens(
-        &client,
-        TOKEN,
-        &cfg,
-        &[
-            ("grant_type", "refresh_token"),
-            ("refresh_token", &saved.refresh),
-        ],
+    if download.is_some() {
+        check_attachment_scope()?;
+    }
+    let refreshed = oauth::until_cancelled(
+        &stop,
+        oauth::tokens(
+            &client,
+            TOKEN,
+            &cfg,
+            &[
+                ("grant_type", "refresh_token"),
+                ("refresh_token", &saved.refresh),
+            ],
+        ),
     )
     .await;
     let mut token = match refreshed {
@@ -442,13 +495,19 @@ pub(crate) async fn mail_gmail(
         }
         Request::List { label, cursor, limit } => {
             let key = key_for(label.as_deref(), &cursor, limit)?;
-            let label=label.as_deref().unwrap_or("INBOX");
-            let folder = sync::CachedLabel { path: &path, scope: &scope, account: &account_id, label };
-            let snapshot = sync::fetch(&client, api::BASE, &access, folder, cursor.as_deref(), limit).await?;
-            let _g=current()?;
-            sync::apply(&path,&scope,&account_id,label,cache_epoch,&key,&snapshot)?;
+            let label = label.as_deref().unwrap_or("INBOX");
+            let folder = sync::CachedLabel {
+                path: &path,
+                scope: &scope,
+                account: &account_id,
+                label,
+            };
+            let snapshot =
+                sync::fetch(&client, api::BASE, &access, folder, cursor.as_deref(), limit, &stop)
+                    .await?;
+            let _g = current()?;
+            sync::apply(&path, &scope, &account_id, label, cache_epoch, &key, &snapshot)?;
             snapshot.page
-
         }
         Request::Read { id } => {
             let data = api::read(&client, api::BASE, &access, &id).await?;
@@ -457,14 +516,18 @@ pub(crate) async fn mail_gmail(
             data
         }
         Request::DownloadAttachment { id, part } => {
-            let (target, item) = download.ok_or("mail_attachment_missing")?;
-            let bytes = api::attachment(&client, api::BASE, &access, &id, part, &item).await?;
-            let _g = current()?;
-            crate::resource_export_picker::context(&window, &scope)?;
-            if store::cache_generation(&path, &scope, &account_id)? != cache_epoch {
-                return Err("mail_attachment_changed".into());
-            }
-            crate::mail_attachment::save(&target, &bytes)?;
+            let (target, item, _) = download.ok_or("mail_attachment_missing")?;
+            let verify = || -> std::result::Result<_, String> {
+                let guard = current()?;
+                check_attachment_scope()?;
+                Ok(guard)
+            };
+            attachment::save_confirmed(
+                &target,
+                verify,
+                api::attachment(&client, api::BASE, &access, &id, part, &item),
+            )
+            .await?;
             json!({"saved":true})
         }
         Request::Send {

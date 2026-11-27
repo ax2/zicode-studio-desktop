@@ -1,0 +1,547 @@
+{
+  "generator": "scripts/verify_keyword_index_plugin.py",
+  "cases": [
+    {
+      "case": "bm25-not-alphabetical",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha beta"
+      },
+      "code": null,
+      "outputBytes": 842,
+      "outputSha256": "8b20ee3a204293ef09342847f639a3be6a73320ae389559e400c43005ad556ec"
+    },
+    {
+      "case": "all-terms-no-hit",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha gamma",
+        "mode": "all"
+      },
+      "code": null,
+      "outputBytes": 85,
+      "outputSha256": "4915e5586e932779483bfb0d2c220161d9f2ed07e139cd51cf5b63a7f2fe6ceb"
+    },
+    {
+      "case": "any-terms",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha gamma",
+        "mode": "any"
+      },
+      "code": null,
+      "outputBytes": 1082,
+      "outputSha256": "6fbe12c9da17526d79fbe794438bab9dc1998a3dbedb8b16d013c1f1b2dd6d34"
+    },
+    {
+      "case": "source-bound-selection",
+      "inputBytes": 36864,
+      "mime": "application/octet-stream",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "beta",
+        "sourceId": "other"
+      },
+      "code": null,
+      "outputBytes": 325,
+      "outputSha256": "16b0446cabdd02b0edfe3e5bbf6cd3341f229b0d16ba24232e4a20e62ce5128c"
+    },
+    {
+      "case": "cjk-auto-exact",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "桌面检索",
+        "mode": "auto"
+      },
+      "code": null,
+      "outputBytes": 346,
+      "outputSha256": "c9418193a9f425ee73773f0ef0a554ba9333f74cd1d7c6ebc43dd70f32df91bb"
+    },
+    {
+      "case": "literal-phrase",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "桌面 工具",
+        "mode": "phrase"
+      },
+      "code": null,
+      "outputBytes": 322,
+      "outputSha256": "a04b375690d46328ac596c59ff61a0d75d78c29ccaf55edc911424d00f11c84c"
+    },
+    {
+      "case": "explicit-ascii-phrase",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha beta",
+        "mode": "phrase"
+      },
+      "code": null,
+      "outputBytes": 328,
+      "outputSha256": "d069e1a7d933a94d02509610aaaacbbd1e3c670e03db0756bb187027705d8759"
+    },
+    {
+      "case": "escaped-quote-token",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha \"beta\"",
+        "mode": "all"
+      },
+      "code": null,
+      "outputBytes": 842,
+      "outputSha256": "8b20ee3a204293ef09342847f639a3be6a73320ae389559e400c43005ad556ec"
+    },
+    {
+      "case": "one-result-cap",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha",
+        "limit": 1
+      },
+      "code": null,
+      "outputBytes": 343,
+      "outputSha256": "0ccee425b8e1e1307c7fe867e74efa4911112b406308295a70defcf86c14653a"
+    },
+    {
+      "case": "unknown-source",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha",
+        "sourceId": "missing"
+      },
+      "code": null,
+      "outputBytes": 85,
+      "outputSha256": "4915e5586e932779483bfb0d2c220161d9f2ed07e139cd51cf5b63a7f2fe6ceb"
+    },
+    {
+      "case": "empty-index",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "287335570a409e04fac265c2638609cff94a441023f2e611458848c737bb0ae8",
+      "options": {
+        "query": "alpha"
+      },
+      "code": null,
+      "outputBytes": 85,
+      "outputSha256": "4915e5586e932779483bfb0d2c220161d9f2ed07e139cd51cf5b63a7f2fe6ceb"
+    },
+    {
+      "case": "dense-and-exact-128-kib",
+      "inputBytes": 131072,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "b77bbb1e7dcec5aca1dbda095bc8c1de983e198906bfb9c2eabc888655266af0",
+      "options": {
+        "query": "alpha beta",
+        "limit": 10
+      },
+      "code": null,
+      "outputBytes": 3017,
+      "outputSha256": "bbe7b3f51051c0c92435a885f0ec16f3603537e4ef8e51feda2d7a222c509cbd"
+    },
+    {
+      "case": "dense-cjk-and-exact-128-kib",
+      "inputBytes": 131072,
+      "mime": "application/octet-stream",
+      "inputSha256": "b77bbb1e7dcec5aca1dbda095bc8c1de983e198906bfb9c2eabc888655266af0",
+      "options": {
+        "query": "中文",
+        "limit": 10
+      },
+      "code": null,
+      "outputBytes": 3002,
+      "outputSha256": "f9ac341a5402b2838bea4dd35f49f0d5722d9d01358ec96af82800af87925e54"
+    },
+    {
+      "case": "dense-4-terms",
+      "inputBytes": 131072,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "b77bbb1e7dcec5aca1dbda095bc8c1de983e198906bfb9c2eabc888655266af0",
+      "options": {
+        "query": "alpha beta gamma one",
+        "mode": "any",
+        "limit": 10
+      },
+      "code": null,
+      "outputBytes": 3017,
+      "outputSha256": "bbe7b3f51051c0c92435a885f0ec16f3603537e4ef8e51feda2d7a222c509cbd"
+    },
+    {
+      "case": "chunk-length-limit",
+      "inputBytes": 45056,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "46a51cba2f20bd0be4fbcb1858a3cde449c04549a06bd360d47e628f2c94184e",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INDEX_ROW_LIMIT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "too-many-chunks",
+      "inputBytes": 45056,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "617d8352b16a01fe24e370c540e303d223b0ad5a425b148c7568ce0bd59843c8",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INDEX_ROW_LIMIT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "empty-source-filter",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha beta",
+        "sourceId": ""
+      },
+      "code": null,
+      "outputBytes": 842,
+      "outputSha256": "8b20ee3a204293ef09342847f639a3be6a73320ae389559e400c43005ad556ec"
+    },
+    {
+      "case": "4-kib-all-one-token",
+      "inputBytes": 53248,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "3c8a8a90cc12c06e54ae27a4a55348f5efcb249953a55332e8438cf771f9ccd5",
+      "options": {
+        "query": "a a a",
+        "limit": 10
+      },
+      "code": null,
+      "outputBytes": 3717,
+      "outputSha256": "5bb49b12e1f0fd5c20df42d29295520826080b0e36c2d001f50bae09cdcbedc9"
+    },
+    {
+      "case": "3-kib-four-terms",
+      "inputBytes": 45056,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "e504a36d9906b901e3cf373126491a5ed642e7f307db24c610d5755b50575845",
+      "options": {
+        "query": "a a a a",
+        "mode": "any",
+        "limit": 10
+      },
+      "code": null,
+      "outputBytes": 3397,
+      "outputSha256": "af1edbe08df6054516a7a9fb59b318e6656512897dd78d738abd62043a790567"
+    },
+    {
+      "case": "12-fts-terms-rejected",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "a a a a a a a a a a a a",
+        "mode": "all",
+        "limit": 10
+      },
+      "code": "INVALID_QUERY",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "punctuation-does-not-bypass-term-limit",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha-beta-gamma-delta-epsilon",
+        "mode": "all"
+      },
+      "code": "INVALID_QUERY",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "12-literal-words",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "8a9918b4de06362f2771b1d3aedf27fb20337064a20318206292e4151d5f3a31",
+      "options": {
+        "query": "a b c d e f g h i j k l",
+        "mode": "phrase"
+      },
+      "code": null,
+      "outputBytes": 326,
+      "outputSha256": "791890061ba8438e73e94b4ef42d99262658c46b6569d475624cb832640e9f32"
+    },
+    {
+      "case": "dense-term-combination-rejected",
+      "inputBytes": 53248,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "3c8a8a90cc12c06e54ae27a4a55348f5efcb249953a55332e8438cf771f9ccd5",
+      "options": {
+        "query": "a a a a",
+        "mode": "any"
+      },
+      "code": "SEARCH_LIMIT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "4-kib-cjk",
+      "inputBytes": 45056,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "c41aaea94c69458d85bc1365138be369b3d0e8392857823775eaccf5375b84a7",
+      "options": {
+        "query": "桌桌",
+        "limit": 10
+      },
+      "code": null,
+      "outputBytes": 3682,
+      "outputSha256": "badcbb2b4df5f7b7d6b8fc2d2edef30a2be6baab254fa35cf9a066bcd9d38cb1"
+    },
+    {
+      "case": "4-kib-plus-one",
+      "inputBytes": 53248,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "f1bce2b3641a4d2fef968dad01e0e3a7d65327e1925bf812b589d2c8f17ba5c1",
+      "options": {
+        "query": "a",
+        "limit": 10
+      },
+      "code": "INDEX_ROW_LIMIT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "missing-docsize",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "7eea7e09e3e0f28e6901858274a2af042ade9a2a07c0a21131e83db1d2c4d7dc",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_DATABASE",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "mismatched-docsize",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "69f221749ca4698e392af598a700a8bf162c160e78f27f28f447973fadfe2dab",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_DATABASE",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "mismatched-postings",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "bd2822a17d66afd9d4a915caf14d610d53a44f79e15d828ce8ef071aabf98d13",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_DATABASE",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "wrong-fts-format",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "29ae3e3c21ac5e2d260638a513a05d7549432313aab026f4007232ea3ca80a25",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_INDEX_SCHEMA",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "extra-trigger",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "f985aae03890726cb43a15b156807503bf90195e8673a579e2d367a8fdb1446c",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_INDEX_SCHEMA",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "extra-view",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "6420f563f0f416bfa6912da9c9378ac6081af2920b565c511332d563a2a99af4",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_INDEX_SCHEMA",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "wrong-content-table",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "7485cb5cd2734e4f3dd1127e8d099000692a82e88ffa69809be7a581347fd9db",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_INDEX_SCHEMA",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "wrong-schema-version",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "c5fb00d97b4b0c06646af890936029e09c54cf4d954a827b9644837d6e732625",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_INDEX_SCHEMA",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "wal-needs-companion",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "29bc82186afd4daf67f16a75a39a19464196e0e15a97d8ff59417a066179d599",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "WAL_SNAPSHOT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "relative-ref-only",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "366b1ee7dfecd4d97feec013a467c79fce7404a9a608735cfba5d273fc1dd8b3",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_INDEX_RECORD",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "no-traversal",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "90fea2b04fc9bd0f2b15c747bb6f5b3be7daea5cebe388bc0efa7f5b94f45738",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_INDEX_RECORD",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "request-bad-source",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha",
+        "sourceId": "../other"
+      },
+      "code": "INVALID_QUERY",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "request-too-many-terms",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha alpha "
+      },
+      "code": "INVALID_QUERY",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "request-limit-over",
+      "inputBytes": 36864,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha",
+        "limit": 11
+      },
+      "code": "INVALID_QUERY",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "incorrect-mime",
+      "inputBytes": 36864,
+      "mime": "text/plain",
+      "inputSha256": "a44647495ff4b2f5be420d1e5cb66da805351ca70c3872680b04905c6d8ca7d0",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_RESOURCE",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "larger-file",
+      "inputBytes": 131073,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "7c5f85d57d5154ec8f09413809b3bd11cfbaff3bdaaf7ec99d0745cb263f4e37",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INPUT_LIMIT",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "partial-file",
+      "inputBytes": 32768,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "e2dcac3c91e2d04606981d63d4cd699f2615bbf63eb333619ecbd8f44cf66cd8",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_DATABASE",
+      "outputBytes": 0,
+      "outputSha256": null
+    },
+    {
+      "case": "non-sqlite",
+      "inputBytes": 13,
+      "mime": "application/x-zicode-sqlite",
+      "inputSha256": "602b6074e0353903c5b32bc998882e86facc940eafb1dacf0e457fbf91c65049",
+      "options": {
+        "query": "alpha"
+      },
+      "code": "INVALID_DATABASE",
+      "outputBytes": 0,
+      "outputSha256": null
+    }
+  ]
+}

@@ -37,9 +37,12 @@ pub(super) fn parse(manifest: &str) -> Result<Vec<Entry>, ApiError> {
     let mut entries = Vec::new();
     let mut names = HashSet::new();
     for line in manifest.lines().filter(|line| !line.trim().is_empty()) {
-        let (digest, name) = line.split_once("  ").ok_or_else(invalid)?;
-        if digest.len() != 64
-            || !digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+        let (digest, tail) = line.split_at_checked(64).ok_or_else(invalid)?;
+        let name = tail
+            .strip_prefix("  ")
+            .or_else(|| tail.strip_prefix(" *"))
+            .ok_or_else(invalid)?;
+        if !digest.bytes().all(|byte| byte.is_ascii_hexdigit())
             || !safe_name(name)
             || !names.insert(name.to_lowercase())
             || entries.len() == MAX_FILES

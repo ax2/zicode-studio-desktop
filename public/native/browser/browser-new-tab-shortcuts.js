@@ -9,13 +9,12 @@ export function createBrowserNewTabShortcuts({ list, open, manage, add, onChange
   panel.setAttribute("data-i18n-aria-label", "Website shortcuts");
   let tab = null, revision = 0, bookmarks = [];
 
-  function refresh() {
+  function refresh(confirmed) {
     if (!tab) return;
     const source = tab, request = ++revision;
     const current = () => revision === request && tab === source;
-    void list().then(items => {
-      if (!current()) return;
-      bookmarks = items;
+    const render = library => {
+      bookmarks = library.bookmarks.filter(item => item.shortcut);
       panel.replaceChildren();
       if (!bookmarks.length) { onChange(); return; }
       const inner = document.createElement("div");
@@ -58,12 +57,14 @@ export function createBrowserNewTabShortcuts({ list, open, manage, add, onChange
       }
       panel.append(inner);
       onChange();
+    };
+    if (confirmed) render(confirmed);
+    void list().then(library => {
+      if (!current() || (confirmed && library.revision <= confirmed.revision)) return;
+      render(library);
     }).catch(() => {
-      // The address bar and the native blank tab stay available without the library.
-      if (!current()) return;
-      bookmarks = [];
-      panel.replaceChildren();
-      onChange();
+      // Keep the confirmed save if the follow-up read is unavailable.
+      if (current() && !confirmed) render({ bookmarks: [] });
     });
   }
 

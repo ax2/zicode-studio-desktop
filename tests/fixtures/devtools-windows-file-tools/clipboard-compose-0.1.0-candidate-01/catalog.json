@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.clipboard-compose",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "super-clipboard",
+      "capabilityId": "devtools.clipboard.text.compose",
+      "title": "剪贴片段组合",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "从确认的本机 JSON 组合有序正文，生成段落、编号、单列 CSV 或 Markdown 清单。"
+    }
+  ]
+}

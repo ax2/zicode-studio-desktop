@@ -3,8 +3,8 @@ use super::EngineEvent;
 use std::sync::Arc;
 use webview2_com::{AcceleratorKeyPressedEventHandler, Microsoft::Web::WebView2::Win32::*};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetKeyState, VK_ADD, VK_CONTROL, VK_MENU, VK_NUMPAD0, VK_OEM_MINUS, VK_OEM_PLUS, VK_SHIFT,
-    VK_SUBTRACT,
+    GetKeyState, VK_ADD, VK_CONTROL, VK_LWIN, VK_MENU, VK_NUMPAD0, VK_OEM_MINUS, VK_OEM_PLUS,
+    VK_RWIN, VK_SHIFT, VK_SUBTRACT,
 };
 use wry::WebViewExtWindows;
 
@@ -32,6 +32,7 @@ fn shortcut(key: u16, control: bool, alt: bool, shift: bool) -> Option<&'static 
         (0x48, false) => Some("history"),
         (0x4a, false) => Some("downloads"),
         (0x4c, false) => Some("address"),
+        (0x4f, false) => Some("openLocalPdf"),
         (0x50, false) => Some("print"),
         (0x52, false) => Some("reload"),
         (0x54, false) => Some("newTab"),
@@ -80,6 +81,11 @@ pub fn install(
                 ) else {
                     return Ok(());
                 };
+                if action == "openLocalPdf"
+                    && (GetKeyState(VK_LWIN.0 as i32) < 0 || GetKeyState(VK_RWIN.0 as i32) < 0)
+                {
+                    return Ok(());
+                }
                 // Release the browser's synchronous input wait before notifying chrome.
                 // No navigation, search or focus operation runs inside this callback.
                 args.SetHandled(true)?;
@@ -104,7 +110,9 @@ mod tests {
     fn only_fixed_browser_control_shortcuts_are_intercepted() {
         assert_eq!(shortcut(0x46, true, false, false), Some("find"));
         assert_eq!(shortcut(0x4c, true, false, false), Some("address"));
-        for key in [0x46, 0x4c] {
+        assert_eq!(shortcut(0x4f, true, false, false), Some("openLocalPdf"));
+        assert_eq!(shortcut(0xe5, true, false, false), None); // IME process key
+        for key in [0x46, 0x4c, 0x4f] {
             assert_eq!(shortcut(key, false, false, false), None);
             assert_eq!(shortcut(key, true, true, false), None);
             assert_eq!(shortcut(key, true, false, true), None);

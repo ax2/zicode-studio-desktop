@@ -38,6 +38,81 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
+it("restores focused note clipping controls after failures without taking focus from another view", async () => {
+  const trigger = document.createElement("button");
+  const other = document.createElement("button");
+  const host = document.createElement("aside");
+  document.body.append(trigger, host, other);
+  const unread = Promise.withResolvers();
+  const unsaved = Promise.withResolvers();
+  const moved = Promise.withResolvers();
+  const stale = Promise.withResolvers();
+  const writer = {
+    notebooks: vi.fn().mockReturnValueOnce(unread.promise)
+      .mockResolvedValueOnce([{ id: "selected", title: "Selected notebook" }])
+      .mockReturnValueOnce(stale.promise),
+    save: vi.fn().mockReturnValueOnce(unsaved.promise).mockReturnValueOnce(moved.promise),
+  };
+  const mount = () => showBrowserCapture(capture, vi.fn(), undefined, () => writer, undefined, false, { host, trigger });
+  const panel = mount();
+  const start = getByRole(panel, "button", { name: t("Save to Notes"), exact: true });
+  start.focus(); start.click();
+  unread.reject(Error("Read failed"));
+  await waitFor(() => expect(panel.textContent).toContain("Read failed"));
+  expect(document.activeElement).toBe(start);
+  start.click();
+  const notebook = getByRole(panel, "combobox", { name: t("Notebook"), exact: true });
+  const title = getByRole(panel, "textbox", { name: t("Note title"), exact: true });
+  const scope = getByRole(panel, "combobox", { name: t("Save content"), exact: true });
+  await waitFor(() => expect(document.activeElement).toBe(notebook));
+  notebook.value = "selected"; title.value = "Edited clipping"; scope.value = "selection";
+  const save = getByRole(panel, "button", { name: t("Save page to notebook"), exact: true });
+  save.focus(); save.click();
+  unsaved.reject(Error("Save failed"));
+  await waitFor(() => expect(panel.textContent).toContain("Save failed"));
+  expect(document.activeElement).toBe(save);
+  expect([notebook.value, title.value, scope.value]).toEqual(["selected", "Edited clipping", "selection"]);
+  save.click(); other.focus();
+  moved.reject(Error("Try again"));
+  await waitFor(() => expect(panel.textContent).toContain("Try again"));
+  expect(document.activeElement).toBe(other);
+  expect(writer.save).toHaveBeenNthCalledWith(2, expect.objectContaining({ notebookId: "selected", title: "Edited clipping", selectionOnly: true }));
+  panel.invalidateBrowserCapture(false);
+  const next = mount();
+  const nextStart = getByRole(next, "button", { name: t("Save to Notes"), exact: true });
+  nextStart.focus(); nextStart.click();
+  next.invalidateBrowserCapture(false); other.focus();
+  stale.reject(Error("Old document"));
+  await stale.promise.catch(() => {});
+  expect(document.activeElement).toBe(other);
+  expect(host.childElementCount).toBe(0);
+});
+
+it("keeps focus elsewhere when programmatic note clipping succeeds after the user moves focus", async () => {
+  const trigger = document.createElement("button");
+  const other = document.createElement("button");
+  const host = document.createElement("aside");
+  document.body.append(trigger, host, other);
+  const loading = Promise.withResolvers();
+  const saving = Promise.withResolvers();
+  const writer = { notebooks: () => loading.promise, save: () => saving.promise };
+  const panel = showBrowserCapture(capture, vi.fn(), undefined, () => writer, undefined, false, { host, trigger });
+  trigger.focus();
+  getByRole(panel, "button", { name: t("Save to Notes"), exact: true }).click();
+  other.focus();
+  loading.resolve([{ id: "chosen", title: "Notebook for clips" }]);
+  const notebook = getByRole(panel, "combobox", { name: t("Notebook"), exact: true });
+  await waitFor(() => expect(notebook.value).toBe("chosen"));
+  expect(document.activeElement).toBe(other);
+
+  trigger.focus();
+  getByRole(panel, "button", { name: t("Save page to notebook"), exact: true }).click();
+  other.focus();
+  saving.resolve();
+  await waitFor(() => getByRole(panel, "button", { name: t("Open saved note"), exact: true }));
+  expect(document.activeElement).toBe(other);
+});
+
 it("keeps the source and question after a rejected handoff and Escape returns focus to the toolbar", async () => {
   const prepare = vi.fn(async () => { throw new Error("Conversation changed"); });
   const { host, panel, trigger, close } = openDock(prepare);
@@ -732,6 +807,60 @@ function comparisonGateway(request = () => ({ ok: true, data: compareCompletion 
 }
 const modelRequests = modelGateway => modelGateway.call.mock.calls.filter(([name]) => name === "browser_model_request");
 
+it.each([
+  { kind: "summary", textTruncated: false, selectionOnly: false, selectionTruncated: true },
+  { kind: "analysis", textTruncated: true, selectionOnly: false, selectionTruncated: false },
+  { kind: "summary", textTruncated: true, selectionOnly: true, selectionTruncated: false },
+  { kind: "analysis", textTruncated: true, selectionOnly: true, selectionTruncated: true },
+])("keeps the reviewed single-page scope in both destinations (%j)", async flags => {
+  const { kind, textTruncated, selectionOnly, selectionTruncated } = flags;
+  const modelGateway = comparisonGateway(() => ({ ok: true, data: { text: "Fixture answer", model: comparisonModel } }));
+  const writes = new Map();
+  vi.stubGlobal("fetch", vi.fn(async (url, options) => {
+    if (url.pathname === "/v2/notes") return Response.json({ snapshot: { notebooks: [{ id: "book", title: "Research" }] } });
+    const draft = JSON.parse(options.body);
+    writes.set(url.pathname, draft);
+    if (url.pathname === "/v2/artifacts/create") return Response.json({ artifact: { id: "report" } });
+    if (url.pathname === "/v2/notes/create") return Response.json({ note: { ...draft, id: "note" } });
+    throw Error("Unexpected request");
+  }));
+  const capturePage = source => ({ ...source, page: {
+    ...source.page, text: "Unstored original body", selection: "Unstored original selection",
+    textTruncated, selectionTruncated, truncated: textTruncated || selectionTruncated,
+  } });
+  const { host } = await openControlledAssistant({ target: browserComparisonSession, modelGateway, capturePage, handoff: vi.fn() });
+  if (selectionOnly) getByRole(host, "checkbox", { name: "Use only selected text for AI and Chat drafts" }).click();
+  if (kind === "analysis") {
+    const question = getByRole(host, "textbox", { name: "Question about this page" });
+    question.value = "How does it work?";
+    question.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  const share = getByRole(host, "button", { name: `Send ${selectionOnly ? "selection" : "page"} and ${kind === "analysis" ? "ask" : "summarize"}` });
+  await waitFor(() => expect(share.disabled).toBe(false));
+  expect(modelRequests(modelGateway)).toHaveLength(0);
+  share.click();
+  await waitFor(() => getByRole(host, "button", { name: "Save analysis to Notes" }));
+  getByRole(host, "button", { name: "Save analysis to Artifacts" }).click();
+  await waitFor(() => getByRole(host, "button", { name: "Open saved artifact" }));
+  getByRole(host, "button", { name: "Save analysis to Notes" }).click();
+  const save = getByRole(host, "button", { name: "Save analysis to notebook" });
+  await waitFor(() => expect(save.disabled).toBe(false));
+  save.click();
+  await waitFor(() => getByRole(host, "button", { name: "Open saved note" }));
+  const shortenedBody = !selectionOnly && textTruncated;
+  for (const saved of writes.values()) {
+    expect(saved.content.includes("Page content was shortened")).toBe(shortenedBody);
+    expect(saved.content.includes("Selected text was shortened")).toBe(selectionOnly && selectionTruncated);
+    expect(saved.content).toContain("Fixture answer");
+    expect(JSON.stringify(saved)).not.toContain("Unstored original");
+  }
+  expect(writes.get("/v2/artifacts/create").provenance.source).toEqual({
+    url: capture.page.url, title: capture.page.title, capturedAt: capture.capturedAt, documentRevision: capture.documentRevision,
+    ...(shortenedBody ? { textTruncated: true } : {}),
+  });
+  expect(modelRequests(modelGateway)).toHaveLength(1);
+});
+
 it("sends only the reviewed comparison to the configured browser model and keeps its numbered sources", async () => {
   const handoff = vi.fn(), modelGateway = comparisonGateway();
   const writes = [];
@@ -779,10 +908,16 @@ it("sends only the reviewed comparison to the configured browser model and keeps
   ]);
   expect(context.sources).toHaveLength(2);
   expect(request.prompt).not.toContain("Different live contents");
-  expect(within(getByRole(host, "list", { name: "Comparison sources" })).getAllByRole("listitem").map(node => node.textContent)).toEqual([
-    "Manual · https://example.org/manual", "Chosen page · https://example.invalid/chosen",
-  ]);
   expect(document.activeElement).toBe(answer);
+  const toggle = getByRole(host, "button", { name: "Compare open tabs" });
+  toggle.focus();
+  toggle.click();
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).toBe(toggle);
+  expect(queryByRole(host, "group", { name: "Compare open tabs" })).toBeNull();
+  expect(within(getByRole(host, "list", { name: "Comparison sources" })).getAllByRole("listitem").map(node => node.textContent)).toEqual([
+    "Manual · https://example.org/manual", "Chosen page · https://example.invalid/chosen · Page content was shortened",
+  ]);
 
   getByRole(host, "button", { name: "Save analysis to Artifacts" }).click();
   await waitFor(() => getByRole(host, "button", { name: "Open saved artifact" }));
@@ -809,7 +944,7 @@ it("sends only the reviewed comparison to the configured browser model and keeps
   expect(readTabs()).toEqual(["source", "chosen", "source", "chosen"]);
 });
 
-it("uses the reviewed selection scope independently for each comparison source", async () => {
+it.each([false, true])("uses the reviewed selection scope independently for each comparison source (shortened: %s)", async selectionTruncated => {
   const modelGateway = comparisonGateway();
   const handoff = vi.fn(), writes = new Map();
   vi.stubGlobal("fetch", vi.fn(async (url, options) => {
@@ -822,7 +957,7 @@ it("uses the reviewed selection scope independently for each comparison source",
   }));
   const capturePage = source => source.tab === "chosen" ? { ...source, page: {
     ...source.page, text: "Peer full-page material", textTruncated: true,
-    selection: "Peer reviewed selection", selectionTruncated: false,
+    selection: "Peer reviewed selection", selectionTruncated,
   } } : source;
   const { host, panel } = await openControlledComparison({ handoff, capturePage, target: browserComparisonSession, modelGateway });
   panel.getByRole("button", { name: "Read selected tabs" }).click();
@@ -837,14 +972,17 @@ it("uses the reviewed selection scope independently for each comparison source",
   expect(modelRequests(modelGateway)).toHaveLength(0);
   send.click();
   await waitFor(() => getByRole(host, "textbox", { name: "Browser model answer" }));
-  expect(within(getByRole(host, "list", { name: "Comparison sources" })).getAllByRole("listitem")[1].textContent)
-    .toContain("Selected text");
+  const list = within(getByRole(host, "list", { name: "Comparison sources" }));
+  const [primary, peer] = list.getAllByRole("listitem");
+  expect(primary.textContent).toBe("Manual · https://example.org/manual");
+  const suffix = selectionTruncated ? " · Selected text was shortened" : "";
+  expect(peer.textContent).toBe("Chosen page · https://example.invalid/chosen · Selected text" + suffix);
   const [, request] = modelRequests(modelGateway)[0];
   expect(request.prompt).not.toContain("Peer full-page material");
   const { sources } = JSON.parse(request.prompt.slice(request.prompt.indexOf("{\n")));
   expect(sources[0]).toMatchObject({ text: capture.page.text, citation: "[1]" });
   expect(sources[1]).toMatchObject({ selection: "Peer reviewed selection", selectionOnly: true,
-    selectionTruncated: false, truncated: false, citation: "[2]", url: "https://example.invalid/chosen" });
+    selectionTruncated, truncated: selectionTruncated, citation: "[2]", url: "https://example.invalid/chosen" });
   expect(sources[1]).not.toHaveProperty("text");
   expect(sources[1]).not.toHaveProperty("textTruncated");
 
@@ -858,7 +996,7 @@ it("uses the reviewed selection scope independently for each comparison source",
   await waitFor(() => getByRole(host, "button", { name: "Open saved note" }));
   const artifact = writes.get("/v2/artifacts/create");
   expect(artifact.provenance.sources[0]).not.toHaveProperty("selectionOnly");
-  expect(artifact.provenance.sources[1]).toMatchObject({ selectionOnly: true, selectionTruncated: false });
+  expect(artifact.provenance.sources[1]).toMatchObject({ selectionOnly: true, selectionTruncated });
   expect(artifact.provenance.sources[1]).not.toHaveProperty("textTruncated");
   expect(artifact.content).not.toContain("Page content was shortened");
   expect(writes.get("/v2/notes/create").content).not.toContain("Page content was shortened");

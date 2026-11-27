@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.text","sceneId":"coding","capabilityId":"devtools.text.sql.format","commandId":null,"input":{"text":"select __ZICODE_SQLFMT_LITERAL_0__, ___ZICODE_SQLFMT_LITERAL_0__, __ZICODE_SQLFMT_LITERAL_01__, $$x 中文$$, $tag$y$tag$, $1 from records","dialect":"postgresql","keywordCase":"lowercase"}}

@@ -1,6 +1,7 @@
 import { afterEach, expect, it } from "vitest";
 import { fireEvent } from "@testing-library/react";
 import { mountResourceInputs } from "./resource-inputs";
+import { getLocale, setLocale, t } from "../../shared/i18n";
 
 let mounted: ReturnType<typeof mountResourceInputs> | undefined;
 afterEach(() => { mounted?.destroy(); mounted = undefined; document.body.replaceChildren(); });
@@ -34,4 +35,35 @@ it("uses compact multiline controls for bounded resource-tool strings", () => {
   fireEvent.change(fields[0], { target: { value: "2" } });
   fireEvent.change(fields[1], { target: { value: "85" } });
   expect(mounted.prepare()).toEqual({ input: { maxWidth: "2", quality: "85" } });
+});
+
+it("keeps literal string enum labels and request values while translating built-in choices", () => {
+  const locale = getLocale();
+  const container = document.createElement("div");
+  document.body.append(container);
+  try {
+    setLocale("zh-CN");
+    mounted = mountResourceInputs(container, { type: "object", properties: {
+      level: { type: "string", enum: ["unknown", "error", ""] },
+      flag: { type: "boolean" },
+    } });
+    setLocale("zh-CN"); // Exercise the shell DOM translation pass after the form mounts.
+    const [levels, flags] = [...container.querySelectorAll("select")];
+    expect([...levels.options].map(option => option.textContent))
+      .toEqual([t("Not provided"), "unknown", "error", t("Empty text")]);
+    expect([...flags.options].map(option => option.textContent))
+      .toEqual([t("Not provided"), t("True"), t("False")]);
+
+    fireEvent.change(levels, { target: { value: "0" } });
+    fireEvent.change(flags, { target: { value: "1" } });
+    expect(mounted.prepare()).toEqual({ input: { level: "unknown", flag: false } });
+    fireEvent.change(levels, { target: { value: "2" } });
+    expect(mounted.prepare()).toEqual({ input: { level: "", flag: false } });
+
+    setLocale("en");
+    expect(levels.options[1].textContent).toBe("unknown");
+    expect(levels.options[2].textContent).toBe("error");
+  } finally {
+    setLocale(locale);
+  }
 });

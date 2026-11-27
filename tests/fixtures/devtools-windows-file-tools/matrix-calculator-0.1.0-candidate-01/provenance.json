@@ -1,0 +1,490 @@
+{
+  "sourceRevision": "3608ba71f1133d6f007e96f87a2cf48f848eeedd",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T11:13:52.435113+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "7ca95b1f25207e221206b1db623c6520df25f859fbe8fc1f403b2c8fdf46d71a",
+  "workerVerification": {
+    "passed": 59,
+    "wasmSha256": "7ca95b1f25207e221206b1db623c6520df25f859fbe8fc1f403b2c8fdf46d71a",
+    "workerSha256": "1bf0adf0d8e3e8874eca61258ef133de9875dac87c0cbd76a83a45a2d7f2f1a3",
+    "workerProfile": "compute.wasi.v1",
+    "cases": [
+      {
+        "case": "exact-fraction-and-decimal-add",
+        "capabilityId": "devtools.matrix.add",
+        "inputSha256": "3b9dc88e0e9a4e21a0feba3c765bc492cc047e6e95f4afe52d3a083abebdecbb",
+        "ok": true,
+        "resultSha256": "b80109631a8f1875f36aa676ee3f36b7c9d86fec5a724ad7c01e9d5173d6b302",
+        "resultBytes": 247
+      },
+      {
+        "case": "negative-exact-and-scientific-subtract",
+        "capabilityId": "devtools.matrix.subtract",
+        "inputSha256": "d38d28c3dddd6630d19b6e1ceaaec9b31333496f949b18dc635d173ad0862f02",
+        "ok": true,
+        "resultSha256": "52a1f71b33602ca29594e7d5948f3ba613a4a226bab29122c34ad676e64e1bcf",
+        "resultBytes": 247
+      },
+      {
+        "case": "exact-rectangular-multiply",
+        "capabilityId": "devtools.matrix.multiply",
+        "inputSha256": "b0a5b734fadf93636db07e7d63f85401374b22a96930305b27b8f773802a41ba",
+        "ok": true,
+        "resultSha256": "2456f6c1179e119c68f0382f423a280daf054ee387e4a54519f74d9ef439f39c",
+        "resultBytes": 364
+      },
+      {
+        "case": "exact-rectangular-transpose-crlf",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "46413f80ab210a80b923745f13c63903d31edf2927edb936b99078537c58905c",
+        "ok": true,
+        "resultSha256": "0600a3f75068879dbdc6d310456f0395d46e6844ee887dde174674d6a7d3bc32",
+        "resultBytes": 462
+      },
+      {
+        "case": "determinant-row-exchange",
+        "capabilityId": "devtools.matrix.determinant",
+        "inputSha256": "f8553117372c2b63a161cffa7d45355adf763caeb29dae405b6f50e9df0b8ac9",
+        "ok": true,
+        "resultSha256": "14d52eb63d240aa5fc009dc86f28467c8867bdecffb4ff6888f7aa6a9b7293a5",
+        "resultBytes": 190
+      },
+      {
+        "case": "singular-determinant-zero",
+        "capabilityId": "devtools.matrix.determinant",
+        "inputSha256": "3b1ce123bc441e42f05781aed9d886943f19da942026d293fc2727e7fa5948cb",
+        "ok": true,
+        "resultSha256": "128882ea6e8fe83cd9c748ef6a11302ca42bcdae9d2a6474307ef51fb5559724",
+        "resultBytes": 188
+      },
+      {
+        "case": "scalar-exact",
+        "capabilityId": "devtools.matrix.determinant",
+        "inputSha256": "1bc49c841be69330f04c2d1a3ed0d074d45c402e4c60458a97e2f32bef8d6a85",
+        "ok": true,
+        "resultSha256": "14d52eb63d240aa5fc009dc86f28467c8867bdecffb4ff6888f7aa6a9b7293a5",
+        "resultBytes": 190
+      },
+      {
+        "case": "inverse-exact-fractions",
+        "capabilityId": "devtools.matrix.inverse",
+        "inputSha256": "3ef07adcc78712cb427dd95148f9fe317c357a0620c7d918a5efe13089374d4e",
+        "ok": true,
+        "resultSha256": "9fc66abd4247a38961a6e6b9f45f2ce95283bed62fbd9ff77f10212056df9e0b",
+        "resultBytes": 364
+      },
+      {
+        "case": "solve-multiple-right-hand-sides",
+        "capabilityId": "devtools.matrix.solve",
+        "inputSha256": "bf685c1051beba50f11b5632d43f957cedb7902d3b36198777196e6c4e3367c1",
+        "ok": true,
+        "resultSha256": "439992ca9c32da948a40fdb78dd00a4020f9071a75bad9adfb641af1dc7df257",
+        "resultBytes": 352
+      },
+      {
+        "case": "exact-integer-past-javascript-safe-range",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "0101fafdbe658d2624953de51a69631d69d2c12482d0ab30b34e7f6344a33863",
+        "ok": true,
+        "resultSha256": "1f5fa5e2a5903379b6a4ba263406f21959f4af7bcebd0d81993f8b1a1e6b27cb",
+        "resultBytes": 264
+      },
+      {
+        "case": "exact-nonterminating-fraction",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "a530711505890a0d1e7853522ff4bf2906980d51e541add4b265973216872489",
+        "ok": true,
+        "resultSha256": "539f64a16af28c5214665d590088d4e99a1a0e2f594caca01f53e6780f92c417",
+        "resultBytes": 190
+      },
+      {
+        "case": "exact-prefixed-and-signed-elements",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "c3e614a862b3c9e76a8ecef9247909b706f0ead2e84f4fb7b6e0a101300e3ef1",
+        "ok": true,
+        "resultSha256": "6b99b683dcc989ebc993faf2991f448ac1a4a9130f1023c4e51ab2ce7108f0a8",
+        "resultBytes": 306
+      },
+      {
+        "case": "approximate-decimal-and-scientific",
+        "capabilityId": "devtools.matrix.add",
+        "inputSha256": "60c7644393bc8c31b7054f1a981bf9ee7075c6ed584c40db1a749c9992996c4c",
+        "ok": true,
+        "resultSha256": "4d60c91b41d0abbd654e235a9227109cabd4771d54e6e729a2fe10d5aed22096",
+        "resultBytes": 286
+      },
+      {
+        "case": "approximate-extreme-finite-and-subnormal",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "f099d0fa27f297a6a7eb0823df886f2f08f6a7adfcee66e848edfccf1b945121",
+        "ok": true,
+        "resultSha256": "e053660434701d5b92294bf3d4ba78725ba533a9945a88ca5b1134be771245d3",
+        "resultBytes": 280
+      },
+      {
+        "case": "approximate-solve",
+        "capabilityId": "devtools.matrix.solve",
+        "inputSha256": "1dbae2fa1facded55535dae6836e9c33c5ce5deec674f745ae5d729bb6aa0c9c",
+        "ok": true,
+        "resultSha256": "074d57e6f9bb153080d1bbfc1a66f2128f78c2f136ec8b63bc0c6e7623890c64",
+        "resultBytes": 266
+      },
+      {
+        "case": "approximate-singular-determinant",
+        "capabilityId": "devtools.matrix.determinant",
+        "inputSha256": "3b1bdbd8179a5fcf1f26dae9f24e2b0e178dd110e7e4bcc516e7f77f05e4bd2b",
+        "ok": true,
+        "resultSha256": "b4a343b04fd7a0a55a87f470bc8e6dcfbfdaf0567ba5f717b8ad5f621ebb8147",
+        "resultBytes": 199
+      },
+      {
+        "case": "exact-dense-eight-axis-multiply",
+        "capabilityId": "devtools.matrix.multiply",
+        "inputSha256": "7385575d309c7521c0af9a32d21fc5b694d6be103eb4401598d4a66dae0c7bb3",
+        "ok": true,
+        "resultSha256": "7cddf4068c2d30d68de1a6220720312fc080e0fea820d216d98de48bc5715a3f",
+        "resultBytes": 3732
+      },
+      {
+        "case": "exact-dense-eight-axis-determinant",
+        "capabilityId": "devtools.matrix.determinant",
+        "inputSha256": "6f4c1cc5f2fb981ea7fd7a89414d76e92ac3f540be7723ca0321795e59135db5",
+        "ok": true,
+        "resultSha256": "8abff4081cba4d515cb82fa4f028ade2a7846167d0dddff9bfd7c2cbebec0b10",
+        "resultBytes": 190
+      },
+      {
+        "case": "exact-dense-eight-axis-inverse",
+        "capabilityId": "devtools.matrix.inverse",
+        "inputSha256": "6f4c1cc5f2fb981ea7fd7a89414d76e92ac3f540be7723ca0321795e59135db5",
+        "ok": true,
+        "resultSha256": "aeecc4b4e361671779afca44fa037be7c8e2838564463e4b89890077dc8b366d",
+        "resultBytes": 3988
+      },
+      {
+        "case": "exact-dense-eight-axis-and-eight-rhs",
+        "capabilityId": "devtools.matrix.solve",
+        "inputSha256": "40db200a9c377422cc528bf37d4900f811654c4cd4bd9493bd98bdf6a85b1f18",
+        "ok": true,
+        "resultSha256": "aeecc4b4e361671779afca44fa037be7c8e2838564463e4b89890077dc8b366d",
+        "resultBytes": 3988
+      },
+      {
+        "case": "approximate-dense-eight-axis-and-eight-rhs",
+        "capabilityId": "devtools.matrix.solve",
+        "inputSha256": "825fb7381370f213e0a72b9544d233d097574216c6ab62aa2236bdc7d77f7989",
+        "ok": true,
+        "resultSha256": "e3916653c9a8ea0824accf3050568ddf0132f6d584d8fbc7088e43ae3af81b6e",
+        "resultBytes": 4493
+      },
+      {
+        "case": "exact-four-kib-per-matrix",
+        "capabilityId": "devtools.matrix.add",
+        "inputSha256": "f22dd8d405e48867d968ff71160d08e2ab40b4e47e397c33e638bd26f39553c3",
+        "ok": true,
+        "resultSha256": "a6da980294a9a3315d1c39c9d3c6be32401cecc7b054f7f96ffe057db00d4f3e",
+        "resultBytes": 3604
+      },
+      {
+        "case": "exact-long-fractions-and-output",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "5787320139efc870ada88a08373ea4410fba1fd2f08e159bd2d03cb5ae132492",
+        "ok": true,
+        "resultSha256": "a53e1c424fa49a6d301b0c286dbcc2fef5a4f95ce30e33b3e97d3d15728cfcf7",
+        "resultBytes": 10132
+      },
+      {
+        "case": "exact-long-euclidean-reduction",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "2d0bf52028682ec320070ac7b66eb01dcc0e7d545b67985f02a633bfe96296a0",
+        "ok": true,
+        "resultSha256": "d34cdd0f1f65805c662ab45cdd435686bf87e59ff37085d84cacb42f102e3748",
+        "resultBytes": 10036
+      },
+      {
+        "case": "empty-matrix",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "258555fe010df3da34b3920945d0fbc59cebbcff1878bfc2e9206f0f495d81b9",
+        "ok": false,
+        "resultSha256": "98f2421534ac22fce434deed8d22944c5e8a062a01bb563dd69636778ad01478",
+        "resultBytes": 129
+      },
+      {
+        "case": "ragged-matrix",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "0f99ef07d1fafd30388eebd777bb253404b29fd2dbecf9c5fd6aaed8d6d42559",
+        "ok": false,
+        "resultSha256": "3d29a33a60ac8fe3bd9bee78615c93746aca270b89c0c113d3a9a34b685ab102",
+        "resultBytes": 134
+      },
+      {
+        "case": "blank-cell",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "bd8bfcbfc98336b57db920b36cb242d86007a9cbba2840ea6c42db89a3913fa2",
+        "ok": false,
+        "resultSha256": "e54fb6468b55a7cb3d3a228359757c04143d4dfca3fdbf9c3b25c85324668fa4",
+        "resultBytes": 147
+      },
+      {
+        "case": "blank-row",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "56085030e9226d7b59278fbd4fa71efe2726f60a36ae5ca22e6b49321e816afb",
+        "ok": false,
+        "resultSha256": "c51f5bfc8125d361bd729f6e33891253544173301dcee3e2524971cbd3f3fad6",
+        "resultBytes": 147
+      },
+      {
+        "case": "ninth-row",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "f4cc59fbef385fee785e3e6e0fa19ece295a7cc8cd8f1dc535ece5befedd75af",
+        "ok": false,
+        "resultSha256": "98f2421534ac22fce434deed8d22944c5e8a062a01bb563dd69636778ad01478",
+        "resultBytes": 129
+      },
+      {
+        "case": "ninth-column",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "9409a42b26583aed1eaa92fa7717a9e962c9f851cc06e9627e2aa1f62f599e95",
+        "ok": false,
+        "resultSha256": "db19632a6e3459c67bf0dc60b5a7901c557a2b97bdf4c6cfd285e20accd8e57f",
+        "resultBytes": 150
+      },
+      {
+        "case": "add-mismatch",
+        "capabilityId": "devtools.matrix.add",
+        "inputSha256": "b0a5b734fadf93636db07e7d63f85401374b22a96930305b27b8f773802a41ba",
+        "ok": false,
+        "resultSha256": "56457ffd4942786880ecadb5aac6513fb950dd30a27dddbad638ec2b124a959a",
+        "resultBytes": 140
+      },
+      {
+        "case": "subtract-mismatch",
+        "capabilityId": "devtools.matrix.subtract",
+        "inputSha256": "b0a5b734fadf93636db07e7d63f85401374b22a96930305b27b8f773802a41ba",
+        "ok": false,
+        "resultSha256": "56457ffd4942786880ecadb5aac6513fb950dd30a27dddbad638ec2b124a959a",
+        "resultBytes": 140
+      },
+      {
+        "case": "multiply-mismatch",
+        "capabilityId": "devtools.matrix.multiply",
+        "inputSha256": "41ea344e9d8015d03136ba75d322a35463b8641554ec0fbdd8938751c45beb7c",
+        "ok": false,
+        "resultSha256": "95acab37cfc2b40463b9de66905c348952d06c839909595351ce439aa25c4f20",
+        "resultBytes": 139
+      },
+      {
+        "case": "determinant-nonsquare",
+        "capabilityId": "devtools.matrix.determinant",
+        "inputSha256": "80a072c4400b8cc95b30c343e051780a73b0e0f7da56e29074b971ffb7e3d014",
+        "ok": false,
+        "resultSha256": "c05d3db7d2f01f6e2a3716475f187f90c4206f2e5aa650ff61b659d79068a7c0",
+        "resultBytes": 131
+      },
+      {
+        "case": "inverse-nonsquare",
+        "capabilityId": "devtools.matrix.inverse",
+        "inputSha256": "80a072c4400b8cc95b30c343e051780a73b0e0f7da56e29074b971ffb7e3d014",
+        "ok": false,
+        "resultSha256": "c05d3db7d2f01f6e2a3716475f187f90c4206f2e5aa650ff61b659d79068a7c0",
+        "resultBytes": 131
+      },
+      {
+        "case": "solve-nonsquare-a",
+        "capabilityId": "devtools.matrix.solve",
+        "inputSha256": "b0a5b734fadf93636db07e7d63f85401374b22a96930305b27b8f773802a41ba",
+        "ok": false,
+        "resultSha256": "c05d3db7d2f01f6e2a3716475f187f90c4206f2e5aa650ff61b659d79068a7c0",
+        "resultBytes": 131
+      },
+      {
+        "case": "solve-rhs-wrong-height",
+        "capabilityId": "devtools.matrix.solve",
+        "inputSha256": "26c87d71a2679520b906784727fc4090f84f59f8be398699deaf4e2e175f5faf",
+        "ok": false,
+        "resultSha256": "d838202c26fb23028bd733aab9bfd68241823992a0dbf91f117f3a0e4feb81be",
+        "resultBytes": 143
+      },
+      {
+        "case": "inverse-singular",
+        "capabilityId": "devtools.matrix.inverse",
+        "inputSha256": "3b1ce123bc441e42f05781aed9d886943f19da942026d293fc2727e7fa5948cb",
+        "ok": false,
+        "resultSha256": "1abeae2a0ada86ed48d2bd15e31d0e8d04e7e3e6ed91b59a1aa10b515ddbc461",
+        "resultBytes": 157
+      },
+      {
+        "case": "solve-singular",
+        "capabilityId": "devtools.matrix.solve",
+        "inputSha256": "1912581f6ae797dcc9dc3cf5efcbec1dcb27f258cc4e82f2c3982d0c470534aa",
+        "ok": false,
+        "resultSha256": "1abeae2a0ada86ed48d2bd15e31d0e8d04e7e3e6ed91b59a1aa10b515ddbc461",
+        "resultBytes": 157
+      },
+      {
+        "case": "solve-approximate-singular",
+        "capabilityId": "devtools.matrix.solve",
+        "inputSha256": "631b40d09f8e14911552a7de7ca908be528349f7fa85ac307a5b096b71c48183",
+        "ok": false,
+        "resultSha256": "1abeae2a0ada86ed48d2bd15e31d0e8d04e7e3e6ed91b59a1aa10b515ddbc461",
+        "resultBytes": 157
+      },
+      {
+        "case": "input-i128-overflow",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "13470765a859a498b15ce738e860b88da9d84ce442891e1a01197ef9bcf1b0ca",
+        "ok": false,
+        "resultSha256": "59c12623d1b4c4dcc0b6d7d3344ca9cc66403c045a230d291c20ddf8d1739e02",
+        "resultBytes": 142
+      },
+      {
+        "case": "exact-intermediate-overflow",
+        "capabilityId": "devtools.matrix.multiply",
+        "inputSha256": "7cd03d5ea61291e8c5a1ddcb16c0d38fb7b90d489f9e036b2e564c7cb0136a3a",
+        "ok": false,
+        "resultSha256": "544e27248de84efdc7a64b95433c2899f1d83e556203a692392157426823015f",
+        "resultBytes": 164
+      },
+      {
+        "case": "division-by-zero-in-cell",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "0f842af254a0529f52562f8114cd334b543c1e8de2f902d2d3c27682f1685c74",
+        "ok": false,
+        "resultSha256": "a459d6b7a56556f17514c57931896ff970747f51f55755f744507c363c5d4a67",
+        "resultBytes": 124
+      },
+      {
+        "case": "approximate-mode-rejects-fraction-notation",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "3c63e4851ff7890feba7d36fcccc2edd8b02e0e35883feb6fabd77b4b12d078c",
+        "ok": false,
+        "resultSha256": "5a7de22183802d3646d7ba8abee9bf268c2a3bfde9f5e700604933909213fd91",
+        "resultBytes": 145
+      },
+      {
+        "case": "approximate-mode-rejects-nan",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "c1254f1bf4303016b140e5ff4db35d71e67112092d76463397c9189e1dc9c130",
+        "ok": false,
+        "resultSha256": "376d92e19eb0498b98506746ae85023dc3ed8afedbd18f4df7cc3c5e6f69eb4f",
+        "resultBytes": 172
+      },
+      {
+        "case": "approximate-mode-rejects-infinity",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "a7ca1d2baa2f779953beba842527c53838720be29c33e5fa74f11d9e0b273ffc",
+        "ok": false,
+        "resultSha256": "376d92e19eb0498b98506746ae85023dc3ed8afedbd18f4df7cc3c5e6f69eb4f",
+        "resultBytes": 172
+      },
+      {
+        "case": "approximate-mode-rejects-exponent-overflow",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "77621de22c668a6fe283b96848e004d053a25a600f281761c8c0f5dd18426fdc",
+        "ok": false,
+        "resultSha256": "376d92e19eb0498b98506746ae85023dc3ed8afedbd18f4df7cc3c5e6f69eb4f",
+        "resultBytes": 172
+      },
+      {
+        "case": "approximate-mode-rejects-result-overflow",
+        "capabilityId": "devtools.matrix.multiply",
+        "inputSha256": "bc6b3264e8e9d50898bc1bb2c6f3464c0a1a8df5ea41667fca839bcb14e8d106",
+        "ok": false,
+        "resultSha256": "fc4f0ac2a8f2bfc5936ad446b262d60fdffcfd3731ff4d5d39b8d2852d2a1d81",
+        "resultBytes": 167
+      },
+      {
+        "case": "no-matrix-expressions",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "dd90db5eeae35b2b40119241a224c4c469f22be184e05c5a737dc4ec9ee57d7f",
+        "ok": false,
+        "resultSha256": "59c12623d1b4c4dcc0b6d7d3344ca9cc66403c045a230d291c20ddf8d1739e02",
+        "resultBytes": 142
+      },
+      {
+        "case": "no-complex-numbers",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "d5c2a8a8a8b500f6b2f9799b1103ba1f0ccfb02ec8c3105cbe4cd3a9d0a00778",
+        "ok": false,
+        "resultSha256": "59c12623d1b4c4dcc0b6d7d3344ca9cc66403c045a230d291c20ddf8d1739e02",
+        "resultBytes": 142
+      },
+      {
+        "case": "request-missing-a",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "3d85b7caaccef39363e0bc72f2fda0437143b707c07917bbc0bc6d127eec8e48",
+        "ok": false,
+        "resultSha256": "e7cb84c85deae72580ec7dbe23d4bfbf8d529fadedcb1230548dd56784c65f38",
+        "resultBytes": 134
+      },
+      {
+        "case": "request-missing-b",
+        "capabilityId": "devtools.matrix.multiply",
+        "inputSha256": "9afeb0f2b203f254312ec8ded441d0318b7c34c57f8695ede42d2215a30c0960",
+        "ok": false,
+        "resultSha256": "e7cb84c85deae72580ec7dbe23d4bfbf8d529fadedcb1230548dd56784c65f38",
+        "resultBytes": 134
+      },
+      {
+        "case": "unexpected-b-in-unary",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "21f76dfbfe6dfe21f762080ef484112cf2952974cef30741fd1931e1c6d92112",
+        "ok": false,
+        "resultSha256": "e7cb84c85deae72580ec7dbe23d4bfbf8d529fadedcb1230548dd56784c65f38",
+        "resultBytes": 134
+      },
+      {
+        "case": "unsupported-precision",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "d1873e229ec9f306177553ea60aab0b8dd4456b19b42cc98d454baebfd3a3154",
+        "ok": false,
+        "resultSha256": "e7cb84c85deae72580ec7dbe23d4bfbf8d529fadedcb1230548dd56784c65f38",
+        "resultBytes": 134
+      },
+      {
+        "case": "per-matrix-utf8-byte-limit",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "5a411a86870ad712a15ce2b116148cb2c23d0516b8d2a2beb578efbbe9188b21",
+        "ok": false,
+        "resultSha256": "90264a6b4da0b42eb72632a29cb54cb09f8dc880d42750d15018cdfdf1edbe74",
+        "resultBytes": 139
+      },
+      {
+        "case": "per-cell-utf8-byte-limit",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "26d140d68c2f45ad48b3e4cf924f688493b317e5c17f13bc54640ac1229774e6",
+        "ok": false,
+        "resultSha256": "2cc5c2e31535ff1c1069ccd2910c887a1ea71b0e2de7cf0df066cd3edcc6c561",
+        "resultBytes": 147
+      },
+      {
+        "case": "reject-oversized-single-cell-using-plugin-limit",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "a0c43a317e4fbe7057840e43e1b9b6db030e90493f8bbdc7827e052cb433dba7",
+        "ok": false,
+        "resultSha256": "2cc5c2e31535ff1c1069ccd2910c887a1ea71b0e2de7cf0df066cd3edcc6c561",
+        "resultBytes": 147
+      },
+      {
+        "case": "request-byte-limit",
+        "capabilityId": "devtools.matrix.transpose",
+        "inputSha256": "49637893e0e183afbf403a457cecd505bdfcffaadf23c51d266d7ce876c135d6",
+        "ok": false,
+        "resultSha256": "1b83bcacb1738d9273eeff049dc1aa5cfd28d1e88cdabacf18df178e21202120",
+        "resultBytes": 125
+      },
+      {
+        "case": "unknown-operation",
+        "capabilityId": "devtools.matrix.undefined",
+        "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "ok": false,
+        "resultSha256": "bef79c4e6b6e21b484f77524fc1ab982dfbf0893dfc21ea2d88a0f41f21d18be",
+        "resultBytes": 126
+      }
+    ],
+    "failures": []
+  }
+}

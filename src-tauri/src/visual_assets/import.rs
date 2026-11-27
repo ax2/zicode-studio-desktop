@@ -62,7 +62,8 @@ pub(super) fn clear_reference_stage(library: &Path) -> Result<()> {
 
 pub(super) fn clear_generation_preview(library: &Path) -> Result<()> {
     remove_if_present(&library.join(super::generation_outputs::INPUT))?;
-    remove_if_present(&library.join(super::generation_outputs::THUMBNAIL))
+    remove_if_present(&library.join(super::generation_outputs::THUMBNAIL))?;
+    remove_if_present(&library.join(super::generation_outputs::SPECIFICATIONS))
 }
 
 fn recover_legacy(db: &Connection, library: &Path) -> Result<()> {

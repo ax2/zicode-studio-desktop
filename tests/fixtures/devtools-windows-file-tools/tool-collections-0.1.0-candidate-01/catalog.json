@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.tool-collections",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "command-collections",
+      "capabilityId": "devtools.collections.preview",
+      "title": "工具集合导入预览",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "检查一份最多 128 KiB 的 ZiDevTools 工具集合导出。可比对手动填写的集合名称、预览改名和按原顺序查看工具 ID。"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { MULTI_PROJECT_UI_ENABLED, resolveDefaultWorkspacePath } from "../../shared/workspaceMode";
-import { useEffect, useState } from "react";
+import { type Ref, useEffect, useState } from "react";
 import { t } from "../../shared/i18n.js";
 import type { SuperAgentTask } from "./logic";
 import type { createTaskCenterStore, TaskDraft } from "./store";
@@ -9,11 +9,13 @@ type TaskStore = ReturnType<typeof createTaskCenterStore>;
 export function TaskForm({
   store,
   task,
+  titleRef,
   initialProject,
   onClose,
 }: {
   store: TaskStore;
   task?: SuperAgentTask;
+  titleRef?: Ref<HTMLInputElement>;
   initialProject?: string;
   onClose: () => void;
 }) {
@@ -93,6 +95,7 @@ export function TaskForm({
       <label className="task-form-field">
         <span>{t("Title")}</span>
         <input
+          ref={titleRef}
           className="ui-input"
           required
           autoComplete="off"

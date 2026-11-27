@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.service-config",
+  "name": "ZiDevTools Local Service Config Preflight",
+  "displayName": "本地服务配置预检",
+  "description": "确认读取一份本机 ZiDevTools 服务 YAML，核对导入前置条件并获得脱敏诊断。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.services.config.preflight"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.services.config.preflight",
+        "title": "本地服务配置预检",
+        "description": "确认读取一份本机 ZiDevTools 服务 YAML，核对导入前置条件并获得脱敏诊断。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "validForImport": {
+                      "type": "boolean"
+                    },
+                    "parseable": {
+                      "type": "boolean"
+                    },
+                    "serviceCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "stateDirectoryProvided": {
+                      "type": "boolean"
+                    },
+                    "configuredStopCommands": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "configuredHealthChecks": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "environmentEntries": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 65536
+                    },
+                    "problems": {
+                      "type": "array",
+                      "maxItems": 64,
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "serviceNumber": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 64
+                          },
+                          "code": {
+                            "type": "string",
+                            "enum": [
+                              "MISSING_REPO_OR_COMMAND",
+                              "EMPTY_STOP_COMMAND",
+                              "INVALID_STOP_TIMEOUT"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "serviceNumber",
+                          "code"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 8000
+                    }
+                  },
+                  "required": [
+                    "validForImport",
+                    "parseable",
+                    "serviceCount",
+                    "stateDirectoryProvided",
+                    "configuredStopCommands",
+                    "configuredHealthChecks",
+                    "environmentEntries",
+                    "problems",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 16384,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "服务 YAML",
+            "服务配置校验",
+            "服务导入检查",
+            "Service YAML preflight"
+          ],
+          "description": "确认读取一份本机 ZiDevTools 服务 YAML，核对导入前置条件并获得脱敏诊断。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的本机服务配置快照。"
+      }
+    ],
+    "optional": []
+  }
+}

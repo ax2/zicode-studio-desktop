@@ -206,7 +206,7 @@ it.each([false, true])("handles keyboard focus after a repeated permission read 
   const dialog = retry.closest("dialog");
   retry.focus();
   retry.click();
-  expect(document.activeElement).toBe(getByRole(dialog, "button", { name: t("Close") }));
+  expect(document.activeElement).toBe(dialog.querySelector('[aria-busy="true"]'));
   if (movedFocus) {
     dialog.tabIndex = -1;
     dialog.focus();
@@ -249,6 +249,41 @@ it("drops a pending site settings open when its tab starts a new navigation", as
   await app.finishWindowWrites();
   expect(queryByRole(document.body, "dialog", { name: t("Site permissions and storage") })).toBeNull();
   expect(request).not.toHaveBeenCalled();
+});
+
+it.each([false, true])("discards an old site read after leaving and returning to Browser (failure: %s)", async fails => {
+  let reply;
+  const readUrl = vi.fn().mockImplementationOnce(() => new Promise((resolve, reject) => {
+    reply = fails ? reject : resolve;
+  }));
+  const { open, host, origin, request, nativeControls, tab } = await mountSiteSettings({ readUrl });
+  readUrl.mockResolvedValue({ url: origin });
+  open();
+  await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
+  expect(await app.canDeactivate()).toBe(true);
+  app.renderContent(host);
+  const address = getByRole(host, "textbox", { name: t("Web address") });
+  const status = host.querySelector('.browser-footer > [role="status"]');
+  address.focus();
+  reply(fails ? Error("Old site read failed") : { url: origin });
+  await app.finishWindowWrites();
+
+  expect(queryByRole(document.body, "dialog", { name: t("Site permissions and storage") })).toBeNull();
+  expect(request).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(address);
+  expect(status.textContent).toBe("");
+
+  if (fails) {
+    readUrl.mockRejectedValueOnce(Error("Current site read failed"));
+    open();
+    await app.finishWindowWrites();
+    expect(status.textContent).toBe("Current site read failed");
+    expect(request).not.toHaveBeenCalled();
+  }
+  open();
+  await app.finishWindowWrites();
+  await waitFor(() => expect(request).toHaveBeenCalledExactlyOnceWith({ type: "list" }));
+  expect(nativeControls).toEqual([{ kind: "siteSettings", tab: tab.id, expectedOrigin: origin, action: { type: "list" } }]);
 });
 
 it("discards an outstanding confirmation and its actions when the active page navigates", async () => {
@@ -351,7 +386,7 @@ it("lists each blocked permission once, updates the open panel and drops feedbac
 });
 
 
-it("reports a pending site change and returns keyboard focus to the operation on failure", async () => {
+it.each([false, true])("keeps pending site changes off Close and handles failure focus (moved focus: %s)", async movedFocus => {
   let fail;
   const request = vi.fn(async ({ type }) => type === "list" ? [] : new Promise((_, reject) => { fail = reject; }));
   showSiteSettings({ origin: "https://example.test", request, onClose: vi.fn() });
@@ -363,12 +398,15 @@ it("reports a pending site change and returns keyboard focus to the operation on
   const confirm = getByRole(dialog, "button", { name: t("Confirm") });
   confirm.click();
   expect(status.textContent).toBe(t("Applying site settings…"));
+  expect(document.activeElement).toBe(status);
   expect(clear.matches(":disabled")).toBe(true);
+  const close = getByRole(dialog, "button", { name: t("Close") });
+  if (movedFocus) close.focus();
   confirm.click();
   expect(request.mock.calls).toEqual([[{ type: "list" }], [{ type: "clearStorage", confirmed: true }]]);
   fail(new Error("Storage could not be cleared"));
   await waitFor(() => expect(status.textContent).toBe("Storage could not be cleared"));
-  expect(document.activeElement).toBe(clear);
+  expect(document.activeElement).toBe(movedFocus ? close : clear);
   expect(clear.matches(":disabled")).toBe(false);
 });
 

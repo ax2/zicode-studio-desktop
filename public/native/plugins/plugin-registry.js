@@ -386,7 +386,12 @@ export class BuiltinPluginRegistry {
     if (!this.#gateway) throw new Error("Permissions require the Plugin Host");
     const sceneId = this.#sceneId;
     await this.#gateway.activateReviewed(sceneId, pluginId, review, grants);
-    if (this.#sceneId === sceneId) await this.setScene(sceneId);
+    try {
+      return { settingsLoaded: this.#sceneId === sceneId && await this.setScene(sceneId) };
+    } catch {
+      // The Host already accepted the review. Recover by reading settings only.
+      return { settingsLoaded: false };
+    }
   }
 
   async setPermission(pluginId, permission, granted) {
@@ -410,12 +415,13 @@ export class BuiltinPluginRegistry {
     if (!this.#gateway) return;
     const requestId = ++this.#listRequest;
     const response = await this.#gateway.list(this.#sceneId);
-    if (requestId !== this.#listRequest) return;
+    if (requestId !== this.#listRequest) return false;
     this.#diagnostics = Array.isArray(response?.diagnostics) ? response.diagnostics : [];
     this.#hostPlugins = (response?.plugins ?? [])
       .map((descriptor) => this.#normalizeHostPlugin(descriptor))
       .sort((left, right) => left.order - right.order || left.name.localeCompare(right.name));
     this.#emit();
+    return true;
   }
 
   async reload() {

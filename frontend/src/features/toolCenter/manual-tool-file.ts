@@ -1,11 +1,14 @@
+import { parseToolJson } from "./tool-json-input";
+
 export const tableFileFormats = ["csv", "tsv", "json"] as const;
 export type TableFileFormat = typeof tableFileFormats[number];
-export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "utf8-bytes" | "base64-decode" | "utf8-text" | "url-inspect" | "qr-source" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | TableFileFormat;
+export type ToolFileTarget = "transform" | "workbench" | "left" | "right" | "merge-left" | "merge-right" | "json-path" | "json-object" | "sql-format" | "yaml-to-json" | "yaml-from-json" | "utf8-bytes" | "base64-decode" | "utf8-text" | "url-inspect" | "qr-source" | "diff-left" | "diff-right" | "json-diff-left" | "json-diff-right" | "schema-instance" | "schema-root" | "spring-config-baseline" | "spring-config-comparison" | TableFileFormat;
 type TableSettings = Record<string, string | string[] | boolean>;
 
 const maxFileBytes = 8192; // The frozen tool document input limit.
 const jsonFileFields = new Map<ToolFileTarget, string>([
   ["json-path", "text"],
+  ["json-object", "value"],
   ["yaml-from-json", "text"],
   ["json-diff-left", "left"],
   ["json-diff-right", "right"],
@@ -76,6 +79,14 @@ export async function readManualToolFile(
     if (!text.trim()) throw Error("The selected YAML file is empty.");
     return { text };
   }
+  if (target === "spring-config-baseline" || target === "spring-config-comparison") {
+    if (!name.endsWith(".json") && !name.endsWith(".yaml") && !name.endsWith(".yml")) {
+      throw Error("Choose a JSON or YAML configuration file.");
+    }
+    const text = await readUtf8ToolFile(file, "Configuration files must be 8 KiB or smaller.", "Could not read the configuration file.");
+    if (!text.trim()) throw Error("The selected configuration file is empty.");
+    return target === "spring-config-baseline" ? { text } : { secondary: text };
+  }
   const format = tableFileFormats.find(extension => name.endsWith("." + extension));
   const jsonField = jsonFileFields.get(target);
   const jsonDocument = jsonField !== undefined;
@@ -101,6 +112,10 @@ export async function readManualToolFile(
   const text = await readUtf8ToolFile(file, sizeError,
     jsonDocument ? "Could not read the JSON file." : "Could not read the table file.");
   if (!text.trim()) throw Error(jsonDocument ? "The selected JSON file is empty." : "The selected table file is empty.");
+  if (target === "json-object") {
+    const parsed = parseToolJson(text.trim(), "object");
+    if ("error" in parsed) throw Error(parsed.error);
+  }
 
   if (fixedFormat) return { [jsonField ?? "text"]: text };
   if (mergeSide) return { [mergeSide]: text, [mergeSide + "Format"]: String(choice) };

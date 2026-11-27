@@ -1,0 +1,36 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.date-calculator",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.date.difference",
+      "title": "日期差",
+      "status": "candidate",
+      "scope": "计算结束日期减去开始日期的带符号天数。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.date.offset",
+      "title": "日期加减",
+      "status": "candidate",
+      "scope": "按天、月或年偏移公历日期。可显式选择截到目标月末。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.date.workday_count",
+      "title": "工作日计数",
+      "status": "candidate",
+      "scope": "按周一至周五计算天数，结束日包含在内。可选择包含开始日。"
+    },
+    {
+      "sourceToolId": "advanced-calculator",
+      "capabilityId": "devtools.date.workday_offset",
+      "title": "工作日加减",
+      "status": "candidate",
+      "scope": "按周一至周五正向或反向偏移。输入 0 保持起始日。"
+    }
+  ]
+}

@@ -29,6 +29,21 @@ if($LASTEXITCODE){throw 'Widget COM/card test compilation failed'}
 if($LASTEXITCODE){throw 'Widget COM/card self-test failed'}
 Copy-Item "$PSScriptRoot/AppxManifest.xml" $stage
 foreach($name in 'StoreLogo.png','Square150x150Logo.png','Square44x44Logo.png'){Copy-Item "$PSScriptRoot/../../src-tauri/icons/$name" $assets}
+Copy-Item -LiteralPath "$PSScriptRoot/preview/QuickNotes.png" -Destination $assets
+Copy-Item -LiteralPath "$PSScriptRoot/preview/zh-cn" -Destination $assets -Recurse
 Set-Content -LiteralPath "$stage/Public/provider.txt" -Value 'ZiCode Quick Notes'
+
+$config = Join-Path $work 'priconfig.xml'
+& "$SdkTools/MakePri.exe" createconfig /cf $config /dq en-US
+if ($LASTEXITCODE) { throw 'Widget resource index configuration failed' }
+# Keep language variants in this single standalone MSIX.
+[xml]$resourceConfig = Get-Content -LiteralPath $config -Raw
+$resourcePackaging = $resourceConfig.SelectSingleNode('/resources/packaging')
+if ($resourcePackaging) {
+  [void]$resourcePackaging.ParentNode.RemoveChild($resourcePackaging)
+  $resourceConfig.Save($config)
+}
+& "$SdkTools/MakePri.exe" new /pr $stage /cf $config /mn "$stage/AppxManifest.xml" /of "$stage/resources.pri"
+if ($LASTEXITCODE) { throw 'Widget resource index generation failed' }
 & "$SdkTools/MakeAppx.exe" pack /d $stage /p "$work/ZiCode.QuickNotes.x64.msix"
 if($LASTEXITCODE){throw 'MSIX validation or packaging failed'}

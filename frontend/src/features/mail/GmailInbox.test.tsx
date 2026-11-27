@@ -45,6 +45,36 @@ it("starts from cache, requests separate read and send grants, and never sends w
   fireEvent.click(screen.getByRole("button",{name:"New draft"}));fireEvent.click(screen.getByRole("button",{name:"Saved subject"}));
   await screen.findByText(/Delivery is unknown. Check Gmail Sent/);expect(view.calls.mock.calls.filter(([r])=>r.kind==="send")).toHaveLength(1);
 });
+
+it("keeps an old stored Gmail connection available for disconnect but requires current authorization for server access", async () => {
+  const { calls } = fixture(async request => {
+    if (request.kind === "status") return { connected: true, read: false, send: false, needsReconnect: true };
+    if (request.kind === "cachedLabels") return [];
+    if (request.kind === "cachedPage") return { items: [entry], nextCursor: null };
+    if (request.kind === "cachedBody") return { ...entry, plainText: "Cached message with old authorization" };
+    if (request.kind === "delivery") return null;
+    if (request.kind === "connect") return { connected: true, read: true, send: request.send === true };
+    throw Error("Unexpected Gmail request");
+  });
+  await screen.findByText("Reconnect Gmail with the permission needed for this action.");
+  expect(screen.getByRole("button", { name: "Refresh from server" }).matches(":disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Disconnect Gmail" }).matches(":disabled")).toBe(false);
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Cached message with old authorization");
+  fireEvent.click(screen.getByRole("button", { name: "Saved subject" }));
+  const review = await screen.findByRole("button", { name: "Review before sending" });
+  expect(review.matches(":disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Reconnect Gmail" }));
+  await screen.findByText("Gmail is connected for reading.");
+  expect(review.matches(":disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Authorize sending with Gmail" }));
+  await screen.findByText("Gmail is connected for reading and sending.");
+  expect(review.matches(":disabled")).toBe(false);
+  expect(screen.getByText("Cached message with old authorization")).toBeTruthy();
+  expect(calls.mock.calls.filter(([request]) => request.kind === "connect").map(([request]) => request.send)).toEqual([false, true]);
+  expect(calls.mock.calls.some(([request]) => request.kind === "send" || request.kind === "disconnect")).toBe(false);
+});
+
 it("opens a saved label offline and refreshes only that label on request",async()=>{
   const v=fixture(async r=>{
     if(r.kind==="status")return {connected:true,read:true};
@@ -62,6 +92,77 @@ it("opens a saved label offline and refreshes only that label on request",async(
   await screen.findByText("Updated invoice");
   expect(v.calls).toHaveBeenCalledWith({kind:"list",accountId:"one",label:"Label_42",cursor:null,limit:20});
 });
+it.each([false, true])("retries an unavailable local Gmail label directory while reading offline (empty: %s)", async empty => {
+  let directoryAvailable = false;
+  const calls = fixture(async request => {
+    if (request.kind === "status") return { connected: false };
+    if (request.kind === "cachedLabels") {
+      if (!directoryAvailable) throw Error("gmail_storage");
+      return empty ? null : [{ id: "Archive", name: "Archive" }];
+    }
+    if (request.kind === "cachedPage") return { items: [entry], nextCursor: "saved-page" };
+    if (request.kind === "cachedBody") return { ...entry, plainText: "Saved inbox body" };
+    throw Error("Unexpected Gmail request");
+  }).calls;
+  const inbox = within(await screen.findByRole("region", { name: "Gmail inbox" }));
+  await inbox.findByText("Could not read saved Gmail labels.");
+  fireEvent.click(await inbox.findByRole("button", { name: /Inbox fixture/ }));
+  await inbox.findByText("Saved inbox body");
+  const retry = inbox.getByRole("button", { name: "Retry saved Gmail labels" });
+  const refresh = inbox.getByRole("button", { name: "Refresh Gmail labels" });
+  expect(refresh.matches(":disabled")).toBe(true);
+
+  calls.mockClear();
+  fireEvent.click(retry);
+  await waitFor(() => expect(retry.matches(":disabled")).toBe(false));
+  expect(inbox.getByText("Could not read saved Gmail labels.")).toBeTruthy();
+  expect(inbox.getByText("Saved inbox body")).toBeTruthy();
+
+  directoryAvailable = true;
+  fireEvent.click(retry);
+  await waitFor(() => expect(inbox.queryByRole("button", { name: "Retry saved Gmail labels" })).toBeNull());
+  expect(inbox.queryByText("Could not read saved Gmail labels.")).toBeNull();
+  const label = inbox.getByLabelText<HTMLSelectElement>("Gmail label");
+  expect([...label.options].map(option => option.value)).toEqual(empty ? ["INBOX"] : ["INBOX", "Archive"]);
+  expect(label.value).toBe("INBOX");
+  expect(inbox.getByText("Saved inbox body")).toBeTruthy();
+  expect(inbox.getByRole("button", { name: "Load older messages" })).toBeTruthy();
+  expect(refresh.matches(":disabled")).toBe(true);
+  expect(calls.mock.calls.map(([request]) => request)).toEqual([
+    { kind: "cachedLabels", accountId: "one" }, { kind: "cachedLabels", accountId: "one" },
+  ]);
+});
+
+it("drops a saved Gmail label retry that finishes after an account switch", async () => {
+  let beginRetry = false, finishRetry!: (value: unknown) => void;
+  const pending = new Promise(resolve => { finishRetry = resolve; });
+  const second = { ...entry, subject: "Other account message" };
+  const view = fixture(async request => {
+    if (request.kind === "status") return { connected: false };
+    if (request.kind === "cachedLabels") {
+      if (request.accountId === "two") return [{ id: "Other", name: "Other label" }];
+      if (beginRetry) return pending;
+      throw Error("gmail_storage");
+    }
+    if (request.kind === "cachedPage") return { items: [request.accountId === "two" ? second : entry], nextCursor: null };
+    if (request.kind === "cachedBody") return { ...second, plainText: "Other account body" };
+    throw Error("Unexpected Gmail request");
+  }, [account("one"), account("two")]);
+  const retry = await screen.findByRole("button", { name: "Retry saved Gmail labels" });
+  beginRetry = true;
+  view.calls.mockClear();
+  fireEvent.click(retry);
+  expect(view.calls).toHaveBeenCalledWith({ kind: "cachedLabels", accountId: "one" });
+  fireEvent.change(screen.getByLabelText("Mail account"), { target: { value: "two" } });
+  fireEvent.click(await screen.findByRole("button", { name: /Other account message/ }));
+  await screen.findByText("Other account body");
+  await act(async () => finishRetry([{ id: "Late", name: "Late label from first account" }]));
+  const label = screen.getByLabelText<HTMLSelectElement>("Gmail label");
+  expect([...label.options].map(option => option.value)).toEqual(["INBOX", "Other"]);
+  expect(screen.getByText("Other account body")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Retry saved Gmail labels" })).toBeNull();
+});
+
 it("recovers an expired server page by refreshing the selected label",async()=>{
   let refreshes=0;
   fixture(async r=>{
@@ -81,6 +182,106 @@ it("recovers an expired server page by refreshing the selected label",async()=>{
   fireEvent.click(refresh);
   await screen.findByText("Refresh 2");
 });
+it("keeps reading the same Gmail message when its label refresh succeeds", async () => {
+  const updated = { ...entry, subject: "Current message after refresh" };
+  let removed = false;
+  const { calls } = fixture(async request => {
+    if (request.kind === "status") return { connected: true, read: true };
+    if (request.kind === "cachedLabels") return [{ id: "Archive", name: "Archive" }];
+    if (request.kind === "cachedPage") return { items: [entry], nextCursor: null };
+    if (request.kind === "cachedBody") return { ...entry, plainText: "Keep reading this body" };
+    if (request.kind === "list") {
+      expect(request.label).toBe("INBOX");
+      return { items: removed ? [{ ...entry, id: "other", subject: "Another message" }] : [updated], nextCursor: null };
+    }
+    throw Error("Unexpected request");
+  });
+  const inbox = within(await screen.findByRole("region", { name: "Gmail inbox" }));
+  fireEvent.click(await inbox.findByRole("button", { name: /Inbox fixture/ }));
+  await inbox.findByText("Keep reading this body");
+
+  const refresh = inbox.getByRole("button", { name: "Refresh from server" });
+  fireEvent.click(refresh);
+  const row = await inbox.findByRole("button", { name: /Current message after refresh/ });
+  expect(row.getAttribute("aria-pressed")).toBe("true");
+  const reading = within(inbox.getByRole("article", { name: "Selected message" }));
+  expect(reading.getByRole("heading", { name: updated.subject })).toBeTruthy();
+  expect(reading.getByText("Keep reading this body")).toBeTruthy();
+  expect(calls.mock.calls.filter(([request]) => request.kind === "cachedBody")).toHaveLength(1);
+
+  removed = true;
+  fireEvent.click(refresh);
+  await inbox.findByRole("button", { name: /Another message/ });
+  expect(inbox.queryByRole("article", { name: "Selected message" })).toBeNull();
+});
+
+it("clears Gmail reading when switching labels even when the message ID is shared", async () => {
+  fixture(async request => {
+    if (request.kind === "status") return { connected: false };
+    if (request.kind === "cachedLabels") return [{ id: "Archive", name: "Archive" }];
+    if (request.kind === "cachedPage") {
+      return { items: [{ ...entry, subject: request.label === "Archive" ? "Shared message in Archive" : entry.subject }], nextCursor: null };
+    }
+    if (request.kind === "cachedBody") return { ...entry, plainText: "Previous label body" };
+    throw Error("Unexpected request");
+  });
+  const inbox = within(await screen.findByRole("region", { name: "Gmail inbox" }));
+  fireEvent.click(await inbox.findByRole("button", { name: /Inbox fixture/ }));
+  await inbox.findByText("Previous label body");
+  fireEvent.change(inbox.getByLabelText("Gmail label"), { target: { value: "Archive" } });
+  await inbox.findByRole("button", { name: /Shared message in Archive/ });
+  expect(inbox.queryByRole("article", { name: "Selected message" })).toBeNull();
+});
+
+it("refreshes the selected Gmail label at the expired pagination action", async () => {
+  const labelId = "Label_Work";
+  const message = { ...entry, subject: "Current project mail" };
+  let initialPages = 0;
+  const { calls } = fixture(async request => {
+    if (request.kind === "status") return { connected: true, read: true };
+    if (request.kind === "cachedLabels") return [{ id: labelId, name: "Projects" }];
+    if (request.kind === "cachedPage") return { items: [entry], nextCursor: null };
+    if (request.kind === "cachedBody") return { ...message, plainText: "Current cached body" };
+    if (request.kind === "list") {
+      expect(request.label).toBe(labelId);
+      if (request.cursor === "expired-token") throw Error("gmail_page_expired");
+      if (request.cursor === "fresh-token") {
+        return { items: [{ ...message, id: "older", subject: "Older project mail" }], nextCursor: null };
+      }
+      if (++initialPages === 2) throw Error("gmail_rate_limited");
+      return { items: [message], nextCursor: initialPages === 1 ? "expired-token" : "fresh-token" };
+    }
+    throw Error("Unexpected request");
+  });
+  const inbox = within(await screen.findByRole("region", { name: "Gmail inbox" }));
+  await inbox.findByRole("option", { name: "Projects" });
+  const label = inbox.getByLabelText<HTMLSelectElement>("Gmail label");
+  fireEvent.change(label, { target: { value: labelId } });
+  await waitFor(() => expect(label.value).toBe(labelId));
+  fireEvent.click(inbox.getByRole("button", { name: "Refresh from server" }));
+  fireEvent.click(await inbox.findByRole("button", { name: /Current project mail/ }));
+  await inbox.findByText("Current cached body");
+
+  fireEvent.click(inbox.getByRole("button", { name: "Load older messages" }));
+  await inbox.findByText("This mail page expired. Refresh from the server to continue.");
+  const recover = inbox.getByRole("button", { name: "Refresh this Gmail label" });
+  expect(inbox.queryByRole("button", { name: "Load older messages" })).toBeNull();
+  expect(inbox.getByText("Current cached body")).toBeTruthy();
+  expect(calls.mock.calls.filter(([request]) => request.kind === "list").map(([request]) => request.cursor))
+    .toEqual([null, "expired-token"]);
+
+  fireEvent.click(recover);
+  await inbox.findByText("Google has limited requests. Try again later.");
+  expect(inbox.getByText("Current cached body")).toBeTruthy();
+  expect(label.value).toBe(labelId);
+  fireEvent.click(recover);
+
+  fireEvent.click(await inbox.findByRole("button", { name: "Load older messages" }));
+  await inbox.findByRole("button", { name: /Older project mail/ });
+  expect(calls.mock.calls.filter(([request]) => request.kind === "list").map(([request]) => [request.label, request.cursor]))
+    .toEqual([[labelId, null], [labelId, "expired-token"], [labelId, null], [labelId, null], [labelId, "fresh-token"]]);
+});
+
 it("cancels browser authorization; a late successful result cannot grant sending",async()=>{
   let done:((v:unknown)=>void)|undefined;
   const v=fixture(async r=>{
@@ -477,4 +678,97 @@ it("drops a pending Gmail label page after switching to another account", async 
   expect(screen.queryByText("Stale archive result")).toBeNull();
   expect(screen.getByLabelText<HTMLSelectElement>("Gmail label").value).toBe("INBOX");
   expect(screen.getByLabelText<HTMLSelectElement>("Mail account").value).toBe("two");
+});
+
+
+it("cancels a held Gmail refresh, restores keyboard focus, and ignores the late page", async () => {
+  let resolvePrevious!: (page: unknown) => void;
+  let refreshes = 0;
+  const previousPage = new Promise(resolve => { resolvePrevious = resolve; });
+  const view = fixture(async request => {
+    switch (request.kind) {
+      case "status": return { connected: true, read: true };
+      case "cachedLabels": return [];
+      case "cachedPage": return { items: [entry], nextCursor: null };
+      case "cachedBody": return { ...entry, plainText: "Body saved on this device" };
+      case "cancel": return null;
+      case "list": return ++refreshes === 1
+        ? previousPage
+        : { items: [{ ...entry, subject: "Fresh subject" }], nextCursor: null };
+      default: throw Error("Unexpected Gmail request");
+    }
+  });
+  fireEvent.click(await screen.findByRole("button", { name: /Inbox fixture/ }));
+  await screen.findByText("Body saved on this device");
+  const refresh = screen.getByRole("button", { name: "Refresh from server" });
+  refresh.focus();
+  fireEvent.click(refresh);
+  const cancel = await screen.findByRole("button", { name: "Cancel Gmail refresh" });
+  expect(document.activeElement).toBe(cancel);
+  fireEvent.click(cancel);
+  await screen.findByText("Gmail refresh canceled.");
+  expect(document.activeElement).toBe(refresh);
+  expect(screen.getByText("Body saved on this device")).toBeTruthy();
+  expect(view.calls).toHaveBeenCalledWith({ kind: "cancel", accountId: "one" });
+  fireEvent.click(refresh);
+  await screen.findByRole("button", { name: /Fresh subject/ });
+  await act(async () => resolvePrevious({ items: [{ ...entry, subject: "Late subject" }], nextCursor: null }));
+  expect(screen.queryByText("Late subject")).toBeNull();
+  expect(screen.getByText("Body saved on this device")).toBeTruthy();
+});
+
+it.each([true, false])("uses the saved label after a server pagination connection failure (older mail: %s)", async hasOlder => {
+  const labelId = "Label_Invoices";
+  const pageTwo = { ...entry, id: "page-two", subject: "Previously loaded invoice" };
+  const older = { ...entry, id: "saved-older", subject: "Older saved invoice" };
+  const localTwo = "offline:invoices:2";
+  const localThree = "offline:invoices:3";
+  const serverTwo = "server-two";
+  const serverThree = "server-three";
+  const { calls } = fixture(async request => {
+    switch (request.kind) {
+      case "status": return { connected: true, read: true };
+      case "cachedLabels": return [{ id: labelId, name: "Invoices" }];
+      case "cachedBody": return { ...pageTwo, plainText: "Keep reading this previously loaded invoice" };
+      case "cachedPage":
+        if (request.label !== labelId) return null;
+        if (request.cursor === null) return { items: [entry], nextCursor: localTwo };
+        if (request.cursor === localTwo) return { items: [pageTwo], nextCursor: hasOlder ? localThree : null };
+        if (request.cursor === localThree && hasOlder) return { items: [older], nextCursor: null };
+        throw Error("Unexpected local cursor");
+      case "list":
+        expect(request.label).toBe(labelId);
+        if (request.cursor === null) return { items: [entry], nextCursor: serverTwo };
+        if (request.cursor === serverTwo) return { items: [pageTwo], nextCursor: serverThree };
+        if (request.cursor === serverThree) throw Error("gmail_network");
+        throw Error("Unexpected server cursor");
+      default: throw Error("Unexpected Gmail operation");
+    }
+  });
+  const inbox = within(await screen.findByRole("region", { name: "Gmail inbox" }));
+  await inbox.findByRole("option", { name: "Invoices" });
+  const label = inbox.getByLabelText<HTMLSelectElement>("Gmail label");
+  fireEvent.change(label, { target: { value: labelId } });
+  await waitFor(() => expect(label.value).toBe(labelId));
+  fireEvent.click(inbox.getByRole("button", { name: "Refresh from server" }));
+  fireEvent.click(await inbox.findByRole("button", { name: "Load older messages" }));
+  fireEvent.click(await inbox.findByRole("button", { name: /Previously loaded invoice/ }));
+  await inbox.findByText("Keep reading this previously loaded invoice");
+  const checkpoint = calls.mock.calls.length;
+  fireEvent.click(inbox.getByRole("button", { name: "Load older messages" }));
+  const useCache = await inbox.findByRole("button", { name: "Load older saved messages" });
+  const sinceFailure = () => calls.mock.calls.slice(checkpoint).map(([request]) => request);
+  const requested = (kind: string, cursor: string | null) => ({ kind, accountId: "one", label: labelId, cursor, limit: 20 });
+  expect(sinceFailure()).toEqual([requested("list", serverThree)]);
+  fireEvent.click(useCache);
+  if (hasOlder) await inbox.findByRole("button", { name: /Older saved invoice/ });
+  else await inbox.findByText("No older cached page is available.");
+  expect(inbox.getByRole("button", { name: /Previously loaded invoice/ }).getAttribute("aria-pressed")).toBe("true");
+  expect(inbox.getByText("Keep reading this previously loaded invoice")).toBeTruthy();
+  expect(inbox.queryByRole("button", { name: "Load older saved messages" })).toBeNull();
+  expect(sinceFailure()).toEqual([
+    requested("list", serverThree), requested("cachedPage", null), requested("cachedPage", localTwo),
+    ...(hasOlder ? [requested("cachedPage", localThree)] : []),
+  ]);
+  expect(label.value).toBe(labelId);
 });

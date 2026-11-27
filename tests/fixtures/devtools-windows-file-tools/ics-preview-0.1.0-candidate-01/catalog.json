@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.ics-preview",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "calendar-planner",
+      "capabilityId": "devtools.calendar.ics.preview",
+      "title": "ICS 日程预览",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "只读预览一份经确认的 ICS 日历。保留日程原始起止时间、时区和重复规则，文件限 16 KiB。"
+    }
+  ]
+}

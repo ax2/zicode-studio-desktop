@@ -2,7 +2,7 @@ import { t } from "../../i18n.js";
 
 import { decorateBrowserCommands } from "./browser-menu-icons.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, downloads, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf, print, developerTools, userAgentSettings, proxySettings, websiteShortcuts } = {}) {
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, windows, bookmarks, downloads, history, siteSettings, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, openLocalPdf, translateSelection, screenshot, savePdf, print, developerTools, userAgentSettings, proxySettings, websiteShortcuts } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -21,6 +21,16 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
   const page = group();
   const settings = group();
   settings.classList.add("browser-menu-settings");
+  if (openLocalPdf) {
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "ui-button ui-button--secondary browser-open-local-pdf";
+    open.dataset.i18nText = "Open local PDF…";
+    open.setAttribute("aria-keyshortcuts", "Control+o");
+    open.textContent = t("Open local PDF…");
+    open.addEventListener("click", () => { menu.open = false; void openLocalPdf(trigger); });
+    tabs.append(open);
+  }
   if (websiteShortcuts) {
     const shortcuts = document.createElement("div");
     shortcuts.hidden = true;
@@ -154,7 +164,12 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     button.textContent = t(name);
     button.dataset.i18nText = name;
     if (action === print) { button.title = `${t(name)} (Ctrl+P)`; button.setAttribute("aria-keyshortcuts", "Control+p"); }
-    button.addEventListener("click", () => { menu.open = false; action(); });
+    button.addEventListener("click", () => {
+      const returnFocus = action === print && document.activeElement === button;
+      menu.open = false;
+      if (returnFocus) trigger.focus({ preventScroll: true });
+      action();
+    });
     page.append(button);
     if (name === "Developer tools") {
       const context = document.createElement("p");

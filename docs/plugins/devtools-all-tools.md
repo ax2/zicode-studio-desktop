@@ -1,3 +1,193 @@
+## 2026-11-26 开发补充：工具中心接收一个文件
+
+`file-intake` 的单文件接力可在工具中心直接选择文件，再从名称匹配的已启用工具中选择接收器。沿用文件共享与单独执行确认。隔离 Windows 已从正常入口验证 JSON 格式化、撤权和重启；资源管理器的实体拖入随下一次 Windows 候选验收。[范围与验证](../iterations/2026-11-26-tool-center-file-intake.md)
+
+## 2026-11-26 开发补充：离线向量比较
+
+`embedding-playground` 的离线比较已接入。确认两份 JSON 向量或一份已有嵌入响应后，显示维度、范数、余弦相似度及欧氏距离。隔离 Windows Studio 验证反序、明确确认、撤销共享、输入原件不变和重启。[范围与冻结候选](../iterations/2026-11-26-offline-embedding.md)
+
+## 2026-11-26 开发补充：ZiDevTools 插件清单预览
+
+`plugins` 的离线清单预览已接入。确认共享 ZiDevTools 声明式 JSON 后，可核对身份、原字节 SHA-256 和最多 64 个工具。隔离 Windows Studio 已验证末页、256 KiB、重复键、撤权和重启。只读取当前文件。[范围与冻结候选](../iterations/2026-11-26-plugin-manifest-preview.md)
+
+## 查找已交付的 Windows 工具
+
+先按源工具 ID 查冻结插件的 `catalog.json` 和分批验证记录，再按记录里的操作 ID、插件版本和安装步骤使用对应工具。例如：
+
+```powershell
+$sourceId = 'time-zone'
+rg -n -F ('"sourceToolId": "' + $sourceId + '"') tests/fixtures/devtools-windows-file-tools -g catalog.json
+rg -n -F -- $sourceId docs/plugins/devtools-all-tools.md docs/iterations
+```
+
+冻结目录可以按[下载和摘要核对说明](devtools-public-delivery.md)使用。若只找到验收记录，按该记录定位早期的本机包。对应的验证说明列出工具入口、操作范围和实际检查。
+
+[Windows 全量矩阵](devtools-windows-current.json)记录 2026-10-30 当时的隔离安装结果。后续操作逐批补充在下文和对应的验证记录。选取新迁移项时，先核对最新的验收范围，再使用提供方目录确认独立版的剩余功能。
+
+## 2026-11-26 开发补充：时区工作台搜索与逐行复制
+
+`time-zone` 的 Studio 专用界面支持搜索 IANA 名称和常用中文城市、按顺序添加或移除最多八个目的地，以及逐行复制。隔离 Windows Studio 通过中文窄窗、英文宽窗、取消重试和原有离线换算。[入口与候选](../iterations/2026-11-26-time-zone-view.md)
+
+## 2026-11-26 开发补充：时钟备份检查
+
+`clock-workbench` 的只读备份校验已接入。确认共享本机 v1–v3 JSON 可查看保存时间和脱敏记录摘要。隔离 Windows Studio 已验证 512 KiB 文件、复杂度边界、撤权和重启。[范围与冻结候选](../iterations/2026-11-26-clock-backup.md)
+
+## 2026-11-26 开发补充：时区工作台
+
+`time-zone` 的 IANA 2025b 离线换算已接入。输入一个本地时间可换算到最多八个目的时区，重复时间显示早晚候选，空缺时间显示附近有效分钟。隔离 Windows Studio 已验证批量、非整点偏移与重启重算。[范围与冻结候选](../iterations/2026-11-26-time-zone.md)
+
+## 2026-11-26 开发补充：比较并合并快捷配置
+
+`unified-shortcuts` 的便携配置已可在支持专用档案的 Studio 中预览。确认共享两份独立版 JSON，可检查合并、替换和快捷序列冲突，并明确保存新的可导入 JSON。隔离 Windows Studio 已验证原件保护与重启读回。[范围与冻结候选](../iterations/2026-11-26-shortcut-profile.md)
+
+## 2026-11-26 开发补充：会话文件转 Markdown
+
+`model-chat` 的离线文件导出范围已接入。确认共享独立版会话 JSON 后，可按原顺序将完整问答保存到新的纯文本围栏 Markdown。隔离 Windows Studio 已验证确认保存、原件保持与重启后读回 196,356 字节完整文件。[范围与冻结候选](../iterations/2026-11-26-conversation-markdown.md)
+
+## 2026-11-26 开发补充：运行表格管线并保存 CSV
+
+`pipeline` 的本机配方执行范围已接入。选择并确认一份原生 JSON 配方和一份 UTF-8 表格，可复用原生操作生成带公式保护的新 CSV。隔离 Windows Studio 已验证反序文件角色、两份原件保护、保存和重启。[范围与冻结候选](../iterations/2026-11-26-table-pipeline.md)
+
+## 2026-11-26 开发补充：从文本创建静态知识索引
+
+`rag-index` 的单份 TXT 创建范围已接入。确认共享 UTF-8 TXT 后可创建新的静态 SQLite 索引，并单独授权给关键词检索工具。隔离 Windows Studio 已验证保存、撤权和重启后在同一份索引完成英文 BM25 与中文匹配。[范围与冻结候选](../iterations/2026-11-26-knowledge-index-build.md)
+
+## 2026-11-26 开发补充：本机知识索引关键词检索
+
+确认共享独立版静态知识索引后，可使用同源 BM25 和字面搜索，预览并确认保存 TXT。隔离 Windows Studio 已验证实际排序、中文检索、索引失配拒绝及重启读回。[范围与冻结候选](../iterations/2026-11-26-keyword-index.md)
+
+## 2026-11-26 开发补充：YAML 与 JSON 无损转换
+
+Inspect 0.1.4 双向转换拒绝重复键和无法精确写出的数字。已在隔离 Windows Studio 验证安装、重启和两个文件入口，宽窄窗口下载结果与 Worker 输出一致。[范围与冻结候选](../iterations/2026-11-26-inspect-strict-yaml.md)
+
+## 2026-11-26 开发补充：MCP 客户端配置预览
+
+填写已知的本机 ZiDevTools MCP 服务程序路径，可预览 Codex TOML 或通用 JSON，并确认保存到 Studio 产物。隔离 Windows Studio 已验证预览、保存与重启后读取。[范围与冻结候选](../iterations/2026-11-26-mcp-client-export.md)
+
+## 2026-11-26 开发补充：Python / Django 环境报告查看
+
+确认共享一份本机原生 JSON 后，可查看历史 Python 环境，并分别核对 Django 分发版本和模块来源记录。隔离 Windows Studio 已验证脱敏保存与重启读回。[范围与冻结候选](../iterations/2026-11-26-python-env-report.md)
+
+## 2026-11-26 开发补充：JDK 环境报告查看
+
+确认共享一份本机 JSON 后，可查看独立版采集的 JDK 快照并保存脱敏文本。隔离 Windows Studio 已验证单环境、对照、错误报告、撤权与重启。[范围与冻结候选](../iterations/2026-11-26-jdk-report.md)
+
+## 2026-11-26 开发补充：剪贴片段组合
+
+确认共享一份本机 JSON 后，可按原顺序生成段落、编号、单列 CSV 或 Markdown。隔离 Windows Studio 已验证四种实际保存、撤权和重启读回。[范围与冻结候选](../iterations/2026-11-26-clipboard-compose.md)
+
+## 2026-11-26 开发补充：PNG 截图取色
+
+确认共享一张本机静态 PNG 后，按原始坐标读取单个像素的 RGBA 与 HEX。隔离 Windows Studio 已验证透明 RGB、越界、撤权和重启读回。[范围与冻结候选](../iterations/2026-11-26-screenshot-pixel.md)
+
+## 2026-11-26 开发补充：本机工具目录盘点
+
+在工具中心确认共享一个工作区目录，用一层名称匹配 13 组 Windows 工具入口。隔离 Studio 已验证实际目录读取、预览、取消、确认另存和撤权。[范围与冻结候选](../iterations/2026-11-26-integration-entries.md)
+
+## 2026-11-26 开发补充：录屏章节元数据
+
+确认本机 JSON 章节计划后，可预览并保存完整 FFmpeg 章节元数据。隔离 Windows Studio 已验证按次共享、确认保存和重启读回。[使用范围与冻结候选](../iterations/2026-11-26-recording-chapters.md)
+
+## 2026-11-26 开发补充：图片批处理（小型 PNG）
+
+确认一至两张本机小型静态 PNG 后，可等比缩小并分别保存结果。Windows 隔离 Studio 验证了单份取消、分别保存及重启读回。[使用范围与冻结候选](../iterations/2026-11-26-image-batch-png.md)
+
+## 2026-11-26 开发补充：SQLite 浏览器
+
+确认一份本机静态 SQLite 数据库后，可查看目录、分页阅读普通表并确认保存当前页 CSV。已在隔离 Windows Studio 验证取消、确认保存、重启和撤权。[使用范围与冻结候选](../iterations/2026-11-26-sqlite-browser.md)
+
+## 2026-11-26 开发补充：表格另存 SQLite
+
+工具中心可将确认共享的 CSV、TSV 或 JSON 表格保存为新的 SQLite 单表文件。Windows 隔离 Studio 已验证取消、确认写入、撤权以及重启后逐字节读回。[使用范围与冻结候选](../iterations/2026-11-26-table-sqlite-export.md)
+
+## 2026-11-26 开发补充：原尺寸图片转换
+
+在工具中心搜索「保持原尺寸转换图片」，确认共享一张静态 PNG、JPEG 或 WebP，转换后保持像素宽高。Windows 隔离 Studio 已验证取消、确认另存和重启，超过内嵌预览限制的大图可以直接另存。[范围与冻结候选](../iterations/2026-11-26-image-original-size-convert.md)
+
+## 2026-11-26 开发补充：备忘备份提取 Markdown
+
+在工具中心确认一份 ZiDevTools 备份后，可查看普通备忘并按原序号提取单条 Markdown。Windows 隔离 Studio 已通过逐次共享、取消与确认保存、空正文及重启复验。[范围与冻结候选](../iterations/2026-11-26-memo-backup-extract.md)
+
+## 2026-11-25 开发补充：本地服务配置预检
+
+在工具中心确认读取一份本机服务 YAML，可核对导入前置规则与脱敏摘要。Windows 隔离 Studio 已验证 UTF-8 BOM、16 KiB 边界、撤权及重启。[使用范围与冻结包](../iterations/2026-11-25-service-config-preflight.md)
+
+## 2026-11-25 开发补充：检索评测报告复核
+
+工具中心新增「检索评测报告复核」。确认一份最多 64 KiB 的本机导出后，核对单路检索排名或双路配对的命中与 MRR。Windows 隔离 Studio 已验证两种报告、逐次共享、撤权与重启。[使用范围与冻结包](../iterations/2026-11-25-retrieval-review.md)
+
+## 2026-11-25 开发补充：工具集合导入预览
+
+工具中心新增「工具集合导入预览」。确认本机导出后可按顺序查看集合与成员、模拟重名建议。Windows 隔离 Studio 已验证 128 KiB 边界、同一授权下读到第 512 项、撤权与重启。[使用范围与冻结包](../iterations/2026-11-25-tool-collections.md)
+
+## 2026-11-25 开发补充：提示词模板工具
+
+工具中心新增「提示词变量检查」和「提示词模板展开」。可离线查看变量并预览展开，保留字面双括号和插入值原文。Windows 隔离 Studio 已验证两个入口及重启复算。[使用范围与冻结包](../iterations/2026-11-25-prompt-expansion.md)
+
+## 2026-11-25 开发补充：备忘导入预览
+
+工具中心新增「备忘导入预览」。确认一份本机 Markdown 或 UTF-8 文本，可查看建议标题和正文摘录。Windows 隔离 Studio 已验证完整文件校验、128 KiB 正文边界、撤权及重启复算。[使用范围与冻结包](../iterations/2026-11-25-memo-text-preview.md)
+
+## 2026-11-25 开发补充：ICS 重复截止预览
+
+工具中心新增「ICS 重复截止预览」。确认一份最多 16 KiB 的本机 ICS 后，可将单条日程的重复次数换算为最后一次开始及包含式截止。Windows 隔离 Studio 已验证真实执行、逐次共享、撤权和重启复算。[使用范围与冻结包](../iterations/2026-11-25-ics-count-cutoff.md)
+
+## 2026-11-25 开发补充：本机 HTML 正文预览
+
+工具中心新增「本机 HTML 正文预览」，查看本机 HTML 的标题和正文摘录。Windows 隔离 Studio 已复核逐次文件确认、16 KiB 边界、撤权及重启后再次检查。 [使用范围与冻结包](../iterations/2026-11-25-local-html.md)
+
+## 2026-11-25 开发补充：Agent 运行记录检查
+
+工具中心新增「Agent 运行记录检查」，查看单份已确认 JSON 的状态、运行时间和用量。Windows 隔离 Studio 已复核逐次文件确认、64 KiB 边界、撤权及重启后再次检查。 [使用范围与冻结包](../iterations/2026-11-25-agent-record.md)
+
+## 2026-11-25 开发补充：公式计算器
+
+工具中心新增「公式计算器」，支持精确分数、复数、组合、位运算和单位换算。Windows 隔离 Studio 已复核实际求值、精确结果和失败提示，并验证重启保持。 [使用范围与冻结包](../iterations/2026-11-25-expression-calculator.md)
+
+## 2026-11-25 开发补充：非线性方程求根
+
+工具中心新增「非线性方程求根」，支持区间二分、弧度或角度及显式常量。Windows 隔离 Studio 已复核实际求值、收敛和失败提示，并验证重启保持。 [使用范围与冻结包](../iterations/2026-11-25-root-solver.md)
+
+## 2026-11-25 开发补充：数值统计
+
+工具中心新增总和、均值、中位数、总体和样本方差及标准差。Windows 隔离 Studio 已验证七个入口、长分数排序、样本数量约束及重启保持。[使用范围与冻结包](../iterations/2026-11-25-numeric-statistics.md)
+
+## 2026-11-25 开发补充：矩阵计算
+
+工具中心新增矩阵加减、乘法、转置、行列式、求逆与多右端方程求解。粘贴以 Tab 和换行分隔的矩阵，支持精确分数和可选近似计算。Windows 隔离 Studio 已核对七个入口、错误处理和重启保持。[使用范围与冻结包](../iterations/2026-11-25-matrix-calculator.md)
+
+## 2026-11-25 开发补充：日期与工作日
+
+工具中心新增「日期差」「日期加减」「工作日计数」和「工作日加减」。支持公历 0001–9999 年，工作日按周一至周五计算。Windows 隔离 Studio 已核对四个入口和跨年、月末、端点及正反向边界。[运行步骤和冻结包](../iterations/2026-11-25-date-calculator.md)
+
+## 2026-11-25 开发补充：知识源文件预检
+
+在工具中心确认共享一个文件夹的一层名称，按独立版格式和排除规则统计候选文件，最多 64 个目录项。Windows 隔离 Studio 已验证实际目录枚举、默认和自定义规则以及撤权。文件内容和目录结构保持原样。[运行步骤和冻结包](../iterations/2026-11-25-knowledge-source-preflight.md)
+
+## 2026-11-25 开发补充：批量改名预览
+
+从工具中心选择文件夹并确认共享一层名称。可预览字面替换、前后缀和目标冲突，最多 64 个目录项。Windows 隔离 Studio 已核对未变化、仅大小写、重复、同层文件夹占用及撤权。目录内容和名称保持原样。[运行步骤和冻结包](../iterations/2026-11-25-batch-rename-preview.md)
+
+## 2026-11-25 开发补充：文本流程配方检查
+
+从工具中心确认一份最多 64 KiB 的本机配方 JSON，检查原生格式 1–4 下最多 16 步的动作、材料衔接、影响和副输出。真实 Windows Studio 已验证正常读取、撤权和坏配方拒绝。[运行步骤和冻结包](../iterations/2026-11-25-flow-recipe-inspection.md)
+
+## 2026-11-25 开发补充：ICS 日程预览
+
+工具中心可在确认后打开不超过 16 KiB 的本机 ICS 文件，预览日程原始时间、时区、重复规则和例外提示。Windows 隔离 Studio 已验证安装、执行及撤权。[运行步骤和冻结包](../iterations/2026-11-25-ics-preview.md)
+
+## 2026-11-25 开发补充：DOCX 正文分块预览
+
+在工具中心确认一份本机 DOCX 后，可查看按段落编号的正文分块和摘要。源文件及正文 XML 各限 128 KiB。已完成实际 Windows Studio 工具入口、授权、边界及撤权验证。[运行步骤和冻结包](../iterations/2026-11-25-docx-chunk-preview.md)
+
+## 2026-11-25 开发补充：提取 PDF 单页文本
+
+从工具中心搜索「提取 PDF 单页文本」。确认一份最多 128 KiB、32 页的本机 PDF，输入页码并执行，结果显示该页嵌入文本或无文本原因。Windows 隔离 Studio 已核对文件确认、准确指定页及撤权。[运行步骤和冻结包](../iterations/2026-11-25-pdf-page-text.md)
+
+## 2026-11-25 开发补充：本机日志筛选
+
+审核并启用独立 Log Viewer 0.1.0 候选 02 后，在工具中心搜索「本机日志筛选」。确认一份 16 KiB 以内的本机 UTF-8 日志，按级别和关键词筛选多行事件。Windows 隔离 Studio 已核对安装、执行、撤销和无效编码处理。另可启用 0.2.0 候选 01，在用户确认后从最多 32 MiB 的日志显示末尾 16 KiB 内的分析结果和准确字节范围。 [运行步骤和冻结包](../iterations/2026-11-25-local-log-filter.md)
+
 ## 2026-11-25 开发补充：单张图片裁剪
 
 审核并启用独立 Image Crop 0.1.0 候选后，在工具中心按像素裁剪一张本机静态 PNG、JPEG 或 WebP。确认提供文件并手动执行后，可预览无损 PNG，或按现有确认流程另存新文件。原件和同名目标保留。见[资源边界和 Windows 验收](../iterations/2026-11-25-image-crop.md)。确认本机静态 PNG 后也可预览原图、拖动并明确应用选区，复核像素数值后手动执行。超出预览范围和其他图片格式继续使用数值输入。标注等余项见 [#29](https://github.com/ax2/zicode-studio-desktop/issues/29)。
@@ -34,6 +224,12 @@ Compare 0.1.0 的「JSON 对比（数组按顺序）」和「JSON 对比（数�
 
 「SQL 格式化」可选取 8 KiB 以内的本机 UTF-8 SQL 文件，可撤销，保留原文件及原始换行。手动执行成功后，点击「下载格式化 SQL」获得一份独立的 UTF-8 `.sql` 文件。修改输入后需要重新执行。见[使用范围及 Windows 验收](../iterations/2026-11-25-sql-file.md)。
 
+Text 0.4.2 候选 01 另提供五种方言、缩进和关键字大小写。当前 Windows 隔离 Studio 已通过 10 个实际工具中心用例，密集语句的预算限制仍由 #28 跟踪。见[方言与排版验收](../iterations/2026-11-25-sql-file.md#text-042-方言与排版)。
+
+Text 0.4.3 候选 01 在现有 Worker 预算通过五种方言的 9 组 8 KiB 密集短句。已从 Windows 隔离 Studio 的正常工具入口核对旧包失败、新包成功和结果限额。见[密集短句验收](../iterations/2026-11-25-sql-file.md#text-043-密集短句)。
+
+Text 0.4.4 候选 01 可为已确定超出结果上限的深层 SQL 提前提示。Windows 隔离 Studio 已核对 0.4.3 与 0.4.4 的 SQL、Base64 文件入口及 48 KiB 结果边界。见[输出上限验收](../iterations/2026-11-25-sql-file.md#text-044-输出上限)。
+
 ## 2026-11-25 开发补充：YAML 与 JSON 文件转换
 
 两种转换均可从本机导入 8 KiB 以内的 UTF-8 文件并撤销。手动执行成功后，可下载当前完整结果，保留原件。冻结 Inspect 0.1.2 候选在生产 Windows Worker 通过两个方向的精确整数和中文样例。见[范围与验收](../iterations/2026-11-25-yaml-file-workflow.md)。
@@ -49,6 +245,8 @@ Unicode 码点、NFC 和 NFKC 支持导入 8 KiB 内 UTF-8 文件。保留 BOM �
 ## 2026-11-25 开发补充：Java 与 Python 堆栈日志文件
 
 「Java 异常链」和「Django / Python 堆栈」可导入 8 KiB 内 UTF-8 日志并撤销，手动执行成功后下载本次完整 JSON。已用冻结 Trace 0.1.1 与生产 Windows Worker 验证异常链、完整报告和 48 KiB 输出保护。见[范围与验收](../iterations/2026-11-25-trace-log-files.md)。
+
+「Spring 配置对比」可在两侧分别导入 8 KiB 内 UTF-8 JSON 或 YAML，撤销选取并手动执行，成功后可下载完整 JSON 或确认保存到 Studio。见[范围与验收](../iterations/2026-11-25-spring-config-files.md)。
 
 ## 2026-11-25 开发补充：HTML 实体文件转义与还原
 

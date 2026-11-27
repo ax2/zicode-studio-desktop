@@ -1,0 +1,551 @@
+{
+  "generator": "scripts/verify_expression_calculator_plugin.py",
+  "cases": [
+    {
+      "id": "native-exact-decimal",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "562b408011834b96796ab935360ace27291ab0e923a7aca87a41f26a319bcf41",
+      "ok": true
+    },
+    {
+      "id": "native-exact-fraction",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "96fde55dd2b4d2319476a6eb36056ec39370e8792d7cce242f33427e9d8b9e1a",
+      "ok": true
+    },
+    {
+      "id": "native-continued-rational",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "a55ebfb2998c44ba0223321d787d8af9e74c91c3c242cda7b38f075d562dff18",
+      "ok": true
+    },
+    {
+      "id": "unary-power-precedence",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "27bf40ea6ff41c0e5e03674a25e4931fb9dec7268abeda7c47708cde6e9cdeca",
+      "ok": true
+    },
+    {
+      "id": "right-associative-power",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "ad9398296d8487f73315c7f84a63bf73d7131db242d28c0f327ed9fa6b53b392",
+      "ok": true
+    },
+    {
+      "id": "negative-exact-exponent",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "d414cc992683b5731a0e3acbada53e25cebe200c6eda8fc7c8c96e6e0aad37fd",
+      "ok": true
+    },
+    {
+      "id": "ordinary-parentheses",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "21a06c946ef2bc3d3eee5adf60ea5abcfcc17f52708dc656a935d33d0ac8071a",
+      "ok": true
+    },
+    {
+      "id": "native-exact-scientific-notation",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "c1595c829e8d7c82f3b3d4314eb21a00f7650794d3f5406c5564c968bd030fc0",
+      "ok": true
+    },
+    {
+      "id": "signed-round",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "3c7b48f2a4e3f86b87e085606c1d8df70e1af48680508e909c1018641dfd176e",
+      "ok": true
+    },
+    {
+      "id": "fraction-floor",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "4799e4eda022ea9c6ea6086f19589693e821d9947cda4d7ccabf8d23484ff399",
+      "ok": true
+    },
+    {
+      "id": "exact-fraction-ceil",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "6db368eda351914fd4e646f8d0ec65c91f1b817802f7c5291edc2ec34f3dc622",
+      "ok": true
+    },
+    {
+      "id": "radians-default",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "0c0f1c298cec3419c517061b27668ea0dc1f0ce02d5e5be330245f0962d1c1d0",
+      "ok": true
+    },
+    {
+      "id": "degrees-option",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "03f85669f1fc88365ff107e49a3158ef13a2e433b9ff1bdb67745fb3519530da",
+      "ok": true
+    },
+    {
+      "id": "real-scientific-functions",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "0f090c45261ab6dd1ba2838c8ee9680c845380e4185a648f602ba3d82cd75844",
+      "ok": true
+    },
+    {
+      "id": "full-typed-complex-sqrt",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "5f8989f628f997cca3352814c4973ca2927fc1fa98ed03edf33f2ae4c8dd1b40",
+      "ok": true
+    },
+    {
+      "id": "native-complex-multiplication",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "d8ce203fa9fdbafb7a7736e92bd94a63026353c94ceda49a11079415f7f4ad6e",
+      "ok": true
+    },
+    {
+      "id": "native-complex-power",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "fce2eb15c79f8f39c9e962c7b794404bfcfca63785230172830465846580711a",
+      "ok": true
+    },
+    {
+      "id": "native-complex-real-part",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "1ca1194d3ab1d13e0bd0f8ddf60190aa29983b6a3c4084fde99c80ab3dbf8f14",
+      "ok": true
+    },
+    {
+      "id": "native-complex-imaginary-part",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "03433574a3f6e5a8dbd51315ad21f4b8c5d6757f505ae9b458d22eafd5d26abb",
+      "ok": true
+    },
+    {
+      "id": "native-complex-polar-phase",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "cbc383c9d3380f308ae620ffd5cb6c23ca65fb409e8ae90bf3f86f17f1e90e17",
+      "ok": true
+    },
+    {
+      "id": "programmer-hex-bit-and",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "0c76552d5fd123030ae1924e56d75c57834eb1987a6f888b63b83415b7b0e672",
+      "ok": true
+    },
+    {
+      "id": "programmer-binary-shift",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "4b390ff73e0e7eb2e641edcfb635846bdef0d2153c76cae334afcf00e62a98e9",
+      "ok": true
+    },
+    {
+      "id": "programmer-octal-or",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "a0690ae3c3cd3958dcef3e08bfe367556fe1566817a6d4f8e6d9562b89bc57b6",
+      "ok": true
+    },
+    {
+      "id": "programmer-bit-not",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "4a6aad7882d6b2658d546a3152c5430f6d6c0651cd4a75314916db1508773d6c",
+      "ok": true
+    },
+    {
+      "id": "programmer-128-sign-bit",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "d826567602edda5b884a3cee650ea79db5e811da240188b408b250ac080698c1",
+      "ok": true
+    },
+    {
+      "id": "programmer-arithmetic-right-shift",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "0cc9ddd05666f083372041b5180b83a26bf3920c4b7dfd8a862385712a7454a8",
+      "ok": true
+    },
+    {
+      "id": "programmer-xor",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "e09efbf8795009fe5aec2c0be9e604bbffc90b3d3939c66e59380d9b78d10f1b",
+      "ok": true
+    },
+    {
+      "id": "programmer-remainder",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "2b5b72f53de30cfe3a90d8a0cc324054c04cc910f20490bf835176d76cd525dc",
+      "ok": true
+    },
+    {
+      "id": "unit-length",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "9160eed0719c8e4fbdb47b856ebf5adbcd1e22def42e291bd3f02a36d39ff37e",
+      "ok": true
+    },
+    {
+      "id": "unit-mass",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "5f8f8e603c020075cab8e082374d926acc22dd4d31f4969c9787a0a843656c70",
+      "ok": true
+    },
+    {
+      "id": "unit-time-expression",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "ad6b991caef848de6de58ab5b0a0f43da796009a5f37df1e19f8130529be6760",
+      "ok": true
+    },
+    {
+      "id": "unit-storage-exact",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "8ab7ff9908917dd958439acf9f97f4cea562d5f8db9f84e15966307bb312fbf9",
+      "ok": true
+    },
+    {
+      "id": "unit-temperature-offset",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "06c52c6dde80f1ab526c414a047ac4dfe0d7fe534dd716727e933a42ead764cc",
+      "ok": true
+    },
+    {
+      "id": "unit-negative-temperature",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "3cac3bb60ba68ddc90d6f4130a3e7ae0d2f380051958c7ecb4a974117a6b4ac5",
+      "ok": true
+    },
+    {
+      "id": "native-exact-rational-comparison",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "04d2aec2e79b959d20c71257e571a92dc7e240be65e408775f6b67d82b8b8e1f",
+      "ok": true
+    },
+    {
+      "id": "largest-exact-integer",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "4db1f307820687464ffee62f1b1116241ba92c126e2406beec20d6b03392df89",
+      "ok": true
+    },
+    {
+      "id": "smallest-exact-per-request-literal",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "cfd719b4a1f72188ef404a4e22c4197c2739c7b9901226589a05e13f793dd870",
+      "ok": true
+    },
+    {
+      "id": "explicit-fraction-and-float-constants",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "cc5dd33a92440b68fe24ea72d9c17995227656d685e89bb5a1b6d3ba79beb595",
+      "ok": true
+    },
+    {
+      "id": "coordinate-is-ordinary-in-expression",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "3dc943a8298b0d3488202cf8f3e1987e505cf3a6e9e6049851f868757438ba10",
+      "ok": true
+    },
+    {
+      "id": "constants-count-64",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "606d9193ba82b78c24b5b7cfd10d63c4b794f024f3297c9e59c8ef5d6395d170",
+      "ok": true
+    },
+    {
+      "id": "formula-composes-statistics",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "1a49d7ec50bd82bd37be5cc7fc0453022948cd58f56432a806cef29f770ae9ab",
+      "ok": true
+    },
+    {
+      "id": "zero-factorial",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "1af8f323ef2506b035d70519fa7d5e00e1b3b95320f77391cb22d1846989e671",
+      "ok": true
+    },
+    {
+      "id": "largest-exact-factorial",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "f6ef29fb43e72991e1024ae372ad288f9d5115c0246fb91a19ed0afc86cba581",
+      "ok": true
+    },
+    {
+      "id": "native-permutation",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "404c627a4c21c305fdef7291c385c11203569614a9eaf076010661db97bc2d4d",
+      "ok": true
+    },
+    {
+      "id": "native-poker-combination",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "cdee624ece2e8ecdbb87e80e6abbaff6d681ba18810a7b3e6ecd08d17435314d",
+      "ok": true
+    },
+    {
+      "id": "near-int128-binomial",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "4b747e83638a943b705733f41968675fbb691ce093baeba829d59a9a5aec8455",
+      "ok": true
+    },
+    {
+      "id": "native-zero-selections-max-n",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "05cc2a45db62fa9de98d46403c6c63f2396e3b56ed9acb638b1a6b7042581e71",
+      "ok": true
+    },
+    {
+      "id": "signed-gcd",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "dee368628ded2e25d9f4fa2872b82f60af995f90579c2845b6649122b2b0111d",
+      "ok": true
+    },
+    {
+      "id": "signed-lcm",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "94c049d8bf050b3a66a29fa4e2db20e2bde46d24f24736f10888bba64704959a",
+      "ok": true
+    },
+    {
+      "id": "gcd-i128-minimum",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "f84beae4da4907d4290740bf1bd9b3cfd0e8f881751d46e34ca732f525fed0f0",
+      "ok": true
+    },
+    {
+      "id": "gcd-zero-pair",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "a93950b721284a42abad5318e71b1ca8915e573bbde9010e3a114ecb64bf275b",
+      "ok": true
+    },
+    {
+      "id": "lcm-zero",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "29df4d1d711651ded775fae664272598b0833b789bf699f188df862023b2f91a",
+      "ok": true
+    },
+    {
+      "id": "dense-512-token-add",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "de2e1319d637510a552739aada540f1cfcba30bf387fa04eed4540b4a340f6e1",
+      "ok": true
+    },
+    {
+      "id": "max-2048-byte-formula",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "93b7516df250e551e376e471fae118e6410da32b57c084e9b46b598fecd32645",
+      "ok": true
+    },
+    {
+      "id": "dense-combination-workload",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "71d40d6bccdcba3026bb6b1bd64ca3a32ab2ea49e1b02a98867e8e38abbf97ae",
+      "ok": true
+    },
+    {
+      "id": "dense-neighboring-integer-gcd",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "52fa312c99e774bc71688bb1230350e6b6e3d26e63e42b76a1bbf1d3d1908689",
+      "ok": true
+    },
+    {
+      "id": "native-legal-depth",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "2f1f2a6d3399217a82b4612f64bb57785e97fcda257aadcb59bd1f30f16a8f0c",
+      "ok": true
+    },
+    {
+      "id": "one-expression-only",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "a9c31ee5d0dab05cdd8ae6a933452784f1165d1414d04f34fa06b1389bee2ed4",
+      "ok": false
+    },
+    {
+      "id": "no-assignment",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "ab31076c31272ecfc0c2d5ba74c6c2365c50a03909077f80cbd9a8315384f335",
+      "ok": false
+    },
+    {
+      "id": "no-multiple-values",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "81233d6a4730ee937cace894920b2771fca7b386dd7be270f99fa3acea0ab6ff",
+      "ok": false
+    },
+    {
+      "id": "no-session-ans",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "373d99a158c6f3d4c720bb776ade1f43b79f63feb376566610373dac9fe9af5d",
+      "ok": false
+    },
+    {
+      "id": "no-unknown-name",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "7044fc9d2382b9f7035b800f5056116efd7a88a6eae2ffc312b682001e6a9b04",
+      "ok": false
+    },
+    {
+      "id": "no-unknown-function",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "9d631cbac8472005d1ce566a8bc92e973a25bb20e87a76b65d00f4bab9cb5f2e",
+      "ok": false
+    },
+    {
+      "id": "no-empty-input",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "3a3401928b7770842ae81fcc82a6e10a7d61d8afe46aca51f46f2e1edb4ec122",
+      "ok": false
+    },
+    {
+      "id": "no-over-depth",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "d06d98fbc78aac42df43fc206dc4a7b3207ba2d7374fbce8d81b53dd314f4a9e",
+      "ok": false
+    },
+    {
+      "id": "no-over-token-budget",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "f8c405168b60c7a031f21524c6af75603b96b915035a2f291f84814876b77c39",
+      "ok": false
+    },
+    {
+      "id": "no-over-byte-budget",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "4b71089ec9a379f2fca4db834fbd8d921996c7c8fa93eba2f9cbc92c934f96f5",
+      "ok": false
+    },
+    {
+      "id": "non-ascii-numeral-rejected-by-native-grammar",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "83f5fa5cb405a83725ac2cffb7c1b93a9302f05f9fb4a04182e34ca7f436aba9",
+      "ok": false
+    },
+    {
+      "id": "native-precise-overflow-does-not-approximate",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "ae82f7e7288d84bcad6a03bfd2c0fb517b680813b606b7e301b74605cf374c7c",
+      "ok": false
+    },
+    {
+      "id": "division-by-zero",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "784caf93ca091265062b799eff98ce552560596970635061ea9f2c21db3e1071",
+      "ok": false
+    },
+    {
+      "id": "non-finite-result",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "fdd64601d5d169feae9f145f28d777465061e597bf4ae6fffa73bc228407ae62",
+      "ok": false
+    },
+    {
+      "id": "bitwise-requires-exact-integer",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "37f654819a9e15062930ae273e3e29916485513adc1330906e7d7289b4c8f674",
+      "ok": false
+    },
+    {
+      "id": "bitwise-shift-limit",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "28312f2184a204521bea6e9d9a598a80ca512ec5dfaad1667f24dc0ee90daf16",
+      "ok": false
+    },
+    {
+      "id": "unit-dimension-mismatch",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "24b8b4d5b3a3a6886e4ee1f83fe27278755b3a11218455bba7c49702052af3a0",
+      "ok": false
+    },
+    {
+      "id": "unknown-unit",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "967121759576bfc834ee8e30b44619a8e3ea5ed6039dcf1a43cbd03497054409",
+      "ok": false
+    },
+    {
+      "id": "native-factorial-overflow",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "f20b441813dd123b5442dd7ee2d7bb9138092483b789948ac524d0a7f43e2603",
+      "ok": false
+    },
+    {
+      "id": "native-combination-input-limit",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "55fe207294ee5a28e9cd830b903df1ed8a94e68b4a87365fbcb9396548b73fb8",
+      "ok": false
+    },
+    {
+      "id": "native-combination-range",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "ce52adac691f5e66f9b9feec0947307a7065693d0a0468162c81fcd382c469c0",
+      "ok": false
+    },
+    {
+      "id": "native-combination-overflow",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "e1f351d3c946dd40e7b138cf8c1f52d3502a542d7fd95799e383db279f8c0f03",
+      "ok": false
+    },
+    {
+      "id": "nonintegral-gcd",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "521e468eaae5e4f3b6b774eb5504a5fd9ac14fa8a4b08e6f227902ad482ed8ab",
+      "ok": false
+    },
+    {
+      "id": "native-lcm-overflow",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "82697b7bf976e2e9ed747e3fbd894ec38e0aba947fbcd404516fb60e52fe6298",
+      "ok": false
+    },
+    {
+      "id": "reserved-constant-name",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "de4274a5a0b685459c8ebdfe0bd484522c377d0eb3aeedd9c1a049ed77d770d7",
+      "ok": false
+    },
+    {
+      "id": "no-presented-ans-history",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "dfd892de299b6408b9ef17b3883ba915bf4d7330d7fd9d14a306fb54884787ff",
+      "ok": false
+    },
+    {
+      "id": "too-many-constants",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "dc73312e4158383fd6092aa4a768b47e9009b812a6c1a94a864221b2cf9ae573",
+      "ok": false
+    },
+    {
+      "id": "constant-invalid-rational",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "22757501b092b1a6c4d0fc56d1375d59bb3709092640913709060d31a1db1be3",
+      "ok": false
+    },
+    {
+      "id": "constant-non-finite-string",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "a3d70e91b4bfc0b3da18752151a6660c852c565394586afeea4e446431389528",
+      "ok": false
+    },
+    {
+      "id": "constant-string-byte-limit",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "f7daecd99ec3793e61d4d44c2138fcea574bc79fdbad070a55634ce78ded9826",
+      "ok": false
+    },
+    {
+      "id": "constant-bool-is-not-a-number",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "2e8474da1c34588036a810da0779d7f7d8de719bf13fc096e88301bbd1e1f91f",
+      "ok": false
+    },
+    {
+      "id": "unknown-angle",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "9d0f3d345e483a4e6caf145af5d3b48d5bec74859c26cd4aafff680ea6936ff0",
+      "ok": false
+    },
+    {
+      "id": "no-unexpected-input-property",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "eb4209caab79e857e24e3ddb1877491cd5c7f9fcc73b10d3cebd3fc8abd11d41",
+      "ok": false
+    },
+    {
+      "id": "request-16-kib-bound",
+      "capabilityId": "devtools.calculator.evaluate",
+      "inputSha256": "39bc54bd2462c99de6d4511f587d2c7fb143a12880ff5f13033ced2f248ca1a5",
+      "ok": false
+    }
+  ]
+}

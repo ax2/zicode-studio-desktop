@@ -1,0 +1,359 @@
+{
+  "generator": "scripts/verify_matrix_calculator_plugin.py",
+  "cases": [
+    {
+      "id": "exact-fraction-and-decimal-add",
+      "capabilityId": "devtools.matrix.add",
+      "inputSha256": "3b9dc88e0e9a4e21a0feba3c765bc492cc047e6e95f4afe52d3a083abebdecbb",
+      "ok": true
+    },
+    {
+      "id": "negative-exact-and-scientific-subtract",
+      "capabilityId": "devtools.matrix.subtract",
+      "inputSha256": "d38d28c3dddd6630d19b6e1ceaaec9b31333496f949b18dc635d173ad0862f02",
+      "ok": true
+    },
+    {
+      "id": "exact-rectangular-multiply",
+      "capabilityId": "devtools.matrix.multiply",
+      "inputSha256": "b0a5b734fadf93636db07e7d63f85401374b22a96930305b27b8f773802a41ba",
+      "ok": true
+    },
+    {
+      "id": "exact-rectangular-transpose-crlf",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "46413f80ab210a80b923745f13c63903d31edf2927edb936b99078537c58905c",
+      "ok": true
+    },
+    {
+      "id": "determinant-row-exchange",
+      "capabilityId": "devtools.matrix.determinant",
+      "inputSha256": "f8553117372c2b63a161cffa7d45355adf763caeb29dae405b6f50e9df0b8ac9",
+      "ok": true
+    },
+    {
+      "id": "singular-determinant-zero",
+      "capabilityId": "devtools.matrix.determinant",
+      "inputSha256": "3b1ce123bc441e42f05781aed9d886943f19da942026d293fc2727e7fa5948cb",
+      "ok": true
+    },
+    {
+      "id": "scalar-exact",
+      "capabilityId": "devtools.matrix.determinant",
+      "inputSha256": "1bc49c841be69330f04c2d1a3ed0d074d45c402e4c60458a97e2f32bef8d6a85",
+      "ok": true
+    },
+    {
+      "id": "inverse-exact-fractions",
+      "capabilityId": "devtools.matrix.inverse",
+      "inputSha256": "3ef07adcc78712cb427dd95148f9fe317c357a0620c7d918a5efe13089374d4e",
+      "ok": true
+    },
+    {
+      "id": "solve-multiple-right-hand-sides",
+      "capabilityId": "devtools.matrix.solve",
+      "inputSha256": "bf685c1051beba50f11b5632d43f957cedb7902d3b36198777196e6c4e3367c1",
+      "ok": true
+    },
+    {
+      "id": "exact-integer-past-javascript-safe-range",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "0101fafdbe658d2624953de51a69631d69d2c12482d0ab30b34e7f6344a33863",
+      "ok": true
+    },
+    {
+      "id": "exact-nonterminating-fraction",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "a530711505890a0d1e7853522ff4bf2906980d51e541add4b265973216872489",
+      "ok": true
+    },
+    {
+      "id": "exact-prefixed-and-signed-elements",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "c3e614a862b3c9e76a8ecef9247909b706f0ead2e84f4fb7b6e0a101300e3ef1",
+      "ok": true
+    },
+    {
+      "id": "approximate-decimal-and-scientific",
+      "capabilityId": "devtools.matrix.add",
+      "inputSha256": "60c7644393bc8c31b7054f1a981bf9ee7075c6ed584c40db1a749c9992996c4c",
+      "ok": true
+    },
+    {
+      "id": "approximate-extreme-finite-and-subnormal",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "f099d0fa27f297a6a7eb0823df886f2f08f6a7adfcee66e848edfccf1b945121",
+      "ok": true
+    },
+    {
+      "id": "approximate-solve",
+      "capabilityId": "devtools.matrix.solve",
+      "inputSha256": "1dbae2fa1facded55535dae6836e9c33c5ce5deec674f745ae5d729bb6aa0c9c",
+      "ok": true
+    },
+    {
+      "id": "approximate-singular-determinant",
+      "capabilityId": "devtools.matrix.determinant",
+      "inputSha256": "3b1bdbd8179a5fcf1f26dae9f24e2b0e178dd110e7e4bcc516e7f77f05e4bd2b",
+      "ok": true
+    },
+    {
+      "id": "exact-dense-eight-axis-multiply",
+      "capabilityId": "devtools.matrix.multiply",
+      "inputSha256": "7385575d309c7521c0af9a32d21fc5b694d6be103eb4401598d4a66dae0c7bb3",
+      "ok": true
+    },
+    {
+      "id": "exact-dense-eight-axis-determinant",
+      "capabilityId": "devtools.matrix.determinant",
+      "inputSha256": "6f4c1cc5f2fb981ea7fd7a89414d76e92ac3f540be7723ca0321795e59135db5",
+      "ok": true
+    },
+    {
+      "id": "exact-dense-eight-axis-inverse",
+      "capabilityId": "devtools.matrix.inverse",
+      "inputSha256": "6f4c1cc5f2fb981ea7fd7a89414d76e92ac3f540be7723ca0321795e59135db5",
+      "ok": true
+    },
+    {
+      "id": "exact-dense-eight-axis-and-eight-rhs",
+      "capabilityId": "devtools.matrix.solve",
+      "inputSha256": "40db200a9c377422cc528bf37d4900f811654c4cd4bd9493bd98bdf6a85b1f18",
+      "ok": true
+    },
+    {
+      "id": "approximate-dense-eight-axis-and-eight-rhs",
+      "capabilityId": "devtools.matrix.solve",
+      "inputSha256": "825fb7381370f213e0a72b9544d233d097574216c6ab62aa2236bdc7d77f7989",
+      "ok": true
+    },
+    {
+      "id": "exact-four-kib-per-matrix",
+      "capabilityId": "devtools.matrix.add",
+      "inputSha256": "f22dd8d405e48867d968ff71160d08e2ab40b4e47e397c33e638bd26f39553c3",
+      "ok": true
+    },
+    {
+      "id": "exact-long-fractions-and-output",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "5787320139efc870ada88a08373ea4410fba1fd2f08e159bd2d03cb5ae132492",
+      "ok": true
+    },
+    {
+      "id": "exact-long-euclidean-reduction",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "2d0bf52028682ec320070ac7b66eb01dcc0e7d545b67985f02a633bfe96296a0",
+      "ok": true
+    },
+    {
+      "id": "empty-matrix",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "258555fe010df3da34b3920945d0fbc59cebbcff1878bfc2e9206f0f495d81b9",
+      "ok": false
+    },
+    {
+      "id": "ragged-matrix",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "0f99ef07d1fafd30388eebd777bb253404b29fd2dbecf9c5fd6aaed8d6d42559",
+      "ok": false
+    },
+    {
+      "id": "blank-cell",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "bd8bfcbfc98336b57db920b36cb242d86007a9cbba2840ea6c42db89a3913fa2",
+      "ok": false
+    },
+    {
+      "id": "blank-row",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "56085030e9226d7b59278fbd4fa71efe2726f60a36ae5ca22e6b49321e816afb",
+      "ok": false
+    },
+    {
+      "id": "ninth-row",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "f4cc59fbef385fee785e3e6e0fa19ece295a7cc8cd8f1dc535ece5befedd75af",
+      "ok": false
+    },
+    {
+      "id": "ninth-column",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "9409a42b26583aed1eaa92fa7717a9e962c9f851cc06e9627e2aa1f62f599e95",
+      "ok": false
+    },
+    {
+      "id": "add-mismatch",
+      "capabilityId": "devtools.matrix.add",
+      "inputSha256": "b0a5b734fadf93636db07e7d63f85401374b22a96930305b27b8f773802a41ba",
+      "ok": false
+    },
+    {
+      "id": "subtract-mismatch",
+      "capabilityId": "devtools.matrix.subtract",
+      "inputSha256": "b0a5b734fadf93636db07e7d63f85401374b22a96930305b27b8f773802a41ba",
+      "ok": false
+    },
+    {
+      "id": "multiply-mismatch",
+      "capabilityId": "devtools.matrix.multiply",
+      "inputSha256": "41ea344e9d8015d03136ba75d322a35463b8641554ec0fbdd8938751c45beb7c",
+      "ok": false
+    },
+    {
+      "id": "determinant-nonsquare",
+      "capabilityId": "devtools.matrix.determinant",
+      "inputSha256": "80a072c4400b8cc95b30c343e051780a73b0e0f7da56e29074b971ffb7e3d014",
+      "ok": false
+    },
+    {
+      "id": "inverse-nonsquare",
+      "capabilityId": "devtools.matrix.inverse",
+      "inputSha256": "80a072c4400b8cc95b30c343e051780a73b0e0f7da56e29074b971ffb7e3d014",
+      "ok": false
+    },
+    {
+      "id": "solve-nonsquare-a",
+      "capabilityId": "devtools.matrix.solve",
+      "inputSha256": "b0a5b734fadf93636db07e7d63f85401374b22a96930305b27b8f773802a41ba",
+      "ok": false
+    },
+    {
+      "id": "solve-rhs-wrong-height",
+      "capabilityId": "devtools.matrix.solve",
+      "inputSha256": "26c87d71a2679520b906784727fc4090f84f59f8be398699deaf4e2e175f5faf",
+      "ok": false
+    },
+    {
+      "id": "inverse-singular",
+      "capabilityId": "devtools.matrix.inverse",
+      "inputSha256": "3b1ce123bc441e42f05781aed9d886943f19da942026d293fc2727e7fa5948cb",
+      "ok": false
+    },
+    {
+      "id": "solve-singular",
+      "capabilityId": "devtools.matrix.solve",
+      "inputSha256": "1912581f6ae797dcc9dc3cf5efcbec1dcb27f258cc4e82f2c3982d0c470534aa",
+      "ok": false
+    },
+    {
+      "id": "solve-approximate-singular",
+      "capabilityId": "devtools.matrix.solve",
+      "inputSha256": "631b40d09f8e14911552a7de7ca908be528349f7fa85ac307a5b096b71c48183",
+      "ok": false
+    },
+    {
+      "id": "input-i128-overflow",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "13470765a859a498b15ce738e860b88da9d84ce442891e1a01197ef9bcf1b0ca",
+      "ok": false
+    },
+    {
+      "id": "exact-intermediate-overflow",
+      "capabilityId": "devtools.matrix.multiply",
+      "inputSha256": "7cd03d5ea61291e8c5a1ddcb16c0d38fb7b90d489f9e036b2e564c7cb0136a3a",
+      "ok": false
+    },
+    {
+      "id": "division-by-zero-in-cell",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "0f842af254a0529f52562f8114cd334b543c1e8de2f902d2d3c27682f1685c74",
+      "ok": false
+    },
+    {
+      "id": "approximate-mode-rejects-fraction-notation",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "3c63e4851ff7890feba7d36fcccc2edd8b02e0e35883feb6fabd77b4b12d078c",
+      "ok": false
+    },
+    {
+      "id": "approximate-mode-rejects-nan",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "c1254f1bf4303016b140e5ff4db35d71e67112092d76463397c9189e1dc9c130",
+      "ok": false
+    },
+    {
+      "id": "approximate-mode-rejects-infinity",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "a7ca1d2baa2f779953beba842527c53838720be29c33e5fa74f11d9e0b273ffc",
+      "ok": false
+    },
+    {
+      "id": "approximate-mode-rejects-exponent-overflow",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "77621de22c668a6fe283b96848e004d053a25a600f281761c8c0f5dd18426fdc",
+      "ok": false
+    },
+    {
+      "id": "approximate-mode-rejects-result-overflow",
+      "capabilityId": "devtools.matrix.multiply",
+      "inputSha256": "bc6b3264e8e9d50898bc1bb2c6f3464c0a1a8df5ea41667fca839bcb14e8d106",
+      "ok": false
+    },
+    {
+      "id": "no-matrix-expressions",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "dd90db5eeae35b2b40119241a224c4c469f22be184e05c5a737dc4ec9ee57d7f",
+      "ok": false
+    },
+    {
+      "id": "no-complex-numbers",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "d5c2a8a8a8b500f6b2f9799b1103ba1f0ccfb02ec8c3105cbe4cd3a9d0a00778",
+      "ok": false
+    },
+    {
+      "id": "request-missing-a",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "3d85b7caaccef39363e0bc72f2fda0437143b707c07917bbc0bc6d127eec8e48",
+      "ok": false
+    },
+    {
+      "id": "request-missing-b",
+      "capabilityId": "devtools.matrix.multiply",
+      "inputSha256": "9afeb0f2b203f254312ec8ded441d0318b7c34c57f8695ede42d2215a30c0960",
+      "ok": false
+    },
+    {
+      "id": "unexpected-b-in-unary",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "21f76dfbfe6dfe21f762080ef484112cf2952974cef30741fd1931e1c6d92112",
+      "ok": false
+    },
+    {
+      "id": "unsupported-precision",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "d1873e229ec9f306177553ea60aab0b8dd4456b19b42cc98d454baebfd3a3154",
+      "ok": false
+    },
+    {
+      "id": "per-matrix-utf8-byte-limit",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "5a411a86870ad712a15ce2b116148cb2c23d0516b8d2a2beb578efbbe9188b21",
+      "ok": false
+    },
+    {
+      "id": "per-cell-utf8-byte-limit",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "26d140d68c2f45ad48b3e4cf924f688493b317e5c17f13bc54640ac1229774e6",
+      "ok": false
+    },
+    {
+      "id": "reject-oversized-single-cell-using-plugin-limit",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "a0c43a317e4fbe7057840e43e1b9b6db030e90493f8bbdc7827e052cb433dba7",
+      "ok": false
+    },
+    {
+      "id": "request-byte-limit",
+      "capabilityId": "devtools.matrix.transpose",
+      "inputSha256": "49637893e0e183afbf403a457cecd505bdfcffaadf23c51d266d7ce876c135d6",
+      "ok": false
+    },
+    {
+      "id": "unknown-operation",
+      "capabilityId": "devtools.matrix.undefined",
+      "inputSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "ok": false
+    }
+  ]
+}

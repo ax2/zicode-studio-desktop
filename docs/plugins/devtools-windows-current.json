@@ -2194,11 +2194,11 @@
           "pluginId": "com.zicode.devtools.diagnostics",
           "operationId": "spring.config",
           "kind": "capability",
-          "scope": "两份JSON/YAML配置差异与脱敏；在线Actuator另需Host"
+          "scope": "两份 JSON/YAML 配置差异与脱敏。各侧可导入 8 KiB UTF-8 文件并撤销，明确执行后下载完整 JSON 或确认保存到 Studio。"
         }
       ],
       "fullSourceScopeAccepted": false,
-      "blocker": "列出的受限插件操作已具备本地验证；独立工具完整范围、其余未映射操作仍需逐项迁移。",
+      "blocker": "已验证双侧文件导入、撤销、真实 Windows Host/Worker 及完整结果。原生系统文件选择、安装版下载和独立版更大输入仍需验收。",
       "sourceScope": "比较两份 JSON/单文档 YAML 配置与占位符，敏感键值遮盖；不推导实际生效优先级，不直接解析 properties；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行；异步状态进入后台任务中心；只显示通用摘要，详细报告留在工作台。 导出 JSON 报告包含工具版本与便携运行环境指纹。"
     },
     {

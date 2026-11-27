@@ -62,7 +62,10 @@ pub(super) fn register(
         let metadata=bundle.resources.iter().map(|resource|(resource.mime_type.as_str(),resource.bytes.len())).collect::<Vec<_>>();
         crate::plugin_regex_review::validate_outputs(&bundle.result,&metadata).map_err(rejected)?;
     }
-    if profiles.image_processing {
+    use crate::plugin_resource_execution::ascii_art;
+    if ascii_art::selected(capability.execution_profile.as_deref()) {
+        ascii_art::validate_output(&request.input, &bundle).map_err(rejected)?;
+    } else if profiles.image_processing {
         if let Some(result) = normalize_image_failure(&bundle.result)? {
             if !bundle.resources.is_empty() {
                 return Err(rejected("invalid_output"));
@@ -89,6 +92,13 @@ pub(super) fn register(
         return Err(rejected("result_too_large"));
     }
     validate_result(capability, &bundle.result)?;
+    if profiles.output == crate::plugin_worker::resource_output::Profile::ShortcutProfile1 {
+        use crate::plugin_resource_execution::shortcut_profile;
+        if !shortcut_profile::matches_capability(&request.access.owner.plugin_id, Some(&request.access.owner.capability_id)) {
+            return Err(rejected("invalid_output"));
+        }
+        shortcut_profile::validate_output(&bundle, profiles.source_bytes, &request.input).map_err(rejected)?;
+    }
     if profiles.output == crate::plugin_worker::resource_output::Profile::JsonCompare1 {
         let validate = if crate::plugin_resource_execution::json_transform::selected(capability.execution_profile.as_deref()) {
             crate::plugin_resource_execution::json_transform::validate_output
@@ -192,6 +202,7 @@ fn normalize_image_failure(result: &Value) -> Result<Option<Value>, ApiError> {
         "INPUT_LIMIT" => "输入图片为空或超过 32 MiB",
         "IMAGE_DIMENSION_LIMIT" => "图片尺寸超过当前能力上限",
         "IMAGE_MEMORY_LIMIT" => "图片解码内存超过当前能力上限",
+        "IMAGE_ANIMATED" => "请选择一张静态 PNG、JPEG 或 WebP 图片",
         "INVALID_IMAGE" => "输入内容不是受支持的 PNG、JPEG 或 WebP 图片",
         "OUTPUT_LIMIT" => "编码结果超过 32 MiB 输出限制",
         "IMAGE_OPERATION_FAILED" => "图片处理失败或超出运行资源限制",

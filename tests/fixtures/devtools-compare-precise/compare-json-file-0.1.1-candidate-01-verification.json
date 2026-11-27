@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "com.zicode.devtools.compare-json-file",
+  "packageVersion": "0.1.1",
+  "signatureVerified": false,
+  "files": [
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "size": 122,
+      "sha256": "0a917bbfeb283843bea25513208ab272fddd7e740370b0b1c6db8a8588ed48cf"
+    },
+    {
+      "path": "README.md",
+      "size": 615,
+      "sha256": "9d170eb2a4570d63e4eff7369f713b5561236af339adf2965fc4fb3daf37bddf"
+    },
+    {
+      "path": "catalog.json",
+      "size": 1197,
+      "sha256": "009a4a3cb6cb12f48c12fcdd03d77e6763152795b2388f6e0ad266e6a339d025"
+    },
+    {
+      "path": "plugin.json",
+      "size": 10484,
+      "sha256": "eb9489d054fdec88d0c5f753437808b011c37e89b27620f93a6464082c3717af"
+    },
+    {
+      "path": "provenance.json",
+      "size": 541,
+      "sha256": "e22a2c72c309428a07b7dfb8af972c0346bf5d6ae49a7147f7fbbdb51bcf9eea"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 294787,
+      "sha256": "ad138672238333ee4a94c2cdfa60d292b660ce5cc20d1a575321de49669e0d26"
+    }
+  ],
+  "fileCount": 7,
+  "totalBytes": 308843,
+  "directoryIndexSha256": "6db0de22e03b1502d5269094c0657c09aef1b0c3d85d96fb7812c5dff291c805",
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  }
+}

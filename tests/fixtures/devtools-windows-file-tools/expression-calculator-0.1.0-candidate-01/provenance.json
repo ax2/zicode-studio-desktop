@@ -1,0 +1,746 @@
+{
+  "sourceRevision": "2ba331eb9bd13ab2b09a08122d63c87944f2ba83",
+  "dirty": false,
+  "signature": "unsigned",
+  "builtAt": "2026-11-25T12:32:10.524373+00:00",
+  "wasmTarget": "wasm32-wasip1",
+  "wasmProfile": "plugin",
+  "moduleSha256": "810438de1962079a3eb03f78cbc0d5e0f6d4ed90c131a0e4b50bf392e64c9844",
+  "workerVerification": {
+    "passed": 91,
+    "wasmSha256": "810438de1962079a3eb03f78cbc0d5e0f6d4ed90c131a0e4b50bf392e64c9844",
+    "workerSha256": "1bf0adf0d8e3e8874eca61258ef133de9875dac87c0cbd76a83a45a2d7f2f1a3",
+    "workerProfile": "compute.wasi.v1",
+    "cases": [
+      {
+        "case": "native-exact-decimal",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "562b408011834b96796ab935360ace27291ab0e923a7aca87a41f26a319bcf41",
+        "ok": true,
+        "resultSha256": "1638b557bb2a79b8aed7f34846474d6b8589e0b10d8b0ab8c83645a818ce4bbb",
+        "resultBytes": 157
+      },
+      {
+        "case": "native-exact-fraction",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "96fde55dd2b4d2319476a6eb36056ec39370e8792d7cce242f33427e9d8b9e1a",
+        "ok": true,
+        "resultSha256": "b0f0b92f687f24685ca13f171e2b28a8cd27392ab652cc0472e363672aa1ed81",
+        "resultBytes": 156
+      },
+      {
+        "case": "native-continued-rational",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "a55ebfb2998c44ba0223321d787d8af9e74c91c3c242cda7b38f075d562dff18",
+        "ok": true,
+        "resultSha256": "3c7542b160b10c0699dee73ec0b845fbacb67a16375f9d345da2f32a46016693",
+        "resultBytes": 156
+      },
+      {
+        "case": "unary-power-precedence",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "27bf40ea6ff41c0e5e03674a25e4931fb9dec7268abeda7c47708cde6e9cdeca",
+        "ok": true,
+        "resultSha256": "d02fe1f50eaa9455c199c70faf11e7327824998be06f5a745b85bd1bcc9c33e3",
+        "resultBytes": 156
+      },
+      {
+        "case": "right-associative-power",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "ad9398296d8487f73315c7f84a63bf73d7131db242d28c0f327ed9fa6b53b392",
+        "ok": true,
+        "resultSha256": "ddd0abcee38d5934f18e830218107bacee731e193a996f491897e3d41687a376",
+        "resultBytes": 158
+      },
+      {
+        "case": "negative-exact-exponent",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "d414cc992683b5731a0e3acbada53e25cebe200c6eda8fc7c8c96e6e0aad37fd",
+        "ok": true,
+        "resultSha256": "1ac990c3527488b7441b5b372ca1bd072e9809b2b3680ed2bb98316055c11341",
+        "resultBytes": 158
+      },
+      {
+        "case": "ordinary-parentheses",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "21a06c946ef2bc3d3eee5adf60ea5abcfcc17f52708dc656a935d33d0ac8071a",
+        "ok": true,
+        "resultSha256": "425424c41bed8d70553b2ec317067a8506108f6770f6e87c9fd195ea5294b73f",
+        "resultBytes": 158
+      },
+      {
+        "case": "native-exact-scientific-notation",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "c1595c829e8d7c82f3b3d4314eb21a00f7650794d3f5406c5564c968bd030fc0",
+        "ok": true,
+        "resultSha256": "e2991afc2fde34352962c2a3bdec386ba46cbdcb842b2fb9aadb7003441b48cf",
+        "resultBytes": 161
+      },
+      {
+        "case": "signed-round",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "3c7b48f2a4e3f86b87e085606c1d8df70e1af48680508e909c1018641dfd176e",
+        "ok": true,
+        "resultSha256": "81ec8565e5be70a96bed5881e0607b6e162c05abead98a9aed438290221c1a18",
+        "resultBytes": 156
+      },
+      {
+        "case": "fraction-floor",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "4799e4eda022ea9c6ea6086f19589693e821d9947cda4d7ccabf8d23484ff399",
+        "ok": true,
+        "resultSha256": "41c6085e9e995fe2d3cc1d9e338da8121295db80286e85eca001f2b67f58ece7",
+        "resultBytes": 156
+      },
+      {
+        "case": "exact-fraction-ceil",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "6db368eda351914fd4e646f8d0ec65c91f1b817802f7c5291edc2ec34f3dc622",
+        "ok": true,
+        "resultSha256": "c628ddfbdd19c7888cd5fc0cc310a6242b5c7172b9eae02ab3c6f241377515bc",
+        "resultBytes": 154
+      },
+      {
+        "case": "radians-default",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "0c0f1c298cec3419c517061b27668ea0dc1f0ce02d5e5be330245f0962d1c1d0",
+        "ok": true,
+        "resultSha256": "f4b80f35e04bfb1b1e0b90079e2584224b4ba002ee817ca608ffee17b7bc008c",
+        "resultBytes": 169
+      },
+      {
+        "case": "degrees-option",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "03f85669f1fc88365ff107e49a3158ef13a2e433b9ff1bdb67745fb3519530da",
+        "ok": true,
+        "resultSha256": "f4b80f35e04bfb1b1e0b90079e2584224b4ba002ee817ca608ffee17b7bc008c",
+        "resultBytes": 169
+      },
+      {
+        "case": "real-scientific-functions",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "0f090c45261ab6dd1ba2838c8ee9680c845380e4185a648f602ba3d82cd75844",
+        "ok": true,
+        "resultSha256": "e0d9984d055462b1dbae0e8a11761699257323e650d6f2220cb1298820845979",
+        "resultBytes": 151
+      },
+      {
+        "case": "full-typed-complex-sqrt",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "5f8989f628f997cca3352814c4973ca2927fc1fa98ed03edf33f2ae4c8dd1b40",
+        "ok": true,
+        "resultSha256": "0f3467413cc574f12f2c49f8e62fed99d347dc18ebbc1ed640e5a8606e98ff31",
+        "resultBytes": 157
+      },
+      {
+        "case": "native-complex-multiplication",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "d8ce203fa9fdbafb7a7736e92bd94a63026353c94ceda49a11079415f7f4ad6e",
+        "ok": true,
+        "resultSha256": "0853a976f58a5fed0e38215ea480e11ceb0790d657d0d7629c25ace148512943",
+        "resultBytes": 159
+      },
+      {
+        "case": "native-complex-power",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "fce2eb15c79f8f39c9e962c7b794404bfcfca63785230172830465846580711a",
+        "ok": true,
+        "resultSha256": "d2394676edcf8404e7b96f3de53ca43a2370e61e6b4c46c4ab1257236aaab909",
+        "resultBytes": 193
+      },
+      {
+        "case": "native-complex-real-part",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "1ca1194d3ab1d13e0bd0f8ddf60190aa29983b6a3c4084fde99c80ab3dbf8f14",
+        "ok": true,
+        "resultSha256": "d8f6ba3f0d9ffba73680e13252116adb4b45c284a372edfa897bce44f872b17c",
+        "resultBytes": 151
+      },
+      {
+        "case": "native-complex-imaginary-part",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "03433574a3f6e5a8dbd51315ad21f4b8c5d6757f505ae9b458d22eafd5d26abb",
+        "ok": true,
+        "resultSha256": "95fe3244df83b073afb05ee7213e1d786827d9ea5c9db0db4c7116cb68de79c6",
+        "resultBytes": 153
+      },
+      {
+        "case": "native-complex-polar-phase",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "cbc383c9d3380f308ae620ffd5cb6c23ca65fb409e8ae90bf3f86f17f1e90e17",
+        "ok": true,
+        "resultSha256": "f9af2514fd10e8ac2bb9dda2fab1d31c417d5e8ccfbbeb8fad3ae602afda6414",
+        "resultBytes": 154
+      },
+      {
+        "case": "programmer-hex-bit-and",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "0c76552d5fd123030ae1924e56d75c57834eb1987a6f888b63b83415b7b0e672",
+        "ok": true,
+        "resultSha256": "0737851c390019d6322a17de16c8bac47697fa24ba3ac6ef443e425df5da19b0",
+        "resultBytes": 156
+      },
+      {
+        "case": "programmer-binary-shift",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "4b390ff73e0e7eb2e641edcfb635846bdef0d2153c76cae334afcf00e62a98e9",
+        "ok": true,
+        "resultSha256": "c7b9b6e6ff5c14299ee0d62453b3450a366bca9830b4e0deb91d6ce075212720",
+        "resultBytes": 156
+      },
+      {
+        "case": "programmer-octal-or",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "a0690ae3c3cd3958dcef3e08bfe367556fe1566817a6d4f8e6d9562b89bc57b6",
+        "ok": true,
+        "resultSha256": "e4cbc3bf6ff24bb47c2cc73a61006edb228afc9901ce4362872115fbd848d32e",
+        "resultBytes": 156
+      },
+      {
+        "case": "programmer-bit-not",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "4a6aad7882d6b2658d546a3152c5430f6d6c0651cd4a75314916db1508773d6c",
+        "ok": true,
+        "resultSha256": "41c6085e9e995fe2d3cc1d9e338da8121295db80286e85eca001f2b67f58ece7",
+        "resultBytes": 156
+      },
+      {
+        "case": "programmer-128-sign-bit",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "d826567602edda5b884a3cee650ea79db5e811da240188b408b250ac080698c1",
+        "ok": true,
+        "resultSha256": "343dee24ba25b6d3af813f01607d90405cd1eb8b6302e098f0996cec0da2fbed",
+        "resultBytes": 232
+      },
+      {
+        "case": "programmer-arithmetic-right-shift",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "0cc9ddd05666f083372041b5180b83a26bf3920c4b7dfd8a862385712a7454a8",
+        "ok": true,
+        "resultSha256": "81ec8565e5be70a96bed5881e0607b6e162c05abead98a9aed438290221c1a18",
+        "resultBytes": 156
+      },
+      {
+        "case": "programmer-xor",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "e09efbf8795009fe5aec2c0be9e604bbffc90b3d3939c66e59380d9b78d10f1b",
+        "ok": true,
+        "resultSha256": "c71285d9de2d08c3e4b7c4d0e9880332f7d3cc11bec10a8bd1c096f3eb835b97",
+        "resultBytes": 158
+      },
+      {
+        "case": "programmer-remainder",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "2b5b72f53de30cfe3a90d8a0cc324054c04cc910f20490bf835176d76cd525dc",
+        "ok": true,
+        "resultSha256": "81ec8565e5be70a96bed5881e0607b6e162c05abead98a9aed438290221c1a18",
+        "resultBytes": 156
+      },
+      {
+        "case": "unit-length",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "9160eed0719c8e4fbdb47b856ebf5adbcd1e22def42e291bd3f02a36d39ff37e",
+        "ok": true,
+        "resultSha256": "db85598c9e0e458f61f5d293a6c68b0f7a78e028212e420a00bedc83bbdd8b76",
+        "resultBytes": 160
+      },
+      {
+        "case": "unit-mass",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "5f8f8e603c020075cab8e082374d926acc22dd4d31f4969c9787a0a843656c70",
+        "ok": true,
+        "resultSha256": "35d99ea7d5e99a1615a98328431ccd7fc5f4c5118f9b891c308e7e2732a4bd26",
+        "resultBytes": 160
+      },
+      {
+        "case": "unit-time-expression",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "ad6b991caef848de6de58ab5b0a0f43da796009a5f37df1e19f8130529be6760",
+        "ok": true,
+        "resultSha256": "d4d3cbfcc8ededa599f629fab92f7b6d23915949d0c94a3b7bd481ad73e5486d",
+        "resultBytes": 162
+      },
+      {
+        "case": "unit-storage-exact",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "8ab7ff9908917dd958439acf9f97f4cea562d5f8db9f84e15966307bb312fbf9",
+        "ok": true,
+        "resultSha256": "8cc099b03f972c5b4c56e6a088c202d1ef72cf5f88f6784ab4256fd9001e3df4",
+        "resultBytes": 175
+      },
+      {
+        "case": "unit-temperature-offset",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "06c52c6dde80f1ab526c414a047ac4dfe0d7fe534dd716727e933a42ead764cc",
+        "ok": true,
+        "resultSha256": "2d3081696f246c02cf3e68c3eaa2cbf31566d18b8a4bf315a051924f952ffc26",
+        "resultBytes": 154
+      },
+      {
+        "case": "unit-negative-temperature",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "3cac3bb60ba68ddc90d6f4130a3e7ae0d2f380051958c7ecb4a974117a6b4ac5",
+        "ok": true,
+        "resultSha256": "47f16f491067f08e0d44354ba5355f7b52e520f38650bbb86d4ae40d66c76785",
+        "resultBytes": 158
+      },
+      {
+        "case": "native-exact-rational-comparison",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "04d2aec2e79b959d20c71257e571a92dc7e240be65e408775f6b67d82b8b8e1f",
+        "ok": true,
+        "resultSha256": "1ad6951d0f0718149af5d2748e16af696f9cb2f86bb07445acc207594d675d63",
+        "resultBytes": 232
+      },
+      {
+        "case": "largest-exact-integer",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "4db1f307820687464ffee62f1b1116241ba92c126e2406beec20d6b03392df89",
+        "ok": true,
+        "resultSha256": "4fbad49e3acdb3300d11b343980f5934e540bdb08cb685813b5c9dc06e3f3304",
+        "resultBytes": 230
+      },
+      {
+        "case": "smallest-exact-per-request-literal",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "cfd719b4a1f72188ef404a4e22c4197c2739c7b9901226589a05e13f793dd870",
+        "ok": true,
+        "resultSha256": "343dee24ba25b6d3af813f01607d90405cd1eb8b6302e098f0996cec0da2fbed",
+        "resultBytes": 232
+      },
+      {
+        "case": "explicit-fraction-and-float-constants",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "cc5dd33a92440b68fe24ea72d9c17995227656d685e89bb5a1b6d3ba79beb595",
+        "ok": true,
+        "resultSha256": "b3ea3f795f0e097528bc88c72f5b7ded10ade1d003eec703340347adce8a5a10",
+        "resultBytes": 155
+      },
+      {
+        "case": "coordinate-is-ordinary-in-expression",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "3dc943a8298b0d3488202cf8f3e1987e505cf3a6e9e6049851f868757438ba10",
+        "ok": true,
+        "resultSha256": "d447a287b273c9252b4f6d347e36eba31345a35ac3f8cdb6f6e85e95e74847ee",
+        "resultBytes": 156
+      },
+      {
+        "case": "constants-count-64",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "606d9193ba82b78c24b5b7cfd10d63c4b794f024f3297c9e59c8ef5d6395d170",
+        "ok": true,
+        "resultSha256": "e106ad6d81d14a7ccb01fb8f5d491d683ddb83dc583def56237dd66444d5bcee",
+        "resultBytes": 156
+      },
+      {
+        "case": "formula-composes-statistics",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "1a49d7ec50bd82bd37be5cc7fc0453022948cd58f56432a806cef29f770ae9ab",
+        "ok": true,
+        "resultSha256": "fb2621fc683549c5302611d776fcb94bb82af25c6001778f7fee857aba32607f",
+        "resultBytes": 158
+      },
+      {
+        "case": "zero-factorial",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "1af8f323ef2506b035d70519fa7d5e00e1b3b95320f77391cb22d1846989e671",
+        "ok": true,
+        "resultSha256": "215be84a6f37b77f459153a267ecddda08e2a3a3e9591d2e4fa204c04791465a",
+        "resultBytes": 154
+      },
+      {
+        "case": "largest-exact-factorial",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "f6ef29fb43e72991e1024ae372ad288f9d5115c0246fb91a19ed0afc86cba581",
+        "ok": true,
+        "resultSha256": "555ed3de88b4e9021cc5b1c9322fcb39dc3309a61b457399c6727f7b490f0d50",
+        "resultBytes": 226
+      },
+      {
+        "case": "native-permutation",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "404c627a4c21c305fdef7291c385c11203569614a9eaf076010661db97bc2d4d",
+        "ok": true,
+        "resultSha256": "a16f6ff546919aa46c0a480c9f5dfd3eab0a0f607c5149750962db3500ef4b9e",
+        "resultBytes": 156
+      },
+      {
+        "case": "native-poker-combination",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "cdee624ece2e8ecdbb87e80e6abbaff6d681ba18810a7b3e6ecd08d17435314d",
+        "ok": true,
+        "resultSha256": "7168c2648417a438717958d7430a7d16d36c53310f0653efa373224cb37c7708",
+        "resultBytes": 166
+      },
+      {
+        "case": "near-int128-binomial",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "4b747e83638a943b705733f41968675fbb691ce093baeba829d59a9a5aec8455",
+        "ok": true,
+        "resultSha256": "b4d82bada8beccda89bc9445ea7f5d8e39c770573f9d6db174f7afd36fc5aa45",
+        "resultBytes": 228
+      },
+      {
+        "case": "native-zero-selections-max-n",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "05cc2a45db62fa9de98d46403c6c63f2396e3b56ed9acb638b1a6b7042581e71",
+        "ok": true,
+        "resultSha256": "215be84a6f37b77f459153a267ecddda08e2a3a3e9591d2e4fa204c04791465a",
+        "resultBytes": 154
+      },
+      {
+        "case": "signed-gcd",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "dee368628ded2e25d9f4fa2872b82f60af995f90579c2845b6649122b2b0111d",
+        "ok": true,
+        "resultSha256": "8e5653b1eac83562bb5bfe4a231074688e6b024c5326a36a950fe87f6eef2cca",
+        "resultBytes": 154
+      },
+      {
+        "case": "signed-lcm",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "94c049d8bf050b3a66a29fa4e2db20e2bde46d24f24736f10888bba64704959a",
+        "ok": true,
+        "resultSha256": "0fd8c9401f2611cc076397164b9cd11842a04c87ac72934987a6b1649e42269d",
+        "resultBytes": 156
+      },
+      {
+        "case": "gcd-i128-minimum",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "f84beae4da4907d4290740bf1bd9b3cfd0e8f881751d46e34ca732f525fed0f0",
+        "ok": true,
+        "resultSha256": "cd165edec9066481c65725b58ba48d41cf7590d37b1b4052e1ead8399d0ef180",
+        "resultBytes": 154
+      },
+      {
+        "case": "gcd-zero-pair",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "a93950b721284a42abad5318e71b1ca8915e573bbde9010e3a114ecb64bf275b",
+        "ok": true,
+        "resultSha256": "2d3081696f246c02cf3e68c3eaa2cbf31566d18b8a4bf315a051924f952ffc26",
+        "resultBytes": 154
+      },
+      {
+        "case": "lcm-zero",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "29df4d1d711651ded775fae664272598b0833b789bf699f188df862023b2f91a",
+        "ok": true,
+        "resultSha256": "2d3081696f246c02cf3e68c3eaa2cbf31566d18b8a4bf315a051924f952ffc26",
+        "resultBytes": 154
+      },
+      {
+        "case": "dense-512-token-add",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "de2e1319d637510a552739aada540f1cfcba30bf387fa04eed4540b4a340f6e1",
+        "ok": true,
+        "resultSha256": "ba6b255cb5f0f82cbee04ebfce71940f7fe49623047ae54d7483f3e9a54ef685",
+        "resultBytes": 158
+      },
+      {
+        "case": "max-2048-byte-formula",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "93b7516df250e551e376e471fae118e6410da32b57c084e9b46b598fecd32645",
+        "ok": true,
+        "resultSha256": "ba6b255cb5f0f82cbee04ebfce71940f7fe49623047ae54d7483f3e9a54ef685",
+        "resultBytes": 158
+      },
+      {
+        "case": "dense-combination-workload",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "71d40d6bccdcba3026bb6b1bd64ca3a32ab2ea49e1b02a98867e8e38abbf97ae",
+        "ok": true,
+        "resultSha256": "2d3081696f246c02cf3e68c3eaa2cbf31566d18b8a4bf315a051924f952ffc26",
+        "resultBytes": 154
+      },
+      {
+        "case": "dense-neighboring-integer-gcd",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "52fa312c99e774bc71688bb1230350e6b6e3d26e63e42b76a1bbf1d3d1908689",
+        "ok": true,
+        "resultSha256": "5e5e6c0d9a3e05401c7244a10145a511537ca6c163df229c53ada2adfe1aad08",
+        "resultBytes": 156
+      },
+      {
+        "case": "native-legal-depth",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "2f1f2a6d3399217a82b4612f64bb57785e97fcda257aadcb59bd1f30f16a8f0c",
+        "ok": true,
+        "resultSha256": "215be84a6f37b77f459153a267ecddda08e2a3a3e9591d2e4fa204c04791465a",
+        "resultBytes": 154
+      },
+      {
+        "case": "one-expression-only",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "a9c31ee5d0dab05cdd8ae6a933452784f1165d1414d04f34fa06b1389bee2ed4",
+        "ok": false,
+        "resultSha256": "1cdbe5a27b0e0d2d9d6de257895a3c70241d5f7c25d7e760f7d33c679533f5f3",
+        "resultBytes": 138
+      },
+      {
+        "case": "no-assignment",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "ab31076c31272ecfc0c2d5ba74c6c2365c50a03909077f80cbd9a8315384f335",
+        "ok": false,
+        "resultSha256": "1cdbe5a27b0e0d2d9d6de257895a3c70241d5f7c25d7e760f7d33c679533f5f3",
+        "resultBytes": 138
+      },
+      {
+        "case": "no-multiple-values",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "81233d6a4730ee937cace894920b2771fca7b386dd7be270f99fa3acea0ab6ff",
+        "ok": false,
+        "resultSha256": "9043ebd42c1598ca57a21b8b64d7120965661a0ce854b099128d79611de7e854",
+        "resultBytes": 138
+      },
+      {
+        "case": "no-session-ans",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "373d99a158c6f3d4c720bb776ade1f43b79f63feb376566610373dac9fe9af5d",
+        "ok": false,
+        "resultSha256": "1dbf161b510a674dda7393816dd03334179c703e35bfb1d04dba085aaf861bba",
+        "resultBytes": 136
+      },
+      {
+        "case": "no-unknown-name",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "7044fc9d2382b9f7035b800f5056116efd7a88a6eae2ffc312b682001e6a9b04",
+        "ok": false,
+        "resultSha256": "37ca544a98e1823f0c71d95ce30f1ef90021656a467954e6d2a7789fdaa54ee8",
+        "resultBytes": 140
+      },
+      {
+        "case": "no-unknown-function",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "9d631cbac8472005d1ce566a8bc92e973a25bb20e87a76b65d00f4bab9cb5f2e",
+        "ok": false,
+        "resultSha256": "09fddc603af9f864f44c5c0cc5f7aae82788e09e7fd96341ac4ec033d14b77d0",
+        "resultBytes": 129
+      },
+      {
+        "case": "no-empty-input",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "3a3401928b7770842ae81fcc82a6e10a7d61d8afe46aca51f46f2e1edb4ec122",
+        "ok": false,
+        "resultSha256": "1796c0ba09fc09a7e2d19e16738dba1f696538c1f2c6eb38aa224f5ac7f91d22",
+        "resultBytes": 153
+      },
+      {
+        "case": "no-over-depth",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "d06d98fbc78aac42df43fc206dc4a7b3207ba2d7374fbce8d81b53dd314f4a9e",
+        "ok": false,
+        "resultSha256": "8070d6c06d15686c1b5dfb280282e297889c5ec9eb08e96cda70849f4452037b",
+        "resultBytes": 149
+      },
+      {
+        "case": "no-over-token-budget",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "f8c405168b60c7a031f21524c6af75603b96b915035a2f291f84814876b77c39",
+        "ok": false,
+        "resultSha256": "9bce16434c41f6bb60313c38d2e8ec82545d17fe06f6bc535177d7f4263ffafa",
+        "resultBytes": 137
+      },
+      {
+        "case": "no-over-byte-budget",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "4b71089ec9a379f2fca4db834fbd8d921996c7c8fa93eba2f9cbc92c934f96f5",
+        "ok": false,
+        "resultSha256": "7d4d98097d85876dfcf113657ca9275a0da718abec498af3d62d9f6b83c427ad",
+        "resultBytes": 135
+      },
+      {
+        "case": "non-ascii-numeral-rejected-by-native-grammar",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "83f5fa5cb405a83725ac2cffb7c1b93a9302f05f9fb4a04182e34ca7f436aba9",
+        "ok": false,
+        "resultSha256": "0c88a4953ad23def8bb7ca9889a8b75927a3fbe97ff481f7e2e39edaf512a486",
+        "resultBytes": 138
+      },
+      {
+        "case": "native-precise-overflow-does-not-approximate",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "ae82f7e7288d84bcad6a03bfd2c0fb517b680813b606b7e301b74605cf374c7c",
+        "ok": false,
+        "resultSha256": "ba0d006db7d2f861703d6fc0fc12082962280397833884f11d61115cedcc3d37",
+        "resultBytes": 181
+      },
+      {
+        "case": "division-by-zero",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "784caf93ca091265062b799eff98ce552560596970635061ea9f2c21db3e1071",
+        "ok": false,
+        "resultSha256": "1862b727dc27b8fe395d857e94514fcb30f0d1b09281e36bf35411d92d713e76",
+        "resultBytes": 135
+      },
+      {
+        "case": "non-finite-result",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "fdd64601d5d169feae9f145f28d777465061e597bf4ae6fffa73bc228407ae62",
+        "ok": false,
+        "resultSha256": "ec357aa4ad3551242dbf26e1efbd4209f603aaf2d066470c37fb33823323cf1e",
+        "resultBytes": 171
+      },
+      {
+        "case": "bitwise-requires-exact-integer",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "37f654819a9e15062930ae273e3e29916485513adc1330906e7d7289b4c8f674",
+        "ok": false,
+        "resultSha256": "bb780b8c0e3f2a4355d7a609e1aafa8a89a3a52831f00c8261bf8696ca287398",
+        "resultBytes": 147
+      },
+      {
+        "case": "bitwise-shift-limit",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "28312f2184a204521bea6e9d9a598a80ca512ec5dfaad1667f24dc0ee90daf16",
+        "ok": false,
+        "resultSha256": "9406c0a27905e7e084b4548b198d80d386665105d01cb0e4322ae6151881f49e",
+        "resultBytes": 140
+      },
+      {
+        "case": "unit-dimension-mismatch",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "24b8b4d5b3a3a6886e4ee1f83fe27278755b3a11218455bba7c49702052af3a0",
+        "ok": false,
+        "resultSha256": "e80fbb23bd8896e65d286b643f0243df09bcf570d5e14d531a660398565428c6",
+        "resultBytes": 129
+      },
+      {
+        "case": "unknown-unit",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "967121759576bfc834ee8e30b44619a8e3ea5ed6039dcf1a43cbd03497054409",
+        "ok": false,
+        "resultSha256": "dddf2e76f5b019244313f9b17996da711f4e879f5693c310f75e73b9ed6c58e8",
+        "resultBytes": 129
+      },
+      {
+        "case": "native-factorial-overflow",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "f20b441813dd123b5442dd7ee2d7bb9138092483b789948ac524d0a7f43e2603",
+        "ok": false,
+        "resultSha256": "515125ab54ca23839194055668f7cecd03a63a17550bfbfe7509f15b3455c324",
+        "resultBytes": 157
+      },
+      {
+        "case": "native-combination-input-limit",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "55fe207294ee5a28e9cd830b903df1ed8a94e68b4a87365fbcb9396548b73fb8",
+        "ok": false,
+        "resultSha256": "51c5738fb9535350a5bc4e34747b4179bf898ac7c729cfcc47512859dde6a13a",
+        "resultBytes": 167
+      },
+      {
+        "case": "native-combination-range",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "ce52adac691f5e66f9b9feec0947307a7065693d0a0468162c81fcd382c469c0",
+        "ok": false,
+        "resultSha256": "51c5738fb9535350a5bc4e34747b4179bf898ac7c729cfcc47512859dde6a13a",
+        "resultBytes": 167
+      },
+      {
+        "case": "native-combination-overflow",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "e1f351d3c946dd40e7b138cf8c1f52d3502a542d7fd95799e383db279f8c0f03",
+        "ok": false,
+        "resultSha256": "515125ab54ca23839194055668f7cecd03a63a17550bfbfe7509f15b3455c324",
+        "resultBytes": 157
+      },
+      {
+        "case": "nonintegral-gcd",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "521e468eaae5e4f3b6b774eb5504a5fd9ac14fa8a4b08e6f227902ad482ed8ab",
+        "ok": false,
+        "resultSha256": "16127c070c71d846a3eae6dcb7c9edaa79fa2d86aea42a79a1752b3c4a227a17",
+        "resultBytes": 135
+      },
+      {
+        "case": "native-lcm-overflow",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "82697b7bf976e2e9ed747e3fbd894ec38e0aba947fbcd404516fb60e52fe6298",
+        "ok": false,
+        "resultSha256": "56f68844bb8f7bf65de950e0c80633f0be27028037bce473e7b9c7fca64c2aa1",
+        "resultBytes": 138
+      },
+      {
+        "case": "reserved-constant-name",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "de4274a5a0b685459c8ebdfe0bd484522c377d0eb3aeedd9c1a049ed77d770d7",
+        "ok": false,
+        "resultSha256": "d72313df648fc4e7d694799f3cb219b9c62693a09f77de89dc5ebc099face808",
+        "resultBytes": 214
+      },
+      {
+        "case": "no-presented-ans-history",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "dfd892de299b6408b9ef17b3883ba915bf4d7330d7fd9d14a306fb54884787ff",
+        "ok": false,
+        "resultSha256": "d72313df648fc4e7d694799f3cb219b9c62693a09f77de89dc5ebc099face808",
+        "resultBytes": 214
+      },
+      {
+        "case": "too-many-constants",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "dc73312e4158383fd6092aa4a768b47e9009b812a6c1a94a864221b2cf9ae573",
+        "ok": false,
+        "resultSha256": "510e2ee403b2c58bcfa347d82431929b93056d4a3ae53ae3b364b86f27edd28a",
+        "resultBytes": 132
+      },
+      {
+        "case": "constant-invalid-rational",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "22757501b092b1a6c4d0fc56d1375d59bb3709092640913709060d31a1db1be3",
+        "ok": false,
+        "resultSha256": "bae66c6b15414a84447d5bdc62b9089bf82cfcaf272023e92abb369406d8a838",
+        "resultBytes": 123
+      },
+      {
+        "case": "constant-non-finite-string",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "a3d70e91b4bfc0b3da18752151a6660c852c565394586afeea4e446431389528",
+        "ok": false,
+        "resultSha256": "b030dd93606908c0c2a281b4e37ec8f306daf1e5f1f3d175580afff72d03df79",
+        "resultBytes": 141
+      },
+      {
+        "case": "constant-string-byte-limit",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "f7daecd99ec3793e61d4d44c2138fcea574bc79fdbad070a55634ce78ded9826",
+        "ok": false,
+        "resultSha256": "4c39a4cc768dcfa7ad06815b6304ba718ff14e44750172779c020883b915cc82",
+        "resultBytes": 142
+      },
+      {
+        "case": "constant-bool-is-not-a-number",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "2e8474da1c34588036a810da0779d7f7d8de719bf13fc096e88301bbd1e1f91f",
+        "ok": false,
+        "resultSha256": "54c2cc0a0420a51706f4f64b5ad6c7d4d26ba9f9afe90815a54b33ad5c7fd356",
+        "resultBytes": 134
+      },
+      {
+        "case": "unknown-angle",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "9d0f3d345e483a4e6caf145af5d3b48d5bec74859c26cd4aafff680ea6936ff0",
+        "ok": false,
+        "resultSha256": "54c2cc0a0420a51706f4f64b5ad6c7d4d26ba9f9afe90815a54b33ad5c7fd356",
+        "resultBytes": 134
+      },
+      {
+        "case": "no-unexpected-input-property",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "eb4209caab79e857e24e3ddb1877491cd5c7f9fcc73b10d3cebd3fc8abd11d41",
+        "ok": false,
+        "resultSha256": "54c2cc0a0420a51706f4f64b5ad6c7d4d26ba9f9afe90815a54b33ad5c7fd356",
+        "resultBytes": 134
+      },
+      {
+        "case": "request-16-kib-bound",
+        "capabilityId": "devtools.calculator.evaluate",
+        "inputSha256": "39bc54bd2462c99de6d4511f587d2c7fb143a12880ff5f13033ced2f248ca1a5",
+        "ok": false,
+        "resultSha256": "1b83bcacb1738d9273eeff049dc1aa5cfd28d1e88cdabacf18df178e21202120",
+        "resultBytes": 125
+      }
+    ],
+    "failures": []
+  }
+}

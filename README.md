@@ -63,14 +63,28 @@ Rust Host 管理窗口、资料、权限、插件能力与 Pi 生命周期。网
 
 使用 Bun 和 Rust stable，并安装对应平台的 [Tauri 构建依赖](https://v2.tauri.app/start/prerequisites/)。Windows 需要 Visual Studio Build Tools 的「使用 C++ 的桌面开发」组件，详见 [Windows 构建与打包](docs/windows-packaging.md)。
 
-```text
-git clone https://github.com/ax2/zicode-studio-desktop.git
+在 Windows 上使用 Git for Windows 从较短的位置（例如 `D:\work`）首次克隆。下面的选项在检出前写入新仓库的本地配置。
+
+```powershell
+git clone --config core.longpaths=true https://github.com/ax2/zicode-studio-desktop.git
 cd zicode-studio-desktop
 bun install --frozen-lockfile
 bun run dev
 ```
 
+普通克隆遇到 `Filename too long` 时，可在一个新目录用上述命令重新克隆。构建和解包也可能受 Windows 路径限制，开发目录仍建议尽量短。已有源码时，可用下面的命令核对另一个目标目录的传统 Windows 路径预算。
+
+```powershell
+bun scripts/check-windows-checkout-paths.mjs 'D:\work\zicode-studio-desktop' HEAD
+```
+
+命令读取指定提交中的路径。路径均在传统限制内时返回 0，发现达到限制的路径时列出最长的几个并返回 1，目录格式错误或指定提交无法读取时返回 2。冻结夹具的迁移与兼容读回由 [#774](https://github.com/ax2/zicode-studio-desktop/issues/774) 跟踪。
+
 `bun run dev` 准备当前平台的运行时和前端资源。按改动运行本地定向检查。同批改动需要桌面验证时，统一使用 `bun run build:local`，产物位于 `target/debug`。正式 Windows 安装包使用 `bun run build`，NSIS 产物位于 `target/release/bundle/nsis/`。
+
+开发、Vitest 测试和 Windows 打包使用 `bun run build:frontend` 统一生成 React、CSS 和 Chart.js，写入 `public/`。Windows 发行工作流使用 Bun `1.3.14`，依赖版本由 `bun.lock` 锁定。只需生成界面资源时可单独运行此命令，无需下载桌面运行时。如提示缺少依赖，先执行 `bun install --frozen-lockfile`。直接运行依赖界面文件的 Rust 集成测试前，也需要生成这些资源。安装版从自身的 `public/` 读取资源。
+
+中文界面词条维护在 `public/locales/zh-CN/`。模块专用词条放在对应文件，多个模块使用的标签放在 `shared.js`。日常修改后执行 `node scripts/check-i18n-coverage.mjs`，检查缺失翻译、模块间重名和占位符。Studio 随安装包从本地加载同一份词典。
 
 ```text
 bun run check

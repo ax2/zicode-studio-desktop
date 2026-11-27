@@ -124,6 +124,7 @@ pub(crate) fn is_worker_argument(argument: Option<&str>) -> bool {
         Some(
             "--zicode-visual-assets-worker"
                 | "--zicode-visual-assets-restore-worker"
+                | worker::image_specifications::WORKER
                 | animation::WORKER
                 | animation::sequence::WORKER
         )
@@ -139,6 +140,12 @@ pub(crate) fn run_worker() -> i32 {
         match args.as_slice() {
             [mode, input, output] if mode == "--zicode-visual-assets-worker" => {
                 worker::decode(std::path::Path::new(input), std::path::Path::new(output))
+            }
+            [mode, input, output] if mode == worker::image_specifications::WORKER => {
+                worker::image_specifications::inspect_file(
+                    std::path::Path::new(input),
+                    std::path::Path::new(output),
+                )
             }
             [mode, stage] if mode == "--zicode-visual-assets-restore-worker" => {
                 worker::decode_batch(std::path::Path::new(stage))

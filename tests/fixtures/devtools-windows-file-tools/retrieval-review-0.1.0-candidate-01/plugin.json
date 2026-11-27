@@ -1,0 +1,443 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.retrieval-review",
+  "name": "ZiDevTools Retrieval Evaluation Review",
+  "displayName": "检索评测报告复核",
+  "description": "复核本机 ZiDevTools 的仅检索或双路检索 JSON 报告，查看 Top K 命中、首个正确名次与 MRR。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.rag.report.review"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.rag.report.review",
+        "title": "检索评测报告复核",
+        "description": "复核本机 ZiDevTools 的仅检索或双路检索 JSON 报告，查看 Top K 命中、首个正确名次与 MRR。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "application/json",
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "retrieval-only",
+                        "comparison"
+                      ]
+                    },
+                    "topK": {
+                      "type": "integer",
+                      "enum": [
+                        3,
+                        5,
+                        8
+                      ]
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    },
+                    "completed": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "cancelled": {
+                      "type": "boolean"
+                    },
+                    "matchesReport": {
+                      "type": "boolean"
+                    },
+                    "differences": {
+                      "type": "array",
+                      "maxItems": 9,
+                      "items": {
+                        "type": "string",
+                        "maxLength": 32
+                      }
+                    },
+                    "single": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "retrieval": {
+                              "type": "string",
+                              "enum": [
+                                "keyword",
+                                "hybrid"
+                              ]
+                            },
+                            "failed": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10
+                            },
+                            "hits": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10
+                            },
+                            "mrr": {
+                              "oneOf": [
+                                {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "rows": {
+                              "type": "array",
+                              "maxItems": 10,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "caseNumber": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 10
+                                  },
+                                  "firstRank": {
+                                    "oneOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 8
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "recordedRank": {
+                                    "oneOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 8
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "failed": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "caseNumber",
+                                  "firstRank",
+                                  "recordedRank",
+                                  "failed"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "retrieval",
+                            "failed",
+                            "hits",
+                            "mrr",
+                            "rows"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "comparison": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "paired": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10
+                            },
+                            "excluded": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10
+                            },
+                            "keywordHits": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10
+                            },
+                            "hybridHits": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10
+                            },
+                            "keywordOnly": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10
+                            },
+                            "hybridOnly": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10
+                            },
+                            "both": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10
+                            },
+                            "neither": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10
+                            },
+                            "keywordMrr": {
+                              "oneOf": [
+                                {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "hybridMrr": {
+                              "oneOf": [
+                                {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "maximum": 1
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "rows": {
+                              "type": "array",
+                              "maxItems": 10,
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "caseNumber": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 10
+                                  },
+                                  "keywordRank": {
+                                    "oneOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 8
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "hybridRank": {
+                                    "oneOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 8
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "keywordFailed": {
+                                    "type": "boolean"
+                                  },
+                                  "hybridFailed": {
+                                    "type": "boolean"
+                                  },
+                                  "included": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "caseNumber",
+                                  "keywordRank",
+                                  "hybridRank",
+                                  "keywordFailed",
+                                  "hybridFailed",
+                                  "included"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "paired",
+                            "excluded",
+                            "keywordHits",
+                            "hybridHits",
+                            "keywordOnly",
+                            "hybridOnly",
+                            "both",
+                            "neither",
+                            "keywordMrr",
+                            "hybridMrr",
+                            "rows"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 2400
+                    }
+                  },
+                  "required": [
+                    "format",
+                    "topK",
+                    "total",
+                    "completed",
+                    "cancelled",
+                    "matchesReport",
+                    "differences",
+                    "single",
+                    "comparison",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "检索评测",
+            "复核 MRR",
+            "RAG 评测报告",
+            "Review retrieval evaluation"
+          ],
+          "description": "复核本机 ZiDevTools 的仅检索或双路检索 JSON 报告，查看 Top K 命中、首个正确名次与 MRR。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的本机检索评测报告快照。"
+      }
+    ],
+    "optional": []
+  }
+}

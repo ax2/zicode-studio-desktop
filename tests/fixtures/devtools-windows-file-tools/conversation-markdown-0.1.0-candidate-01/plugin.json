@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.conversation-markdown",
+  "name": "ZiDevTools Offline Conversation Markdown",
+  "displayName": "会话文件转 Markdown",
+  "description": "确认共享一份 ZiDevTools 会话 JSON，将完整问答按顺序转成使用纯文本围栏的 Markdown，再确认保存新文件。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.chat.transcript.to_markdown"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.chat.transcript.to_markdown",
+        "title": "会话文件转 Markdown",
+        "description": "确认共享一份 ZiDevTools 会话 JSON，将完整问答按顺序转成使用纯文本围栏的 Markdown，再确认保存新文件。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "maxLength": 512
+                    },
+                    "turns": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16
+                    },
+                    "sourceBytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 65536
+                    },
+                    "sourceSha256": {
+                      "type": "string",
+                      "minLength": 64,
+                      "maxLength": 64
+                    },
+                    "markdownBytes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 196608
+                    }
+                  },
+                  "required": [
+                    "text",
+                    "turns",
+                    "sourceBytes",
+                    "sourceSha256",
+                    "markdownBytes"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "离线会话导出",
+            "对话转 Markdown",
+            "Conversation to Markdown"
+          ],
+          "description": "确认共享一份 ZiDevTools 会话 JSON，将完整问答按顺序转成使用纯文本围栏的 Markdown，再确认保存新文件。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "只读取为当前转换明确共享的一份会话文件。"
+      }
+    ],
+    "optional": []
+  }
+}

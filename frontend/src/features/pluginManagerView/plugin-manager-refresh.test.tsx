@@ -6,7 +6,7 @@ import { t } from "../../shared/i18n";
 
 afterEach(() => { document.body.replaceChildren(); });
 
-function fixture() {
+function fixture(beforePermission?: () => Promise<void>, notify?: (message: string) => void) {
   const container = document.createElement("div");
   document.body.append(container);
   const target = { sceneId: "programming", workspaceId: "first" };
@@ -18,11 +18,12 @@ function fixture() {
     setEnabled: async (id, enabled) => { const plugin = plugins.find(p => p.id === id); if (!plugin) throw new Error(id); plugin.enabled = enabled; refresh(true); },
     setPermission: async (id, name, granted) => {
       expect(name).toBe("resource.read");
+      if (beforePermission) await beforePermission();
       const plugin = plugins.find(p => p.id === id); if (!plugin) throw new Error(id); plugin.permissions["resource.read"] = granted;
       refresh(true);
     },
   };
-  const refresh = (preserveState = false) => renderPluginManagerView({ container, registry, getTarget: () => target, preserveState });
+  const refresh = (preserveState = false) => renderPluginManagerView({ container, registry, getTarget: () => target, preserveState, notify });
   act(() => refresh());
   return { container, target, refresh };
 }
@@ -66,4 +67,40 @@ it("discards search state when the workspace changes or navigation remounts the 
   fireEvent.change(screen.getByRole("searchbox"), { target: { value: "tool-43" } });
   act(() => refresh());
   expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("");
+});
+
+it("keeps a pending permission action focused so a rejected write can be retried", async () => {
+  let rejectFirst: ((reason: Error) => void) | undefined;
+  let attempts = 0;
+  const notices: string[] = [];
+  const beforePermission = () => {
+    attempts++;
+    return attempts === 1
+      ? new Promise<void>((_resolve, reject) => { rejectFirst = reject; })
+      : Promise.resolve();
+  };
+  fixture(beforePermission, text => notices.push(text));
+  const input = screen.getByRole<HTMLInputElement>("searchbox");
+  fireEvent.change(input, { target: { value: "tool-44" } });
+  const button = screen.getByRole<HTMLButtonElement>("button", { name: t("Denied") });
+  button.focus();
+  fireEvent.click(button);
+  expect(button.disabled).toBe(false);
+  expect(button.getAttribute("aria-busy")).toBe("true");
+  expect(button.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(button);
+  expect(attempts).toBe(1);
+
+  await act(async () => rejectFirst?.(new Error("fixture permission refused")));
+  expect(notices).toEqual(["fixture permission refused"]);
+  expect(document.activeElement).toBe(button);
+  expect(button.getAttribute("aria-disabled")).toBeNull();
+  expect(button.getAttribute("aria-pressed")).toBe("false");
+
+  fireEvent.click(button);
+  await waitFor(() => expect(button.textContent).toBe(t("Allowed")));
+  expect(button.getAttribute("aria-busy")).toBeNull();
+  expect(document.activeElement).toBe(button);
+  expect(input.value).toBe("tool-44");
+  expect(attempts).toBe(2);
 });

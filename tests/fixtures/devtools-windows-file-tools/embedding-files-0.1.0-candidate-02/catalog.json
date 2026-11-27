@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.embedding",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "embedding-playground",
+      "capabilityId": "devtools.embedding.compare-files",
+      "title": "离线向量比较",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "确认两份 JSON 向量或一份包含两个 embeddings 的已有响应，离线比较维度、范数、余弦相似度和欧氏距离。"
+    }
+  ]
+}

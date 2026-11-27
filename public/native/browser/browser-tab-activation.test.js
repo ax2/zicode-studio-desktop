@@ -13,7 +13,7 @@ async function mount(closedTabs = [], restoredDocument = null) {
   let session = { revision: 1, tabs: [tab("a"), tab("b")], activeTab: "a", closedTabs };
   let visible = null, emit;
   const views = new Set(), requests = [];
-  const hooks = { save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), navigate: async () => {},
+  const hooks = { openLocalPdf: async () => null, save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}), printPage: async () => {}, navigate: async () => {},
     developerTools: async () => {}, pageSettings: async () => ({ zoom: 1, muted: false }), findStart: async () => ({}), findStatus: async () => ({ active: 1, count: 2 }) };
   const invoke = async (name, args) => {
     if (name === "browser_get_state") return { startupMode: "browser", session: structuredClone(session) };
@@ -31,6 +31,15 @@ async function mount(closedTabs = [], restoredDocument = null) {
         emit({ kind: "navigationFinished", tab: "a", success: true, documentRevision: restoredDocument });
         return { surfaceRevision: 0, tabs: [tab("a")] };
       }
+      if (r.kind === "openLocalPdf") {
+        const pdf = await hooks.openLocalPdf(r.tab);
+        if (pdf) {
+          views.add(r.tab);
+          emit({ kind: "navigationFinished", tab: r.tab, success: true, documentRevision: `${r.tab}:1` });
+          emit({ kind: "pdfDocument", tab: r.tab, documentRevision: `${r.tab}:1` });
+        }
+        return pdf;
+      }
       if (r.kind === "create") {
         await hooks.create();
         views.add(r.tabId);
@@ -38,6 +47,7 @@ async function mount(closedTabs = [], restoredDocument = null) {
       }
       if (r.kind === "close") views.delete(r.tab);
       if (r.kind === "savePdf") return hooks.savePdf();
+      if (r.kind === "printPage") return hooks.printPage();
       if (r.kind === "navigate") return hooks.navigate();
       if (r.kind === "openDeveloperTools") return hooks.developerTools();
       if (r.kind === "pageSettings") return hooks.pageSettings();
@@ -130,6 +140,120 @@ it("keeps pending PDF matches and unrelated focus when classification arrives fo
   expect(h.requests.some(r => r.kind === "findStop" || r.kind === "focusPage")).toBe(false);
 });
 
+it("opens a selected local PDF in a transient tab and leaves normal navigation, storage and cancellation intact", async () => {
+  const h = await mount();
+  const menu = h.root.querySelector(".browser-options");
+  const open = () => { menu.open = true; menu.querySelector(".browser-open-local-pdf").click(); };
+  const before = h.saved();
+  h.hooks.openLocalPdf = vi.fn(async () => null);
+  open();
+  await waitFor(() => expect(h.hooks.openLocalPdf).toHaveBeenCalledOnce());
+  await waitFor(() => expect(document.activeElement).toBe(menu.querySelector("summary")));
+  expect(h.selected()).toBe("a");
+  expect(h.visible()).toBe("a");
+  expect(h.saved()).toEqual(before);
+
+  const pdfUrl = "https://studio-local-pdf.invalid/fixture/document.pdf";
+  h.hooks.openLocalPdf = vi.fn(async tab => ({ tab, url: pdfUrl, name: "Synthetic document.pdf" }));
+  open();
+  await waitFor(() => expect(h.hooks.openLocalPdf).toHaveBeenCalledOnce());
+  const id = h.hooks.openLocalPdf.mock.calls[0][0];
+  await waitFor(() => expect(h.visible()).toBe(id));
+  expect(h.selected()).toBe(id);
+  const row = h.root.querySelector(`[data-browser-tab-id="${id}"]`);
+  expect(row.querySelector('[role="tab"]').title).toBe("Synthetic document.pdf");
+  expect(h.root.querySelector(".browser-address").value).toBe("");
+  expect(h.root.querySelector(".browser-read").disabled).toBe(true);
+  expect(h.saved().tabs).toEqual(before.tabs);
+  expect(h.saved().activeTab).toBe("a");
+  expect(h.saved().closedTabs).toEqual(before.closedTabs);
+  expect(JSON.stringify(h.saved())).not.toMatch(/studio-local-pdf|Synthetic document/);
+  menu.open = true;
+  menu.querySelector('[data-i18n-text="Save page PDF to Downloads"]').click();
+  await waitFor(() => expect(h.status()).toBe(t("Studio exports and printing are unavailable for local PDFs.")));
+  expect(h.requests.some(request => request.kind === "savePdf" && request.tab === id)).toBe(false);
+
+  const publicUrl = "https://example.org/ordinary-from-pdf";
+  const address = h.root.querySelector(".browser-address");
+  address.focus();
+  address.value = publicUrl;
+  address.dispatchEvent(new Event("input", { bubbles: true }));
+  address.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  await waitFor(() => expect(h.saved().tabs.some(tab => tab.url === publicUrl)).toBe(true));
+  expect(h.requests.some(request => request.kind === "navigate" && request.tab === id)).toBe(false);
+  expect(h.views.has(id)).toBe(true);
+
+  h.select(id);
+  await waitFor(() => expect(h.visible()).toBe(id));
+  h.root.querySelector(`[data-browser-tab-id="${id}"] .browser-tab-close`).click();
+  await waitFor(() => expect(h.views.has(id)).toBe(false));
+  expect(h.saved().closedTabs).toEqual(before.closedTabs);
+});
+
+it("opens one local PDF picker from browser chrome or the active native tab", async () => {
+  const h = await mount();
+  const address = h.root.querySelector(".browser-address");
+  const menu = h.root.querySelector(".browser-options");
+  const menuAction = menu.querySelector(".browser-open-local-pdf");
+  const press = overrides => address.dispatchEvent(new KeyboardEvent("keydown", {
+    key: "o", ctrlKey: true, cancelable: true, bubbles: true, ...overrides,
+  }));
+  const nativeOpen = tab => h.emit({ kind: "shortcut", tab, action: "openLocalPdf" });
+  let cancel;
+  const pick = vi.fn(() => new Promise(resolve => { cancel = resolve; }));
+  h.hooks.openLocalPdf = pick;
+
+  for (const modifiers of [{shiftKey: true}, {altKey: true}, {metaKey: true}, {isComposing: true}, {keyCode: 229}]) {
+    expect(press(modifiers)).toBe(true);
+  }
+  const modal = document.createElement("dialog");
+  modal.open = true;
+  modal.getClientRects = () => [{width: 200, height: 150}];
+  document.body.append(modal);
+  expect(press()).toBe(true);
+  nativeOpen("a");
+  modal.remove();
+  nativeOpen("b");
+  expect(h.requests.some(r => r.kind === "focusChrome")).toBe(false);
+
+  const before = h.saved();
+  address.focus();
+  expect(press()).toBe(false);
+  await waitFor(() => expect(pick).toHaveBeenCalledOnce());
+  try {
+    expect(press({ repeat: true })).toBe(false);
+    expect(press()).toBe(false);
+    expect(press({ key: "t" })).toBe(true);
+    document.body.append(modal);
+    expect(press()).toBe(true);
+    modal.remove();
+    h.root.setAttribute("inert", "");
+    expect(press()).toBe(true);
+    h.root.removeAttribute("inert");
+    nativeOpen("a");
+    menu.open = true;
+    menuAction.click();
+    expect(pick).toHaveBeenCalledOnce();
+    expect(h.requests.some(r => r.kind === "focusChrome")).toBe(false);
+  } finally {
+    cancel(null);
+  }
+  await waitFor(() => expect(h.requests.filter(r => r.kind === "openLocalPdf")).toHaveLength(1));
+  expect(h.saved()).toEqual(before);
+  await Promise.resolve();
+
+  h.hooks.openLocalPdf = vi.fn(async () => null);
+  nativeOpen("a");
+  await waitFor(() => expect(h.requests).toContainEqual({ kind: "focusPage", tab: "a" }));
+  expect(h.hooks.openLocalPdf).toHaveBeenCalledOnce();
+  expect(h.requests.findIndex(r => r.kind === "focusChrome" && r.tab === "a"))
+    .toBeLessThan(h.requests.findLastIndex(r => r.kind === "openLocalPdf"));
+  expect(h.saved()).toEqual(before);
+  expect(h.visible()).toBe("a");
+  expect(menuAction.getAttribute("aria-keyshortcuts")).toBe("Control+o");
+  expect(menuAction.dataset.shortcut).toBe("Ctrl+O");
+});
+
 it("updates an open zoom menu as PDF classification arrives and rejects older settings", async () => {
   const h = await mount();
   let completeOldSettings;
@@ -203,6 +327,35 @@ it.each([
   await waitFor(() => expect(h.requests.filter(request => request.kind === kind)).toEqual([
     { kind, tab: "a", expectedUrl: tab("a").url, expectedDocumentRevision: "a:2" },
   ]));
+});
+
+it("keeps keyboard focus reachable when a print menu request fails", async () => {
+  const h = await mount();
+  const menu = h.root.querySelector(".browser-options");
+  const trigger = menu.querySelector("summary");
+  const entry = menu.querySelector('[data-i18n-text="Print page…"]');
+  let fail;
+  h.hooks.printPage = () => new Promise((_, reject) => { fail = reject; });
+  const printFromMenu = () => {
+    menu.open = true;
+    entry.focus();
+    entry.click();
+  };
+
+  printFromMenu();
+  expect(menu.open).toBe(false);
+  expect(document.activeElement).toBe(trigger);
+  await waitFor(() => expect(fail).toBeTypeOf("function"));
+  const address = h.root.querySelector(".browser-address");
+  address.focus();
+  fail(Error("Fixture print unavailable"));
+  await waitFor(() => expect(h.status()).toBe("Fixture print unavailable"));
+  expect(document.activeElement).toBe(address);
+
+  h.hooks.printPage = async () => {};
+  printFromMenu();
+  await waitFor(() => expect(h.requests.filter(request => request.kind === "printPage")).toHaveLength(2));
+  expect(document.activeElement).toBe(trigger);
 });
 
 it("rechecks the document before dispatching either print shortcut", async () => {
@@ -417,6 +570,115 @@ it("discards only the unsaved new view and retries without phantom tabs or close
   expect(h.saved().activeTab).not.toBe(candidate); expect(h.saved().closedTabs).toEqual([]);
   expect(document.activeElement).toBe(h.root.querySelector(".browser-address")); expect(h.status()).toBe("");
 });
+it.each(["draft", "submit", "switch", "failure", "repeat", "newer-edit"])(
+  "keeps address input attached to the requested new tab: %s", async (outcome) => {
+    const h = await mount();
+    let settle;
+    h.hooks.create = () => new Promise((resolve, reject) => { settle = [resolve, reject]; });
+    h.requests.length = 0;
+    h.add();
+    await waitFor(() => expect(settle).toBeDefined());
+    h.hooks.create = async () => {};
+    const address = h.root.querySelector(".browser-address");
+    const url = "https://example.org/new-destination";
+    try {
+      if (outcome === "repeat") h.add();
+      address.focus();
+      address.value = url;
+      address.dispatchEvent(new Event("input", { bubbles: true }));
+      address.setSelectionRange(url.length, url.length);
+      if (outcome === "switch") h.select("b");
+      if (outcome !== "draft") address.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      if (outcome === "newer-edit") {
+        address.value = "newer unsubmitted draft";
+        address.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    } finally {
+      if (outcome === "failure") settle[1](Error("Could not create blank tab"));
+      else settle[0]();
+    }
+    await app.finishWindowWrites();
+    const navigations = h.requests.filter(request => request.kind === "navigate");
+    if (outcome === "switch" || outcome === "failure") {
+      expect(h.selected()).toBe(outcome === "switch" ? "b" : "a");
+      expect(navigations).toEqual([]);
+      if (outcome === "failure") expect(address.value).toBe(url);
+    } else {
+      const candidates = h.requests.filter(request => request.kind === "create");
+      expect(candidates).toHaveLength(outcome === "repeat" ? 2 : 1);
+      const candidate = candidates.at(-1).tabId;
+      expect(h.selected()).toBe(candidate);
+      expect(address.value).toBe(outcome === "newer-edit" ? "newer unsubmitted draft" : url);
+      expect(navigations).toEqual(outcome === "draft" ? [] : [{ kind: "navigate", tab: candidate, url }]);
+      if (outcome === "draft") expect(address.selectionStart).toBe(url.length);
+    }
+  },
+);
+it("reserves the shortcut tab while an earlier navigation is still queued", async () => {
+  const h = await mount();
+  const address = h.root.querySelector(".browser-address");
+  const edit = value => {
+    address.focus(); address.value = value;
+    address.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  const submit = () => address.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  const before = "https://example.org/earlier";
+  const goal = "https://example.org/new-tab-only";
+  let finish;
+  h.hooks.navigate = () => new Promise(resolve => { finish = resolve; });
+  edit(before); submit();
+  await waitFor(() => expect(finish).toBeTypeOf("function"));
+  h.hooks.navigate = async () => {};
+  h.hooks.create = async () => { throw Error("Create failed"); };
+  h.requests.length = 0;
+  try {
+    address.dispatchEvent(new KeyboardEvent("keydown", { key: "t", ctrlKey: true, bubbles: true, cancelable: true }));
+    edit(goal); submit();
+  } finally { finish(); }
+  await app.finishWindowWrites();
+  expect(h.selected()).toBe("a");
+  expect(h.root.querySelectorAll('[role="tab"]')).toHaveLength(2);
+  expect(h.saved().tabs[0].url).toBe(before);
+  expect(address.value).toBe(goal);
+  expect(h.requests.filter(request => request.kind === "navigate")).toEqual([]);
+});
+it.each(["same", "escape", "composition"])(
+  "handles literal address input during a new tab transition: %s", async (outcome) => {
+    const h = await mount();
+    const address = h.root.querySelector(".browser-address");
+    const url = address.value;
+    const submit = () => address.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    let release;
+    h.hooks.create = () => new Promise(resolve => { release = resolve; });
+    h.requests.length = 0;
+    h.add();
+    await waitFor(() => expect(release).toBeTypeOf("function"));
+    try {
+      address.focus();
+      if (outcome === "composition") address.dispatchEvent(new CompositionEvent("compositionstart"));
+      address.value = url;
+      address.dispatchEvent(new Event("input", { bubbles: true }));
+      if (outcome === "escape") address.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      submit();
+    } finally { release(); }
+    await app.finishWindowWrites();
+    const target = h.requests.find(request => request.kind === "create").tabId;
+    const navigation = { kind: "navigate", tab: target, url };
+    const navigations = () => h.requests.filter(request => request.kind === "navigate");
+    expect(h.selected()).toBe(target);
+    expect(address.value).toBe(outcome === "escape" ? "" : url);
+    expect(navigations()).toEqual(outcome === "same" ? [navigation] : []);
+    if (outcome === "composition") {
+      submit();
+      await app.finishWindowWrites();
+      expect(navigations()).toEqual([]);
+      address.dispatchEvent(new CompositionEvent("compositionend"));
+      submit();
+      await app.finishWindowWrites();
+      expect(navigations()).toEqual([navigation]);
+    }
+  },
+);
 it("does not persist or expose a tab whose native creation failed", async () => {
   const h = await mount(), before = h.saved();
   h.hooks.create = async () => { throw Error("Native creation unavailable"); }; h.add();

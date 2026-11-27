@@ -8,6 +8,7 @@ import { directoryComparePermission, isDirectoryCompare, renderDirectoryCompareR
 import { createResourceComputation } from "./plugin-view-resource-compute.js";
 import { createResourcePreview } from "./plugin-resource-preview.js";
 import { createResourceTransfer } from "./plugin-resource-transfer.js";
+import { resourceAccess } from "./plugin-resource-transfer-protocol.js";
 import { createResourceSave } from "./plugin-resource-save.js";
 import { createResourceExport } from "./plugin-resource-export.js";
 import { readPluginViewResource, resourceViewTarget } from "./plugin-view-resource.js";
@@ -39,7 +40,7 @@ function button(text, action) { const el = node("button", text, "ui-button ui-bu
 export function createDirectoryResourceRunner({ container, tool, detail, gateway, getTarget, onBusy = () => {}, onSuccess = () => {}, onReceiverExecuted, receiveNoteDraft, mountInputs = inputs }) {
   const target = getTarget?.(), original = resourceViewTarget(target);
   let active = true, reference = null, executionAccess = null, form = null, running = false, reviewBusy = false, folderBusy = false, directoryPreparing = false, callId = null, timer = null, invoking = false, cancelRequested = false;
-  let streamedReport = null, liveStream = null, openingOriginal = false;
+  let streamedReport = null, liveStream = null, openingReport = null;
   const valid = () => active && original === resourceViewTarget(getTarget?.());
   const status = node("p"); status.setAttribute("role", "status");
   const diskInspector = isDiskInspector(tool.pluginId, tool.capabilityId);
@@ -82,8 +83,8 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     onSaveReport: typeof gateway.prepareResourceSave === "function" ? (resource, owner, container) => save?.open(resource, owner, container) : undefined }) ??
     createMarkdownResultDetails({ raw: result, executionProfile: detail.capability.executionProfile }) ??
     createFileDigestResult({ raw: result, executionProfile: detail.capability.executionProfile, capabilityId: tool.capabilityId,
-      onSendOriginal: (resource, slot) => {
-        if (Number.isInteger(resource.streamIndex)) { void sendStreamOriginal(resource.streamIndex, slot); return; }
+      onSendOriginal: (resource, slot, canOpen) => {
+        if (Number.isInteger(resource.streamIndex)) return sendStreamOriginal(resource.streamIndex, slot, canOpen);
         const sources = reference ? [reference, ...(reference.additionalResources ?? [])] : [];
         if (valid() && sources.some(source => source.resourceId === resource.resourceId && source.contentVersion === resource.contentVersion)) transfer?.open(resource, {
           runtimeId: target.instanceId, sessionId: target.sessionId, pluginId: tool.pluginId, capabilityId: tool.capabilityId,
@@ -119,18 +120,24 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     streamedReport = null;
     if (previous) void gateway.revokeResource(previous.access).catch(() => {});
   }
-  async function sendStreamOriginal(index, slot) {
+  async function sendStreamOriginal(index, slot, canOpen) {
     const report = streamedReport;
-    if (!valid() || !report || !nativeStream || !transfer || openingOriginal) return;
-    openingOriginal = true;
+    if (!valid() || !report || !nativeStream || !transfer || openingReport === report) return;
+    openingReport = report;
     transfer.clear();
     try {
       const response = await nativeStream.original(target.workspaceId, report.access, index);
-      if (!valid() || report !== streamedReport) return;
-      transfer.open(streamOriginal(response, report, index), report.access.owner, slot);
+      const original = streamOriginal(response, report, index);
+      if (!valid() || report !== streamedReport || !canOpen()) {
+        void gateway.revokeResource(resourceAccess(report.access.owner, original)).catch(() => {});
+        return;
+      }
+      transfer.open(original, report.access.owner, slot);
     } catch {
-      if (valid() && report === streamedReport) status.textContent = t("The original file moved or changed. Share it again before retrying.");
-    } finally { openingOriginal = false; }
+      if (valid() && report === streamedReport) return false;
+    } finally {
+      if (openingReport === report) openingReport = null;
+    }
   }
   function refreshReviewControls() {
     if (!active) return;
@@ -221,6 +228,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     markdownDraftMode, allowOriginalFile: fileDigest, nativeStream, includePreviewSource: Boolean(crop),
     ...(fullFileEncoding ? { maxBytes: 8 * 1024 * 1024 } : {}),
     ...(jsonFile ? { maxBytes: 1024 * 1024 } : {}),
+    ...(detail.capability.executionProfile === "resource.wasi.image.ascii.v1" ? { maxBytes: 10 * 1024 * 1024 } : {}),
     readInput: (resource, offset, length, current) => read({ capabilityId: tool.capabilityId }, resource, offset, length, current),
     minResources: detail.capability.resourceInputMin ?? 1, resourceLabels: detail.capability.resourceInputLabels ?? [],
     isCurrent: () => valid() && !running,
@@ -421,7 +429,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       selection.resumeExplorer?.();
     }
   }
-  return { destroy() {
+  return { offerLocalFile: file => !directoryAnalysis && valid() ? selection.offerLocalFile?.(file) : undefined, destroy() {
     if (!active) return;
     active = false; clearTimeout(timer);
     if (liveStream) void nativeStream.cancel(target.workspaceId, liveStream.owner, liveStream.grantId).catch(() => {});

@@ -13,6 +13,8 @@ export interface RecipeDraft {
   settingsJson: string;
 }
 
+export type RecipeVersion = { version: number; draft: RecipeDraft };
+
 const empty: RecipeDraft = {
   identityVersion: null,
   appearanceVersion: null,
@@ -37,25 +39,39 @@ export function GenerationRecipeForm({
   save,
 }: {
   id: string;
-  initial?: RecipeDraft;
+  initial?: RecipeVersion;
   disabled: boolean;
   request: CharacterRequest;
-  save: (name: string, draft: RecipeDraft) => Promise<void>;
+  save: (name: string, draft: RecipeDraft, previous: number | null) => Promise<number | undefined>;
 }) {
-  const [draft, setDraft] = useState(initial ?? empty);
+  const [edit, setEdit] = useState<{ draft: RecipeDraft; baseVersion: number | null } | null>(null);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const version = initial?.version ?? null;
+  const draft = edit?.draft ?? initial?.draft ?? empty;
+  const baseVersion = edit ? edit.baseVersion : version;
+  const staleDraft = baseVersion !== version;
+  const newerVersion = baseVersion !== null && version !== null && version > baseVersion;
   const blocked = disabled || saving;
   const canSave =
-    !blocked && draft.identityVersion !== null && (initial !== undefined || name.trim() !== "");
+    !blocked && !staleDraft && draft.identityVersion !== null &&
+    (initial !== undefined || name.trim() !== "");
+
+  function change(values: Partial<RecipeDraft>) {
+    setEdit((previous) => ({
+      draft: { ...(previous?.draft ?? initial?.draft ?? empty), ...values },
+      baseVersion: previous ? previous.baseVersion : version,
+    }));
+  }
 
   async function submit() {
     if (!canSave) return;
     setSaving(true);
     setError("");
     try {
-      await save(name, draft);
+      const savedVersion = await save(name, draft, baseVersion);
+      if (savedVersion !== undefined) setEdit({ draft, baseVersion: savedVersion });
     } catch (reason) {
       const code = String(reason);
       setError(
@@ -103,7 +119,7 @@ export function GenerationRecipeForm({
           value={draft[binding]}
           request={request}
           disabled={blocked}
-          onChange={(value) => setDraft((current) => ({ ...current, [binding]: value }))}
+          onChange={(value) => change({ [binding]: value })}
         />
       ))}
       <label>
@@ -113,7 +129,7 @@ export function GenerationRecipeForm({
           value={draft.prompt}
           maxLength={8000}
           disabled={blocked}
-          onChange={(event) => setDraft({ ...draft, prompt: event.target.value })}
+          onChange={(event) => change({ prompt: event.target.value })}
         />
       </label>
       <label>
@@ -123,7 +139,7 @@ export function GenerationRecipeForm({
           value={draft.negativePrompt}
           maxLength={8000}
           disabled={blocked}
-          onChange={(event) => setDraft({ ...draft, negativePrompt: event.target.value })}
+          onChange={(event) => change({ negativePrompt: event.target.value })}
         />
       </label>
       <label>
@@ -133,13 +149,29 @@ export function GenerationRecipeForm({
           value={draft.settingsJson}
           maxLength={16384}
           disabled={blocked}
-          onChange={(event) => setDraft({ ...draft, settingsJson: event.target.value })}
+          onChange={(event) => change({ settingsJson: event.target.value })}
         />
       </label>
       <button type="submit" className="ui-button" disabled={!canSave}>
         {t(initial ? "Save recipe version" : "Create generation recipe")}
       </button>
-      {error && <p role="alert">{error}</p>}
+      {newerVersion && (
+        <div>
+          <p role="status">{t("The latest version changed. Review it before saving again.")}</p>
+          <button
+            type="button"
+            className="ui-button"
+            disabled={blocked}
+            onClick={() => {
+              setEdit(null);
+              setError("");
+            }}
+          >
+            {t("Load latest version into editor")}
+          </button>
+        </div>
+      )}
+      {error && !newerVersion && <p role="alert">{error}</p>}
     </form>
   );
 }

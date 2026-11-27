@@ -29,7 +29,7 @@ afterEach(async () => {
   }
 });
 
-function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list, save, hide, stateError } = {}) {
+function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list, save, hide, present, stateError } = {}) {
   setLocale("en");
   vi.stubGlobal("ResizeObserver", class { observe() {} });
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 20, y: 50, width: 900, height: 580 });
@@ -49,6 +49,7 @@ function setup({ tabs = [page], active = tabs[0].id, privateWindow = false, list
     if (args?.request?.kind === "url") return { url: tabs.find(tab => tab.id === args.request.tab)?.url ?? "about:blank" };
     if (args?.request?.kind === "status") return { surfaceRevision: 0, tabs: structuredClone(tabs) };
     if (args?.request?.kind === "snapshot") return "data:image/jpeg;base64,AA==";
+    if (args?.request?.kind === "present" && present) return present(args.request.tab);
     if (args?.request?.kind === "hide" && hide) return hide();
     return {};
   });
@@ -154,6 +155,41 @@ it("keeps private blank tabs free of library lookups", async () => {
   expect(host.querySelector(".browser-new-tab-shortcuts")).toBeNull();
 });
 
+it.each(["rename", "remove"])("keeps confirmed shortcut changes when the refresh fails after %s", async action => {
+  const other = { ...marked, id: "other", title: "Other site", url: "https://backup.invalid/" };
+  const library = { revision: 7, folders: [], bookmarks: [marked, other, ordinary] };
+  let committed = false;
+  const failedRead = vi.fn(async () => { throw new Error("Library read unavailable"); });
+  const list = async () => committed ? failedRead() : library;
+  const save = vi.fn(async request => {
+    committed = true;
+    return { ...library, revision: 8, bookmarks: request.bookmarks };
+  });
+  const { host, calls } = setup({ tabs: [blank], list, save });
+  const panel = await waitFor(() => getByRole(host, "region", { name: "Website shortcuts" }));
+  const menu = host.querySelector(".browser-options");
+  menu.open = true;
+  fireEvent(menu, new Event("toggle"));
+  (await within(menu).findByRole("button", { name: "Bookmarks" })).click();
+  const dialog = await within(document.body).findByRole("dialog", { name: "Bookmarks" });
+  (await within(dialog).findByRole("button", { name: "Edit bookmark: Research notes" })).click();
+  const form = await within(dialog).findByRole("form", { name: "Bookmark editor" });
+  if (action === "rename") {
+    fireEvent.input(within(form).getByLabelText("Bookmark name"), { target: { value: "Updated site" } });
+    fireEvent.submit(form);
+  } else within(form).getByRole("button", { name: "Delete bookmark" }).click();
+  await waitFor(() => expect(form.isConnected).toBe(false));
+  within(dialog).getByRole("button", { name: "Close" }).click();
+  await waitFor(() => expect(failedRead).toHaveBeenCalled());
+  expect(save).toHaveBeenCalledOnce();
+  expect(panel.isConnected).toBe(true);
+  expect(queryByRole(panel, "button", { name: /Research notes/ })).toBeNull();
+  expect(queryByRole(panel, "button", { name: /Regular bookmark/ })).toBeNull();
+  expect(Boolean(queryByRole(panel, "button", { name: /Updated site/ }))).toBe(action === "rename");
+  within(panel).getByRole("button", { name: /Other site/ }).click();
+  await waitFor(() => expect(calls("navigate")).toContainEqual({ kind: "navigate", tab: blank.id, url: other.url }));
+});
+
 it("returns to a normal blank page when there are no marked sites or the library fails", async () => {
   const list = vi.fn()
     .mockResolvedValueOnce({ bookmarks: [ordinary], folders: [] })
@@ -186,6 +222,41 @@ it("clears a temporary native blank-page preview when shortcuts become available
   await waitFor(() => getByRole(host, "region", { name: "Website shortcuts" }));
   expect(host.querySelector(".browser-overlay-preview")).toBeNull();
   expect(calls("navigate")).toHaveLength(0);
+});
+
+it.each([false, true])("waits for native presentation before capturing an overlay (dismissed: %s)", async dismissed => {
+  const second = { id: "second", title: "Other article", url: "https://example.invalid/other" };
+  let finishPresent;
+  const { host, calls } = setup({
+    tabs: [page, second],
+    present: id => id === second.id && !finishPresent
+      ? new Promise(resolve => { finishPresent = resolve; }) : undefined,
+  });
+  await waitFor(() => expect(calls("present").at(-1)?.tab).toBe(page.id));
+  getByRole(host, "tab", { name: second.title }).click();
+  await waitFor(() => expect(finishPresent).toBeTypeOf("function"));
+
+  const menu = document.createElement("details");
+  menu.className = "quick-tools-menu";
+  menu.getClientRects = () => [{ width: 150, height: 220 }];
+  document.body.append(menu);
+  menu.open = true;
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const earlyCapture = calls("snapshot");
+  if (dismissed) menu.open = false;
+  finishPresent();
+  expect(earlyCapture).toHaveLength(0);
+  if (dismissed) {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(calls("snapshot")).toHaveLength(0);
+    expect(calls("hide")).toHaveLength(0);
+    expect(calls("present").map(entry => entry.tab)).toEqual([page.id, second.id]);
+  } else {
+    await waitFor(() => expect(calls("hide")).toHaveLength(1));
+    expect(calls("snapshot").map(entry => entry.tab)).toEqual([second.id]);
+    expect(host.querySelector(".browser-overlay-preview")?.dataset.tab).toBe(second.id);
+  }
 });
 
 it("waits for a restored native blank view to hide before exposing shortcut buttons", async () => {

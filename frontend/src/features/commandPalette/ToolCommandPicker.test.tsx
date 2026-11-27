@@ -61,6 +61,8 @@ it("selects and steps only through entries that the tool picker can open", async
   const press = (key: string) => act(async () => fireEvent.keyDown(input, { key }));
   const disabled = container.querySelectorAll<HTMLButtonElement>('[role="option"]:disabled');
   expect(disabled).toHaveLength(2);
+  expect(container.querySelector('[role="listbox"][tabindex="-1"]')).not.toBeNull();
+  expect(container.querySelectorAll('[role="option"][tabindex="-1"]')).toHaveLength(4);
   expect(disabled[0].textContent).toContain("Plugin is disabled");
   expect(selected()).toBe("tool-command-1");
   await act(async () => fireEvent.mouseEnter(disabled[0]));

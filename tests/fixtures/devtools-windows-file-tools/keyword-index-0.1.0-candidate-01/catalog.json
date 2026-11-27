@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.keyword-index",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "rag-keyword-search",
+      "capabilityId": "devtools.knowledge.keyword.snapshot.search",
+      "title": "本机知识索引关键词检索",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "查询一次明确确认的 ZiDevTools v1 静态知识索引副本，显示可核对的来源、匹配片段与引用；用户确认后保存文本。"
+    }
+  ]
+}

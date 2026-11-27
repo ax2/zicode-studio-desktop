@@ -1,0 +1,16 @@
+{
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "packageId": "com.zicode.devtools.conversation-markdown",
+  "packageVersion": "0.1.0",
+  "deliveryStatus": "unsigned_provider_candidate_not_host_accepted",
+  "tools": [
+    {
+      "sourceToolId": "model-chat",
+      "capabilityId": "devtools.chat.transcript.to_markdown",
+      "title": "会话文件转 Markdown",
+      "status": "candidate",
+      "inputProfile": "resource.wasi.input.draft2",
+      "scope": "确认共享一份 ZiDevTools 会话 JSON，将完整问答按顺序转成使用纯文本围栏的 Markdown，再确认保存新文件。"
+    }
+  ]
+}

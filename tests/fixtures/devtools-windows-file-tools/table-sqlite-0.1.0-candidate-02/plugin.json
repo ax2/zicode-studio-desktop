@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.table-sqlite",
+  "name": "ZiDevTools Table SQLite Export",
+  "displayName": "表格另存 SQLite",
+  "description": "读取一份已确认的本机 UTF-8 CSV、TSV 或 JSON 表格，将全部行生成一个新的 SQLite 单表文件。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.7.2 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.input.types.v1": "=1.0.0-preview.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.data.sqlite.export"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.data.sqlite.export",
+        "title": "表格另存 SQLite",
+        "description": "读取一份已确认的本机 UTF-8 CSV、TSV 或 JSON 表格，将全部行生成一个新的 SQLite 单表文件。",
+        "resourceInputMimeTypes": [
+          "application/octet-stream",
+          "text/csv",
+          "application/json",
+          "text/plain"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "enum": [
+                "csv",
+                "tsv",
+                "json"
+              ],
+              "title": "表格格式"
+            },
+            "tableName": {
+              "type": "string",
+              "maxLength": 512,
+              "title": "表名（可选）",
+              "default": "data",
+              "description": "留空时为 data，最多 512 个 UTF-8 字节。"
+            }
+          },
+          "required": [
+            "format"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "tableName": {
+                      "type": "string",
+                      "maxLength": 512
+                    },
+                    "rows": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 128
+                    },
+                    "columns": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 16
+                    },
+                    "byteLength": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 131072
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "tableName",
+                    "rows",
+                    "columns",
+                    "byteLength",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "error": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "contractVersion": {
+                  "type": "string",
+                  "const": "1.0.0-rc.1"
+                },
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "data": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 256
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "contractVersion",
+                "ok",
+                "data",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 8192,
+        "directory": {
+          "categoryId": "files",
+          "aliases": [
+            "CSV 转 SQLite",
+            "TSV 转 SQLite",
+            "JSON 转 SQLite",
+            "Table SQLite Export"
+          ],
+          "description": "读取一份已确认的本机 UTF-8 CSV、TSV 或 JSON 表格，将全部行生成一个新的 SQLite 单表文件。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "读取本次确认的一份表格快照。"
+      }
+    ],
+    "optional": []
+  }
+}

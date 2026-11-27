@@ -43,3 +43,27 @@ export const creationWorkflows = [
 ] as const;
 export type CreationWorkflow = (typeof creationWorkflows)[number];
 export type CreationWorkflowId = CreationWorkflow["id"];
+
+export const gameAssetTemplates = [
+  {
+    id: "character",
+    title: "Game character",
+    brief: "Create a single game character in a neutral full-body pose. Give the character a clear silhouette and leave space around the figure.",
+  },
+  {
+    id: "prop",
+    title: "Game prop",
+    brief: "Create a single game prop, centered in a three-quarter view. Make its shape and material easy to recognize at small sizes.",
+  },
+  {
+    id: "scene",
+    title: "Game scene",
+    brief: "Create a game environment with a clear focal point and readable foreground, middle ground, and background.",
+  },
+  {
+    id: "icon",
+    title: "Game UI icon",
+    brief: "Create a single game UI icon with a simple silhouette. Keep it recognizable at small sizes and avoid lettering.",
+  },
+] as const;
+export type GameAssetTemplateId = (typeof gameAssetTemplates)[number]["id"];
