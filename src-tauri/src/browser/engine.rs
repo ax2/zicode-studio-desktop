@@ -487,6 +487,9 @@ impl NativeBrowserEngine {
     pub fn view(&self, tab: &str) -> Result<&WebView, String> {
         self.view_if_open(tab).ok_or_else(|| "Browser tab is no longer available".into())
     }
+    pub(super) fn is_selected(&self, tab: &str) -> bool {
+        self.selected.borrow().as_deref() == Some(tab)
+    }
     pub fn activate(&self, tab: Option<&str>, bounds: Bounds, focus: bool) -> Result<(), String> {
         bounds.rect()?;
         if let Some(tab) = tab {
@@ -514,7 +517,7 @@ impl NativeBrowserEngine {
         let has_live_popup = self.views.values().any(|candidate| {
             candidate.opener.as_deref() == Some(tab) && candidate.events.is_live() && !candidate.closing.get()
         });
-        if self.selected.borrow().as_deref() == Some(tab) || !view.navigation.ready()
+        if self.is_selected(tab) || !view.navigation.ready()
             || self.downloads.active_for(tab) || view.opener.is_some() || has_live_popup
             || self.popups.pending_for(tab)
         {

@@ -334,16 +334,14 @@ pub(super) fn shutdown_downloads() {
     if let Ok(managers) = managers { for manager in managers { manager.cancel_all(); } }
 }
 pub(super) fn site_settings(
-    window: &WebviewWindow, tab: &str, expected_origin: &str, action: super::SiteAction,
+    window: &WebviewWindow, tab: &str, expected_origin: &str, expected_document_revision: &str, action: super::SiteAction,
     sender: tokio::sync::oneshot::Sender<Result<Value, String>>,
 ) {
     let sender = std::rc::Rc::new(RefCell::new(Some(sender)));
     let completion = sender.clone();
     let result = WINDOWS.with(|slot| slot.with_mut(|windows| {
         let browser = windows.get(window.label()).ok_or("Browser unavailable")?;
-        let (view, guard) = browser.engine.begin_page_work(tab)?;
-        super::site_settings::run(view, expected_origin, action, move |result| {
-            drop(guard);
+        super::site_settings::run(&browser.engine, tab, expected_origin, expected_document_revision, action, move |result| {
             if let Some(tx) = completion.borrow_mut().take() { let _ = tx.send(result); }
         })
     }));

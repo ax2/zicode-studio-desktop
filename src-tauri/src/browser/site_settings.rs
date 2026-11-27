@@ -1,4 +1,4 @@
-use super::SiteAction;
+use super::{engine::NativeBrowserEngine, SiteAction};
 #[cfg(all(test,debug_assertions))]
 #[path="native_site_permissions_test.rs"]
 mod native_site_permissions_test;
@@ -32,14 +32,28 @@ fn entries(settings: ICoreWebView2PermissionSettingCollectionView, origin: &str)
 }
 
 pub(super) fn run(
-    view: &wry::WebView, expected_origin: &str, action: SiteAction,
+    engine: &NativeBrowserEngine,
+    tab: &str,
+    expected_origin: &str,
+    expected_document_revision: &str,
+    action: SiteAction,
     done: impl FnOnce(Result<Value, String>) + 'static,
 ) -> Result<(), String> {
+    let (view, work) = engine.begin_page_work(tab)?;
     let url = tauri::Url::parse(&view.url().map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
     let origin = url.origin().ascii_serialization();
-    if !matches!(url.scheme(), "https" | "http") || origin != expected_origin {
+    if !matches!(url.scheme(), "https" | "http")
+        || origin != expected_origin
+        || !engine.is_selected(tab)
+        || !engine.export_ready(tab)
+        || engine.document_revision(tab)? != expected_document_revision
+    {
         return Err("Site changed. Open site settings again.".into());
     }
+    let done = move |result| {
+        drop(work);
+        done(result);
+    };
     let native = view.webview();
     unsafe {
         match action {
