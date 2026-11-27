@@ -38,7 +38,7 @@ gh api repos/ax2/zicode-studio-desktop/issues/<number>/dependencies/blocked_by
 - 各 Issue 负责人在发版前完成与改动相称的验证，将源码或产物标识、检查范围、结果和实际缺口写入对应 Issue。产品变更验证受影响的正常入口和回归，纯文档变更检查内容、差异和链接。遵循仓库现有合并要求。
 - 日常开发使用本机定向检查。各负责人可并行完成代码和局部测试，由主会话集中复用构建缓存，按交付批次构建一次 Windows 候选，使用独立资料验证同批功能。修复候选中的问题后，按受影响范围复验。
 - 普通 PR 和 main 推送运行一项 Windows 轻量检查。根据改动选择 TypeScript、lint、设计和定向测试，涉及 Rust 或原生构建接线时才运行 Cargo check。文档或无产品改动仍产生检查结果。Tests、Developer platform 和 Documentation 保留手动全量入口。Windows 安装打包仍由正式标签或已有手动发行入口触发。
-- Windows 轻量检查先作为可见的可选状态。启用必需检查前，先核对真实 PR 和 main 的通过、失败及纯文档状态，并协调停止在需要该检查的提交中使用 `[skip ci]` 等跳过指令。GitHub 会跳过这类提交的 PR 或推送检查，令必需状态保持等待。[GitHub 跳过工作流说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs)
+- 提交到普通 PR 或 main 时，请省略 `[skip ci]`、`[ci skip]` 等跳过指令，包括 squash 合并的提交说明。轻量作业会自行选择检查范围，纯文档也会很快返回状态。启用必需检查前，在 #773 核对真实 PR 和 main 的检查结果。[GitHub 跳过工作流说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs)
 - 复用能对应当前改动和产物的已有回执。新增改动、失败或尚未解决的具体问题需要补验时，补做相应范围。保留历史日志和失败记录。
 - 每个发布版本默认围绕一个主要模块，发布已达到验收的工作。冻结前把未开工或依赖未满足的事项移到按模块规划的后续编号版本。已交付的改动及其验收仍归实际版本。影响资料保留、安装升级或关键入口的缺陷可随当前版本处理。
 - 每次发版前、启动集中整改或重构前，核对各后续版本已关闭的 Issue 和已合入且能单独交付的改动。先查首次发布标签，再比对当前候选的实际代码、资源和验收记录；把可交付的范围纳入最近尚可调整的版本，已交付项归回首次发布的版本。已达到验收条件、可以合入 main 且适合本版的 Issue 可以一并提前发布。核对发布分支确实包含对应改动，并在发行清单的 extraCompleted 中记录跨里程碑交付。正式发布后同步实际交付版本到 GitHub Project 和 Issue，保留原排期记录。
