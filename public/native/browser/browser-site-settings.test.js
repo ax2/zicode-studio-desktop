@@ -95,7 +95,7 @@ it.each([
   expect(request.mock.calls).toEqual([[{ type: "list" }]]);
 });
 
-async function mountSiteSettings({ readUrl, twoTabs = false } = {}) {
+async function mountSiteSettings({ readUrl, twoTabs = false, hasDocument = true } = {}) {
   vi.stubGlobal("ResizeObserver", class { observe() {} });
   vi.spyOn(document, "hidden", "get").mockReturnValue(false);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, width: 900, height: 600 });
@@ -103,6 +103,7 @@ async function mountSiteSettings({ readUrl, twoTabs = false } = {}) {
   const tab = { id: "permission-tab", url: "https://previous.test/", title: "Previous page" };
   const peer = { id: "other-tab", url: "https://other.test/", title: "Other page" };
   const tabs = twoTabs ? [tab, peer] : [tab];
+  const revision = "original-document";
   const request = vi.fn(async action => action.type === "list" ? [
     { permission: 1, allowed: true },
     { permission: 2, allowed: true },
@@ -114,7 +115,10 @@ async function mountSiteSettings({ readUrl, twoTabs = false } = {}) {
     if (command === "browser_get_state") return { startupMode: "browser", session: { revision: 0, activeTab: tab.id, tabs } };
     if (command === "browser_bookmarks") return { bookmarks: [], folders: [] };
     const control = args?.request;
-    if (control?.kind === "status") return { surfaceRevision: 0, tabs };
+    if (control?.kind === "status") return {
+      surfaceRevision: 0,
+      tabs: tabs.map((item, index) => ({ ...item, documentRevision: hasDocument ? (index ? "peer-document" : revision) : undefined })),
+    };
     if (control?.kind === "url") return readUrl ? readUrl() : { url: origin + "/site" };
     if (control?.kind === "snapshot") return "data:image/jpeg;base64,AA==";
     if (control?.kind === "fullscreen") return { fullscreen: false };
@@ -133,11 +137,11 @@ async function mountSiteSettings({ readUrl, twoTabs = false } = {}) {
   };
   const emit = payload => receiveEvent({ payload });
   const navigate = () => emit({ kind: "navigationStarted", tab: tab.id });
-  return { origin, tab, peer, host, request, nativeControls, open, navigate, emit };
+  return { origin, tab, peer, host, request, nativeControls, open, navigate, emit, revision };
 }
 
 it("shows the exact site and permission before one explicit revocation", async () => {
-  const { origin, tab, request, nativeControls, open } = await mountSiteSettings();
+  const { origin, tab, request, nativeControls, open, revision } = await mountSiteSettings();
   open();
   const dialog = await waitFor(() => getByRole(document.body, "dialog", { name: t("Site permissions and storage") }));
   await waitFor(() => expect(getByText(dialog, `${t("Microphone")} · ${t("Allowed")}`)).toBeTruthy());
@@ -165,7 +169,7 @@ it("shows the exact site and permission before one explicit revocation", async (
     [{ type: "list" }],
   ]);
   expect(nativeControls).toEqual(request.mock.calls.map(([action]) => ({
-    kind: "siteSettings", tab: tab.id, expectedOrigin: origin, action,
+    kind: "siteSettings", tab: tab.id, expectedOrigin: origin, expectedDocumentRevision: revision, action,
   })));
 });
 
@@ -256,7 +260,7 @@ it.each([false, true])("discards an old site read after leaving and returning to
   const readUrl = vi.fn().mockImplementationOnce(() => new Promise((resolve, reject) => {
     reply = fails ? reject : resolve;
   }));
-  const { open, host, origin, request, nativeControls, tab } = await mountSiteSettings({ readUrl });
+  const { open, host, origin, request, nativeControls, tab, revision } = await mountSiteSettings({ readUrl });
   readUrl.mockResolvedValue({ url: origin });
   open();
   await waitFor(() => expect(readUrl).toHaveBeenCalledOnce());
@@ -283,7 +287,40 @@ it.each([false, true])("discards an old site read after leaving and returning to
   open();
   await app.finishWindowWrites();
   await waitFor(() => expect(request).toHaveBeenCalledExactlyOnceWith({ type: "list" }));
-  expect(nativeControls).toEqual([{ kind: "siteSettings", tab: tab.id, expectedOrigin: origin, action: { type: "list" } }]);
+  expect(nativeControls).toEqual([{
+    kind: "siteSettings", tab: tab.id, expectedOrigin: origin, expectedDocumentRevision: revision, action: { type: "list" },
+  }]);
+});
+
+it("waits for a committed document before opening site settings", async () => {
+  const { open, host, request } = await mountSiteSettings({ hasDocument: false });
+  open();
+  await app.finishWindowWrites();
+  expect(request).not.toHaveBeenCalled();
+  expect(queryByRole(document.body, "dialog", { name: t("Site permissions and storage") })).toBeNull();
+  expect(host.querySelector('.browser-footer [role="status"]').textContent)
+    .toBe(t("Wait for the current page to finish loading"));
+});
+
+it("requires a fresh review for the same site after reload and sends only its new document", async () => {
+  const { open, navigate, emit, tab, revision, nativeControls } = await mountSiteSettings();
+  open();
+  const dialog = await waitFor(() => getByRole(document.body, "dialog", { name: t("Site permissions and storage") }));
+  const revoke = await waitFor(() => getByRole(dialog, "button", { name: revokeName("Camera") }));
+  revoke.click();
+  navigate();
+  emit({ kind: "navigationFinished", tab: tab.id, success: true, documentRevision: "reloaded-document" });
+  getByRole(dialog, "button", { name: t("Close") }).click();
+  expect(nativeControls.map(control => control.expectedDocumentRevision)).toEqual([revision]);
+  open();
+  const fresh = await waitFor(() => getByRole(document.body, "dialog", { name: t("Site permissions and storage") }));
+  const current = await waitFor(() => getByRole(fresh, "button", { name: revokeName("Camera") }));
+  current.click();
+  expect(nativeControls.map(control => control.action.type)).toEqual(["list", "list"]);
+  getByRole(fresh, "button", { name: t("Confirm") }).click();
+  await waitFor(() => expect(nativeControls.map(control => [control.expectedDocumentRevision, control.action.type])).toEqual([
+    [revision, "list"], ["reloaded-document", "list"], ["reloaded-document", "revoke"], ["reloaded-document", "list"],
+  ]));
 });
 
 it("discards an outstanding confirmation and its actions when the active page navigates", async () => {

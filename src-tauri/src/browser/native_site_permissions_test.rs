@@ -80,14 +80,8 @@ fn open(
     engine
         .create(owner, &id, origin, BOUNDS, 1.0, false)
         .unwrap();
-    wait(|| {
-        engine
-            .view(&id)
-            .ok()?
-            .url()
-            .ok()
-            .filter(|url| url.trim_end_matches('/') == origin)
-    });
+    wait(|| engine.export_ready(&id).then_some(()));
+    engine.activate(Some(&id), BOUNDS, false).unwrap();
     (engine, id)
 }
 fn seed(view: &wry::WebView, origin: &str) {
@@ -116,9 +110,15 @@ fn seed(view: &wry::WebView, origin: &str) {
     }
     wait(|| rx.try_recv().ok()).unwrap();
 }
-fn action(view: &wry::WebView, origin: &str, action: SiteAction) -> Result<Value, String> {
+fn action(engine: &NativeBrowserEngine, tab: &str, origin: &str, action: SiteAction) -> Result<Value, String> {
+    scoped_action(engine, tab, origin, &engine.document_revision(tab)?, action)
+}
+
+fn scoped_action(
+    engine: &NativeBrowserEngine, tab: &str, origin: &str, revision: &str, action: SiteAction,
+) -> Result<Value, String> {
     let (tx, rx) = mpsc::channel();
-    run(view, origin, action, move |res| {
+    run(engine, tab, origin, revision, action, move |res| {
         let _ = tx.send(res);
     })?;
     wait(|| rx.try_recv().ok())
@@ -147,14 +147,14 @@ fn remembered_autoplay_revocation_preserves_other_origin() {
         let view = engine.view(&id).unwrap();
         seed(view, &first);
         seed(view, &neighbor);
-        assert_eq!(action(view, &first, SiteAction::List).unwrap(), grant);
+        assert_eq!(action(&engine, &id, &first, SiteAction::List).unwrap(), grant);
     }
     {
         let (engine, id) = open(&owner, &profile, &first, |_| {});
-        let view = engine.view(&id).unwrap();
-        assert_eq!(action(view, &first, SiteAction::List).unwrap(), grant);
+        assert_eq!(action(&engine, &id, &first, SiteAction::List).unwrap(), grant);
         assert!(action(
-            view,
+            &engine,
+            &id,
             &neighbor,
             SiteAction::Revoke {
                 permission: kind,
@@ -163,7 +163,8 @@ fn remembered_autoplay_revocation_preserves_other_origin() {
         )
         .is_err());
         assert!(action(
-            view,
+            &engine,
+            &id,
             &first,
             SiteAction::Revoke {
                 permission: kind,
@@ -171,9 +172,10 @@ fn remembered_autoplay_revocation_preserves_other_origin() {
             }
         )
         .is_err());
-        assert_eq!(action(view, &first, SiteAction::List).unwrap(), grant);
+        assert_eq!(action(&engine, &id, &first, SiteAction::List).unwrap(), grant);
         action(
-            view,
+            &engine,
+            &id,
             &first,
             SiteAction::Revoke {
                 permission: kind,
@@ -181,18 +183,18 @@ fn remembered_autoplay_revocation_preserves_other_origin() {
             },
         )
         .unwrap();
-        assert_eq!(action(view, &first, SiteAction::List).unwrap(), deny);
+        assert_eq!(action(&engine, &id, &first, SiteAction::List).unwrap(), deny);
     }
     {
         let (engine, id) = open(&owner, &profile, &neighbor, |_| {});
         assert_eq!(
-            action(engine.view(&id).unwrap(), &neighbor, SiteAction::List).unwrap(),
+            action(&engine, &id, &neighbor, SiteAction::List).unwrap(),
             grant
         );
     }
     let (engine, id) = open(&owner, &profile, &first, |_| {});
     assert_eq!(
-        action(engine.view(&id).unwrap(), &first, SiteAction::List).unwrap(),
+        action(&engine, &id, &first, SiteAction::List).unwrap(),
         deny
     );
 }
@@ -211,10 +213,6 @@ fn automatic_denial_stays_out_of_saved_site_permissions() {
                 let _ = send.send(permission_kind);
             }
         });
-        wait(|| engine.export_ready(&id).then_some(()));
-        // Geolocation requests wait for a visible document. Show only the child
-        // controller, under the hidden owner and without moving keyboard focus.
-        engine.activate(Some(&id), BOUNDS, false).unwrap();
         let view = engine.view(&id).unwrap();
         let (send_state, state) = mpsc::channel();
         view.evaluate_script_with_callback(
@@ -226,18 +224,68 @@ fn automatic_denial_stays_out_of_saved_site_permissions() {
         .unwrap();
         let page: Value = serde_json::from_str(&wait(|| state.try_recv().ok())).unwrap();
         assert_eq!(page, json!({"secure":true,"visible":true}));
-        assert_eq!(action(view, &origin, SiteAction::List).unwrap(), json!([]));
+        assert_eq!(action(&engine, &id, &origin, SiteAction::List).unwrap(), json!([]));
         view.evaluate_script("navigator.geolocation.getCurrentPosition(() => {}, () => {});")
             .unwrap();
         assert_eq!(
             wait(|| blocked.try_recv().ok()),
             COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION.0
         );
-        assert_eq!(action(view, &origin, SiteAction::List).unwrap(), json!([]));
+        assert_eq!(action(&engine, &id, &origin, SiteAction::List).unwrap(), json!([]));
     }
     let (engine, id) = open(&owner, &profile, &origin, |_| {});
     assert_eq!(
-        action(engine.view(&id).unwrap(), &origin, SiteAction::List).unwrap(),
+        action(&engine, &id, &origin, SiteAction::List).unwrap(),
         json!([])
+    );
+}
+
+#[test]
+#[ignore = "Explicit Windows WebView2 acceptance; private fixture, loopback only"]
+fn selection_and_reload_retire_site_settings_reviews() {
+    let profile = tempfile::tempdir().unwrap();
+    let owner = HiddenOwner::new();
+    let origin = site();
+    let (mut engine, first) = open(&owner, profile.path(), &origin, |_| {});
+    let peer = uuid::Uuid::new_v4().to_string();
+    engine.create(&owner, &peer, &origin, BOUNDS, 1.0, false).unwrap();
+    wait(|| engine.export_ready(&peer).then_some(()));
+
+    let original = engine.document_revision(&first).unwrap();
+    let view = engine.view(&first).unwrap();
+    seed(view, &origin);
+    let kind = COREWEBVIEW2_PERMISSION_KIND_AUTOPLAY.0;
+    let grant = json!([{"permission":kind,"allowed":true}]);
+    let revoke = || SiteAction::Revoke { permission: kind, confirmed: true };
+    assert_eq!(action(&engine, &first, &origin, SiteAction::List).unwrap(), grant);
+    assert_eq!(
+        action(&engine, &first, &origin, SiteAction::Revoke { permission: kind, confirmed: false }).unwrap_err(),
+        "Confirmation required"
+    );
+
+    engine.activate(Some(&peer), BOUNDS, false).unwrap();
+    assert_eq!(
+        scoped_action(&engine, &first, &origin, &original, revoke()).unwrap_err(),
+        "Site changed. Open site settings again."
+    );
+    assert_eq!(action(&engine, &peer, &origin, SiteAction::List).unwrap(), grant);
+    engine.activate(Some(&first), BOUNDS, false).unwrap();
+    view.reload().unwrap();
+    wait(|| {
+        let current = engine.document_revision(&first).ok()?;
+        (current != original && engine.export_ready(&first)).then_some(())
+    });
+    assert_eq!(
+        scoped_action(&engine, &first, &origin, &original, revoke()).unwrap_err(),
+        "Site changed. Open site settings again."
+    );
+    assert_eq!(action(&engine, &first, &origin, SiteAction::List).unwrap(), grant);
+
+    // The settings panel hides the child view while retaining the same selected tab.
+    engine.activate(None, BOUNDS, false).unwrap();
+    action(&engine, &first, &origin, revoke()).unwrap();
+    assert_eq!(
+        action(&engine, &first, &origin, SiteAction::List).unwrap(),
+        json!([{"permission":kind,"allowed":false}])
     );
 }

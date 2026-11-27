@@ -63,7 +63,14 @@ pub struct Viewport {
 // Keep the same deserialization contract on platforms without an engine.
 #[cfg_attr(not(windows), allow(dead_code))]
 pub enum Request {
-    SiteSettings { tab: String, #[serde(rename = "expectedOrigin")] expected_origin: String, action: SiteAction },
+    SiteSettings {
+        tab: String,
+        #[serde(rename = "expectedOrigin")]
+        expected_origin: String,
+        #[serde(rename = "expectedDocumentRevision")]
+        expected_document_revision: String,
+        action: SiteAction,
+    },
     Status,
     OpenLocalPdf { tab: String },
     Fullscreen { enabled: Option<bool> },
@@ -285,7 +292,9 @@ pub(crate) async fn browser_control(
             // Origin may have changed while the UI-thread job was queued.
             if let Err(error) = crate::require_workspace_window(&window) { let _ = tx.send(Err(error)); return; }
             match request {
-                Request::SiteSettings { tab, expected_origin, action } => runtime::site_settings(&window, &tab, &expected_origin, action, tx),
+                Request::SiteSettings { tab, expected_origin, expected_document_revision, action } => {
+                    runtime::site_settings(&window, &tab, &expected_origin, &expected_document_revision, action, tx)
+                }
                 Request::FindStart { tab, text, case_sensitive } => runtime::start_find(&window, tab, text, case_sensitive, tx),
                 Request::Suspend { tab } => runtime::start_suspend(&window, &tab, tx),
                 request => { let _ = tx.send(runtime::execute_with_local_pdf(&window, profile, request, local_pdf)); }

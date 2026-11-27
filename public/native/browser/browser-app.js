@@ -1397,7 +1397,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function openSiteSettings(source, documentRevision) {
     if (siteSettingsPanel || surfaceUnavailable() || selected()?.localPdf) return;
     if (source && source.generation !== panelGeneration) return;
-    if (!source || !pageAvailable(source.id) || navigationStates.has(source.id)) {
+    if (!source || !documentRevision || !pageAvailable(source.id) || navigationStates.has(source.id)) {
       setStatus(t("Wait for the current page to finish loading"));
       return;
     }
@@ -1418,7 +1418,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       blockedPermissions: blockedPermissions.get(tab),
       request: action => {
         if (!current()) throw new Error(SITE_SETTINGS_CHANGED);
-        return control({ kind: "siteSettings", tab, expectedOrigin: origin, action });
+        return control({ kind: "siteSettings", tab, expectedOrigin: origin, expectedDocumentRevision: documentRevision, action });
       },
       onClose: () => {
         if (siteSettingsPanel?.panel === panel) siteSettingsPanel = undefined;
