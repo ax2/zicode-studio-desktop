@@ -414,8 +414,8 @@ it("saves and reopens only explicitly selected OCR text from the page and an emb
 });
 
 it("lets each image choose a language for its own retry", async () => {
-  const one = { alt: "Inventory", width: 1000, height: 224, url: "https://example.org/cjk.png" };
-  const two = { ...one, alt: "Receipt", url: "https://example.org/en.png" };
+  const one = { alt: "Inventory", width: 1000, height: 224, url: "https://example.org/cjk.png", locator: "b0f021473af34f6da1412710c2f30010:1" };
+  const two = { ...one, alt: "Receipt", url: "https://example.org/en.png", locator: "b0f021473af34f6da1412710c2f30010:2" };
   const snapshot = { ...capture, documentRevision: "ocr-1", page: { ...capture.page, images: [one, two] } };
   let finish;
   const recognizeImage = vi.fn()

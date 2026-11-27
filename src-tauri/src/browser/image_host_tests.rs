@@ -15,9 +15,15 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use image::{DynamicImage, GenericImageView, ImageFormat, Rgb, RgbImage};
 use std::{path::Path, sync::Mutex, time::Duration};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
+use webview2_com::Microsoft::Web::WebView2::Win32::{
+    ICoreWebView2_3, COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS,
+};
+use windows::core::{Interface, HSTRING};
+use wry::WebViewExtWindows;
 
 const OWNER: &str = "native-workspace-browser-image-test";
-const TAB: &str = "owned-image-tab";
+const TAB: &str = "5ac72386-4ce1-45a0-863f-268ee4dababe";
+const FOREIGN_HOST: &str = "owned-studio-fixture.example";
 const VIEWPORT: Bounds = Bounds {
     x: 0.0,
     y: 0.0,
@@ -46,21 +52,15 @@ async fn bind() -> tokio::net::TcpListener {
         .unwrap()
 }
 
-async fn fixture_servers() -> String {
+async fn fixture_server(foreign_directory: &Path) -> String {
     let mut png = std::io::Cursor::new(Vec::new());
     DynamicImage::ImageRgb8(RgbImage::from_pixel(12, 9, Rgb(PIXEL)))
         .write_to(&mut png, ImageFormat::Png)
         .unwrap();
     let png = png.into_inner();
-    let foreign = bind().await;
-    let foreign_url = format!("http://{}/foreign.png", foreign.local_addr().unwrap());
-    let foreign_png = png.clone();
-    let remote = Router::new().route(
-        "/foreign.png",
-        get(move || async move { ([(header::CONTENT_TYPE, "image/png")], foreign_png) }),
-    );
-    tauri::async_runtime::spawn(async move { axum::serve(foreign, remote).await.unwrap() });
-
+    std::fs::create_dir(foreign_directory).unwrap();
+    std::fs::write(foreign_directory.join("foreign.png"), &png).unwrap();
+    let foreign_url = format!("https://{FOREIGN_HOST}/foreign.png");
     let main = bind().await;
     let origin = format!("http://{}", main.local_addr().unwrap());
     let document = format!(
@@ -290,7 +290,9 @@ fn reviewed_image_pixels_require_confirmation_and_current_node() {
     assert!(!crate::desktop_profile::system_credentials_enabled());
     let host = prepare_host(root.path());
     let shell_url = format!("{}/index.html", host.origin()).parse().unwrap();
-    let origin = tauri::async_runtime::block_on(fixture_servers());
+    let foreign = root.path().join("foreign");
+    let origin = tauri::async_runtime::block_on(fixture_server(&foreign));
+    assert!(BrowserPolicy::public_web().permits(&format!("https://{FOREIGN_HOST}/")));
     assert!(!BrowserPolicy::public_web().permits(&origin));
     let url = format!("{origin}/");
     let path = root.path().to_owned();
@@ -310,7 +312,18 @@ fn reviewed_image_pixels_require_confirmation_and_current_node() {
                 BrowserPolicy::isolated_probe(&origin)?,
                 Arc::new(|_| {}),
             )?;
-            engine.create(&window, TAB, &url, VIEWPORT, 1.0, false)?;
+            // Only this hidden fixture maps its reserved .example image host to local bytes.
+            // Native canvas origin rules still apply; the mapping does not send a request.
+            engine.create(&window, TAB, "about:blank", VIEWPORT, 1.0, false)?;
+            let view = engine.view(TAB)?.webview().cast::<ICoreWebView2_3>()?;
+            unsafe {
+                view.SetVirtualHostNameToFolderMapping(
+                    &HSTRING::from(FOREIGN_HOST),
+                    &HSTRING::from(foreign.as_os_str()),
+                    COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS,
+                )?;
+            }
+            engine.navigate(TAB, &url)?;
             engine.activate(Some(TAB), VIEWPORT, false)?;
             WINDOWS.with(|slot| {
                 slot.with_mut(|windows| {
