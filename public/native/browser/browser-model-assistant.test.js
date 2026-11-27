@@ -304,10 +304,11 @@ it("reviews only the clicked embedded image, sends on separate confirmation and 
   setLocale("en");
   const details = reviewedImage.frame;
   const locator = { path: [0], timeOrigin: details.documentRevision };
+  const locatedImage = { ...reviewedImage.source, locator: "b0f021473af34f6da1412710c2f30010:1" };
   const snapshot = { tab: "local", documentRevision: reviewedImage.documentRevision, capturedAt: reviewedImage.capturedAt,
     page: { title: "Main", url: reviewedImage.pageUrl, text: "Private page fixture", selection: "",
       images: [{ ...reviewedImage.source, url: "https://example.org/different.png" }],
-      frames: [{ ...details, text: "Frame fixture", images: [reviewedImage.source], imageLocator: locator }] } };
+      frames: [{ ...details, text: "Frame fixture", images: [locatedImage], imageLocator: locator }] } };
   const host = document.createElement("aside");
   const trigger = document.createElement("button");
   document.body.append(trigger, host);
@@ -346,12 +347,16 @@ it("reviews only the clicked embedded image, sends on separate confirmation and 
     expect(queryByRole(dialog, "button", { name: "Open saved artifact" })).toBeNull();
     expect(queryByRole(dialog, "button", { name: "Save analysis to Notes" })).toBeNull();
     expect(dialog.querySelector('[data-i18n-text="Save analysis to Artifacts"]').classList.contains("hidden")).toBe(true);
+    const media = dialog.querySelector(".browser-capture-media");
+    media.open = true;
+    expect(media.textContent).toContain("https://example.org/different.png");
+    expect(queryByRole(media, "button", { name: "Preview image for AI" })).toBeNull();
     const parent = dialog.querySelector(".browser-capture-frames");
     parent.open = true;
     parent.querySelector("details").open = true;
     fireEvent.click(getByRole(parent, "button", { name: "Preview image for AI" }));
     await waitFor(() => expect(getByRole(dialog, "img").getAttribute("src")).toBe("data:image/png;base64,iVBORw0K"));
-    expect(previewImage).toHaveBeenCalledWith(reviewedImage.source, { title: details.title, url: details.url, locator });
+    expect(previewImage).toHaveBeenCalledWith(locatedImage, { title: details.title, url: details.url, locator });
     expect(previewImage).toHaveBeenCalledOnce();
     expect(actions.ask).not.toHaveBeenCalled();
     expect(dialog.textContent).toContain("Image destination: fixture / B");

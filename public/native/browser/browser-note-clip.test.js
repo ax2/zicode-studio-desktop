@@ -269,7 +269,7 @@ it("previews embedded links and requires separate opt-in for a draft or note", a
 });
 
 it("requests OCR only on its own action and separately opts in to including the text", async () => {
-  const image = { alt: "Diagram", width: 500, height: 60, url: "https://example.org/image.png" };
+  const image = { alt: "Diagram", width: 500, height: 60, url: "https://example.org/image.png", locator: "b0f021473af34f6da1412710c2f30010:1" };
   const snapshot = { ...capture, page: { ...capture.page, images: [image] } };
   const recognized = { source: image, pageUrl: snapshot.page.url, documentRevision: "d1", capturedAt: "2026-11-23T00:00:00Z", text: "<em>Text</em>", truncated: false };
   const recognizeImage = vi.fn().mockRejectedValueOnce(Error("OCR unavailable")).mockResolvedValue(recognized);
@@ -300,8 +300,8 @@ it("requests OCR only on its own action and separately opts in to including the 
 
 it("saves and reopens only explicitly selected OCR text from the page and an embedded page", async () => {
   const url = "https://example.invalid/inventory";
-  const image = name => ({ alt: name, width: 320, height: 80, url: url + "/" + name + ".png" });
-  const primary = image("main"), unselected = image("unselected"), embedded = image("embedded");
+  const image = (name, index) => ({ alt: name, width: 320, height: 80, url: url + "/" + name + ".png", locator: `b0f021473af34f6da1412710c2f30010:${index}` });
+  const primary = image("main", 1), unselected = image("unselected", 2), embedded = image("embedded", 3);
   const frame = { title: "Embedded department", url: url + "/frame", text: "Unrelated frame body",
     images: [embedded], imageLocator: { path: [0, 1], timeOrigin: "84" } };
   const snapshot = { tab: "clip-tab", documentRevision: "ocr-document-4", capturedAt: "2026-11-25T01:12:00Z",
@@ -414,8 +414,8 @@ it("saves and reopens only explicitly selected OCR text from the page and an emb
 });
 
 it("lets each image choose a language for its own retry", async () => {
-  const one = { alt: "Inventory", width: 1000, height: 224, url: "https://example.org/cjk.png" };
-  const two = { ...one, alt: "Receipt", url: "https://example.org/en.png" };
+  const one = { alt: "Inventory", width: 1000, height: 224, url: "https://example.org/cjk.png", locator: "b0f021473af34f6da1412710c2f30010:1" };
+  const two = { ...one, alt: "Receipt", url: "https://example.org/en.png", locator: "b0f021473af34f6da1412710c2f30010:2" };
   const snapshot = { ...capture, documentRevision: "ocr-1", page: { ...capture.page, images: [one, two] } };
   let finish;
   const recognizeImage = vi.fn()
@@ -476,7 +476,7 @@ it("can replace a nonempty OCR result without carrying its approval forward", as
 });
 
 it("reports when local OCR finds no text and lets the user retry", async () => {
-  const image = { alt: "Blank image", width: 200, height: 60, url: "https://example.org/blank.png" };
+  const image = { alt: "Blank image", width: 200, height: 60, url: "https://example.org/blank.png", locator: "b0f021473af34f6da1412710c2f30010:1" };
   const snapshot = { ...capture, page: { ...capture.page, images: [image] } };
   const receipt = { source: image, pageUrl: snapshot.page.url, documentRevision: "d1", capturedAt: "2026-11-23T00:00:00Z", truncated: false };
   const recognizeImage = vi.fn()
@@ -514,7 +514,7 @@ it("reports when local OCR finds no text and lets the user retry", async () => {
 
 
 it("recognizes an image-only frame with its reviewed locator and opts into its result independently of frame text", async () => {
-  const image = { alt: "Inventory scan", width: 300, height: 120, url: "https://example.org/scan.png" };
+  const image = { alt: "Inventory scan", width: 300, height: 120, url: "https://example.org/scan.png", locator: "b0f021473af34f6da1412710c2f30010:1" };
   const frame = { title: "Inventory", url: "https://example.org/warehouse", text: "", images: [image], imageLocator: { path: [0, 1], timeOrigin: "42" } };
   const snapshot = { ...capture, page: { ...capture.page, frames: [frame] } };
   const recognized = { source: image, pageUrl: snapshot.page.url, documentRevision: "d1", capturedAt: "2026-11-23T00:00:00Z", text: "Inventory count",

@@ -198,13 +198,19 @@
         const alt = shortText(element.alt, 160);
         // Only the selected, already-loaded srcset candidate is relevant.
         const source = webUrl(element.currentSrc);
-        // Pixel requests resolve by URL and size in the ordinary document image collection.
-        const url = element.getRootNode() === doc ? source : null;
-        const key = source ? JSON.stringify([source, alt, width, height, url !== null]) : null;
+        const ordinary = element.getRootNode() === doc;
+        const key = source ? JSON.stringify([source, alt, width, height, ordinary]) : null;
         if (key && imageKeys.has(key)) continue;
         if (images.length === imageLimit) { imagesTruncated = true; continue; }
         if (key) imageKeys.add(key);
-        images.push({ alt, width, height, url });
+        const descriptor = { alt, width, height, url: source };
+        if (typeof registerStudioImage === 'function') {
+          const locator = source && registerStudioImage(element, descriptor);
+          if (locator) images.push({ ...descriptor, locator });
+          else images.push({ ...descriptor, url: null });
+        } else {
+          images.push({ ...descriptor, url: ordinary ? source : null });
+        }
       } else if (isTable && !tablesDone) {
         if (tablesToScan === 0) { tablesTruncated = tablesDone = true; continue; }
         tablesToScan--;

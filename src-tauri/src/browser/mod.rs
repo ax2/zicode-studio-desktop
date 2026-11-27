@@ -26,6 +26,8 @@ mod policy;
 #[cfg(windows)]
 mod runtime;
 #[cfg(windows)]
+mod content_world;
+#[cfg(windows)]
 mod proxy;
 #[cfg(all(windows, test))]
 mod native_boundary_test;

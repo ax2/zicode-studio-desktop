@@ -1,4 +1,7 @@
 //! Main-thread ownership. Webpages never select the parent window or profile.
+#[cfg(test)]
+#[path = "image_host_tests.rs"]
+mod image_host_tests;
 use super::{
     engine::{Bounds, NativeBrowserEngine},
     policy::BrowserPolicy,
@@ -399,7 +402,7 @@ pub(super) fn capture<T: Send + 'static>(
     tab: String,
     expected_url: String,
     expected_revision: Option<String>,
-    script: &str,
+    script: &super::capture::Script<T>,
     decode: fn(&str, &str) -> Result<T, String>,
     sender: tokio::sync::oneshot::Sender<Result<super::capture::Capture<T>, String>>,
 ) {
@@ -424,7 +427,7 @@ pub(super) fn capture<T: Send + 'static>(
                 let surface =
                     REVISIONS.with(|s| s.borrow().get(window.label()).copied().unwrap_or(0));
                 let owner = window.clone();
-                view.evaluate_script_with_callback(script, move |raw| {
+                let finish = move |raw: Result<String, String>, decode: fn(&str, &str) -> Result<T, String>| {
                     if let Ok(mut work) = work.lock() { work.take(); }
                     let owner = owner.clone();
                     let tab = tab.clone();
@@ -462,7 +465,7 @@ pub(super) fn capture<T: Send + 'static>(
                                         document_revision: stamp,
                                         captured_at: chrono::Utc::now().to_rfc3339(),
                                         source_trust: "untrusted-web-content",
-                                        page: decode(&raw, &url)?,
+                                        page: decode(&raw?, &url)?,
                                     })
                                 })
                             })
@@ -480,8 +483,22 @@ pub(super) fn capture<T: Send + 'static>(
                             }
                         }
                     }
-                })
-                .map_err(|e| e.to_string())
+                };
+                match script {
+                    super::capture::Script::Page(script) => view
+                        .evaluate_script_with_callback(script, move |raw| finish(Ok(raw), decode))
+                        .map_err(|error| error.to_string()),
+                    super::capture::Script::Isolated { source, fallback } => {
+                        let metadata_only = fallback.as_ref().map(|fallback| fallback.decode);
+                        super::content_world::evaluate(
+                            view, source, fallback.as_ref().map(|fallback| fallback.source.as_str()),
+                            move |raw, used_fallback| {
+                                finish(raw, metadata_only.filter(|_| used_fallback).unwrap_or(decode));
+                            },
+                        );
+                        Ok(())
+                    }
+                }
             })
         })
     })();

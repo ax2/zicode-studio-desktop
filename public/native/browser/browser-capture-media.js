@@ -13,17 +13,22 @@ export function pageImageDescription({ alt, width, height, url }) {
   return [alt || t("No alternative text"), `${width} × ${height}`, url].filter(Boolean).join(" — ");
 }
 
+export function hasImageLocator(image) {
+  return Boolean(image.url && image.locator);
+}
+
 export function createBrowserCaptureImageList(images, recognizeImage, reviewImage) {
   const recognitions = [];
   const list = document.createElement("ul"); list.setAttribute("aria-label", t("Page images"));
   for (const image of images) {
     const item = document.createElement("li"); item.textContent = pageImageDescription(image);
-    if (recognizeImage && image.url) {
+    const located = hasImageLocator(image);
+    if (recognizeImage && located) {
       const recognition = createBrowserImageOcr(image, recognizeImage);
       item.append(recognition.element);
       recognitions.push(recognition);
     }
-    if (reviewImage && image.url) {
+    if (reviewImage && located) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "ui-button ui-button--secondary ui-button--sm";
