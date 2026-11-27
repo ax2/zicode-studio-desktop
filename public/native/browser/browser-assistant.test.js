@@ -1008,6 +1008,39 @@ it.each([false, true])("uses the reviewed selection scope independently for each
   expect(handoff.mock.calls[0][0].prompt).toBe(request.prompt);
 });
 
+it("blocks comparison for a source without readable evidence and recovers after rereading", async () => {
+  let peerText = " \n\t ";
+  const handoff = vi.fn(), modelGateway = comparisonGateway();
+  const capturePage = source => source.tab === "chosen"
+    ? { ...source, page: { ...source.page, text: peerText, selection: "" } }
+    : source;
+  const { host, panel } = await openControlledComparison({
+    handoff, capturePage, target: browserComparisonSession, modelGateway,
+  });
+  const read = panel.getByRole("button", { name: "Read selected tabs" });
+  const send = panel.getByRole("button", { name: "Send reviewed tabs and compare" });
+  const draft = panel.getByRole("button", { name: "Prepare comparison draft" });
+  read.click();
+  await panel.findByText("No readable text is available for this source. Read the tab again before comparing.");
+  expect(panel.getAllByRole("textbox", { name: "Comparison source text" })).toHaveLength(1);
+  expect(send.disabled).toBe(true);
+  expect(draft.disabled).toBe(true);
+  send.click();
+  draft.click();
+  expect(modelRequests(modelGateway)).toHaveLength(0);
+  expect(handoff).not.toHaveBeenCalled();
+
+  peerText = "A newly available source";
+  read.click();
+  await waitFor(() => expect(send.disabled).toBe(false));
+  expect(draft.disabled).toBe(false);
+  send.click();
+  await waitFor(() => getByRole(host, "textbox", { name: "Browser model answer" }));
+  const [[, request]] = modelRequests(modelGateway);
+  const { sources } = JSON.parse(request.prompt.slice(request.prompt.indexOf("{\n")));
+  expect(sources[1]).toMatchObject({ citation: "[2]", text: peerText });
+});
+
 it("keeps the selection-only scope after rereading a tab that no longer has selected text", async () => {
   let chosenSelection = "First review";
   const capturePage = source => source.tab === "chosen" ? { ...source, page: {
