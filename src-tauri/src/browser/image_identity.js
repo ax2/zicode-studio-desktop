@@ -1,5 +1,6 @@
 (() => {
-  const state = globalThis.studioImageIdentity ??= { capture: '', expiresAt: 0, count: 0, entries: new Map() };
+  globalThis.studioImageIdentity ??= { capture: '', expiresAt: 0, count: 0, entries: new Map() };
+  const state = globalThis.studioImageIdentity;
   const excluded = 'input,textarea,select,option,[contenteditable],[hidden],[inert],[aria-hidden="true"]';
 
   function rendered(image, owner) {

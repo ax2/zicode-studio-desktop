@@ -87,7 +87,7 @@ test("invalidates a located node after a same-URL source update or reload", () =
   document.body.append(node);
   const [first] = read(captureId).images;
   expect(registry.resolve(first, document)).toBe(node);
-  node.src = node.src;
+  node.src = source;
   expect(node.currentSrc).toBe(source);
   expect(registry.resolve(first, document)).toBeNull();
   const [afterMutation] = read("c0f021473af34f6da1412710c2f30010").images;
