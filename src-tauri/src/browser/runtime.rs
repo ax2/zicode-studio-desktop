@@ -1,4 +1,7 @@
 //! Main-thread ownership. Webpages never select the parent window or profile.
+#[cfg(test)]
+#[path = "image_host_tests.rs"]
+mod image_host_tests;
 use super::{
     engine::{Bounds, NativeBrowserEngine},
     policy::BrowserPolicy,
