@@ -24,6 +24,7 @@ function previewSource(source, position, selectionOnlyTabs, onChange) {
   element.append(summary, url, time);
 
   const hasSelection = Boolean(source.selection.trim());
+  const hasExcerpt = hasSelection || Boolean(source.text.trim());
   let choice;
   if (hasSelection || selectionOnlyTabs.has(source.tab)) {
     const key = "Use only selected text";
@@ -44,9 +45,12 @@ function previewSource(source, position, selectionOnlyTabs, onChange) {
     summary.textContent = "[" + position + "] " + title;
     if (only) summary.append(" · ", t("Selected text"));
     if (only ? source.selectionTruncated : source.truncated) appendPartialCapture(summary);
-    const unavailable = only && !hasSelection;
-    showNotice(missing, "No selected text is available for this source. Select some text and read the tabs again, or use its page excerpt.", unavailable);
-    excerpt.hidden = Boolean(unavailable);
+    const unavailable = only ? !hasSelection : !hasExcerpt;
+    const missingMessage = hasExcerpt
+      ? "No selected text is available for this source. Select some text and read the tabs again, or use its page excerpt."
+      : "No readable text is available for this source. Read the tab again before comparing.";
+    showNotice(missing, missingMessage, unavailable);
+    excerpt.hidden = unavailable;
     excerpt.value = only ? source.selection : [source.selection && t("Selected text") + "\n" + source.selection, source.text].filter(Boolean).join("\n\n");
     excerpt.setSelectionRange(0, 0);
     excerpt.scrollTop = 0;
@@ -60,7 +64,8 @@ function previewSource(source, position, selectionOnlyTabs, onChange) {
   });
   render();
   return { element, choice, evidence() {
-    return choice?.checked ? (hasSelection ? selectedEvidence(source) : null) : source;
+    if (choice?.checked) return hasSelection ? selectedEvidence(source) : null;
+    return hasExcerpt ? source : null;
   } };
 }
 

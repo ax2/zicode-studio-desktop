@@ -240,6 +240,7 @@ export default {
   "Comparison source text": "对比来源正文",
   "Use only selected text": "只使用选中文字",
   "No selected text is available for this source. Select some text and read the tabs again, or use its page excerpt.": "这个来源没有选中文字。可选中文字后重新读取标签页，或改用本页的正文摘录。",
+  "No readable text is available for this source. Read the tab again before comparing.": "这个来源没有可读文字。请重新读取标签页后再比较。",
   "Reading selected tabs…": "正在读取所选标签…",
   "Cancel comparison": "取消比较",
   "Comparison cancelled. Your selections are kept.": "已取消比较，保留所选网页。",
