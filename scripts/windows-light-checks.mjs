@@ -2,8 +2,8 @@
 // Keep the always-present Windows job cheap by selecting checks after checkout.
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { basename } from "node:path";
 import { pathToFileURL } from "node:url";
+import featureEntries from "./react-feature-entries.cjs";
 
 const platformTypes = [
   "typecheck",
@@ -22,6 +22,14 @@ const designAsset = /\.(?:css|html|tsx|jsx)$/;
 const lintAsset = /\.(?:[cm]?js|jsx|ts|tsx|jsonc?|css)$/;
 const noLint = /^(?:public\/(?:vendor|native\/react)\/|src-tauri\/(?:resources|gen)\/|extensions\/dist\/|tests\/fixtures\/devtools-)/;
 const rustArea = /^(?:src-tauri\/|\.cargo\/|vendor\/tray-icon\/|Cargo\.(?:toml|lock)$|rust-toolchain(?:\.toml)?$|scripts\/(?:build-desktop\.|build-windows-shell\.|check-rust\.|pi-version\.json$))/;
+
+function selectBundleTests(tests, name) {
+  const entry = Object.hasOwn(featureEntries, name) && featureEntries[name];
+  if (entry) tests.add(`frontend/src/features/${entry.split("/")[0]}/`);
+  if (name === "vendor") tests.add("frontend/src/shared/");
+  const integration = `public/native/features/${name}.test.js`;
+  if (existsSync(new URL(`../${integration}`, import.meta.url))) tests.add(integration);
+}
 
 export function classify(paths) {
   const files = [...new Set(paths)].sort();
@@ -54,12 +62,17 @@ export function classify(paths) {
     }
 
     const feature = file.match(/^(frontend\/src\/features\/[^/]+\/|public\/native\/(?:browser|features|plugins|transport|extensions|models|composer|notifications)\/|extensions\/(?:finance|chat-inbox)\/)/);
-    if (feature) vitest.add(feature[1]);
-    else if (file.startsWith("frontend/src/")) vitest.add("frontend/src/shared/");
-    else if (/^public\/native\/react\/[^/]+\.js$/.test(file)) {
-      // Bundle-only updates still exercise the owner and shared shell contracts.
-      const featureName = basename(file, ".js").replace(/-([a-z])/g, (_, part) => part.toUpperCase());
-      vitest.add(`frontend/src/features/${featureName}/`);
+    const bundle = file.match(/^public\/native\/react\/([\w-]+)\.(?:js|css)$/);
+    if (feature) {
+      vitest.add(feature[1]);
+      if (file.startsWith("frontend/src/features/")) {
+        for (const [name, entry] of Object.entries(featureEntries)) {
+          if (`frontend/src/features/${entry}`.startsWith(feature[1])) selectBundleTests(vitest, name);
+        }
+      }
+    } else if (file.startsWith("frontend/src/")) vitest.add("frontend/src/shared/");
+    else if (bundle) {
+      selectBundleTests(vitest, bundle[1]);
       for (const test of shellTests) vitest.add(test);
     } else if (file.startsWith("public/locales/") || file === "scripts/i18n-dictionary-errors.mjs") {
       vitest.add("public/i18n");
@@ -75,7 +88,8 @@ export function classify(paths) {
 
     if (file.startsWith("src-tauri/src/browser/") && file.endsWith(".js")) vitest.add("public/native/browser/");
     if (file.startsWith("tests/fixtures/devtools-")) vitest.add("public/native/plugins/");
-    if (file.startsWith(".github/workflows/") || file.startsWith("scripts/windows-light-checks.")) {
+    if (file.startsWith(".github/workflows/") || file.startsWith("scripts/windows-light-checks.")
+        || file === "scripts/react-feature-entries.cjs" || file === "scripts/build-react.js") {
       for (const test of workflowTests) vitest.add(test);
       nodeTests.add(plannerTests);
     } else if (/^scripts\/[^/]+\.(?:[cm]?js)$/.test(file)) {

@@ -30,6 +30,22 @@ test("the production tool-center bundle selects source feature tests and no bund
   assert.equal(plan.rust, false);
 });
 
+test("terminal JS and CSS both select the projects feature that builds them", () => {
+  for (const extension of ["js", "css"]) {
+    const plan = classify([`public/native/react/project-terminal-engine.${extension}`]);
+    assert.ok(plan.vitest.includes("frontend/src/features/projects/"));
+    assert.ok(!plan.vitest.includes("frontend/src/features/projectTerminalEngine/"));
+  }
+});
+
+test("mobile changes select the tests that import the generated modules", () => {
+  for (const name of ["mobile-experience", "mobile-task-notifications", "mobile-storage-persistence"]) {
+    const testFile = `public/native/features/${name}.test.js`;
+    assert.ok(classify([`public/native/react/${name}.js`]).vitest.includes(testFile));
+    assert.ok(classify(["frontend/src/features/mobileExperience/index.ts"]).vitest.includes(testFile));
+  }
+});
+
 test("Rust and native build wiring get a Windows check without unrelated frontend tests", () => {
   for (const file of ["src-tauri/src/main.rs", "src-tauri/tauri.conf.json",
     "src-tauri/Cargo.lock", ".cargo/config.toml", "vendor/tray-icon/src/lib.rs", "scripts/build-desktop.js"]) {
